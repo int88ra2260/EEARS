@@ -53,6 +53,7 @@ import RiskDetectionPage from './components/RiskDetectionPage';
 import TrendDashboardPage from './components/TrendDashboardPage';
 import ReportPage from './components/ReportPage';
 import TeacherImpactPage from './components/TeacherImpactPage';
+import WeeklyReportsPage from './pages/admin/WeeklyReportsPage';
 import AnnouncementManagementPage from './pages/admin/AnnouncementManagementPage';
 import AdminAuditLogsPage from './pages/admin/AdminAuditLogsPage';
 import SurveyAdminModulePage from './pages/admin/SurveyAdminModulePage';
@@ -491,6 +492,7 @@ function AppContent() {
             <Route path="analytics/risk" element={<RiskDetectionPage />} />
               <Route path="analytics/trends" element={<TrendDashboardPage />} />
               <Route path="reports" element={<ReportPage />} />
+              <Route path="weekly-reports" element={<WeeklyReportsPage />} />
               <Route path="analytics/teacher-impact" element={<TeacherImpactPage />} />
               <Route path="account" element={<AccountManagement />} />
               <Route path="account/reset" element={<ForceResetPassword />} />

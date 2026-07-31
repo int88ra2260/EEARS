@@ -273,6 +273,15 @@ export const ADMIN_NAV_SECTIONS = [
         breadcrumbLabel: '報表下載',
       },
       {
+        id: 'weekly-reports',
+        label: '週報管理',
+        path: '/admin/weekly-reports',
+        matchPrefixes: ['/admin/weekly-reports'],
+        visibility: 'adminOnly',
+        pageTitle: '週報管理',
+        breadcrumbLabel: '週報管理',
+      },
+      {
         id: 'analytics-teacher-dash',
         label: '教師總覽',
         path: '/admin/teachers/dashboard',
