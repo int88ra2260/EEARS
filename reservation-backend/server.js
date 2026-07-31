@@ -50,6 +50,7 @@ const { requestLogger } = require('./middlewares/requestLogger');
 const { expireLearningPartnerTeams } = require('./scripts/learningPartnerExpireCron');
 const adminLogsRouter = require('./routes/adminLogsRouter');
 const studentsRouter = require('./routes/studentsRouter');
+const weeklyReportsRouter = require('./routes/weeklyReportsRouter');
 const { isLearningJourneyV3ReadModelEnabled } = require('./services/learningJourney/learningJourneyFeatureFlags');
 
 const app = express();
@@ -104,6 +105,7 @@ app.use('/api/announcements', announcementRouter);
 app.use('/api/admin/announcements', adminAnnouncementRouter);
 app.use('/api/admin/logs', adminLogsRouter);
 app.use('/api', studentsRouter);
+app.use('/api/weekly-reports', weeklyReportsRouter);
 
 // 提供上傳檔案的靜態服務
 const uploadsPath = path.join(__dirname, 'uploads');
