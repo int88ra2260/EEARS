@@ -7,13 +7,19 @@ import { EVENT_TYPES } from '../constants/eventTypes';
 export const HOME_ACTIVITIES = [
   {
     id: 'english-table',
+    slug: 'english-table',
+    tag: 'ET',
+    tagTone: 'blue',
     type: EVENT_TYPES.ENGLISH_TABLE,
     titleKey: 'activities.englishTable',
     introKey: 'activities.etDesc',
-    cta: 'reserve', // reserve | learn
+    cta: 'reserve',
   },
   {
     id: 'english-club',
+    slug: 'english-club',
+    tag: 'EC',
+    tagTone: 'green',
     type: EVENT_TYPES.ENGLISH_CLUB,
     titleKey: 'activities.englishClub',
     introKey: 'activities.ecDesc',
@@ -21,6 +27,9 @@ export const HOME_ACTIVITIES = [
   },
   {
     id: 'international-forum',
+    slug: 'international-forum',
+    tag: 'IF',
+    tagTone: 'yellow',
     type: EVENT_TYPES.INTERNATIONAL_FORUM,
     titleKey: 'activities.internationalForum',
     introKey: 'activities.ifDesc',
@@ -28,6 +37,9 @@ export const HOME_ACTIVITIES = [
   },
   {
     id: 'job-talk',
+    slug: 'job-talk',
+    tag: 'JT',
+    tagTone: 'red',
     type: EVENT_TYPES.JOB_TALK,
     titleKey: 'activities.jobTalk',
     introKey: 'activities.jtDesc',

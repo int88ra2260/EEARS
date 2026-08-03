@@ -38,18 +38,29 @@ async function resolveGateContext(eventType) {
 }
 
 /**
- * 是否已有符合重填規則的完成紀錄（以「本學期」為範圍；legacy 與 survey_responses 皆含 semester）
+ * 是否已有符合重填規則的完成紀錄（legacy 與 survey_responses；semester 可指定或預設當前學期）
  */
-async function hasCompletedForGate({ surveyId, surveyKey, rule, studentId, eventId }) {
+async function hasCompletedForGateWithSemester({
+  surveyId,
+  surveyKey,
+  rule,
+  studentId,
+  eventId,
+  semesterCode,
+}) {
   const sid = String(studentId || '').trim();
   if (!sid) return false;
 
-  const semester = getCurrentSemester();
+  const semester = semesterCode || getCurrentSemester();
 
   const LegacyModel = legacyModelForSurveyKey(surveyKey);
   if (LegacyModel) {
     const legacyRow = await LegacyModel.findOne({ where: { studentId: sid, semester } });
     if (legacyRow) return true;
+  }
+
+  if (!rule || surveyId == null) {
+    return false;
   }
 
   const policy = rule.retakePolicy || 'once_ever';
@@ -72,11 +83,18 @@ async function hasCompletedForGate({ surveyId, surveyKey, rule, studentId, event
   return !!row;
 }
 
+/** @deprecated 介面保留；行為等同未傳 semesterCode 的 hasCompletedForGateWithSemester */
+async function hasCompletedForGate(params) {
+  return hasCompletedForGateWithSemester(params);
+}
+
 function ruleTimeAllows(rule, now = new Date()) {
-  if (rule.startDate && new Date(rule.startDate) > now) {
+  const startAt = rule.startAt || rule.startDate;
+  const endAt = rule.endAt || rule.endDate;
+  if (startAt && new Date(startAt) > now) {
     return { ok: false, reason: 'not_started' };
   }
-  if (rule.endDate && new Date(rule.endDate) < now) {
+  if (endAt && new Date(endAt) < now) {
     return { ok: false, reason: 'ended' };
   }
   return { ok: true };
@@ -87,5 +105,6 @@ module.exports = {
   legacyModelForSurveyKey,
   resolveGateContext,
   hasCompletedForGate,
+  hasCompletedForGateWithSemester,
   ruleTimeAllows,
 };

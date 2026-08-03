@@ -103,6 +103,12 @@
   margin-top: 2px;
 }
 
+.fc-event-mobile-cta {
+  min-height: 40px;
+  width: 100%;
+  font-weight: 600;
+}
+
 .fc-event-mobile-survey {
   margin-top: 4px;
 }

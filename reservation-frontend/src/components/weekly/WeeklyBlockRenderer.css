@@ -1,0 +1,399 @@
+.weekly-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.wb-hero {
+  overflow: hidden;
+  padding: 0;
+}
+
+.wb-hero__media img {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+}
+
+.wb-hero__body {
+  padding: 1.25rem;
+}
+
+.wb-hero__kicker {
+  margin: 0 0 0.35rem;
+  color: #9a4f3f;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wb-hero__title {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  font-weight: 700;
+}
+
+.wb-hero__subtitle {
+  margin: 0;
+  color: #4a3f36;
+  line-height: 1.6;
+}
+
+.wb-richtext {
+  padding: 1.25rem;
+  line-height: 1.65;
+  color: #4a3f36;
+}
+
+.wb-richtext h2,
+.wb-richtext h3 {
+  margin-top: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.wb-image img,
+.wb-gallery__item img {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+}
+
+.wb-image--medium {
+  max-width: 520px;
+  margin-inline: auto;
+}
+
+.wb-image figcaption,
+.wb-gallery figcaption,
+.wb-media__caption {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #7a6b5f;
+}
+
+.wb-gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.wb-audio__player,
+.wb-video__player {
+  width: 100%;
+}
+
+.wb-video__embed {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.wb-video__embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.wb-media__title {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.wb-callout {
+  border-left: 4px solid #c9a227;
+}
+
+.wb-callout--info {
+  border-left-color: #3d7ea6;
+  background: #f4f9fc;
+}
+
+.wb-callout--tip {
+  border-left-color: #c9a227;
+  background: #fffaf0;
+}
+
+.wb-callout--warning {
+  border-left-color: #d4564a;
+  background: #fff5f4;
+}
+
+.wb-callout__title {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+}
+
+.wb-callout__body {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.wb-cta-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.wb-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.wb-spacer--sm { height: 0.5rem; }
+.wb-spacer--md { height: 1rem; }
+.wb-spacer--lg { height: 2rem; }
+
+.weekly-blocks--modal .wb-hero__media,
+.weekly-blocks--modal .wb-gallery,
+.weekly-blocks--modal .wb-video,
+.weekly-blocks--modal .wb-audio,
+.weekly-blocks--modal .wb-challenge {
+  display: none;
+}
+
+.weekly-blocks--modal .public-card {
+  box-shadow: none;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.wb-quote {
+  border-left: 4px solid #9a4f3f;
+  padding: 1rem 1.25rem;
+}
+
+.wb-quote__text {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.wb-quote__attr {
+  margin: 0;
+  color: #7a6b5f;
+  font-size: 0.875rem;
+}
+
+.wb-divider {
+  border: 0;
+  margin: 0.25rem 0;
+}
+
+.wb-divider--line {
+  border-top: 1px solid #e0d8d0;
+}
+
+.wb-divider--dots {
+  border-top: 2px dotted #d0c8c0;
+}
+
+.wb-divider--space {
+  border: 0;
+  height: 1.5rem;
+}
+
+.wb-events__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.wb-events__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid #efe8e0;
+}
+
+.wb-events__item:last-child {
+  border-bottom: 0;
+}
+
+.wb-announcement__cover {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.wb-announcement__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.wb-announcement__summary {
+  margin: 0 0 0.75rem;
+  color: #4a3f36;
+  line-height: 1.55;
+}
+
+.weekly-page__archive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.weekly-page__archive-link {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid #efe8e0;
+}
+
+.weekly-page__archive-link:hover {
+  color: #9a4f3f;
+}
+
+.weekly-page__preview-banner {
+  margin-bottom: 1rem;
+}
+
+.wb-columns {
+  display: grid;
+  gap: 1rem;
+}
+
+.wb-columns--50-50 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.wb-columns--40-60 {
+  grid-template-columns: 2fr 3fr;
+}
+
+.wb-columns--60-40 {
+  grid-template-columns: 3fr 2fr;
+}
+
+@media (max-width: 640px) {
+  .wb-columns {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.wb-columns__figure {
+  margin: 0;
+}
+
+.wb-columns__figure img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.wb-columns__figure figcaption {
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: #6b5f55;
+}
+
+.wb-columns__placeholder {
+  padding: 1rem;
+  border: 1px dashed #d8d0c8;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.wb-embed__frame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f5f0ea;
+}
+
+.wb-embed__frame iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+}
+
+.wb-poll__options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wb-poll__option {
+  text-align: left;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #e0d8d0;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.wb-poll__option.is-selected {
+  border-color: #9a4f3f;
+  background: #faf6f2;
+}
+
+.wb-poll__result-row {
+  margin-bottom: 0.65rem;
+}
+
+.wb-poll__result-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.92rem;
+}
+
+.wb-poll__bar {
+  height: 8px;
+  background: #efe8e0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.wb-poll__bar span {
+  display: block;
+  height: 100%;
+  background: #9a4f3f;
+  border-radius: 999px;
+}
+
+.wb-quiz__question {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #efe8e0;
+}
+
+.wb-quiz__question:last-of-type {
+  border-bottom: 0;
+}
+
+.wb-quiz__prompt {
+  margin-bottom: 0.5rem;
+}
+
+.wb-quiz__num {
+  font-weight: 700;
+  margin-right: 0.35rem;
+}
+
+.wb-quiz__choices .form-check {
+  margin-bottom: 0.35rem;
+}
+
+.wb-quiz__audio {
+  width: 100%;
+}

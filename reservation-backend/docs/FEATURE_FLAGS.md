@@ -131,8 +131,10 @@ FEATURE_NO_SHOW_AUTO_MARK=true
 
 2. **透過環境變數**（需要重啟服務）:
    ```bash
-   export FEATURE_SURVEY_GATE=false
-   npm restart
+   # 在 .env 設定 FEATURE_SURVEY_GATE=false 後重啟
+   # Windows 正式環境：
+   scripts\ops\restart-backend.bat
+   # 或：pm2 restart eears-backend
    ```
 
 3. **直接修改資料庫**:

@@ -1,0 +1,142 @@
+---
+description: 前端 React 元件、路由與 API 慣例
+globs:
+  - "reservation-frontend/src/**/*.{js,jsx}"
+alwaysApply: false
+---
+
+# EEARS 前端慣例
+
+## 目錄
+
+- **新頁面**：`src/pages/` 或 `src/pages/admin/`（`.jsx`）
+- **可重用元件**：`src/components/{domain}/`
+- **API 薄層**：`src/services/` 或 `src/utils/fetchClient.js` / `axiosClient.js`
+- **權限常數**：`src/constants/permissions.js`，須與後端 `P.*` 同步
+- **共用 hooks**：`src/hooks/useXxx.js`
+- **設計系統樣式**：`src/styles/design-system.css`
+
+## EEARS 業務底線
+
+- 學生端不建立帳號、不登入，維持以 `studentId`、`name`、`email` 進行預約與查詢。
+- 問卷 gating 須維持 English Table / English Club 各自判斷。
+- `teacherLevel`、`staffLevel`、`role`、`permission` 不得混用。
+- 不得因前端簡化而移除既有黑名單、問卷、名額、重複預約、截止時間等限制提示。
+
+## 路由
+
+- 主要路由定義於 `src/App.js`。
+- 後台巢狀路由在 `/admin/*`，使用 `AdminLayout`。
+- 新增後台頁面時，通常需要同步更新：
+  - `adminRouteAccess.js`
+  - `adminNavigation.js`
+  - `src/App.js`
+- Legacy redirect 集中於 `App.js`。
+- 新功能勿走 deprecated 路徑。
+- 不得任意變更既有 route path，除非任務明確要求。
+
+## API 呼叫
+
+- Base URL 使用相對路徑 `/api/...`。
+- 不使用 `REACT_APP_*` 取代現有 API base 慣例。
+- 不得硬編完整網址，例如 `http://localhost:5000/api/...`。
+- Auth 使用：
+  - `Authorization: Bearer ${localStorage.getItem('token')}`
+- 401 `ACCESS_PROFILE_STALE`：
+  - 觸發 `eears:access-stale` 事件
+  - 優先沿用既有 client 處理
+- 優先沿用 `fetchClient` 或既有 service。
+- 新模組可建立 `services/xxxApi.js`。
+- 頁面元件不得大量直接撰寫重複 fetch 邏輯。
+- 重複或跨頁使用的 API 應抽到 `src/services/xxxApi.js`。
+- API helper 應統一處理：
+  - token
+  - JSON parsing
+  - loading / error
+  - 401 stale profile
+  - unexpected response shape
+
+## UI
+
+- 使用 Bootstrap 5 + react-bootstrap。
+- 自訂樣式使用元件級 `.css` 或 `styles/design-system.css`。
+- Toast 使用 `ToastProvider`。
+- 確認對話使用 `ConfirmDialog`。
+- i18n 使用 `LanguageContext` + `constants/translations.js`。
+- 後台頁面需乾淨、可讀、資訊密度適中。
+- 重要警示需清楚顯示，例如：
+  - 黑名單
+  - 未填問卷
+  - 未達 B2
+  - 名額已滿
+  - 重複預約
+  - 預約或取消截止
+
+## FullCalendar 與手機版
+
+- 手機版需保留月曆模式。
+- 活動卡片可簡化，但不得移除必要狀態提示。
+- 點擊活動後以 modal 顯示完整資訊。
+- 不得為了手機版重構而破壞桌機版後台操作。
+- 修改 FullCalendar 前需檢查桌機與手機顯示差異。
+
+## 狀態
+
+- 不使用 Redux。
+- 使用 hooks + `localStorage`。
+- `localStorage` 常見資料：
+  - token
+  - role
+  - user
+- 後台共用狀態優先使用：
+  - `useAdminContext()`
+  - `useAccessControl()`
+- 複雜資料擷取封裝成 `hooks/useXxx.js`。
+- 避免儲存可由既有 state 推導出的重複 state。
+- 避免不必要的 `useEffect` chain。
+- 表單、modal、server data、UI state 應保持職責分離。
+
+## 權限
+
+- 勿在前端硬編權限邏輯而忽略 `adminRouteAccess.js`。
+- 新增後台功能時，需確認：
+  - route access
+  - sidebar navigation
+  - permission constant
+  - 後端權限檢查
+- 前端可做 UI 隱藏與導覽控制，但不得取代後端權限驗證。
+- `admin`、`executive teacher`、`teacher`、`worker`、`office_staff` 的可見功能需明確分離。
+
+## 禁止事項
+
+- 勿引入新的全域狀態庫，除非經討論。
+- 勿 eject CRA。
+- 勿新增學生帳號登入流程。
+- 勿將預約或取消截止規則改為 24 小時。
+- 勿移除既有錯誤處理、權限提示、問卷 gating 或黑名單提示。
+- 勿在沒有檢查 imports 的情況下重新命名 exported component。
+- 勿在沒有檢查 route / navigation / permission 的情況下新增後台頁面。
+- 勿在元件中硬編 API host。
+- 勿用大規模重構取代小範圍修正，除非任務明確要求。
+
+## 修改流程
+
+處理前端任務時，應先檢查：
+
+1. 目標頁面或元件
+2. 相關 route：`src/App.js`
+3. 後台權限：`adminRouteAccess.js`
+4. 側欄導覽：`adminNavigation.js`
+5. 相關 API service 或 fetch client
+6. 相關 CSS / design-system
+7. 是否影響手機版顯示
+8. 是否影響學生端流程
+
+完成修改後，需回報：
+
+- 修改檔案
+- 行為變更
+- 是否影響權限
+- 是否影響學生端流程
+- 是否影響 API payload
+- 建議測試項目

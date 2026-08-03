@@ -1,13 +1,11 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 /**
  * 麵包屑導覽
  * @param {Array<{ label: string, path?: string }>} items - 最後一項為當前頁（可不給 path）
  */
 export default function Breadcrumbs({ items }) {
-  const location = useLocation();
-
   if (!items || items.length === 0) return null;
 
   return (

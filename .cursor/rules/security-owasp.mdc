@@ -1,0 +1,66 @@
+---
+description: EEARS 資安/PII/上傳/Rate limit 風險守則（OWASP 對應）
+globs:
+  - "reservation-backend/**/*.js"
+  - "reservation-backend/config/**/*.js"
+  - "reservation-backend/middlewares/**/*.js"
+  - "reservation-backend/utils/**/*.js"
+alwaysApply: false
+---
+
+# EEARS 資安/PII/上傳/Rate limit 守則
+
+本文件只規範高風險領域（上傳、PII、權限、錯誤輸出、rate limit）。任何可能影響安全的改動，先做「不破壞既有防護」。
+
+## 1) HTTP 硬化（helmet / security headers）
+
+- `reservation-backend/config/httpSecurity.js` 目前已設定必要的防護與全域限制。
+- 不要在未驗證前端相容性的情況下新增/移除會導致前端壞掉的 header（例如 CSP 相關）。
+- 若需要調整安全 header：
+  - 必須同步手動確認前端能正常載入
+  - 必須確保不影響 `/uploads`、API JSON 解析、token 傳遞
+
+## 2) Rate limit
+
+- 全域 `/api` rate limit 已在 `reservation-backend/server.js` 使用。
+- 不要：
+  - 在新增 route 時隨意繞開 `/api` 或改成新的路徑前綴
+  - 把 rate limit 設得過低導致管理端/匯入誤封
+
+## 3) JWT / 權限資料一致性
+
+- 不得降低 JWT secret 長度要求（`envValidation` 要求生產 ≥ 32 字元）。
+- 不得把 token 或使用者敏感資訊寫入 log。
+- 前端處理 401 `ACCESS_PROFILE_STALE` 的路徑應保持既有慣例（避免造成權限漂移）。
+
+## 4) PII / 日誌（logging）
+
+- 對外回應與內部 log 都需避免泄漏：
+  - Authorization token
+  - 取消驗證碼（cancellationCode）
+  - 學生 PII（email、姓名、學號等）
+- 既有工具：
+  - `reservation-backend/utils/piiMask.js`
+  - `reservation-backend/utils/logSanitizer.js`
+  - `reservation-backend/utils/surveyResponseApiMask.js`
+  - `reservation-backend/utils/englishTestRegistrationApiMask.js`
+- 在任何新增錯誤處理或 debug log 時，都必須先檢查敏感資訊。
+
+## 5) 檔案/Excel 上傳安全
+
+針對所有使用 multer / xlsx 的地方：
+
+- 保留既有：
+  - 檔案大小上限（例如 5MB）
+  - mimetype/ext 白名單或雙重檢查策略
+  - filename 正規化流程（`safeNormalizeFilename`）
+- 任何涉及檔名或路徑的改動都必須避免 path traversal：
+  - 不要在儲存路徑中把使用者提供的 filename 直接拼接
+  - 不要允許 `../` 或控制字元進入存檔名稱
+- `/uploads` 由 `server.js` 提供靜態服務時，務必確保伺服器/Windows 層級有必要保護（此處不在程式層控制，AI 也不要移除既有設定意圖）。
+
+## 6) 程式碼變更限制（重要）
+
+- 不得新增「看似更安全但會破壞 UI/匯入」的 header 或檔案流程。
+- 若發現 `package.json` 指向不存在的 script（維運腳本斷裂），不要新增新步驟去執行不存在檔案；先改需求或僅在文件中提示「需補檔」。
+

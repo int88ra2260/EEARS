@@ -1,15 +1,34 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useOutletContext } from 'react-router-dom';
+import SurveyWorkflowGuide from '../../components/admin/survey/SurveyWorkflowGuide';
+import {
+  ACTIVITY_TYPE_LABELS,
+  SURVEY_RULE_EFFECTIVE_LABELS,
+  FILL_SCOPE_LABELS,
+  TRIGGER_MODE_LABELS,
+  labelActivityType,
+  labelFillScope,
+  labelTriggerMode,
+} from '../../constants/surveyAdminUx';
 import Card from 'react-bootstrap/Card';
 import Table from 'react-bootstrap/Table';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
-import Badge from 'react-bootstrap/Badge';
 import Alert from 'react-bootstrap/Alert';
 import Spinner from 'react-bootstrap/Spinner';
 import Pagination from 'react-bootstrap/Pagination';
+import StatusBadge from '../../components/ui/StatusBadge';
+import { bootstrapBgToStatusVariant } from '../../utils/statusBadgeUtils';
 import useToast from '../../components/ui/useToast';
+import {
+  deleteSurveyRule,
+  fetchSurveyCenterOptions,
+  fetchSurveyRules,
+  queryEffectiveSurveyRules,
+  saveSurveyRule,
+  simulateSurveyRules,
+} from '../../services/surveyAdminApi';
 
 const DEFAULT_FORM = {
   semesterId: '',
@@ -27,21 +46,17 @@ const DEFAULT_FORM = {
 };
 
 function statusLabel(v) {
-  const m = {
-    active_now: ['success', 'active now'],
-    not_started: ['info', 'not started'],
-    expired: ['secondary', 'expired'],
-    disabled: ['dark', 'disabled'],
-    overridden_by_higher_priority: ['warning', 'overridden'],
-  };
-  const [variant, label] = m[v] || ['light', v || '-'];
-  return <Badge bg={variant}>{label}</Badge>;
+  const meta = SURVEY_RULE_EFFECTIVE_LABELS[v] || { variant: 'light', label: v || '—' };
+  return (
+    <StatusBadge variant={bootstrapBgToStatusVariant(meta.variant)} size="sm">
+      {meta.label}
+    </StatusBadge>
+  );
 }
 
 export default function AdminSurveyRulesPage() {
   const toast = useToast();
   const { token } = useOutletContext();
-  const authHeaders = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, totalPages: 1, total: 0 });
@@ -56,11 +71,9 @@ export default function AdminSurveyRulesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null });
   const [conflictText, setConflictText] = useState('');
 
-  const loadOptions = async () => {
+  const loadOptions = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/survey-center/meta/options', { headers: authHeaders });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || '載入選項失敗');
+      const data = await fetchSurveyCenterOptions(token);
       setOptions({
         semesters: data.semesters || [],
         surveys: data.surveys || [],
@@ -70,9 +83,9 @@ export default function AdminSurveyRulesPage() {
     } catch (e) {
       toast.danger(e.message || '載入選項失敗');
     }
-  };
+  }, [token, toast]);
 
-  const loadRules = async (page = pagination.page) => {
+  const loadRules = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setError('');
@@ -83,9 +96,7 @@ export default function AdminSurveyRulesPage() {
         ...(filters.activityType ? { activityType: filters.activityType } : {}),
         ...(filters.isEnabled !== 'all' ? { isEnabled: filters.isEnabled } : {}),
       });
-      const res = await fetch(`/api/admin/survey-rules?${q.toString()}`, { headers: authHeaders });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || '載入規則失敗');
+      const data = await fetchSurveyRules(token, q);
       setRows(data.rows || []);
       setPagination((p) => ({ ...p, ...(data.pagination || {}), page }));
     } catch (e) {
@@ -93,15 +104,15 @@ export default function AdminSurveyRulesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, pagination.pageSize, token]);
 
   useEffect(() => {
     loadOptions();
-  }, []);
+  }, [loadOptions]);
 
   useEffect(() => {
     loadRules(1);
-  }, [filters.semesterId, filters.activityType, filters.isEnabled]);
+  }, [loadRules]);
 
   const openCreate = () => {
     setEditing(null);
@@ -143,36 +154,31 @@ export default function AdminSurveyRulesPage() {
     try {
       const url = editing ? `/api/admin/survey-rules/${editing.id}` : '/api/admin/survey-rules';
       const method = editing ? 'PUT' : 'POST';
-      const res = await fetch(url, {
+      await saveSurveyRule(token, {
         method,
-        headers: { ...authHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        url,
+        payload,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.code === 'RULE_CONFLICT') {
-          setConflictText(
-            `${data.message}（${data.conflictType || 'RULE_CONFLICT'}）` +
-            `；衝突規則: ${(data.details || []).map((d) => `#${d.id}(P${d.priority})`).join(', ')}` +
-            `${data.suggestion ? `；建議：${data.suggestion}` : ''}`
-          );
-          return;
-        }
-        throw new Error(data.message || '儲存失敗');
-      }
       toast.success(editing ? '規則已更新' : '規則已建立');
       setShowModal(false);
       loadRules();
     } catch (e) {
+      const data = e.data || {};
+      if (data.code === 'RULE_CONFLICT') {
+        setConflictText(
+          `${data.message}（${data.conflictType || 'RULE_CONFLICT'}）` +
+          `；衝突規則: ${(data.details || []).map((d) => `#${d.id}(P${d.priority})`).join(', ')}` +
+          `${data.suggestion ? `；建議：${data.suggestion}` : ''}`
+        );
+        return;
+      }
       toast.danger(e.message || '儲存失敗');
     }
   };
 
   const performDelete = async () => {
     try {
-      const res = await fetch(`/api/admin/survey-rules/${deleteConfirm.id}`, { method: 'DELETE', headers: authHeaders });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || '刪除失敗');
+      await deleteSurveyRule(token, deleteConfirm.id);
       toast.success('規則已刪除');
       setDeleteConfirm({ show: false, id: null });
       loadRules();
@@ -189,9 +195,7 @@ export default function AdminSurveyRulesPage() {
         ...(preview.activityType ? { activityType: preview.activityType } : {}),
         ...(preview.eventId ? { eventId: preview.eventId } : {}),
       });
-      const res = await fetch(`/api/admin/survey-rules/effective/query?${q.toString()}`, { headers: authHeaders });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || '查詢失敗');
+      const data = await queryEffectiveSurveyRules(token, q);
       setPreview((p) => ({ ...p, loading: false, result: data || null }));
     } catch (e) {
       setPreview((p) => ({ ...p, loading: false }));
@@ -209,9 +213,7 @@ export default function AdminSurveyRulesPage() {
         ...(simulation.currentTime ? { currentTime: simulation.currentTime } : {}),
         ...(simulation.triggerMode ? { triggerMode: simulation.triggerMode } : {}),
       });
-      const res = await fetch(`/api/admin/survey-rules/simulate/query?${q.toString()}`, { headers: authHeaders });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || '模擬失敗');
+      const data = await simulateSurveyRules(token, q);
       setSimulation((s) => ({ ...s, loading: false, result: data }));
     } catch (e) {
       setSimulation((s) => ({ ...s, loading: false, result: null }));
@@ -223,11 +225,19 @@ export default function AdminSurveyRulesPage() {
     <div className="container py-4">
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
-          <h2 className="h4 text-primary mb-1">問卷規則</h2>
-          <div className="text-muted small">管理各學期 / 各活動類型的問卷啟用與觸發規則</div>
+          <h2 className="h4 text-primary mb-1">問卷啟用規則</h2>
+          <div className="text-muted small">
+            指定學期、活動類型下要使用哪份問卷、何時填寫；請先在
+            {' '}
+            <Link to="/admin/survey-center">問卷中心</Link>
+            {' '}
+            建立並發布問卷。
+          </div>
         </div>
         <Button onClick={openCreate}>新增規則</Button>
       </div>
+
+      <SurveyWorkflowGuide variant="rules" defaultOpen={false} />
 
       <Card className="border-0 shadow-sm mb-3">
         <Card.Body className="row g-2">
@@ -240,14 +250,16 @@ export default function AdminSurveyRulesPage() {
           <div className="col-md-3">
             <Form.Select value={filters.activityType} onChange={(e) => setFilters((f) => ({ ...f, activityType: e.target.value }))}>
               <option value="">全部活動類型</option>
-              {['ET', 'EC', 'IF', 'JT', 'GENERAL'].map((x) => <option key={x} value={x}>{x}</option>)}
+              {Object.entries(ACTIVITY_TYPE_LABELS).map(([code, label]) => (
+                <option key={code} value={code}>{label}（{code}）</option>
+              ))}
             </Form.Select>
           </div>
           <div className="col-md-3">
             <Form.Select value={filters.isEnabled} onChange={(e) => setFilters((f) => ({ ...f, isEnabled: e.target.value }))}>
               <option value="all">全部狀態</option>
-              <option value="true">enabled</option>
-              <option value="false">disabled</option>
+              <option value="true">已啟用</option>
+              <option value="false">已停用</option>
             </Form.Select>
           </div>
           <div className="col-md-3 d-flex gap-2">
@@ -258,7 +270,7 @@ export default function AdminSurveyRulesPage() {
       </Card>
 
       <Card className="border-0 shadow-sm mb-3">
-        <Card.Header className="bg-white fw-semibold">Effective Rule Preview</Card.Header>
+        <Card.Header className="bg-white fw-semibold">查詢目前生效規則（測試用）</Card.Header>
         <Card.Body className="row g-2 align-items-center">
           <div className="col-md-3">
             <Form.Select value={preview.semesterId} onChange={(e) => setPreview((p) => ({ ...p, semesterId: e.target.value }))}>
@@ -268,18 +280,20 @@ export default function AdminSurveyRulesPage() {
           </div>
           <div className="col-md-3">
             <Form.Select value={preview.activityType} onChange={(e) => setPreview((p) => ({ ...p, activityType: e.target.value }))}>
-              {['ET', 'EC', 'IF', 'JT', 'GENERAL'].map((x) => <option key={x} value={x}>{x}</option>)}
+              {Object.entries(ACTIVITY_TYPE_LABELS).map(([code, label]) => (
+                <option key={code} value={code}>{label}</option>
+              ))}
             </Form.Select>
           </div>
           <div className="col-md-3">
             <Form.Select value={preview.eventId} onChange={(e) => setPreview((p) => ({ ...p, eventId: e.target.value }))}>
               <option value="">所有活動</option>
-              {options.events.map((ev) => <option key={ev.id} value={ev.id}>{ev.id} - {ev.name}</option>)}
+              {options.events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name || ev.id}</option>)}
             </Form.Select>
           </div>
           <div className="col-md-3 d-flex gap-2">
             <Button onClick={runPreview}>查詢生效規則</Button>
-            <Button variant="outline-primary" onClick={runSimulation}>模擬解析</Button>
+            <Button variant="outline-secondary" size="sm" onClick={runSimulation}>進階：模擬解析</Button>
             {preview.loading && <Spinner size="sm" animation="border" />}
           </div>
           <div className="col-md-3">
@@ -287,14 +301,16 @@ export default function AdminSurveyRulesPage() {
           </div>
           <div className="col-md-3">
             <Form.Select value={simulation.triggerMode} onChange={(e) => setSimulation((s) => ({ ...s, triggerMode: e.target.value }))}>
-              <option value="">trigger mode</option>
-              {['before_reservation', 'after_reservation', 'optional'].map((x) => <option key={x} value={x}>{x}</option>)}
+              <option value="">填寫時機（全部）</option>
+              {Object.entries(TRIGGER_MODE_LABELS).map(([code, label]) => (
+                <option key={code} value={code}>{label}</option>
+              ))}
             </Form.Select>
           </div>
           <div className="col-12">
             {preview.result ? (
               <Alert variant="info" className="mb-0">
-                生效規則：#{preview.result.id} / 問卷 {preview.result.surveyId} / 版本 {preview.result.surveyVersionId || '-'} / P{preview.result.priority}
+                目前生效：規則 #{preview.result.id}｜問卷 ID {preview.result.surveyId}｜版本 {preview.result.surveyVersionId || '—'}｜優先序 {preview.result.priority}
               </Alert>
             ) : <div className="small text-muted">尚未查詢或目前無符合規則</div>}
           </div>
@@ -336,25 +352,36 @@ export default function AdminSurveyRulesPage() {
               <Table size="sm" hover className="align-middle">
                 <thead className="table-light">
                   <tr>
-                    <th>ID</th><th>學期</th><th>活動</th><th>問卷</th><th>版本</th><th>trigger</th><th>scope</th><th>allEvents</th>
-                    <th>event</th><th>start/end</th><th>P</th><th>enabled</th><th>生效狀態</th><th>更新</th><th>操作</th>
+                    <th>學期</th>
+                    <th>活動類型</th>
+                    <th>問卷</th>
+                    <th>版號</th>
+                    <th>填寫時機</th>
+                    <th>填寫次數</th>
+                    <th>全部活動</th>
+                    <th>指定活動</th>
+                    <th>有效期間</th>
+                    <th>優先序</th>
+                    <th>啟用</th>
+                    <th>生效狀態</th>
+                    <th>更新</th>
+                    <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.id}>
-                      <td>{r.id}</td>
-                      <td>{r.Semester?.code || '-'}</td>
-                      <td>{r.activityType || '-'}</td>
+                      <td>{r.Semester?.code || '—'}</td>
+                      <td>{labelActivityType(r.activityType)}</td>
                       <td>{r.Survey?.title || r.Survey?.name || r.surveyId}</td>
-                      <td>{r.SurveyVersion?.versionNumber || '-'}</td>
-                      <td>{r.triggerMode || '-'}</td>
-                      <td>{r.fillScope || '-'}</td>
-                      <td>{r.appliesToAllEvents ? 'Y' : 'N'}</td>
-                      <td>{r.eventId || '-'}</td>
-                      <td className="small">{r.startAt ? new Date(r.startAt).toLocaleString() : '-'}<br />{r.endAt ? new Date(r.endAt).toLocaleString() : '-'}</td>
+                      <td>{r.SurveyVersion?.versionNumber != null ? `第 ${r.SurveyVersion.versionNumber} 版` : '—'}</td>
+                      <td>{labelTriggerMode(r.triggerMode)}</td>
+                      <td>{labelFillScope(r.fillScope)}</td>
+                      <td>{r.appliesToAllEvents ? '是' : '否'}</td>
+                      <td>{r.eventId || '—'}</td>
+                      <td className="small">{r.startAt ? new Date(r.startAt).toLocaleString('zh-TW') : '—'}<br />{r.endAt ? new Date(r.endAt).toLocaleString('zh-TW') : '—'}</td>
                       <td>{r.priority}</td>
-                      <td>{r.isEnabled ? <Badge bg="success">enabled</Badge> : <Badge bg="secondary">disabled</Badge>}</td>
+                      <td>{r.isEnabled ? <StatusBadge variant="success" size="sm">已啟用</StatusBadge> : <StatusBadge variant="neutral" size="sm">已停用</StatusBadge>}</td>
                       <td>{statusLabel(r.effectiveStatus)}</td>
                       <td className="small text-nowrap">{new Date(r.updatedAt).toLocaleString()}</td>
                       <td className="d-flex gap-1">
@@ -381,67 +408,76 @@ export default function AdminSurveyRulesPage() {
           {conflictText ? <Alert variant="warning">{conflictText}</Alert> : null}
           <div className="row g-2">
             <div className="col-md-4">
-              <Form.Label>semester</Form.Label>
+              <Form.Label>學期</Form.Label>
               <Form.Select value={form.semesterId} onChange={(e) => setForm((f) => ({ ...f, semesterId: e.target.value }))}>
-                <option value="">-</option>
+                <option value="">不指定</option>
                 {options.semesters.map((s) => <option key={s.id} value={s.id}>{s.code}</option>)}
               </Form.Select>
             </div>
             <div className="col-md-4">
-              <Form.Label>activityType</Form.Label>
+              <Form.Label>活動類型</Form.Label>
               <Form.Select value={form.activityType} onChange={(e) => setForm((f) => ({ ...f, activityType: e.target.value }))}>
-                {['ET', 'EC', 'IF', 'JT', 'GENERAL'].map((x) => <option key={x} value={x}>{x}</option>)}
+                {Object.entries(ACTIVITY_TYPE_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>{label}</option>
+                ))}
               </Form.Select>
             </div>
             <div className="col-md-4">
-              <Form.Label>priority</Form.Label>
+              <Form.Label>優先序</Form.Label>
               <Form.Control type="number" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))} />
+              <Form.Text className="text-muted">數字愈大愈優先；衝突時僅生效一條。</Form.Text>
             </div>
             <div className="col-md-6">
-              <Form.Label>survey</Form.Label>
+              <Form.Label>問卷</Form.Label>
               <Form.Select value={form.surveyId} onChange={(e) => setForm((f) => ({ ...f, surveyId: e.target.value }))}>
-                <option value="">-</option>
+                <option value="">請選擇</option>
                 {options.surveys.map((s) => <option key={s.id} value={s.id}>{s.title || s.name || s.surveyKey}</option>)}
               </Form.Select>
             </div>
             <div className="col-md-6">
-              <Form.Label>version</Form.Label>
+              <Form.Label>問卷版本</Form.Label>
               <Form.Select value={form.surveyVersionId} onChange={(e) => setForm((f) => ({ ...f, surveyVersionId: e.target.value }))}>
-                <option value="">-</option>
-                {options.versions.filter((v) => String(v.surveyId) === String(form.surveyId)).map((v) => <option key={v.id} value={v.id}>v{v.versionNumber}</option>)}
+                <option value="">使用已發布版本</option>
+                {options.versions.filter((v) => String(v.surveyId) === String(form.surveyId)).map((v) => (
+                  <option key={v.id} value={v.id}>第 {v.versionNumber} 版</option>
+                ))}
               </Form.Select>
             </div>
             <div className="col-md-4">
-              <Form.Label>triggerMode</Form.Label>
+              <Form.Label>填寫時機</Form.Label>
               <Form.Select value={form.triggerMode} onChange={(e) => setForm((f) => ({ ...f, triggerMode: e.target.value }))}>
-                {['before_reservation', 'after_reservation', 'optional'].map((x) => <option key={x} value={x}>{x}</option>)}
+                {Object.entries(TRIGGER_MODE_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>{label}</option>
+                ))}
               </Form.Select>
             </div>
             <div className="col-md-4">
-              <Form.Label>fillScope</Form.Label>
+              <Form.Label>填寫次數</Form.Label>
               <Form.Select value={form.fillScope} onChange={(e) => setForm((f) => ({ ...f, fillScope: e.target.value }))}>
-                {['once_per_semester', 'once_per_activity', 'once_per_event'].map((x) => <option key={x} value={x}>{x}</option>)}
+                {Object.entries(FILL_SCOPE_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>{label}</option>
+                ))}
               </Form.Select>
             </div>
             <div className="col-md-4 d-flex align-items-end">
-              <Form.Check type="switch" label="Enabled" checked={form.isEnabled} onChange={(e) => setForm((f) => ({ ...f, isEnabled: e.target.checked }))} />
+              <Form.Check type="switch" label="規則啟用" checked={form.isEnabled} onChange={(e) => setForm((f) => ({ ...f, isEnabled: e.target.checked }))} />
             </div>
             <div className="col-md-4 d-flex align-items-end">
-              <Form.Check type="switch" label="appliesToAllEvents" checked={form.appliesToAllEvents} onChange={(e) => setForm((f) => ({ ...f, appliesToAllEvents: e.target.checked }))} />
+              <Form.Check type="switch" label="適用該類型全部活動" checked={form.appliesToAllEvents} onChange={(e) => setForm((f) => ({ ...f, appliesToAllEvents: e.target.checked }))} />
             </div>
             <div className="col-md-8">
-              <Form.Label>event（單一活動綁定）</Form.Label>
+              <Form.Label>指定單一活動（未勾選「全部活動」時）</Form.Label>
               <Form.Select disabled={form.appliesToAllEvents} value={form.eventId} onChange={(e) => setForm((f) => ({ ...f, eventId: e.target.value }))}>
                 <option value="">-</option>
                 {options.events.map((ev) => <option key={ev.id} value={ev.id}>{ev.id} - {ev.name}</option>)}
               </Form.Select>
             </div>
             <div className="col-md-6">
-              <Form.Label>startAt</Form.Label>
+              <Form.Label>開始時間</Form.Label>
               <Form.Control type="datetime-local" value={form.startAt} onChange={(e) => setForm((f) => ({ ...f, startAt: e.target.value }))} />
             </div>
             <div className="col-md-6">
-              <Form.Label>endAt</Form.Label>
+              <Form.Label>結束時間</Form.Label>
               <Form.Control type="datetime-local" value={form.endAt} onChange={(e) => setForm((f) => ({ ...f, endAt: e.target.value }))} />
             </div>
           </div>

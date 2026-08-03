@@ -1,0 +1,509 @@
+/* EEARS 學生端／公開頁 — EMI 暖色品牌（詳見 emi-brand.css 覆寫） */
+
+.public-site {
+  --pub-canvas: #f9f4ec;
+  --pub-canvas-deep: #f4ede3;
+  --pub-surface: #fffefb;
+  --pub-surface-muted: #f5efe6;
+  --pub-border: #e5d9cc;
+  --pub-text: #3d2e24;
+  --pub-text-body: #4a3f36;
+  --pub-text-muted: #7a6b5f;
+  --pub-primary: #d4564a;
+  --pub-primary-dark: #b8453a;
+  --pub-primary-light: #fdf0ee;
+  --pub-success-bg: #edf3ec;
+  --pub-success-text: #346538;
+  --pub-warning-bg: #fbf3db;
+  --pub-warning-text: #956400;
+  --pub-danger-bg: #fdebec;
+  --pub-danger-text: #9f2f2d;
+  --pub-info-bg: #e1f3fe;
+  --pub-info-text: #1f6c9f;
+  --pub-radius: 8px;
+  --pub-radius-lg: 12px;
+  --pub-shadow: 0 1px 3px rgba(28, 61, 110, 0.06);
+  --pub-transition: 0.18s ease;
+}
+
+.app-main.public-site {
+  width: 100%;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(212, 86, 74, 0.045), transparent 28rem),
+    linear-gradient(rgba(251, 250, 247, 0.82), rgba(251, 250, 247, 0.82)),
+    linear-gradient(180deg, var(--pub-canvas) 0%, #fbfbfa 42%, var(--pub-canvas-deep) 100%);
+  background-size: auto, auto, auto;
+  color: var(--pub-text-body);
+}
+
+.app-main.public-site.container {
+  max-width: min(100% - 1.5rem, 1180px);
+  margin-inline: auto;
+  margin-top: 1.25rem !important;
+  margin-bottom: 2rem !important;
+  padding: clamp(1rem, 2vw, 1.75rem);
+  border: 1px solid rgba(229, 217, 204, 0.72);
+  border-radius: 12px;
+  background:
+    linear-gradient(rgba(255, 254, 251, 0.96), rgba(255, 254, 251, 0.96)),
+    url('../assets/paper_texture.png');
+  background-size: auto, 360px;
+  box-shadow: 0 8px 30px rgba(61, 46, 36, 0.055);
+}
+
+.public-site .app-main,
+.app-main.public-site {
+  max-width: 1200px;
+}
+
+.public-site.public-site--home.app-main {
+  max-width: none;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.public-site.public-site--scrollworld.app-main {
+  max-width: none;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: #f5ede0;
+  min-height: 0;
+  overflow-x: clip;
+}
+
+.public-site.public-site--about.app-main {
+  max-width: none;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: inherit;
+  min-height: 0;
+}
+
+/* Header 下方公告提示列 */
+.announcement-ticker {
+  width: 100%;
+  border-bottom: 1px solid rgba(229, 217, 204, 0.78);
+  background:
+    linear-gradient(rgba(255, 254, 251, 0.94), rgba(255, 254, 251, 0.94)),
+    url('../assets/paper_texture.png');
+  background-size: auto, 360px;
+}
+
+.announcement-ticker__shell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  width: min(1180px, calc(100% - 1.5rem));
+  min-height: 42px;
+  margin-inline: auto;
+  color: #4a3f36;
+}
+
+.announcement-ticker__label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid #e5d9cc;
+  border-radius: 6px;
+  background: #fffefb;
+  color: #3d2e24;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+a.announcement-ticker__label:hover {
+  color: #3d2e24;
+  background: #fbfbfa;
+}
+
+.announcement-ticker__viewport {
+  overflow: hidden;
+  min-width: 0;
+}
+
+.announcement-ticker__track {
+  display: flex;
+  width: max-content;
+  animation: announcementTickerMove 34s linear infinite;
+}
+
+.announcement-ticker__viewport:hover .announcement-ticker__track,
+.announcement-ticker__viewport:focus-within .announcement-ticker__track {
+  animation-play-state: paused;
+}
+
+.announcement-ticker__group {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.announcement-ticker__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: min(38rem, 80vw);
+  padding-right: 2rem;
+  color: #4a3f36;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.announcement-ticker__item::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0.9rem;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #d4564a;
+  transform: translateY(-50%);
+  opacity: 0.45;
+}
+
+.announcement-ticker__item:hover {
+  color: #111111;
+}
+
+.announcement-ticker__item:focus-visible,
+.announcement-ticker__label:focus-visible {
+  outline: 2px solid #d4564a;
+  outline-offset: 2px;
+}
+
+.announcement-ticker__date {
+  color: #7a6b5f;
+  font-variant-numeric: tabular-nums;
+}
+
+.announcement-ticker__badge {
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  background: #fbf3db;
+  color: #956400;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.announcement-ticker__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.announcement-ticker__skeleton {
+  width: min(42rem, 100%);
+  height: 0.75rem;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #eee4d9 25%, #fffaf4 50%, #eee4d9 75%);
+  background-size: 200% 100%;
+  animation: announcementTickerSkeleton 1.4s ease-in-out infinite;
+}
+
+@keyframes announcementTickerMove {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes announcementTickerSkeleton {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* 頁面標題 */
+.public-site .page-header-title {
+  color: var(--pub-text);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.public-site .page-header-lead {
+  color: var(--pub-text-muted);
+  line-height: 1.6;
+  max-width: 52ch;
+}
+
+.public-site .page-header .breadcrumb-item a {
+  color: var(--pub-text-muted);
+}
+
+.public-site .page-header .breadcrumb-item.active {
+  color: var(--pub-text-body);
+}
+
+/* 卡片 */
+.public-card {
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius);
+  padding: 1.25rem;
+  box-shadow: var(--pub-shadow);
+}
+
+.public-card + .public-card {
+  margin-top: 1rem;
+}
+
+.public-site .card {
+  border-color: var(--pub-border);
+  border-radius: var(--pub-radius);
+  background: var(--pub-surface);
+  box-shadow: none;
+}
+
+.public-site .card-header {
+  background: var(--pub-surface-muted);
+  color: var(--pub-text);
+  border-bottom-color: var(--pub-border);
+}
+
+/* 按鈕觸控與 focus */
+.public-site .btn {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: background-color var(--pub-transition), border-color var(--pub-transition), color var(--pub-transition);
+}
+
+.public-site .btn:focus-visible {
+  outline: 2px solid var(--pub-primary);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.public-site .btn-primary {
+  background-color: var(--pub-primary);
+  border-color: var(--pub-primary);
+  box-shadow: none;
+}
+
+.public-site .btn-primary:hover {
+  background-color: var(--pub-primary-dark);
+  border-color: var(--pub-primary-dark);
+  transform: none;
+}
+
+.public-site .btn-outline-primary {
+  color: var(--pub-primary);
+  border-color: var(--pub-border);
+  background: var(--pub-surface);
+}
+
+.public-site .btn-outline-primary:hover {
+  background: var(--pub-primary-light);
+  border-color: var(--pub-primary);
+  color: var(--pub-primary-dark);
+}
+
+.public-site .table {
+  border-color: var(--pub-border);
+}
+
+.public-site .table thead {
+  background: var(--pub-surface-muted);
+  color: var(--pub-text-muted);
+}
+
+.public-site .table thead th {
+  border-bottom-color: var(--pub-border);
+  color: var(--pub-text-muted);
+}
+
+.public-site .table tbody td {
+  border-color: rgba(229, 217, 204, 0.78);
+}
+
+.public-site .table tbody tr:hover {
+  background: rgba(253, 240, 238, 0.58);
+}
+
+/* 表單 */
+.public-site .form-control,
+.public-site .form-select {
+  border-color: var(--pub-border);
+  border-radius: 6px;
+  min-height: 44px;
+  background-color: var(--pub-surface);
+  color: var(--pub-text-body);
+}
+
+.public-site .form-control:focus,
+.public-site .form-select:focus {
+  border-color: var(--pub-primary);
+  box-shadow: 0 0 0 3px rgba(42, 93, 159, 0.12);
+}
+
+/* 查詢預約 */
+.public-reservation-modal .modal-content,
+.public-reservation-page .public-card {
+  border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius-lg);
+}
+
+.my-reservations-page {
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.my-reservations-page .public-card {
+  margin-bottom: 1.25rem;
+}
+
+/* 聯絡我們 */
+.contact-page {
+  max-width: 720px;
+  margin-inline: auto;
+  padding: 0 0 2rem;
+}
+
+.contact-page-card {
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: var(--pub-radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--pub-shadow);
+}
+
+.contact-page-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--pub-text);
+  margin-bottom: 1rem;
+}
+
+.contact-page-dl dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pub-text-muted);
+}
+
+.contact-page-dl dd {
+  color: var(--pub-text-body);
+  margin-bottom: 0.5rem;
+}
+
+.contact-page-dl a {
+  color: var(--pub-primary);
+}
+
+.public-site .alert {
+  box-shadow: none;
+}
+
+.public-site .alert-info {
+  background: var(--pub-info-bg);
+  color: var(--pub-info-text);
+  border-color: rgba(139, 90, 60, 0.16);
+}
+
+.public-site .alert-warning {
+  background: var(--pub-warning-bg);
+  color: var(--pub-warning-text);
+  border-color: rgba(149, 100, 0, 0.16);
+}
+
+.public-site .alert-danger {
+  background: var(--pub-danger-bg);
+  color: var(--pub-danger-text);
+  border-color: rgba(159, 47, 45, 0.16);
+}
+
+.public-site .alert-success {
+  background: var(--pub-success-bg);
+  color: var(--pub-success-text);
+  border-color: rgba(52, 101, 56, 0.16);
+}
+
+@media (max-width: 576px) {
+  .announcement-ticker__shell {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+    padding: 0.55rem 0;
+  }
+
+  .announcement-ticker__label {
+    justify-self: start;
+  }
+
+  .announcement-ticker__item {
+    max-width: 86vw;
+    font-size: 0.8125rem;
+  }
+
+  .app-main.public-site.container {
+    max-width: min(100% - 0.75rem, 1180px);
+    margin-top: 0.75rem !important;
+    padding: 0.85rem;
+    border-radius: 10px;
+  }
+
+  .public-site .btn {
+    min-height: 44px;
+  }
+
+  .public-card {
+    padding: 1rem;
+  }
+
+  .contact-page-card {
+    padding: 1rem;
+  }
+
+  .my-reservations-page .public-card {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-site .btn {
+    transition: none;
+  }
+
+  .announcement-ticker__track,
+  .announcement-ticker__skeleton {
+    animation: none;
+  }
+
+  .announcement-ticker__viewport {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .announcement-ticker__track .announcement-ticker__group[aria-hidden='true'] {
+    display: none;
+  }
+}

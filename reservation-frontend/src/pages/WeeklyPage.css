@@ -1,0 +1,43 @@
+.weekly-page__meta {
+  margin: -0.25rem 0 1.25rem;
+  color: #7a6b5f;
+  font-size: 0.875rem;
+}
+
+.weekly-page__read-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #e8f3e8;
+  color: #2f6b3a;
+  font-size: 0.75rem;
+}
+
+.weekly-page__section {
+  margin-bottom: 1rem;
+}
+
+.weekly-page__section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #3d2e24;
+}
+
+.weekly-page__paragraph {
+  margin-bottom: 0.75rem;
+  line-height: 1.65;
+  color: #4a3f36;
+}
+
+.weekly-page__paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.weekly-page__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}

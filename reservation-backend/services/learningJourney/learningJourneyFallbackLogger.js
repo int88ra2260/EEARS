@@ -1,12 +1,13 @@
 'use strict';
 
 const { logSystemAsync } = require('../systemLogService');
+const { formatTaipeiTime } = require('../../utils/time');
 
 const MAX_RECENT = 200;
 const recentFallbacks = [];
 
 function nowIso() {
-  return new Date().toISOString();
+  return formatTaipeiTime();
 }
 
 function asBool(v) {

@@ -1,24 +1,30 @@
 // src/components/AdminLayout.js
 // Phase 2：Sidebar 主導覽 + 頁首標題／breadcrumb（業務路由不變）
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import useMediaQuery from '../hooks/useMediaQuery';
 import useToast from './ui/useToast';
 import AdminSidebar from './admin/AdminSidebar';
 import AdminBreadcrumbs from './admin/AdminBreadcrumbs';
+import AdminAccessDenied from './system/AdminAccessDenied';
 import { getAdminPageTitle } from '../constants/adminNavigation';
+import { getAdminRouteDeniedReason } from '../constants/adminRouteAccess';
 import { buildAccessProfile, buildNavContextFromAccessProfile } from '../utils/accessControl';
 import { parseJwtPayload } from '../utils/jwtPayload';
+import RouteLoading from './ui/RouteLoading';
 import './admin/adminLayout.css';
+import '../styles/admin-minimal.css';
 
 function getRoleDisplayText(role, username) {
   const roleMap = {
     admin: '管理員',
     worker: '工作人員',
     teacher: '老師',
+    office_staff: '行政職員',
+    leader: 'ET Leader',
   };
 
-  if (role === 'teacher') {
+  if (role === 'teacher' || role === 'office_staff' || role === 'leader') {
     const teacherName = localStorage.getItem('teacherName');
     if (teacherName) return teacherName;
     try {
@@ -62,6 +68,11 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
     [location.pathname, navContext]
   );
 
+  const routeDenied = useMemo(
+    () => getAdminRouteDeniedReason(accessProfile, location.pathname),
+    [accessProfile, location.pathname]
+  );
+
   useEffect(() => {
     if (mustResetPassword && location.pathname !== '/admin/account/reset') {
       navigate('/admin/account/reset', { replace: true });
@@ -69,17 +80,31 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
   }, [mustResetPassword, location.pathname, navigate]);
 
   useEffect(() => {
+    if (accessProfile.role !== 'leader') return;
+    if (location.pathname === '/admin' || location.pathname === '/admin/dashboard') {
+      navigate('/admin/et-grouping/my-sessions', { replace: true });
+    }
+  }, [accessProfile.role, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (accessProfile.role !== 'teacher' || accessProfile.teacherLevel !== 'regular') return;
+    if (location.pathname === '/admin' || location.pathname === '/admin/dashboard') {
+      navigate('/admin/classes', { replace: true });
+    }
+  }, [accessProfile.role, accessProfile.teacherLevel, location.pathname, navigate]);
+
+  useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  const handleTokenExpired = () => {
+  const handleTokenExpired = useCallback(() => {
     setTokenExpired(true);
     setTimeout(() => {
       toast.warning('登入已過期，請重新登入');
       onLogout();
       window.location.href = '/login';
     }, 1000);
-  };
+  }, [onLogout, toast]);
 
   useEffect(() => {
     if (!token) return;
@@ -98,10 +123,13 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
     } catch (error) {
       console.error('解析令牌失敗:', error);
     }
-  }, [token, onLogout]);
+  }, [token, handleTokenExpired]);
 
   if (process.env.NODE_ENV === 'development') {
     console.log('AdminLayout', location.pathname, navContext);
+    if (routeDenied?.code === 'missing_rule') {
+      console.warn('[EEARS] Missing admin route access rule:', location.pathname);
+    }
   }
 
   if (tokenExpired) {
@@ -149,9 +177,9 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
             <h1 className="admin-topbar__title mb-0">後台管理</h1>
           </div>
           <div className="d-flex align-items-center gap-3 flex-wrap">
-            <span className="badge bg-success fs-6">{getRoleDisplayText(actualUserRole, username)}</span>
+            <span className="admin-badge admin-badge--role">{getRoleDisplayText(actualUserRole, username)}</span>
             {mustResetPassword && (
-              <span className="badge bg-warning text-dark fs-6">需更改密碼</span>
+              <span className="admin-badge admin-badge--warn">需更改密碼</span>
             )}
             <button type="button" className="btn btn-outline-secondary" onClick={onLogout}>
               登出
@@ -179,18 +207,28 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
         </div>
 
         <div className="admin-layout__content">
-          <Outlet
-            context={{
-              token,
-              userRole: actualUserRole,
-              teacherLevel,
-              username,
-              mustResetPassword,
-              setMustResetPassword,
-              accessProfile,
-              navContext,
-            }}
-          />
+          {mustResetPassword && location.pathname !== '/admin/account/reset' ? null : routeDenied ? (
+            <AdminAccessDenied
+              route={routeDenied.route}
+              rule={routeDenied.rule}
+              missingRule={routeDenied.code === 'missing_rule'}
+            />
+          ) : (
+            <Suspense fallback={<RouteLoading />}>
+              <Outlet
+                context={{
+                  token,
+                  userRole: actualUserRole,
+                  teacherLevel,
+                  username,
+                  mustResetPassword,
+                  setMustResetPassword,
+                  accessProfile,
+                  navContext,
+                }}
+              />
+            </Suspense>
+          )}
         </div>
       </div>
     </div>

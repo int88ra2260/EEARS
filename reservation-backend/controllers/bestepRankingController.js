@@ -37,12 +37,9 @@ async function getRanking(req, res, next) {
       return res.status(400).json({ error: '請指定學期' });
     }
 
-    const teams = await getTeamRanking(semester);
+    const result = await getTeamRanking(semester);
 
-    res.json({
-      semester,
-      teams
-    });
+    res.json(result);
   } catch (error) {
     console.error('取得團體名次錯誤:', error);
     res.status(500).json({ error: error.message || '載入資料失敗' });

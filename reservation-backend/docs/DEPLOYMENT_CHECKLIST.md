@@ -1,202 +1,126 @@
-# 部署檢查清單
+# EEARS 部署 Runbook（Windows IIS + Node）
 
-## 部署前檢查
+正式維運入口：`scripts/ops/`（一鍵部署 / 重啟 / PM2 註冊）。  
+**請勿再靠手動在 CMD 逐條輸入 build、複製、重啟。**
 
-### 1. 程式碼品質
+## 架構
 
-```bash
-# Lint 檢查
-npm run lint
+- Node（PM2：`eears-backend`）監聽 `127.0.0.1:3000`
+- 後端同時提供 API 與 SPA：`reservation-backend/build/`
+- IIS reverse proxy：`public/web.config` → `http://127.0.0.1:3000/{R:0}`
+- 時區：`Asia/Taipei`（`server.js` / PM2 `ecosystem.config.cjs`）
 
-# 執行測試
-npm test
+## 一次性設定（伺服器）
 
-# 覆蓋率檢查
-npm run test:coverage
-node scripts/verify-coverage.mjs --lines 70
+```bat
+cd /d D:\EEARS
+scripts\ops\setup-pm2.bat
 ```
 
-### 2. 環境變數
+確認：
 
-確認 `.env` 檔案包含以下必要變數：
-
-- `DATABASE_URL` 或資料庫連線資訊
-- `JWT_SECRET` - JWT 簽章密鑰
-- `PORT` - 後端服務埠號（預設 3000）
-- `GMAIL_USER` - Email 寄件者帳號（選填）
-- `GMAIL_PASS` - Email 寄件者密碼（選填）
-- `FEATURE_*` - Feature Flags 環境變數（選填）
-
-### 3. 資料庫遷移
-
-```bash
-# 確認資料庫連線
-node -e "require('./db').authenticate().then(() => console.log('✅ DB connected')).catch(e => console.error('❌ DB error:', e))"
-
-# 同步資料表（開發環境）
-# 注意：生產環境應使用 migration 腳本
-npm run db:sync  # 如果有的話
+```bat
+pm2 status
+pm2 logs eears-backend --lines 50
 ```
 
-### 4. 前端建置
+開機自啟（系統管理員，執行一次）：
 
-```bash
-cd ../frontend
-npm run build
-# 確認 build 目錄已產生
+```bat
+npm install -g pm2-windows-startup
+pm2-startup install
+pm2 save
 ```
 
-### 5. BasePath 設定
+## 日常上線
 
-```bash
-# 驗證 basePath 設定
-node scripts/verify-basepath.mjs /EEARS
+### A. 完整部署（程式碼已更新到本機目錄後）
+
+```bat
+cd /d D:\EEARS
+scripts\ops\deploy.bat
 ```
 
-## 部署步驟
+流程：`frontend npm ci` → `npm run build` → `robocopy` 同步到 `reservation-backend/build` → `pm2 restart` → 就緒探測 → `npm run post-deploy-check`。
 
-### 1. 備份資料庫
+### B. 只更新前端
 
-```bash
-# 匯出資料庫備份
-mysqldump -u [user] -p [database_name] > backup_$(date +%Y%m%d_%H%M%S).sql
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\ops\deploy.ps1 -FrontendOnly
 ```
 
-### 2. 部署後端
+### C. 只重啟後端（例如改了 `.env`）
 
-```bash
-# 停止現有服務
-pm2 stop eears-backend  # 或使用其他流程管理工具
-
-# 拉取最新程式碼
-git pull origin main
-
-# 安裝依賴
-npm ci --production
-
-# 啟動服務
-pm2 start server.js --name eears-backend
-# 或
-npm start
+```bat
+scripts\ops\restart-backend.bat
 ```
 
-### 3. 部署前端
+### D. 後端依賴也要重裝
 
-```bash
-cd ../frontend
-npm ci --production
-npm run build
-# 將 build 目錄部署到 Web 伺服器
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\ops\deploy.ps1 -InstallBackendDeps
 ```
 
-### 4. 執行部署後檢查
+## 部署前檢查（建議在開發機 / CI 先過）
 
 ```bash
-# 等待服務啟動後（約 10 秒）
-sleep 10
-
-# 執行健康檢查
-npm run post-deploy-check
+cd reservation-backend && npm test -- --runInBand && npm run lint
+cd reservation-frontend && npm test -- --watchAll=false && npm run lint && npm run build
 ```
+
+若有 schema 變更：
+
+```bash
+cd reservation-backend
+npx sequelize-cli db:migrate
+```
+
+**生產環境禁止 `sequelize.sync()`。**
+
+## 環境變數
+
+- 以 `reservation-backend/.env.example` 為準
+- 生產必填：`JWT_SECRET`（≥32）、`CORS_ORIGINS`、`DB_*`
+- 部署腳本**不會**改寫 `.env`
 
 ## 部署後驗證
 
-### 1. API 健康檢查
+腳本已含 `post-deploy-check`。也可手動：
 
 ```bash
-curl http://localhost:3000/api/events
+cd reservation-backend
+npm run post-deploy-check
 ```
 
-### 2. 前端頁面
+人工抽樣：
 
-- 開啟 `http://your-domain/EEARS`
-- 確認頁面正常載入
-- 測試關鍵功能：
-  - 活動列表顯示
-  - 預約流程
-  - Admin 登入
+- [ ] 首頁 / 活動列表
+- [ ] 學生預約（問卷 Gate / 黑名單若適用）
+- [ ] Admin 登入
 
-### 3. 功能驗證清單
+## 回滾
 
-- [ ] 問卷 Gate 功能正常（如啟用）
-- [ ] 黑名單檢查正常
-- [ ] Email 通知正常（如啟用）
-- [ ] 報表排序/搜尋正常
-- [ ] 班級參與概況正常
-- [ ] Excel 匯出正常
-
-### 4. Feature Flags 檢查
-
-```bash
-# 取得所有 Feature Flags
-curl -H "Authorization: Bearer <admin_token>" \
-  http://localhost:3000/api/admin/feature-flags
-```
-
-## 監控與回滾
-
-### 監控指標
-
-1. **錯誤日誌**：檢查 `logs/` 目錄或 PM2 日誌
-2. **API 回應時間**：監控關鍵 API 的延遲
-3. **資料庫連線**：確認資料庫連線穩定
-
-### 回滾步驟
-
-#### 1. 透過 Feature Flags（推薦）
-
-```bash
-# 關閉有問題的功能
-curl -X PUT http://localhost:3000/api/admin/feature-flags/SURVEY_GATE_ENABLED \
-  -H "Authorization: Bearer <admin_token>" \
-  -H "Content-Type: application/json" \
-  -d '{"value": false}'
-```
-
-#### 2. 程式碼回滾
-
-```bash
-# 回退到上一版本
-git checkout <previous-version-tag>
-npm ci --production
-pm2 restart eears-backend
-```
-
-#### 3. 資料庫回滾
-
-```bash
-# 還原資料庫備份
-mysql -u [user] -p [database_name] < backup_YYYYMMDD_HHMMSS.sql
-```
+1. **功能開關**：優先用 Feature Flags 關閉問題功能（見 `FEATURE_FLAGS.md`）
+2. **程式**：還原上一版碼後再跑 `scripts\ops\deploy.bat`
+3. **程序**：`pm2 restart eears-backend`
+4. **資料庫**：還原備份（見 `scripts/backup-db.bat`）；migration `down` 需確認可逆
 
 ## 故障排除
 
-### 常見問題
+| 現象 | 檢查 |
+|------|------|
+| `PM2 is not installed` | 跑 `scripts\ops\setup-pm2.bat` |
+| API 就緒逾時 | `pm2 logs eears-backend`；確認 `.env`、DB、port 3000 |
+| 前端空白 | 確認 `reservation-backend/build/index.html` 存在；IIS proxy |
+| `npm ci` 失敗 | 確認 `package-lock.json` 與 Node 20 |
 
-1. **服務無法啟動**
-   - 檢查環境變數是否正確
-   - 檢查資料庫連線
-   - 檢查埠號是否被占用
+## 相關檔案
 
-2. **API 回應錯誤**
-   - 檢查後端日誌
-   - 確認資料庫連線
-   - 執行 `npm run post-deploy-check`
-
-3. **前端頁面空白**
-   - 檢查 basePath 設定
-   - 確認靜態檔案路徑正確
-   - 檢查瀏覽器 Console 錯誤
-
-4. **測試失敗**
-   - 確認測試資料庫設定
-   - 檢查測試環境變數
-   - 執行 `npm run test:coverage` 查看詳細錯誤
-
-## 相關文件
-
-- [CHANGELOG.md](../CHANGELOG.md)
-- [README_TESTING.md](../README_TESTING.md)
-- [FEATURE_FLAGS.md](./FEATURE_FLAGS.md)
-- [API_SPECIFICATION.md](./API_SPECIFICATION.md)
-
+| 路徑 | 說明 |
+|------|------|
+| `scripts/ops/README.md` | 指令速查 |
+| `scripts/ops/deploy.ps1` | 正式部署 |
+| `scripts/ops/restart-backend.ps1` | 重啟 |
+| `scripts/ops/setup-pm2.ps1` | PM2 註冊 |
+| `reservation-backend/ecosystem.config.cjs` | PM2 定義 |
+| `reservation-backend/scripts/post_deploy_check.mjs` | 部署後檢查 |

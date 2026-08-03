@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import dayjs from 'dayjs';
 import { validateReservationData } from '../utils/validators';
-import { RESERVATION_CUTOFF_HOURS } from '../utils/reservationTime';
+import { RESERVATION_CUTOFF_HOURS } from '../constants/reservationRules';
 import { searchReservations, cancelReservation } from '../services/reservationService';
 import useConfirm from '../components/ui/useConfirm';
 import { formatBookingCode } from '../utils/bookingCode';

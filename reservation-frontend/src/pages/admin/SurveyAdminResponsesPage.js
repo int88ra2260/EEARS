@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useOutletContext, useParams } from 'react-router-dom';
 import Card from 'react-bootstrap/Card';
 import Table from 'react-bootstrap/Table';
@@ -6,6 +6,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
+import { fetchSurveyResponsesBySurveyId } from '../../services/surveyAdminApi';
 
 export default function SurveyAdminResponsesPage() {
   const { surveyId } = useParams();
@@ -17,14 +18,6 @@ export default function SurveyAdminResponsesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const headers = useMemo(
-    () => ({
-      Authorization: `Bearer ${token}`,
-      'X-User-Role': accessProfile.role || 'worker',
-    }),
-    [token, accessProfile.role]
-  );
-
   useEffect(() => {
     if (!token || !canView) {
       setLoading(false);
@@ -34,9 +27,7 @@ export default function SurveyAdminResponsesPage() {
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/admin/surveys/${surveyId}/responses?limit=50`, { headers });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(json.error || json.message || '載入失敗');
+        const json = await fetchSurveyResponsesBySurveyId(token, surveyId, 50);
         if (!cancelled) setData({ rows: json.rows || [], count: json.count });
       } catch (e) {
         if (!cancelled) setError(e.message);
@@ -47,7 +38,7 @@ export default function SurveyAdminResponsesPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, canView, surveyId, headers]);
+  }, [token, canView, surveyId]);
 
   if (!canView) {
     return (

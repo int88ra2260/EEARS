@@ -1,0 +1,273 @@
+/* Magic UI–inspired effects（純 CSS，配合 GSAP 進場） */
+
+.magic-animated-shiny-text {
+  display: inline-block;
+  background-image: linear-gradient(
+    110deg,
+    #787774 0%,
+    #787774 38%,
+    #111111 50%,
+    #787774 62%,
+    #787774 100%
+  );
+  background-size: var(--shiny-width, 220px) 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: magic-shiny-sweep 4.5s ease-in-out infinite;
+}
+
+@keyframes magic-shiny-sweep {
+  0% { background-position: calc(-1 * var(--shiny-width, 220px)) 0; }
+  40%, 100% { background-position: calc(100% + var(--shiny-width, 220px)) 0; }
+}
+
+.magic-blur-in {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(6px);
+  transition:
+    opacity 700ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 700ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.magic-blur-in--visible {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+.magic-shimmer-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.65rem 1.25rem;
+  border-radius: 6px;
+  background: #111111;
+  color: #fff;
+  font-weight: 500;
+  text-decoration: none;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 120ms ease, background-color 200ms ease;
+}
+
+.magic-shimmer-button:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.magic-shimmer-button:active {
+  transform: scale(0.98);
+}
+
+.magic-shimmer-button:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+.magic-shimmer-button__shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.22) 48%,
+    transparent 66%
+  );
+  transform: translateX(-120%);
+  animation: magic-shimmer-pass 3.2s ease-in-out infinite;
+}
+
+.magic-shimmer-button__label {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hero / Header 主 CTA：與首頁大卡同款藍 */
+.magic-shimmer-button--hero {
+  min-height: 48px;
+  padding: 0.7rem 1.75rem;
+  border-radius: 12px;
+  background: #d4564a;
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(212, 86, 74, 0.28);
+}
+
+.magic-shimmer-button--hero:hover {
+  background: #b8453a;
+  color: #fff;
+}
+
+.magic-shimmer-button--hero:focus-visible {
+  outline: 2px solid #b8453a;
+  outline-offset: 3px;
+}
+
+.magic-shimmer-button--hero.magic-shimmer-button--compact {
+  min-height: auto;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(42, 93, 159, 0.24);
+}
+
+.magic-shimmer-button--hero.magic-shimmer-button--nav {
+  min-height: 38px;
+  padding: 0.48rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(212, 86, 74, 0.18);
+}
+
+@keyframes magic-shimmer-pass {
+  0%, 72% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+.home-hero__dot-pattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+/* Hero 主標題：藍 × 暖桃漸層流光（漸層套在 __label，避免子元素繼承 transparent 而消失） */
+.magic-hero-gradient-text {
+  position: relative;
+  display: inline-block;
+}
+
+.magic-hero-gradient-text::after {
+  content: '';
+  position: absolute;
+  inset: -20% -10%;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 65%
+  );
+  opacity: 0.3;
+  mix-blend-mode: soft-light;
+  animation: magic-hero-title-shine 4.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.magic-hero-gradient-text__label {
+  position: relative;
+  z-index: 1;
+  /* 不支援 background-clip:text 時的保底色 */
+  color: #3d2e24;
+  background-image: linear-gradient(
+    105deg,
+    #3d2e24 0%,
+    #b8453a 24%,
+    #d4564a 42%,
+    #c97a45 58%,
+    #b8453a 72%,
+    #3d2e24 100%
+  );
+  background-size: 220% auto;
+  background-position: 0% center;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: magic-hero-gradient-shift 7s ease-in-out infinite;
+}
+
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .magic-hero-gradient-text__label {
+    color: #3d2e24;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+@keyframes magic-hero-gradient-shift {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 100% center; }
+}
+
+@keyframes magic-hero-title-shine {
+  0%, 68% { transform: translateX(-120%); opacity: 0; }
+  78% { opacity: 0.4; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
+
+.magic-border-beam {
+  position: relative;
+  overflow: hidden;
+}
+
+.magic-border-beam::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(17, 17, 17, 0.35),
+    transparent
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: magic-border-spin 5s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes magic-border-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magic-animated-shiny-text,
+  .magic-hero-gradient-text::after,
+  .magic-shimmer-button__shine,
+  .magic-border-beam::before {
+    animation: none;
+  }
+
+  .magic-animated-shiny-text {
+    background: none;
+    color: #787774;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+  }
+
+  .magic-hero-gradient-text__label {
+    color: #3d2e24;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: currentColor;
+    animation: none;
+  }
+
+  .magic-hero-gradient-text::after {
+    display: none;
+  }
+
+  .magic-blur-in {
+    opacity: 1;
+    filter: none;
+    transform: none;
+    transition: none;
+  }
+}

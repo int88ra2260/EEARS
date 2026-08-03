@@ -1,46 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Form, Pagination, Badge, Row, Col, Button } from 'react-bootstrap';
+import { Form, Pagination, Row, Col, Button } from 'react-bootstrap';
 import { useLanguage } from '../context/LanguageContext';
 import useAnnouncements from '../hooks/useAnnouncements';
 import PageHeader from '../components/layout/PageHeader';
-import { announcementDetailPath } from '../services/announcementApi';
+import { announcementDetailPath, truncateAnnouncementPreview } from '../services/announcementApi';
+import StatusBadge from '../components/ui/StatusBadge';
 import './AnnouncementsPage.css';
 import EmptyState from '../components/ui/EmptyState';
 import SkeletonCard from '../components/ui/SkeletonCard';
 import { ANNOUNCEMENT_CATEGORY_LABELS } from '../constants/announcementLabels';
+import { formatDateYMD } from '../utils/announcementFormatters';
 
 const PAGE_SIZE = 20;
 
-/** 依發布月份分組（列表 API 已新→舊排序，分組內順序不變） */
-function groupByYearMonth(items) {
-  const order = [];
-  const map = new Map();
-  for (const item of items) {
-    const raw = item.date || item.publishedAt;
-    const d = raw ? new Date(raw) : null;
-    let key;
-    let label;
-    if (!d || Number.isNaN(d.getTime())) {
-      key = '_other';
-      label = '其他';
-    } else {
-      const y = d.getFullYear();
-      const m = d.getMonth() + 1;
-      key = `${y}-${String(m).padStart(2, '0')}`;
-      label = `${y} 年 ${m} 月`;
-    }
-    if (!map.has(key)) {
-      map.set(key, { key, label, items: [] });
-      order.push(key);
-    }
-    map.get(key).items.push(item);
-  }
-  return order.map((k) => map.get(k));
-}
-
 export default function AnnouncementsPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [qInput, setQInput] = useState('');
   const [catInput, setCatInput] = useState('');
   const [tagInput, setTagInput] = useState('');
@@ -61,22 +36,23 @@ export default function AnnouncementsPage() {
 
   const { items, loading, error, retry, pagination } = useAnnouncements(hookOpts);
 
-  const grouped = useMemo(() => groupByYearMonth(items), [items]);
-
   const breadcrumbs = [
     { label: t('nav.home'), path: '/' },
     { label: t('nav.announcements') },
   ];
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    try {
-      const d = new Date(dateStr);
-      return Number.isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
-    } catch {
-      return dateStr;
+  const categoryLabels = useMemo(() => {
+    if (lang === 'en') {
+      return {
+        general: 'General',
+        activity: 'Activity',
+        policy: 'Policy',
+        system: 'System',
+        emergency: 'Emergency',
+      };
     }
-  };
+    return ANNOUNCEMENT_CATEGORY_LABELS;
+  }, [lang]);
 
   const onApplyFilters = (e) => {
     e?.preventDefault?.();
@@ -98,23 +74,47 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="announcements-page">
-      <PageHeader breadcrumbs={breadcrumbs} title={t('homePage.announcementsTitle')} />
+      <div className="announcements-hero">
+        <div className="container">
+          <PageHeader
+            variant="editorial"
+            breadcrumbs={breadcrumbs}
+            eyebrow={t('nav.announcements')}
+            title={t('homePage.announcementsTitle')}
+            lead={t('announcementsPage.heroLead')}
+          />
+          <div className="announcements-hero-hints" aria-label="公告提示">
+            <div className="announcements-hero-hint-item">
+              <StatusBadge variant="warning" size="md">{t('announcementsPage.hintPinned')}</StatusBadge>
+              <span className="text-muted">{t('announcementsPage.hintPinnedDesc')}</span>
+            </div>
+            <div className="announcements-hero-hint-item">
+              <StatusBadge variant="neutral" size="md">{t('announcementsPage.hintCategory')}</StatusBadge>
+              <span className="text-muted">{t('announcementsPage.hintCategoryDesc')}</span>
+            </div>
+            <div className="announcements-hero-hint-item">
+              <StatusBadge variant="info" size="md">{t('announcementsPage.hintPublished')}</StatusBadge>
+              <span className="text-muted">{t('announcementsPage.hintPublishedDesc')}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <Form className="announcements-toolbar mb-4 p-3 border rounded bg-light" onSubmit={onApplyFilters}>
+      <Form className="announcements-toolbar" onSubmit={onApplyFilters}>
         <Row className="g-2 align-items-end">
           <Col md={4}>
-            <Form.Label className="small mb-1">搜尋</Form.Label>
+            <Form.Label className="small mb-1">{t('announcementsPage.filterSearch')}</Form.Label>
             <Form.Control
               value={qInput}
               onChange={(e) => setQInput(e.target.value)}
-              placeholder="標題、摘要、slug…"
+              placeholder={t('announcementsPage.filterSearchPlaceholder')}
             />
           </Col>
           <Col md={3}>
-            <Form.Label className="small mb-1">分類</Form.Label>
+            <Form.Label className="small mb-1">{t('announcementsPage.filterCategory')}</Form.Label>
             <Form.Select value={catInput} onChange={(e) => setCatInput(e.target.value)}>
-              <option value="">全部分類</option>
-              {Object.entries(ANNOUNCEMENT_CATEGORY_LABELS).map(([k, lab]) => (
+              <option value="">{t('announcementsPage.filterCategoryAll')}</option>
+              {Object.entries(categoryLabels).map(([k, lab]) => (
                 <option key={k} value={k}>
                   {lab}
                 </option>
@@ -122,19 +122,19 @@ export default function AnnouncementsPage() {
             </Form.Select>
           </Col>
           <Col md={3}>
-            <Form.Label className="small mb-1">標籤</Form.Label>
+            <Form.Label className="small mb-1">{t('announcementsPage.filterTag')}</Form.Label>
             <Form.Control
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
-              placeholder="單一標籤關鍵字"
+              placeholder={t('announcementsPage.filterTagPlaceholder')}
             />
           </Col>
           <Col md={2} className="d-flex gap-1">
-            <Button type="submit" variant="primary" size="sm">
-              套用
+            <Button type="submit" variant="dark" size="sm">
+              {t('announcementsPage.filterApply')}
             </Button>
             <Button type="button" variant="outline-secondary" size="sm" onClick={onResetFilters}>
-              重設
+              {t('announcementsPage.filterReset')}
             </Button>
           </Col>
         </Row>
@@ -168,75 +168,77 @@ export default function AnnouncementsPage() {
         />
       )}
       {!loading && !error && items.length > 0 && (
-        <div className="announcements-grouped">
-          {grouped.map((block) => (
-            <section key={block.key} className="announcements-time-block" aria-labelledby={`announcements-block-${block.key}`}>
-              <h2 id={`announcements-block-${block.key}`} className="announcements-time-block-title">
-                {block.label}
-              </h2>
-              <ul className="announcements-list">
-                {block.items.map((item) => (
-                  <li key={item.id}>
-                    <article className="announcement-card">
-                      <div className="d-flex flex-column flex-md-row gap-3">
+        <ul className="announcements-list">
+          {items.map((item) => {
+            const displayCategory = item.category || 'general';
+            const coverAlt = item.coverImageAlt || item.title || t('nav.announcements');
+            return (
+              <li key={item.id}>
+                <Link to={announcementDetailPath(item)} className="announcement-card-link">
+                  <article className="announcement-card">
+                    <div className="d-flex flex-column flex-md-row gap-3 h-100">
+                      <div className="announcement-list-cover flex-shrink-0">
                         {item.coverImage ? (
-                          <Link to={announcementDetailPath(item)} className="announcement-list-cover flex-shrink-0">
-                            <img
-                              src={item.coverImage}
-                              alt={item.coverImageAlt || ''}
-                              className="rounded border"
-                              onError={(e) => {
-                                e.currentTarget.src =
-                                  'data:image/svg+xml,' +
-                                  encodeURIComponent(
-                                    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect fill="#eee" width="100%" height="100%"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#999" font-size="12">圖片</text></svg>'
-                                  );
-                              }}
-                            />
-                          </Link>
-                        ) : null}
-                        <div className="flex-grow-1">
-                          <p className="announcement-meta">
-                            {formatDate(item.date)}{' '}
-                            {item.category ? (
-                              <Badge bg="light" text="dark" className="ms-1">
-                                {ANNOUNCEMENT_CATEGORY_LABELS[item.category] || item.category}
-                              </Badge>
-                            ) : null}
-                            {item.isPinned ? (
-                              <Badge bg="warning" text="dark" className="ms-1">
-                                置頂
-                              </Badge>
-                            ) : null}
-                          </p>
-                          <h2 className="announcement-title">{item.title}</h2>
-                          {item.summary && <p className="announcement-summary">{item.summary}</p>}
-                          {Array.isArray(item.tags) && item.tags.length > 0 ? (
-                            <p className="small text-muted mb-2">
-                              {item.tags.map((tg) => (
-                                <Badge key={tg} bg="secondary" className="me-1 fw-normal">
-                                  {tg}
-                                </Badge>
-                              ))}
-                            </p>
+                          <img
+                            src={item.coverImage}
+                            alt={coverAlt}
+                            className="rounded border announcement-card-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="announcement-card-cover announcement-card-cover--placeholder" aria-hidden="true">
+                            <span className="announcement-card-cover__label">{t('nav.announcements')}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-grow-1 d-flex flex-column">
+                        <p className="announcement-meta">
+                          <span>{formatDateYMD(item.date || item.publishedAt)}</span>
+                          <span className="visually-hidden">發布日期</span>
+                          {displayCategory ? (
+                            <StatusBadge variant="neutral" size="sm" className="ms-1">
+                              {categoryLabels[displayCategory] || displayCategory}
+                            </StatusBadge>
                           ) : null}
-                          <Link to={announcementDetailPath(item)} className="btn btn-sm btn-outline-primary">
+                          {item.isPinned ? (
+                            <StatusBadge variant="warning" size="sm" className="ms-1">
+                              {t('announcementsPage.badgePinned')}
+                            </StatusBadge>
+                          ) : null}
+                        </p>
+
+                        <h2 className="announcement-title" title={item.title}>
+                          {item.title}
+                        </h2>
+
+                        {item.summary ? (
+                          <p className="announcement-summary" title={item.summary}>
+                            {truncateAnnouncementPreview(item.summary, 120)}
+                          </p>
+                        ) : null}
+
+                        <div className="announcement-readmore-row mt-auto">
+                          <span className="announcement-readmore btn btn-sm btn-outline-primary">
                             {t('homePage.readMore')}
-                          </Link>
+                          </span>
                         </div>
                       </div>
-                    </article>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
+                    </div>
+                  </article>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
       {!loading && !error && items.length === 0 && (
         <EmptyState
           icon="🗞️"
           title={t('homePage.noAnnouncements')}
+          description={t('announcementsPage.emptyDescription')}
           actions={
             <>
               <Link to="/" className="btn btn-outline-primary btn-sm">

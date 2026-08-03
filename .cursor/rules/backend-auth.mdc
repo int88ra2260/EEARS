@@ -1,0 +1,36 @@
+---
+description: 權限、角色與存取控制變更指南
+globs: reservation-backend/{auth,middlewares,services/accessControl}/**/*
+alwaysApply: false
+---
+
+# 權限與存取控制
+
+## 架構
+
+- **權限鍵**：`auth/permissions.js` → `P.CAN_*`
+- **角色映射**：`auth/accessProfile.js`（`role` + `teacherLevel`/`staffLevel`）
+- **Scope**：`auth/scopes.js`（`english_table`、`class`、`english_test` 等）
+- **DB 覆寫**：`RolePermission`、`UserPermissionOverride`、`UserScope`
+- **指派限制**：`auth/permissionAssignmentPolicy.js`（非 admin 不可指派系統級權限）
+
+## 新增權限步驟
+
+1. 在 `auth/permissions.js` 加入 `P.NEW_PERMISSION`
+2. 在 `auth/accessProfile.js` 映射到適當角色/層級
+3. 後端路由加 `requirePermission(P.NEW_PERMISSION)`
+4. 前端同步：`constants/permissions.js` + `constants/adminRouteAccess.js` + `adminNavigation.js`
+5. 補測試：`tests/security/*Auth.test.js` 或 `*ScopeGuard.test.js`
+6. 若需 DB 種子：更新 `scripts/seed-role-permissions.js` 並執行 migration（如有）
+
+## 角色一覽
+
+- `admin`：完整權限
+- `teacher`：`regular` / `executive` / `et_manager` 等
+- `office_staff`：`event_lead` / `curriculum_lead` 等
+
+## Stale Token
+
+- `accessVersion` 機制：JWT 與 DB 不一致時回 `ACCESS_PROFILE_STALE`
+- 前端監聽 `eears:access-stale` 事件並導向重新登入
+- 生產環境強制檢查；開發可用 `ACCESS_VERSION_CHECK_ENABLED` 模擬

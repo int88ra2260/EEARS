@@ -1,5 +1,9 @@
 const { SurveyVersion, SurveyResponseAnswer } = require('../models');
 const { applyMappingsToAnswer } = require('./surveyAnswerMappingService');
+const {
+  isSurveyAnswerMetadataKey,
+  resolveSurveyQuestionKeyAlias,
+} = require('./surveyAnswerKeyRegistry');
 
 function asArray(v) {
   if (Array.isArray(v)) return v;
@@ -8,9 +12,39 @@ function asArray(v) {
 }
 
 async function normalizeAnswerItem(raw, schemaQuestions = [], surveyId = null, surveyVersionId = null) {
+  const sourceKey = raw.questionKey;
+  if (isSurveyAnswerMetadataKey(sourceKey)) {
+    return {
+      questionKey: sourceKey,
+      mappedQuestionKey: sourceKey,
+      questionTitle: sourceKey,
+      questionType: 'metadata',
+      rawAnswer: {
+        answerText: raw.answerText,
+        answerJson: raw.answerJson,
+        scoreValue: raw.scoreValue,
+      },
+      normalizedAnswer: raw.answerText ?? raw.answerJson ?? raw.scoreValue,
+      displayAnswer:
+        raw.answerText != null && raw.answerText !== ''
+          ? String(raw.answerText)
+          : raw.scoreValue != null
+            ? String(raw.scoreValue)
+            : '-',
+      hasSchemaMatch: true,
+      isMetadataField: true,
+      warningCode: null,
+      warningMessage: null,
+      appliedMappingId: null,
+    };
+  }
+
   const mapped = await applyMappingsToAnswer(raw, surveyId, surveyVersionId);
-  const effectiveQuestionKey = mapped.mapped ? mapped.questionKey : raw.questionKey;
-  const q = schemaQuestions.find((x) => x.id === effectiveQuestionKey);
+  const aliasedKey = resolveSurveyQuestionKeyAlias(mapped.mapped ? mapped.questionKey : raw.questionKey);
+  const effectiveQuestionKey = mapped.mapped ? mapped.questionKey : aliasedKey;
+  const q =
+    schemaQuestions.find((x) => x.id === effectiveQuestionKey) ||
+    schemaQuestions.find((x) => x.id === aliasedKey);
   const hasSchemaMatch = !!q;
   const questionType = raw.questionType || q?.type || 'unknown';
 
@@ -55,7 +89,8 @@ async function buildResponseDisplayModel({ response, schemaJson, rawAnswers, sou
     // eslint-disable-next-line no-await-in-loop
     normalizedAnswers.push(await normalizeAnswerItem(a, schemaQuestions, response.surveyId, response.surveyVersionId));
   }
-  const unmatchedAnswerCount = normalizedAnswers.filter((a) => !a.hasSchemaMatch).length;
+  const questionAnswers = normalizedAnswers.filter((a) => !a.isMetadataField);
+  const unmatchedAnswerCount = questionAnswers.filter((a) => !a.hasSchemaMatch).length;
   const warnings = [];
   if (!response.semesterId) warnings.push({ code: 'MISSING_SEMESTER', message: '此回覆缺少 semester linkage' });
   if (!response.surveyVersionId) warnings.push({ code: 'MISSING_VERSION', message: '此回覆缺少 surveyVersion linkage' });
@@ -68,8 +103,9 @@ async function buildResponseDisplayModel({ response, schemaJson, rawAnswers, sou
     dataIntegrity: {
       hasSemester: !!response.semesterId,
       hasVersion: !!response.surveyVersionId,
-      schemaMatchedCount: normalizedAnswers.length - unmatchedAnswerCount,
+      schemaMatchedCount: questionAnswers.length - unmatchedAnswerCount,
       unmatchedAnswerCount,
+      metadataFieldCount: normalizedAnswers.length - questionAnswers.length,
       normalizedWithFallback: !schemaQuestions.length || unmatchedAnswerCount > 0,
       sourceOfSemesterInference: sourceOfSemesterInference || null,
       sourceOfVersionInference: sourceOfVersionInference || null,
@@ -83,14 +119,16 @@ async function normalizeSurveyResponseAnswers(response) {
   let rawAnswers = await SurveyResponseAnswer.findAll({ where: { responseId: response.id }, raw: true });
 
   if (!rawAnswers.length && response.answersJson && typeof response.answersJson === 'object') {
-    rawAnswers = Object.entries(response.answersJson).map(([questionKey, value]) => ({
-      responseId: response.id,
-      questionKey,
-      questionType: Array.isArray(value) ? 'checkbox' : typeof value === 'number' ? 'likert' : 'text',
-      answerText: Array.isArray(value) || (value && typeof value === 'object') ? null : String(value ?? ''),
-      answerJson: Array.isArray(value) || (value && typeof value === 'object') ? value : null,
-      scoreValue: typeof value === 'number' ? value : null,
-    }));
+    rawAnswers = Object.entries(response.answersJson)
+      .filter(([questionKey]) => !isSurveyAnswerMetadataKey(questionKey))
+      .map(([questionKey, value]) => ({
+        responseId: response.id,
+        questionKey: resolveSurveyQuestionKeyAlias(questionKey),
+        questionType: Array.isArray(value) ? 'checkbox' : typeof value === 'number' ? 'likert' : 'text',
+        answerText: Array.isArray(value) || (value && typeof value === 'object') ? null : String(value ?? ''),
+        answerJson: Array.isArray(value) || (value && typeof value === 'object') ? value : null,
+        scoreValue: typeof value === 'number' ? value : null,
+      }));
   }
 
   const sourceOfSemesterInference = response?.metadataJson?.sourceOfSemesterInference;

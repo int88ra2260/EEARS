@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import Card from 'react-bootstrap/Card';
 import Table from 'react-bootstrap/Table';
@@ -8,8 +8,24 @@ import Modal from 'react-bootstrap/Modal';
 import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
 import Pagination from 'react-bootstrap/Pagination';
-import Badge from 'react-bootstrap/Badge';
+import Nav from 'react-bootstrap/Nav';
+import StatusBadge from '../../components/ui/StatusBadge';
+import { surveySubmissionStatusToVariant } from '../../utils/statusBadgeUtils';
 import useToast from '../../components/ui/useToast';
+import { displayStudentEmail } from '../../utils/piiMask';
+import AdminSurveyGateGapsPanel, {
+  buildSurveyGateGapsQueryParams,
+  canQuerySurveyGateGaps,
+} from '../../components/admin/surveys/AdminSurveyGateGapsPanel';
+import AdminSurveyResponseStatsPanel from '../../components/admin/surveys/AdminSurveyResponseStatsPanel';
+import {
+  downloadBlob,
+  exportSurveyGateGapsXlsx,
+  fetchSurveyCenterOptions,
+  fetchSurveyResponseById,
+  fetchSurveyResponses,
+  fetchSurveyResponsesExport,
+} from '../../services/surveyAdminApi';
 
 function renderAnswerValue(a) {
   if (a.answerText) return a.answerText;
@@ -23,7 +39,6 @@ export default function AdminSurveyResponsesPage() {
   const toast = useToast();
   const { token } = useOutletContext();
   const params = useParams();
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const [options, setOptions] = useState({ semesters: [], surveys: [], versions: [], events: [] });
   const [filters, setFilters] = useState({
@@ -34,6 +49,7 @@ export default function AdminSurveyResponsesPage() {
     eventId: '',
     studentId: '',
     studentName: '',
+    studentEmail: '',
     submissionStatus: '',
     startDate: '',
     endDate: '',
@@ -45,20 +61,23 @@ export default function AdminSurveyResponsesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [detail, setDetail] = useState({ show: false, loading: false, data: null });
+  const [activeTab, setActiveTab] = useState('responses');
+  const [gapReloadToken, setGapReloadToken] = useState(0);
+  const [statsReloadToken, setStatsReloadToken] = useState(0);
+  const [gapExporting, setGapExporting] = useState(false);
+  const [responseExporting, setResponseExporting] = useState(false);
 
-  const loadOptions = async () => {
-    const res = await fetch('/api/admin/survey-center/meta/options', { headers });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || '載入選項失敗');
+  const loadOptions = useCallback(async () => {
+    const data = await fetchSurveyCenterOptions(token);
     setOptions({
       semesters: data.semesters || [],
       surveys: data.surveys || [],
       versions: data.versions || [],
       events: data.events || [],
     });
-  };
+  }, [token]);
 
-  const loadList = async (page = pagination.page) => {
+  const loadList = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setError('');
@@ -68,9 +87,7 @@ export default function AdminSurveyResponsesPage() {
         ...sort,
         ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null)),
       });
-      const res = await fetch(`/api/admin/survey-responses?${q.toString()}`, { headers });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || '載入失敗');
+      const data = await fetchSurveyResponses(token, q);
       setRows(data.rows || []);
       setSummary(data.summary || null);
       setPagination((p) => ({ ...p, ...(data.pagination || {}), page }));
@@ -79,22 +96,21 @@ export default function AdminSurveyResponsesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, pagination.pageSize, sort, token]);
 
   useEffect(() => {
     loadOptions().catch((e) => toast.danger(e.message || '載入選項失敗'));
-  }, []);
+  }, [loadOptions, toast]);
 
   useEffect(() => {
+    if (activeTab !== 'responses') return;
     loadList(1);
-  }, [filters.semesterId, filters.surveyId, filters.versionId, filters.activityType, filters.eventId, filters.submissionStatus, sort.sortBy, sort.sortOrder]);
+  }, [activeTab, loadList]);
 
   const openDetail = async (id) => {
     setDetail({ show: true, loading: true, data: null });
     try {
-      const res = await fetch(`/api/admin/survey-responses/${id}`, { headers });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || '載入詳情失敗');
+      const data = await fetchSurveyResponseById(token, id);
       setDetail({ show: true, loading: false, data });
     } catch (e) {
       setDetail({ show: true, loading: false, data: null });
@@ -102,23 +118,83 @@ export default function AdminSurveyResponsesPage() {
     }
   };
 
-  const exportXlsx = async () => {
-    const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null)));
-    const url = `/api/admin/survey-responses/export/xlsx?${q.toString()}`;
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      toast.danger(data.message || '匯出失敗');
+  const handleSearch = () => {
+    if (activeTab === 'responses') {
+      loadList(1);
       return;
     }
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `survey-responses-${Date.now()}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    URL.revokeObjectURL(a.href);
-    a.remove();
+    if (activeTab === 'stats') {
+      setStatsReloadToken((n) => n + 1);
+      return;
+    }
+    if (!canQuerySurveyGateGaps(filters)) {
+      toast.info('請先選擇學期與活動類型 ET 或 EC');
+      return;
+    }
+    setGapReloadToken((n) => n + 1);
+  };
+
+  const buildExportFilename = () => {
+    const survey = options.surveys.find((s) => String(s.id) === String(filters.surveyId));
+    const semester = options.semesters.find((s) => String(s.id) === String(filters.semesterId));
+    let name = 'survey-responses';
+    if (semester?.code) name += `_${semester.code}`;
+    if (survey?.surveyKey) name += `_${survey.surveyKey}`;
+    else if (survey?.title) name += `_${String(survey.title).replace(/\s+/g, '_').slice(0, 24)}`;
+    return `${name}.xlsx`;
+  };
+
+  const exportXlsx = async () => {
+    const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null)));
+    setResponseExporting(true);
+    try {
+      const blob = await fetchSurveyResponsesExport(token, q);
+      if (!blob.size) {
+        toast.info('目前篩選條件下沒有可匯出的資料');
+        return;
+      }
+      downloadBlob(blob, buildExportFilename());
+      toast.success('填答紀錄已匯出');
+    } catch (e) {
+      if (e.status === 403) {
+        toast.danger('您沒有匯出問卷填答紀錄的權限');
+        return;
+      }
+      toast.danger(e.message || '匯出失敗');
+    } finally {
+      setResponseExporting(false);
+    }
+  };
+
+  const exportGapXlsx = async () => {
+    if (!canQuerySurveyGateGaps(filters)) {
+      toast.info('請先選擇學期與活動類型 ET 或 EC');
+      return;
+    }
+    const q = buildSurveyGateGapsQueryParams(filters);
+    if (!q) return;
+
+    setGapExporting(true);
+    try {
+      const blob = await exportSurveyGateGapsXlsx(token, q);
+      const semesterCode = options.semesters.find(
+        (s) => String(s.id) === String(filters.semesterId)
+      )?.code;
+      let filename = `survey-gate-gaps_${filters.activityType}`;
+      if (semesterCode) filename += `_${semesterCode}`;
+      filename += '.xlsx';
+
+      downloadBlob(blob, filename);
+      toast.success('預約缺口已匯出');
+    } catch (e) {
+      if (e.status === 403) {
+        toast.danger('您沒有匯出預約缺口資料的權限');
+        return;
+      }
+      toast.danger(e.message || '匯出預約缺口失敗');
+    } finally {
+      setGapExporting(false);
+    }
   };
 
   return (
@@ -128,16 +204,33 @@ export default function AdminSurveyResponsesPage() {
           <h2 className="h4 text-primary mb-1">填答紀錄</h2>
           <div className="text-muted small">查詢、檢視與匯出各學期活動問卷回覆</div>
         </div>
-        <Button onClick={exportXlsx}>匯出 Excel</Button>
-      </div>
-
-      <div className="row g-2 mb-3">
-        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">總回覆</div><div className="h5 mb-0">{summary?.totalResponses ?? '-'}</div></Card.Body></Card></div>
-        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">完成數</div><div className="h5 mb-0">{summary?.completedResponses ?? '-'}</div></Card.Body></Card></div>
-        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">未完成/部分</div><div className="h5 mb-0">{summary?.partialResponses ?? '-'}</div></Card.Body></Card></div>
-        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">涵蓋問卷</div><div className="h5 mb-0">{summary?.distinctSurveyCount ?? '-'}</div></Card.Body></Card></div>
-        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">涵蓋活動</div><div className="h5 mb-0">{summary?.distinctEventCount ?? '-'}</div></Card.Body></Card></div>
-        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">涵蓋學期</div><div className="h5 mb-0">{summary?.distinctSemesterCount ?? '-'}</div></Card.Body></Card></div>
+        {activeTab === 'gaps' ? (
+          <Button
+            variant="primary"
+            onClick={exportGapXlsx}
+            disabled={gapExporting || !canQuerySurveyGateGaps(filters)}
+          >
+            {gapExporting ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                匯出中…
+              </>
+            ) : (
+              '匯出 Excel'
+            )}
+          </Button>
+        ) : (
+          <Button variant="primary" onClick={exportXlsx} disabled={responseExporting}>
+            {responseExporting ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                匯出中…
+              </>
+            ) : (
+              '匯出 Excel'
+            )}
+          </Button>
+        )}
       </div>
 
       <Card className="border-0 shadow-sm mb-3">
@@ -150,17 +243,47 @@ export default function AdminSurveyResponsesPage() {
           <div className="col-md-2"><Form.Select value={filters.submissionStatus} onChange={(e) => setFilters((f) => ({ ...f, submissionStatus: e.target.value }))}><option value="">狀態</option><option value="submitted">submitted</option><option value="draft">draft</option></Form.Select></div>
           <div className="col-md-2"><Form.Control placeholder="學號" value={filters.studentId} onChange={(e) => setFilters((f) => ({ ...f, studentId: e.target.value }))} /></div>
           <div className="col-md-2"><Form.Control placeholder="姓名" value={filters.studentName} onChange={(e) => setFilters((f) => ({ ...f, studentName: e.target.value }))} /></div>
+          <div className="col-md-2"><Form.Control placeholder="Email" value={filters.studentEmail} onChange={(e) => setFilters((f) => ({ ...f, studentEmail: e.target.value }))} /></div>
           <div className="col-md-2"><Form.Control type="date" value={filters.startDate} onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))} /></div>
           <div className="col-md-2"><Form.Control type="date" value={filters.endDate} onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))} /></div>
           <div className="col-md-4 d-flex gap-2">
-            <Button variant="outline-primary" onClick={() => loadList(1)}>查詢</Button>
+            <Button variant="outline-primary" onClick={handleSearch}>查詢</Button>
             <Button variant="outline-secondary" onClick={() => {
-              setFilters({ semesterId: '', surveyId: '', versionId: '', activityType: '', eventId: '', studentId: '', studentName: '', submissionStatus: '', startDate: '', endDate: '' });
+              setFilters({ semesterId: '', surveyId: '', versionId: '', activityType: '', eventId: '', studentId: '', studentName: '', studentEmail: '', submissionStatus: '', startDate: '', endDate: '' });
               setSort({ sortBy: 'submittedAt', sortOrder: 'DESC' });
             }}>重設</Button>
           </div>
         </Card.Body>
       </Card>
+
+      <Nav variant="tabs" className="mb-3">
+        <Nav.Item>
+          <Nav.Link active={activeTab === 'responses'} onClick={() => setActiveTab('responses')}>
+            填答紀錄
+          </Nav.Link>
+        </Nav.Item>
+        <Nav.Item>
+          <Nav.Link active={activeTab === 'stats'} onClick={() => setActiveTab('stats')}>
+            基本統計
+          </Nav.Link>
+        </Nav.Item>
+        <Nav.Item>
+          <Nav.Link active={activeTab === 'gaps'} onClick={() => setActiveTab('gaps')}>
+            預約缺口
+          </Nav.Link>
+        </Nav.Item>
+      </Nav>
+
+      {activeTab === 'responses' ? (
+      <>
+      <div className="row g-2 mb-3">
+        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">總回覆</div><div className="h5 mb-0">{summary?.totalResponses ?? '-'}</div></Card.Body></Card></div>
+        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">完成數</div><div className="h5 mb-0">{summary?.completedResponses ?? '-'}</div></Card.Body></Card></div>
+        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">未完成/部分</div><div className="h5 mb-0">{summary?.partialResponses ?? '-'}</div></Card.Body></Card></div>
+        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">涵蓋問卷</div><div className="h5 mb-0">{summary?.distinctSurveyCount ?? '-'}</div></Card.Body></Card></div>
+        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">涵蓋活動</div><div className="h5 mb-0">{summary?.distinctEventCount ?? '-'}</div></Card.Body></Card></div>
+        <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">涵蓋學期</div><div className="h5 mb-0">{summary?.distinctSemesterCount ?? '-'}</div></Card.Body></Card></div>
+      </div>
 
       <Card className="border-0 shadow-sm">
         <Card.Body>
@@ -179,6 +302,7 @@ export default function AdminSurveyResponsesPage() {
                     <th>event</th>
                     <th onClick={() => setSort((s) => ({ sortBy: 'studentId', sortOrder: s.sortOrder === 'ASC' ? 'DESC' : 'ASC' }))}>studentId</th>
                     <th onClick={() => setSort((s) => ({ sortBy: 'studentName', sortOrder: s.sortOrder === 'ASC' ? 'DESC' : 'ASC' }))}>studentName</th>
+                    <th>studentEmail</th>
                     <th onClick={() => setSort((s) => ({ sortBy: 'submissionStatus', sortOrder: s.sortOrder === 'ASC' ? 'DESC' : 'ASC' }))}>status</th>
                     <th onClick={() => setSort((s) => ({ sortBy: 'submittedAt', sortOrder: s.sortOrder === 'ASC' ? 'DESC' : 'ASC' }))}>submittedAt</th>
                     <th>source</th>
@@ -197,7 +321,12 @@ export default function AdminSurveyResponsesPage() {
                       <td>{r.eventId || '-'}</td>
                       <td>{r.studentId || '-'}</td>
                       <td>{r.studentName || '-'}</td>
-                      <td><Badge bg={r.submissionStatus === 'submitted' ? 'success' : 'secondary'}>{r.submissionStatus || '-'}</Badge></td>
+                      <td className="small text-break">{displayStudentEmail(r)}</td>
+                      <td>
+                        <StatusBadge variant={surveySubmissionStatusToVariant(r.submissionStatus)} size="sm">
+                          {r.submissionStatus || '-'}
+                        </StatusBadge>
+                      </td>
                       <td className="small text-nowrap">{r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '-'}</td>
                       <td>{r.source || '-'}</td>
                       <td>{r.answersCount || 0}</td>
@@ -215,6 +344,32 @@ export default function AdminSurveyResponsesPage() {
           </Pagination>
         </Card.Body>
       </Card>
+      </>
+      ) : activeTab === 'stats' ? (
+        <Card className="border-0 shadow-sm">
+          <Card.Body>
+            <p className="text-muted small mb-3">
+              統計依上方篩選條件計算（建議選擇學期與問卷）。年級分布已將 English Club 年級選項歸併為一年級／二年級／高年級三類。
+            </p>
+            <AdminSurveyResponseStatsPanel
+              filters={filters}
+              token={token}
+              reloadToken={statsReloadToken}
+            />
+          </Card.Body>
+        </Card>
+      ) : (
+        <Card className="border-0 shadow-sm">
+          <Card.Body>
+            <AdminSurveyGateGapsPanel
+              filters={filters}
+              token={token}
+              reloadToken={gapReloadToken}
+              pageSize={pagination.pageSize}
+            />
+          </Card.Body>
+        </Card>
+      )}
 
       <Modal show={detail.show} onHide={() => setDetail({ show: false, loading: false, data: null })} centered size="lg">
         <Modal.Header closeButton><Modal.Title>填答詳情</Modal.Title></Modal.Header>
@@ -224,6 +379,11 @@ export default function AdminSurveyResponsesPage() {
             <>
               <div className="small text-muted mb-2">
                 response #{detail.data.response?.id} / surveyVersion {detail.data.response?.surveyVersionId || '-'} / source {detail.data.response?.source || '-'}
+              </div>
+              <div className="small mb-3">
+                <span className="me-3">學號：{detail.data.response?.studentId || '-'}</span>
+                <span className="me-3">姓名：{detail.data.response?.studentName || '-'}</span>
+                <span>Email：{displayStudentEmail(detail.data.response)}</span>
               </div>
               <Card className="mb-2 border-0 shadow-sm">
                 <Card.Body className="small">
@@ -255,7 +415,9 @@ export default function AdminSurveyResponsesPage() {
                       <td>{a.questionType || '-'}</td>
                       <td style={{ whiteSpace: 'pre-wrap' }}>
                         {a.displayAnswer || renderAnswerValue(a)}
-                        {!a.hasSchemaMatch ? <Badge bg="warning" className="ms-2">schema mismatch</Badge> : null}
+                        {!a.hasSchemaMatch ? (
+                          <StatusBadge variant="warning" size="sm" className="ms-2">schema mismatch</StatusBadge>
+                        ) : null}
                       </td>
                     </tr>
                   ))}

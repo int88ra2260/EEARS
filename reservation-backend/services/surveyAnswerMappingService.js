@@ -119,6 +119,62 @@ async function generateProposals({ surveyId, surveyVersionId }) {
   return proposals;
 }
 
+/**
+ * 建立／核准標準舊版欄位 → schema 題號對照（全系統或指定問卷）
+ */
+async function bootstrapStandardAnswerMappings({ surveyId = null, userId = null, dryRun = true } = {}) {
+  const created = [];
+  const skipped = [];
+
+  const canonicalSources = [
+    { sourceQuestionKey: 'interviewEmail', targetQuestionKey: 'interview_email' },
+    { sourceQuestionKey: 'timesThisSemester', targetQuestionKey: 'times_this_semester' },
+    { sourceQuestionKey: 'reasonAttend', targetQuestionKey: 'reason_attend' },
+    { sourceQuestionKey: 'informationChannel', targetQuestionKey: 'information_channel' },
+    { sourceQuestionKey: 'abilityImproved', targetQuestionKey: 'ability_improved' },
+    { sourceQuestionKey: 'abilityDescription', targetQuestionKey: 'ability_description' },
+    { sourceQuestionKey: 'otherComments', targetQuestionKey: 'other_comments' },
+  ];
+
+  for (const row of canonicalSources) {
+    const where = {
+      sourceQuestionKey: row.sourceQuestionKey,
+      targetQuestionKey: row.targetQuestionKey,
+      ...(surveyId ? { surveyId } : {}),
+    };
+    const existing = await SurveyAnswerMapping.findOne({ where });
+    if (existing) {
+      skipped.push({ ...row, id: existing.id, status: existing.status });
+      if (!dryRun && existing.status !== 'approved') {
+        await approveMapping(existing.id, userId);
+        created.push({ ...row, id: existing.id, action: 'approved_existing' });
+      }
+      continue;
+    }
+    if (dryRun) {
+      created.push({ ...row, action: 'would_create' });
+      continue;
+    }
+    const mapping = await createMapping(
+      {
+        surveyId: surveyId || null,
+        surveyVersionId: null,
+        ...row,
+        mappingType: 'deprecated_key_alias',
+        confidenceScore: 0.99,
+        status: 'approved',
+        isApproved: true,
+        notes: 'Bootstrap standard alias mapping',
+      },
+      userId
+    );
+    await approveMapping(mapping.id, userId);
+    created.push({ ...row, id: mapping.id, action: 'created' });
+  }
+
+  return { dryRun, surveyId, created, skipped };
+}
+
 module.exports = {
   listMappings,
   createMapping,
@@ -127,4 +183,5 @@ module.exports = {
   rejectMapping,
   applyMappingsToAnswer,
   generateProposals,
+  bootstrapStandardAnswerMappings,
 };

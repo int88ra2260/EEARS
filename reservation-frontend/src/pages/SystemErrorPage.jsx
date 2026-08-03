@@ -38,7 +38,7 @@ export default function SystemErrorPage({ requestId = null }) {
         >
           重新整理
         </Button>
-        <Link to="/contact" className="btn btn-outline-primary">
+        <Link to="/about#contact" className="btn btn-outline-primary">
           聯絡我們
         </Link>
         <Link

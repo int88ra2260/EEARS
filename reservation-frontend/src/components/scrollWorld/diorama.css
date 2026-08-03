@@ -1,0 +1,367 @@
+/* Shared CSS diorama islands */
+.swt-diorama {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.swt-diorama__ground {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 78%;
+  height: 28%;
+  transform: translateX(-50%) rotateX(58deg) rotateZ(-45deg);
+  transform-origin: center center;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--swt-scene-accent) 18%, #e8dfd0),
+    color-mix(in srgb, var(--swt-scene-accent) 8%, #f0e8dc)
+  );
+  border-radius: 12px;
+  box-shadow: 0 24px 48px color-mix(in srgb, var(--swt-scene-accent) 25%, transparent);
+}
+
+.swt-diorama__content {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.swt-diorama__shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  width: 55%;
+  height: 8%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse, rgba(36, 29, 43, 0.22), transparent 70%);
+  filter: blur(8px);
+}
+
+.swt-iso {
+  position: absolute;
+  transform-style: preserve-3d;
+}
+
+/* 瘣餃? ??? */
+.swt-iso--stage {
+  left: 50%;
+  bottom: 32%;
+  width: 220px;
+  height: 140px;
+  transform: translateX(-50%) rotateX(58deg) rotateZ(-45deg);
+}
+
+.swt-iso__roof {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 28px;
+  background: color-mix(in srgb, var(--swt-scene-accent) 75%, #fff);
+  border-radius: 6px 6px 0 0;
+}
+
+.swt-iso__roof--green {
+  background: color-mix(in srgb, var(--swt-scene-accent) 70%, #a8d5c8);
+}
+
+.swt-iso__roof--blue {
+  background: color-mix(in srgb, var(--swt-scene-accent) 70%, #b8c4e8);
+}
+
+.swt-iso__wall {
+  position: absolute;
+  background: color-mix(in srgb, var(--swt-scene-accent) 12%, #fffefb);
+  border: 2px solid color-mix(in srgb, var(--swt-scene-accent) 25%, transparent);
+}
+
+.swt-iso__wall--front {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 88px;
+  border-radius: 0 0 8px 8px;
+}
+
+.swt-iso__wall--side {
+  right: -36px;
+  bottom: 0;
+  width: 36px;
+  height: 88px;
+  transform: skewY(-35deg);
+  transform-origin: left bottom;
+  background: color-mix(in srgb, var(--swt-scene-accent) 20%, #ebe3d6);
+}
+
+.swt-iso__screen {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 56%;
+  height: 38%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #2a2430, #4a4058);
+  border-radius: 4px;
+  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.15);
+}
+
+.swt-iso--seat {
+  width: 18px;
+  height: 14px;
+  background: color-mix(in srgb, var(--swt-scene-accent) 45%, #fff);
+  border-radius: 3px;
+  transform: rotateX(58deg) rotateZ(-45deg);
+}
+
+.swt-iso--seat-1 {
+  left: 28%;
+  bottom: 22%;
+}
+
+.swt-iso--seat-2 {
+  left: 42%;
+  bottom: 18%;
+}
+
+.swt-iso--seat-3 {
+  left: 56%;
+  bottom: 22%;
+}
+
+.swt-iso--banner {
+  left: 62%;
+  bottom: 48%;
+  padding: 6px 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--swt-scene-accent);
+  border-radius: 999px;
+  transform: rotate(-8deg);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--swt-scene-accent) 40%, transparent);
+}
+
+/* 隤脣? ???飛璅?*/
+.swt-iso--building {
+  left: 50%;
+  bottom: 30%;
+  width: 200px;
+  height: 150px;
+  transform: translateX(-50%) rotateX(58deg) rotateZ(-45deg);
+}
+
+.swt-iso__window {
+  position: absolute;
+  width: 22%;
+  height: 18%;
+  background: color-mix(in srgb, var(--swt-scene-accent) 30%, #dce8f4);
+  border-radius: 2px;
+}
+
+.swt-iso__window--1 {
+  left: 18%;
+  top: 42%;
+}
+
+.swt-iso__window--2 {
+  right: 22%;
+  top: 42%;
+}
+
+.swt-iso--desk {
+  left: 34%;
+  bottom: 20%;
+  width: 48px;
+  height: 28px;
+  background: #c4a882;
+  border-radius: 4px;
+  transform: rotateX(58deg) rotateZ(-45deg);
+  box-shadow: 0 6px 0 #9a7858;
+}
+
+.swt-iso--chart {
+  left: 58%;
+  bottom: 38%;
+  width: 36px;
+  height: 48px;
+  background: linear-gradient(180deg, #fff 60%, color-mix(in srgb, var(--swt-scene-accent) 20%, #fff));
+  border-radius: 4px;
+  transform: rotate(-6deg);
+  border: 2px solid color-mix(in srgb, var(--swt-scene-accent) 30%, transparent);
+}
+
+.swt-iso--flag {
+  left: 66%;
+  bottom: 52%;
+  padding: 5px 10px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--swt-scene-accent);
+  border-radius: 4px 4px 4px 0;
+}
+
+/* 摮貊? ???擗?*/
+.swt-iso--library {
+  left: 50%;
+  bottom: 28%;
+  width: 240px;
+  height: 160px;
+  transform: translateX(-50%) rotateX(58deg) rotateZ(-45deg);
+}
+
+.swt-iso__shelf {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  height: 8px;
+  background: #8b6914;
+  border-radius: 2px;
+}
+
+.swt-iso__shelf--1 {
+  top: 48%;
+}
+
+.swt-iso__shelf--2 {
+  top: 58%;
+}
+
+.swt-iso__shelf--3 {
+  top: 68%;
+}
+
+.swt-iso--book-stack {
+  left: 38%;
+  bottom: 18%;
+  width: 32px;
+  height: 24px;
+  background: linear-gradient(90deg, #c44, #48a, #4a8, #ca4);
+  border-radius: 2px;
+  transform: rotateX(58deg) rotateZ(-45deg);
+}
+
+.swt-iso--lamp {
+  left: 52%;
+  bottom: 42%;
+  width: 8px;
+  height: 40px;
+  background: #666;
+  border-radius: 4px;
+}
+
+.swt-iso--lamp::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  width: 24px;
+  height: 16px;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--swt-scene-accent) 40%, #ffe8a0);
+  border-radius: 50% 50% 4px 4px;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--swt-scene-accent) 50%, #ffe8a0);
+}
+
+.swt-iso--passport {
+  left: 64%;
+  bottom: 46%;
+  padding: 6px 10px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--swt-scene-accent);
+  background: #fff;
+  border: 2px solid var(--swt-scene-accent);
+  border-radius: 4px;
+  transform: rotate(12deg);
+}
+
+/* ?嗡? ??撱? */
+.swt-iso--plaza {
+  left: 50%;
+  bottom: 26%;
+  width: 260px;
+  height: 120px;
+  transform: translateX(-50%) rotateX(58deg) rotateZ(-45deg);
+}
+
+.swt-iso__floor {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #e8e0d4, #f2ebe0);
+  border-radius: 16px;
+  border: 2px solid color-mix(in srgb, var(--swt-scene-accent) 20%, transparent);
+}
+
+.swt-iso__pillar {
+  position: absolute;
+  bottom: 20%;
+  width: 14px;
+  height: 48px;
+  background: color-mix(in srgb, var(--swt-scene-accent) 15%, #fff);
+  border-radius: 4px;
+}
+
+.swt-iso__pillar--1 {
+  left: 22%;
+}
+
+.swt-iso__pillar--2 {
+  right: 22%;
+}
+
+.swt-iso__fountain {
+  position: absolute;
+  left: 50%;
+  bottom: 28%;
+  width: 40px;
+  height: 40px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, #8ecae6, #219ebc);
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(33, 158, 188, 0.4);
+}
+
+.swt-iso--kiosk {
+  left: 30%;
+  bottom: 34%;
+  width: 36px;
+  height: 52px;
+  background: var(--swt-scene-accent);
+  border-radius: 6px 6px 2px 2px;
+  transform: rotateX(58deg) rotateZ(-45deg);
+}
+
+.swt-iso--tree {
+  width: 0;
+  height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-bottom: 28px solid #5a9a6e;
+}
+
+.swt-iso--tree-1 {
+  left: 48%;
+  bottom: 38%;
+}
+
+.swt-iso--tree-2 {
+  left: 68%;
+  bottom: 32%;
+}
+
+.swt-iso--sign {
+  left: 58%;
+  bottom: 50%;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #fff;
+  background: var(--swt-scene-accent);
+  border-radius: 8px;
+  transform: rotate(-4deg);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--swt-scene-accent) 35%, transparent);
+}

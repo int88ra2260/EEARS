@@ -16,6 +16,8 @@ const ClassMembership = require('./ClassMembership');
 const Teacher = require('./Teacher');
 const ClassTeacher = require('./ClassTeacher');
 const EnglishTestRegistration = require('./EnglishTestRegistration');
+const EnglishTestEmailVerification = require('./EnglishTestEmailVerification');
+const EnglishTestFormSchema = require('./EnglishTestFormSchema');
 const LearningPartnerTeam = require('./LearningPartnerTeam');
 const LearningPartnerTeamMember = require('./LearningPartnerTeamMember');
 const BestepAttendance = require('./BestepAttendance');
@@ -34,6 +36,16 @@ const EtSemesterStudentBestSkill = require('./EtSemesterStudentBestSkill');
 const EtAttemptImportHistory = require('./EtAttemptImportHistory');
 const Announcement = require('./Announcement');
 const AnnouncementRevision = require('./AnnouncementRevision');
+const WeeklyReport = require('./WeeklyReport');
+const WeeklyMedia = require('./WeeklyMedia');
+const WeeklyInteractionEvent = require('./WeeklyInteractionEvent');
+const SiteContentEntry = require('./SiteContentEntry');
+const LearningResourceSite = require('./LearningResourceSite');
+const LearningResourceMiniGame = require('./LearningResourceMiniGame');
+const LearningResourceGuide = require('./LearningResourceGuide');
+const RegulationsFormsGroup = require('./RegulationsFormsGroup');
+const RegulationsFormsItem = require('./RegulationsFormsItem');
+const ScrollWorldTestSegment = require('./ScrollWorldTestSegment');
 const AuditLog = require('./AuditLog');
 const EmailLog = require('./EmailLog');
 const SystemLog = require('./SystemLog');
@@ -65,7 +77,52 @@ const MigrationBatch = require('./MigrationBatch');
 const MigrationCheckpoint = require('./MigrationCheckpoint');
 const MigrationQuarantine = require('./MigrationQuarantine');
 const LearningJourneyImportHistory = require('./LearningJourneyImportHistory');
+const LearningJourneyOperationRun = require('./LearningJourneyOperationRun');
+const LjStudentEvent = require('./LjStudentEvent');
+const LjAnalyticStudent = require('./LjAnalyticStudent');
+const LjAnalyticExam = require('./LjAnalyticExam');
+const AnalyticsModelRun = require('./AnalyticsModelRun');
+const ResourceEffectEstimate = require('./ResourceEffectEstimate');
+const LearningGrowthEpisode = require('./LearningGrowthEpisode');
+const StudentResourceExposure = require('./StudentResourceExposure');
+const ResourceSkillProfile = require('./ResourceSkillProfile');
+const LearningAnalyticsFilterReference = require('./LearningAnalyticsFilterReference');
+const LearningAnalyticsLvaConfig = require('./LearningAnalyticsLvaConfig');
 const JobRun = require('./JobRun');
+const ImportRollbackManifest = require('./ImportRollbackManifest');
+const EventWaitlistEntry = require('./EventWaitlistEntry');
+const EnglishLearningPassport = require('./EnglishLearningPassport');
+const EnglishLearningPointRule = require('./EnglishLearningPointRule');
+const EnglishLearningSubmission = require('./EnglishLearningSubmission');
+const EnglishLearningAttachment = require('./EnglishLearningAttachment');
+const EnglishLearningAuditLog = require('./EnglishLearningAuditLog');
+const EtGroupBandConfig = require('./EtGroupBandConfig');
+const EtEventGroupPlan = require('./EtEventGroupPlan');
+const EtEventGroupAssignment = require('./EtEventGroupAssignment');
+const EtTaskTemplate = require('./EtTaskTemplate');
+const EtTaskTemplateItem = require('./EtTaskTemplateItem');
+const EtEventGroupLeader = require('./EtEventGroupLeader');
+const EtLeaderPreference = require('./EtLeaderPreference');
+const EtSessionTaskMark = require('./EtSessionTaskMark');
+
+EnglishLearningPassport.hasMany(EnglishLearningSubmission, {
+  foreignKey: 'passportId',
+  onDelete: 'CASCADE',
+  as: 'submissions',
+});
+EnglishLearningSubmission.belongsTo(EnglishLearningPassport, {
+  foreignKey: 'passportId',
+  as: 'passport',
+});
+EnglishLearningSubmission.hasMany(EnglishLearningAttachment, {
+  foreignKey: 'submissionId',
+  onDelete: 'CASCADE',
+  as: 'attachments',
+});
+EnglishLearningAttachment.belongsTo(EnglishLearningSubmission, {
+  foreignKey: 'submissionId',
+  as: 'submission',
+});
 
 Survey.hasMany(SurveyVersion, { foreignKey: 'surveyId', onDelete: 'CASCADE' });
 SurveyVersion.belongsTo(Survey, { foreignKey: 'surveyId' });
@@ -96,6 +153,48 @@ Reservation.belongsTo(Event, {
   foreignKey: 'eventId',
   targetKey: 'id'
 });
+
+Event.hasMany(EventWaitlistEntry, {
+  foreignKey: 'eventId',
+  onDelete: 'CASCADE',
+  sourceKey: 'id',
+});
+EventWaitlistEntry.belongsTo(Event, { foreignKey: 'eventId', targetKey: 'id' });
+EventWaitlistEntry.belongsTo(Reservation, {
+  foreignKey: 'promotedReservationId',
+  targetKey: 'id',
+  as: 'promotedReservation',
+});
+Reservation.hasMany(EventWaitlistEntry, {
+  foreignKey: 'promotedReservationId',
+  sourceKey: 'id',
+  as: 'promotedWaitlistEntries',
+});
+
+Event.hasOne(EtEventGroupPlan, { foreignKey: 'eventId', as: 'groupPlan', onDelete: 'CASCADE' });
+EtEventGroupPlan.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
+
+Event.hasMany(EtEventGroupAssignment, { foreignKey: 'eventId', as: 'groupAssignments', onDelete: 'CASCADE' });
+EtEventGroupAssignment.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
+EtEventGroupAssignment.belongsTo(Reservation, { foreignKey: 'reservationId', as: 'reservation' });
+Reservation.hasOne(EtEventGroupAssignment, { foreignKey: 'reservationId', as: 'groupAssignment' });
+EtEventGroupAssignment.belongsTo(Teacher, { foreignKey: 'leaderTeacherId', as: 'leader' });
+
+EtTaskTemplate.hasMany(EtTaskTemplateItem, { foreignKey: 'templateId', as: 'items', onDelete: 'CASCADE' });
+EtTaskTemplateItem.belongsTo(EtTaskTemplate, { foreignKey: 'templateId', as: 'template' });
+
+Event.hasMany(EtEventGroupLeader, { foreignKey: 'eventId', as: 'groupLeaders', onDelete: 'CASCADE' });
+EtEventGroupLeader.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
+EtEventGroupLeader.belongsTo(Teacher, { foreignKey: 'leaderTeacherId', as: 'leader' });
+
+EtLeaderPreference.belongsTo(Teacher, { foreignKey: 'leaderTeacherId', as: 'leader' });
+Teacher.hasMany(EtLeaderPreference, { foreignKey: 'leaderTeacherId', as: 'leaderPreferences' });
+
+Event.hasMany(EtSessionTaskMark, { foreignKey: 'eventId', as: 'sessionTaskMarks', onDelete: 'CASCADE' });
+EtSessionTaskMark.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
+EtSessionTaskMark.belongsTo(Reservation, { foreignKey: 'reservationId', as: 'reservation' });
+EtSessionTaskMark.belongsTo(EtTaskTemplateItem, { foreignKey: 'taskItemId', as: 'taskItem' });
+EtSessionTaskMark.belongsTo(Teacher, { foreignKey: 'markedBy', as: 'marker' });
 
 // 一個使用者 (User) 可能有多個預約(若有此需求)
 User.hasMany(Reservation, { foreignKey: 'userId' });
@@ -214,6 +313,8 @@ module.exports = {
   Teacher,
   ClassTeacher,
   EnglishTestRegistration,
+  EnglishTestEmailVerification,
+  EnglishTestFormSchema,
   LearningPartnerTeam,
   LearningPartnerTeamMember,
   BestepAttendance,
@@ -231,6 +332,16 @@ module.exports = {
   EtAttemptImportHistory,
   Announcement,
   AnnouncementRevision,
+  WeeklyReport,
+  WeeklyMedia,
+  WeeklyInteractionEvent,
+  SiteContentEntry,
+  LearningResourceSite,
+  LearningResourceMiniGame,
+  LearningResourceGuide,
+  RegulationsFormsGroup,
+  RegulationsFormsItem,
+  ScrollWorldTestSegment,
   AuditLog,
   EmailLog,
   SystemLog,
@@ -262,5 +373,31 @@ module.exports = {
   MigrationCheckpoint,
   MigrationQuarantine,
   LearningJourneyImportHistory,
+  LearningJourneyOperationRun,
+  LjStudentEvent,
+  LjAnalyticStudent,
+  LjAnalyticExam,
+  AnalyticsModelRun,
+  ResourceEffectEstimate,
+  LearningGrowthEpisode,
+  StudentResourceExposure,
+  ResourceSkillProfile,
+  LearningAnalyticsFilterReference,
+  LearningAnalyticsLvaConfig,
   JobRun,
+  ImportRollbackManifest,
+  EventWaitlistEntry,
+  EnglishLearningPassport,
+  EnglishLearningPointRule,
+  EnglishLearningSubmission,
+  EnglishLearningAttachment,
+  EnglishLearningAuditLog,
+  EtGroupBandConfig,
+  EtEventGroupPlan,
+  EtEventGroupAssignment,
+  EtTaskTemplate,
+  EtTaskTemplateItem,
+  EtEventGroupLeader,
+  EtLeaderPreference,
+  EtSessionTaskMark,
 };

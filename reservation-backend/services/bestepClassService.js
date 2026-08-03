@@ -7,7 +7,8 @@ const {
   LearningPartnerTeamMember,
   BestepAttendance,
   BestepExamScore,
-  BestepTeamRanking
+  BestepTeamRanking,
+  EtEnrollmentSnapshot
 } = require('../models');
 const { Op } = require('sequelize');
 const {
@@ -15,6 +16,233 @@ const {
   computeExemptionDisplayType,
   formatExamTypeLabel
 } = require('../utils/exemptionUtils');
+
+function buildExamTypeFilter(type) {
+  if (!type || type === 'all') return null;
+  if (type === 'LR') return ['LR', 'LRSW'];
+  if (type === 'SW') return ['SW', 'LRSW'];
+  return [type];
+}
+
+function mapRegistrationForStudent(reg) {
+  if (!reg) return null;
+  return {
+    status: reg.status,
+    regId: reg.id,
+    examType: reg.examType,
+    examTypeLabel: formatExamTypeLabel(reg.examType),
+    updatedAt: reg.updatedAt,
+    exemptionType: computeExemptionDisplayType(reg),
+    exemption_review_status: reg.exemption_review_status || null,
+    exemptionVerifiedType: reg.exemption_verified_type || null
+  };
+}
+
+/**
+ * 將班級名冊列與報名／出席／成績／團體資料組合為 BESTEP 學生列
+ */
+async function enrichMembershipsWithBestepData(memberships, semester, options = {}) {
+  const { examType = 'all', applyExamFilter = true } = options;
+  const studentIds = memberships.map((m) => m.studentId);
+  if (studentIds.length === 0) {
+    return [];
+  }
+
+  const registrationExamTypes = applyExamFilter ? buildExamTypeFilter(examType) : null;
+  const allRegsForStudents = await EnglishTestRegistration.findAll({
+    where: {
+      studentId: { [Op.in]: studentIds },
+      semester
+    },
+    order: [['updatedAt', 'DESC'], ['id', 'DESC']]
+  });
+  const latestByStudent = pickLatestRegistrationPerStudent(allRegsForStudents);
+  const matchesExamFilter = (reg) => {
+    if (!registrationExamTypes || !reg) return true;
+    return registrationExamTypes.includes(reg.examType);
+  };
+
+  const registrationsMap = {};
+  studentIds.forEach((sid) => {
+    const reg = latestByStudent[sid];
+    if (!reg || !matchesExamFilter(reg)) {
+      return;
+    }
+    registrationsMap[sid] = mapRegistrationForStudent(reg);
+  });
+
+  const teamMembers = await LearningPartnerTeamMember.findAll({
+    where: {
+      studentId: { [Op.in]: studentIds },
+      activeFlag: 1
+    },
+    include: [{
+      model: LearningPartnerTeam,
+      as: 'team',
+      where: {
+        status: 'approved',
+        activeFlag: 1
+      },
+      required: false
+    }]
+  });
+
+  const teamIds = [...new Set(teamMembers.map((tm) => tm.teamId).filter((id) => id))];
+  const rankings = teamIds.length > 0 ? await BestepTeamRanking.findAll({
+    where: {
+      teamId: { [Op.in]: teamIds },
+      semester
+    }
+  }) : [];
+  const rankingsMap = {};
+  rankings.forEach((r) => {
+    rankingsMap[r.teamId] = {
+      rank: r.rank,
+      rewardAmount: r.rewardAmount
+    };
+  });
+
+  const groupRegistrationsMap = {};
+  teamMembers.forEach((tm) => {
+    if (tm.team && tm.teamId) {
+      const ranking = rankingsMap[tm.teamId];
+      groupRegistrationsMap[tm.studentId] = {
+        teamId: tm.team.id,
+        teamName: tm.team.teamName || `隊伍${tm.team.id}`,
+        role: tm.isRepresentative ? 'leader' : 'member',
+        teamStatus: tm.team.status,
+        rank: ranking?.rank || null,
+        rewardAmount: ranking?.rewardAmount || null
+      };
+    }
+  });
+
+  const attendanceWhere = {
+    studentId: { [Op.in]: studentIds },
+    semester
+  };
+  if (applyExamFilter && examType !== 'all') {
+    if (examType === 'LR') {
+      attendanceWhere.examType = { [Op.in]: ['L', 'R', 'LR'] };
+    } else if (examType === 'SW') {
+      attendanceWhere.examType = { [Op.in]: ['S', 'W', 'SW'] };
+    } else {
+      attendanceWhere.examType = examType;
+    }
+  }
+
+  const attendances = await BestepAttendance.findAll({ where: attendanceWhere });
+  const attendanceMap = {};
+  attendances.forEach((att) => {
+    if (!attendanceMap[att.studentId]) {
+      attendanceMap[att.studentId] = {};
+    }
+    attendanceMap[att.studentId][att.examType] = {
+      attended: att.attended,
+      examDate: att.examDate,
+      absentReason: att.absentReason
+    };
+  });
+
+  const scores = await BestepExamScore.findAll({
+    where: {
+      studentId: { [Op.in]: studentIds },
+      semester
+    }
+  });
+  const scoresMap = {};
+  scores.forEach((score) => {
+    scoresMap[score.studentId] = {
+      listeningScore: score.listeningScore,
+      readingScore: score.readingScore,
+      speakingScore: score.speakingScore,
+      writingScore: score.writingScore,
+      listeningLevel: score.listeningLevel,
+      readingLevel: score.readingLevel,
+      speakingLevel: score.speakingLevel,
+      writingLevel: score.writingLevel,
+      totalScore: score.totalScore,
+      overallLevel: score.overallLevel,
+      passed: score.passed
+    };
+  });
+
+  return memberships.map((membership) => {
+    const studentId = membership.studentId;
+    return {
+      studentId,
+      studentName: membership.studentName,
+      department: membership.department,
+      email: membership.email,
+      grade: membership.grade,
+      personalRegistration: registrationsMap[studentId] || null,
+      groupRegistration: groupRegistrationsMap[studentId] || null,
+      attendance: attendanceMap[studentId] || {},
+      score: scoresMap[studentId] || null
+    };
+  });
+}
+
+/**
+ * 班級 BESTEP 卡片統計（全班、學習歷程名冊本國學生口徑，與 Excel 匯出一致）
+ */
+async function buildClassBestepOverviewStatistics(classId, semester) {
+  const [allMemberships, rosterMap] = await Promise.all([
+    ClassMembership.findAll({
+      where: { classId, semester },
+      order: [['studentId', 'ASC']]
+    }),
+    loadSemesterRosterMap(semester)
+  ]);
+
+  const allStudents = await enrichMembershipsWithBestepData(allMemberships, semester, {
+    examType: 'all',
+    applyExamFilter: false
+  });
+
+  const statsStudents = allStudents.map((student) => ({
+    ...student,
+    ...resolveDomesticExportStatus(student.studentId, rosterMap)
+  }));
+
+  const summary = computeClassBestepExportSummary(statsStudents);
+  const passedCount = allStudents.filter((s) => s.score && s.score.passed).length;
+  const scoredStudents = allStudents.filter((s) => s.score && s.score.totalScore != null);
+  const avgScore = scoredStudents.length > 0
+    ? Number((
+      scoredStudents.reduce((sum, s) => sum + parseFloat(s.score.totalScore || 0), 0)
+      / scoredStudents.length
+    ).toFixed(2))
+    : null;
+  const passRate = summary.registeredCount > 0
+    ? Number(((passedCount / summary.registeredCount) * 100).toFixed(2))
+    : 0;
+
+  return {
+    totalStudents: allMemberships.length,
+    domesticStudentCount: summary.enrolledCount,
+    registeredCount: summary.registeredCount,
+    registrationRate: summary.registrationRate,
+    totalExamCount: summary.registrationSlots,
+    registrationDenominator: summary.registrationDenominator,
+    attendedSlots: summary.attendedSlots,
+    totalRegistrationExamSlots: summary.totalRegistrationExamSlots,
+    attendanceRate: summary.attendanceRate,
+    lrAttendanceRate: summary.lrAttendanceRate,
+    sAttendanceRate: summary.sAttendanceRate,
+    wAttendanceRate: summary.wAttendanceRate,
+    lrTotalSlots: summary.lrTotalSlots,
+    lrAttendedSlots: summary.lrAttendedSlots,
+    sTotalSlots: summary.sTotalSlots,
+    sAttendedSlots: summary.sAttendedSlots,
+    wTotalSlots: summary.wTotalSlots,
+    wAttendedSlots: summary.wAttendedSlots,
+    fullAttendanceCount: summary.fullAttendanceCount,
+    passedCount,
+    passRate,
+    avgScore
+  };
+}
 
 /**
  * 取得班級 BESTEP 概況
@@ -26,13 +254,6 @@ const {
  */
 async function getClassBestepOverview(classId, semester, examType = 'all', filters = {}) {
   const { page = 1, pageSize = 50, search = '' } = filters;
-
-  const buildExamTypeFilter = (type) => {
-    if (!type || type === 'all') return null;
-    if (type === 'LR') return ['LR', 'LRSW'];
-    if (type === 'SW') return ['SW', 'LRSW'];
-    return [type];
-  };
 
   // 1. 取得班級資訊
   const classInfo = await Class.findByPk(classId);
@@ -60,192 +281,12 @@ async function getClassBestepOverview(classId, semester, examType = 'all', filte
     order: [['studentId', 'ASC']]
   });
 
-  const studentIds = memberships.map(m => m.studentId);
-
-  // 3. 個人報名：同學期可能多筆，取每學號 updatedAt 最新一筆，再依考試類型篩選
-  const registrationExamTypes = buildExamTypeFilter(examType);
-
-  const allRegsForStudents = studentIds.length === 0 ? [] : await EnglishTestRegistration.findAll({
-    where: {
-      studentId: { [Op.in]: studentIds },
-      semester
-    },
-    order: [['updatedAt', 'DESC'], ['id', 'DESC']]
+  const students = await enrichMembershipsWithBestepData(memberships, semester, {
+    examType,
+    applyExamFilter: true
   });
 
-  const latestByStudent = pickLatestRegistrationPerStudent(allRegsForStudents);
-
-  const matchesExamFilter = (reg) => {
-    if (!registrationExamTypes || !reg) return true;
-    return registrationExamTypes.includes(reg.examType);
-  };
-
-  const registrationsMap = {};
-  studentIds.forEach((sid) => {
-    const reg = latestByStudent[sid];
-    if (!reg || !matchesExamFilter(reg)) {
-      return;
-    }
-    registrationsMap[sid] = {
-      status: reg.status,
-      regId: reg.id,
-      examType: reg.examType,
-      examTypeLabel: formatExamTypeLabel(reg.examType),
-      updatedAt: reg.updatedAt,
-      exemptionType: computeExemptionDisplayType(reg),
-      exemption_review_status: reg.exemption_review_status || null
-    };
-  });
-
-  // 供統計：僅計入「該學號最新一筆」且符合考試類型篩選者
-  const latestRegsForStats = studentIds
-    .map((sid) => latestByStudent[sid])
-    .filter((reg) => reg && matchesExamFilter(reg));
-
-  // 4. 批次查詢團體報名資訊
-  const teamMembers = await LearningPartnerTeamMember.findAll({
-    where: {
-      studentId: { [Op.in]: studentIds },
-      activeFlag: 1
-    },
-    include: [{
-      model: LearningPartnerTeam,
-      as: 'team',
-      where: {
-        status: 'approved',
-        activeFlag: 1
-      },
-      required: false
-    }]
-  });
-
-  // 取得團體名次
-  const teamIds = [...new Set(teamMembers.map(tm => tm.teamId).filter(id => id))];
-  const rankings = teamIds.length > 0 ? await BestepTeamRanking.findAll({
-    where: {
-      teamId: { [Op.in]: teamIds },
-      semester
-    }
-  }) : [];
-  const rankingsMap = {};
-  rankings.forEach(r => {
-    rankingsMap[r.teamId] = {
-      rank: r.rank,
-      rewardAmount: r.rewardAmount
-    };
-  });
-
-  const groupRegistrationsMap = {};
-  teamMembers.forEach(tm => {
-    if (tm.team && tm.teamId) {
-      const ranking = rankingsMap[tm.teamId];
-      groupRegistrationsMap[tm.studentId] = {
-        teamId: tm.team.id,
-        teamName: tm.team.teamName || `隊伍${tm.team.id}`,
-        role: tm.isRepresentative ? 'leader' : 'member',
-        teamStatus: tm.team.status,
-        rank: ranking?.rank || null,
-        rewardAmount: ranking?.rewardAmount || null
-      };
-    }
-  });
-
-  // 5. 批次查詢出席狀況
-  const attendanceWhere = {
-    studentId: { [Op.in]: studentIds },
-    semester
-  };
-  if (examType !== 'all') {
-    attendanceWhere.examType = examType;
-  }
-
-  const attendances = await BestepAttendance.findAll({
-    where: attendanceWhere
-  });
-
-  const attendanceMap = {};
-  attendances.forEach(att => {
-    if (!attendanceMap[att.studentId]) {
-      attendanceMap[att.studentId] = {};
-    }
-    attendanceMap[att.studentId][att.examType] = {
-      attended: att.attended,
-      examDate: att.examDate,
-      absentReason: att.absentReason
-    };
-  });
-
-  // 6. 批次查詢成績
-  const scores = await BestepExamScore.findAll({
-    where: {
-      studentId: { [Op.in]: studentIds },
-      semester
-    }
-  });
-  const scoresMap = {};
-  scores.forEach(score => {
-    scoresMap[score.studentId] = {
-      listeningScore: score.listeningScore,
-      readingScore: score.readingScore,
-      speakingScore: score.speakingScore,
-      writingScore: score.writingScore,
-      listeningLevel: score.listeningLevel,
-      readingLevel: score.readingLevel,
-      speakingLevel: score.speakingLevel,
-      writingLevel: score.writingLevel,
-      totalScore: score.totalScore,
-      overallLevel: score.overallLevel,
-      passed: score.passed
-    };
-  });
-
-  // 7. 組合學生資料
-  const students = memberships.map(membership => {
-    const studentId = membership.studentId;
-    return {
-      studentId,
-      studentName: membership.studentName,
-      department: membership.department,
-      email: membership.email,
-      grade: membership.grade,
-      personalRegistration: registrationsMap[studentId] || null,
-      groupRegistration: groupRegistrationsMap[studentId] || null,
-      attendance: attendanceMap[studentId] || {},
-      score: scoresMap[studentId] || null
-    };
-  });
-
-  // 8. 計算統計（沿用原邏輯；報名成功數改為「最新一筆」且符合考試篩選）
-  const registeredCount = latestRegsForStats.filter(reg => reg.status === 'success').length;
-  const registrationRate = totalStudents > 0 ? (registeredCount / totalStudents * 100).toFixed(2) : 0;
-
-  // LR 出席統計
-  const lrAttendances = attendances.filter(a => a.examType === 'LR');
-  const lrAttendedCount = lrAttendances.filter(a => a.attended).length;
-  const lrAttendanceRate = registeredCount > 0 ? (lrAttendedCount / registeredCount * 100).toFixed(2) : 0;
-
-  // SW 出席統計
-  const swAttendances = attendances.filter(a => a.examType === 'SW');
-  const swAttendedCount = swAttendances.filter(a => a.attended).length;
-  const swAttendanceRate = registeredCount > 0 ? (swAttendedCount / registeredCount * 100).toFixed(2) : 0;
-
-  // 達標統計
-  const passedScores = scores.filter(s => s.passed);
-  const passedCount = passedScores.length;
-  const totalAttended = Math.max(lrAttendedCount, swAttendedCount); // 至少參加一場
-  const passRate = totalAttended > 0 ? (passedCount / totalAttended * 100).toFixed(2) : 0;
-
-  // 平均分
-  const totalScores = scores.map(s => parseFloat(s.totalScore)).filter(s => !isNaN(s));
-  const avgScore = totalScores.length > 0 
-    ? (totalScores.reduce((a, b) => a + b, 0) / totalScores.length).toFixed(2)
-    : null;
-
-  // 團體報名統計
-  const groupRegisteredCount = Object.keys(groupRegistrationsMap).length;
-  const groupRegistrationRate = totalStudents > 0 
-    ? (groupRegisteredCount / totalStudents * 100).toFixed(2) 
-    : 0;
+  const statistics = await buildClassBestepOverviewStatistics(classId, semester);
 
   return {
     classInfo: {
@@ -254,20 +295,7 @@ async function getClassBestepOverview(classId, semester, examType = 'all', filte
       semester: classInfo.semester,
       teacherName: classInfo.teacherName
     },
-    statistics: {
-      totalStudents,
-      registeredCount,
-      registrationRate: parseFloat(registrationRate),
-      lrAttendedCount,
-      lrAttendanceRate: parseFloat(lrAttendanceRate),
-      swAttendedCount,
-      swAttendanceRate: parseFloat(swAttendanceRate),
-      passedCount,
-      passRate: parseFloat(passRate),
-      avgScore: avgScore ? parseFloat(avgScore) : null,
-      groupRegisteredCount,
-      groupRegistrationRate: parseFloat(groupRegistrationRate)
-    },
+    statistics,
     students,
     pagination: {
       page,
@@ -283,120 +311,287 @@ function normalizeEmptyValue(value) {
   return String(value);
 }
 
-/**
- * 匯出用：將 examType 轉為 Excel 要求的中文值
- * - 這裡不直接重用 getClassBestepOverview 內的 formatExamTypeLabel，以避免字串不一致。
- */
-function getBestepExamTypeLabelForExport(examType) {
-  const code = normalizeEmptyValue(examType).trim().toUpperCase();
-  if (!code) return '';
+function normalizeStudentId(studentId) {
+  return normalizeEmptyValue(studentId).trim().toUpperCase();
+}
 
-  const map = {
-    LRSW: '聽讀說寫',
-    LR: '聽讀',
-    SW: '說寫',
-    NON: '不報考'
-  };
+const ATOMIC_EXAM_COMPONENTS = ['L', 'R', 'S', 'W'];
+const NON_DOMESTIC_GRADE_NOTE = '非本國學生';
 
-  // 未知值不要丟錯：回傳原始碼或空字串（Excel 仍保持純文字）
-  return map[code] || code;
+function isSuccessfulBestepRegistration(registration) {
+  if (!registration) return false;
+  const status = normalizeEmptyValue(registration.status).trim();
+  return status === 'success' || status === 'registered_success';
 }
 
 /**
- * C 欄：個人報名項目
- * - status='success' => 輸出 examType 中文名稱
- * - 其他狀態 => 輸出 報名失敗
- * - 沒有 registration => 未報名
+ * 將報考項目展開為 L/R/S/W 單項（供計次與出席欄位使用）
  */
-function getBestepPersonalRegistrationItem(registration) {
-  if (!registration) return '未報名';
+function expandRegistrationToComponents(examType) {
+  const code = normalizeEmptyValue(examType).trim().toUpperCase();
+  if (!code || code === 'NON') return [];
+  if (code === 'LRSW') return [...ATOMIC_EXAM_COMPONENTS];
+  if (code === 'LR') return ['L', 'R'];
+  if (code === 'SW') return ['S', 'W'];
+  if (ATOMIC_EXAM_COMPONENTS.includes(code)) return [code];
+  return [];
+}
 
-  const status = normalizeEmptyValue(registration.status).trim();
-  if (status === 'success' || status === 'registered_success') {
-    return getBestepExamTypeLabelForExport(registration.examType);
+function resolveComponentAttended(attendanceMap, component) {
+  const att = attendanceMap || {};
+  const rec = att[component];
+  if (rec && typeof rec.attended === 'boolean') {
+    return rec.attended;
   }
 
-  // 若系統未來出現明確未報名 code，支援對應（避免匯出時拋錯）
+  if (component === 'L' || component === 'R') {
+    const lr = att.LR;
+    if (lr && typeof lr.attended === 'boolean') {
+      return lr.attended;
+    }
+  }
+
+  if (component === 'S' || component === 'W') {
+    const sw = att.SW;
+    if (sw && typeof sw.attended === 'boolean') {
+      return sw.attended;
+    }
+  }
+
+  return null;
+}
+
+function getAttendanceExportCell(attendanceMap, component, registeredComponents) {
+  if (!registeredComponents.includes(component)) {
+    return '';
+  }
+
+  const attended = resolveComponentAttended(attendanceMap, component);
+  if (attended === null) {
+    return '';
+  }
+
+  return attended ? '✓' : '缺席';
+}
+
+function isRegistrationFailed(registration) {
+  if (!registration) {
+    return false;
+  }
+  const status = normalizeEmptyValue(registration.status).trim();
+  if (status === 'success' || status === 'registered_success') {
+    return false;
+  }
+  if (status === 'not_registered' || status === '未報名') {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * 是否有報考欄：成功顯示報考項目（中文），其餘顯示未報名／報名失敗
+ */
+function getExportRegistrationDisplay(registration) {
+  if (!registration) {
+    return '未報名';
+  }
+  const status = normalizeEmptyValue(registration.status).trim();
+  if (status === 'success' || status === 'registered_success') {
+    return formatExamTypeLabel(registration.examType)
+      || normalizeEmptyValue(registration.examType).trim().toUpperCase();
+  }
   if (status === 'not_registered' || status === '未報名') {
     return '未報名';
   }
-
-  const knownFailedStatuses = new Set([
-    'failed',
-    'registration_failed',
-    '報名失敗'
-  ]);
-
-  if (knownFailedStatuses.has(status)) return '報名失敗';
-
-  // 針對 approved/pending/revision/expired 等非 success 狀態，依 Excel 規格收斂為「報名失敗」
   return '報名失敗';
 }
 
-/**
- * D 欄：抵免項目
- * - 若沒有抵免資料，輸出空字串
- */
-function getBestepExemptionItem(registration) {
-  if (!registration) return '';
-  const v = registration.exemptionType;
-  if (v === null || v === undefined) return '';
-  const text = normalizeEmptyValue(v).trim();
-  if (!text || text === '無') return '';
-  return text;
+function getApprovedExemptionComponents(registration) {
+  if (!registration || registration.exemption_review_status !== 'approved') {
+    return [];
+  }
+  return expandRegistrationToComponents(registration.exemptionVerifiedType);
 }
 
 /**
- * E 欄：出席狀況（匯出為單一文字）
+ * 計次 = 報名成功項目數 + 抵免通過項目數
  */
-function getBestepAttendanceStatus(attendance, examTypeFilter = 'all') {
-  const att = attendance || {};
-  const lr = att.LR || null;
-  const sw = att.SW || null;
+function computeStudentExamCount(registration) {
+  let count = 0;
+  if (isSuccessfulBestepRegistration(registration)) {
+    count += expandRegistrationToComponents(registration.examType).length;
+  }
+  count += getApprovedExemptionComponents(registration).length;
+  return count;
+}
 
-  const recToStatus = (rec) => {
-    if (!rec || typeof rec.attended !== 'boolean') return '未知';
-    return rec.attended ? '已出席' : '缺席';
+function getRegistrationComponentsForAttendance(registration) {
+  if (!isSuccessfulBestepRegistration(registration)) {
+    return [];
+  }
+  return expandRegistrationToComponents(registration.examType);
+}
+
+/**
+ * 學習歷程名冊（EtEnrollmentSnapshot）比對：在冊且非明確外籍才納入統計
+ */
+function resolveDomesticExportStatus(studentId, rosterMap) {
+  const sid = normalizeStudentId(studentId);
+  const snap = rosterMap.get(sid);
+  if (!snap) {
+    return {
+      inRoster: false,
+      isDomesticForStats: false,
+      showNonDomesticNote: true
+    };
+  }
+  if (snap.isDomestic === false) {
+    return {
+      inRoster: true,
+      isDomesticForStats: false,
+      showNonDomesticNote: true
+    };
+  }
+  return {
+    inRoster: true,
+    isDomesticForStats: true,
+    showNonDomesticNote: false
   };
-
-  if (examTypeFilter === 'LR') {
-    return lr ? recToStatus(lr) : '未安排';
-  }
-
-  if (examTypeFilter === 'SW') {
-    return sw ? recToStatus(sw) : '未安排';
-  }
-
-  // examTypeFilter === 'all'
-  if (!lr && !sw) return '未知';
-  if (lr && !sw) return '未安排';
-  if (!lr && sw) return '未安排';
-
-  // 兩場都有資料：只要任一場缺席 => 缺席
-  if (lr.attended && sw.attended) return '已出席';
-  return '缺席';
 }
 
-function getScoreLevel(score, key) {
-  if (!score) return '';
-  const v = score[key];
-  if (v === null || v === undefined) return '';
-  const text = normalizeEmptyValue(v).trim();
-  return text;
+async function loadSemesterRosterMap(semester) {
+  const rows = await EtEnrollmentSnapshot.findAll({
+    where: { semesterId: semester, isActive: true },
+    attributes: ['studentId', 'isDomestic'],
+    raw: true
+  });
+  const map = new Map();
+  rows.forEach((row) => {
+    const sid = normalizeStudentId(row.studentId);
+    if (!sid) {
+      return;
+    }
+    map.set(sid, { isDomestic: row.isDomestic });
+  });
+  return map;
+}
+
+function formatExportGrade(grade, showNonDomesticNote) {
+  const base = normalizeEmptyValue(grade);
+  if (!showNonDomesticNote) {
+    return base;
+  }
+  if (!base) {
+    return NON_DOMESTIC_GRADE_NOTE;
+  }
+  if (base.includes(NON_DOMESTIC_GRADE_NOTE)) {
+    return base;
+  }
+  return `${base}（${NON_DOMESTIC_GRADE_NOTE}）`;
+}
+
+function getExportExemptionCode(registration) {
+  if (!registration || registration.exemption_review_status !== 'approved') {
+    return '';
+  }
+  const code = normalizeEmptyValue(registration.exemptionVerifiedType).trim().toUpperCase();
+  if (!code || code === 'NONE') {
+    return '';
+  }
+  return code;
+}
+
+function computeAttendanceRatePercent(attendedCount, totalSlots) {
+  if (!totalSlots || totalSlots <= 0) {
+    return null;
+  }
+  return Number(((attendedCount / totalSlots) * 100).toFixed(2));
 }
 
 /**
- * J 欄：團體報名
- * - 輸出「有/無」，避免布林值裸輸出
+ * 計算匯出／卡片摘要統計（僅納入學習歷程名冊內本國學生）
+ * - 報考率 = 本國學生總計次（排除不在名冊、報名失敗）/ 本國學生×4（排除不在名冊、報名失敗）
+ * - 到考率（總/LR/S/W）= 各範圍實際出席項目數 / 總報考項目數（僅報名成功者應考項目）
  */
-function getBestepGroupRegistrationLabel(groupRegistration) {
-  return groupRegistration ? '有' : '無';
+function computeClassBestepExportSummary(students) {
+  const domesticStudents = students.filter((s) => s.isDomesticForStats);
+  const rateBaseStudents = domesticStudents.filter(
+    (s) => !isRegistrationFailed(s.personalRegistration)
+  );
+
+  let totalExamCount = 0;
+  let registeredCount = 0;
+  let totalRegistrationExamSlots = 0;
+  let attendedSlots = 0;
+  let fullAttendanceCount = 0;
+  const componentSlots = { L: 0, R: 0, S: 0, W: 0 };
+  const componentAttended = { L: 0, R: 0, S: 0, W: 0 };
+
+  rateBaseStudents.forEach((student) => {
+    const personal = student.personalRegistration;
+    totalExamCount += computeStudentExamCount(personal);
+
+    if (!isSuccessfulBestepRegistration(personal)) {
+      return;
+    }
+
+    registeredCount += 1;
+    const components = getRegistrationComponentsForAttendance(personal);
+    totalRegistrationExamSlots += components.length;
+
+    let allAttended = components.length > 0;
+    components.forEach((component) => {
+      componentSlots[component] += 1;
+      const attended = resolveComponentAttended(student.attendance || {}, component);
+      if (attended === true) {
+        attendedSlots += 1;
+        componentAttended[component] += 1;
+      } else {
+        allAttended = false;
+      }
+    });
+
+    if (allAttended) {
+      fullAttendanceCount += 1;
+    }
+  });
+
+  const registrationDenominator = rateBaseStudents.length * 4;
+  const lrTotalSlots = componentSlots.L + componentSlots.R;
+  const lrAttendedSlots = componentAttended.L + componentAttended.R;
+
+  const registrationRate = registrationDenominator > 0
+    ? Number(((totalExamCount / registrationDenominator) * 100).toFixed(2))
+    : 0;
+  const attendanceRate = computeAttendanceRatePercent(attendedSlots, totalRegistrationExamSlots);
+  const lrAttendanceRate = computeAttendanceRatePercent(lrAttendedSlots, lrTotalSlots);
+  const sAttendanceRate = computeAttendanceRatePercent(componentAttended.S, componentSlots.S);
+  const wAttendanceRate = computeAttendanceRatePercent(componentAttended.W, componentSlots.W);
+
+  return {
+    enrolledCount: domesticStudents.length,
+    registeredCount,
+    registrationRate,
+    registrationSlots: totalExamCount,
+    registrationDenominator,
+    totalRegistrationExamSlots,
+    attendedSlots,
+    attendanceRate,
+    lrAttendanceRate,
+    sAttendanceRate,
+    wAttendanceRate,
+    lrTotalSlots,
+    lrAttendedSlots,
+    sTotalSlots: componentSlots.S,
+    sAttendedSlots: componentAttended.S,
+    wTotalSlots: componentSlots.W,
+    wAttendedSlots: componentAttended.W,
+    fullAttendanceCount
+  };
 }
 
 /**
- * 建立匯出資料（A~J 欄）
- * - 篩選條件：classId + semester + examType + search（不依賴 pagination）
- * - 內部沿用 getClassBestepOverview 的「同一學生取最新 updatedAt 一筆」邏輯
+ * 建立班級 BESTEP 匯出資料（含上方摘要與學生列表）
  */
 async function buildClassBestepExportData(classId, semester, examType = 'all', filters = {}) {
   const { search = '' } = filters;
@@ -419,7 +614,11 @@ async function buildClassBestepExportData(classId, semester, examType = 'all', f
   const totalCount = await ClassMembership.count({ where: whereClause });
   if (totalCount === 0) {
     return {
-      classInfo: { className: classInfo.name },
+      classInfo: {
+        className: classInfo.name,
+        teacherName: classInfo.teacherName || ''
+      },
+      summary: computeClassBestepExportSummary([]),
       rows: []
     };
   }
@@ -430,34 +629,53 @@ async function buildClassBestepExportData(classId, semester, examType = 'all', f
     search
   });
 
-  const students = overview.students || [];
+  const rosterMap = await loadSemesterRosterMap(semester);
+  const students = (overview.students || []).map((student) => ({
+    ...student,
+    ...resolveDomesticExportStatus(student.studentId, rosterMap)
+  }));
+  const summary = computeClassBestepExportSummary(students);
 
   const rows = students.map((student) => {
     const personal = student.personalRegistration;
-    const attendanceStatus = getBestepAttendanceStatus(student.attendance, examType);
-    const score = student.score;
+    const registeredComponents = getRegistrationComponentsForAttendance(personal);
+    const attendanceMap = student.attendance || {};
+    const examCount = computeStudentExamCount(personal);
 
     return {
       studentId: normalizeEmptyValue(student.studentId),
       studentName: normalizeEmptyValue(student.studentName),
-      personalRegistrationItem: getBestepPersonalRegistrationItem(personal),
-      exemptionItem: getBestepExemptionItem(personal),
-      attendanceStatus,
-      listeningCEFR: getScoreLevel(score, 'listeningLevel'),
-      readingCEFR: getScoreLevel(score, 'readingLevel'),
-      writingCEFR: getScoreLevel(score, 'writingLevel'),
-      speakingCEFR: getScoreLevel(score, 'speakingLevel'),
-      groupRegistrationLabel: getBestepGroupRegistrationLabel(student.groupRegistration)
+      department: normalizeEmptyValue(student.department),
+      grade: formatExportGrade(student.grade, student.showNonDomesticNote),
+      registeredExamType: getExportRegistrationDisplay(personal),
+      exemptionCode: getExportExemptionCode(personal),
+      examCount: examCount > 0 ? examCount : '',
+      listeningAttendance: getAttendanceExportCell(attendanceMap, 'L', registeredComponents),
+      readingAttendance: getAttendanceExportCell(attendanceMap, 'R', registeredComponents),
+      speakingAttendance: getAttendanceExportCell(attendanceMap, 'S', registeredComponents),
+      writingAttendance: getAttendanceExportCell(attendanceMap, 'W', registeredComponents)
     };
   });
 
   return {
-    classInfo: { className: classInfo.name },
+    classInfo: {
+      className: overview.classInfo?.className || classInfo.name,
+      teacherName: overview.classInfo?.teacherName || classInfo.teacherName || ''
+    },
+    summary,
     rows
   };
 }
 
 module.exports = {
   getClassBestepOverview,
-  buildClassBestepExportData
+  buildClassBestepExportData,
+  expandRegistrationToComponents,
+  computeClassBestepExportSummary,
+  computeAttendanceRatePercent,
+  computeStudentExamCount,
+  resolveComponentAttended,
+  resolveDomesticExportStatus,
+  getExportRegistrationDisplay,
+  isRegistrationFailed
 };

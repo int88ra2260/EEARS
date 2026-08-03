@@ -52,6 +52,19 @@ function toFormFromInitial(initial) {
   };
 }
 
+function baseSlugFromTitle(title) {
+  const raw = String(title || '')
+    .trim()
+    .slice(0, 80)
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9\u4e00-\u9fff\-_]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  const base = raw || 'announcement';
+  // backend：SLUG_MAX=180，baseSlugFromTitle 會再切到 SLUG_MAX - 20
+  return base.slice(0, 160);
+}
+
 export default function AnnouncementFormModal({ show, onHide, initial, onSubmit, saving }) {
   const [form, setForm] = useState(empty);
   const [localError, setLocalError] = useState('');
@@ -68,6 +81,11 @@ export default function AnnouncementFormModal({ show, onHide, initial, onSubmit,
   }, [show, initial, snapshot]);
 
   const dirty = show && snapshot(form) !== baselineRef.current;
+  const titleLen = String(form.title || '').length;
+  const contentLen = String(form.content || '').length;
+  const previewSlug = form.slug.trim() ? form.slug.trim() : baseSlugFromTitle(form.title);
+  const showTitleInvalid = localError === '請填寫標題';
+  const showContentInvalid = localError === '請填寫內容';
 
   useEffect(() => {
     if (!show || !dirty) return undefined;
@@ -126,7 +144,7 @@ export default function AnnouncementFormModal({ show, onHide, initial, onSubmit,
   };
 
   return (
-    <Modal show={show} onHide={requestHide} size="lg" backdrop="static">
+    <Modal show={show} onHide={requestHide} size="lg" backdrop={true} keyboard={true}>
       <Modal.Header closeButton>
         <Modal.Title>{initial ? '編輯公告' : '新增公告'}</Modal.Title>
       </Modal.Header>
@@ -142,7 +160,9 @@ export default function AnnouncementFormModal({ show, onHide, initial, onSubmit,
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                   maxLength={200}
+                  isInvalid={showTitleInvalid}
                 />
+                <Form.Text className="text-muted">{titleLen}/200</Form.Text>
               </Form.Group>
             </Col>
             <Col md={4}>
@@ -165,6 +185,12 @@ export default function AnnouncementFormModal({ show, onHide, initial, onSubmit,
               onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
               placeholder="url-safe"
             />
+            <Form.Text className="text-muted">
+              URL 代稱（可留空由系統自動產生）：<code>{previewSlug || '（由標題產生）'}</code>
+            </Form.Text>
+            <div className="small text-muted">
+              建議使用英文、數字與連字號（`-`）/底線（`_`）。
+            </div>
           </Form.Group>
           <Form.Group className="mb-2">
             <Form.Label>摘要</Form.Label>
@@ -182,7 +208,9 @@ export default function AnnouncementFormModal({ show, onHide, initial, onSubmit,
               rows={8}
               value={form.content}
               onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              isInvalid={showContentInvalid}
             />
+            <Form.Text className="text-muted">{contentLen} 字</Form.Text>
           </Form.Group>
           <Row className="g-2">
             <Col md={6}>

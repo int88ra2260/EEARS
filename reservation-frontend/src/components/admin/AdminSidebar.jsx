@@ -13,25 +13,22 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
   const visible = useMemo(() => filterVisibleNav(ADMIN_NAV_SECTIONS, navContext), [navContext]);
   const active = useMemo(() => getSidebarActiveState(pathname, navContext), [pathname, navContext]);
 
-  const [collapsed, setCollapsed] = useState({});
+  /** true = 展開；預設全部收合，僅自動展開目前路由所屬區段 */
+  const [expandedSections, setExpandedSections] = useState({});
 
   useEffect(() => {
-    setCollapsed((prev) => {
-      const next = { ...prev };
-      visible.forEach((s) => {
-        if (s.expandable && active.sectionId === s.id) {
-          next[s.id] = false;
-        }
-      });
-      return next;
+    if (!active.sectionId) return;
+    setExpandedSections((prev) => {
+      if (prev[active.sectionId]) return prev;
+      return { ...prev, [active.sectionId]: true };
     });
-  }, [pathname, active.sectionId, visible]);
+  }, [active.sectionId]);
 
   const toggleSection = (id) => {
-    setCollapsed((p) => ({ ...p, [id]: !p[id] }));
+    setExpandedSections((p) => ({ ...p, [id]: !p[id] }));
   };
 
-  const isExpanded = (id) => collapsed[id] !== true;
+  const isExpanded = (id) => expandedSections[id] === true;
 
   const handleLinkClick = () => {
     onNavigate?.();
@@ -58,7 +55,7 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
       className={`admin-sidebar${mobileOpen ? ' admin-sidebar--open' : ''}`}
       aria-label="後台主導覽"
     >
-      <div className="admin-sidebar__brand text-muted">EEARS 後台</div>
+      <div className="admin-sidebar__brand">EEARS 後台</div>
       <ul className="admin-sidebar__nav">
         {visible.map((section) => {
           if (section.children?.length) {
@@ -95,7 +92,7 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
             <li key={section.id} className="mb-1">
               <Link
                 to={section.path}
-                className={`admin-sidebar__link d-block${flatActive ? ' admin-sidebar__link--active' : ''}`}
+                className={`admin-sidebar__group-link${flatActive ? ' admin-sidebar__group-link--active' : ''}`}
                 onClick={handleLinkClick}
               >
                 {section.label}

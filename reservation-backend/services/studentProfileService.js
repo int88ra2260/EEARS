@@ -1,5 +1,10 @@
 /**
- * 學生學習歷程（單一 studentId，整合既有表；不新增資料來源表）
+ * Deprecated legacy/MVP student profile compatibility layer.
+ *
+ * The official Learning Journey source is /api/admin/learning-journey-v3/*.
+ * Do not add new product features here; route new profile work to Learning
+ * Journey V3 or the future Learning Journey Hub. This service remains only for
+ * compatibility with older analytics/profile endpoints.
  */
 const {
   ClassMembership,

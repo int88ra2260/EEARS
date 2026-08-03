@@ -7,6 +7,8 @@ const fs = require('fs');
 const { authMiddleware, adminOrExecutiveMiddleware, teacherMiddleware } = require('../middlewares/auth');
 const {
   importClassRoster,
+  previewClassRosterPdf,
+  importClassRosterPdf,
   getClassOverview,
   getClassDetail,
   exportClassOverview,
@@ -31,7 +33,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({
+const uploadExcel = multer({
   storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB 限制
@@ -49,6 +51,22 @@ const upload = multer({
   }
 });
 
+const uploadPdf = multer({
+  storage: storage,
+  limits: {
+    fileSize: 15 * 1024 * 1024,
+    files: 1
+  },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('只允許上傳 PDF 檔案 (.pdf)'), false);
+    }
+  }
+});
+
 // 所有路由都需要認證
 router.use(authMiddleware);
 
@@ -56,11 +74,17 @@ router.use(authMiddleware);
  * 匯入班級名單（僅管理員）
  * POST /api/admin/classes/roster/import?semester=114-1
  */
-router.post('/roster/import', adminOrExecutiveMiddleware, upload.single('file'), importClassRoster);
+router.post('/roster/import', adminOrExecutiveMiddleware, uploadExcel.single('file'), importClassRoster);
+
+/**
+ * PDF 預覽／匯入（選課系統修課名單）
+ */
+router.post('/roster/import-pdf/preview', adminOrExecutiveMiddleware, uploadPdf.single('file'), previewClassRosterPdf);
+router.post('/roster/import-pdf', adminOrExecutiveMiddleware, uploadPdf.single('file'), importClassRosterPdf);
 
 /**
  * 取得班級總覽（管理員和老師都可以，但老師只能看到自己的班級）
- * GET /api/admin/classes/overview?semester=114-1&activityType=All&q=&sortBy=coverage&sortOrder=desc&page=1&pageSize=20
+ * GET /api/admin/classes/overview?semester=114-1&q=&studentId=&teacherName=&sortBy=coverage&sortOrder=desc&page=1&pageSize=20
  */
 router.get('/overview', teacherMiddleware, getClassOverview);
 

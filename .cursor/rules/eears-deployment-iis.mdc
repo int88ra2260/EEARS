@@ -1,0 +1,46 @@
+---
+description: EEARS Windows IIS 部署/回滾/環境變數守則
+globs:
+  - "reservation-backend/server.js"
+  - "public/web.config"
+  - "reservation-frontend/public/web.config"
+  - "reservation-backend/.env.example"
+  - "reservation-backend/scripts/**/*.js"
+  - "reservation-backend/scripts/**/*.mjs"
+alwaysApply: false
+---
+
+# EEARS 部署（Windows IIS + Node + SPA fallback）守則
+
+本文件用於避免「上線流程被改壞」或「AI 建議執行不存在的 script」。
+
+## 1) 部署模式
+
+- 後端提供 SPA 靜態檔與 fallback：`reservation-backend/server.js` 的 `build/` 靜態服務 + `app.get('*', ...)`。
+- IIS 以 reverse proxy 提向 `http://127.0.0.1:3000/{R:0}`（`public/web.config`）。
+
+## 2) 時區與 env
+
+- `server.js` 會強制 `TZ=Asia/Taipei`（若環境未設定）。
+- 生產 JWT/CORS 必須通過 `reservation-backend/config/envValidation.js`。
+
+## 3) DB migration 與 sync
+
+- Schema 變更使用 migration；避免使用 `sequelize.sync()`（除非專案已明確啟用且你有確認條件）。
+
+## 4) 回滾（rollback）
+
+- 回滾必須包含：
+  - git / feature flags（若有）
+  - migration `down`（確保可逆）
+  - 必要時資料備份還原
+- 不要假設能一鍵 rollback（需以既有 runbook/腳本為準）。
+
+## 5) script 斷裂風險（重要）
+
+- `reservation-backend/package.json` 可能引用某些尚未存在的腳本（例如 post-deploy 或 health-check 類）。
+- AI 在給部署建議時必須：
+  - 先確認腳本檔是否存在
+  - 若不存在，改成「需補齊該 script」的建議，而不是直接要求執行。
+- 正式 Windows 部署指令應指向 `scripts/ops/`（`deploy` / `restart-backend` / `setup-pm2`），不要發明不存在的 npm deploy script。
+

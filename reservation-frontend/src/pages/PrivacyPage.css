@@ -1,5 +1,6 @@
 .privacy-page {
   padding: 1rem 0 2rem;
+  color: var(--pub-text-body, #4a3f36);
 }
 
 .privacy-page-content {
@@ -10,7 +11,7 @@
 .privacy-page-intro {
   font-size: 1rem;
   line-height: 1.7;
-  color: #495057;
+  color: var(--pub-text-body, #4a3f36);
   margin-bottom: 1.5rem;
 }
 
@@ -19,15 +20,17 @@
 }
 
 .privacy-page-section h2 {
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-family: var(--font-family-serif, 'Newsreader', serif);
+  font-size: 1.3rem;
+  font-weight: 500;
   margin-bottom: 0.5rem;
-  color: #212529;
+  color: var(--pub-text, #3d2e24);
+  letter-spacing: -0.015em;
 }
 
 .privacy-page-section p {
   font-size: 0.95rem;
   line-height: 1.65;
-  color: #495057;
+  color: var(--pub-text-body, #4a3f36);
   margin: 0;
 }

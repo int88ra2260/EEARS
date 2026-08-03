@@ -1,22 +1,19 @@
-/* EventDetail 組件移動端優化樣式 */
+/* EventBookingModal 移動端優化（僅作用於預約 modal，不影響其他 modal） */
 
-/* 移動端 Modal 優化 */
 @media (max-width: 768px) {
-  /* 確保 Modal 在移動端全屏顯示 */
-  .modal-dialog {
+  .event-booking-modal.modal .modal-dialog {
     margin: 0 !important;
     max-width: 100% !important;
-    height: 100vh !important;
+    height: 100dvh !important;
   }
-  
-  .modal-content {
-    height: 100vh !important;
+
+  .event-booking-modal.modal .modal-content {
+    height: 100dvh !important;
     border-radius: 0 !important;
     border: none !important;
   }
   
-  /* Modal Header 優化 */
-  .modal-header {
+  .event-booking-modal.modal .modal-header {
     padding: 15px 20px;
     border-bottom: 1px solid #dee2e6;
     position: sticky;
@@ -25,21 +22,19 @@
     z-index: 1051;
   }
   
-  .modal-title {
+  .event-booking-modal.modal .modal-title {
     font-size: 1.1rem;
     font-weight: 600;
   }
   
-  /* Modal Body 優化 */
-  .modal-body {
+  .event-booking-modal.modal .modal-body {
     padding: 20px;
     overflow-y: auto;
     flex: 1;
     padding-bottom: 100px; /* 為固定按鈕留出空間 */
   }
   
-  /* Modal Footer 優化 - 固定在底部 */
-  .modal-footer {
+  .event-booking-modal.modal .modal-footer {
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
@@ -52,8 +47,7 @@
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   }
   
-  /* 按鈕優化 */
-  .modal-footer .btn {
+  .event-booking-modal.modal .modal-footer .btn {
     min-height: 48px !important;
     font-size: 16px !important;
     font-weight: 500;
@@ -61,140 +55,134 @@
     flex: 1;
   }
   
-  /* 表單優化 */
-  .form-control {
+  .event-booking-modal.modal .form-control {
     font-size: 16px !important; /* 防止 iOS 縮放 */
     padding: 12px 15px;
     border-radius: 8px;
     border: 1px solid #ced4da;
   }
   
-  .form-control:focus {
+  .event-booking-modal.modal .form-control:focus {
     border-color: #0d6efd;
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
   }
   
-  .form-label {
+  .event-booking-modal.modal .form-label {
     font-weight: 500;
     margin-bottom: 8px;
     color: #495057;
   }
   
-  /* Alert 優化 */
-  .alert {
+  .event-booking-modal.modal .alert {
     border-radius: 8px;
     padding: 12px 15px;
     font-size: 0.9rem;
   }
   
-  /* 活動資訊優化 */
-  .event-info p {
+  .event-booking-modal.modal .event-info p {
     line-height: 1.6;
     margin-bottom: 15px;
   }
   
-  .event-info strong {
+  .event-booking-modal.modal .event-info strong {
     color: #495057;
   }
   
-  /* 預約時間資訊優化 */
-  .alert-info {
+  .event-booking-modal.modal .alert-info {
     background-color: #e7f3ff;
     border-color: #b8daff;
     color: #0c5460;
   }
   
-  /* 確保內容不會被虛擬鍵盤遮擋 */
-  .modal-body {
+  .event-booking-modal.modal .modal-body {
     padding-bottom: 120px;
   }
-  
-  /* 滾動優化 */
-  .modal-body::-webkit-scrollbar {
+
+  .event-booking-modal.modal .modal-body::-webkit-scrollbar {
     width: 4px;
   }
   
-  .modal-body::-webkit-scrollbar-track {
+  .event-booking-modal.modal .modal-body::-webkit-scrollbar-track {
     background: #f1f1f1;
   }
   
-  .modal-body::-webkit-scrollbar-thumb {
+  .event-booking-modal.modal .modal-body::-webkit-scrollbar-thumb {
     background: #c1c1c1;
     border-radius: 2px;
   }
   
-  .modal-body::-webkit-scrollbar-thumb:hover {
+  .event-booking-modal.modal .modal-body::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
   }
 }
 
 /* 平板優化 */
 @media (min-width: 769px) and (max-width: 1024px) {
-  .modal-dialog {
+  .event-booking-modal.modal .modal-dialog {
     max-width: 90% !important;
     margin: 1.75rem auto !important;
   }
   
-  .modal-footer .btn {
+  .event-booking-modal.modal .modal-footer .btn {
     min-height: 44px;
     font-size: 15px;
   }
-  
-  .form-control {
+
+  .event-booking-modal.modal .form-control {
     font-size: 15px;
   }
 }
 
 /* 確保在各種移動設備上的兼容性 */
 @media (max-width: 480px) {
-  .modal-header {
+  .event-booking-modal.modal .modal-header {
     padding: 12px 15px;
   }
   
-  .modal-body {
+  .event-booking-modal.modal .modal-body {
     padding: 15px;
   }
-  
-  .modal-footer {
+
+  .event-booking-modal.modal .modal-footer {
     padding: 12px 15px !important;
   }
   
-  .modal-footer .btn {
+  .event-booking-modal.modal .modal-footer .btn {
     min-height: 44px !important;
     font-size: 15px !important;
   }
-  
-  .form-control {
+
+  .event-booking-modal.modal .form-control {
     padding: 10px 12px;
   }
 }
 
 /* 橫屏模式優化 */
 @media (max-width: 768px) and (orientation: landscape) {
-  .modal-dialog {
-    height: 100vh !important;
+  .event-booking-modal.modal .modal-dialog {
+    height: 100dvh !important;
   }
-  
-  .modal-body {
+
+  .event-booking-modal.modal .modal-body {
     padding-bottom: 80px;
   }
-  
-  .modal-footer {
+
+  .event-booking-modal.modal .modal-footer {
     padding: 10px 20px !important;
   }
   
-  .modal-footer .btn {
+  .event-booking-modal.modal .modal-footer .btn {
     min-height: 40px !important;
   }
 }
 
 /* 高 DPI 屏幕優化 */
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .modal-footer {
+  .event-booking-modal.modal .modal-footer {
     border-top-width: 0.5px;
   }
-  
-  .form-control {
+
+  .event-booking-modal.modal .form-control {
     border-width: 0.5px;
   }
 }

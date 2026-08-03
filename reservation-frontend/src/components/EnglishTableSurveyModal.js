@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button } from 'react-bootstrap';
 import DynamicSurveyModal from './DynamicSurveyModal';
+import { fetchPublicSurvey } from '../services/surveyPublicApi';
 
 
 export default function EnglishTableSurveyModal({
@@ -23,15 +24,9 @@ export default function EnglishTableSurveyModal({
         setLoading(true);
         setError('');
         
-        const response = await fetch(`/api/surveys/public/${surveyKey}`);
-        const data = await response.json();
+        const data = await fetchPublicSurvey(surveyKey);
         const config = data?.survey;
         const currentSemester = data?.meta?.currentSemester;
-
-        if (!response.ok || !config) {
-          setError('找不到問卷配置');
-          return;
-        }
 
         setSurveyConfig({
           ...config,

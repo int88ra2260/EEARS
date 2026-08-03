@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
+import ContentText from '../siteContent/ContentText';
 import { siteAuthor } from '../../config/author';
-import './home.css';
+import { fetchViewStats } from '../../services/statsApi';
+import '../../styles/site-footer.css';
 
 const EMI_CENTER_URL = 'https://emicenter.siwan.nsysu.edu.tw/';
 
@@ -17,8 +19,7 @@ export default function HomeFooter() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/stats/views')
-      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+    fetchViewStats()
       .then((data) => {
         if (!cancelled) setViews({ total: data.total, today: data.today });
       })
@@ -36,14 +37,15 @@ export default function HomeFooter() {
         </div>
 
         <nav className="home-footer-links" aria-label="Footer navigation">
-          <Link to="/">{t('homePage.footerHome')}</Link>
-          <Link to="/activities">{t('homePage.footerActivities')}</Link>
-          <Link to="/announcements">{t('homePage.footerAnnouncements')}</Link>
-          <Link to="/faq">{t('homePage.footerFaq')}</Link>
-          <Link to="/contact">{t('homePage.footerContact')}</Link>
+          <Link to="/"><ContentText k="homePage.footerHome" /></Link>
+          <Link to="/announcements"><ContentText k="homePage.footerAnnouncements" /></Link>
+          <Link to="/activities"><ContentText k="homePage.footerActivities" /></Link>
+          <Link to="/learning-resources"><ContentText k="homePage.footerLearningResources" /></Link>
+          <Link to="/regulations-forms"><ContentText k="homePage.footerRegulationsForms" /></Link>
+          <Link to="/about"><ContentText k="homePage.footerAbout" /></Link>
           <span className="home-footer-divider">|</span>
-          <Link to="/privacy">{t('homePage.footerPrivacy')}</Link>
-          <Link to="/terms">{t('homePage.footerTerms')}</Link>
+          <Link to="/privacy"><ContentText k="homePage.footerPrivacy" /></Link>
+          <Link to="/terms"><ContentText k="homePage.footerTerms" /></Link>
           <span className="home-footer-divider">|</span>
           <a
             href={EMI_CENTER_URL}
@@ -55,7 +57,7 @@ export default function HomeFooter() {
             {t('footer.linkToCenter')}
           </a>
           <span className="home-footer-divider">|</span>
-          <Link to="/login">{t('homePage.footerAdmin')}</Link>
+          <Link to="/login"><ContentText k="homePage.footerAdmin" /></Link>
         </nav>
 
         {/* 瀏覽次數 */}

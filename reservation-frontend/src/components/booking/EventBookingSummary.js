@@ -1,67 +1,133 @@
 /**
- * 活動預約 Modal 內的活動資訊與預約時間區塊（純展示）
+ * 活動預約 Modal 內的活動資訊（場次卡 + 關鍵狀態）
  */
-import React from 'react';
-import { Alert } from 'react-bootstrap';
+import React, { useMemo } from 'react';
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-tw';
 import { calculateReservationTime } from '../../utils/reservationTime';
-import { getDefaultLocation } from '../../utils/eventLocation';
+import { getEventLocationDisplay } from '../../utils/eventLocation';
+import { useLanguage } from '../../context/LanguageContext';
+import EventDeadlineHint from '../events/EventDeadlineHint';
+import StatusBadge from '../ui/StatusBadge';
 
 const KNOWN_TYPES = ['English Table', 'Job Talk', 'English Club', 'International Forum'];
 
-export default function EventBookingSummary({ event, isMobile }) {
+function formatSessionDate(dateStr, lang) {
+  if (!dateStr) return '—';
+  const parsed = dayjs(dateStr);
+  if (!parsed.isValid()) return dateStr;
+  return parsed.locale(lang === 'en' ? 'en' : 'zh-tw').format(
+    lang === 'en' ? 'ddd, MMM D, YYYY' : 'YYYY/MM/DD dddd',
+  );
+}
+
+/**
+ * @param {{ event: object, surveyRequired?: boolean, allowWaitlist?: boolean }} props
+ */
+export default function EventBookingSummary({
+  event,
+  surveyRequired = false,
+  allowWaitlist = false,
+}) {
+  const { t, lang } = useLanguage();
+  const spots = event ? Number(event.availableSpots) : 0;
+  const sessionDateLabel = useMemo(
+    () => (event ? formatSessionDate(event.date, lang) : '—'),
+    [event, lang],
+  );
+
   if (!event) return null;
 
-  const fs = isMobile ? '0.85rem' : '0.9rem';
-  const mb = isMobile ? 'mb-3' : '';
-
-  let reservationTimeBlock = null;
+  let timingSummary = null;
   try {
     const { openStart, openEnd } = calculateReservationTime(event);
     const isCustomType = !KNOWN_TYPES.includes(event.eventType);
-    reservationTimeBlock = (
-      <div className={`alert alert-info ${mb}`} style={{ fontSize: fs }}>
-        <strong>📅 預約時間：</strong>
-        <br />
-        開放時間：{openStart.format('YYYY/MM/DD dddd HH:mm')} <br />
-        截止時間：{openEnd.format('YYYY/MM/DD dddd HH:mm')}
+    const dateFmt = lang === 'en' ? 'MMM D HH:mm' : 'MM/DD HH:mm';
+    timingSummary = (
+      <p className="event-booking-summary__timing-line">
+        {openStart.locale(lang === 'en' ? 'en' : 'zh-tw').format(dateFmt)}
+        {' — '}
+        {openEnd.locale(lang === 'en' ? 'en' : 'zh-tw').format(dateFmt)}
+        <span className="event-booking-summary__timing-note">
+          {t('booking.timingCutoffNote')}
+        </span>
         {isCustomType && event.customReservationRule && (
-          <div className="mt-2 pt-2 border-top">
-            <strong>📋 預約規則：</strong>
-            <br />
-            <span className="text-muted">{event.customReservationRule}</span>
-          </div>
+          <span className="event-booking-summary__timing-rule">
+            {event.customReservationRule}
+          </span>
         )}
-      </div>
+      </p>
     );
   } catch {
-    reservationTimeBlock = null;
+    timingSummary = null;
   }
 
-  return (
-    <>
-      <Alert variant="info" className={`mb-3 ${mb}`} style={{ fontSize: fs }}>
-        <i className="fas fa-info-circle me-2" />
-        <strong>📋 活動規定修改：</strong>
-        <br />
-        114-1學期起不再提供活動補蓋章服務，請同學們務必準時參加活動。
-      </Alert>
+  const spotsClass = spots === 0
+    ? 'event-booking-summary__spots--full'
+    : spots <= 5
+      ? 'event-booking-summary__spots--low'
+      : 'event-booking-summary__spots--ok';
 
-      <div className={`event-info ${mb}`}>
-        <p className={isMobile ? 'mb-2' : ''}>
-          <strong>活動類型：</strong>
-          {event.eventType || 'English Table'} <br />
-          <strong>日期：</strong>
-          {event.date} <br />
-          <strong>時間：</strong>
-          {event.startTime} - {event.endTime} <br />
-          <strong>活動地點：</strong>
-          {event.location || getDefaultLocation(event.eventType)} <br />
-          <strong>剩餘名額：</strong>
-          {event.availableSpots}
-        </p>
+  return (
+    <section className="event-booking-summary" aria-label={t('booking.summaryAria')}>
+      <div className="event-booking-summary__status" role="status">
+        <EventDeadlineHint event={event} t={t} showWindow={false} />
+        {(allowWaitlist && spots === 0) || surveyRequired ? (
+          <div className="event-booking-summary__extra-badges">
+            {allowWaitlist && spots === 0 && (
+              <StatusBadge variant="warning" size="md">
+                {t('booking.badgeWaitlist')}
+              </StatusBadge>
+            )}
+            {surveyRequired && (
+              <StatusBadge variant="info" size="md">
+                {t('booking.badgeSurvey')}
+              </StatusBadge>
+            )}
+          </div>
+        ) : null}
       </div>
 
-      {reservationTimeBlock}
-    </>
+      <div className="event-booking-summary__hero">
+        <aside className="event-booking-summary__slot-panel" aria-labelledby="booking-slot-title">
+          <p id="booking-slot-title" className="event-booking-summary__slot-kicker">
+            {t('booking.sessionPanelTitle')}
+          </p>
+          <p className="event-booking-summary__slot-name">{event.name}</p>
+          <p className="event-booking-summary__slot-date">{sessionDateLabel}</p>
+          <p className="event-booking-summary__slot-time">
+            {event.startTime} – {event.endTime}
+          </p>
+          <p className="event-booking-summary__slot-location">{getEventLocationDisplay(event)}</p>
+          <p className="event-booking-summary__slot-type">{event.eventType || 'English Table'}</p>
+        </aside>
+
+        <div className="event-booking-summary__quick-meta">
+          <div className="event-booking-summary__meta-row">
+            <span className="event-booking-summary__meta-label">{t('booking.labelSpots')}</span>
+            <span className={`event-booking-summary__spots ${spotsClass}`}>
+              {spots === 0 ? t('booking.spotsFull') : event.availableSpots}
+            </span>
+          </div>
+          {timingSummary && (
+            <div className="event-booking-summary__meta-row event-booking-summary__meta-row--timing">
+              <span className="event-booking-summary__meta-label">{t('booking.sectionTiming')}</span>
+              {timingSummary}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <details className="event-booking-summary__notes-details">
+        <summary className="event-booking-summary__notes-summary">
+          {t('booking.sectionNotes')}
+        </summary>
+        <ul className="event-booking-summary__notes">
+          <li>{t('booking.note1')}</li>
+          <li>{t('booking.note2')}</li>
+          <li>{t('booking.note3')}</li>
+        </ul>
+      </details>
+    </section>
   );
 }

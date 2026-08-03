@@ -1,0 +1,690 @@
+/* A 方案首頁沉浸測試 — /hometest（不影響正式首頁） */
+
+.public-site--hometest {
+  max-width: none;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.hit-page {
+  --hit-accent: #d4564a;
+  --hit-canvas: #f9f4ec;
+  --hit-ink: #1a1410;
+  --hit-ink-soft: #4a3f36;
+  --hit-muted: #7a6b5f;
+  --hit-serif: 'Newsreader', 'Georgia', 'Times New Roman', serif;
+  --hit-sans: 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
+  --hit-shell: min(1120px, calc(100% - 2rem));
+  --hit-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  background: var(--hit-canvas);
+  color: var(--hit-ink-soft);
+  font-family: var(--hit-sans);
+  overflow-x: clip;
+}
+
+.hit-shell {
+  width: var(--hit-shell);
+  margin-inline: auto;
+}
+
+.hit-test-banner {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 1.25rem;
+  background: #1a1410;
+  color: #f9f4ec;
+  font-size: 0.8125rem;
+}
+
+.hit-test-banner code {
+  font-size: 0.75rem;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: rgba(249, 244, 236, 0.12);
+}
+
+.hit-test-banner a {
+  color: #f0c4a8;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.hit-test-banner a:hover {
+  text-decoration: underline;
+}
+
+.hit-kicker {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hit-muted);
+}
+
+.hit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.55rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background 0.2s var(--hit-ease),
+    color 0.2s var(--hit-ease),
+    border-color 0.2s var(--hit-ease),
+    transform 0.12s ease;
+}
+
+.hit-btn:active {
+  transform: scale(0.98);
+}
+
+.hit-btn--ghost {
+  background: rgba(255, 254, 251, 0.88);
+  color: var(--hit-ink);
+  border: 1px solid rgba(26, 20, 16, 0.14);
+}
+
+.hit-btn--ghost:hover {
+  border-color: var(--hit-accent);
+  color: var(--hit-accent);
+}
+
+.hit-btn--accent {
+  background: var(--hit-accent);
+  color: #fff;
+  border: 1px solid var(--hit-accent);
+}
+
+.hit-btn--accent:hover {
+  filter: brightness(0.95);
+  color: #fff;
+}
+
+/* ---- Hero ---- */
+.hit-hero {
+  position: relative;
+  min-height: calc(100dvh - 7.5rem);
+  display: flex;
+  align-items: flex-end;
+  padding: clamp(2rem, 6vh, 4rem) 0 clamp(2.5rem, 8vh, 5rem);
+  overflow: hidden;
+}
+
+.hit-hero__atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.hit-hero__wash {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(165deg, #efe4d4 0%, #f9f4ec 42%, #e8d5c4 100%),
+    radial-gradient(ellipse 80% 60% at 70% 20%, rgba(212, 86, 74, 0.18), transparent 55%);
+}
+
+.hit-hero__glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(50% 40% at 18% 70%, rgba(61, 124, 110, 0.14), transparent 60%),
+    radial-gradient(40% 35% at 88% 75%, rgba(91, 107, 181, 0.12), transparent 55%);
+}
+
+.hit-hero__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+}
+
+.hit-hero__inner {
+  position: relative;
+  z-index: 1;
+  max-width: 38rem;
+  padding-bottom: 0.5rem;
+}
+
+.hit-hero__badge {
+  display: inline-block;
+  margin: 0 0 1rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px dashed rgba(26, 20, 16, 0.25);
+  background: rgba(255, 254, 251, 0.7);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--hit-muted);
+}
+
+.hit-hero__eyebrow {
+  margin: 0 0 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--hit-ink-soft);
+}
+
+.hit-hero__title {
+  margin: 0;
+  font-family: var(--hit-serif);
+  font-size: clamp(2.75rem, 8vw, 4.5rem);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--hit-ink);
+  text-wrap: balance;
+}
+
+.hit-hero__lead {
+  margin: 1.15rem 0 0;
+  max-width: 36ch;
+  font-size: clamp(1.05rem, 2.2vw, 1.2rem);
+  line-height: 1.6;
+  color: var(--hit-muted);
+}
+
+.hit-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+.hit-hero__scroll-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 2.5rem 0 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hit-muted);
+}
+
+.hit-hero__scroll-hint i {
+  width: 20px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(26, 20, 16, 0.28);
+  position: relative;
+}
+
+.hit-hero__scroll-hint i::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 3px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--hit-accent);
+  transform: translateX(-50%);
+  animation: hit-wheel 1.7s ease-in-out infinite;
+}
+
+@keyframes hit-wheel {
+  0% {
+    opacity: 0;
+    top: 5px;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    top: 16px;
+  }
+}
+
+/* ---- Journey（四島 · B 質感） ---- */
+.hit-journey--islands {
+  position: relative;
+  margin: 0;
+  background: #f5ede0;
+  color: #241d2b;
+  --hit-accent: #d4564a;
+}
+
+.hit-journey__sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hit-journey__sky-grad {
+  position: absolute;
+  inset: -8%;
+  background: linear-gradient(
+    178deg,
+    color-mix(in srgb, var(--hit-accent) 14%, #f5ede0) 0%,
+    #f5ede0 52%,
+    color-mix(in srgb, var(--hit-accent) 8%, #f5ede0) 100%
+  );
+}
+
+.hit-journey__sky-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(55% 40% at 72% 28%, color-mix(in srgb, var(--hit-accent) 22%, transparent), transparent 70%),
+    radial-gradient(40% 32% at 40% 55%, color-mix(in srgb, #fff 50%, transparent), transparent 70%);
+}
+
+.hit-journey__particles {
+  position: absolute;
+  inset: 0;
+}
+
+.hit-journey__pt {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--hit-accent) 55%, #000), #000 80%);
+  animation: hit-drift 16s linear infinite;
+}
+
+.hit-journey__pt--ring {
+  background: transparent;
+  border: 2px solid color-mix(in srgb, var(--hit-accent) 50%, transparent);
+}
+
+@keyframes hit-drift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 10vh) scale(0.8);
+  }
+  15% {
+    opacity: 0.45;
+  }
+  85% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(3vw, -18vh) scale(1.05);
+  }
+}
+
+.hit-journey__pin {
+  position: relative;
+  z-index: 1;
+  min-height: calc(100dvh - 4.25rem);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.hit-journey__stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  perspective: 1200px;
+}
+
+.hit-journey__scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.hit-journey__diorama-wrap {
+  width: min(68vw, 880px);
+  height: min(50vh, 540px);
+}
+
+.hit-journey__copylayer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: clamp(1.5rem, 4vh, 2.5rem) clamp(1rem, 5vw, 4rem);
+  pointer-events: none;
+}
+
+.hit-journey__copylayer::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: min(58vw, 720px);
+  background: linear-gradient(
+    90deg,
+    #f5ede0 0%,
+    color-mix(in srgb, #f5ede0 82%, transparent) 40%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.hit-journey__world-kicker {
+  position: absolute;
+  left: clamp(1rem, 5vw, 4rem);
+  top: clamp(1.25rem, 3vh, 2rem);
+  z-index: 1;
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hit-muted);
+}
+
+.hit-journey__panel {
+  position: absolute;
+  left: clamp(1rem, 5vw, 4rem);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  width: min(42vw, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+
+.hit-journey__num {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  color: var(--hit-muted);
+}
+
+.hit-journey__eyebrow {
+  display: block;
+  margin-top: 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hit-accent);
+}
+
+.hit-journey__title {
+  margin: 0.65rem 0 0;
+  font-family: var(--hit-serif);
+  font-size: clamp(1.85rem, 4vw, 2.75rem);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--hit-ink);
+  text-shadow: 0 2px 18px color-mix(in srgb, #f5ede0 70%, transparent);
+}
+
+.hit-journey__body {
+  margin: 0.9rem 0 0;
+  max-width: 36ch;
+  font-size: clamp(0.98rem, 1.3vw, 1.08rem);
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--hit-ink) 78%, var(--hit-muted));
+}
+
+.hit-journey__tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 1.15rem 0 0;
+  padding: 0;
+}
+
+.hit-journey__tags li {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--hit-accent) 70%, #000);
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hit-accent) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--hit-accent) 28%, transparent);
+}
+
+.hit-journey__panel .hit-btn {
+  margin-top: 1.25rem;
+  pointer-events: auto;
+}
+
+.hit-journey__route {
+  position: absolute;
+  right: clamp(12px, 2.5vw, 28px);
+  top: 50%;
+  z-index: 4;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1rem 0.5rem;
+}
+
+.hit-journey__route::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  bottom: 18px;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--hit-accent);
+  opacity: 0.28;
+}
+
+.hit-journey__route-dot {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.hit-journey__route-dot i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--hit-accent) 40%, transparent);
+  transition:
+    transform 0.3s ease,
+    background 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.hit-journey__route-dot.is-active i,
+.hit-journey__route-dot:hover i {
+  background: var(--hit-accent);
+  transform: scale(1.35);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--hit-accent) 22%, transparent);
+}
+
+.hit-journey__route-label {
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  white-space: nowrap;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--hit-ink);
+  background: color-mix(in srgb, #fff 88%, transparent);
+  backdrop-filter: blur(6px);
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--hit-accent) 16%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+
+.hit-journey__route-dot:hover .hit-journey__route-label,
+.hit-journey__route-dot.is-active .hit-journey__route-label {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* legacy dark journey leftovers removed — islands theme above */
+
+/* ---- Quick links ---- */
+.hit-quick {
+  padding-top: clamp(2.5rem, 6vh, 4rem);
+}
+
+.hit-quick__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 1.5rem;
+}
+
+.hit-quick__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 100%;
+  padding: 1.1rem 1.15rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--home-border, #eaeaea);
+  background: var(--home-surface, #fff);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.hit-quick__card:hover {
+  border-color: color-mix(in srgb, var(--hit-accent) 45%, #eaeaea);
+  box-shadow: 0 8px 24px rgba(26, 20, 16, 0.06);
+}
+
+.hit-quick__card-title {
+  font-weight: 600;
+  color: var(--hit-ink);
+}
+
+.hit-quick__card-desc {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--hit-muted);
+}
+
+@media (min-width: 768px) {
+  .hit-quick__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .hit-hero {
+    min-height: calc(100dvh - 8.5rem);
+    align-items: center;
+  }
+
+  .hit-journey__diorama-wrap {
+    width: 92vw;
+    height: 42vh;
+  }
+
+  .hit-journey__copylayer::before {
+    width: 100%;
+    height: 58%;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(
+      0deg,
+      #f5ede0 10%,
+      color-mix(in srgb, #f5ede0 75%, transparent) 50%,
+      transparent 100%
+    );
+  }
+
+  .hit-journey__world-kicker {
+    left: clamp(1rem, 5vw, 2rem);
+  }
+
+  .hit-journey__panel {
+    left: clamp(1rem, 5vw, 2rem);
+    right: clamp(1rem, 5vw, 2rem);
+    top: auto;
+    bottom: calc(clamp(4.5rem, 10dvh, 6rem) + env(safe-area-inset-bottom));
+    transform: none;
+    width: auto;
+    max-width: 560px;
+  }
+
+  .hit-journey__route-label {
+    display: none;
+  }
+
+  .hit-journey__route {
+    right: 6px;
+    gap: 1rem;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .hit-journey__route-dot {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hit-hero__scroll-hint i::after,
+  .hit-journey__pt {
+    animation: none;
+  }
+
+  .hit-journey__panel {
+    position: relative;
+    top: auto;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+    margin-bottom: 1.25rem;
+  }
+
+  .hit-journey__copylayer {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .hit-journey__scene {
+    opacity: 1;
+    position: relative;
+    min-height: 40vh;
+  }
+}

@@ -12,7 +12,7 @@ const {
   EXEMPTION_VERIFIED_CODES,
   pickLatestRegistrationPerStudent
 } = require('../utils/exemptionUtils');
-const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
+const { authMiddleware, englishTestDomainMiddleware, requirePermission, P } = require('../middlewares/auth');
 const {
   publicEnglishTestLookupRateLimit,
   requireCaptchaIfEnabled,
@@ -20,21 +20,80 @@ const {
   requireLookupMinimumFields,
   genericLookupResponse,
   publicLookupAudit,
+  createSimpleRateLimit,
 } = require('../middlewares/publicAccessGuard');
+const englishTestEmailVerificationService = require('../services/englishTestEmailVerificationService');
+
+const publicEmailCodeSendRateLimit = createSimpleRateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 8,
+  message: '驗證碼寄送次數過多，請稍後再試',
+  keyFn: (req, ip) => {
+    const email = englishTestEmailVerificationService.normalizeEmail(req.body?.email);
+    return email ? `et-otp-send:${email}` : `et-otp-send-ip:${ip}`;
+  },
+});
+
+const publicEmailCodeVerifyRateLimit = createSimpleRateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  message: '驗證碼嘗試次數過多，請稍後再試',
+  keyFn: (req, ip) => {
+    const email = englishTestEmailVerificationService.normalizeEmail(req.body?.email);
+    return email ? `et-otp-verify:${email}` : `et-otp-verify-ip:${ip}`;
+  },
+});
 
 /** 培力英檢後台：可檢視清單/單筆（不含審核動作） */
-const englishRegViewAuth = [authMiddleware, requirePermission(P.CAN_VIEW_ENGLISH_TESTS)];
-/** 培力英檢後台：審核／維護報名（管理員、執行長） */
-const englishRegReviewAuth = [authMiddleware, requirePermission(P.CAN_REVIEW_ENGLISH_TEST_REGISTRATIONS)];
+const englishRegViewAuth = [authMiddleware, englishTestDomainMiddleware, requirePermission(P.CAN_VIEW_ENGLISH_TESTS)];
+/** 培力英檢後台：審核／維護報名 */
+const englishRegReviewAuth = [authMiddleware, englishTestDomainMiddleware, requirePermission(P.CAN_REVIEW_ENGLISH_TEST_REGISTRATIONS)];
 /** 儀表板用聚合指標（工讀生可取得待審筆數，不含完整個資清單） */
 const englishRegMetricsAuth = [authMiddleware, requirePermission(P.CAN_VIEW_ENGLISH_TEST_METRICS)];
 /** 匯出 Excel／證件照壓縮檔 */
-const englishRegExportAuth = [authMiddleware, requirePermission(P.CAN_EXPORT_ENGLISH_TEST_DATA)];
+const englishRegExportAuth = [authMiddleware, englishTestDomainMiddleware, requirePermission(P.CAN_EXPORT_ENGLISH_TEST_DATA)];
+/** 報名表單 schema 維護 */
+const englishRegFormManageAuth = [authMiddleware, englishTestDomainMiddleware, requirePermission(P.CAN_MANAGE_ENGLISH_TESTS)];
 const { Op, Sequelize, QueryTypes } = require('sequelize');
 const ExcelJS = require('exceljs');
 const emailLogService = require('../services/emailLogService');
 const logger = require('../utils/logger');
 const auditLogService = require('../services/auditLogService');
+const {
+  maskEnglishTestRegistrationForAdminApi,
+  maskEnglishTestRegistrationListForAdminApi,
+} = require('../utils/englishTestRegistrationApiMask');
+const { isIndividualRegistrationEnabled } = require('../services/registrationSettingsService');
+const englishTestFormSchemaService = require('../services/englishTestFormSchemaService');
+
+function parseExtraAnswersField(raw) {
+  if (raw == null || raw === '') return null;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/** 匯出稽核（metadata 經 sanitizeForAudit，不含完整 idNumber／email） */
+function logEnglishTestExportAudit(req, { action, exportType, rowCount, filters }) {
+  auditLogService.logAuditAsync({
+    module: 'english_test',
+    action,
+    entityType: 'EnglishTestRegistrationExport',
+    entityId: `${exportType}:${req.requestId || Date.now()}`.slice(0, 64),
+    targetSummary: `export=${exportType} count=${rowCount}`,
+    afterData: {
+      exportType,
+      rowCount,
+      filters: filters || {},
+      requestId: req.requestId || null,
+    },
+    req,
+  });
+}
 
 /**
  * 重新排序「報名成功」狀態的序號（按學期分組）
@@ -304,6 +363,26 @@ router.put('/english-test/registrations/update',
         });
       }
 
+      // email 變更時須重新通過信箱驗證；未變更則免驗
+      if (englishTestEmailVerificationService.requiresEmailVerification({
+        submittedEmail: formData.email,
+        previousEmail: registration.email,
+        isUpdate: true,
+      })) {
+        try {
+          englishTestEmailVerificationService.assertEmailVerifiedToken({
+            token: formData.emailVerificationToken,
+            email: formData.email,
+          });
+        } catch (verifyErr) {
+          return res.status(verifyErr.status || 400).json({
+            success: false,
+            code: verifyErr.code || 'EMAIL_VERIFICATION_REQUIRED',
+            error: verifyErr.message || '請先完成信箱驗證',
+          });
+        }
+      }
+
       // 處理檔案路徑（如果上傳了新檔案，使用相同檔名覆蓋舊檔案）
       const filePaths = {};
       const baseUploadPath = path.join(__dirname, '../uploads');
@@ -488,7 +567,8 @@ router.put('/english-test/registrations/update',
         examAssistanceOptions: examAssistanceOptions.length > 0 ? examAssistanceOptions : null,
         examAssistanceOther: examAssistanceOther || null,
         agreedToTerms: formData.agreedToTerms === 'true' || formData.agreedToTerms === true,
-        infoSource: formData.infoSource || ''
+        infoSource: formData.infoSource || '',
+        extraAnswers: parseExtraAnswersField(formData.extraAnswers),
       };
 
       // 只有在明確提供時才更新英語能力相關欄位（檢視與修正時通常不修改這些欄位）
@@ -634,6 +714,205 @@ router.put('/english-test/registrations/update',
   }
 );
 
+// —— 培力英檢報名表單 schema（公開讀取 + 後台維護）——
+router.get('/english-test/form-schema', async (req, res) => {
+  try {
+    const data = await englishTestFormSchemaService.getPublishedSchema();
+    return res.json({
+      success: true,
+      data: {
+        version: data.version,
+        updatedAt: data.updatedAt,
+        schema: data.schema,
+        meta: englishTestFormSchemaService.extractOptionsMap(data.schema),
+      },
+    });
+  } catch (error) {
+    logger.error('讀取培力報名表單 schema 失敗', error);
+    return res.status(500).json({ success: false, error: '無法載入報名表單設定' });
+  }
+});
+
+router.get('/english-test/admin/form-schema', ...englishRegViewAuth, async (req, res) => {
+  try {
+    const data = await englishTestFormSchemaService.getPublishedSchema();
+    return res.json({
+      success: true,
+      data: {
+        id: data.id,
+        version: data.version,
+        status: data.status,
+        updatedAt: data.updatedAt,
+        updatedBy: data.updatedBy,
+        changeSummary: data.changeSummary,
+        schema: data.schema,
+        systemPartsBackfilled: Boolean(data.systemPartsBackfilled),
+        allowedQuestionTypes: englishTestFormSchemaService.ALLOWED_QUESTION_TYPES,
+      },
+    });
+  } catch (error) {
+    logger.error('管理端讀取培力報名表單 schema 失敗', error);
+    return res.status(500).json({ success: false, error: '無法載入報名表單設定' });
+  }
+});
+
+router.put('/english-test/admin/form-schema', ...englishRegFormManageAuth, async (req, res) => {
+  try {
+    const schemaJson = req.body?.schema || req.body?.schemaJson || req.body;
+    if (!schemaJson || typeof schemaJson !== 'object') {
+      return res.status(400).json({ success: false, code: 'INVALID_SCHEMA', error: '缺少 schema' });
+    }
+
+    const saved = await englishTestFormSchemaService.savePublishedSchema(schemaJson, {
+      userId: req.user?.id || null,
+      changeSummary: req.body?.changeSummary || null,
+    });
+
+    auditLogService.logAuditAsync({
+      module: 'english_test',
+      action: 'form_schema.update',
+      entityType: 'EnglishTestFormSchema',
+      entityId: String(saved.id),
+      targetSummary: `v${saved.version} questions=${saved.schema?.questions?.length || 0}`,
+      afterData: {
+        version: saved.version,
+        questionCount: saved.schema?.questions?.length || 0,
+        changeSummary: saved.changeSummary,
+      },
+      req,
+    });
+
+    return res.json({ success: true, data: saved });
+  } catch (error) {
+    const status = error.status || 500;
+    if (status >= 500) {
+      logger.error('儲存培力報名表單 schema 失敗', error);
+    }
+    return res.status(status).json({
+      success: false,
+      code: error.code || 'FORM_SCHEMA_SAVE_FAILED',
+      error: error.message || '儲存失敗',
+    });
+  }
+});
+
+router.post('/english-test/admin/form-schema/reset', ...englishRegFormManageAuth, async (req, res) => {
+  try {
+    const saved = await englishTestFormSchemaService.savePublishedSchema(
+      englishTestFormSchemaService.buildDefaultEnglishTestFormSchema(),
+      {
+        userId: req.user?.id || null,
+        changeSummary: '重設為系統預設題目',
+      }
+    );
+    auditLogService.logAuditAsync({
+      module: 'english_test',
+      action: 'form_schema.reset',
+      entityType: 'EnglishTestFormSchema',
+      entityId: String(saved.id),
+      targetSummary: `reset to default v${saved.version}`,
+      req,
+    });
+    return res.json({ success: true, data: saved });
+  } catch (error) {
+    logger.error('重設培力報名表單 schema 失敗', error);
+    return res.status(error.status || 500).json({
+      success: false,
+      code: error.code || 'FORM_SCHEMA_RESET_FAILED',
+      error: error.message || '重設失敗',
+    });
+  }
+});
+
+// API: 寄送報名信箱驗證碼
+router.post(
+  '/english-test/email-verification/send',
+  publicEmailCodeSendRateLimit,
+  requireCaptchaIfEnabled,
+  normalizePublicLookupInput,
+  async (req, res) => {
+    try {
+      const email = req.body?.email;
+      const studentId = req.body?.studentId || null;
+      const { code, expiresInSec, email: normalizedEmail } =
+        await englishTestEmailVerificationService.createAndSendCode({ email, studentId });
+
+      try {
+        await emailLogService.sendEmailWithLog(
+          'englishTestEmailVerification',
+          {
+            email: normalizedEmail,
+            code,
+            expiresInMinutes: Math.floor(expiresInSec / 60),
+          },
+          {
+            requestId: req.requestId || `et-otp:${Date.now()}`,
+            relatedEntityType: 'EnglishTestEmailVerification',
+            relatedEntityId: normalizedEmail,
+          }
+        );
+      } catch (mailErr) {
+        logger.error('寄送信箱驗證碼郵件失敗', mailErr);
+        // 寄信失敗則作廢剛建立的碼，讓學生可立刻重試
+        try {
+          await englishTestEmailVerificationService.invalidateActiveCodes(normalizedEmail);
+        } catch (_) { /* ignore */ }
+        return res.status(503).json({
+          success: false,
+          code: 'EMAIL_SEND_FAILED',
+          error: '驗證碼寄送失敗，請稍後再試或確認信箱是否正確',
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: '驗證碼已寄至您的信箱，請於 10 分鐘內完成驗證',
+        expiresInSec,
+      });
+    } catch (error) {
+      const status = error.status || 500;
+      if (status >= 500) logger.error('寄送信箱驗證碼失敗', error);
+      return res.status(status).json({
+        success: false,
+        code: error.code || 'EMAIL_VERIFICATION_SEND_FAILED',
+        error: error.message || '寄送驗證碼失敗，請稍後再試',
+        retryAfterSec: error.retryAfterSec || undefined,
+      });
+    }
+  }
+);
+
+// API: 驗證報名信箱驗證碼，回傳短效 token
+router.post(
+  '/english-test/email-verification/verify',
+  publicEmailCodeVerifyRateLimit,
+  requireCaptchaIfEnabled,
+  normalizePublicLookupInput,
+  async (req, res) => {
+    try {
+      const result = await englishTestEmailVerificationService.verifyCode({
+        email: req.body?.email,
+        code: req.body?.code,
+      });
+      return res.json({
+        success: true,
+        message: '信箱驗證成功',
+        email: result.email,
+        emailVerificationToken: result.emailVerificationToken,
+        expiresInSec: result.expiresInSec,
+      });
+    } catch (error) {
+      const status = error.status || 500;
+      if (status >= 500) logger.error('驗證信箱驗證碼失敗', error);
+      return res.status(status).json({
+        success: false,
+        code: error.code || 'EMAIL_VERIFICATION_FAILED',
+        error: error.message || '驗證失敗，請稍後再試',
+      });
+    }
+  }
+);
+
 // API: 提交報名（支援檔案上傳）
 router.post('/english-test/register', 
   upload.fields([
@@ -645,8 +924,16 @@ router.post('/english-test/register',
   ]),
   async (req, res) => {
     try {
+      const registrationOpen = await isIndividualRegistrationEnabled();
+      if (!registrationOpen) {
+        return res.status(403).json({
+          error: '培力英檢個人報名目前未開放',
+          code: 'ENGLISH_TEST_REGISTRATION_CLOSED',
+        });
+      }
+
       logger.debug('收到報名請求', { body: req.body, files: req.files });
-      
+
       const formData = req.body;
       const files = req.files;
 
@@ -674,6 +961,25 @@ router.post('/english-test/register',
       // 驗證必要欄位
       if (!formData.studentId || !formData.name || !formData.idNumber) {
         return res.status(400).json({ error: '缺少必要欄位：學號、姓名、身分證字號' });
+      }
+
+      // 有填寫 email 的首次報名須通過信箱驗證碼
+      if (englishTestEmailVerificationService.requiresEmailVerification({
+        submittedEmail: formData.email,
+        isUpdate: false,
+      })) {
+        try {
+          englishTestEmailVerificationService.assertEmailVerifiedToken({
+            token: formData.emailVerificationToken,
+            email: formData.email,
+          });
+        } catch (verifyErr) {
+          return res.status(verifyErr.status || 400).json({
+            success: false,
+            code: verifyErr.code || 'EMAIL_VERIFICATION_REQUIRED',
+            error: verifyErr.message || '請先完成信箱驗證',
+          });
+        }
       }
 
       // 處理檔案路徑（儲存相對路徑，方便前端訪問）
@@ -803,6 +1109,7 @@ router.post('/english-test/register',
           idPhoto: filePaths.idPhoto || null,
           agreedToTerms: formData.agreedToTerms === 'true' || formData.agreedToTerms === true || formData.agreedToTerms === 'true',
           infoSource: formData.infoSource || '',
+          extraAnswers: parseExtraAnswersField(formData.extraAnswers),
           // 如果 examType 為 'NON'，status 設為 'revision'（不報名），否則為 'pending'（審核中）
           status: (formData.examType === 'NON') ? 'revision' : 'pending',
           // 根據報名時間自動判斷學期
@@ -1049,12 +1356,14 @@ router.get('/english-test/registrations/exemption-review', ...englishRegViewAuth
       }
     });
 
-    const data = slice.map((r) => ({
-      ...r.toJSON(),
-      studentRequestedExemptionLabel: inferStudentRequestedExemptionLabel(r),
-      exemptionStatusLabel: mapExemptionReviewStatusToLabel(r.exemption_review_status),
-      bestepClassId: classByStudent[r.studentId] || null
-    }));
+    const data = maskEnglishTestRegistrationListForAdminApi(
+      slice.map((r) => ({
+        ...r.toJSON(),
+        studentRequestedExemptionLabel: inferStudentRequestedExemptionLabel(r),
+        exemptionStatusLabel: mapExemptionReviewStatusToLabel(r.exemption_review_status),
+        bestepClassId: classByStudent[r.studentId] || null
+      }))
+    );
 
     res.json({
       data,
@@ -1158,7 +1467,7 @@ router.put('/english-test/registrations/:id/exemption-review', ...englishRegRevi
     });
     res.json({
       message: '已更新抵免審核',
-      data: updated.toJSON()
+      data: maskEnglishTestRegistrationForAdminApi(updated),
     });
   } catch (error) {
     logger.error('抵免審核更新錯誤', error);
@@ -1464,7 +1773,7 @@ router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res
       page: parseInt(page),
       limit: parseInt(limit),
       totalPages: Math.ceil(count / parseInt(limit)),
-      data: rowsWithSequence, // 使用包含 semesterSequence 的資料
+      data: maskEnglishTestRegistrationListForAdminApi(rowsWithSequence),
       stats: stats
     };
 
@@ -1616,7 +1925,7 @@ router.get('/english-test/registrations/:id', ...englishRegViewAuth, async (req,
       return res.status(404).json({ error: '找不到報名資料' });
     }
 
-    res.json(registration);
+    res.json(maskEnglishTestRegistrationForAdminApi(registration));
   } catch (error) {
     logger.error('取得報名資料錯誤', error);
     res.status(500).json({ error: '伺服器錯誤' });
@@ -1734,7 +2043,10 @@ router.put('/english-test/registrations/:id/files', ...englishRegReviewAuth,
       }
 
       const updatedRegistration = await EnglishTestRegistration.findByPk(registrationId);
-      res.json({ message: '檔案更新成功', registration: updatedRegistration });
+      res.json({
+        message: '檔案更新成功',
+        registration: maskEnglishTestRegistrationForAdminApi(updatedRegistration),
+      });
     } catch (error) {
       logger.error('管理員更新報名檔案錯誤', error);
       res.status(500).json({
@@ -2247,7 +2559,10 @@ router.put('/english-test/registrations/:id', ...englishRegReviewAuth, async (re
       logger.error('發送狀態更新通知郵件失敗', emailError);
     }
 
-    res.json({ message: '更新成功', registration: updatedRegistration });
+    res.json({
+      message: '更新成功',
+      registration: maskEnglishTestRegistrationForAdminApi(updatedRegistration),
+    });
   } catch (error) {
     logger.error('更新報名狀態錯誤', error);
     res.status(500).json({ error: '伺服器錯誤' });
@@ -2662,6 +2977,14 @@ router.get('/english-test/registrations/export/excel', ...englishRegExportAuth, 
     res.setHeader('Content-Disposition', `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`);
 
     await workbook.xlsx.write(res);
+
+    logEnglishTestExportAudit(req, {
+      action: 'english_test_export_excel',
+      exportType: 'excel',
+      rowCount: registrations.length,
+      filters: { status: status || 'all' },
+    });
+
     res.end();
   } catch (error) {
     logger.error('匯出 Excel 錯誤', error);
@@ -2773,6 +3096,13 @@ router.get('/english-test/registrations/export/photos', ...englishRegExportAuth,
     // 完成 ZIP 檔案建立
     await archive.finalize();
 
+    logEnglishTestExportAudit(req, {
+      action: 'english_test_export_photos',
+      exportType: 'photos_zip',
+      rowCount: registrationsWithPhotos.length,
+      filters: { status },
+    });
+
   } catch (error) {
     logger.error('匯出證件照錯誤', error);
     if (!res.headersSent) {
@@ -2877,7 +3207,7 @@ router.post('/english-test/registrations/:id/adjust-sequence', ...englishRegRevi
     const updatedRegistration = await EnglishTestRegistration.findByPk(id);
     res.json({
       message: '順序調整成功',
-      registration: updatedRegistration,
+      registration: maskEnglishTestRegistrationForAdminApi(updatedRegistration),
       newSequence: updatedRegistration.successSequence
     });
   } catch (error) {
@@ -2921,4 +3251,3 @@ router.use((error, req, res, next) => {
 });
 
 module.exports = router;
-

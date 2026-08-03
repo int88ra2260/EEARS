@@ -1,48 +1,66 @@
 import React from 'react';
+import { getEmptyReasonText } from './emptyStateUtils';
 
-function sumActivity(activitySummary) {
-  const byType = Array.isArray(activitySummary?.byType) ? activitySummary.byType : [];
-  return byType.reduce((acc, row) => {
-    acc.signedIn += Number(row.signedIn || 0);
-    acc.absent += Number(row.absent || 0);
-    acc.cancelled += Number(row.cancelled || 0);
-    return acc;
-  }, { signedIn: 0, absent: 0, cancelled: 0 });
-}
+const STATUS_LABELS = {
+  attended: '已簽到',
+  absent: '缺席',
+  cancelled: '取消',
+  registered: '已預約'
+};
 
-export default function ActivityVsSkillPanel({ activitySummary, bestSkills }) {
-  const activity = sumActivity(activitySummary);
+const ABILITY_LABELS = {
+  listening: '聽力',
+  reading: '閱讀',
+  speaking: '口說',
+  writing: '寫作',
+  communication: '溝通',
+  career_communication: '職涯溝通'
+};
+
+export default function ActivityVsSkillPanel({ activityAbilityMapping, emptyReason }) {
+  const rows = Array.isArray(activityAbilityMapping) ? activityAbilityMapping : [];
+  if (rows.length === 0) {
+    return <div className="alert alert-secondary mb-0">{getEmptyReasonText(emptyReason, '尚無活動與能力對照資料。')}</div>;
+  }
+
   return (
-    <div className="row g-3">
-      <div className="col-md-4">
-        <div className="border rounded p-3 h-100">
-          <div className="text-muted small">活動簽到</div>
-          <div className="h5 mb-0">{activity.signedIn}</div>
-        </div>
-      </div>
-      <div className="col-md-4">
-        <div className="border rounded p-3 h-100">
-          <div className="text-muted small">活動缺席</div>
-          <div className="h5 mb-0">{activity.absent}</div>
-        </div>
-      </div>
-      <div className="col-md-4">
-        <div className="border rounded p-3 h-100">
-          <div className="text-muted small">活動取消</div>
-          <div className="h5 mb-0">{activity.cancelled}</div>
-        </div>
-      </div>
-      <div className="col-12">
-        <div className="border rounded p-3">
-          <div className="text-muted small mb-2">四技能目前最佳 CEFR</div>
-          <div className="d-flex flex-wrap gap-3">
-            <span>聽力：{bestSkills?.listening?.cefr || '—'}</span>
-            <span>閱讀：{bestSkills?.reading?.cefr || '—'}</span>
-            <span>口說：{bestSkills?.speaking?.cefr || '—'}</span>
-            <span>寫作：{bestSkills?.writing?.cefr || '—'}</span>
-          </div>
-        </div>
-      </div>
+    <div className="table-responsive">
+      <table className="table table-sm table-striped align-middle mb-0">
+        <thead className="table-light">
+          <tr>
+            <th>活動日期</th>
+            <th>活動名稱</th>
+            <th>活動類型</th>
+            <th>參與狀態</th>
+            <th>簽到時間</th>
+            <th>能力</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, idx) => (
+            <tr key={`${row.eventId || row.eventName || 'activity'}-${idx}`}>
+              <td>{row.eventDate || '—'}</td>
+              <td>{row.eventName || '—'}</td>
+              <td>{row.activityType || row.activityTypeCode || '—'}</td>
+              <td>{STATUS_LABELS[row.attendanceStatus || row.status] || row.attendanceStatus || row.status || '—'}</td>
+              <td>{row.checkInTime || '—'}</td>
+              <td>
+                {Array.isArray(row.abilities) && row.abilities.length > 0 ? (
+                  <div className="d-flex flex-wrap gap-1">
+                    {row.abilities.map((ability) => (
+                      <span className="badge text-bg-light border" key={ability}>
+                        {ABILITY_LABELS[ability] || ability}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-muted">—</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

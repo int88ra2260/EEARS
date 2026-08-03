@@ -1,19 +1,32 @@
 // components/EnglishTestDetailForm.js
-import React, { useState, useEffect, useRef } from 'react';
-import { getCityDistrictByPostalCode } from '../utils/postalCodeMap';
+import React, { useEffect, useState, useCallback } from 'react';
+import { registerEnglishTest } from '../services/englishTestPublicApi';
+import { useEnglishTestFormFields } from '../hooks/useEnglishTestFormFields';
+import {
+  getErrorStyle,
+  ERROR_PULSE_STYLE,
+  scrollToFirstError,
+  buildRegisterFormData,
+} from '../utils/englishTestFormHelpers';
+import { validateEnglishTestDetailForm } from '../utils/englishTestFormValidation';
+import EnglishTestRegistrationFormBody from './english-test/registration/EnglishTestRegistrationFormBody';
+import EnglishTestExtraQuestions, {
+  validateExtraAnswers,
+} from './english-test/registration/EnglishTestExtraQuestions';
+import { useEnglishTestFormSchemaPublic } from '../hooks/useEnglishTestFormSchemaPublic';
+import { buildFormOptionsFromMeta } from '../utils/englishTestFormSchemaMeta';
 
-export default function EnglishTestDetailForm({ initialData, basicInfo, step3Data, onBack, onClose }) {
-  // 初始化表單資料（如果有從 Excel 查詢到的資料，則預填）
-  const [formData, setFormData] = useState({
-    // 基本資料（從第一步取得）
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function buildInitialFormData(initialData, basicInfo, step3Data) {
+  return {
     studentId: basicInfo.studentId || '',
     name: basicInfo.name || '',
     idNumber: basicInfo.idNumber || '',
-    
-    // 步驟三的資料（英語能力與培力資格）
     examType: step3Data?.examType || '',
     hasCEFRB2: step3Data?.hasCEFRB2 || '',
-    // Q3: 各項成績（整合原 Q3 和 Q4）
     listeningExamType: step3Data?.listeningExamType || '',
     listeningScore: step3Data?.listeningScore || '',
     readingExamType: step3Data?.readingExamType || '',
@@ -23,15 +36,11 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
     writingExamType: step3Data?.writingExamType || '',
     writingScore: step3Data?.writingScore || '',
     b2CertificateFiles: step3Data?.b2CertificateFiles || [],
-    
-    // Q1-Q5: 基本聯絡資訊（步驟四）
     email: initialData?.email || '',
     studentNameZh: initialData?.name || basicInfo.name || '',
     lastNameEn: '',
     firstNameEn: '',
     birthDate: initialData?.birthDate || '',
-    
-    // Q6-Q13: 身分與學籍資料（步驟四）
     nationalId: basicInfo.idNumber || '',
     phone: initialData?.phone || '',
     postalCode: initialData?.postalCode || '',
@@ -42,50 +51,48 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
     grade: initialData?.grade || '',
     college: initialData?.college || '',
     department: initialData?.department || '',
-    
-    // Q14-Q18: 特殊身分與協助需求（步驟四）
     isLowIncome: '',
     hasDisabilityCard: '',
     disabilityTypes: [],
-    disabilityOther: '', // 身心障礙類別「其他」的文字輸入
+    disabilityOther: '',
     disabilityCertFront: null,
     disabilityCertBack: null,
     examAssistanceOptions: [],
-    examAssistanceOther: '', // 考試協助項目「其他」的文字輸入
-    
-    // Q19-Q21: 照片與同意事項（步驟四）
+    examAssistanceOther: '',
     idPhoto: null,
     agreedToTerms: false,
     infoSource: '',
-    infoSourceOther: '', // Q21 其他選項的文字輸入
-    addressConfirmed: false // Q8 地址確認勾選項目
-  });
-
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // 預覽圖片 URL
-  const [previewUrls, setPreviewUrls] = useState({
-    idPhoto: null,
-    disabilityCertFront: null,
-    disabilityCertBack: null
-  });
-  
-  // 為每個欄位創建 ref，用於自動跳轉
-  const fieldRefs = useRef({});
-  
-  // 獲取欄位的 ref
-  const getFieldRef = (fieldName) => {
-    if (!fieldRefs.current[fieldName]) {
-      fieldRefs.current[fieldName] = React.createRef();
-    }
-    return fieldRefs.current[fieldName];
+    infoSourceOther: '',
+    addressConfirmed: false,
+    extraAnswers: {},
   };
+}
 
-  // 當 initialData 更新時，更新表單資料
+export default function EnglishTestDetailForm({ initialData, basicInfo, step3Data, onBack, onClose }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailVerificationToken, setEmailVerificationToken] = useState(null);
+  const [verifiedEmail, setVerifiedEmail] = useState(null);
+  const { schema, meta, customQuestions } = useEnglishTestFormSchemaPublic();
+  const formOptions = buildFormOptionsFromMeta(
+    meta
+      ? { ...meta, questions: meta.questions || schema?.questions || [] }
+      : schema,
+    { mode: 'create' }
+  );
+  const {
+    formData,
+    setFormData,
+    errors,
+    setErrors,
+    previewUrls,
+    handleChange,
+    handleFileChange,
+    getFieldRef,
+  } = useEnglishTestFormFields(buildInitialFormData(initialData, basicInfo, step3Data));
+
   useEffect(() => {
     if (initialData) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         email: initialData.email || prev.email,
         studentNameZh: initialData.name || prev.studentNameZh,
@@ -98,381 +105,54 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
         degreeLevel: initialData.degreeLevel || prev.degreeLevel,
         grade: initialData.grade || prev.grade,
         college: initialData.college || prev.college,
-        department: initialData.department || prev.department
+        department: initialData.department || prev.department,
       }));
     }
-  }, [initialData]);
+  }, [initialData, setFormData]);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    
-    if (type === 'checkbox') {
-      if (name === 'agreedToTerms' || name === 'addressConfirmed') {
-        setFormData(prev => ({ ...prev, [name]: checked }));
-      } else {
-        // 處理複選框（如 passedExamTypes, disabilityTypes 等）
-        setFormData(prev => {
-          const currentArray = prev[name] || [];
-          if (checked) {
-            return { ...prev, [name]: [...currentArray, value] };
-          } else {
-            return { ...prev, [name]: currentArray.filter(item => item !== value) };
-          }
-        });
-      }
-    } else {
-      // 如果是郵遞區號欄位，自動填入縣市和行政區
-      if (name === 'postalCode') {
-        setFormData(prev => {
-          const newData = { ...prev, [name]: value };
-          
-          // 當郵遞區號為 3 碼時，查詢對應的縣市和行政區
-          if (value && value.length === 3) {
-            const location = getCityDistrictByPostalCode(value);
-            if (location) {
-              newData.city = location.city;
-              newData.district = location.district;
-              
-              // 清除縣市和行政區的錯誤（如果有的話）
-              setErrors(prev => {
-                const newErrors = { ...prev };
-                delete newErrors.city;
-                delete newErrors.district;
-                return newErrors;
-              });
-            }
-          }
-          
-          return newData;
-        });
-      } else {
-        setFormData(prev => ({ ...prev, [name]: value }));
-      }
-    }
-    
-    // 清除該欄位的錯誤
-    if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  };
-
-  const handleFileChange = (e) => {
-    const { name } = e.target;
-    const file = e.target.files[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, [name]: file }));
-      
-      // 如果是圖片檔案，創建預覽 URL
-      if (file.type.startsWith('image/')) {
-        const previewUrl = URL.createObjectURL(file);
-        setPreviewUrls(prev => {
-          // 釋放舊的預覽 URL（如果有）
-          if (prev[name]) {
-            URL.revokeObjectURL(prev[name]);
-          }
-          return { ...prev, [name]: previewUrl };
-        });
-      } else {
-        // 非圖片檔案（如 PDF），清除預覽
-        setPreviewUrls(prev => {
-          if (prev[name]) {
-            URL.revokeObjectURL(prev[name]);
-          }
-          return { ...prev, [name]: null };
-        });
-      }
-    }
-  };
-  
-  // 清理預覽 URL（組件卸載時）
-  useEffect(() => {
-    return () => {
-      Object.values(previewUrls).forEach(url => {
-        if (url) {
-          URL.revokeObjectURL(url);
-        }
-      });
-    };
-  }, [previewUrls]);
-
-  const validateForm = () => {
-    const newErrors = {};
-    const errorOrder = []; // 記錄錯誤順序，用於跳轉到第一個錯誤
-
-    // Q1: Email 必填且格式驗證
-    if (!formData.email) {
-      newErrors.email = '請填寫電子郵件';
-      errorOrder.push('email');
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = '電子郵件格式不正確';
-      if (!errorOrder.includes('email')) errorOrder.push('email');
-    }
-
-    // Q2: 中文姓名必填
-    if (!formData.studentNameZh) {
-      newErrors.studentNameZh = '請填寫中文姓名';
-      errorOrder.push('studentNameZh');
-    }
-
-    // Q3-Q4: 英文姓名必填
-    if (!formData.lastNameEn) {
-      newErrors.lastNameEn = '請填寫英文拼音姓';
-      errorOrder.push('lastNameEn');
-    }
-    if (!formData.firstNameEn) {
-      newErrors.firstNameEn = '請填寫英文拼音名';
-      errorOrder.push('firstNameEn');
-    }
-
-    // Q5: 出生年月日必填
-    if (!formData.birthDate) {
-      newErrors.birthDate = '請填寫出生年月日';
-      errorOrder.push('birthDate');
-    }
-
-    // Q7: 行動電話必填且格式驗證（步驟四重新編號）
-    if (!formData.phone) {
-      newErrors.phone = '請填寫行動電話';
-      errorOrder.push('phone');
-    } else if (!/^09\d{8}$/.test(formData.phone)) {
-      newErrors.phone = '行動電話格式不正確（應為 09xxxxxxxx）';
-      if (!errorOrder.includes('phone')) errorOrder.push('phone');
-    }
-
-    // Q8: 地址相關欄位必填（步驟四重新編號）
-    if (!formData.postalCode) {
-      newErrors.postalCode = '請填寫郵遞區號';
-      errorOrder.push('postalCode');
-    }
-    if (!formData.city) {
-      newErrors.city = '請填寫縣市';
-      errorOrder.push('city');
-    }
-    if (!formData.district) {
-      newErrors.district = '請填寫行政區';
-      errorOrder.push('district');
-    }
-    if (!formData.address) {
-      newErrors.address = '請填寫詳細地址';
-      errorOrder.push('address');
-    }
-
-    // Q8 地址確認勾選項目必填
-    if (!formData.addressConfirmed) {
-      newErrors.addressConfirmed = '請確認地址資訊';
-      errorOrder.push('addressConfirmed');
-    }
-
-    // Q9-Q13: 學籍資料必填（步驟四重新編號）
-    if (!formData.degreeLevel) {
-      newErrors.degreeLevel = '請選擇就讀身分';
-      errorOrder.push('degreeLevel');
-    }
-    if (!formData.grade) {
-      newErrors.grade = '請選擇年級';
-      errorOrder.push('grade');
-    }
-    if (!formData.college) {
-      newErrors.college = '請選擇學院';
-      errorOrder.push('college');
-    }
-    if (!formData.department) {
-      newErrors.department = '請選擇或填寫科系';
-      errorOrder.push('department');
-    }
-
-    // Q14-Q15: 特殊身分必填（步驟四重新編號）
-    if (formData.isLowIncome === '') {
-      newErrors.isLowIncome = '請選擇是否為中低收入戶';
-      errorOrder.push('isLowIncome');
-    }
-    if (formData.hasDisabilityCard === '') {
-      newErrors.hasDisabilityCard = '請選擇是否有身心障礙手冊';
-      errorOrder.push('hasDisabilityCard');
-    }
-
-    // Q19: 證件照必填（步驟四重新編號）
-    if (!formData.idPhoto) {
-      newErrors.idPhoto = '請上傳證件照';
-      errorOrder.push('idPhoto');
-    }
-
-    // Q20: 同意事項必填（步驟四重新編號）
-    if (!formData.agreedToTerms) {
-      newErrors.agreedToTerms = '請同意個資與報名規範';
-      errorOrder.push('agreedToTerms');
-    }
-
-    // Q21: 資訊來源必填（步驟四重新編號）
-    if (!formData.infoSource) {
-      newErrors.infoSource = '請選擇從何得知培力英檢';
-      errorOrder.push('infoSource');
-    }
-    // 如果選擇「其他」，則必須填寫其他選項
-    if (formData.infoSource === '其他' && !formData.infoSourceOther.trim()) {
-      newErrors.infoSourceOther = '請填寫其他資訊來源';
-      if (!errorOrder.includes('infoSourceOther')) errorOrder.push('infoSourceOther');
-    }
-
-    setErrors(newErrors);
-    
-    // 返回驗證結果和第一個錯誤欄位
-    return {
-      isValid: Object.keys(newErrors).length === 0,
-      firstErrorField: errorOrder.length > 0 ? errorOrder[0] : null
-    };
-  };
+  const handleEmailVerificationChange = useCallback(({ token, verifiedEmail: nextVerified }) => {
+    setEmailVerificationToken(token || null);
+    setVerifiedEmail(nextVerified || null);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    const validationResult = validateForm();
-    
-    if (!validationResult.isValid) {
-      // 找到第一個錯誤欄位並滾動到該位置
-      const firstErrorField = validationResult.firstErrorField;
-      
-      // 等待狀態更新後再滾動
-      setTimeout(() => {
-        if (firstErrorField) {
-          const fieldRef = getFieldRef(firstErrorField);
-          
-          if (fieldRef.current) {
-            // 滾動到該欄位
-            fieldRef.current.scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'center' 
-            });
-            
-            // 高亮顯示錯誤欄位（添加動畫效果）
-            fieldRef.current.style.animation = 'none';
-            setTimeout(() => {
-              if (fieldRef.current) {
-                fieldRef.current.style.animation = 'errorPulse 0.5s ease-in-out 3';
-              }
-            }, 10);
-            
-            // 聚焦到輸入框（如果是可輸入的欄位）
-            const input = fieldRef.current.querySelector('input, select, textarea');
-            if (input && input.type !== 'file' && input.type !== 'checkbox' && input.type !== 'radio') {
-              input.focus();
-            }
-          }
-        }
-      }, 100);
-      
-      // 顯示錯誤提示
-      const errorCount = Object.keys(errors).length;
+
+    const validationResult = validateEnglishTestDetailForm(formData);
+    const nextErrors = { ...validationResult.errors, ...validateExtraAnswers(customQuestions, formData.extraAnswers) };
+
+    const email = normalizeEmail(formData.email);
+    if (email && (!emailVerificationToken || normalizeEmail(verifiedEmail) !== email)) {
+      nextErrors.emailVerification = '請先完成信箱驗證碼驗證';
+    }
+
+    setErrors(nextErrors);
+
+    const hasExtraErrors = Object.keys(nextErrors).some((k) => k.startsWith('extra.'));
+    if (!validationResult.isValid || nextErrors.emailVerification || hasExtraErrors) {
+      scrollToFirstError(getFieldRef, validationResult.firstErrorField || Object.keys(nextErrors)[0] || 'email');
+      const errorCount = Object.keys(nextErrors).length;
       alert(`請修正表單錯誤後再提交\n\n發現 ${errorCount} 個必填欄位未填寫，已自動跳轉至第一個錯誤欄位`);
       return;
     }
 
     setIsSubmitting(true);
-    
+
     try {
-      // 建立 FormData 來處理檔案上傳
-      const submitData = new FormData();
-      
-      // 基本資料
-      submitData.append('studentId', formData.studentId);
-      submitData.append('name', formData.name);
-      submitData.append('idNumber', formData.idNumber);
-      submitData.append('email', formData.email);
-      submitData.append('studentNameZh', formData.studentNameZh);
-      submitData.append('lastNameEn', formData.lastNameEn.toUpperCase());
-      submitData.append('firstNameEn', formData.firstNameEn.toUpperCase());
-      submitData.append('birthDate', formData.birthDate);
-      
-      // 英語能力與培力資格（從步驟三取得）
-      submitData.append('examType', formData.examType);
-      submitData.append('hasCEFRB2', formData.hasCEFRB2);
-      // Q3: 各項成績
-      submitData.append('listeningExamType', formData.listeningExamType || '');
-      submitData.append('listeningScore', formData.listeningScore || '');
-      submitData.append('readingExamType', formData.readingExamType || '');
-      submitData.append('readingScore', formData.readingScore || '');
-      submitData.append('speakingExamType', formData.speakingExamType || '');
-      submitData.append('speakingScore', formData.speakingScore || '');
-      submitData.append('writingExamType', formData.writingExamType || '');
-      submitData.append('writingScore', formData.writingScore || '');
-      // Q4: B2 成績證明（支援多檔案）
-      if (formData.b2CertificateFiles && formData.b2CertificateFiles.length > 0) {
-        formData.b2CertificateFiles.forEach((file) => {
-          submitData.append('b2CertificateFiles', file);
-        });
-      }
-      
-      // 身分與學籍資料
-      submitData.append('nationalId', formData.nationalId);
-      submitData.append('phone', formData.phone);
-      submitData.append('postalCode', formData.postalCode);
-      submitData.append('city', formData.city);
-      submitData.append('district', formData.district);
-      submitData.append('address', formData.address);
-      submitData.append('degreeLevel', formData.degreeLevel);
-      submitData.append('grade', formData.grade);
-      submitData.append('college', formData.college);
-      submitData.append('department', formData.department);
-      
-      // 特殊身分與協助需求
-      submitData.append('isLowIncome', formData.isLowIncome);
-      submitData.append('hasDisabilityCard', formData.hasDisabilityCard);
-      submitData.append('disabilityTypes', JSON.stringify(formData.disabilityTypes));
-      if (formData.disabilityCertFront) {
-        submitData.append('disabilityCertFront', formData.disabilityCertFront);
-      }
-      if (formData.disabilityCertBack) {
-        submitData.append('disabilityCertBack', formData.disabilityCertBack);
-      }
-      submitData.append('examAssistanceOptions', JSON.stringify(formData.examAssistanceOptions));
-      if (formData.examAssistanceOther) {
-        submitData.append('examAssistanceOther', formData.examAssistanceOther);
-      }
-      if (formData.disabilityOther) {
-        submitData.append('disabilityOther', formData.disabilityOther);
-      }
-      
-      // 照片與同意事項
-      if (formData.idPhoto) {
-        submitData.append('idPhoto', formData.idPhoto);
-      }
-      submitData.append('agreedToTerms', formData.agreedToTerms);
-      submitData.append('addressConfirmed', formData.addressConfirmed);
-      submitData.append('infoSource', formData.infoSource);
-      if (formData.infoSourceOther) {
-        submitData.append('infoSourceOther', formData.infoSourceOther);
-      }
-
-      const response = await fetch('/api/english-test/register', {
-        method: 'POST',
-        body: submitData
+      const submitData = buildRegisterFormData({
+        ...formData,
+        emailVerificationToken,
       });
+      const { ok, data } = await registerEnglishTest(submitData);
 
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        console.error('解析回應失敗:', e);
-        alert('伺服器回應格式錯誤，請檢查後端日誌');
-        return;
-      }
-
-      if (response.ok) {
-        // 在新標籤頁開啟成功頁面
-        // 使用 setTimeout 確保在用戶交互上下文中打開，避免被瀏覽器阻止
+      if (ok) {
         const successUrl = '/english-test-success.html';
         setTimeout(() => {
           const newWindow = window.open(successUrl, '_blank');
           if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-            // 如果彈窗被阻止，顯示提示訊息
             alert('報名成功！請查看瀏覽器是否阻止了新分頁開啟。\n\n謝謝您的回覆。報名完成後，若資料正常送出，您應該會在報名填寫的email收到通知。如有其他疑問，歡迎寄信聯絡我們（emicenter@mail.nsysu.edu.tw），謝謝。\n\n如果沒有收到通知，請先確認有無誤分到垃圾信件匣。若還是沒有，可能沒有正確送出報名資料，請協助重新再報一次名。\n\n主辦單位將於考前一至二週以email及手機簡訊另行通知您考試的日期及試場，請確認您報名時留的是常收信的email。如有任何疑問，請洽全英語卓越教學中心（建議優先寄信到emicenter@mail.nsysu.edu.tw），謝謝。');
           }
         }, 100);
-        // 關閉當前表單（回到首頁）
         onClose();
       } else {
         console.error('提交失敗:', data);
@@ -486,1112 +166,39 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
     }
   };
 
-  // 學院選項
-  const colleges = ['文學院', '理學院', '工學院', '管理學院', '海洋科學院', '社會科學院', '西灣學院', '醫學院'];
-  
-  // 年級選項（步驟四）
-  const grades = ['一年級', '二年級', '三年級', '四年級以上'];
-
-  // 科系選項（依學院動態顯示）
-  const departmentOptions = {
-    '文學院': [
-      '中國文學系（Bachelor/Master/Ph.D.）',
-      '外國語文學系（Bachelor/Master/Ph.D.）',
-      '音樂學系（Bachelor/Master）',
-      '劇場藝術學系（Bachelor/Master）'
-    ],
-    '理學院': [
-      '生物科學系（Bachelor/Master/Ph.D.）',
-      '化學系（Bachelor/Master/Ph.D.）',
-      '物理學系（Bachelor/Master/Ph.D.）',
-      '應用數學系（Bachelor/Master/Ph.D.）'
-    ],
-    '工學院': [
-      '電機工程學系（Bachelor/Master/Ph.D.）',
-      '機械與機電工程學系（Bachelor/Master/Ph.D.）',
-      '資訊工程學系（Bachelor/Master/Ph.D.）',
-      '光電工程學系（Bachelor/Master/Ph.D.）',
-      '材料與光電科學學系（Bachelor/Master/Ph.D.）'
-    ],
-    '管理學院': [
-      '企業管理學系（Bachelor/Master/Ph.D.）',
-      '資訊管理學系（Bachelor/Master/Ph.D.）',
-      '財務管理學系（Bachelor/Master/Ph.D.）',
-      '國際經營管理全英語學士學位學程'
-    ],
-    '海洋科學院': [
-      '海洋生物科技暨資源學系（Bachelor/Master/Ph.D.）',
-      '海洋環境及工程學系（Bachelor/Master/Ph.D.）',
-      '海洋科學系（Bachelor/Master/Ph.D.）'
-    ],
-    '社會科學院': [
-      '政治經濟學系（Bachelor）',
-      '社會學系（Bachelor/Master）'
-    ],
-    '西灣學院': [
-      '人文暨科技跨領域學士學位學程',
-      '原住民族專班'
-    ],
-    '醫學院': [
-      '學士後醫學系',
-      '護理學系',
-      '生物醫學科技學系'
-    ]
-  };
-
-  // 獲取錯誤樣式
-  const getErrorStyle = (fieldName) => {
-    return errors[fieldName] ? {
-      border: '3px solid #dc3545',
-      backgroundColor: '#fff5f5',
-      boxShadow: '0 0 0 0.2rem rgba(220, 53, 69, 0.25)',
-      animation: 'errorPulse 0.5s ease-in-out'
-    } : {};
-  };
-
   return (
     <form onSubmit={handleSubmit}>
-      <style>{`
-        @keyframes errorPulse {
-          0%, 100% { box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25); }
-          50% { box-shadow: 0 0 0 0.5rem rgba(220, 53, 69, 0.5); }
-        }
-      `}</style>
-      {/* A. 基本聯絡資訊 */}
-      <div className="mb-4">
-        <h4 className="mb-3" style={{ color: '#FF6B6B', borderBottom: '2px solid #FF6B6B', paddingBottom: '0.5rem' }}>
-          A. 基本聯絡資訊
-        </h4>
-        
-        <div className="mb-3" ref={getFieldRef('email')}>
-          <label className="form-label">
-            Q1. 電子郵件 <span style={{ color: 'red' }}>*</span>
-          </label>
-          <input
-            type="email"
-            className="form-control"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            style={{
-              border: errors.email ? '3px solid #dc3545' : '1px solid #ced4da',
-              backgroundColor: errors.email ? '#fff5f5' : 'white',
-              boxShadow: errors.email ? '0 0 0 0.2rem rgba(220, 53, 69, 0.25)' : 'none'
-            }}
-          />
-          {errors.email && (
-            <div className="text-danger mt-2 p-2 rounded" style={{ 
-              backgroundColor: '#f8d7da', 
-              border: '1px solid #f5c6cb',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
-              ⚠️ {errors.email}
-            </div>
-          )}
-        </div>
-
-        <div className="mb-3" ref={getFieldRef('studentNameZh')}>
-          <label className="form-label">
-            Q2. 中文姓名 <span style={{ color: 'red' }}>*</span>
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            name="studentNameZh"
-            value={formData.studentNameZh}
-            onChange={handleChange}
-            style={getErrorStyle('studentNameZh')}
-          />
-          {errors.studentNameZh && (
-            <div className="text-danger mt-2 p-2 rounded" style={{ 
-              backgroundColor: '#f8d7da', 
-              border: '1px solid #f5c6cb',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
-              ⚠️ {errors.studentNameZh}
-            </div>
-          )}
-        </div>
-
-        <div className="row mb-3">
-          <div className="col-md-6" ref={getFieldRef('lastNameEn')}>
-            <label className="form-label">
-              Q3. 英文拼音姓 <span style={{ color: 'red' }}>*</span>
-            </label>
-            <input
-              type="text"
-              className="form-control"
-              name="lastNameEn"
-              value={formData.lastNameEn}
-              onChange={handleChange}
-              style={{ textTransform: 'uppercase', ...getErrorStyle('lastNameEn') }}
-              placeholder="大寫英文姓氏"
-            />
-            {errors.lastNameEn && (
-              <div className="text-danger mt-2 p-2 rounded" style={{ 
-                backgroundColor: '#f8d7da', 
-                border: '1px solid #f5c6cb',
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }}>
-                ⚠️ {errors.lastNameEn}
-              </div>
-            )}
-          </div>
-          <div className="col-md-6" ref={getFieldRef('firstNameEn')}>
-            <label className="form-label">
-              Q4. 英文拼音名 <span style={{ color: 'red' }}>*</span>
-            </label>
-            <input
-              type="text"
-              className="form-control"
-              name="firstNameEn"
-              value={formData.firstNameEn}
-              onChange={handleChange}
-              style={{ textTransform: 'uppercase', ...getErrorStyle('firstNameEn') }}
-              placeholder="大寫英文名字"
-            />
-            {errors.firstNameEn && (
-              <div className="text-danger mt-2 p-2 rounded" style={{ 
-                backgroundColor: '#f8d7da', 
-                border: '1px solid #f5c6cb',
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }}>
-                ⚠️ {errors.firstNameEn}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mb-3" ref={getFieldRef('birthDate')}>
-          <label className="form-label">
-            Q5. 出生年月日 <span style={{ color: 'red' }}>*</span>
-          </label>
-          <input
-            type="date"
-            className="form-control"
-            name="birthDate"
-            value={formData.birthDate}
-            onChange={handleChange}
-            style={getErrorStyle('birthDate')}
-          />
-          {errors.birthDate && (
-            <div className="text-danger mt-2 p-2 rounded" style={{ 
-              backgroundColor: '#f8d7da', 
-              border: '1px solid #f5c6cb',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
-              ⚠️ {errors.birthDate}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* B. 身分與學籍資料 */}
-      <div className="mb-4">
-        <h4 className="mb-3" style={{ color: '#FF6B6B', borderBottom: '2px solid #FF6B6B', paddingBottom: '0.5rem' }}>
-          B. 身分與學籍資料
-        </h4>
-        
-        <div className="mb-3">
-          <label className="form-label">
-            Q6. 身分證字號 <span style={{ color: 'red' }}>*</span>
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            name="nationalId"
-            value={formData.nationalId}
-            readOnly
-            style={{ backgroundColor: '#f5f5f5' }}
-          />
-        </div>
-
-        <div className="mb-3" ref={getFieldRef('phone')}>
-          <label className="form-label">
-            Q7. 行動電話 <span style={{ color: 'red' }}>*</span>
-          </label>
-          <input
-            type="tel"
-            className="form-control"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            maxLength="10"
-            style={getErrorStyle('phone')}
-          />
-          {errors.phone && (
-            <div className="text-danger mt-2 p-2 rounded" style={{ 
-              backgroundColor: '#f8d7da', 
-              border: '1px solid #f5c6cb',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
-              ⚠️ {errors.phone}
-            </div>
-          )}
-        </div>
-
-        <div className="mb-3" ref={getFieldRef('postalCode')}>
-          <label className="form-label">
-            Q8. 通訊地址 <span style={{ color: 'red' }}>*</span>
-          </label>
-          <div className="row">
-            <div className="col-md-3 mb-2">
-              <input
-                type="text"
-                className="form-control"
-                name="postalCode"
-                value={formData.postalCode}
-                onChange={handleChange}
-                placeholder="郵遞區號"
-                maxLength="3"
-                style={getErrorStyle('postalCode')}
-              />
-              {errors.postalCode && (
-                <div className="text-danger mt-1 small" style={{ fontWeight: 'bold' }}>
-                  ⚠️ {errors.postalCode}
-                </div>
-              )}
-            </div>
-            <div className="col-md-3 mb-2" ref={getFieldRef('city')}>
-              <input
-                type="text"
-                className="form-control"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                placeholder="縣市"
-                style={getErrorStyle('city')}
-              />
-              {errors.city && (
-                <div className="text-danger mt-1 small" style={{ fontWeight: 'bold' }}>
-                  ⚠️ {errors.city}
-                </div>
-              )}
-            </div>
-            <div className="col-md-3 mb-2" ref={getFieldRef('district')}>
-              <input
-                type="text"
-                className="form-control"
-                name="district"
-                value={formData.district}
-                onChange={handleChange}
-                placeholder="行政區"
-                style={getErrorStyle('district')}
-              />
-              {errors.district && (
-                <div className="text-danger mt-1 small" style={{ fontWeight: 'bold' }}>
-                  ⚠️ {errors.district}
-                </div>
-              )}
-            </div>
-            <div className="col-md-3 mb-2" ref={getFieldRef('address')}>
-              <input
-                type="text"
-                className="form-control"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                placeholder="詳細地址"
-                style={getErrorStyle('address')}
-              />
-              {errors.address && (
-                <div className="text-danger mt-1 small" style={{ fontWeight: 'bold' }}>
-                  ⚠️ {errors.address}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-3" ref={getFieldRef('addressConfirmed')}>
-          <div style={errors.addressConfirmed ? { 
-            padding: '1rem', 
-            border: '3px solid #dc3545', 
-            borderRadius: '5px',
-            backgroundColor: '#fff5f5'
-          } : {}}>
-            <div className="form-check">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                name="addressConfirmed"
-                checked={formData.addressConfirmed}
-                onChange={handleChange}
-                style={{
-                  width: '1.2rem',
-                  height: '1.2rem',
-                  cursor: 'pointer',
-                  marginTop: '0.25rem'
-                }}
-              />
-              <label 
-                className="form-check-label ms-2"
-                style={{
-                  fontSize: '1rem',
-                  cursor: 'pointer',
-                  fontWeight: errors.addressConfirmed ? 'bold' : 'normal'
-                }}
-              >
-                培力官方可能以紙本寄送考試相關文件，請確認所填地址能夠接收「掛號」信件，若因填寫錯誤導致無法領取，本中心概不負責。
-                <span style={{ color: 'red' }}> *</span>
-              </label>
-            </div>
-          </div>
-          {errors.addressConfirmed && (
-            <div className="text-danger mt-2 p-2 rounded" style={{ 
-              backgroundColor: '#f8d7da', 
-              border: '1px solid #f5c6cb',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
-              ⚠️ {errors.addressConfirmed}
-            </div>
-          )}
-        </div>
-
-        <div className="row mb-3">
-          <div className="col-md-6" ref={getFieldRef('degreeLevel')}>
-            <label className="form-label">
-              Q9. 就讀身分 <span style={{ color: 'red' }}>*</span>
-            </label>
-            <select
-              className="form-select"
-              name="degreeLevel"
-              value={formData.degreeLevel}
-              onChange={handleChange}
-              style={getErrorStyle('degreeLevel')}
-            >
-              <option value="">請選擇</option>
-              <option value="學士班">學士班</option>
-              <option value="碩士班">碩士班</option>
-              <option value="博士班">博士班</option>
-            </select>
-            {errors.degreeLevel && (
-              <div className="text-danger mt-2 p-2 rounded" style={{ 
-                backgroundColor: '#f8d7da', 
-                border: '1px solid #f5c6cb',
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }}>
-                ⚠️ {errors.degreeLevel}
-              </div>
-            )}
-          </div>
-          <div className="col-md-6" ref={getFieldRef('grade')}>
-            <label className="form-label">
-              Q10. 年級 <span style={{ color: 'red' }}>*</span>
-            </label>
-            <select
-              className="form-select"
-              name="grade"
-              value={formData.grade}
-              onChange={handleChange}
-              style={getErrorStyle('grade')}
-            >
-              <option value="">請選擇</option>
-              {grades.map(grade => (
-                <option key={grade} value={grade}>{grade}</option>
-              ))}
-            </select>
-            {errors.grade && (
-              <div className="text-danger mt-2 p-2 rounded" style={{ 
-                backgroundColor: '#f8d7da', 
-                border: '1px solid #f5c6cb',
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }}>
-                ⚠️ {errors.grade}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mb-3">
-          <label className="form-label">
-            Q11. 學號 <span style={{ color: 'red' }}>*</span>
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            name="studentId"
-            value={formData.studentId}
-            readOnly
-            style={{ backgroundColor: '#f5f5f5' }}
-          />
-        </div>
-
-        <div className="row mb-3">
-          <div className="col-md-6" ref={getFieldRef('college')}>
-            <label className="form-label">
-              Q12. 學院 <span style={{ color: 'red' }}>*</span>
-            </label>
-            <select
-              className="form-select"
-              name="college"
-              value={formData.college}
-              onChange={(e) => {
-                handleChange(e);
-                // 當學院改變時，清空科系選項
-                setFormData(prev => ({ ...prev, department: '' }));
-              }}
-              style={getErrorStyle('college')}
-            >
-              <option value="">請選擇</option>
-              {colleges.map(college => (
-                <option key={college} value={college}>{college}</option>
-              ))}
-            </select>
-            {errors.college && (
-              <div className="text-danger mt-2 p-2 rounded" style={{ 
-                backgroundColor: '#f8d7da', 
-                border: '1px solid #f5c6cb',
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }}>
-                ⚠️ {errors.college}
-              </div>
-            )}
-          </div>
-          <div className="col-md-6" ref={getFieldRef('department')}>
-            <label className="form-label">
-              Q13. 科系 <span style={{ color: 'red' }}>*</span>
-            </label>
-            {formData.college && departmentOptions[formData.college] ? (
-              <select
-                className="form-select"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-                style={getErrorStyle('department')}
-              >
-                <option value="">請選擇</option>
-                {departmentOptions[formData.college].map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                className="form-control"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-                placeholder="請先選擇學院"
-                style={getErrorStyle('department')}
-                disabled={!formData.college}
-              />
-            )}
-            {errors.department && (
-              <div className="text-danger mt-2 p-2 rounded" style={{ 
-                backgroundColor: '#f8d7da', 
-                border: '1px solid #f5c6cb',
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }}>
-                ⚠️ {errors.department}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* E. 特殊身分與協助需求 */}
-      <div className="mb-4">
-        <h4 className="mb-3" style={{ color: '#FF6B6B', borderBottom: '2px solid #FF6B6B', paddingBottom: '0.5rem' }}>
-          C. 特殊身分與協助需求
-        </h4>
-        
-        <div className="mb-3" ref={getFieldRef('isLowIncome')}>
-          <label className="form-label">
-            Q14. 是否為中低收入戶 <span style={{ color: 'red' }}>*</span>
-          </label>
-          <div style={errors.isLowIncome ? { 
-            padding: '1rem', 
-            border: '3px solid #dc3545', 
-            borderRadius: '5px',
-            backgroundColor: '#fff5f5'
-          } : {}}>
-            <div className="form-check mb-2">
-              <input
-                className="form-check-input"
-                type="radio"
-                name="isLowIncome"
-                value="否"
-                checked={formData.isLowIncome === '否'}
-                onChange={handleChange}
-              />
-              <label className="form-check-label">否</label>
-            </div>
-            <div className="form-check mb-2">
-              <input
-                className="form-check-input"
-                type="radio"
-                name="isLowIncome"
-                value="中低收入戶"
-                checked={formData.isLowIncome === '中低收入戶'}
-                onChange={handleChange}
-              />
-              <label className="form-check-label">中低收入戶</label>
-            </div>
-            <div className="form-check mb-2">
-              <input
-                className="form-check-input"
-                type="radio"
-                name="isLowIncome"
-                value="低收入戶"
-                checked={formData.isLowIncome === '低收入戶'}
-                onChange={handleChange}
-              />
-              <label className="form-check-label">低收入戶</label>
-            </div>
-          </div>
-          {errors.isLowIncome && (
-            <div className="text-danger mt-2 p-2 rounded" style={{ 
-              backgroundColor: '#f8d7da', 
-              border: '1px solid #f5c6cb',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
-              ⚠️ {errors.isLowIncome}
-            </div>
-          )}
-        </div>
-
-        <div className="mb-3" ref={getFieldRef('hasDisabilityCard')}>
-          <label className="form-label">
-            Q15. 是否有身心障礙手冊 <span style={{ color: 'red' }}>*</span>
-          </label>
-          <div style={errors.hasDisabilityCard ? { 
-            padding: '1rem', 
-            border: '3px solid #dc3545', 
-            borderRadius: '5px',
-            backgroundColor: '#fff5f5'
-          } : {}}>
-            <div className="form-check form-check-inline">
-              <input
-                className="form-check-input"
-                type="radio"
-                name="hasDisabilityCard"
-                value="是"
-                checked={formData.hasDisabilityCard === '是'}
-                onChange={handleChange}
-              />
-              <label className="form-check-label">是</label>
-            </div>
-            <div className="form-check form-check-inline">
-              <input
-                className="form-check-input"
-                type="radio"
-                name="hasDisabilityCard"
-                value="否"
-                checked={formData.hasDisabilityCard === '否'}
-                onChange={handleChange}
-              />
-              <label className="form-check-label">否</label>
-            </div>
-          </div>
-          {errors.hasDisabilityCard && (
-            <div className="text-danger mt-2 p-2 rounded" style={{ 
-              backgroundColor: '#f8d7da', 
-              border: '1px solid #f5c6cb',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
-              ⚠️ {errors.hasDisabilityCard}
-            </div>
-          )}
-        </div>
-
-        {formData.hasDisabilityCard === '是' && (
-          <>
-            <div className="mb-3">
-              <label className="form-label">
-                Q16. 身心障礙類別（可複選）
-              </label>
-              <div className="row">
-                {[
-                  '輕度肢障',
-                  '中度肢障',
-                  '重度肢障',
-                  '輕度視障',
-                  '中度視障',
-                  '重度視障',
-                  '輕度聽障',
-                  '中度聽障',
-                  '重度聽障',
-                  '輕度平衡障',
-                  '中度平衡障',
-                  '重度多重障'
-                ].map(type => (
-                  <div key={type} className="col-md-6 mb-2">
-                    <div className="form-check">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        name="disabilityTypes"
-                        value={type}
-                        checked={formData.disabilityTypes.includes(type)}
-                        onChange={handleChange}
-                      />
-                      <label className="form-check-label">{type}</label>
-                    </div>
-                  </div>
-                ))}
-                <div className="col-md-6 mb-2">
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      name="disabilityTypes"
-                      value="其他"
-                      checked={formData.disabilityTypes.includes('其他')}
-                      onChange={handleChange}
-                    />
-                    <label className="form-check-label">其他</label>
-                  </div>
-                </div>
-              </div>
-              {formData.disabilityTypes.includes('其他') && (
-                <div className="mt-3">
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="disabilityOther"
-                    value={formData.disabilityOther}
-                    onChange={handleChange}
-                    placeholder="請填寫其他身心障礙類別"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label">
-                Q17. 身心障礙證明正反面上傳
-              </label>
-              <div className="row">
-                <div className="col-md-6 mb-2">
-                  <input
-                    type="file"
-                    className="form-control"
-                    name="disabilityCertFront"
-                    onChange={handleFileChange}
-                    accept=".pdf,.jpg,.jpeg,.png"
-                  />
-                  <small className="text-muted">正面</small>
-                  {previewUrls.disabilityCertFront && (
-                    <div className="mt-2">
-                      <small className="text-muted d-block mb-1">預覽：</small>
-                      <img
-                        src={previewUrls.disabilityCertFront}
-                        alt="身心障礙證明正面預覽"
-                        style={{
-                          maxWidth: '200px',
-                          maxHeight: '200px',
-                          border: '1px solid #ddd',
-                          borderRadius: '5px',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => window.open(previewUrls.disabilityCertFront, '_blank')}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="col-md-6 mb-2">
-                  <input
-                    type="file"
-                    className="form-control"
-                    name="disabilityCertBack"
-                    onChange={handleFileChange}
-                    accept=".pdf,.jpg,.jpeg,.png"
-                  />
-                  <small className="text-muted">反面</small>
-                  {previewUrls.disabilityCertBack && (
-                    <div className="mt-2">
-                      <small className="text-muted d-block mb-1">預覽：</small>
-                      <img
-                        src={previewUrls.disabilityCertBack}
-                        alt="身心障礙證明反面預覽"
-                        style={{
-                          maxWidth: '200px',
-                          maxHeight: '200px',
-                          border: '1px solid #ddd',
-                          borderRadius: '5px',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => window.open(previewUrls.disabilityCertBack, '_blank')}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label">
-                Q18. 需要的考試協助項目（可複選）
-              </label>
-              <div className="row">
-                {[
-                  '提前 5 分鐘入場',
-                  '安排在一樓教室或有電梯的大樓',
-                  '聽讀測驗之座位安排靠近播音機（限聽障考生）',
-                  '單獨應考或安排 6 人以下應考（單獨應考限有不自主作動或聲響之考生）',
-                  '試題冊放大 1.5 倍字體（相當於題號列印 18 點字體）（限視障生）',
-                  '試題冊放大 2 倍字體（相當於題號列印 23 點字體）（限重度視障生）',
-                  '免除聽說測驗之聽力測驗（限聽、中、重度聽障考生）',
-                  '免除口說能力測驗（限聽、中及重度聽障／語障考生）',
-                  '聽讀測驗直接作答於試題冊上（限視障及書寫功能障礙考生）',
-                  '延長作答時間為原時間之 1.5 倍（限閱讀及書寫功能障礙考生）',
-                  '延長作答時間為原時間之 2 倍（限重度視障生）',
-                  '考生自備輔具：放大鏡、擴視機',
-                  '考生自備輔具：拐杖',
-                  '考生自備輔具：坐輪椅應考（請於「其他」項說明輪椅尺寸，以便安排桌子）',
-                  '考生自備輔具：助聽器或配戴 FM 輔聽系統、電子耳、電子耳 FM 輔聽系統（申請助聽器或電子耳之考生，請於考前 5 分鐘進場。）',
-                  '考生自備醫療器具（請於「其他」項註明）',
-                  '單獨應考或安排6人以下試場(單獨應考限會不自主動作與聲語障考生)',
-                  '其他'
-                ].map(option => (
-                  <div key={option} className="col-md-6 mb-2">
-                    <div className="form-check">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        name="examAssistanceOptions"
-                        value={option}
-                        checked={formData.examAssistanceOptions.includes(option)}
-                        onChange={handleChange}
-                      />
-                      <label className="form-check-label" style={{ fontSize: '0.9rem' }}>{option}</label>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {formData.examAssistanceOptions.includes('其他') && (
-                <div className="mt-3">
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="examAssistanceOther"
-                    value={formData.examAssistanceOther}
-                    onChange={handleChange}
-                    placeholder="請填寫其他考試協助項目"
-                  />
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* F. 照片與同意事項 */}
-      <div className="mb-4">
-        <h4 className="mb-3" style={{ color: '#FF6B6B', borderBottom: '2px solid #FF6B6B', paddingBottom: '0.5rem' }}>
-          D. 照片與同意事項
-        </h4>
-        
-        <div className="mb-3" ref={getFieldRef('idPhoto')}>
-          <label className="form-label">
-            Q19. 上傳證件照（2 吋） <span style={{ color: 'red' }}>*</span>
-          </label>
-          
-          {/* 合格照片說明 */}
-          <div className="mt-3 p-3 rounded" style={{ 
-            backgroundColor: '#e7f3ff', 
-            border: '2px solid #0066cc',
-            fontSize: '0.95rem',
-            lineHeight: '1.8'
-          }}>
-            <strong style={{ color: '#0066cc', fontSize: '1.1rem' }}>📸 合格證件照規範：</strong>
-            <div className="mt-2 mb-2 p-2 rounded" style={{ 
-              backgroundColor: '#fff4e6', 
-              border: '2px solid #ff8c00',
-              fontSize: '0.95rem',
-              lineHeight: '1.6'
-            }}>
-              <strong style={{ color: '#cc6600' }}>本次考試可免費下載電子證書， 證書上將印出考生照片。由於報名完成後無法再抽換照片，請上傳符合證件規格、正面清晰、背景乾淨之照片，避免未來遺憾。</strong>
-            </div>
-            <ol style={{ marginTop: '0.5rem', marginBottom: '0', paddingLeft: '1.5rem' }}>
-              <li>應為6個月內所拍攝之正面、脫帽、露耳、五官清晰、白色或淺色背景之彩色證件照片。</li>
-              <li>臉部需佔照片面積之70%~80%，頭部或頭髮不能碰觸到照片邊框（女性長髮碰到邊框下緣情形例外）。</li>
-              <li>眼睛正視相機鏡頭拍攝，兩眼必須張開且清晰可見，表情自然不誇張，且不能有紅眼。</li>
-              <li>如配戴眼鏡，眼睛需清楚呈現，不得配戴深色鏡片眼鏡，不能有閃光反射在眼睛上，鏡框不得遮蓋眼睛任何一部分。</li>
-              <li>不得使用合成或修改之照片，亦不可使用生活照修剪。</li>
-              <li>考生上傳照片，將於一週內審核，如所上傳照片不符規定將以e-mail通知，請於通知日後三日內修正重傳；未於期限內修正者，皆以照片不符報考規定處理，恕無法受理報名。</li>
-              <li>完成上傳照片，經審核通過，不得更換。</li>
-              <li>務必上傳考生本人之照片，若測驗當日核對與上傳照片無法確認為本人，測驗結束後得要求考生再接受查驗。</li>
-            </ol>
-          </div>
-
-          {/* 範例圖片 */}
-          <div className="mt-3">
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <div className="p-3 rounded" style={{ 
-                  backgroundColor: '#d4edda', 
-                  border: '2px solid #28a745',
-                  textAlign: 'center'
-                }}>
-                  <strong style={{ color: '#155724', display: 'block', marginBottom: '0.5rem' }}>✅ 合格範例</strong>
-                  <img
-                    src="/正確證件照範例.png"
-                    alt="合格證件照範例"
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '300px',
-                      border: '2px solid #28a745',
-                      borderRadius: '5px',
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => window.open('/正確證件照範例.png', '_blank')}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'block';
-                    }}
-                  />
-                  <div style={{ display: 'none', color: '#999', marginTop: '0.5rem' }}>
-                    圖片載入失敗，請確認圖片路徑正確
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-6 mb-3">
-                <div className="p-3 rounded" style={{ 
-                  backgroundColor: '#f8d7da', 
-                  border: '2px solid #dc3545',
-                  textAlign: 'center'
-                }}>
-                  <strong style={{ color: '#721c24', display: 'block', marginBottom: '0.5rem' }}>❌ 不合格範例</strong>
-                  <img
-                    src="/不合格證件照範例.jpg"
-                    alt="不合格證件照範例"
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '300px',
-                      border: '2px solid #dc3545',
-                      borderRadius: '5px',
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => window.open('/不合格證件照範例.jpg', '_blank')}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'block';
-                    }}
-                  />
-                  <div style={{ display: 'none', color: '#999', marginTop: '0.5rem' }}>
-                    圖片載入失敗，請確認圖片路徑正確
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 選擇檔案（移到照片範例下方） */}
-          <div className="mt-3">
-            <input
-              type="file"
-              className="form-control"
-              name="idPhoto"
-              onChange={handleFileChange}
-              accept=".jpg,.jpeg,.png"
-              style={errors.idPhoto ? {
-                border: '3px solid #dc3545',
-                backgroundColor: '#fff5f5'
-              } : {}}
-            />
-            <small className="text-muted">限制：JPG/PNG、白底、3MB 以下</small>
-            
-            {/* 預覽上傳的證件照 */}
-            {previewUrls.idPhoto && (
-              <div className="mt-2">
-                <small className="text-muted d-block mb-1">預覽上傳的證件照：</small>
-                <img
-                  src={previewUrls.idPhoto}
-                  alt="證件照預覽"
-                  style={{
-                    maxWidth: '150px',
-                    maxHeight: '200px',
-                    border: '1px solid #ddd',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => window.open(previewUrls.idPhoto, '_blank')}
-                />
-              </div>
-            )}
-          </div>
-
-          {errors.idPhoto && (
-            <div className="text-danger mt-2 p-2 rounded" style={{ 
-              backgroundColor: '#f8d7da', 
-              border: '1px solid #f5c6cb',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
-              ⚠️ {errors.idPhoto}
-            </div>
-          )}
-        </div>
-
-        <div className="mb-4" ref={getFieldRef('agreedToTerms')}>
-          <div 
-            className="p-4 rounded"
-            style={{
-              border: formData.agreedToTerms ? '3px solid #28a745' : errors.agreedToTerms ? '3px solid #dc3545' : '3px solid #dc3545',
-              backgroundColor: formData.agreedToTerms ? '#d4edda' : errors.agreedToTerms ? '#f8d7da' : '#f8d7da',
-              transition: 'all 0.3s ease'
-            }}
-          >
-            <div style={{ fontSize: '1rem', color: '#333', lineHeight: '1.8' }}>
-              <div style={{ marginBottom: '1rem' }}>
-                <strong style={{ color: '#d9534f', fontSize: '1.1rem' }}>【個人資料保護聲明】</strong>
-                <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
-                  <li>本人同意國立中山大學西灣學院（以下簡稱「本單位」）為辦理培力英檢報名及相關業務，得蒐集、處理及利用本人之個人資料（包括但不限於姓名、學號、身分證字號、聯絡方式、學籍資料、英語能力證明等）。</li>
-                  <li>本人了解本單位將依個人資料保護法及相關法規，妥善保管及使用本人之個人資料，並僅用於培力英檢報名、考試安排、成績通知、相關行政作業及統計分析等目的。</li>
-                  <li>本人了解得隨時向本單位查詢、請求閱覽、請求補充或更正、請求停止蒐集、處理或利用、請求刪除本人之個人資料，惟若因此影響報名或考試權益，由本人自行負責。</li>
-                </ul>
-              </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <strong style={{ color: '#d9534f', fontSize: '1.1rem' }}>【報名規範與注意事項】</strong>
-                <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
-                  <li>報名資料一經提交，即視為完成報名程序，除因系統錯誤或不可抗力因素外，不得要求取消報名。</li>
-                  <li>報名時所填寫之各項資料（包括但不限於姓名、學號、聯絡方式、英語能力證明等）必須真實、正確且完整，如有虛偽不實或錯誤，本單位得取消報名資格或考試成績，且不負任何損害賠償責任。</li>
-                  <li>考試時間、地點及相關注意事項將以電子郵件或簡訊通知，請確保聯絡方式正確且可正常接收訊息。</li>
-                  <li>考試當日請攜帶有效身分證件應試，未攜帶或證件不符者，不得入場應試。</li>
-                  <li>考試過程中如有違規行為（如作弊、代考等），本單位得取消考試資格及成績，並依校規處理。</li>
-                </ul>
-              </div>
-              <div style={{ 
-                marginTop: '1.5rem', 
-                padding: '1rem', 
-                backgroundColor: '#fff3cd', 
-                border: '2px solid #ffc107',
-                borderRadius: '5px',
-                fontWeight: 'bold',
-                color: '#856404'
-              }}>
-                <strong style={{ fontSize: '1.1rem' }}>【資料確認聲明】</strong>
-                <p style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
-                  我本人已確認上述資訊（包括但不限於電子信箱、地址、英檢成績證明、個人基本資料等）核實無誤，如有錯誤、遺漏或虛偽不實，本人自行負責，並同意本單位得依相關規定處理，不得異議。
-                </p>
-                {/* 勾選格子移到黃框內 */}
-                <div className="form-check">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    name="agreedToTerms"
-                    checked={formData.agreedToTerms}
-                    onChange={handleChange}
-                    style={{
-                      width: '1.5rem',
-                      height: '1.5rem',
-                      cursor: 'pointer',
-                      marginTop: '0.25rem'
-                    }}
-                  />
-                  <label 
-                    className="form-check-label ms-3"
-                    style={{
-                      fontSize: '1.2rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      color: formData.agreedToTerms ? '#155724' : '#721c24'
-                    }}
-                  >
-                    Q20. 個資與報名規範同意 <span style={{ color: 'red', fontSize: '1.3rem' }}>*</span>
-                  </label>
-                </div>
-              </div>
-              <div className="mt-3" style={{ fontSize: '0.95rem', color: '#666', fontStyle: 'italic' }}>
-                <strong>重要提醒：</strong>請務必仔細核對所有填寫資料，確認無誤後再勾選同意。一旦勾選同意並提交報名，即視為您已充分了解並同意遵守上述所有條款及規範。
-              </div>
-            </div>
-          </div>
-          {errors.agreedToTerms && (
-            <div className="text-danger mt-2 p-2 rounded" style={{ backgroundColor: '#f8d7da', fontSize: '1rem', fontWeight: 'bold' }}>
-              {errors.agreedToTerms}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* G. 資訊來源 */}
-      <div className="mb-4">
-        <h4 className="mb-3" style={{ color: '#FF6B6B', borderBottom: '2px solid #FF6B6B', paddingBottom: '0.5rem' }}>
-          E. 資訊來源
-        </h4>
-        
-        <div className="mb-3" ref={getFieldRef('infoSource')}>
-          <label className="form-label">
-            Q21. 從何得知培力英檢 <span style={{ color: 'red' }}>*</span>
-          </label>
-          <select
-            className="form-select"
-            name="infoSource"
-            value={formData.infoSource}
-            onChange={handleChange}
-            style={getErrorStyle('infoSource')}
-          >
-            <option value="">請選擇</option>
-            <option value="EMI 中心官網">EMI 中心官網</option>
-            <option value="EMI 中心官方 IG">EMI 中心官方 IG</option>
-            <option value="中山大小事">中山大小事</option>
-            <option value="課程老師推薦">課程老師推薦</option>
-            <option value="實體海報">實體海報</option>
-            <option value="其他">其他</option>
-          </select>
-          {formData.infoSource === '其他' && (
-            <div className="mt-3" ref={getFieldRef('infoSourceOther')}>
-              <input
-                type="text"
-                className="form-control"
-                name="infoSourceOther"
-                value={formData.infoSourceOther}
-                onChange={handleChange}
-                placeholder="請填寫其他資訊來源"
-                style={getErrorStyle('infoSourceOther')}
-              />
-              {errors.infoSourceOther && (
-                <div className="text-danger mt-2 p-2 rounded" style={{ 
-                  backgroundColor: '#f8d7da', 
-                  border: '1px solid #f5c6cb',
-                  fontWeight: 'bold',
-                  fontSize: '1rem'
-                }}>
-                  ⚠️ {errors.infoSourceOther}
-                </div>
-              )}
-            </div>
-          )}
-          {errors.infoSource && (
-            <div className="text-danger mt-2 p-2 rounded" style={{ 
-              backgroundColor: '#f8d7da', 
-              border: '1px solid #f5c6cb',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
-              ⚠️ {errors.infoSource}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 按鈕 */}
+      <style>{ERROR_PULSE_STYLE}</style>
+      <EnglishTestRegistrationFormBody
+        formData={formData}
+        setFormData={setFormData}
+        errors={errors}
+        getFieldRef={getFieldRef}
+        getErrorStyle={getErrorStyle}
+        handleChange={handleChange}
+        handleFileChange={handleFileChange}
+        disabled={false}
+        mode="create"
+        previewUrls={previewUrls}
+        emailVerificationToken={emailVerificationToken}
+        verifiedEmail={verifiedEmail}
+        onEmailVerificationChange={handleEmailVerificationChange}
+        formOptions={formOptions}
+      />
+      <EnglishTestExtraQuestions
+        questions={customQuestions}
+        sections={schema?.sections || []}
+        extraAnswers={formData.extraAnswers || {}}
+        errors={errors}
+        getFieldRef={getFieldRef}
+        onChange={(next) => setFormData((prev) => ({ ...prev, extraAnswers: next }))}
+      />
       <div className="d-flex justify-content-between gap-2">
         <button
           type="button"
           className="btn btn-secondary"
           onClick={onBack}
-          style={{
-            padding: '0.625rem 1.5rem',
-            fontSize: '1rem',
-            fontWeight: 'bold'
-          }}
+          style={{ padding: '0.625rem 1.5rem', fontSize: '1rem', fontWeight: 'bold' }}
         >
           上一步
         </button>
@@ -1600,11 +207,7 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
             type="button"
             className="btn btn-secondary me-2"
             onClick={onClose}
-            style={{
-              padding: '0.625rem 1.5rem',
-              fontSize: '1rem',
-              fontWeight: 'bold'
-            }}
+            style={{ padding: '0.625rem 1.5rem', fontSize: '1rem', fontWeight: 'bold' }}
           >
             取消
           </button>
@@ -1618,7 +221,7 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
               fontWeight: 'bold',
               backgroundColor: '#FF6B6B',
               borderColor: '#FF6B6B',
-              opacity: isSubmitting ? 0.6 : 1
+              opacity: isSubmitting ? 0.6 : 1,
             }}
           >
             {isSubmitting ? '提交中...' : '提交報名'}
@@ -1628,4 +231,3 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
     </form>
   );
 }
-

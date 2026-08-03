@@ -71,11 +71,23 @@ async function syncLegacySettingToSurveyRule(setting, opts = {}) {
   const existing = await SurveyRule.findOne({ where: { surveyId: survey.id }, transaction });
   const beforeJson = serializeRule(existing);
 
+  const eventType =
+    surveyKey === 'english_table_feedback_114_1'
+      ? 'English Table'
+      : surveyKey === 'english_club_feedback_114_1'
+        ? 'English Club'
+        : null;
+  const activityType = eventType === 'English Table' ? 'ET' : eventType === 'English Club' ? 'EC' : null;
+
   const mapped = {
     isEnabled: !!setting.isEnabled,
     isRequired: !!setting.isRequired,
     startDate: setting.startDate != null ? setting.startDate : null,
     endDate: setting.endDate != null ? setting.endDate : null,
+    startAt: setting.startDate != null ? setting.startDate : null,
+    endAt: setting.endDate != null ? setting.endDate : null,
+    activityType,
+    targetEventType: eventType,
   };
 
   let rule;

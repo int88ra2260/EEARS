@@ -18,10 +18,12 @@ function rowKey(r) {
 /**
  * @param {Buffer|ArrayBuffer} file
  * @param {string} semesterId
+ * @param {{ batchId?: string }} options
  * @returns {Promise<object>}
  */
-async function importEnrollment(file, semesterId) {
+async function importEnrollment(file, semesterId, options = {}) {
   const sem = String(semesterId || '').trim();
+  const batchId = String(options.batchId || '').trim() || `v3-enroll:${sem}:${Date.now()}`;
   if (!sem) {
     return { ok: false, error: 'semesterId 必填', warnings: [], quarantine: [], imported: 0 };
   }
@@ -152,7 +154,7 @@ async function importEnrollment(file, semesterId) {
           grade: r.grade || null,
           isActive: true,
           sourceType: 'learning_journey_v3_import',
-          sourceBatchId: `v3-enroll:${sem}`
+          sourceBatchId: batchId
         },
         transaction: t
       });
@@ -167,7 +169,7 @@ async function importEnrollment(file, semesterId) {
             grade: r.grade || null,
             isActive: true,
             sourceType: 'learning_journey_v3_import',
-            sourceBatchId: `v3-enroll:${sem}`
+            sourceBatchId: batchId
           },
           { transaction: t }
         );
@@ -180,6 +182,7 @@ async function importEnrollment(file, semesterId) {
   return {
     ok: true,
     semesterId: sem,
+    batchId,
     imported,
     warnings,
     quarantine

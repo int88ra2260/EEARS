@@ -1,27 +1,9 @@
 /**
- * 培力英檢「快速審核模式」：開啟/關閉、跨頁載入、上一筆/下一筆待審核。
- * 依賴列表 state、載入函式與 performStatusUpdate，由頁面傳入。
+ * 培力英檢「快速審核模式」。
  */
 import { useState, useCallback, useEffect } from 'react';
+import { fetchRegistrations } from '../services/englishTestApi';
 
-/**
- * @param {Object} options
- * @param {Array} options.registrations
- * @param {number} options.currentPage
- * @param {number} options.totalPages
- * @param {(pageOverride?: number) => URLSearchParams} options.buildListParams
- * @param {string} options.token
- * @param {(message: string, variant?: string) => void} options.showToast
- * @param {Function} options.setRegistrations
- * @param {Function} options.setTotalPages
- * @param {Function} options.setTotal
- * @param {Function} options.setStats
- * @param {Function} options.setCurrentPage
- * @param {Object|null} options.selectedRegistration
- * @param {Function} options.setSelectedRegistration
- * @param {(status: string, reasons: string[]|null, other: string|null, targetId: number) => Promise<void>} options.performStatusUpdate
- * @param {Function} options.loadRegistrations
- */
 export function useEnglishTestQuickReview({
   registrations,
   currentPage,
@@ -56,12 +38,7 @@ export function useEnglishTestQuickReview({
   const fetchNextPageForQuickReview = useCallback(async () => {
     const nextPage = currentPage + 1;
     if (nextPage > totalPages) return false;
-    const params = buildListParams(nextPage);
-    const response = await fetch(`/api/english-test/registrations?${params}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!response.ok) return false;
-    const data = await response.json();
+    const data = await fetchRegistrations(token, buildListParams(nextPage));
     const list = data.data || [];
     if (list.length === 0) return false;
     setRegistrations(list);
@@ -149,4 +126,3 @@ export function useEnglishTestQuickReview({
     handleQuickReviewReject
   };
 }
-

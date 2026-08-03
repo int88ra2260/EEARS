@@ -55,8 +55,8 @@ async function importAttendance(req, res, next) {
       return res.status(400).json({ error: '請指定學期' });
     }
 
-    if (!examType || !['LR', 'SW'].includes(examType)) {
-      return res.status(400).json({ error: '請指定考試類型（LR 或 SW）' });
+    if (examType && !['L', 'R', 'S', 'W', 'LR', 'SW'].includes(String(examType).toUpperCase())) {
+      return res.status(400).json({ error: '考試類型格式錯誤（可為 L/R/S/W/LR/SW，或留空由檔案應考項目判斷）' });
     }
 
     if (!examDate) {
@@ -69,7 +69,8 @@ async function importAttendance(req, res, next) {
       return res.status(400).json({ error: '考試日期格式錯誤（應為 YYYY-MM-DD）' });
     }
 
-    const result = await importAttendanceData(file.path, semester, examType, examDate);
+    const normalizedExamType = examType ? String(examType).toUpperCase() : null;
+    const result = await importAttendanceData(file.path, semester, normalizedExamType, examDate);
 
     // 生成錯誤報表（如有錯誤）
     let errorFileUrl = null;
@@ -91,9 +92,14 @@ async function importAttendance(req, res, next) {
       module: 'bestep',
       action: 'import_attendance',
       entityType: 'BestepAttendanceImport',
-      entityId: `${semester}:${examType}:${examDate}`,
-      targetSummary: `semester=${semester}, examType=${examType}, examDate=${examDate}`,
+      entityId: `${semester}:${examType || ''}:${examDate}`,
+      targetSummary: `BESTEP attendance import semester=${semester} examType=${examType || ''} examDate=${examDate}`,
       afterData: {
+        importBatchId: result.importBatchId,
+        sourceFile: result.sourceFile || file.originalname || null,
+        semester,
+        examType: examType || null,
+        examDate,
         imported: result.imported,
         skipped: result.skipped,
         errorCount: result.errors.length,
@@ -107,6 +113,7 @@ async function importAttendance(req, res, next) {
       semester,
       examType,
       examDate,
+      importBatchId: result.importBatchId,
       imported: result.imported,
       skipped: result.skipped,
       errors: result.errors,
@@ -169,15 +176,44 @@ async function importScores(req, res, next) {
     // 刪除上傳的檔案
     fs.unlinkSync(file.path);
 
+    auditLogService.logAuditAsync({
+      module: 'bestep',
+      action: 'import_scores',
+      entityType: 'BestepScoreImport',
+      entityId: `${semester}:${result.importBatchId || Date.now()}`,
+      targetSummary: `BESTEP scores import semester=${semester}`,
+      afterData: {
+        importBatchId: result.importBatchId,
+        sourceFile: result.sourceFile || file.originalname || null,
+        semester,
+        imported: result.imported,
+        skipped: result.skipped,
+        errorCount: result.errors.length,
+        errorFileUrl,
+      },
+      req,
+    });
+
     res.json({
       success: true,
       semester,
+      importBatchId: result.importBatchId,
       imported: result.imported,
       skipped: result.skipped,
       errors: result.errors,
       errorFileUrl
     });
   } catch (error) {
+    auditLogService.logAuditAsync({
+      module: 'bestep',
+      action: 'import_scores',
+      entityType: 'BestepScoreImport',
+      entityId: `${req.body?.semester || 'unknown'}`,
+      targetSummary: 'BESTEP scores import failed',
+      status: 'failed',
+      errorMessage: error && error.message ? error.message : String(error),
+      req,
+    });
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }

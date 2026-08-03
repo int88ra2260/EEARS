@@ -1,0 +1,52 @@
+/* 問卷中心：避免表格撐破主內容區 */
+.survey-center-page {
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.survey-admin-module {
+  max-width: 100%;
+}
+
+.survey-admin-card {
+  max-width: 100%;
+}
+
+.survey-admin-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.survey-admin-table-scroll .table {
+  margin-bottom: 0;
+  width: 100%;
+  min-width: 52rem;
+}
+
+.survey-admin-table-scroll .dropdown-menu {
+  z-index: 1071 !important;
+}
+
+.survey-admin-name-cell {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 1200px) {
+  .survey-admin-name-cell {
+    max-width: 16rem;
+  }
+}
+
+.survey-admin-code {
+  font-size: 0.78rem;
+  word-break: break-all;
+  line-height: 1.35;
+}
+
+.survey-admin-toolbar .form-control {
+  max-width: 100%;
+}

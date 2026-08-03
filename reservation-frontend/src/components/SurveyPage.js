@@ -1,30 +1,37 @@
 // src/components/SurveyPage.js
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import DynamicSurveyModal from './DynamicSurveyModal';
 import { Card, Alert, Spinner } from 'react-bootstrap';
 import useToast from './ui/useToast';
+import { loadStudentTrio, saveStudentTrio } from '../utils/studentTrioStorage';
+import {
+  buildEventsRecoveredPath,
+  restorePendingReservationFromQuery,
+} from '../utils/pendingReservationFlow';
+import { checkSurveyFilled, fetchPublicSurvey } from '../services/surveyPublicApi';
+import { createReservation } from '../services/eventBookingService';
 
 export default function SurveyPage() {
   const toast = useToast();
   const { surveyId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [surveyConfig, setSurveyConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [userInfo, setUserInfo] = useState(null);
 
   useEffect(() => {
+    restorePendingReservationFromQuery(searchParams, surveyId);
+  }, [searchParams, surveyId]);
+
+  useEffect(() => {
     // 載入問卷配置
     const loadSurveyConfig = async () => {
       try {
-        const response = await fetch(`/api/surveys/public/${surveyId}`);
-        const data = await response.json();
+        const data = await fetchPublicSurvey(surveyId);
         const config = data?.survey;
-        if (!response.ok || !config) {
-          setError('找不到指定的問卷 / Survey not found');
-          return;
-        }
         const currentSemester = data?.meta?.currentSemester;
         setSurveyConfig({
           ...config,
@@ -39,28 +46,21 @@ export default function SurveyPage() {
 
     // 取得使用者資訊 - 從預約資料中取得學生資訊，如果沒有則提供空值讓問卷自行收集
     const loadUserInfo = () => {
-      // 從 localStorage 取得學生預約時填寫的資料
-      const studentId = localStorage.getItem('lastStudentId');
-      const studentName = localStorage.getItem('lastStudentName');
-      const studentEmail = localStorage.getItem('lastStudentEmail');
-      
-      // 如果沒有預約資料，提供空值讓問卷自行收集
+      const trio = loadStudentTrio();
       setUserInfo({
-        studentId: studentId || '',
-        studentName: studentName || '',
-        studentEmail: studentEmail || ''
+        studentId: trio.studentId || '',
+        studentName: trio.studentName || '',
+        studentEmail: trio.studentEmail || '',
       });
     };
 
     // 檢查學生是否已填寫過問卷
     const checkSurveyStatus = async () => {
       try {
-        const studentId = localStorage.getItem('lastStudentId');
+        const { studentId } = loadStudentTrio();
         if (!studentId) return; // 沒有學號就不檢查
 
-        const response = await fetch(`/api/surveys/check/${surveyId}/${studentId}`);
-        const data = await response.json();
-        
+        const data = await checkSurveyFilled(surveyId, studentId);
         if (data.filled) {
           setError('您本學期已填寫過此問卷，無需重複填寫。 / You have already filled out this survey this semester, no need to fill it out again.');
         }
@@ -90,32 +90,28 @@ export default function SurveyPage() {
         toast.info('你剛剛中斷的預約已恢復，系統正在為你完成原本的預約流程。');
         
         // 自動嘗試預約
-        const response = await fetch('/api/reservations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            eventId: pendingReservation.eventId,
+        const { ok, data } = await createReservation({
+          eventId: pendingReservation.eventId,
+          studentId: pendingReservation.studentId,
+          studentName: pendingReservation.studentName,
+          studentEmail: pendingReservation.studentEmail,
+          eventType: pendingReservation.eventType,
+        });
+        if (ok) {
+          saveStudentTrio({
             studentId: pendingReservation.studentId,
             studentName: pendingReservation.studentName,
             studentEmail: pendingReservation.studentEmail,
-            eventType: pendingReservation.eventType
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          // 預約成功：承接到 booking modal success state
+          });
           toast.success(`問卷已完成，預約成功：${pendingReservation.eventName}`);
           sessionStorage.setItem(
             'pendingReservationRecoveredSuccess',
             JSON.stringify({
               ...pendingReservation,
-              // 建議欄位對齊 modal success view
               studentEmail: pendingReservation.studentEmail || '',
             })
           );
-          navigate('/events?recovered=1');
+          navigate(buildEventsRecoveredPath(pendingReservation.eventId));
         } else {
           // 預約失敗，顯示錯誤訊息
           toast.error(`問卷已完成，但預約失敗：${data.error || '未知錯誤'}`);

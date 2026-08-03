@@ -4,17 +4,33 @@
 import React from 'react';
 import { Modal, Form, Button } from 'react-bootstrap';
 import dayjs from 'dayjs';
+import LocationSelectField from '../LocationSelectField';
+import EventCapacityFields from './EventCapacityFields';
+import {
+  getDefaultCapacityFields,
+} from '../../../utils/eventCapacityFields';
+import '../../../styles/admin-operations.css';
 
-const INITIAL_EVENT_ROW = {
+const createInitialEventRow = () => ({
   name: '',
   eventType: 'English Table',
   date: '',
   startTime: '',
   endTime: '',
-  maxParticipants: 30,
+  location: '',
   customEventType: '',
-  customReservationRule: ''
-};
+  customReservationRule: '',
+  ...getDefaultCapacityFields('English Table'),
+});
+
+function normalizeBatchEventRow(event) {
+  const eventType = event?.eventType || 'English Table';
+  return {
+    ...getDefaultCapacityFields(eventType),
+    ...event,
+    eventType,
+  };
+}
 
 /**
  * @param {Object} props
@@ -56,7 +72,7 @@ export default function BatchAddEventsModal({
   onParseAndAddDates
 }) {
   const handleAddRow = () => {
-    onEventsChange([...events, { ...INITIAL_EVENT_ROW }]);
+    onEventsChange([...events, createInitialEventRow()]);
   };
 
   const handleRemoveRow = (index) => {
@@ -67,6 +83,12 @@ export default function BatchAddEventsModal({
   const handleUpdateEvent = (index, field, value) => {
     const updated = [...events];
     updated[index] = { ...updated[index], [field]: value };
+    onEventsChange(updated);
+  };
+
+  const mergeRowFields = (index, patch) => {
+    const updated = [...events];
+    updated[index] = { ...updated[index], ...patch };
     onEventsChange(updated);
   };
 
@@ -177,25 +199,27 @@ export default function BatchAddEventsModal({
           </div>
         )}
 
-        <div className="table-responsive" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-          <table className="table table-bordered table-sm">
-            <thead className="table-light sticky-top">
-              <tr>
-                <th style={{ width: '5%' }}>#</th>
-                <th style={{ width: '18%' }}>活動名稱 *</th>
-                <th style={{ width: '15%' }}>活動類型 *</th>
-                <th style={{ width: '12%' }}>日期 *</th>
-                <th style={{ width: '12%' }}>開始時間 *</th>
-                <th style={{ width: '12%' }}>結束時間 *</th>
-                <th style={{ width: '10%' }}>人數限制 *</th>
-                <th style={{ width: '6%' }}>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((event, index) => (
-                <tr key={index}>
-                  <td>{index + 1}</td>
-                  <td>
+        <div className="batch-add-list" style={{ maxHeight: '520px', overflowY: 'auto' }}>
+          {events.map((rawEvent, index) => {
+            const event = normalizeBatchEventRow(rawEvent);
+            return (
+              <div className="batch-add-card" key={index}>
+                <div className="batch-add-card__head">
+                  <span className="batch-add-card__index">第 {index + 1} 筆</span>
+                  {events.length > 1 && (
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => handleRemoveRow(index)}
+                    >
+                      刪除
+                    </Button>
+                  )}
+                </div>
+
+                <div className="batch-add-card__grid">
+                  <div className="batch-add-field batch-add-field--name">
+                    <label className="form-label">活動名稱 *</label>
                     <Form.Control
                       type="text"
                       size="sm"
@@ -203,75 +227,84 @@ export default function BatchAddEventsModal({
                       onChange={(e) => handleUpdateEvent(index, 'name', e.target.value)}
                       placeholder="活動名稱"
                     />
-                  </td>
-                  <td>
+                  </div>
+
+                  <div className="batch-add-field">
+                    <label className="form-label">活動類型 *</label>
                     <Form.Select
                       size="sm"
                       value={event.eventType}
-                      onChange={(e) => handleUpdateEvent(index, 'eventType', e.target.value)}
+                      onChange={(e) => {
+                        const nextType = e.target.value;
+                        const defaults = getDefaultCapacityFields(nextType);
+                        mergeRowFields(index, { eventType: nextType, ...defaults });
+                      }}
                     >
                       <option value="English Table">English Table</option>
                       <option value="Job Talk">Job Talk</option>
                       <option value="English Club">English Club</option>
                       <option value="International Forum">International Forum</option>
                     </Form.Select>
-                  </td>
-                  <td>
+                  </div>
+
+                  <div className="batch-add-field">
+                    <label className="form-label">日期 *</label>
                     <Form.Control
                       type="date"
                       size="sm"
                       value={event.date}
                       onChange={(e) => handleUpdateEvent(index, 'date', e.target.value)}
                     />
-                  </td>
-                  <td>
+                  </div>
+
+                  <div className="batch-add-field">
+                    <label className="form-label">開始時間 *</label>
                     <Form.Control
                       type="time"
                       size="sm"
                       value={event.startTime}
                       onChange={(e) => handleUpdateEvent(index, 'startTime', e.target.value)}
                     />
-                  </td>
-                  <td>
+                  </div>
+
+                  <div className="batch-add-field">
+                    <label className="form-label">結束時間 *</label>
                     <Form.Control
                       type="time"
                       size="sm"
                       value={event.endTime}
                       onChange={(e) => handleUpdateEvent(index, 'endTime', e.target.value)}
                     />
-                  </td>
-                  <td>
-                    <Form.Control
-                      type="number"
+                  </div>
+
+                  <div className="batch-add-field batch-add-field--capacity">
+                    <EventCapacityFields
+                      eventType={event.eventType}
+                      fields={event}
                       size="sm"
-                      min="1"
-                      max="100"
-                      value={event.maxParticipants === '' ? '' : event.maxParticipants}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '') {
-                          handleUpdateEvent(index, 'maxParticipants', '');
-                        } else {
-                          const numValue = parseInt(value, 10);
-                          if (!isNaN(numValue) && numValue >= 1 && numValue <= 100) {
-                            handleUpdateEvent(index, 'maxParticipants', numValue);
-                          }
-                        }
+                      layout="labeled"
+                      onFieldsChange={(nextFields) => {
+                        mergeRowFields(index, {
+                          groupCount: nextFields.groupCount,
+                          perGroupCapacity: nextFields.perGroupCapacity,
+                          maxParticipants: nextFields.maxParticipants,
+                        });
                       }}
-                      placeholder="30"
                     />
-                  </td>
-                  <td>
-                    {events.length > 1 && (
-                      <Button variant="outline-danger" size="sm" onClick={() => handleRemoveRow(index)}>
-                        刪除
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+
+                  <div className="batch-add-field batch-add-field--location">
+                    <LocationSelectField
+                      label="活動地點"
+                      size="sm"
+                      value={event.location || ''}
+                      onChange={(location) => handleUpdateEvent(index, 'location', location)}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {error && (

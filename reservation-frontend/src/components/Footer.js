@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { siteAuthor } from '../config/author';
+import { fetchViewStats } from '../services/statsApi';
 import './Footer.css';
 
 const EMI_CENTER_URL = 'https://emicenter.siwan.nsysu.edu.tw/';
@@ -13,8 +14,7 @@ export default function Footer() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/stats/views')
-      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+    fetchViewStats()
       .then((data) => {
         if (!cancelled) setViews({ total: data.total, today: data.today });
       })
@@ -33,13 +33,15 @@ export default function Footer() {
           <nav className="footer-links" aria-label="Footer navigation">
             <Link to="/" className="footer-link">{t('nav.home')}</Link>
             <span className="footer-divider">|</span>
-            <Link to="/activities" className="footer-link">{t('nav.activities')}</Link>
-            <span className="footer-divider">|</span>
             <Link to="/announcements" className="footer-link">{t('nav.announcements')}</Link>
             <span className="footer-divider">|</span>
-            <Link to="/faq" className="footer-link">{t('nav.faq')}</Link>
+            <Link to="/activities" className="footer-link">{t('nav.activitiesIntro')}</Link>
             <span className="footer-divider">|</span>
-            <Link to="/contact" className="footer-link">{t('nav.contact')}</Link>
+            <Link to="/learning-resources" className="footer-link">{t('nav.learningResources')}</Link>
+            <span className="footer-divider">|</span>
+            <Link to="/regulations-forms" className="footer-link">{t('nav.regulationsForms')}</Link>
+            <span className="footer-divider">|</span>
+            <Link to="/about" className="footer-link">{t('nav.about')}</Link>
             <span className="footer-divider">|</span>
             <a
               href={EMI_CENTER_URL}

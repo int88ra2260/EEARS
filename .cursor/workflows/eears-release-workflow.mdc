@@ -1,0 +1,78 @@
+---
+description: EEARS 上線前 release 工作流程（測試、build、備份、回滾與腳本斷裂檢查）
+alwaysApply: false
+---
+
+# eears-release-workflow（上線前 Release）
+
+## 1) 觸發時機
+
+- 合併到 `main` 前的上線準備
+- 需要部署到 IIS/Windows 環境
+- 改動包含：預約/問卷 Gate/黑名單/匯入/LJ/英檢/權限/DB schema/部署設定
+
+## 2) 分析步驟
+
+1. 確認變更類型
+   - UI-only、API-only、權限、DB schema、匯入、LJ
+2. 針對底線預先檢查
+   - 2hr cutoff 是否可能被影響？
+   - 問卷 Gate 是否可能被影響（409 + redirectUrl）？
+   - blacklist 是否可能被影響？
+3. script 斷裂風險
+   - 比對 `reservation-backend/package.json` 與 `reservation-backend/scripts/` 是否存在對應檔案
+   - 若不存在：release 計畫必須改成「需補齊腳本」或「調整 package.json」，不要讓 AI 建議執行不存在的 script
+
+## 3) 修改步驟（部署用最小操作）
+
+1. 前端 build
+   - `reservation-frontend && npm run build`
+2. 後端測試與 build 端點準備
+   - 確保 `reservation-backend/server.js` 的 `build/` fallback 可用
+3. 部署
+   - 依既有 IIS reverse proxy 將 traffic 指到 Node
+
+## 4) 測試步驟（CI + 必要手動 smoke）
+
+1. 自動：
+   - 後端：`npm test -- --runInBand` + `npm run lint`
+   - 前端：`npm test -- --watchAll=false` + `npm run lint` + `npm run build`
+2. 手動 smoke（建議最少 6 步）
+   - 預約頁面可打開
+   - 預約時觸發 2hr 或未達時是否回正確提示
+   - 問卷 Gate：未完成是否回 409 並導向
+   - blacklist：blacklisted 是否被擋
+   - 後台登入/權限：至少驗 1 個可見頁與 1 個不可見頁（403）
+   - 匯入入口（Import Center）是否能正常進入各模組頁
+
+## 5) Code review 步驟（上線前最後一輪）
+
+- 是否新增/移除任何 PII log？
+- 是否改動錯誤碼/redirectUrl/時間規則？
+- 是否改到 deprecated 端點？
+- migration 是否具備 down 可逆與測試？
+
+## 6) 最終回報格式
+
+```text
+【Release 摘要】
+- 版本/commit：
+- 變更類型：UI/API/權限/DB/匯入/LJ
+
+【測試結果】
+- Backend：npm test + lint（pass/fail）
+- Frontend：test + lint + build（pass/fail）
+
+【手動 Smoke】
+- 預約入口：pass/fail
+- 2hr 行為：pass/fail
+- 問卷 Gate：pass/fail（409 + redirectUrl）
+- blacklist：pass/fail
+- 後台權限：pass/fail（403/可見性）
+
+【部署與回滾】
+- 部署步驟（簡述）
+- rollback 計畫（down/migration + 需要的備份）
+- 已確認的 script 檔案存在性：pass/fail
+```
+

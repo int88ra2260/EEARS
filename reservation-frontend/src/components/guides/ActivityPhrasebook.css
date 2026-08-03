@@ -1,0 +1,333 @@
+.phrasebook-page,
+.phrasebook-panel {
+  --phrasebook-border: var(--activities-border, #eaeaea);
+  --phrasebook-surface: var(--activities-surface, #fff);
+  --phrasebook-bone: var(--activities-bone, #f7f6f3);
+}
+
+.phrasebook-kicker {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--activities-muted, #787774);
+}
+
+.phrasebook-panel {
+  margin: 1.5rem 0;
+  padding: clamp(1rem, 2.5vw, 1.35rem);
+  border: 1px solid var(--phrasebook-border);
+  border-radius: 12px;
+  background: var(--phrasebook-surface);
+}
+
+.phrasebook-panel--compact {
+  margin-top: 1rem;
+}
+
+.phrasebook-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.phrasebook-panel__title {
+  margin: 0;
+  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-size: clamp(1.25rem, 2.5vw, 1.55rem);
+  font-weight: 500;
+  color: var(--activities-ink, #111111);
+}
+
+.phrasebook-panel__lead {
+  margin: 0.5rem 0 0;
+  max-width: 58ch;
+  line-height: 1.6;
+  color: var(--activities-muted, #787774);
+  font-size: 0.95rem;
+}
+
+.phrasebook-panel__list,
+.phrasebook-list,
+.phrasebook-quick-prep__list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.phrasebook-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 1.25rem 0;
+}
+
+.phrasebook-tabs__btn {
+  min-height: 44px;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--phrasebook-border);
+  border-radius: 999px;
+  background: var(--phrasebook-surface);
+  color: var(--activities-soft, #2f3437);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.phrasebook-tabs__btn.is-active {
+  border-color: #2f6fed;
+  background: #f0f6ff;
+  color: #1a4fad;
+  font-weight: 600;
+}
+
+.phrase-scenario-card {
+  border: 1px solid var(--phrasebook-border);
+  border-radius: 10px;
+  background: var(--phrasebook-bone);
+  overflow: hidden;
+}
+
+.phrase-scenario-card__heading {
+  margin: 0;
+}
+
+.phrase-scenario-card__toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 52px;
+  padding: 0.85rem 1rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.phrase-scenario-card__title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--activities-ink, #111111);
+}
+
+.phrase-scenario-card__chevron {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  color: var(--activities-muted, #787774);
+}
+
+.phrase-scenario-card__body {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--phrasebook-border);
+}
+
+.phrase-scenario-card__desc,
+.phrase-scenario-card__direction p,
+.phrase-block p {
+  margin: 0.75rem 0 0;
+  line-height: 1.6;
+  color: var(--activities-soft, #2f3437);
+  font-size: 0.95rem;
+}
+
+.phrase-scenario-card__direction h4,
+.phrase-scenario-card__examples h4,
+.phrase-block__title {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--activities-muted, #787774);
+}
+
+.phrase-level-examples {
+  display: grid;
+  gap: 0.65rem;
+}
+
+@media (min-width: 768px) {
+  .phrase-level-examples {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.phrase-level-examples__item {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: var(--phrasebook-surface);
+  border: 1px solid var(--phrasebook-border);
+}
+
+.phrase-level-examples__head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.phrase-level-badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.phrase-level-badge--a2 { background: #e3f0fa; color: #1e5a8a; }
+.phrase-level-badge--b1 { background: #f3efe8; color: #7a5c1e; }
+.phrase-level-badge--b2 { background: #f5e8ee; color: #8a2d52; }
+
+.phrase-level-examples__label {
+  font-size: 0.8rem;
+  color: var(--activities-muted, #787774);
+}
+
+.phrase-level-examples__text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--activities-ink, #111111);
+}
+
+.phrase-level-examples__note {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--activities-muted, #787774);
+}
+
+.phrase-block--tip {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: #f0f6ff;
+}
+
+.phrase-block--avoid {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: #f7f6f3;
+}
+
+.phrase-block__list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  line-height: 1.55;
+  color: var(--activities-soft, #2f3437);
+}
+
+.phrasebook-hub-card {
+  display: block;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--activities-border, #eaeaea);
+  border-radius: 12px;
+  background: var(--activities-surface, #fff);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s;
+}
+
+.phrasebook-hub-card:hover {
+  border-color: #c9b99a;
+  text-decoration: none;
+  color: inherit;
+}
+
+.phrasebook-hub-card__tag {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--activities-muted, #787774);
+}
+
+.phrasebook-hub-card__title {
+  margin: 0;
+  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.phrasebook-hub-card__intro {
+  margin: 0.45rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--activities-muted, #787774);
+}
+
+.activities-practice-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .activities-practice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.activities-practice-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--activities-border, #eaeaea);
+  border-radius: 12px;
+  background: var(--activities-surface, #fff);
+  text-decoration: none;
+  color: inherit;
+  min-height: 100%;
+}
+
+.activities-practice-card:hover {
+  border-color: #2f6fed;
+  text-decoration: none;
+  color: inherit;
+}
+
+.activities-practice-card--guide {
+  border-style: dashed;
+}
+
+.activities-practice-card__tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--activities-muted, #787774);
+}
+
+.activities-practice-card__title {
+  margin: 0.5rem 0 0;
+  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+.activities-practice-card__intro {
+  margin: 0.45rem 0 0.75rem;
+  flex: 1;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--activities-muted, #787774);
+}
+
+.activities-practice-card__cta {
+  align-self: flex-start;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #2f6fed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phrasebook-hub-card,
+  .activities-practice-card {
+    transition: none;
+  }
+}

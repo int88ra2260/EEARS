@@ -2,21 +2,21 @@
 // 漸進式模組化：日曆、活動介紹、規則／通知已拆至 components/events/，此檔為 orchestration container
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
-import dayjs from 'dayjs';
-
 import EventDetail from './EventDetail';
-import { calculateReservationTime } from '../utils/reservationTime';
+import {
+  getEventBookingState,
+  canReserveFromState,
+  canWaitlistFromState,
+} from '../utils/eventBookingState';
+import { bookingStateToReasonCode } from './events/EventDeadlineHint';
 import ReservationSearchModal from './ReservationSearchModal';
 import { safeAPICall } from '../utils/errorHandler';
 import { useLanguage } from '../context/LanguageContext';
-import { RESERVATIONS } from '../constants/pageModes';
-import { getEventListMode } from '../utils/eventModeHelpers';
 import { fetchEvents } from '../services/eventService';
+import { fetchEnabledSurveys } from '../services/surveyPublicApi';
 import useToast from './ui/useToast';
 import EventCalendarSection from './events/EventCalendarSection';
-import ActivityIntroModal from './events/ActivityIntroModal';
-import EventAlertsBanner from './events/EventAlertsBanner';
-import EventRulesNotice from './events/EventRulesNotice';
+import EventCalendarInsights from './events/EventCalendarInsights';
 import EmptyState from './ui/EmptyState';
 import {
   parseEventTypeQueryParam,
@@ -25,6 +25,7 @@ import {
 } from '../utils/eventTypeQuery';
 import './EventList.css';
 import './events/eventTypeFilter.css';
+import '../styles/student-events.css';
 import {
   createSimulatedApiError,
   createSimulatedNetworkError,
@@ -57,15 +58,11 @@ function EventList({ initialTab: initialTabProp }) {
   const { t } = useLanguage();
   const toast = useToast();
 
-  const pageMode = getEventListMode(location.pathname);
-  const isMyReservations = pageMode === RESERVATIONS;
   // 注意：/my-reservations 現由 MyReservationsPage 專用 UI 呈現，不再渲染 EventList
 
   const [events, setEvents]                         = useState([]);
   const [loading, setLoading]                       = useState(true);
   const [loadError, setLoadError]                   = useState('');
-  const [showSearchModal, setShowSearchModal]       = useState(false);
-  const [showIntroductionModal, setShowIntroductionModal] = useState(false);
   const [selectedEvent, setSelectedEvent]           = useState(null);
   // 後台啟用中的活動問卷（用於顯示重要通知與問卷連結）
   const [enabledSurveys, setEnabledSurveys] = useState([]);
@@ -86,6 +83,7 @@ function EventList({ initialTab: initialTabProp }) {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('recovered');
+      next.delete('eventId');
       return next;
     }, { replace: true });
   }, [setSearchParams]);
@@ -170,29 +168,6 @@ function EventList({ initialTab: initialTabProp }) {
     return events.filter((evt) => evt.eventType === eventTypeFilter);
   }, [events, eventTypeFilter]);
 
-  const introTabForFilter = useMemo(() => {
-    const selected = filterOptions.find((o) => o.value === eventTypeFilter);
-    if (!selected) return initialTabProp;
-    if (selected.value === 'all') return initialTabProp;
-    return selected.tabId || initialTabProp;
-  }, [eventTypeFilter, filterOptions, initialTabProp]);
-
-  // 依 URL ?section=activities 開啟活動介紹模態（保留其餘 query，例如 /events?type=）
-  useEffect(() => {
-    const section = searchParams.get('section');
-    if (section === 'activities') {
-      setShowIntroductionModal(true);
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.delete('section');
-          return next;
-        },
-        { replace: true },
-      );
-    }
-  }, [searchParams, setSearchParams]);
-
   const applyEventTypeFilter = useCallback(
     (value) => {
       setEventTypeFilter(value);
@@ -210,25 +185,17 @@ function EventList({ initialTab: initialTabProp }) {
     [location.pathname, setSearchParams],
   );
 
-  const closeIntroductionModal = () => {
-    setShowIntroductionModal(false);
-    navigate('/', { replace: true });
-  };
-
   // 載入後台啟用中的活動問卷（僅在啟用時顯示問卷通知）
   useEffect(() => {
-    const fetchEnabledSurveys = async () => {
+    const loadEnabledSurveys = async () => {
       try {
-        const res = await fetch('/api/surveys/enabled');
-        if (res.ok) {
-          const data = await res.json();
-          setEnabledSurveys(Array.isArray(data) ? data : []);
-        }
+        const data = await fetchEnabledSurveys();
+        setEnabledSurveys(data);
       } catch (_) {
         setEnabledSurveys([]);
       }
     };
-    fetchEnabledSurveys();
+    loadEnabledSurveys();
   }, []);
 
   const loadEvents = useCallback(async () => {
@@ -272,48 +239,75 @@ function EventList({ initialTab: initialTabProp }) {
 
   const canReserveAndReason = useCallback(
     (evt) => {
-      if (evt.availableSpots === 0) {
-        return {
-          canReserve: false,
-          reasonCode: 'FULL',
-          reasonMessage: t('home.calendarAlertFull'),
-        };
+      const state = getEventBookingState(evt);
+      const reasonCode = bookingStateToReasonCode(state);
+
+      if (canReserveFromState(state)) {
+        return { canReserve: true, reasonCode: 'OK', reasonMessage: '', bookingState: state };
       }
-      const now = dayjs();
-      const start = dayjs(`${evt.date}T${evt.startTime}`);
-      if (now.isAfter(start)) {
-        return {
-          canReserve: false,
-          reasonCode: 'STARTED',
-          reasonMessage: t('home.calendarAlertStarted'),
-        };
+
+      let reasonMessage = t('home.eventHoverBadgeUnavailable');
+      if (reasonCode === 'FULL') reasonMessage = t('home.calendarAlertFull');
+      else if (reasonCode === 'STARTED') reasonMessage = t('home.calendarAlertStarted');
+      else if (reasonCode === 'PAST_DEADLINE') reasonMessage = t('home.calendarAlertPastDeadline');
+      else if (reasonCode === 'NOT_YET_OPEN' && state.openStart && state.openEnd) {
+        reasonMessage = fillTemplate(t('home.calendarAlertNotOpen'), {
+          start: state.openStart.format('YYYY/MM/DD HH:mm'),
+          end: state.openEnd.format('YYYY/MM/DD HH:mm'),
+        });
       }
-      const { openStart, openEnd } = calculateReservationTime(evt);
-      if (now.isBefore(openStart)) {
-        return {
-          canReserve: false,
-          reasonCode: 'NOT_YET_OPEN',
-          reasonMessage: fillTemplate(t('home.calendarAlertNotOpen'), {
-            start: openStart.format('YYYY/MM/DD HH:mm'),
-            end: openEnd.format('YYYY/MM/DD HH:mm'),
-          }),
-        };
-      }
-      if (now.isAfter(openEnd)) {
-        return {
-          canReserve: false,
-          reasonCode: 'PAST_DEADLINE',
-          reasonMessage: t('home.calendarAlertPastDeadline'),
-        };
-      }
-      return { canReserve: true, reasonCode: 'OK', reasonMessage: '' };
+
+      return { canReserve: false, reasonCode, reasonMessage, bookingState: state };
     },
     [t, fillTemplate],
+  );
+
+  /** 額滿時，與正式預約相同的開放／截止時間窗內可候補 */
+  const canWaitlistAndReason = useCallback(
+    (evt) => {
+      const state = getEventBookingState(evt);
+      if (canWaitlistFromState(state)) {
+        return { canWaitlist: true, reasonMessage: '', bookingState: state };
+      }
+      const { reasonMessage } = canReserveAndReason(evt);
+      return { canWaitlist: false, reasonMessage, bookingState: state };
+    },
+    [canReserveAndReason],
   );
 
   const handleEventClick = (evt) => {
     setSelectedEvent(evt);
   };
+
+  const calendarSectionRef = useRef(null);
+
+  const calendarBookingMeta = useMemo(() => {
+    const sortKey = (evt) => `${evt.date}T${evt.startTime}`;
+    const sorted = [...filteredEvents].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+    let bookableCount = 0;
+    let nextBookable = null;
+    for (const evt of sorted) {
+      const { canReserve, reasonCode } = canReserveAndReason(evt);
+      const wl = canWaitlistAndReason(evt);
+      const isBookable = canReserve || (reasonCode === 'FULL' && wl.canWaitlist);
+      if (canReserve) bookableCount += 1;
+      if (!nextBookable && isBookable) nextBookable = evt;
+    }
+    return {
+      bookableCount,
+      totalCount: filteredEvents.length,
+      nextBookable,
+    };
+  }, [filteredEvents, canReserveAndReason, canWaitlistAndReason]);
+
+  const handleJumpToNextBookable = useCallback(() => {
+    const { nextBookable } = calendarBookingMeta;
+    if (!nextBookable) {
+      toast.info(t('page.calendarJumpNone'));
+      return;
+    }
+    calendarSectionRef.current?.gotoDate(nextBookable.date);
+  }, [calendarBookingMeta, t, toast]);
 
   const filterBtnRefs = useRef([]);
   const activeFilterIndex = useMemo(() => {
@@ -349,11 +343,14 @@ function EventList({ initialTab: initialTabProp }) {
 
   if (loading) {
     return (
-      <div className="text-center">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">{t('home.loading')}</span>
+      <div className="event-list-shell" role="status" aria-live="polite" aria-busy="true">
+        <span className="visually-hidden">{t('home.loadingEvents')}</span>
+        <div className="event-list-skeleton">
+          <div className="event-list-skeleton__bar event-list-skeleton__bar--wide" />
+          <div className="event-list-skeleton__bar event-list-skeleton__bar--med" />
+          <div className="event-list-skeleton__bar event-list-skeleton__bar--short" />
+          <div className="event-list-skeleton__bar event-list-skeleton__bar--wide" style={{ height: 320 }} />
         </div>
-        <p className="mt-2">{t('home.loadingEvents')}</p>
       </div>
     );
   }
@@ -378,11 +375,9 @@ function EventList({ initialTab: initialTabProp }) {
   // 移除errorMsg相關的錯誤頁面顯示
 
   return (
-    <div className="container-fluid mt-4">
-      <EventAlertsBanner enabledSurveys={enabledSurveys} t={t} />
-      <EventRulesNotice t={t} />
-
-      <div className="event-type-filter mb-3">
+    <div className="event-list-shell event-list-shell--in-page">
+      <div className="event-list-toolbar">
+        <div className="event-type-filter mb-0">
         <div
           className="event-type-filter__segmented"
           role="group"
@@ -414,15 +409,7 @@ function EventList({ initialTab: initialTabProp }) {
             );
           })}
         </div>
-      </div>
-
-      <div className="d-flex flex-wrap justify-content-end gap-2 mb-3">
-        <button className="btn btn-primary" onClick={() => setShowSearchModal(true)}>
-          {t('home.checkReservation')}
-        </button>
-        <button className="btn btn-info" onClick={() => setShowIntroductionModal(true)}>
-          {t('home.activityIntro')}
-        </button>
+        </div>
       </div>
 
       {events.length === 0 && (
@@ -454,20 +441,25 @@ function EventList({ initialTab: initialTabProp }) {
         </div>
       )}
 
+      {filteredEvents.length > 0 && (
+        <EventCalendarInsights
+          bookableCount={calendarBookingMeta.bookableCount}
+          totalCount={calendarBookingMeta.totalCount}
+          hasNextBookable={Boolean(calendarBookingMeta.nextBookable)}
+          onJumpNext={handleJumpToNextBookable}
+          t={t}
+        />
+      )}
+
       <EventCalendarSection
+        ref={calendarSectionRef}
         events={filteredEvents}
         canReserveAndReason={canReserveAndReason}
+        canWaitlistAndReason={canWaitlistAndReason}
         onEventClick={handleEventClick}
         t={t}
         surveyActive={enabledSurveys.length > 0}
       />
-
-      {showSearchModal && (
-        <ReservationSearchModal
-          show={showSearchModal}
-          onClose={() => setShowSearchModal(false)}
-        />
-      )}
 
       {selectedEvent && (
         <EventDetail
@@ -478,13 +470,6 @@ function EventList({ initialTab: initialTabProp }) {
       )}
 
       {/* 移除errorMsg modal，改用系統提示 */}
-
-      <ActivityIntroModal
-        show={showIntroductionModal}
-        onClose={closeIntroductionModal}
-        initialTab={introTabForFilter}
-        t={t}
-      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import React from 'react';
 import dayjs from 'dayjs';
 import { useLanguage } from '../../context/LanguageContext';
 import { canCancelReservation } from '../../hooks/useReservationLookup';
+import { RESERVATION_CUTOFF_HOURS } from '../../constants/reservationRules';
 import StatusBadge from '../ui/StatusBadge';
 import { formatBookingCode } from '../../utils/bookingCode';
 import './ReservationResultCard.css';
@@ -24,7 +25,7 @@ export default function ReservationResultCard({
   const { t } = useLanguage();
   const canCancel = canCancelReservation(record);
   const eventStart = dayjs(`${record.date}T${record.startTime}`);
-  const twoHoursBefore = eventStart.subtract(2, 'hour');
+  const twoHoursBefore = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
   const isThisCanceling = cancelingReservationId === record.id;
   const bookingId = formatBookingCode(record.bookingCode, record.reservationId || record.id);
   const createdAtRaw = record.createdAt || record.timestamp || null;
@@ -55,6 +56,7 @@ export default function ReservationResultCard({
           <span>建立時間：{createdAtLabel}</span>
           <span>{record.date}</span>
           <span>{record.startTime} – {record.endTime}</span>
+          <span>地點：{record.location || '地點待公告'}</span>
         </div>
         <div className="text-muted small mt-1">{statusHelper}</div>
       </div>

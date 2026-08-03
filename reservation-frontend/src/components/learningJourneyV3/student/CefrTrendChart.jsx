@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { getEmptyReasonText } from './emptyStateUtils';
 
 const CEFR_LABEL = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2' };
 
@@ -23,12 +24,12 @@ function mergeSeries(series) {
       map.get(key)[skill] = Number(row.rank || 0) || null;
     });
   });
-  return [...map.values()].sort((a, b) => String(a.examDate).localeCompare(String(b.examDate));
+  return [...map.values()].sort((a, b) => String(a.examDate).localeCompare(String(b.examDate)));
 }
 
-export default function CefrTrendChart({ trends }) {
+export default function CefrTrendChart({ trends, emptyReason }) {
   const data = useMemo(() => mergeSeries(trends?.series || {}), [trends]);
-  if (!data.length) return <div className="alert alert-secondary mb-0">尚無 CEFR 趨勢資料。</div>;
+  if (!data.length) return <div className="alert alert-secondary mb-0">{getEmptyReasonText(emptyReason, '尚無 CEFR 趨勢資料。')}</div>;
 
   return (
     <div style={{ width: '100%', height: 320 }}>

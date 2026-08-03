@@ -22,7 +22,14 @@ async function listAudit(req, res, next) {
 
     const where = {};
     if (moduleName) where.module = String(moduleName);
-    if (action) where.action = { [Op.like]: `%${String(action)}%` };
+    if (action) {
+      const act = String(action).trim();
+      if (String(req.query.actionMode || '').toLowerCase() === 'exact') {
+        where.action = act;
+      } else {
+        where.action = { [Op.like]: `%${act}%` };
+      }
+    }
     if (operatorId !== undefined && operatorId !== '') {
       const oid = parseInt(operatorId, 10);
       if (!Number.isNaN(oid)) where.operatorId = oid;

@@ -54,6 +54,12 @@ const P = {
   CAN_VIEW_ANALYTICS: 'can_view_analytics',
   CAN_EXPORT_REPORTS: 'can_export_reports',
 
+  // 英語學習成效分析（EEARS-LVA）
+  CAN_VIEW_LEARNING_ANALYTICS: 'can_view_learning_analytics',
+  CAN_EXPORT_LEARNING_ANALYTICS: 'can_export_learning_analytics',
+  CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS: 'can_manage_learning_analytics_settings',
+  CAN_RUN_LEARNING_ANALYTICS_MODEL: 'can_run_learning_analytics_model',
+
   // 系統
   CAN_MANAGE_SETTINGS: 'can_manage_settings',
   CAN_MANAGE_FEATURE_FLAGS: 'can_manage_feature_flags',
@@ -61,10 +67,14 @@ const P = {
   // 公告（後台）
   CAN_MANAGE_ANNOUNCEMENTS: 'can_manage_announcements',
 
+  // 學生端靜態文案（後台）
+  CAN_MANAGE_SITE_CONTENT: 'can_manage_site_content',
+
   // 稽核 / 系統日誌
   CAN_VIEW_AUDIT_LOGS: 'can_view_audit_logs',
 
-  // 英語學習歷程中心模組
+  // 英語學習歷程中心模組（讀取／管理分離；無 DB migration，僅程式鍵）
+  CAN_VIEW_ENGLISH_TEST_TRACKING: 'can_view_english_test_tracking',
   CAN_MANAGE_ENGLISH_TEST_TRACKING: 'can_manage_english_test_tracking',
 
   // 診斷
@@ -72,6 +82,19 @@ const P = {
 
   // 學習有伴（後台管理端）
   CAN_MANAGE_LEARNING_PARTNER_ADMIN: 'can_manage_learning_partner_admin',
+
+  // 英語實踐歷程護照（English Learning Passport）
+  CAN_VIEW_ENGLISH_LEARNING_PASSPORTS: 'can_view_english_learning_passports',
+  CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS: 'can_manage_english_learning_passports',
+  CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS: 'can_review_english_learning_submissions',
+  CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS: 'can_export_english_learning_passports',
+  CAN_MANAGE_ENGLISH_LEARNING_RULES: 'can_manage_english_learning_rules',
+
+  // ET 能力分組與成效追蹤
+  CAN_MANAGE_ET_GROUPING: 'can_manage_et_grouping',
+  CAN_VIEW_ET_GROUPING: 'can_view_et_grouping',
+  CAN_MARK_ET_SESSION_TASKS: 'can_mark_et_session_tasks',
+  CAN_EXPORT_ET_GROUPING: 'can_export_et_grouping',
 };
 
 /** 所有權限鍵陣列（測試／文件用） */

@@ -1,29 +1,103 @@
 // routes/blacklistRouter.js
 const express = require('express');
 const dayjs = require('dayjs');
-const nodemailer = require('nodemailer'); // ★ 如需寄信
-const fs = require('fs');
-const path = require('path');
-const { authMiddleware, workerMiddleware, adminMiddleware } = require('../middlewares/auth');
-
-// 請自行改成你的gmail帳號 & 應用程式密碼
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: 'your_gmail@gmail.com',
-    pass: 'your_app_password'
-  }
-});
+const { authMiddleware, requirePermission, hasPermission, P } = require('../middlewares/auth');
 
 const router = express.Router();
-const { User, BlackListRecord, Reservation, Event, EventViolation } = require('../models');
+const { User, BlackListRecord, Reservation, Event, EventViolation, sequelize } = require('../models');
 const auditLogService = require('../services/auditLogService');
+const {
+  computeBlacklistUnlockDate,
+  cancelReservationsWithinBlacklistWindow,
+  enqueueBlacklistNotificationEmails,
+} = require('../services/blacklistEnforcementService');
+const { assertCanAccessEvent } = require('../services/accessControl/eventScopeGuard');
+
+const VIOLATION_WRITE_PERMISSIONS = [
+  P.CAN_MANAGE_VIOLATIONS,
+  P.CAN_RECORD_VIOLATIONS,
+];
+
+const BLACKLIST_READ_PERMISSIONS = [
+  P.CAN_VIEW_BLACKLIST,
+  P.CAN_MANAGE_BLACKLIST,
+  P.CAN_MANAGE_VIOLATIONS,
+];
+
+function hasAnyPermission(user, permissions) {
+  return permissions.some((permission) => hasPermission(user, permission));
+}
+
+function sendForbidden(res, errorCode, message) {
+  return res.status(403).json({
+    success: false,
+    errorCode,
+    message,
+  });
+}
+
+function sendScopeDenied(res, err) {
+  return sendForbidden(
+    res,
+    err.code || 'EVENT_SCOPE_DENIED',
+    err.message || '您沒有存取此活動資料的權限。'
+  );
+}
+
+async function loadEventContext(req) {
+  const source = { ...(req.query || {}), ...(req.body || {}), ...(req.params || {}) };
+  const eventId = source.eventId;
+  const reservationId = source.reservationId;
+
+  if (eventId) {
+    return Event.findByPk(eventId, { attributes: ['id', 'eventType', 'name', 'date'] });
+  }
+
+  if (reservationId) {
+    const reservation = await Reservation.findByPk(reservationId, {
+      attributes: ['id', 'eventId'],
+      include: [{ model: Event, attributes: ['id', 'eventType', 'name', 'date'] }],
+    });
+    return reservation?.Event || null;
+  }
+
+  return null;
+}
+
+async function requireViolationEventScope(req, res) {
+  if (!hasAnyPermission(req.user, VIOLATION_WRITE_PERMISSIONS)) {
+    sendForbidden(res, 'PERMISSION_DENIED', '您沒有執行此操作的權限。');
+    return null;
+  }
+
+  const event = await loadEventContext(req);
+  if (!event) {
+    sendForbidden(res, 'MISSING_EVENT_CONTEXT', '此操作需要指定活動或預約來源。');
+    return null;
+  }
+
+  try {
+    assertCanAccessEvent(req.user, event, {
+      explicitEventContext: true,
+      anyPermissions: VIOLATION_WRITE_PERMISSIONS,
+    });
+  } catch (scopeErr) {
+    sendScopeDenied(res, scopeErr);
+    return null;
+  }
+
+  return event;
+}
 
 
 // ========== 登記違規 ==========
 // POST /api/blacklist/recordViolation
-router.post('/recordViolation', authMiddleware, workerMiddleware, async (req, res) => {
+router.post('/recordViolation', authMiddleware, async (req, res) => {
+  let transaction;
   try {
+    const accessEvent = await requireViolationEventScope(req, res);
+    if (!accessEvent) return;
+
     const { studentId, name, reason } = req.body;
     
     // 參數驗證：確保至少提供 studentId 或 name 其中一個
@@ -59,12 +133,13 @@ router.post('/recordViolation', authMiddleware, workerMiddleware, async (req, re
       });
     }
 
+    transaction = await sequelize.transaction();
     // ★ 新增一筆 BlackListRecord 到資料庫
     await BlackListRecord.create({
       userId: user.id,
       recordedAt: new Date(),
       reason: reason || '違規'
-    });
+    }, { transaction });
 
     // 累加違規次數，不歸零
     user.violationCount += 1;
@@ -72,71 +147,32 @@ router.post('/recordViolation', authMiddleware, workerMiddleware, async (req, re
     // 若違規次數 >= 2 => 進入黑名單
     if (user.violationCount >= 2) {
       const now = dayjs();
-      const dayOfWeek = now.day(); // 0=Sunday, 1=Monday, ... 6=Saturday
-      let daysToAdd = 0;
-
-      if (dayOfWeek === 0) {
-        // 如果今天是禮拜天 => +7天
-        daysToAdd = 7;
-      } else {
-        // 其他 => 到下個禮拜天再加一週 => 14 - dayOfWeek
-        daysToAdd = 14 - dayOfWeek;
-      }
-
-      // 設定解鎖時間 (下個或下下個禮拜天) 的 23:59:59
-      const unlockDate = now
-        .add(daysToAdd, 'day')
-        .hour(23)
-        .minute(59)
-        .second(59);
+      const unlockDate = computeBlacklistUnlockDate(now);
 
       user.isBlacklisted = true;
       user.blacklistUntil = unlockDate.toDate();
       // 不歸零 violationCount
-      await user.save();
+      await user.save({ transaction });
 
-      // 取消該使用者未來預約
-      const reservations = await Reservation.findAll({
-        where: { userId: user.id },
-        include: [Event],
+      const pendingBlacklistEmails = await cancelReservationsWithinBlacklistWindow({
+        user,
+        unlockDate,
+        now,
+        transaction,
       });
+      await transaction.commit();
 
-      for (const r of reservations) {
-        const eventStart = dayjs(`${r.Event.date}T${r.Event.startTime}`);
-        // 若該活動尚未開始，且開始時間 < unlockDate，就取消
-        if (eventStart.isAfter(now) && eventStart.isBefore(unlockDate)) {
-          await r.destroy();
-
-          // 發送黑名單通知郵件 (使用佇列，非阻塞)
-          const emailQueue = require('../utils/emailQueue');
-          const requestId = req.requestId;
-          emailQueue.enqueue('blacklistNotification', {
-            name: user.name,
-            studentId: user.studentId,
-            email: user.email,
-            eventName: r.Event.name,
-            eventType: r.Event.eventType,
-            date: r.Event.date,
-            startTime: r.Event.startTime,
-            endTime: r.Event.endTime,
-            unlockDate: unlockDate.format('YYYY/MM/DD HH:mm')
-          }, {
-            requestId,
-            relatedEntityType: 'blacklist',
-            relatedEntityId: user.id,
-          }).catch(err => {
-            console.error('郵件加入佇列失敗:', err);
-            // 不影響黑名單流程
-          });
-        }
-      }
+      enqueueBlacklistNotificationEmails(pendingBlacklistEmails, {
+        requestId: req.requestId,
+        userId: user.id,
+      });
 
       auditLogService.logAuditAsync({
         module: 'blacklist',
         action: 'record_violation_blacklist',
         entityType: 'User',
         entityId: user.id,
-        targetSummary: `studentId=${user.studentId} violationCount=${user.violationCount}`,
+        targetSummary: `eventId=${accessEvent.id} violationCount=${user.violationCount}`,
         afterData: { blacklisted: true, unlockDate: unlockDate.toISOString() },
         req,
       });
@@ -145,19 +181,21 @@ router.post('/recordViolation', authMiddleware, workerMiddleware, async (req, re
       });
     } else {
       // 第一次違規
-      await user.save();
+      await user.save({ transaction });
+      await transaction.commit();
       auditLogService.logAuditAsync({
         module: 'blacklist',
         action: 'record_violation_first',
         entityType: 'User',
         entityId: user.id,
-        targetSummary: `studentId=${user.studentId} violationCount=${user.violationCount}`,
+        targetSummary: `eventId=${accessEvent.id} violationCount=${user.violationCount}`,
         afterData: { violationCount: user.violationCount },
         req,
       });
       return res.json({ message: '已紀錄此違規行為' });
     }
   } catch (err) {
+    if (transaction) await transaction.rollback();
     console.error(err);
     return res.status(500).json({ message: '伺服器錯誤' });
   }
@@ -165,18 +203,23 @@ router.post('/recordViolation', authMiddleware, workerMiddleware, async (req, re
 
 // ========== 批次登記違規 ==========
 // POST /api/blacklist/batchRecordViolations
-router.post('/batchRecordViolations', authMiddleware, workerMiddleware, async (req, res) => {
+router.post('/batchRecordViolations', authMiddleware, async (req, res) => {
+  let transaction;
   try {
+    if (!await requireViolationEventScope(req, res)) return;
+
     const { violations } = req.body;
     if (!violations || !Array.isArray(violations)) {
       return res.status(400).json({ message: '請提供有效的違規資料' });
     }
+    transaction = await sequelize.transaction();
 
     const results = {
       successCount: 0,
       failureCount: 0,
       failures: []
     };
+    const pendingBlacklistEmails = [];
 
     for (const violation of violations) {
       try {
@@ -187,9 +230,9 @@ router.post('/batchRecordViolations', authMiddleware, workerMiddleware, async (r
           continue;
         }
 
-        let user = await User.findOne({ where: { studentId } });
+        let user = await User.findOne({ where: { studentId }, transaction });
         if (!user && name) {
-          user = await User.findOne({ where: { name } });
+          user = await User.findOne({ where: { name }, transaction });
         }
         if (!user) {
           results.failureCount++;
@@ -202,7 +245,7 @@ router.post('/batchRecordViolations', authMiddleware, workerMiddleware, async (r
           userId: user.id,
           recordedAt: new Date(),
           reason: reason || '違規'
-        });
+        }, { transaction });
 
         // 累加違規次數
         user.violationCount += 1;
@@ -210,39 +253,23 @@ router.post('/batchRecordViolations', authMiddleware, workerMiddleware, async (r
         // 若違規次數 >= 2 => 進入黑名單
         if (user.violationCount >= 2) {
           const now = dayjs();
-          const dayOfWeek = now.day();
-          let daysToAdd = 0;
-
-          if (dayOfWeek === 0) {
-            daysToAdd = 7;
-          } else {
-            daysToAdd = 14 - dayOfWeek;
-          }
-
-          const unlockDate = now
-            .add(daysToAdd, 'day')
-            .hour(23)
-            .minute(59)
-            .second(59);
+          const unlockDate = computeBlacklistUnlockDate(now);
 
           user.isBlacklisted = true;
           user.blacklistUntil = unlockDate.toDate();
-          await user.save();
+          await user.save({ transaction });
 
-          // 取消該使用者未來預約
-          const reservations = await Reservation.findAll({
-            where: { userId: user.id },
-            include: [Event],
+          const emailPayloads = await cancelReservationsWithinBlacklistWindow({
+            user,
+            unlockDate,
+            now,
+            transaction,
           });
-
-          for (const r of reservations) {
-            const eventDate = dayjs(r.Event.date);
-            if (eventDate.isAfter(now)) {
-              await r.destroy();
-            }
-          }
+          emailPayloads.forEach((payload) => {
+            pendingBlacklistEmails.push({ payload, userId: user.id });
+          });
         } else {
-          await user.save();
+          await user.save({ transaction });
         }
 
         results.successCount++;
@@ -253,8 +280,26 @@ router.post('/batchRecordViolations', authMiddleware, workerMiddleware, async (r
       }
     }
 
+    if (results.failureCount > 0) {
+      await transaction.rollback();
+      return res.status(400).json({
+        message: '批次登記失敗，已回滾所有變更',
+        ...results,
+      });
+    }
+
+    await transaction.commit();
+
+    pendingBlacklistEmails.forEach(({ payload, userId }) => {
+      enqueueBlacklistNotificationEmails([payload], {
+        requestId: req.requestId,
+        userId,
+      });
+    });
+
     res.json(results);
   } catch (err) {
+    if (transaction) await transaction.rollback();
     console.error('批次登記違規錯誤:', err);
     res.status(500).json({ message: '批次登記失敗' });
   }
@@ -299,9 +344,30 @@ function getCurrentSemester() {
 
 // ========== 取得所有違規紀錄 ==========
 // GET /api/blacklist
-router.get('/', authMiddleware, workerMiddleware, async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { semester } = req.query;
+    const { semester, eventId } = req.query;
+    let scopedEvent = null;
+
+    if (eventId) {
+      if (!hasAnyPermission(req.user, BLACKLIST_READ_PERMISSIONS)) {
+        return sendForbidden(res, 'PERMISSION_DENIED', '您沒有執行此操作的權限。');
+      }
+      scopedEvent = await Event.findByPk(eventId, { attributes: ['id', 'eventType', 'name', 'date'] });
+      if (!scopedEvent) {
+        return res.status(404).json({ success: false, errorCode: 'EVENT_NOT_FOUND', message: '活動不存在' });
+      }
+      try {
+        assertCanAccessEvent(req.user, scopedEvent, {
+          explicitEventContext: true,
+          anyPermissions: BLACKLIST_READ_PERMISSIONS,
+        });
+      } catch (scopeErr) {
+        return sendScopeDenied(res, scopeErr);
+      }
+    } else if (!hasPermission(req.user, P.CAN_MANAGE_BLACKLIST)) {
+      return sendForbidden(res, 'DATA_SCOPE_DENIED', '此操作需要指定活動或預約來源。');
+    }
     
     // 取得所有 BlackListRecord，關聯對應的使用者 (User)
     let records = await BlackListRecord.findAll({
@@ -329,6 +395,7 @@ router.get('/', authMiddleware, workerMiddleware, async (req, res) => {
         record.dataValues.eventType = null;
         record.dataValues.eventDate = null;
         record.dataValues.eventName = null;
+        record.dataValues.eventId = null;
         continue;
       }
 
@@ -338,7 +405,7 @@ router.get('/', authMiddleware, workerMiddleware, async (req, res) => {
         include: [
           {
             model: Event,
-            attributes: ['eventType', 'date', 'name']
+            attributes: ['id', 'eventType', 'date', 'name']
           }
         ],
         order: [['recordedAt', 'DESC']]
@@ -348,6 +415,7 @@ router.get('/', authMiddleware, workerMiddleware, async (req, res) => {
         record.dataValues.eventType = eventViolation.Event.eventType;
         record.dataValues.eventDate = eventViolation.Event.date;
         record.dataValues.eventName = eventViolation.Event.name;
+        record.dataValues.eventId = eventViolation.Event.id;
       } else {
         // 如果沒有找到 EventViolation，嘗試從 Reservation 中查找相關活動
         const reservation = await Reservation.findOne({
@@ -355,7 +423,7 @@ router.get('/', authMiddleware, workerMiddleware, async (req, res) => {
           include: [
             {
               model: Event,
-              attributes: ['eventType', 'date', 'name']
+              attributes: ['id', 'eventType', 'date', 'name']
             }
           ],
           order: [['timestamp', 'DESC']]
@@ -365,12 +433,18 @@ router.get('/', authMiddleware, workerMiddleware, async (req, res) => {
           record.dataValues.eventType = reservation.Event.eventType;
           record.dataValues.eventDate = reservation.Event.date;
           record.dataValues.eventName = reservation.Event.name;
+          record.dataValues.eventId = reservation.Event.id;
         } else {
           record.dataValues.eventType = null;
           record.dataValues.eventDate = null;
           record.dataValues.eventName = null;
+          record.dataValues.eventId = null;
         }
       }
+    }
+
+    if (scopedEvent) {
+      records = records.filter(record => Number(record.dataValues.eventId) === Number(scopedEvent.id));
     }
 
     // 如果有指定學期，進行篩選
@@ -389,7 +463,7 @@ router.get('/', authMiddleware, workerMiddleware, async (req, res) => {
 });
 
 // DELETE /api/blacklist/:recordId
-router.delete('/:recordId', authMiddleware, adminMiddleware, async (req, res) => {
+router.delete('/:recordId', authMiddleware, requirePermission(P.CAN_MANAGE_BLACKLIST), async (req, res) => {
   try {
     const { recordId } = req.params;
     const record = await BlackListRecord.findOne({

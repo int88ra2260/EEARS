@@ -56,7 +56,7 @@ describe('accessVersion gate middleware', () => {
   it('新 token 版本一致會通過', async () => {
     process.env.ACCESS_VERSION_CHECK_ENABLED = 'true';
     mockJwt({ id: 1, role: 'admin', accessVersion: 3 });
-    mockFindByPk.mockResolvedValue({ id: 1, accessVersion: 3 });
+    mockFindByPk.mockResolvedValue({ id: 1, isActive: true, accessVersion: 3 });
 
     const res = await request(app).get('/api/admin/protected').set('Authorization', 'Bearer ok');
     expect(res.status).toBe(200);
@@ -68,7 +68,7 @@ describe('accessVersion gate middleware', () => {
     process.env.ACCESS_VERSION_CHECK_ENABLED = 'true';
     process.env.ACCESS_VERSION_ENFORCE_PATH_PREFIXES = '/api/some-other-prefix';
     mockJwt({ id: 1, role: 'admin', accessVersion: 1 });
-    mockFindByPk.mockResolvedValue({ id: 1, accessVersion: 2 });
+    mockFindByPk.mockResolvedValue({ id: 1, isActive: true, accessVersion: 2 });
 
     const res = await request(app).get('/api/admin/protected').set('Authorization', 'Bearer old');
     expect(res.status).toBe(200);
@@ -78,7 +78,7 @@ describe('accessVersion gate middleware', () => {
     process.env.ACCESS_VERSION_CHECK_ENABLED = 'true';
     process.env.ACCESS_VERSION_ENFORCE_PATH_PREFIXES = '/api/some-other-prefix';
     mockJwt({ id: 1, role: 'admin' });
-    mockFindByPk.mockResolvedValue({ id: 1, accessVersion: 2 });
+    mockFindByPk.mockResolvedValue({ id: 1, isActive: true, accessVersion: 2 });
 
     const res = await request(app).get('/api/admin/protected').set('Authorization', 'Bearer legacy-observe');
     expect(res.status).toBe(200);
@@ -88,7 +88,7 @@ describe('accessVersion gate middleware', () => {
     process.env.ACCESS_VERSION_CHECK_ENABLED = 'true';
     process.env.ACCESS_VERSION_ENFORCE_PATH_PREFIXES = '/api/admin';
     mockJwt({ id: 1, role: 'admin', accessVersion: 1 });
-    mockFindByPk.mockResolvedValue({ id: 1, accessVersion: 2 });
+    mockFindByPk.mockResolvedValue({ id: 1, isActive: true, accessVersion: 2 });
 
     const res = await request(app).get('/api/admin/protected').set('Authorization', 'Bearer stale');
     expect(res.status).toBe(401);
@@ -99,7 +99,7 @@ describe('accessVersion gate middleware', () => {
     process.env.ACCESS_VERSION_CHECK_ENABLED = 'true';
     process.env.ACCESS_VERSION_ENFORCE_PATH_PREFIXES = '/api/admin';
     mockJwt({ id: 1, role: 'admin' });
-    mockFindByPk.mockResolvedValue({ id: 1, accessVersion: 2 });
+    mockFindByPk.mockResolvedValue({ id: 1, isActive: true, accessVersion: 2 });
 
     const res = await request(app).get('/api/admin/protected').set('Authorization', 'Bearer legacy');
     expect(res.status).toBe(401);
@@ -110,13 +110,23 @@ describe('accessVersion gate middleware', () => {
     process.env.ACCESS_VERSION_CHECK_ENABLED = 'true';
     process.env.ACCESS_VERSION_ENFORCE_PATH_PREFIXES = '/api/admin';
     mockJwt({ id: 1, role: 'teacher', accessVersion: 1 });
-    mockFindByPk.mockResolvedValue({ id: 1, accessVersion: 2 });
+    mockFindByPk.mockResolvedValue({ id: 1, isActive: true, accessVersion: 2 });
 
     const res = await request(app).get('/api/public/probe').set('Authorization', 'Bearer stale');
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.hasUser).toBe(true);
     expect(res.body.mismatch).toBeTruthy();
+  });
+
+  it('停用帳號會被 auth middleware 擋下 ACCOUNT_DISABLED', async () => {
+    process.env.ACCESS_VERSION_CHECK_ENABLED = 'true';
+    mockJwt({ id: 1, role: 'admin', accessVersion: 2 });
+    mockFindByPk.mockResolvedValue({ id: 1, isActive: false, accessVersion: 2 });
+
+    const res = await request(app).get('/api/admin/protected').set('Authorization', 'Bearer disabled');
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('ACCOUNT_DISABLED');
   });
 });
 

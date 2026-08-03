@@ -1,28 +1,25 @@
 import React, { useState } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { Card, Form, Button, Alert } from 'react-bootstrap';
+import { changeTeacherPassword } from '../services/authApi';
 
 function ForceResetPassword() {
   const { token, mustResetPassword, setMustResetPassword } = useOutletContext();
-  const navigate = useNavigate();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   const requireCurrent = !mustResetPassword;
+  const passwordInputType = showPassword ? 'text' : 'password';
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
     setSuccess('');
-
-    if (newPassword.length < 8) {
-      setError('新密碼至少需 8 碼。');
-      return;
-    }
 
     if (newPassword !== confirmPassword) {
       setError('新密碼與確認密碼不一致。');
@@ -36,24 +33,24 @@ function ForceResetPassword() {
 
     try {
       setLoading(true);
-      const response = await fetch('/api/teachers/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ currentPassword, newPassword })
-      });
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || '更新密碼失敗');
+      await changeTeacherPassword(token, { currentPassword, newPassword });
+      setSuccess('密碼已更新，即將帶您重新登入…');
+      try {
+        window.dispatchEvent(
+          new CustomEvent('eears:toast', { detail: { message: '密碼已更新，請重新登入。', variant: 'success' } })
+        );
+      } catch (_) {
+        // ignore
       }
-      setSuccess('密碼已更新，請使用新密碼重新登入。');
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('username');
+      localStorage.removeItem('teacherName');
       localStorage.setItem('mustResetPassword', 'false');
       setMustResetPassword(false);
       setTimeout(() => {
-        navigate('/admin');
-      }, 1200);
+        window.location.href = '/login';
+      }, 800);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -67,16 +64,26 @@ function ForceResetPassword() {
         <Card.Body>
           <Card.Title className="mb-3">{mustResetPassword ? '首次登入，請變更密碼' : '變更密碼'}</Card.Title>
           <Card.Text className="text-muted">
-            為保障帳號安全，請設定一組全新的密碼。密碼至少需 8 碼，建議混合大小寫與數字特殊符號。
+            為保障帳號安全，請設定一組全新的密碼。密碼需至少 12 碼，並符合至少三種字元類型：大寫英文、小寫英文、數字、符號。不可使用常見弱密碼，亦不可包含帳號、Email 或姓名。
           </Card.Text>
           {error && <Alert variant="danger">{error}</Alert>}
           {success && <Alert variant="success">{success}</Alert>}
           <Form onSubmit={handleSubmit}>
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="switch"
+                id="show-password-toggle"
+                label="顯示密碼"
+                checked={showPassword}
+                onChange={(e) => setShowPassword(e.target.checked)}
+                disabled={loading}
+              />
+            </Form.Group>
             {requireCurrent && (
               <Form.Group className="mb-3">
                 <Form.Label>目前密碼</Form.Label>
                 <Form.Control
-                  type="password"
+                  type={passwordInputType}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   autoComplete="current-password"
@@ -87,7 +94,7 @@ function ForceResetPassword() {
             <Form.Group className="mb-3">
               <Form.Label>新密碼 *</Form.Label>
               <Form.Control
-                type="password"
+                type={passwordInputType}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
@@ -98,7 +105,7 @@ function ForceResetPassword() {
             <Form.Group className="mb-4">
               <Form.Label>確認新密碼 *</Form.Label>
               <Form.Control
-                type="password"
+                type={passwordInputType}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"

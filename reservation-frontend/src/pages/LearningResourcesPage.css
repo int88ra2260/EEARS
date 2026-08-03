@@ -1,0 +1,31 @@
+/* Learning Resources page — reuses Activities practice card tokens via ActivitiesPage.css */
+.learning-resources-page {
+  padding-bottom: 2.5rem;
+}
+
+.learning-resources-page .page-header {
+  margin-bottom: 2rem;
+}
+
+.learning-resources-page .activities-practice,
+.learning-resources-page .activities-guides {
+  border: 1px solid rgba(61, 46, 36, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 254, 251, 0.9);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  box-shadow: 0 12px 28px rgba(61, 46, 36, 0.04);
+}
+
+.learning-resources-page .activities-practice + .activities-practice,
+.learning-resources-page .activities-practice + .activities-guides {
+  margin-top: 1.5rem;
+}
+
+.learning-resources-page__site-card {
+  text-decoration: none;
+  color: inherit;
+}
+
+.learning-resources-page__site-card:hover {
+  color: inherit;
+}

@@ -4,6 +4,9 @@
 import React from 'react';
 import { Modal, Form, Button } from 'react-bootstrap';
 import ErrorAlert from '../shared/ErrorAlert';
+import LocationSelectField from '../LocationSelectField';
+import EventCapacityFields from './EventCapacityFields';
+import { getDefaultCapacityFields } from '../../../utils/eventCapacityFields';
 
 /**
  * @param {Object} props
@@ -25,19 +28,15 @@ export default function EditEventModal({
   onFieldsChange
 }) {
   const setField = (key, value) => {
-    onFieldsChange({ ...fields, [key]: value });
-  };
-
-  const handleMaxParticipantsChange = (e) => {
-    const value = e.target.value;
-    if (value === '') {
-      setField('maxParticipants', '');
-    } else {
-      const numValue = parseInt(value, 10);
-      if (!isNaN(numValue) && numValue >= 1 && numValue <= 100) {
-        setField('maxParticipants', numValue);
-      }
+    if (key === 'eventType') {
+      onFieldsChange({
+        ...fields,
+        eventType: value,
+        ...getDefaultCapacityFields(value),
+      });
+      return;
     }
+    onFieldsChange({ ...fields, [key]: value });
   };
 
   return (
@@ -116,15 +115,19 @@ export default function EditEventModal({
             </div>
           </div>
 
+          <div className="row">
+            <EventCapacityFields
+              eventType={fields.eventType}
+              fields={fields}
+              onFieldsChange={onFieldsChange}
+              layout="stacked"
+            />
+          </div>
+
           <Form.Group className="mb-3">
-            <Form.Label>人數限制 *</Form.Label>
-            <Form.Control
-              type="number"
-              min="1"
-              max="100"
-              value={fields.maxParticipants === '' ? '' : fields.maxParticipants}
-              onChange={handleMaxParticipantsChange}
-              placeholder="30"
+            <LocationSelectField
+              value={fields.location || ''}
+              onChange={(location) => setField('location', location)}
             />
           </Form.Group>
         </Form>

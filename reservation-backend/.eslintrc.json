@@ -1,0 +1,31 @@
+{
+  "root": true,
+  "env": {
+    "node": true,
+    "es2022": true,
+    "jest": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022
+  },
+  "extends": ["eslint:recommended"],
+  "ignorePatterns": ["node_modules/", "coverage/", "uploads/", "build/"],
+  "rules": {
+    "no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "no-console": "off",
+    "no-empty": "warn",
+    "no-inner-declarations": "warn",
+    "no-constant-condition": "warn",
+    "no-useless-escape": "warn",
+    "no-prototype-builtins": "warn",
+    "no-extra-boolean-cast": "warn",
+    "no-useless-catch": "warn",
+    "no-irregular-whitespace": "warn"
+  }
+}

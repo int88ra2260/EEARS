@@ -1,0 +1,71 @@
+---
+description: EEARS Bug 修復工作流程（契約優先、最小 diff、補 regression）
+alwaysApply: false
+---
+
+# eears-bugfix-workflow（Bug 修復）
+
+## 1) 觸發時機
+
+- 任何學生端/管理端出現：
+  - 預約/取消錯誤（尤其 2hr、redirectUrl、blacklist 擋控）
+  - 問卷 Gate 誤擋或誤放行
+  - 匯入失敗或狀態錯亂
+  - 權限相關 403/401 異常
+
+## 2) 分析步驟
+
+1. 重現路徑
+   - 使用者操作步驟（UI -> API）
+   - 對應 endpoint（路由）
+   - 觀察回應 code / HTTP status / redirectUrl
+2. 對照 contract
+   - 2hr 截止：是否仍是活動開始前 2 小時？
+   - 問卷 Gate：是否回 409 + redirectUrl（ET/EC code 對應）？
+   - blacklist：是否 blacklisted 期間被擋？
+3. 查 log/requestId（如果有）
+   - 確認錯誤落在 route/service/middleware 哪一層
+
+## 3) 修改步驟（最小變更）
+
+1. 優先修 service/util，其次才修 router middleware
+2. 避免 refactor 複製邏輯
+3. 若是前後端不一致：
+   - 先以「後端契約」為主，前端只是正確呈現
+
+## 4) 測試步驟
+
+1. 後端：
+   - 跑相關測試檔（至少確保整體 `npm test -- --runInBand` 走過）
+   - 若新增 bug 相關契約，補對應 unit/integration test
+2. 前端：
+   - `npm test -- --watchAll=false` + `npm run lint` + `npm run build`
+
+## 5) Code review 步驟
+
+- 是否引入新的 PII/token log？
+- 是否改動錯誤碼或 redirectUrl 造成前端誤導？
+- 是否破壞 2hr / 取消驗證碼行為？
+- 是否確保沒有把 fail-close 改成 next() 放行？
+
+## 6) 最終回報格式
+
+```text
+【根因】
+- ...
+
+【修復內容】
+- ...
+
+【契約影響】
+- 2hr / Gate / blacklist：未變更/已變更（原因）
+- 相關 code/redirectUrl：...
+
+【測試與驗證】
+- 後端：npm test -- --runInBand（pass/fail）
+- 前端：test/lint/build（pass/fail）
+
+【待手動 UAT】
+- ...
+```
+

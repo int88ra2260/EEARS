@@ -4,19 +4,79 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
 const surveyModuleService = require('../services/surveyModuleService');
+const {
+  assertCanAccessSurveyById,
+  assertCanAccessSurveyRulePayload,
+  buildSurveyResponseScopeWhere,
+  buildSurveyScopeWhere,
+  sendSurveyScopeDenied,
+} = require('../services/accessControl/surveyScopeGuard');
 
 const auth = [authMiddleware];
 
+async function requireSurveyRecordScope(req, res, next) {
+  try {
+    await assertCanAccessSurveyById(req.user, Number(req.params.id));
+    return next();
+  } catch (err) {
+    if (err.status === 404) return res.status(404).json({ error: err.message || '找不到問卷' });
+    if (err.status === 403) return sendSurveyScopeDenied(res, err);
+    return next(err);
+  }
+}
+
+async function attachSurveyResponseScope(req, res, next) {
+  try {
+    await assertCanAccessSurveyById(req.user, Number(req.params.id));
+    const scopeWhere = await buildSurveyResponseScopeWhere(req.user, {
+      ...req.query,
+      ...req.body,
+      surveyId: Number(req.params.id),
+    });
+    if (scopeWhere === null) {
+      return sendSurveyScopeDenied(res, {
+        status: 403,
+        code: 'SURVEY_SCOPE_DENIED',
+        message: '您沒有存取此問卷資料的權限。',
+      });
+    }
+    req.surveyScopeWhere = scopeWhere;
+    return next();
+  } catch (err) {
+    if (err.status === 404) return res.status(404).json({ error: err.message || '找不到問卷' });
+    if (err.status === 403) return sendSurveyScopeDenied(res, err);
+    return next(err);
+  }
+}
+
+async function requireSurveyPayloadScope(req, res, next) {
+  try {
+    await assertCanAccessSurveyRulePayload(req.user, req.body || {});
+    return next();
+  } catch (err) {
+    if (err.status === 403) return sendSurveyScopeDenied(res, err);
+    return next(err);
+  }
+}
+
 router.get('/', ...auth, requirePermission(P.CAN_VIEW_SURVEYS), async (req, res, next) => {
   try {
-    const list = await surveyModuleService.listSurveysAdmin();
+    const scopeWhere = buildSurveyScopeWhere(req.user);
+    if (scopeWhere === null) {
+      return sendSurveyScopeDenied(res, {
+        status: 403,
+        code: 'MISSING_SURVEY_CONTEXT',
+        message: '此操作需要指定問卷或資料範圍。',
+      });
+    }
+    const list = await surveyModuleService.listSurveysAdmin({ __scopeWhere: scopeWhere });
     res.json(list);
   } catch (e) {
     next(e);
   }
 });
 
-router.post('/', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), async (req, res, next) => {
+router.post('/', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), requireSurveyPayloadScope, async (req, res, next) => {
   try {
     const row = await surveyModuleService.createSurvey(req.body, req.user?.id);
     res.status(201).json(row);
@@ -28,7 +88,7 @@ router.post('/', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), async (req, r
   }
 });
 
-router.get('/:id(\\d+)', ...auth, requirePermission(P.CAN_VIEW_SURVEYS), async (req, res, next) => {
+router.get('/:id(\\d+)', ...auth, requirePermission(P.CAN_VIEW_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
   try {
     const { Survey, SurveyRule, SurveyVersion } = require('../models');
     const row = await Survey.findByPk(req.params.id);
@@ -44,7 +104,7 @@ router.get('/:id(\\d+)', ...auth, requirePermission(P.CAN_VIEW_SURVEYS), async (
   }
 });
 
-router.put('/:id(\\d+)', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), async (req, res, next) => {
+router.put('/:id(\\d+)', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
   try {
     const row = await surveyModuleService.updateSurvey(Number(req.params.id), req.body, req.user?.id);
     if (!row) return res.status(404).json({ error: '找不到問卷' });
@@ -54,7 +114,7 @@ router.put('/:id(\\d+)', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), async
   }
 });
 
-router.get('/:id(\\d+)/versions', ...auth, requirePermission(P.CAN_VIEW_SURVEYS), async (req, res, next) => {
+router.get('/:id(\\d+)/versions', ...auth, requirePermission(P.CAN_VIEW_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
   try {
     const list = await surveyModuleService.listVersions(Number(req.params.id));
     res.json(list);
@@ -63,7 +123,7 @@ router.get('/:id(\\d+)/versions', ...auth, requirePermission(P.CAN_VIEW_SURVEYS)
   }
 });
 
-router.post('/:id(\\d+)/versions', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), async (req, res, next) => {
+router.post('/:id(\\d+)/versions', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
   try {
     const ver = await surveyModuleService.createVersion(Number(req.params.id), req.body, req.user?.id);
     if (!ver) return res.status(404).json({ error: '找不到問卷' });
@@ -73,7 +133,7 @@ router.post('/:id(\\d+)/versions', ...auth, requirePermission(P.CAN_MANAGE_SURVE
   }
 });
 
-router.put('/:id(\\d+)/versions/:versionId(\\d+)', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), async (req, res, next) => {
+router.put('/:id(\\d+)/versions/:versionId(\\d+)', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
   try {
     const ver = await surveyModuleService.updateVersion(
       Number(req.params.id),
@@ -91,7 +151,7 @@ router.put('/:id(\\d+)/versions/:versionId(\\d+)', ...auth, requirePermission(P.
   }
 });
 
-router.post('/:id(\\d+)/versions/:versionId(\\d+)/publish', ...auth, requirePermission(P.CAN_PUBLISH_SURVEYS), async (req, res, next) => {
+router.post('/:id(\\d+)/versions/:versionId(\\d+)/publish', ...auth, requirePermission(P.CAN_PUBLISH_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
   try {
     const result = await surveyModuleService.publishVersion(
       Number(req.params.id),
@@ -105,7 +165,7 @@ router.post('/:id(\\d+)/versions/:versionId(\\d+)/publish', ...auth, requirePerm
   }
 });
 
-router.get('/:id(\\d+)/rules', ...auth, requirePermission(P.CAN_VIEW_SURVEYS), async (req, res, next) => {
+router.get('/:id(\\d+)/rules', ...auth, requirePermission(P.CAN_VIEW_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
   try {
     const rule = await surveyModuleService.getRules(Number(req.params.id));
     res.json(rule || {});
@@ -114,7 +174,7 @@ router.get('/:id(\\d+)/rules', ...auth, requirePermission(P.CAN_VIEW_SURVEYS), a
   }
 });
 
-router.put('/:id(\\d+)/rules', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), async (req, res, next) => {
+router.put('/:id(\\d+)/rules', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
   try {
     const rule = await surveyModuleService.putRules(Number(req.params.id), req.body, req.user?.id);
     res.json(rule);
@@ -123,36 +183,61 @@ router.put('/:id(\\d+)/rules', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS),
   }
 });
 
-router.get('/:id(\\d+)/responses', ...auth, requirePermission(P.CAN_VIEW_SURVEY_RESPONSES), async (req, res, next) => {
+router.get('/:id(\\d+)/responses', ...auth, requirePermission(P.CAN_VIEW_SURVEY_RESPONSES), attachSurveyResponseScope, async (req, res, next) => {
   try {
-    const result = await surveyModuleService.listResponses(Number(req.params.id), req.query);
+    const result = await surveyModuleService.listResponses(Number(req.params.id), {
+      ...req.query,
+      __scopeWhere: req.surveyScopeWhere,
+    });
     res.json(result);
   } catch (e) {
     next(e);
   }
 });
 
-router.get('/:id(\\d+)/analytics/summary', ...auth, requirePermission(P.CAN_VIEW_SURVEY_ANALYTICS), async (req, res, next) => {
+router.get('/:id(\\d+)/analytics/summary', ...auth, requirePermission(P.CAN_VIEW_SURVEY_ANALYTICS), attachSurveyResponseScope, async (req, res, next) => {
   try {
-    const data = await surveyModuleService.analyticsSummary(Number(req.params.id), req.query);
+    const data = await surveyModuleService.analyticsSummary(Number(req.params.id), {
+      ...req.query,
+      __scopeWhere: req.surveyScopeWhere,
+    });
     res.json(data);
   } catch (e) {
     next(e);
   }
 });
 
-router.get('/:id(\\d+)/analytics/questions', ...auth, requirePermission(P.CAN_VIEW_SURVEY_ANALYTICS), async (req, res, next) => {
+router.get('/:id(\\d+)/analytics/questions', ...auth, requirePermission(P.CAN_VIEW_SURVEY_ANALYTICS), attachSurveyResponseScope, async (req, res, next) => {
   try {
-    const data = await surveyModuleService.analyticsQuestions(Number(req.params.id), req.query);
+    const data = await surveyModuleService.analyticsQuestions(Number(req.params.id), {
+      ...req.query,
+      __scopeWhere: req.surveyScopeWhere,
+    });
     res.json(data);
   } catch (e) {
     next(e);
   }
 });
 
-router.post('/:id(\\d+)/export', ...auth, requirePermission(P.CAN_EXPORT_SURVEY_RESPONSES), async (req, res, next) => {
+router.post('/:id(\\d+)/export', ...auth, requirePermission(P.CAN_EXPORT_SURVEY_RESPONSES), attachSurveyResponseScope, async (req, res, next) => {
   try {
-    await surveyModuleService.exportSurveyResponses(Number(req.params.id), req.body || {}, res, req.user?.id);
+    await surveyModuleService.exportSurveyResponses(Number(req.params.id), {
+      ...(req.body || {}),
+      __scopeWhere: req.surveyScopeWhere,
+    }, res, req.user?.id);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:id(\\d+)/export/json', ...auth, requirePermission(P.CAN_EXPORT_SURVEY_RESPONSES), requireSurveyRecordScope, async (req, res, next) => {
+  try {
+    const pkg = await surveyModuleService.exportSurveyPackageJson(Number(req.params.id), req.user?.id);
+    if (!pkg) return res.status(404).json({ error: '找不到問卷' });
+    const safeKey = String(pkg?.survey?.surveyKey || `survey_${req.params.id}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeKey}-package.json"`);
+    res.json(pkg);
   } catch (e) {
     next(e);
   }

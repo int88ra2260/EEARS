@@ -5,8 +5,10 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import ColumnSelector from './ColumnSelector';
 import QuickActionButtons from './QuickActionButtons';
 import SortableTableRow from './SortableTableRow';
+import EnhancedTableRowContent from './EnhancedTableRowContent';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import useConfirm from '../ui/useConfirm';
+import { getStatusBadge, highlightText } from './englishTestTableHelpers';
 
 // 注意：如果 useMediaQuery 不存在，可以使用以下簡單實作
 // const useMediaQuery = (query) => {
@@ -101,120 +103,6 @@ export default function EnhancedTable({
     { key: 'photo', label: '證件照', sortable: false, image: true }
   ];
 
-  // 高亮搜尋關鍵字
-  const highlightText = (text, keyword) => {
-    if (!keyword || !text) return text;
-    const regex = new RegExp(`(${keyword})`, 'gi');
-    const parts = String(text).split(regex);
-    return parts.map((part, index) => 
-      regex.test(part) ? (
-        <mark key={index} style={{ backgroundColor: '#ffeb3b', padding: '0' }}>
-          {part}
-        </mark>
-      ) : part
-    );
-  };
-
-  // 表格行內容組件（避免重複代碼）
-  const TableRowContent = ({ row, visibleColumns, allColumns, selectedRows, onRowSelect, searchTerm, getStatusBadge, highlightText, onViewDetail, onQuickStatusUpdate, onDelete, onClassBestep, enableDragSort }) => (
-    <>
-      {/* 拖曳手柄（僅在啟用拖曳時顯示） */}
-      {enableDragSort && (
-        <td 
-          style={{ 
-            width: '30px', 
-            cursor: 'grab', 
-            userSelect: 'none', 
-            textAlign: 'center',
-            verticalAlign: 'middle',
-            padding: '0.5rem'
-          }}
-          data-drag-handle="true"
-        >
-          <i className="fas fa-grip-vertical text-muted" style={{ fontSize: '0.875rem' }} title="拖曳調整順序"></i>
-        </td>
-      )}
-      
-      {/* 選擇框 */}
-      <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-        <input
-          type="checkbox"
-          checked={selectedRows.includes(row.id)}
-          onChange={(e) => {
-            if (e.target.checked) {
-              onRowSelect && onRowSelect([...selectedRows, row.id]);
-            } else {
-              onRowSelect && onRowSelect(selectedRows.filter(id => id !== row.id));
-            }
-          }}
-        />
-      </td>
-
-      {/* 資料欄位 - 按照 visibleColumns 的順序顯示 */}
-      {visibleColumns
-        .map(key => allColumns.find(col => col.key === key))
-        .filter(col => col !== undefined)
-        .map(col => (
-          <td key={col.key} style={{ textAlign: 'left', verticalAlign: 'middle' }}>
-            {col.key === 'status' ? (
-              getStatusBadge(row[col.key])
-            ) : col.key === 'photo' ? (
-              row.idPhoto ? (
-                <img
-                  src={`/uploads/${row.idPhoto}`}
-                  alt="證件照"
-                  style={{
-                    width: '50px',
-                    height: '50px',
-                    objectFit: 'cover',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    border: '1px solid #ddd'
-                  }}
-                  onClick={() => window.open(`/uploads/${row.idPhoto}`, '_blank')}
-                  title="點擊放大"
-                />
-              ) : (
-                <span className="text-muted">無</span>
-              )
-            ) : col.key === 'createdAt' ? (
-              new Date(row[col.key]).toLocaleString('zh-TW')
-            ) : col.key === 'id' ? (
-              // 報名編號：優先顯示 semesterSequence（按學期編號），其次 successSequence，最後才是 id
-              highlightText(
-                row.semesterSequence || (row.status === 'success' && row.successSequence) || row.id,
-                searchTerm
-              )
-            ) : (
-              highlightText(row[col.key] || '-', searchTerm)
-            )}
-          </td>
-        ))}
-      
-      {/* 操作按鈕 */}
-      <td style={{ textAlign: 'left', verticalAlign: 'middle' }}>
-        <QuickActionButtons
-          registration={row}
-          onView={() => onViewDetail && onViewDetail(row.id)}
-          onQuickStatusUpdate={onQuickStatusUpdate}
-          onClassBestep={onClassBestep}
-          onDelete={() => {
-            confirm({
-              title: '確認刪除報名資料？',
-              description: '此操作無法復原。',
-              confirmText: '刪除',
-              cancelText: '取消',
-              variant: 'danger',
-            }).then((ok) => {
-              if (!ok) return;
-              onDelete && onDelete(row.id);
-            });
-          }}
-        />
-      </td>
-    </>
-  );
-
   useEffect(() => {
     if (sortConfig) {
       setLocalSortConfig(sortConfig);
@@ -231,38 +119,6 @@ export default function EnhancedTable({
 
   const handleColumnChange = (newColumns) => {
     setVisibleColumns(newColumns);
-  };
-
-  // 與統計卡片一致的狀態配色
-  const STATUS_STYLES = {
-    pending: { bg: '#ffc107', color: '#856404', icon: 'clock' },
-    approved: { bg: '#0dcaf0', color: '#087990', icon: 'check-circle' },
-    revision: { bg: '#6f42c1', color: '#fff', icon: 'times-circle' },
-    success: { bg: '#198754', color: '#fff', icon: 'check-circle' },
-    failed: { bg: '#dc3545', color: '#fff', icon: 'ban' }
-  };
-
-  const getStatusBadge = (status) => {
-    const statusMap = {
-      pending: { label: '審核中', ...STATUS_STYLES.pending },
-      approved: { label: '已通過', ...STATUS_STYLES.approved },
-      revision: { label: '請修正', ...STATUS_STYLES.revision },
-      success: { label: '報名成功', ...STATUS_STYLES.success },
-      failed: { label: '報名失敗', ...STATUS_STYLES.failed }
-    };
-    const info = statusMap[status] || { label: status, bg: '#6c757d', color: '#fff', icon: 'question' };
-    return (
-      <span
-        className="badge d-flex align-items-center"
-        style={{
-          gap: '0.25rem',
-          backgroundColor: info.bg,
-          color: info.color
-        }}
-      >
-        <i className={`fas fa-${info.icon}`} /> {info.label}
-      </span>
-    );
   };
 
   // 排序後的資料
@@ -477,15 +333,13 @@ export default function EnhancedTable({
                         key={row.id} 
                         id={row.id}
                       >
-                        <TableRowContent 
+                        <EnhancedTableRowContent
                           row={row}
                           visibleColumns={visibleColumns}
                           allColumns={allColumns}
                           selectedRows={selectedRows}
                           onRowSelect={onRowSelect}
                           searchTerm={searchTerm}
-                          getStatusBadge={getStatusBadge}
-                          highlightText={highlightText}
                           onViewDetail={onViewDetail}
                           onQuickStatusUpdate={onQuickStatusUpdate}
                           onDelete={onDelete}
@@ -504,15 +358,13 @@ export default function EnhancedTable({
                       backgroundColor: row.status === 'pending' ? '#fff9e6' : 'transparent'
                     }}
                   >
-                    <TableRowContent 
+                    <EnhancedTableRowContent
                       row={row}
                       visibleColumns={visibleColumns}
                       allColumns={allColumns}
                       selectedRows={selectedRows}
                       onRowSelect={onRowSelect}
                       searchTerm={searchTerm}
-                      getStatusBadge={getStatusBadge}
-                      highlightText={highlightText}
                       onViewDetail={onViewDetail}
                       onQuickStatusUpdate={onQuickStatusUpdate}
                       onDelete={onDelete}

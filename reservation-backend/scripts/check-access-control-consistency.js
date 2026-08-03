@@ -21,7 +21,7 @@ function normalizeJsonScopes(scopes) {
 
 async function run() {
   const teachers = await Teacher.findAll({
-    attributes: ['id', 'role', 'teacherLevel', 'permissions', 'scopes'],
+    attributes: ['id', 'role', 'teacherLevel', 'staffLevel', 'permissions', 'scopes'],
     order: [['id', 'ASC']],
   });
   const userIds = teachers.map((t) => t.id);
@@ -65,6 +65,7 @@ async function run() {
         userId: t.id,
         role: t.role,
         teacherLevel: t.teacherLevel,
+        staffLevel: t.staffLevel,
         jsonPermissions: t.permissions || null,
         jsonScopes: Array.isArray(t.scopes) ? t.scopes : null,
         mode: 'json_first',
@@ -73,6 +74,7 @@ async function run() {
         userId: t.id,
         role: t.role,
         teacherLevel: t.teacherLevel,
+        staffLevel: t.staffLevel,
         jsonPermissions: t.permissions || null,
         jsonScopes: Array.isArray(t.scopes) ? t.scopes : null,
         mode: 'table_first',

@@ -286,3 +286,29 @@ export async function postLearningJourneyCourseImportApply(token, file) {
   });
   return parseEnvelope(res);
 }
+
+export async function postAcademicCourseRosterDryRun(token, file, { semesterId, syncClassRoster = true }) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('semesterId', semesterId);
+  formData.append('syncClassRoster', syncClassRoster ? '1' : '0');
+  const res = await fetchClient(`${BASE_URL}/admin/academic-course-roster/dry-run`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: formData,
+  });
+  return parseEnvelope(res);
+}
+
+export async function postAcademicCourseRosterApply(token, file, { semesterId, syncClassRoster = true }) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('semesterId', semesterId);
+  formData.append('syncClassRoster', syncClassRoster ? '1' : '0');
+  const res = await fetchClient(`${BASE_URL}/admin/academic-course-roster/apply`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: formData,
+  });
+  return parseEnvelope(res);
+}

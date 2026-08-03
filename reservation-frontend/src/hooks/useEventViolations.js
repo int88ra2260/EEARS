@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { EVENT_DETAIL_COPY } from '../constants/adminEventDetailCopy';
 import { debugEventDetail } from '../utils/eventDetailDebug';
+import { fetchEventViolations } from '../services/eventAdminService';
 
 /**
  * 活動違規紀錄（GET /api/events/:id/violations）— 違規 tab lazy load
@@ -14,15 +15,7 @@ export function useEventViolations({ token, eventId, enabled }) {
 
   const fetchList = useCallback(async () => {
     if (!eventId || !token) return [];
-    const res = await fetch(`/api/events/${eventId}/violations`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json().catch(() => []);
-    if (!res.ok) {
-      const msg = data?.error || data?.message || EVENT_DETAIL_COPY.violationsLoadFailed;
-      throw new Error(msg);
-    }
-    return Array.isArray(data) ? data : [];
+    return fetchEventViolations(token, eventId);
   }, [eventId, token]);
 
   const load = useCallback(

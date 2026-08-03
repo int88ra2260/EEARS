@@ -3,7 +3,7 @@
 }
 
 .announcement-detail-toolbar {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto 0.75rem;
 }
 
@@ -14,7 +14,7 @@
 }
 
 .announcement-detail-article {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   background: #fff;
   border-radius: 8px;
@@ -37,14 +37,29 @@
 .announcement-detail-body {
   font-size: 1rem;
   line-height: 1.6;
-  white-space: pre-wrap;
   margin-bottom: 1.5rem;
   word-break: break-word;
+}
+
+.announcement-detail-body p {
+  margin: 0 0 1rem 0;
+}
+
+.announcement-detail-body p:last-child {
+  margin-bottom: 0;
+}
+
+.announcement-detail-body br {
+  line-height: 1.8;
 }
 
 .announcement-detail-cover img {
   max-height: 360px;
   object-fit: contain;
+}
+
+.announcement-detail-actions .btn {
+  min-height: 44px;
 }
 
 .announcement-detail-back {

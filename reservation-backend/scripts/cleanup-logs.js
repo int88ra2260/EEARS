@@ -1,22 +1,28 @@
 /**
- * Cleanup retention logs job
+ * 日誌保留清理（env-driven；預設 dry-run，需 --apply 才寫入／刪除）
  *
- * 預設策略（可調整）：
- *  - system_logs：保留 60 天
- *  - email_logs：保留 180 天
- *  - audit_logs：預設不刪除，只在到期後做 archive（可選擇刪除）
+ * 環境變數：
+ *   SYSTEM_LOG_RETENTION_DAYS（預設 180）
+ *   EMAIL_LOG_RETENTION_DAYS（預設 180）
+ *   AUDIT_LOG_RETENTION_DAYS（預設 365）
+ *   AUDIT_LOG_CLEANUP_MODE=keep|archive|delete（預設 keep）
+ *   AUDIT_LOG_DELETE_AFTER_ARCHIVE（預設 false；僅 archive 模式且 --apply）
  *
- * 使用方式（範例）：
- *  - node scripts/cleanup-logs.js --dry-run
- *  - node scripts/cleanup-logs.js --system-days=90 --email-days=180
- *  - node scripts/cleanup-logs.js --archive-audit --audit-archive-days=730 --audit-delete-after-archive
+ * 使用方式：
+ *   node scripts/cleanup-logs.js              # dry-run（預設）
+ *   node scripts/cleanup-logs.js --dry-run    # dry-run
+ *   node scripts/cleanup-logs.js --apply      # 實際執行
  */
 
 require('dotenv').config();
-const fs = require('fs');
-const path = require('path');
-const { Op } = require('sequelize');
 const { AuditLog, EmailLog, SystemLog } = require('../models');
+const { formatTaipeiTime } = require('../utils/time');
+const { getLogRetentionConfig } = require('../utils/logRetentionConfig');
+const { runLogRetentionCleanup } = require('../utils/logRetentionCleanup');
+
+function hasFlag(name) {
+  return process.argv.includes(`--${name}`);
+}
 
 function getArg(name, defaultValue) {
   const key = `--${name}=`;
@@ -25,127 +31,67 @@ function getArg(name, defaultValue) {
   return found.slice(key.length);
 }
 
-function hasFlag(name) {
-  return process.argv.includes(`--${name}`);
-}
-
-function daysToMs(days) {
-  return Number(days) * 24 * 60 * 60 * 1000;
-}
-
-async function archiveAuditLogs({ beforeDate, outFile, batchSize = 1000, dryRun }) {
-  const where = { createdAt: { [Op.lt]: beforeDate } };
-  const total = await AuditLog.count({ where });
-  if (!total) return { total: 0, archived: 0 };
-
-  if (dryRun) {
-    return { total, archived: 0 };
-  }
-
-  fs.mkdirSync(path.dirname(outFile), { recursive: true });
-  if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
-
-  let lastId = 0;
-  let archived = 0;
-
-  // JSONL：每行一筆，便於後續匯入/審計
-  while (true) {
-    const rows = await AuditLog.findAll({
-      where: {
-        ...where,
-        id: { [Op.gt]: lastId },
-      },
-      order: [['id', 'ASC']],
-      limit: batchSize,
-    });
-
-    if (!rows.length) break;
-
-    const lines = rows.map((r) => JSON.stringify(r.get({ plain: true }))).join('\n') + '\n';
-    fs.appendFileSync(outFile, lines, 'utf8');
-
-    archived += rows.length;
-    lastId = rows[rows.length - 1].id;
-  }
-
-  return { total, archived };
-}
-
-async function deleteOldModelRows({ model, beforeDate, dryRun, label }) {
-  const where = { createdAt: { [Op.lt]: beforeDate } };
-  const total = await model.count({ where });
-  if (!total) return { total: 0, deleted: 0 };
-
-  if (dryRun) return { total, deleted: 0 };
-
-  const deleted = await model.destroy({ where });
-  return { total, deleted };
+function printSection(title, data) {
+  console.log(`[cleanup-logs] ${title}:`, JSON.stringify(data, null, 2));
 }
 
 async function main() {
-  const dryRun = hasFlag('dry-run');
-
-  const systemDays = Number(getArg('system-days', 60));
-  const emailDays = Number(getArg('email-days', 180));
-  const auditArchiveDays = Number(getArg('audit-archive-days', 730));
-
-  const archiveAudit = hasFlag('archive-audit') || hasFlag('audit-archive');
-  const auditDeleteAfterArchive = hasFlag('audit-delete-after-archive');
-
-  const now = new Date();
-
-  const systemBefore = new Date(now.getTime() - daysToMs(systemDays));
-  const emailBefore = new Date(now.getTime() - daysToMs(emailDays));
-  const auditBefore = new Date(now.getTime() - daysToMs(auditArchiveDays));
-
-  console.log('[cleanup-logs] dryRun=', dryRun);
-  console.log('[cleanup-logs] systemBefore=', systemBefore.toISOString());
-  console.log('[cleanup-logs] emailBefore=', emailBefore.toISOString());
-  console.log('[cleanup-logs] auditBefore=', auditBefore.toISOString());
-
-  const [systemRes, emailRes] = await Promise.all([
-    deleteOldModelRows({ model: SystemLog, beforeDate: systemBefore, dryRun, label: 'system_logs' }),
-    deleteOldModelRows({ model: EmailLog, beforeDate: emailBefore, dryRun, label: 'email_logs' }),
-  ]);
-
-  let auditRes = null;
-  if (archiveAudit) {
-    const outFile = path.join(
-      __dirname,
-      '../archives/audit-logs',
-      `audit-logs-before-${auditBefore.toISOString().slice(0, 10)}.jsonl`
-    );
-
-    auditRes = await archiveAuditLogs({
-      beforeDate: auditBefore,
-      outFile,
-      dryRun,
-    });
-
-    console.log('[cleanup-logs] audit archive:', auditRes);
-
-    if (auditDeleteAfterArchive && !dryRun) {
-      const del = await deleteOldModelRows({
-        model: AuditLog,
-        beforeDate: auditBefore,
-        dryRun: false,
-        label: 'audit_logs',
-      });
-      auditRes.deleteRes = del;
-    }
+  if (hasFlag('dry-run') && hasFlag('apply')) {
+    console.error('[cleanup-logs] 不可同時使用 --dry-run 與 --apply');
+    process.exit(1);
   }
 
-  console.log('[cleanup-logs] system_logs:', systemRes);
-  console.log('[cleanup-logs] email_logs:', emailRes);
-  console.log('[cleanup-logs] audit_logs:', auditRes);
+  const apply = hasFlag('apply');
+  const dryRun = !apply;
+
+  const config = getLogRetentionConfig();
+  const systemDaysOverride = getArg('system-days', null);
+  const emailDaysOverride = getArg('email-days', null);
+  const auditDaysOverride = getArg('audit-days', null);
+  if (systemDaysOverride != null && systemDaysOverride !== '') {
+    config.systemDays = Number(systemDaysOverride);
+  }
+  if (emailDaysOverride != null && emailDaysOverride !== '') {
+    config.emailDays = Number(emailDaysOverride);
+  }
+  if (auditDaysOverride != null && auditDaysOverride !== '') {
+    config.auditDays = Number(auditDaysOverride);
+  }
+
+  console.log('[cleanup-logs] mode=', dryRun ? 'DRY-RUN（未刪除資料）' : 'APPLY（將執行刪除／匯出）');
+  console.log('[cleanup-logs] retention config:', config);
+  for (const w of config.warnings || []) {
+    console.warn('[cleanup-logs] 注意:', w);
+  }
+
+  const result = await runLogRetentionCleanup({
+    models: { AuditLog, EmailLog, SystemLog },
+    dryRun,
+    config,
+  });
+
+  console.log('[cleanup-logs] system_logs cutoff:', formatTaipeiTime(result.cutoffs.systemBefore));
+  console.log('[cleanup-logs] email_logs cutoff:', formatTaipeiTime(result.cutoffs.emailBefore));
+  console.log('[cleanup-logs] audit_logs cutoff:', formatTaipeiTime(result.cutoffs.auditBefore));
+
+  printSection('system_logs', result.system_logs);
+  printSection('email_logs', result.email_logs);
+  printSection('audit_logs', result.audit_logs);
+
+  if (dryRun) {
+    console.log('[cleanup-logs] 完成（dry-run）。若要實際清理請加上 --apply');
+  } else {
+    console.log('[cleanup-logs] 完成（已套用）');
+  }
 }
 
 if (require.main === module) {
   main()
     .then(() => process.exit(0))
     .catch((e) => {
-      console.error('cleanup-logs failed:', e);
+      console.error('[cleanup-logs] failed:', e);
       process.exit(1);
     });
 }
 
+module.exports = { main, hasFlag };

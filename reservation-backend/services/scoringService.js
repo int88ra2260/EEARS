@@ -1,5 +1,8 @@
 // services/scoringService.js
 // Phase 3：教學成效評分模型（Explainable）
+//
+// 產出為「班級層級教學綜合分」（多 KPI 加權），供趨勢分析 decisionKpis.teacherImpact 等使用。
+// 此為行政觀察用 proxy，不得解讀為個別教師對學生學習成果之因果影響。詳見 docs/analytics-and-reports-metric-definitions.md。
 
 const { ClassMembership } = require('../models');
 const kpiService = require('./kpiService');

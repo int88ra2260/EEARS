@@ -189,11 +189,10 @@ export default function QuickActionButtons({
         </button>
         <ul className="dropdown-menu">
           <li>
-            <a 
+            <button
+              type="button"
               className="dropdown-item" 
-              href="#" 
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 confirm({
                   title: '確認刪除報名資料？',
                   description: '此操作無法復原。',
@@ -208,29 +207,27 @@ export default function QuickActionButtons({
             >
               <i className="fas fa-trash text-danger me-2"></i>
               刪除
-            </a>
+            </button>
           </li>
           {onClassBestep && (
             <li>
-              <a
+              <button
+                type="button"
                 className="dropdown-item"
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
+                onClick={() => {
                   onClassBestep(registration.id);
                 }}
               >
                 <i className="fas fa-graduation-cap me-2 text-info" />
                 前往班級 BESTEP
-              </a>
+              </button>
             </li>
           )}
           <li>
-            <a 
+            <button
+              type="button"
               className="dropdown-item" 
-              href="#"
-              onClick={async (e) => {
-                e.preventDefault();
+              onClick={async () => {
                 const url = `${window.location.origin}/admin/english-test?id=${registration.id}`;
                 
                 try {
@@ -271,7 +268,7 @@ export default function QuickActionButtons({
             >
               <i className="fas fa-link me-2"></i>
               複製連結
-            </a>
+            </button>
           </li>
         </ul>
       </div>

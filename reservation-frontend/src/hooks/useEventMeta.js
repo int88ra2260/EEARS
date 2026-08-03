@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { EVENT_DETAIL_COPY } from '../constants/adminEventDetailCopy';
 import { debugEventDetail } from '../utils/eventDetailDebug';
+import { fetchEventMeta as fetchEventMetaApi } from '../services/eventService';
 
 /**
  * 活動基本資料（GET /api/events/:id/meta）— Phase 5 輕量 payload + aggregate 統計
@@ -24,13 +25,7 @@ export function useEventMeta({ token, eventId }) {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/events/${eid}/meta`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(j.error || j.message || EVENT_DETAIL_COPY.metaLoadFailed);
-      }
+      const j = await fetchEventMetaApi(token, eid);
       setData(j);
       debugEventDetail('meta:loaded', { eventId: eid });
     } catch (e) {

@@ -1,7 +1,8 @@
 // TODO: legacy overview, candidate for removal - not mounted in App.js routes; see AdminDashboardProduct.
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import useToast from '../../components/ui/useToast';
+import { useAdminDashboard } from '../../hooks/useAdminDashboard';
 
 function KpiCard({ title, value, hint, reliability = 'high' }) {
   const reliabilityMeta = {
@@ -38,96 +39,17 @@ function QuickLinkCard({ to, title, desc }) {
 export default function AdminDashboard() {
   const { token, userRole } = useOutletContext();
   const toast = useToast();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const [events, setEvents] = useState([]);
-  const [reservations, setReservations] = useState([]);
-  const [englishPendingCount, setEnglishPendingCount] = useState(null);
-  const [announcementDraftCount, setAnnouncementDraftCount] = useState(null);
-  const [violations, setViolations] = useState([]);
-  const [sourceStatus, setSourceStatus] = useState({
-    events: 'unknown',
-    reservations: 'unknown',
-    english: 'unknown',
-    announcements: 'unknown',
-    violations: 'unknown',
-  });
-
-  const authHeaders = useMemo(() => ({
-    Authorization: `Bearer ${token}`,
-    'X-User-Role': userRole || 'worker',
-  }), [token, userRole]);
-
-  useEffect(() => {
-    let ignore = false;
-
-    if (!token) {
-      setLoading(false);
-      setError('尚未登入，請先登入後查看總覽。');
-      return () => { ignore = true; };
-    }
-
-    const load = async () => {
-      setLoading(true);
-      setError('');
-      const today = new Date().toISOString().slice(0, 10);
-
-      const tasks = await Promise.allSettled([
-        fetch('/api/events', { headers: authHeaders }).then((r) => r.json()),
-        fetch('/api/reservations', { headers: authHeaders }).then(async (r) => (r.ok ? r.json() : [])),
-        fetch('/api/english-test/registrations?page=1&limit=1&status=pending', { headers: authHeaders })
-          .then(async (r) => (r.ok ? r.json() : null)),
-        fetch('/api/admin/announcements?page=1&limit=20&status=draft', { headers: authHeaders })
-          .then(async (r) => (r.ok ? r.json() : null)),
-        fetch('/api/blacklist', { headers: authHeaders }).then(async (r) => (r.ok ? r.json() : [])),
-      ]);
-
-      if (ignore) return;
-
-      const eventData = tasks[0].status === 'fulfilled' && Array.isArray(tasks[0].value) ? tasks[0].value : [];
-      const reservationData = tasks[1].status === 'fulfilled' && Array.isArray(tasks[1].value) ? tasks[1].value : [];
-      const englishData = tasks[2].status === 'fulfilled' ? tasks[2].value : null;
-      const draftData = tasks[3].status === 'fulfilled' ? tasks[3].value : null;
-      const violationData = tasks[4].status === 'fulfilled' && Array.isArray(tasks[4].value) ? tasks[4].value : [];
-      setSourceStatus({
-        events: tasks[0].status === 'fulfilled' ? 'ok' : 'fail',
-        reservations: tasks[1].status === 'fulfilled' ? 'ok' : 'fail',
-        english: tasks[2].status === 'fulfilled' ? 'ok' : 'fail',
-        announcements: tasks[3].status === 'fulfilled' ? 'ok' : 'fail',
-        violations: tasks[4].status === 'fulfilled' ? 'ok' : 'fail',
-      });
-
-      setEvents(eventData);
-      setReservations(reservationData);
-      setViolations(violationData);
-      setEnglishPendingCount(typeof englishData?.total === 'number' ? englishData.total : (Array.isArray(englishData?.data) ? englishData.data.length : null));
-      setAnnouncementDraftCount(Array.isArray(draftData?.items) ? draftData.items.length : null);
-
-      if (tasks.every((t) => t.status === 'rejected')) {
-        setError('目前無法載入總覽資料，請稍後再試。');
-        toast.warning('總覽資料載入失敗，請稍後重試');
-      }
-
-      setLoading(false);
-      // derived values use inline to avoid state bloat
-      void today;
-    };
-
-    load();
-    return () => { ignore = true; };
-  }, [authHeaders, toast, token]);
-
-  const todayReservations = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return reservations.filter((r) => {
-      const ts = String(r.createdAt || r.timestamp || '');
-      return ts.startsWith(today);
-    }).length;
-  }, [reservations]);
-
-  const recentEvents = useMemo(() => events.slice(0, 5), [events]);
-  const recentViolations = useMemo(() => violations.slice(0, 5), [violations]);
+  const {
+    loading,
+    error,
+    events,
+    todayReservations,
+    englishPendingCount,
+    announcementDraftCount,
+    sourceStatus,
+    recentEvents,
+    recentViolations,
+  } = useAdminDashboard({ token, userRole, toast });
 
   if (loading) {
     return <div className="alert alert-info">載入總覽中...</div>;
@@ -190,7 +112,7 @@ export default function AdminDashboard() {
         <div className="col-12 col-md-6 col-xl-3"><QuickLinkCard to="/admin/english-test" title="英檢管理" desc="英檢報名審核與狀態管理" /></div>
         <div className="col-12 col-md-6 col-xl-3"><QuickLinkCard to="/admin/violations" title="違規管理" desc="違規紀錄與黑名單關聯" /></div>
         <div className="col-12 col-md-6 col-xl-3"><QuickLinkCard to="/admin/reports" title="報表 / 匯出" desc="跨模組報表與資料下載" /></div>
-        <div className="col-12 col-md-6 col-xl-3"><QuickLinkCard to="/admin/settings/system" title="系統設定" desc="報名開關、feature flags、設定入口" /></div>
+        <div className="col-12 col-md-6 col-xl-3"><QuickLinkCard to="/admin/settings/system" title="系統設定" desc="英檢報名開關與相關設定入口" /></div>
       </div>
 
       <div className="row g-3">
@@ -238,4 +160,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-

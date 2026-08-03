@@ -5,12 +5,16 @@
  * - 問卷通知 banner 設定
  */
 
-// 活動介紹：Tab 列表（ActivityTypeTabs 使用）
-export const ACTIVITY_TABS = [
-  { id: 'english-table', labelKey: 'activities.englishTable' },
-  { id: 'english-club', labelKey: 'activities.englishClub' },
-  { id: 'international-forum', labelKey: 'activities.internationalForum' },
-  { id: 'job-talk', labelKey: 'activities.jobTalk' },
+import { ACTIVITY_TAB_ITEMS } from './activityCatalog';
+
+// 活動介紹：Tab 列表（ActivityTypeTabs 使用；順序由元件內 session 洗牌）
+export const ACTIVITY_TABS = ACTIVITY_TAB_ITEMS;
+
+// FAQ 彈窗 Tab（EventFAQModal 使用）
+export const FAQ_TABS = [
+  { id: 'cancel', labelKey: 'faq.cancel' },
+  { id: 'blacklist', labelKey: 'faq.blacklist' },
+  { id: 'rules', labelKey: 'faq.rules' },
 ];
 
 // 規則說明區塊設定（EventRulesNotice 使用）

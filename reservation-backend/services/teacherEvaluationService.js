@@ -1,12 +1,54 @@
 // services/teacherEvaluationService.js
-// Phase 2：教師儀表板（Teacher Dashboard）
+// Phase 2：教師儀表板（我的教學儀表板）
+//
+// 指標母體：該教師授課班級（ClassTeacher 或 Class.teacherName，與班級參與概況一致）
+// + class_memberships 當學期學生；KPI 來自 kpiService（班級行政口徑）。
+// riskStudentCount 為各班班級名冊內高風險人數，非 LJ active roster 母體。詳見 docs/analytics-and-reports-metric-definitions.md。
 
-const { Class, ClassMembership, ClassTeacher, Op } = require('../models');
+const { Op } = require('sequelize');
+const { Class, ClassMembership, ClassTeacher, Teacher } = require('../models');
 const kpiService = require('./kpiService');
 const riskDetectionService = require('./riskDetectionService');
 const { getCache, setCache } = require('../utils/analyticsCache');
 
 const TEACHER_DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * 與班級參與概況 classScopeGuard 對齊：ClassTeacher 對應 + Class.teacherName 後備。
+ * @param {number} teacherId
+ * @param {string} semester
+ * @returns {Promise<number[]>}
+ */
+async function resolveTeacherClassIds(teacherId, semester) {
+  const sem = String(semester || '').trim();
+  const classIdSet = new Set();
+
+  const teacherClassRows = await ClassTeacher.findAll({
+    where: { teacherId, semester: sem, isActive: true },
+    attributes: ['classId'],
+    raw: true,
+  });
+  teacherClassRows.forEach((row) => {
+    const id = Number(row.classId);
+    if (Number.isInteger(id)) classIdSet.add(id);
+  });
+
+  const teacher = await Teacher.findByPk(teacherId, { attributes: ['id', 'name'] });
+  const teacherName = String(teacher?.name || '').trim();
+  if (teacherName) {
+    const byName = await Class.findAll({
+      where: { semester: sem, teacherName },
+      attributes: ['id'],
+      raw: true,
+    });
+    byName.forEach((row) => {
+      const id = Number(row.id);
+      if (Number.isInteger(id)) classIdSet.add(id);
+    });
+  }
+
+  return [...classIdSet];
+}
 
 /**
  * @param {number} teacherId
@@ -22,11 +64,7 @@ async function getTeacherDashboard(teacherId, semester) {
     return cached;
   }
 
-  const teacherClassRows = await ClassTeacher.findAll({
-    where: { teacherId, semester, isActive: true }
-  });
-
-  const classIds = [...new Set(teacherClassRows.map((r) => r.classId))];
+  const classIds = await resolveTeacherClassIds(teacherId, semester);
   if (classIds.length === 0) {
     return {
       teacherId,
@@ -146,6 +184,7 @@ async function getTeacherDashboard(teacherId, semester) {
 }
 
 module.exports = {
-  getTeacherDashboard
+  getTeacherDashboard,
+  resolveTeacherClassIds,
 };
 

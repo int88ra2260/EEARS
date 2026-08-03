@@ -1,6 +1,13 @@
 // 共用 log / audit 資料遮罩與清理工具
 // 目標：避免在 DB logs 中寫入敏感資訊，同時維持「可追查」的欄位可用性
 
+const {
+  maskIdNumber,
+  maskPhone,
+  maskEmail,
+  maskStudentId,
+} = require('./piiMask');
+
 const SENSITIVE_KEYS = new Set([
   'password',
   'oldpassword',
@@ -13,17 +20,13 @@ const SENSITIVE_KEYS = new Set([
   'secret',
   'gmailpass',
   'cookie',
+  'accesstoken',
+  'bearertoken',
+  'answersjson',
+  'rawpayload',
 ]);
 
-function maskEmail(email) {
-  if (!email || typeof email !== 'string') return email ?? null;
-  const at = email.indexOf('@');
-  if (at <= 0) return '***';
-  const local = email.slice(0, at);
-  const domain = email.slice(at + 1);
-  const show = Math.min(2, local.length);
-  return `${local.slice(0, show)}***@${domain}`;
-}
+// maskEmail / maskPhone / maskIdNumber 由 piiMask.js 提供
 
 function maskStringEdge(value, { head = 2, tail = 2, placeholder = '***' } = {}) {
   if (value === null || value === undefined) return value;
@@ -33,16 +36,8 @@ function maskStringEdge(value, { head = 2, tail = 2, placeholder = '***' } = {})
   return `${s.slice(0, head)}***${s.slice(-tail)}`;
 }
 
-function maskPhone(phone) {
-  if (!phone) return phone ?? null;
-  const s = typeof phone === 'string' ? phone : String(phone);
-  // 保留尾碼方便追查
-  return maskStringEdge(s, { head: 0, tail: 2, placeholder: '***' });
-}
-
 function maskNationalId(value) {
-  if (!value) return value ?? null;
-  return maskStringEdge(String(value), { head: 1, tail: 1, placeholder: '***' });
+  return maskIdNumber(value);
 }
 
 function maskAttachmentPath(pathLike) {
@@ -102,29 +97,40 @@ function sanitizeForAudit(value, depth = 0) {
   for (const [k, v] of Object.entries(value)) {
     const lower = k.toLowerCase();
 
-    if (shouldRedactKey(k) || lower.includes('password') || lower.includes('token')) {
+    if (
+      shouldRedactKey(k)
+      || lower.includes('password')
+      || lower.includes('token')
+      || lower === 'answersjson'
+      || lower === 'rawpayload'
+    ) {
       out[k] = '[已遮罩]';
       continue;
     }
 
-    if (lower === 'email') {
+    if (
+      lower === 'email'
+      || lower === 'studentemail'
+      || lower === 'respondentemail'
+      || lower === 'contactemail'
+    ) {
       out[k] = maskEmail(v);
       continue;
     }
 
-    // 常見個資欄位：phone / studentId / nationalId / identityNo
+    if (lower === 'idnumber' || lower === 'nationalid' || lower.includes('identityno') || lower.includes('national_id')) {
+      out[k] = maskIdNumber(v);
+      continue;
+    }
+
+    // 常見個資欄位：phone / studentId
     if (lower.includes('phone') || lower.includes('tel')) {
       out[k] = maskPhone(v);
       continue;
     }
 
     if (lower.includes('studentid')) {
-      out[k] = maskStringEdge(String(v || ''), { head: 2, tail: 2, placeholder: '***' });
-      continue;
-    }
-
-    if (lower.includes('nationalid') || lower.includes('identityno') || lower.includes('national_id')) {
-      out[k] = maskNationalId(v);
+      out[k] = maskStudentId(v);
       continue;
     }
 
@@ -138,12 +144,18 @@ function sanitizeForAudit(value, depth = 0) {
   return out;
 }
 
+/** 與 sanitizeForAudit 相同；供新程式統一命名 */
+const sanitizeSensitiveData = sanitizeForAudit;
+
 module.exports = {
   maskEmail,
   maskPhone,
+  maskIdNumber,
   maskNationalId,
+  maskStudentId,
   maskAttachmentPath,
   sanitizeErrorMessage,
   sanitizeForAudit,
+  sanitizeSensitiveData,
 };
 

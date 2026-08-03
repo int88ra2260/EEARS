@@ -1,0 +1,46 @@
+---
+description: EEARS Excel 匯入與 Import Center/Import Runs 資料一致性守則
+globs:
+  - "reservation-backend/**/*.{js,mjs,cjs}"
+  - "reservation-frontend/src/**/*Import*.*"
+  - "reservation-frontend/src/constants/importCenterCards.js"
+alwaysApply: false
+---
+
+# EEARS Excel 匯入守則（Import Center / Import Runs）
+
+EEARS 的匯入（Excel）牽涉資料一致性、去重、稽核與刪除權限。任何與匯入相關的改動都必須維持以下原則。
+
+## 1) Import Center 是導覽，不是統一上傳 API
+
+- `reservation-frontend/src/constants/importCenterCards.js` 明確描述：Import Center 聚合入口，但實際上傳/寫入仍在各功能頁完成。
+- 不要因為「看起來方便」而把匯入邏輯搬到 Import Center 統一上傳 endpoint（除非任務明確要求，且需後端配套）。
+
+## 2) 資料去重與隔離（dedupe / quarantine）
+
+- 匯入常見風險：重複鍵、衝突、狀態不一致。
+- 必須確保現有策略維持，例如（以實作為準）：
+  - 學習歷程匯入：去重鍵、衝突進 quarantine
+  - 英檢/其他匯入：唯一鍵（例如 studentId + semester）與狀態流轉
+
+## 3) 欄位驗證與錯誤回報
+
+- Excel 欄位可能有中英別名；必須使用既有映射或驗證規則。
+- 回報錯誤要能被 admin 解讀（包含是哪一列/欄位、錯誤類型）。
+- 不要把「資料錯誤」當成 500；以既有錯誤碼/HTTP status 呈現（以實作為準）。
+
+## 4) 匯入紀錄（import-runs）與權限
+
+- 管理端刪除/維運匯入紀錄要檢查權限（例如只能特定權限刪除）。
+- 一般原則：
+  - 保留稽核資訊（auditLog）
+  - 刪除策略遵守既有行為（例如軟刪除/窗口限制等，以實作為準）
+
+## 5) 不要破壞大型資料導入的維運流程
+
+- 匯入後可能觸發 rebuild、重建 projection 或產生 operation runs。
+- 若你需要調整匯入流程：
+  1. 先確認是否依賴 rebuild（例如 LJ v3）
+  2. 再確認 operation run 與 import history 的關聯
+  3. 最後確保 UI 的 import-runs 列表仍能正確顯示狀態
+

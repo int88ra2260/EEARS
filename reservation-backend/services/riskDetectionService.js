@@ -1,5 +1,11 @@
 // services/riskDetectionService.js
 // Phase 2.5：風險預警模組（規則可配置 + 輸出一致）
+//
+// 母體說明（避免與 LJ 名冊混淆）：
+// - getRisksForSemester / getHighRisksForSemester：預設為該學期 class_memberships 內 DISTINCT 學生。
+// - computeRisksForStudentIds(studentIds, …)：僅針對傳入之 studentIds（例如行政總覽 LJ 名冊子集）。
+// 風險因子：noShow、低參與、無有效 BESTEP 報名狀態、違規等（見 utils/riskConstants）。
+// 詳見 docs/analytics-and-reports-metric-definitions.md。
 
 const { ClassMembership, sequelize } = require('../models');
 const kpiService = require('./kpiService');

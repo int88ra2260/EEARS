@@ -1,0 +1,78 @@
+---
+description: EEARS 新功能開發工作流程（含底線規則/權限/測試）
+alwaysApply: false
+---
+
+# eears-new-feature-workflow（新功能開發）
+
+## 1) 觸發時機
+
+- 新增學生端或管理端功能（API 或 UI）
+- 需要調整預約/問卷 Gate/黑名單/匯入/LJ/BESTEP/英檢等任一核心流程
+
+## 2) 分析步驟（先做定位與契約）
+
+1. 先用 `eears-system` 做影響面盤點：
+   - 要改的後端路由/服務/前端頁面是哪幾個
+   - 是否觸及不可違背底線（`2hr`、問卷 Gate、黑名單、學生不登入）
+2. 若涉及權限：
+   - 先明確需要新增/使用哪個 `P.CAN_*`
+   - 確認是否只需要 UI 隱藏，或必須真正 protect endpoint
+3. 若涉及問卷 Gate：
+   - 確認是 ET 還是 EC（surveyKey 與錯誤碼/redirectUrl 契約）
+4. 若涉及匯入：
+   - 明確是「哪個匯入模組」而非只改 Import Center 導覽
+
+## 3) 修改步驟（最小變更）
+
+1. 後端：`routes -> service -> (controller)`
+   - 新增/修改 endpoint：確保有 `authMiddleware` + `requirePermission(P.*)`（管理端）
+   - 業務邏輯放 service，不要在 route 裡堆超過必要行數
+2. 前端：
+   - 新頁面放 `reservation-frontend/src/pages/`（admin 用 `pages/admin/`）
+   - API 呼叫走 `src/services/*Api.js` 或既有 fetch client
+   - 保留業務警示（黑名單/未填問卷/截止/名額/重複）
+3. 同步權限：
+   - 更新 `constants/permissions.js`、`adminRouteAccess.js`、`adminNavigation.js`
+
+## 4) 測試步驟（降低 regression）
+
+1. 後端：
+   - `cd reservation-backend && npm test -- --runInBand`
+   - 視需要補測試到：
+     - `tests/security/*Auth*.test.js` 或 `*ScopeGuard*`
+2. 前端：
+   - `cd reservation-frontend && npm test -- --watchAll=false`
+   - `npm run lint`
+   - `npm run build`
+
+## 5) Code review 步驟（AI 最常漏的檢查）
+
+- 是否破壞 `2hr` 截止或取消的驗證碼契約？
+- 是否改動問卷 Gate 的 contract（409 + redirectUrl + ET/EC code）？
+- 是否維持 blacklist 的擋控語意（黑名單期間不可預約）？
+- 是否碰到 deprecated 路徑/未掛載 legacy API（不要擴充 deprecated）？
+- 是否新增任何不當 log（PII/token/cancellationCode）？
+
+## 6) 最終回報格式（請用此模板）
+
+```text
+【變更摘要】
+- ...
+
+【影響契約】
+- 2hr 截止：未變更/已變更（說明）
+- 問卷 Gate：未變更/已變更（說明，含 code/redirectUrl）
+- 黑名單：未變更/已變更（說明）
+
+【檔案清單】
+- ...
+
+【測試與驗證】
+- 後端：npm test -- --runInBand（結果：pass/fail，執行範圍）
+- 前端：test/lint/build（結果：pass/fail）
+
+【已知風險 / 待手動 UAT】
+- ...
+```
+

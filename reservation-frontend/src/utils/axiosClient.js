@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { handleAuthSessionInvalidResponse } from './fetchClient';
 
 function getOrCreateRequestId(config) {
   // 以每次請求為單位產生 requestId，便於追查該次 API 的所有後端 log
@@ -26,8 +27,15 @@ axiosClient.interceptors.request.use((config) => {
 
 axiosClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const res = error.response;
+    if (res && res.status === 401) {
+      try {
+        await handleAuthSessionInvalidResponse(res);
+      } catch (_) {
+        // ignore
+      }
+    }
     const serverRequestId =
       res && res.headers ? (res.headers['x-request-id'] || res.headers['X-Request-Id']) : null;
     const clientRequestId = error.config && error.config.headers ? error.config.headers['x-request-id'] : null;

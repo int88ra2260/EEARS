@@ -1,39 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { Button, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { Link, useOutletContext } from 'react-router-dom';
 import useToast from '../../components/ui/useToast';
-import { getReliabilityFault, makeDevRequestId } from '../../utils/reliabilityFaults';
-import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
-import { P } from '../../constants/permissions';
-
-const KPI_STATUS = {
-  LOADING: 'loading',
-  SUCCESS: 'success',
-  EMPTY: 'empty',
-  ERROR: 'error',
-};
-
-function getSemesterInfo(date) {
-  const eventDate = new Date(date);
-  const year = eventDate.getFullYear();
-  const month = eventDate.getMonth() + 1;
-  if (year === 2025 && month >= 2 && month <= 7) return '113-2';
-  if ((year === 2025 && month >= 8) || (year === 2026 && month <= 1)) return '114-1';
-  if (year === 2026 && month >= 2 && month <= 7) return '114-2';
-  return '113-2';
-}
-
-function withinNextDays(dateStr, days) {
-  if (!dateStr) return false;
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return false;
-  const now = new Date();
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + days);
-  return d >= start && d <= end;
-}
+import { KPI_STATUS, useAdminDashboardProduct } from '../../hooks/useAdminDashboardProduct';
 
 function latencyCategory(latencyMs) {
   const n = Number(latencyMs);
@@ -41,19 +10,6 @@ function latencyCategory(latencyMs) {
   if (n < 100) return 'normal';
   if (n < 500) return 'slow';
   return 'abnormal';
-}
-
-function formatLocalDateTime(date) {
-  const d = date instanceof Date ? date : new Date(date);
-  if (!d || Number.isNaN(d.getTime())) return null;
-  const pad = (n) => String(n).padStart(2, '0');
-  const y = d.getFullYear();
-  const m = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hh = pad(d.getHours());
-  const mm = pad(d.getMinutes());
-  const ss = pad(d.getSeconds());
-  return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
 }
 
 function KpiCard({ title, timeLabel, status, value, onRefresh, hint, diagnostic }) {
@@ -162,382 +118,22 @@ function QuickLinkCard({ to, title, desc }) {
 
 export default function AdminDashboardProduct() {
   const { token, userRole } = useOutletContext();
-  // Phase 5.6/5.7 uses inline error text + existing UI; toast is only for refresh diagnostics.
   const toast = useToast();
-
-  const accessProfile = useMemo(
-    () => buildAccessProfile(token || '', userRole || ''),
-    [token, userRole],
-  );
-
-  const [recentEvents, setRecentEvents] = useState([]);
-  const [violations, setViolations] = useState([]);
-
-  const [healthState, setHealthState] = useState({
-    status: KPI_STATUS.LOADING,
-    health: null,
-    error: null,
-    requestId: null,
-  });
-
-  const [kpiTodayReservations, setKpiTodayReservations] = useState({
-    status: KPI_STATUS.LOADING,
-    value: null,
-    lastUpdatedAt: null,
-    requestId: null,
-    errorBrief: null,
-  });
-  const [kpiRecentEvents, setKpiRecentEvents] = useState({
-    status: KPI_STATUS.LOADING,
-    value: null,
-    lastUpdatedAt: null,
-    requestId: null,
-    errorBrief: null,
-  });
-  const [kpiEnglishPending, setKpiEnglishPending] = useState({
-    status: KPI_STATUS.LOADING,
-    value: null,
-    lastUpdatedAt: null,
-    requestId: null,
-    errorBrief: null,
-  });
-  const [kpiAnnouncementDraft, setKpiAnnouncementDraft] = useState({
-    status: KPI_STATUS.LOADING,
-    value: null,
-    lastUpdatedAt: null,
-    requestId: null,
-    errorBrief: null,
-  });
-
-  const [eventsSectionStatus, setEventsSectionStatus] = useState(KPI_STATUS.LOADING);
-  const [violationsSectionStatus, setViolationsSectionStatus] = useState(KPI_STATUS.LOADING);
-
-  const authHeaders = useMemo(
-    () => ({
-      Authorization: `Bearer ${token}`,
-      'X-User-Role': userRole || 'worker',
-    }),
-    [token, userRole],
-  );
-
-  const fetchTodayReservationsKpi = useCallback(async () => {
-    if (!token) {
-      setKpiTodayReservations({
-        status: KPI_STATUS.ERROR,
-        value: null,
-        lastUpdatedAt: null,
-        requestId: null,
-        errorBrief: '尚未登入',
-      });
-      return;
-    }
-    setKpiTodayReservations({ status: KPI_STATUS.LOADING, value: null, lastUpdatedAt: null, requestId: null, errorBrief: null });
-    try {
-      const res = await fetch('/api/reservations', { headers: authHeaders });
-      const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
-      if (!res.ok) {
-        const err = new Error('API 請求失敗');
-        err.requestId = requestId;
-        err.errorBrief = 'API 請求失敗';
-        throw err;
-      }
-      const data = await res.json();
-      const today = new Date().toISOString().slice(0, 10);
-      const count = Array.isArray(data)
-        ? data.filter((r) => String(r.createdAt || r.timestamp || '').startsWith(today)).length
-        : 0;
-
-      const updatedAt = formatLocalDateTime(new Date());
-      setKpiTodayReservations({
-        status: count === 0 ? KPI_STATUS.EMPTY : KPI_STATUS.SUCCESS,
-        value: count,
-        lastUpdatedAt: updatedAt,
-        requestId: null,
-        errorBrief: null,
-      });
-    } catch (e) {
-      const requestId = e?.requestId || null;
-      const isTimeout = e?.name === 'AbortError' || e?.code === 'ECONNABORTED' || e?.errorBrief === '取得超時';
-      setKpiTodayReservations({
-        status: KPI_STATUS.ERROR,
-        value: null,
-        lastUpdatedAt: null,
-        requestId,
-        errorBrief: isTimeout ? '取得超時' : 'API 請求失敗',
-      });
-    }
-  }, [authHeaders, token]);
-
-  const fetchRecentEventsKpi = useCallback(async () => {
-    if (!token) {
-      setKpiRecentEvents({
-        status: KPI_STATUS.ERROR,
-        value: null,
-        lastUpdatedAt: null,
-        requestId: null,
-        errorBrief: '尚未登入',
-      });
-      setEventsSectionStatus(KPI_STATUS.ERROR);
-      return;
-    }
-    setKpiRecentEvents({ status: KPI_STATUS.LOADING, value: null, lastUpdatedAt: null, requestId: null, errorBrief: null });
-    setEventsSectionStatus(KPI_STATUS.LOADING);
-    try {
-      const res = await fetch('/api/events', { headers: authHeaders });
-      const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
-      if (!res.ok) {
-        const err = new Error('API 請求失敗');
-        err.requestId = requestId;
-        err.errorBrief = 'API 請求失敗';
-        throw err;
-      }
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : [];
-
-      const filtered = list.filter((evt) => withinNextDays(evt.date, 7));
-      setRecentEvents(filtered.slice(0, 5));
-      const count = filtered.length;
-
-      const updatedAt = formatLocalDateTime(new Date());
-      setKpiRecentEvents({
-        status: count === 0 ? KPI_STATUS.EMPTY : KPI_STATUS.SUCCESS,
-        value: count,
-        lastUpdatedAt: updatedAt,
-        requestId: null,
-        errorBrief: null,
-      });
-      setEventsSectionStatus(count === 0 ? KPI_STATUS.EMPTY : KPI_STATUS.SUCCESS);
-    } catch (e) {
-      setRecentEvents([]);
-      const requestId = e?.requestId || null;
-      const isTimeout = e?.name === 'AbortError' || e?.code === 'ECONNABORTED' || e?.errorBrief === '取得超時';
-      setKpiRecentEvents({
-        status: KPI_STATUS.ERROR,
-        value: null,
-        lastUpdatedAt: null,
-        requestId,
-        errorBrief: isTimeout ? '取得超時' : 'API 請求失敗',
-      });
-      setEventsSectionStatus(KPI_STATUS.ERROR);
-    }
-  }, [authHeaders, token]);
-
-  const fetchEnglishPendingKpi = useCallback(async () => {
-    if (!token) {
-      setKpiEnglishPending({
-        status: KPI_STATUS.ERROR,
-        value: null,
-        lastUpdatedAt: null,
-        requestId: null,
-        errorBrief: '尚未登入',
-      });
-      return;
-    }
-    if (!hasPermission(accessProfile, P.CAN_VIEW_ENGLISH_TEST_METRICS)) {
-      setKpiEnglishPending({
-        status: KPI_STATUS.EMPTY,
-        value: 0,
-        lastUpdatedAt: null,
-        requestId: null,
-        errorBrief: null,
-      });
-      return;
-    }
-    setKpiEnglishPending({ status: KPI_STATUS.LOADING, value: null, lastUpdatedAt: null, requestId: null, errorBrief: null });
-    try {
-      const res = await fetch('/api/english-test/registrations/metrics/pending-count', { headers: authHeaders });
-      const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
-      if (!res.ok) {
-        const err = new Error('API 請求失敗');
-        err.requestId = requestId;
-        err.errorBrief = 'API 請求失敗';
-        throw err;
-      }
-      const j = await res.json();
-      const total = typeof j?.count === 'number' ? j.count : 0;
-
-      const updatedAt = formatLocalDateTime(new Date());
-      setKpiEnglishPending({
-        status: total === 0 ? KPI_STATUS.EMPTY : KPI_STATUS.SUCCESS,
-        value: total,
-        lastUpdatedAt: updatedAt,
-        requestId: null,
-        errorBrief: null,
-      });
-    } catch (e) {
-      const requestId = e?.requestId || null;
-      const isTimeout = e?.name === 'AbortError' || e?.code === 'ECONNABORTED' || e?.errorBrief === '取得超時';
-      setKpiEnglishPending({
-        status: KPI_STATUS.ERROR,
-        value: null,
-        lastUpdatedAt: null,
-        requestId,
-        errorBrief: isTimeout ? '取得超時' : 'API 請求失敗',
-      });
-    }
-  }, [authHeaders, token, accessProfile]);
-
-  const fetchAnnouncementDraftKpi = useCallback(async () => {
-    if (!token) {
-      setKpiAnnouncementDraft({
-        status: KPI_STATUS.ERROR,
-        value: null,
-        lastUpdatedAt: null,
-        requestId: null,
-        errorBrief: '尚未登入',
-      });
-      return;
-    }
-    if (!hasPermission(accessProfile, P.CAN_MANAGE_ANNOUNCEMENTS)) {
-      setKpiAnnouncementDraft({
-        status: KPI_STATUS.EMPTY,
-        value: 0,
-        lastUpdatedAt: null,
-        requestId: null,
-        errorBrief: null,
-      });
-      return;
-    }
-    setKpiAnnouncementDraft({ status: KPI_STATUS.LOADING, value: null, lastUpdatedAt: null, requestId: null, errorBrief: null });
-    try {
-      // limit 不影響 total，只為減少資料量
-      const res = await fetch('/api/admin/announcements?page=1&limit=1&status=draft', { headers: authHeaders });
-      const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
-      if (!res.ok) {
-        const err = new Error('API 請求失敗');
-        err.requestId = requestId;
-        err.errorBrief = 'API 請求失敗';
-        throw err;
-      }
-      const j = await res.json();
-      const total =
-        (typeof j?.pagination?.total === 'number' ? j.pagination.total : null) ??
-        (typeof j?.total === 'number' ? j.total : null) ??
-        (Array.isArray(j?.items) ? j.items.length : 0);
-
-      const updatedAt = formatLocalDateTime(new Date());
-      setKpiAnnouncementDraft({
-        status: total === 0 ? KPI_STATUS.EMPTY : KPI_STATUS.SUCCESS,
-        value: total,
-        lastUpdatedAt: updatedAt,
-        requestId: null,
-        errorBrief: null,
-      });
-    } catch (e) {
-      const requestId = e?.requestId || null;
-      const isTimeout = e?.name === 'AbortError' || e?.code === 'ECONNABORTED' || e?.errorBrief === '取得超時';
-      setKpiAnnouncementDraft({
-        status: KPI_STATUS.ERROR,
-        value: null,
-        lastUpdatedAt: null,
-        requestId,
-        errorBrief: isTimeout ? '取得超時' : 'API 請求失敗',
-      });
-    }
-  }, [authHeaders, token, accessProfile]);
-
-  const fetchViolationsSection = useCallback(async () => {
-    if (!token) {
-      setViolations([]);
-      setViolationsSectionStatus(KPI_STATUS.ERROR);
-      return;
-    }
-    setViolationsSectionStatus(KPI_STATUS.LOADING);
-    try {
-      const semester = getSemesterInfo(new Date().toISOString().slice(0, 10));
-      const res = await fetch(`/api/blacklist?semester=${encodeURIComponent(semester)}`, { headers: authHeaders });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const j = await res.json();
-
-      const list = j?.success ? (Array.isArray(j.data) ? j.data : []) : (Array.isArray(j) ? j : (Array.isArray(j?.data) ? j.data : []));
-      setViolations(list);
-      setViolationsSectionStatus(list.length === 0 ? KPI_STATUS.EMPTY : KPI_STATUS.SUCCESS);
-    } catch (e) {
-      setViolations([]);
-      setViolationsSectionStatus(KPI_STATUS.ERROR);
-    }
-  }, [authHeaders, token]);
-
-  useEffect(() => {
-    // Phase 5.6/5.7: Each KPI has independent state; failures should not break the whole page.
-    fetchTodayReservationsKpi();
-    fetchRecentEventsKpi();
-    fetchEnglishPendingKpi();
-    fetchAnnouncementDraftKpi();
-    fetchViolationsSection();
-  }, [fetchTodayReservationsKpi, fetchRecentEventsKpi, fetchEnglishPendingKpi, fetchAnnouncementDraftKpi, fetchViolationsSection]);
-
-  const loadHealth = useCallback(async () => {
-    setHealthState({ status: KPI_STATUS.LOADING, health: null, error: null, requestId: null });
-    try {
-      const fault = getReliabilityFault();
-      const devRid = makeDevRequestId('DEV');
-      if (fault === 'healthFail') {
-        const err = new Error('健康檢查失敗（dev fault）');
-        err.requestId = devRid;
-        throw err;
-      }
-      if (fault === 'healthSlowDb' || fault === 'healthSlowEmail') {
-        const now = new Date();
-        const isDbSlow = fault === 'healthSlowDb';
-        const health = {
-          status: 'ok',
-          timestamp: now.toISOString(),
-          services: {
-            db: { status: 'ok', latencyMs: isDbSlow ? 650 : 35 },
-            email: { status: 'ok', latencyMs: isDbSlow ? 260 : 650 },
-          },
-        };
-        setHealthState({ status: KPI_STATUS.SUCCESS, health, error: null, requestId: devRid });
-        return;
-      }
-
-      const res = await fetch('/api/health');
-      const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const err = new Error(json?.error || json?.message || '健康檢查失敗');
-        err.requestId = requestId;
-        err.status = res.status;
-        throw err;
-      }
-      setHealthState({ status: KPI_STATUS.SUCCESS, health: json, error: null, requestId });
-    } catch (e) {
-      const requestId = e?.requestId || null;
-      setHealthState({
-        status: KPI_STATUS.ERROR,
-        health: null,
-        error: e?.message || '健康檢查失敗',
-        requestId,
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    loadHealth();
-  }, [loadHealth]);
-
-  const kpiAllEmpty =
-    kpiTodayReservations.status === KPI_STATUS.EMPTY &&
-    kpiRecentEvents.status === KPI_STATUS.EMPTY &&
-    kpiEnglishPending.status === KPI_STATUS.EMPTY &&
-    kpiAnnouncementDraft.status === KPI_STATUS.EMPTY;
-
-  const recentViolations = useMemo(() => violations.slice(0, 5), [violations]);
-
-  const handleCardRefresh = useCallback(
-    async (what) => {
-      try {
-        if (what === 'reservations') await fetchTodayReservationsKpi();
-        if (what === 'events') await fetchRecentEventsKpi();
-        if (what === 'english') await fetchEnglishPendingKpi();
-        if (what === 'announcements') await fetchAnnouncementDraftKpi();
-      } catch (e) {
-        toast.warning('總覽資料載入失敗，請稍後重試');
-      }
-    },
-    [fetchAnnouncementDraftKpi, fetchEnglishPendingKpi, fetchRecentEventsKpi, fetchTodayReservationsKpi, toast],
-  );
+  const {
+    recentEvents,
+    healthState,
+    loadHealth,
+    kpiTodayReservations,
+    kpiRecentEvents,
+    kpiEnglishPending,
+    kpiAnnouncementDraft,
+    eventsSectionStatus,
+    violationsSectionStatus,
+    kpiAllEmpty,
+    recentViolations,
+    handleCardRefresh,
+    fetchViolationsSection,
+  } = useAdminDashboardProduct({ token, userRole, toast });
 
   return (
     <div>
@@ -725,7 +321,7 @@ export default function AdminDashboardProduct() {
           <QuickLinkCard to="/admin/reports" title="報表 / 匯出" desc="跨模組報表與資料下載" />
         </div>
         <div className="col-12 col-md-6 col-xl-3">
-          <QuickLinkCard to="/admin/settings/system" title="系統設定" desc="報名開關、feature flags、設定入口" />
+          <QuickLinkCard to="/admin/settings/system" title="系統設定" desc="英檢報名開關與相關設定入口" />
         </div>
       </div>
 

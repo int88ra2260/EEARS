@@ -1,8 +1,13 @@
-// 教學評估 Phase 1：學生學習歷程（最小 MVP）
+// Deprecated legacy/MVP student profile compatibility layer.
+// Official Learning Journey student profiles should use
+// /api/admin/learning-journey-v3/* and LearningJourneyStudentProfilePage.
+// Do not add new product features here; route future work to V3 or the
+// Learning Journey Hub.
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useOutletContext, useLocation } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Badge, Row, Col } from 'react-bootstrap';
 import { handleAPIError } from '../utils/errorHandler';
+import { fetchStudentProfile } from '../services/studentApi';
 
 const RISK_LABEL = { low: '低', medium: '中', high: '高' };
 
@@ -27,22 +32,7 @@ export default function StudentLearningProfilePage() {
       const toSemester = sp.get('toSemester');
       if (fromSemester) query.set('fromSemester', fromSemester);
       if (toSemester) query.set('toSemester', toSemester);
-      const qs = query.toString();
-
-      const res = await fetch(
-        `/api/students/${encodeURIComponent(studentId)}/profile${qs ? `?${qs}` : ''}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
-        const msg = json?.error || json?.message || '載入失敗';
-        const err = new Error(msg);
-        err.requestId = requestId;
-        err.status = res.status;
-        if (requestId) err.message = `${msg}（錯誤識別碼：${requestId}）`;
-        throw err;
-      }
+      const json = await fetchStudentProfile(token, studentId, query);
       setData(json);
     } catch (e) {
       const errMsg = handleAPIError(e);

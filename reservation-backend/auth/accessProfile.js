@@ -31,12 +31,43 @@ function baseScopesFromTeacherLevel(teacherLevel) {
     case 'executive':
       return [SCOPE.ALL];
     case 'et_manager':
-      return [SCOPE.ENGLISH_TABLE, SCOPE.SURVEY_ENGLISH_TABLE];
+      // 活動：ET／Job Talk／English Club；問卷含 ET／EC；班級為自行授課（guard）
+      return [
+        SCOPE.ENGLISH_TABLE,
+        SCOPE.JOB_TALK,
+        SCOPE.ENGLISH_CLUB,
+        SCOPE.SURVEY_ENGLISH_TABLE,
+        SCOPE.SURVEY_ENGLISH_CLUB,
+        SCOPE.CLASS,
+      ];
     case 'if_manager':
       return [SCOPE.INTERNATIONAL_FORUM];
     case 'jt_manager':
-      return [SCOPE.JOB_TALK];
+      // 活動僅 Job Talk；問卷／班級與 et_manager 對齊（班級為自行授課 guard）
+      return [
+        SCOPE.JOB_TALK,
+        SCOPE.SURVEY_ENGLISH_TABLE,
+        SCOPE.SURVEY_ENGLISH_CLUB,
+        SCOPE.CLASS,
+      ];
     case 'regular':
+    default:
+      return [SCOPE.CLASS];
+  }
+}
+
+/** 行政職員職務 → 活動類型／業務範圍（與 canAccessEventType 等對齊） */
+function baseScopesFromStaffLevel(staffLevel) {
+  const level = staffLevel || 'event_lead';
+  switch (level) {
+    case 'deputy_manager':
+      return [SCOPE.ALL];
+    case 'event_lead':
+      return [SCOPE.ALL];
+    case 'curriculum_lead':
+      return [SCOPE.CLASS, SCOPE.ENGLISH_TEST];
+    case 'bestep_lead':
+      return [SCOPE.ENGLISH_TEST, SCOPE.SURVEY_ENGLISH_TABLE];
     default:
       return [SCOPE.CLASS];
   }
@@ -54,6 +85,33 @@ function addAll(set, list) {
  * 第一階段 base 權限映射（role + teacherLevel）
  * 第二階段：base + per-user overrides（user.permissions）
  */
+/**
+ * et_manager / jt_manager 共用：活動營運、問卷、自授班級、Leader 帳號（不含 ET 分組）
+ * @returns {string[]}
+ */
+function activityManagerCorePerms() {
+  return [
+    P.CAN_VIEW_CLASSES,
+    P.CAN_VIEW_EVENTS_ADMIN,
+    P.CAN_MANAGE_EVENTS,
+    P.CAN_VIEW_RESERVATIONS,
+    P.CAN_MANAGE_RESERVATIONS,
+    P.CAN_EXPORT_RESERVATIONS,
+    P.CAN_CHECKIN_STUDENTS,
+    P.CAN_VIEW_SURVEYS,
+    P.CAN_EXPORT_SURVEYS,
+    P.CAN_VIEW_SURVEY_RESPONSES,
+    P.CAN_EXPORT_SURVEY_RESPONSES,
+    P.CAN_VIEW_SURVEY_ANALYTICS,
+    P.CAN_VIEW_SURVEY_HEALTH,
+    P.CAN_EXECUTE_SURVEY_REPAIRS,
+    P.CAN_MANAGE_SURVEY_ANSWER_MAPPING,
+    P.CAN_VIEW_SURVEY_REPAIR_AUDIT,
+    P.CAN_MANAGE_ACCOUNTS,
+    P.CAN_RESET_PASSWORDS,
+  ];
+}
+
 function buildBasePermissionSet(user) {
   const role = user && user.role;
   const teacherLevel = (user && user.teacherLevel) || 'regular';
@@ -106,6 +164,7 @@ function buildBasePermissionSet(user) {
       P.CAN_MANAGE_ENGLISH_TESTS,
       P.CAN_REVIEW_ENGLISH_TEST_REGISTRATIONS,
       P.CAN_EXPORT_ENGLISH_TEST_DATA,
+      P.CAN_VIEW_ENGLISH_TEST_TRACKING,
       P.CAN_MANAGE_ENGLISH_TEST_TRACKING,
 
       // 黑名單 / 違規
@@ -118,14 +177,33 @@ function buildBasePermissionSet(user) {
       P.CAN_VIEW_ANALYTICS,
       P.CAN_EXPORT_REPORTS,
 
+      // 英語學習成效分析
+      P.CAN_VIEW_LEARNING_ANALYTICS,
+      P.CAN_EXPORT_LEARNING_ANALYTICS,
+      P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS,
+      P.CAN_RUN_LEARNING_ANALYTICS_MODEL,
+
       // 系統設定（保留；feature flags / diagnostics / audit logs 改 admin-only）
       P.CAN_MANAGE_SETTINGS,
 
       // 公告（保留）
       P.CAN_MANAGE_ANNOUNCEMENTS,
 
+      // 學生端文案
+      P.CAN_MANAGE_SITE_CONTENT,
+
       // 學習有伴管理端
       P.CAN_MANAGE_LEARNING_PARTNER_ADMIN,
+
+      // 英語實踐歷程護照
+      P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS,
+      P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS,
+      P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS,
+      P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
+      P.CAN_MANAGE_ENGLISH_LEARNING_RULES,
+      P.CAN_MANAGE_ET_GROUPING,
+      P.CAN_VIEW_ET_GROUPING,
+      P.CAN_EXPORT_ET_GROUPING,
     ]);
     return perms;
   }
@@ -144,35 +222,154 @@ function buildBasePermissionSet(user) {
     return perms;
   }
 
-  if (role === 'teacher') {
+  if (role === 'leader') {
     addAll(perms, [
-      P.CAN_VIEW_CLASSES,
+      P.CAN_MARK_ET_SESSION_TASKS,
+    ]);
+    return perms;
+  }
+
+  if (role === 'office_staff') {
+    const staff = (user && user.staffLevel) || 'event_lead';
+    const officeStaffCommon = [
+      P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS,
+      P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS,
+      P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS,
+      P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
+      P.CAN_MANAGE_ANNOUNCEMENTS,
+      P.CAN_MANAGE_SITE_CONTENT,
+    ];
+    const eventLead = [
+      P.CAN_VIEW_EVENTS_ADMIN,
+      P.CAN_MANAGE_EVENTS,
       P.CAN_VIEW_RESERVATIONS,
+      P.CAN_MANAGE_RESERVATIONS,
       P.CAN_EXPORT_RESERVATIONS,
       P.CAN_CHECKIN_STUDENTS,
       P.CAN_VIEW_BLACKLIST,
+      P.CAN_MANAGE_BLACKLIST,
       P.CAN_RECORD_VIOLATIONS,
       P.CAN_MANAGE_VIOLATIONS,
-    ]);
-
-    if (teacherLevel === 'et_manager') {
+      P.CAN_MANAGE_ANNOUNCEMENTS,
+      P.CAN_MANAGE_ET_GROUPING,
+      P.CAN_VIEW_ET_GROUPING,
+      P.CAN_EXPORT_ET_GROUPING,
+    ];
+    const curriculumLead = [
+      P.CAN_VIEW_CLASSES,
+      P.CAN_MANAGE_CLASSES,
+      P.CAN_IMPORT_BESTEP,
+      P.CAN_EXPORT_BESTEP,
+      P.CAN_VIEW_RESERVATIONS,
+      P.CAN_EXPORT_RESERVATIONS,
+      P.CAN_CHECKIN_STUDENTS,
+    ];
+    const bestepLead = [
+      P.CAN_VIEW_ENGLISH_TEST_METRICS,
+      P.CAN_VIEW_ENGLISH_TESTS,
+      P.CAN_MANAGE_ENGLISH_TESTS,
+      P.CAN_REVIEW_ENGLISH_TEST_REGISTRATIONS,
+      P.CAN_EXPORT_ENGLISH_TEST_DATA,
+      P.CAN_VIEW_ENGLISH_TEST_TRACKING,
+      P.CAN_MANAGE_ENGLISH_TEST_TRACKING,
+      P.CAN_IMPORT_BESTEP,
+      P.CAN_EXPORT_BESTEP,
+      P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS,
+      P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS,
+      P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
+    ];
+    if (staff === 'event_lead') {
       addAll(perms, [
-        P.CAN_VIEW_EVENTS_ADMIN,
-        P.CAN_VIEW_SURVEYS,
-        P.CAN_EXPORT_SURVEYS,
-        P.CAN_VIEW_SURVEY_RESPONSES,
-        P.CAN_EXPORT_SURVEY_RESPONSES,
-        P.CAN_VIEW_SURVEY_ANALYTICS,
-        P.CAN_VIEW_SURVEY_HEALTH,
-        P.CAN_EXECUTE_SURVEY_REPAIRS,
-        P.CAN_MANAGE_SURVEY_ANSWER_MAPPING,
-        P.CAN_VIEW_SURVEY_REPAIR_AUDIT,
+        ...eventLead,
+        P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS,
+        P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS,
+        P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS,
+        P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
+        P.CAN_MANAGE_ENGLISH_LEARNING_RULES,
+        P.CAN_MANAGE_SITE_CONTENT,
+        P.CAN_MANAGE_ACCOUNTS,
+        P.CAN_RESET_PASSWORDS,
       ]);
+    } else if (staff === 'curriculum_lead') {
+      addAll(perms, [...curriculumLead, ...officeStaffCommon]);
+    } else if (staff === 'bestep_lead') {
+      // 帳號與權限：僅可自行變更密碼（側欄 allowAuthenticated），不含帳號管理
+      addAll(perms, [...bestepLead, ...officeStaffCommon]);
+    } else if (staff === 'deputy_manager') {
+      addAll(perms, [
+        // 活動預約（全部）
+        P.CAN_VIEW_EVENTS_ADMIN,
+        P.CAN_MANAGE_EVENTS,
+        P.CAN_VIEW_RESERVATIONS,
+        P.CAN_MANAGE_RESERVATIONS,
+        P.CAN_EXPORT_RESERVATIONS,
+        P.CAN_CHECKIN_STUDENTS,
+        // 英檢與培力（全部）
+        P.CAN_VIEW_ENGLISH_TEST_METRICS,
+        P.CAN_VIEW_ENGLISH_TESTS,
+        P.CAN_MANAGE_ENGLISH_TESTS,
+        P.CAN_REVIEW_ENGLISH_TEST_REGISTRATIONS,
+        P.CAN_EXPORT_ENGLISH_TEST_DATA,
+        P.CAN_VIEW_ENGLISH_TEST_TRACKING,
+        P.CAN_MANAGE_ENGLISH_TEST_TRACKING,
+        P.CAN_IMPORT_BESTEP,
+        P.CAN_EXPORT_BESTEP,
+        P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS,
+        P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS,
+        P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS,
+        P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
+        P.CAN_MANAGE_ENGLISH_LEARNING_RULES,
+        P.CAN_MANAGE_LEARNING_PARTNER_ADMIN,
+        P.CAN_MANAGE_SETTINGS,
+        P.CAN_MANAGE_ET_GROUPING,
+        P.CAN_VIEW_ET_GROUPING,
+        P.CAN_EXPORT_ET_GROUPING,
+        // 公告、週報（週報 API 沿用 can_manage_announcements）、網站文案
+        P.CAN_MANAGE_ANNOUNCEMENTS,
+        P.CAN_MANAGE_SITE_CONTENT,
+        // 帳號治理（不可管理 admin／執行長，見 teacherController）
+        P.CAN_MANAGE_ACCOUNTS,
+        P.CAN_RESET_PASSWORDS,
+      ]);
+    } else {
+      addAll(perms, [...eventLead, ...officeStaffCommon]);
     }
-    if (teacherLevel === 'if_manager' || teacherLevel === 'jt_manager') {
-      addAll(perms, [P.CAN_VIEW_EVENTS_ADMIN]);
+    return perms;
+  }
+
+  if (role === 'teacher') {
+    if (teacherLevel === 'et_manager') {
+      // 活動與預約（ET／JT／EC）、問卷、自授班級、ET 桌長帳號／分組；不含英檢／分析報表
+      addAll(perms, [
+        ...activityManagerCorePerms(),
+        P.CAN_MANAGE_ET_GROUPING,
+        P.CAN_VIEW_ET_GROUPING,
+        P.CAN_EXPORT_ET_GROUPING,
+      ]);
+      return perms;
     }
-    // regular：僅班級與現場協作相關，不看活動後台報表／問卷
+
+    if (teacherLevel === 'jt_manager') {
+      // 與 et_manager 相同模組權限；活動 scope 僅 Job Talk（無 ET 分組）
+      addAll(perms, activityManagerCorePerms());
+      return perms;
+    }
+
+    if (teacherLevel === 'if_manager') {
+      addAll(perms, [
+        P.CAN_VIEW_CLASSES,
+        P.CAN_VIEW_ANALYTICS,
+        P.CAN_VIEW_ENGLISH_TEST_TRACKING,
+        P.CAN_VIEW_EVENTS_ADMIN,
+      ]);
+      return perms;
+    }
+
+    // regular：僅自己的班級、教學儀表板（CAN_VIEW_ANALYTICS）；變更密碼不需額外權限
+    addAll(perms, [
+      P.CAN_VIEW_CLASSES,
+      P.CAN_VIEW_ANALYTICS,
+    ]);
     return perms;
   }
 
@@ -216,23 +413,59 @@ function normalizeScopes(scopes) {
   return Array.from(set);
 }
 
+function isExecutiveTeacherRecord(teacher) {
+  return !!(teacher && teacher.role === 'teacher' && (teacher.teacherLevel || 'regular') === 'executive');
+}
+
+function isDeputyManagerUser(user) {
+  return !!(user && user.role === 'office_staff' && (user.staffLevel || 'event_lead') === 'deputy_manager');
+}
+
+function isEventLeadUser(user) {
+  return !!(user && user.role === 'office_staff' && (user.staffLevel || 'event_lead') === 'event_lead');
+}
+
+function isEtManagerUser(user) {
+  return !!(user && user.role === 'teacher' && (user.teacherLevel || 'regular') === 'et_manager');
+}
+
+function isJtManagerUser(user) {
+  return !!(user && user.role === 'teacher' && (user.teacherLevel || 'regular') === 'jt_manager');
+}
+
+/** 活動行政／ET／JT 負責人：帳號管理僅限 ET Leader */
+function isLeaderOnlyAccountManagerUser(user) {
+  return isEventLeadUser(user) || isEtManagerUser(user) || isJtManagerUser(user);
+}
+
+function isBestepLeadUser(user) {
+  return !!(user && user.role === 'office_staff' && (user.staffLevel || 'event_lead') === 'bestep_lead');
+}
+
 function buildAccessProfile(user) {
   const role = (user && user.role) || '';
   const teacherLevel = user && user.teacherLevel != null ? user.teacherLevel : 'regular';
+  const staffLevel = user && user.staffLevel != null ? user.staffLevel : null;
   const isAdmin = role === 'admin';
   const isExecutive = role === 'teacher' && teacherLevel === 'executive';
   const isWorker = role === 'worker';
+  const isLeader = role === 'leader';
   const isTeacher = role === 'teacher';
+  const isOfficeStaff = role === 'office_staff';
   const hasAdminRights = isAdmin || isExecutive;
 
-  // base scopes（role + teacherLevel）
+  // base scopes（role + teacherLevel / staffLevel）
   let baseScopes;
   if (isAdmin || isExecutive) {
     baseScopes = [SCOPE.ALL];
   } else if (isWorker) {
     baseScopes = [SCOPE.ALL];
+  } else if (isLeader) {
+    baseScopes = [SCOPE.ENGLISH_TABLE];
   } else if (isTeacher) {
     baseScopes = baseScopesFromTeacherLevel(teacherLevel);
+  } else if (isOfficeStaff) {
+    baseScopes = baseScopesFromStaffLevel(staffLevel || 'event_lead');
   } else {
     baseScopes = [];
   }
@@ -256,6 +489,15 @@ function buildAccessProfile(user) {
     hasEffectiveBaseArray && !emptyBaseMeansUseDefaults
       ? new Set(rawEffectiveBase)
       : buildBasePermissionSet(user);
+  // table_first 若 role_permissions 尚未重 seed，補齊程式碼定義的職務範本權限（不縮減表內既有鍵）
+  if (
+    hasEffectiveBaseArray &&
+    !emptyBaseMeansUseDefaults &&
+    source === 'table_first' &&
+    (isTeacher || isOfficeStaff)
+  ) {
+    buildBasePermissionSet(user).forEach((perm) => basePermissionSet.add(perm));
+  }
   const permissionInput =
     user && user.__effectivePermissionOverrides !== undefined ? user.__effectivePermissionOverrides : (user && user.permissions);
   const permissionOverrides = permissionInput != null ? permissionInput : null;
@@ -266,11 +508,14 @@ function buildAccessProfile(user) {
 
   return {
     role,
-    teacherLevel: isTeacher || isExecutive ? teacherLevel : teacherLevel || null,
+    teacherLevel: role === 'teacher' ? teacherLevel : null,
+    staffLevel: isOfficeStaff ? (staffLevel || 'event_lead') : null,
     isAdmin,
     isExecutive,
     isWorker,
+    isLeader,
     isTeacher,
+    isOfficeStaff,
     hasAdminRights,
 
     baseScopes,
@@ -283,8 +528,6 @@ function buildAccessProfile(user) {
     finalPermissions: Array.from(finalPermissionSet).sort(),
 
     permissionSet: finalPermissionSet,
-    isAdmin,
-    isExecutive,
   };
 }
 
@@ -308,6 +551,7 @@ async function resolveEffectiveAccessSources(user) {
     userId: user.id,
     role: user.role || null,
     teacherLevel: user.teacherLevel || null,
+    staffLevel: user.staffLevel != null ? user.staffLevel : null,
     jsonPermissions: user.permissions || null,
     jsonScopes: Array.isArray(user.scopes) ? user.scopes : null,
     mode,
@@ -375,7 +619,8 @@ function eventTypeToScope(eventType) {
   if (t === 'English Table') return SCOPE.ENGLISH_TABLE;
   if (t === 'International Forum') return SCOPE.INTERNATIONAL_FORUM;
   if (t === 'Job Talk') return SCOPE.JOB_TALK;
-  // English Club、其他：目前不做 manager scope 控制（保守），僅 admin/worker 可視
+  if (t === 'English Club') return SCOPE.ENGLISH_CLUB;
+  // 其他未映射活動類型：僅 admin/worker／ALL scope 可視
   return null;
 }
 
@@ -392,6 +637,10 @@ function canAccessEventType(user, eventType) {
   const profile = buildAccessProfile(user);
   if (profile.isAdmin) return true;
   if (profile.isWorker) return true;
+  if (profile.isLeader) {
+    const scope = eventTypeToScope(eventType);
+    return scope === SCOPE.ENGLISH_TABLE && hasScope(profile, scope);
+  }
 
   if (!profile.permissionSet.has(P.CAN_VIEW_EVENTS_ADMIN)) return false;
   const scope = eventTypeToScope(eventType);
@@ -416,7 +665,9 @@ function canAccessSurvey(user, surveyId) {
     return hasScope(profile, SCOPE.SURVEY_ENGLISH_TABLE) || hasScope(profile, SCOPE.ENGLISH_TABLE);
   }
   if (isEnglishClubSurvey) {
-    return hasScope(profile, SCOPE.ALL);
+    return hasScope(profile, SCOPE.ALL)
+      || hasScope(profile, SCOPE.ENGLISH_CLUB)
+      || hasScope(profile, SCOPE.SURVEY_ENGLISH_CLUB);
   }
   return false;
 }
@@ -439,6 +690,14 @@ module.exports = {
   canAccessSurvey,
   normalizeUserAccess,
   baseScopesFromTeacherLevel,
+  baseScopesFromStaffLevel,
   buildBasePermissionSet,
   eventTypeToScope,
+  isDeputyManagerUser,
+  isEventLeadUser,
+  isEtManagerUser,
+  isJtManagerUser,
+  isLeaderOnlyAccountManagerUser,
+  isBestepLeadUser,
+  isExecutiveTeacherRecord,
 };

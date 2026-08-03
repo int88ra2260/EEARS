@@ -24,6 +24,18 @@ const Event = sequelize.define('Event', {
     type: DataTypes.INTEGER,
     allowNull: false
   },
+  groupCount: {
+    type: DataTypes.INTEGER.UNSIGNED,
+    allowNull: true,
+    field: 'group_count',
+    comment: '分組數（English Table）',
+  },
+  perGroupCapacity: {
+    type: DataTypes.INTEGER.UNSIGNED,
+    allowNull: true,
+    field: 'per_group_capacity',
+    comment: '每組人數上限',
+  },
   eventType: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -39,7 +51,7 @@ const Event = sequelize.define('Event', {
     comment: '自定義活動類型的預約時間規則說明'
   },
   location: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: true,
     comment: '活動地點'
   },
@@ -48,6 +60,13 @@ const Event = sequelize.define('Event', {
     defaultValue: false,
     allowNull: false,
     comment: '是否已執行過活動結束檢查'
+  },
+  groupingMode: {
+    type: DataTypes.STRING(30),
+    allowNull: false,
+    defaultValue: 'legacy_sequential',
+    field: 'grouping_mode',
+    comment: 'ET 分組模式：legacy_sequential | ability',
   }
 }, {
   // 是否需要 timestamps (createdAt, updatedAt)

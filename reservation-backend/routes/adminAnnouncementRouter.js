@@ -1,6 +1,6 @@
 // /api/admin/announcements — 後台公告（auth + 管理權限 + can_manage_announcements + 限流；稽核寫入 audit_logs）
 const express = require('express');
-const { authMiddleware, adminOrExecutiveMiddleware, requirePermission } = require('../middlewares/auth');
+const { authMiddleware, requirePermission } = require('../middlewares/auth');
 const { P } = require('../auth/permissions');
 const { adminAnnouncementLimiter } = require('../middlewares/announcementGuards');
 const adminAnnouncementController = require('../controllers/adminAnnouncementController');
@@ -9,7 +9,6 @@ const router = express.Router();
 
 router.use(
   authMiddleware,
-  adminOrExecutiveMiddleware,
   requirePermission(P.CAN_MANAGE_ANNOUNCEMENTS, '需要公告管理權限'),
   adminAnnouncementLimiter
 );

@@ -1,0 +1,65 @@
+---
+description: 開發、測試、部署與 PR 工作流程
+alwaysApply: true
+---
+
+# 開發工作流程
+
+## 本機開發
+
+```bash
+# 後端（port 3000）
+cd reservation-backend && cp .env.example .env  # 首次
+npm install && npm run dev
+
+# 前端（port 3001，proxy 至 3000）
+cd reservation-frontend && npm install && npm start
+```
+
+## 功能開發流程
+
+```mermaid
+flowchart LR
+  A[釐清需求] --> B[後端 API + 權限]
+  B --> C[Migration 若需 schema]
+  C --> D[前端頁面/路由]
+  D --> E[補測試]
+  E --> F[lint + test + build]
+  F --> G[PR]
+```
+
+1. **後端先行**：API + `requirePermission` + service 邏輯
+2. **Schema 變更**：migration → model → 確認 `down` 可逆
+3. **前端對接**：service/hook → page → `adminRouteAccess` 同步
+4. **權限變更**：前後端 `permissions.js` 雙向同步
+5. **驗證**：兩端 lint + test；前端加 `npm run build`
+
+## PR 前檢查
+
+- [ ] `reservation-backend`: `npm test -- --runInBand && npm run lint`
+- [ ] `reservation-frontend`: `npm test -- --watchAll=false && npm run lint && npm run build`
+- [ ] 新權限已同步前後端
+- [ ] migration 已測試 `up`/`down`
+- [ ] 無 `.env` 或 secret 被提交
+- [ ] 變更範圍最小化
+
+## 維運腳本（按需）
+
+| 用途 | 指令 |
+|------|------|
+| 正式部署（前端 build + 同步 + 重啟） | `scripts\ops\deploy.bat` |
+| 只重啟後端（PM2） | `scripts\ops\restart-backend.bat` |
+| 首次註冊 PM2 | `scripts\ops\setup-pm2.bat` |
+| DB 備份健康 | `npm run backup:health`（於 backend） |
+| 權限一致性 | `npm run access:check-consistency` |
+| LJ 治理 | `npm run lj:daily-governance` |
+| 日誌清理 | `npm run logs:cleanup:dry` |
+| 部署後檢查 | `npm run post-deploy-check` |
+
+部署 runbook：`reservation-backend/docs/DEPLOYMENT_CHECKLIST.md`、`scripts/ops/README.md`。
+
+## Git 慣例
+
+- 不主動 commit/push；使用者明確要求時才執行
+- PR 用 `gh pr create`；base branch 為 `main`
+- CI 失敗優先修 test/lint，勿跳過 hooks

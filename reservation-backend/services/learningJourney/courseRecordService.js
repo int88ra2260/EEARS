@@ -9,7 +9,20 @@ const {
   CourseOutcomeMapping,
   Student
 } = require('../../models');
+const logger = require('../../utils/logger');
 const { normalizeStudentId } = require('./utils/studentNormalization');
+
+const BULK_IMPORT_THRESHOLD = 200;
+const BULK_WRITE_CHUNK_SIZE = 500;
+
+function chunkArray(items, size = BULK_WRITE_CHUNK_SIZE) {
+  const n = Math.max(1, Number(size) || BULK_WRITE_CHUNK_SIZE);
+  const chunks = [];
+  for (let i = 0; i < items.length; i += n) {
+    chunks.push(items.slice(i, i + n));
+  }
+  return chunks;
+}
 
 const HEADER_ALIASES = {
   semesterId: ['semesterId', 'semester_id', 'semester', '學期'],
@@ -132,11 +145,58 @@ function hasCourseDiff(existing, row) {
 function hasEnrollmentDiff(existing, row) {
   if (!existing) return false;
   return (
+    clean(existing.semesterId) !== clean(row.semesterId) ||
     clean(existing.studentName) !== clean(row.studentName) ||
     clean(existing.enrollmentStatus) !== clean(row.enrollmentStatus) ||
     clean(existing.passStatus) !== clean(row.passStatus) ||
     Number(existing.finalScore || 0) !== Number(row.finalScore || 0)
   );
+}
+
+function mapCourseEnrollmentRow(row) {
+  const json = typeof row?.toJSON === 'function' ? row.toJSON() : row;
+  const course = json.course || {};
+  return {
+    semesterId: json.semesterId || course.semesterId || null,
+    courseCode: course.courseCode || null,
+    courseName: course.courseName || null,
+    enrollmentStatus: json.enrollmentStatus || null,
+    finalScore: json.finalScore == null ? null : String(json.finalScore),
+    passStatus: json.passStatus || null,
+    credits: course.credits == null ? null : Number(course.credits),
+    departmentName: course.departmentName || null,
+  };
+}
+
+/**
+ * 讀取學生修課紀錄。學期篩選同時比對 enrollment.semester_id 與 courses.semester_id。
+ */
+async function loadStudentCourseRecords(studentIdRaw, options = {}) {
+  const studentId = normalizeStudentId(studentIdRaw);
+  const semesterId = clean(options.semesterId);
+  if (!studentId) return [];
+
+  const include = [{ model: Course, as: 'course', required: false }];
+  const where = { studentId };
+  const query = {
+    where,
+    include,
+    order: [['semesterId', 'DESC'], ['id', 'DESC']],
+  };
+
+  if (semesterId) {
+    query.where = {
+      studentId,
+      [Op.or]: [
+        { semesterId },
+        { '$course.semester_id$': semesterId },
+      ],
+    };
+    query.subQuery = false;
+  }
+
+  const rows = await CourseEnrollment.findAll(query);
+  return rows.map(mapCourseEnrollmentRow);
 }
 
 async function getExistingContext(validRows) {
@@ -278,7 +338,171 @@ async function dryRunCourseImport({ rows, fileBuffer, sourceFile = '' }) {
   };
 }
 
-async function applyCourseImport({ rows, fileBuffer, sourceFile = '', actor = null }) {
+function buildCoursePayload(row, { sourceRef, sourceFile, nowIso, actor }) {
+  return {
+    semesterId: row.semesterId,
+    courseCode: row.courseCode,
+    courseName: row.courseName,
+    departmentCode: row.departmentCode || null,
+    departmentName: row.departmentName || null,
+    instructorName: row.instructorName || null,
+    credits: row.credits,
+    courseType: row.courseType || null,
+    sourceRef,
+    metaJson: {
+      lastImportAt: nowIso,
+      lastImportSourceFile: sourceFile || null,
+      actor,
+    },
+  };
+}
+
+function buildEnrollmentPayload(row, course, student, { sourceRef, sourceFile }) {
+  return {
+    courseId: course.id,
+    studentPk: student ? student.id : null,
+    studentId: row.studentId,
+    studentName: row.studentName || null,
+    semesterId: row.semesterId,
+    enrollmentStatus: row.enrollmentStatus,
+    finalScore: row.finalScore,
+    passStatus: row.passStatus,
+    sourceRef,
+    rawPayload: {
+      importRowNumber: row.rowNumber,
+      sourceFile: sourceFile || null,
+      raw: row.raw,
+    },
+  };
+}
+
+async function applyOutcomeMappingsForRow(row, course, summary, meta, transaction) {
+  const { sourceFile, nowIso } = meta;
+  for (const outcomeKey of row.outcomes) {
+    const existingOutcome = await CourseOutcomeMapping.findOne({
+      where: { courseId: course.id, outcomeKey },
+      transaction,
+    });
+    const outcomePayload = {
+      courseId: course.id,
+      outcomeKey,
+      outcomeLabel: outcomeKey,
+      outcomeType: 'other',
+      targetLevel: null,
+      weight: null,
+      metaJson: {
+        lastImportAt: nowIso,
+        lastImportSourceFile: sourceFile || null,
+      },
+    };
+    if (!existingOutcome) {
+      await CourseOutcomeMapping.create(outcomePayload, { transaction });
+      summary.createdOutcomeMappings += 1;
+    } else {
+      await existingOutcome.update(outcomePayload, { transaction });
+      summary.updatedOutcomeMappings += 1;
+    }
+  }
+}
+
+async function applyCourseImportBulk(uniqueValidRows, summary, meta, transaction) {
+  let { coursesByKey, enrollmentsByKey, studentsById } = await getExistingContext(uniqueValidRows);
+  const touchedCourseKeys = new Set();
+  const coursesToCreate = [];
+
+  for (const row of uniqueValidRows) {
+    const key = courseKey(row);
+    if (touchedCourseKeys.has(key)) continue;
+    touchedCourseKeys.add(key);
+    const existingCourse = coursesByKey.get(key);
+    const coursePayload = buildCoursePayload(row, meta);
+    if (!existingCourse) {
+      coursesToCreate.push(coursePayload);
+    } else if (hasCourseDiff(existingCourse, row)) {
+      await existingCourse.update(coursePayload, { transaction });
+      summary.updatedCourses += 1;
+    }
+  }
+
+  if (coursesToCreate.length) {
+    await Course.bulkCreate(coursesToCreate, { transaction });
+    summary.createdCourses += coursesToCreate.length;
+    ({ coursesByKey, enrollmentsByKey, studentsById } = await getExistingContext(uniqueValidRows));
+  }
+
+  const enrollmentRecords = [];
+  const rowsWithOutcomes = [];
+
+  for (const row of uniqueValidRows) {
+    const course = coursesByKey.get(courseKey(row));
+    if (!course) continue;
+
+    const student = studentsById.get(row.studentId);
+    if (!student) summary.unknownStudents += 1;
+
+    const existingEnrollment = enrollmentsByKey.get(enrollmentKey(row));
+    if (!existingEnrollment) summary.createdEnrollments += 1;
+    else if (hasEnrollmentDiff(existingEnrollment, row)) summary.updatedEnrollments += 1;
+    else summary.unchangedEnrollments += 1;
+
+    enrollmentRecords.push(buildEnrollmentPayload(row, course, student, meta));
+    if (row.outcomes.length) rowsWithOutcomes.push({ row, course });
+  }
+
+  for (const chunk of chunkArray(enrollmentRecords)) {
+    await CourseEnrollment.bulkCreate(chunk, {
+      updateOnDuplicate: [
+        'studentPk',
+        'studentName',
+        'semesterId',
+        'enrollmentStatus',
+        'finalScore',
+        'passStatus',
+        'sourceRef',
+        'rawPayload',
+      ],
+      transaction,
+    });
+  }
+
+  for (const { row, course } of rowsWithOutcomes) {
+    await applyOutcomeMappingsForRow(row, course, summary, meta, transaction);
+  }
+}
+
+function scheduleAnalyticsRebuild(studentIds, summary) {
+  const uniqueIds = [...new Set(studentIds.filter(Boolean))];
+  if (!uniqueIds.length) return;
+
+  summary.analyticsRebuild = {
+    deferred: true,
+    studentCount: uniqueIds.length,
+  };
+
+  setImmediate(() => {
+    (async () => {
+      try {
+        const { rebuildAnalyticsInBatches } = require('./analytics/analyticRebuildService');
+        await rebuildAnalyticsInBatches({
+          scope: 'course-import',
+          studentIds: uniqueIds,
+          batchSize: 50,
+        });
+      } catch (err) {
+        logger.error('修課匯入後背景統計重算失敗', err);
+      }
+    })();
+  });
+}
+
+async function applyCourseImport({
+  rows,
+  fileBuffer,
+  sourceFile = '',
+  actor = null,
+  deferAnalyticsRebuild = false,
+  bulkThreshold = BULK_IMPORT_THRESHOLD,
+}) {
   const rawRows = Array.isArray(rows) ? rows : parseRowsFromWorkbook(fileBuffer);
   const normalizedRows = rawRows.map((row, idx) => normalizeCourseImportRow(row, idx + 2));
   const invalidRows = normalizedRows.filter((row) => row.errors.length);
@@ -329,31 +553,23 @@ async function applyCourseImport({ rows, fileBuffer, sourceFile = '', actor = nu
 
   const sourceRef = sourceFile ? `course_import:${sourceFile}` : 'course_import:manual';
   const nowIso = new Date().toISOString();
-  const touchedCourseIds = new Set();
+  const importMeta = { sourceRef, sourceFile, nowIso, actor };
+  const useBulkPath = uniqueValidRows.length >= bulkThreshold;
 
   await sequelize.transaction(async (transaction) => {
+    if (useBulkPath) {
+      await applyCourseImportBulk(uniqueValidRows, summary, importMeta, transaction);
+      return;
+    }
+
+    const touchedCourseIds = new Set();
     for (const row of uniqueValidRows) {
       let course = await Course.findOne({
         where: { semesterId: row.semesterId, courseCode: row.courseCode },
-        transaction
+        transaction,
       });
 
-      const coursePayload = {
-        semesterId: row.semesterId,
-        courseCode: row.courseCode,
-        courseName: row.courseName,
-        departmentCode: row.departmentCode || null,
-        departmentName: row.departmentName || null,
-        instructorName: row.instructorName || null,
-        credits: row.credits,
-        courseType: row.courseType || null,
-        sourceRef,
-        metaJson: {
-          lastImportAt: nowIso,
-          lastImportSourceFile: sourceFile || null,
-          actor
-        }
-      };
+      const coursePayload = buildCoursePayload(row, importMeta);
 
       if (!course) {
         course = await Course.create(coursePayload, { transaction });
@@ -367,26 +583,18 @@ async function applyCourseImport({ rows, fileBuffer, sourceFile = '', actor = nu
       const student = await Student.findOne({ where: { studentId: row.studentId }, transaction });
       if (!student) summary.unknownStudents += 1;
 
-      const enrollmentPayload = {
-        courseId: course.id,
-        studentPk: student ? student.id : null,
-        studentId: row.studentId,
-        studentName: row.studentName || null,
-        semesterId: row.semesterId,
-        enrollmentStatus: row.enrollmentStatus,
-        finalScore: row.finalScore,
-        passStatus: row.passStatus,
-        sourceRef,
-        rawPayload: {
-          importRowNumber: row.rowNumber,
-          sourceFile: sourceFile || null,
-          raw: row.raw
-        }
-      };
+      const enrollmentPayload = buildEnrollmentPayload(row, course, student, importMeta);
 
       const enrollment = await CourseEnrollment.findOne({
+        where: {
+          courseId: course.id,
+          studentId: row.studentId,
+          semesterId: row.semesterId,
+        },
+        transaction,
+      }) || await CourseEnrollment.findOne({
         where: { courseId: course.id, studentId: row.studentId },
-        transaction
+        transaction,
       });
 
       if (!enrollment) {
@@ -399,33 +607,27 @@ async function applyCourseImport({ rows, fileBuffer, sourceFile = '', actor = nu
         summary.unchangedEnrollments += 1;
       }
 
-      for (const outcomeKey of row.outcomes) {
-        const existingOutcome = await CourseOutcomeMapping.findOne({
-          where: { courseId: course.id, outcomeKey },
-          transaction
-        });
-        const outcomePayload = {
-          courseId: course.id,
-          outcomeKey,
-          outcomeLabel: outcomeKey,
-          outcomeType: 'other',
-          targetLevel: null,
-          weight: null,
-          metaJson: {
-            lastImportAt: nowIso,
-            lastImportSourceFile: sourceFile || null
-          }
-        };
-        if (!existingOutcome) {
-          await CourseOutcomeMapping.create(outcomePayload, { transaction });
-          summary.createdOutcomeMappings += 1;
-        } else {
-          await existingOutcome.update(outcomePayload, { transaction });
-          summary.updatedOutcomeMappings += 1;
-        }
-      }
+      await applyOutcomeMappingsForRow(row, course, summary, importMeta, transaction);
     }
   });
+
+  const affectedStudentIds = [...new Set(uniqueValidRows.map((row) => row.studentId).filter(Boolean))];
+  if (affectedStudentIds.length) {
+    if (deferAnalyticsRebuild) {
+      scheduleAnalyticsRebuild(affectedStudentIds, summary);
+    } else {
+      try {
+        const { rebuildAnalyticsInBatches } = require('./analytics/analyticRebuildService');
+        summary.analyticsRebuild = await rebuildAnalyticsInBatches({
+          scope: 'course-import',
+          studentIds: affectedStudentIds,
+          batchSize: 50,
+        });
+      } catch (err) {
+        summary.analyticsRebuildWarning = err?.message || String(err);
+      }
+    }
+  }
 
   return summary;
 }
@@ -435,11 +637,16 @@ async function getStudentCourses(studentIdRaw, options = {}) {
   const semesterId = clean(options.semesterId);
   if (!studentId) return { error: 'studentId 為必填' };
 
-  const where = { studentId };
-  if (semesterId) where.semesterId = semesterId;
-
   const rows = await CourseEnrollment.findAll({
-    where,
+    where: semesterId
+      ? {
+        studentId,
+        [Op.or]: [
+          { semesterId },
+          { '$course.semester_id$': semesterId },
+        ],
+      }
+      : { studentId },
     include: [
       {
         model: Course,
@@ -448,6 +655,7 @@ async function getStudentCourses(studentIdRaw, options = {}) {
         include: [{ model: CourseOutcomeMapping, as: 'outcomeMappings', required: false }]
       }
     ],
+    subQuery: false,
     order: [
       ['semesterId', 'DESC'],
       [{ model: Course, as: 'course' }, 'courseCode', 'ASC'],
@@ -499,5 +707,7 @@ async function getStudentCourses(studentIdRaw, options = {}) {
 module.exports = {
   dryRunCourseImport,
   applyCourseImport,
-  getStudentCourses
+  getStudentCourses,
+  loadStudentCourseRecords,
+  mapCourseEnrollmentRow,
 };

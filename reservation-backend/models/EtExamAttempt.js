@@ -33,7 +33,7 @@ const EtExamAttempt = sequelize.define('EtExamAttempt', {
   tableName: 'et_exam_attempts',
   timestamps: true,
   indexes: [
-    { fields: ['studentId', 'testType', 'testDate'], name: 'idx_et_attempts_student_type_date' },
+    { fields: ['studentId', 'testType', 'testDate'], name: 'uk_et_attempts_student_type_date', unique: true },
     { fields: ['importBatchId'], name: 'idx_et_attempts_batch' },
     { fields: ['status'], name: 'idx_et_attempts_status' }
   ]

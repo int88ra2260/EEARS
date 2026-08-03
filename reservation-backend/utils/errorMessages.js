@@ -73,6 +73,10 @@ const ERROR_MESSAGES = {
     zh: '權限資料已更新，請重新登入',
     en: 'Access profile changed, please login again'
   },
+  ACCOUNT_DISABLED: {
+    zh: '此帳號已停用，請聯絡管理員',
+    en: 'This account is disabled; contact an administrator'
+  },
   INSUFFICIENT_PERMISSIONS: {
     zh: '權限不足',
     en: 'Insufficient permissions'

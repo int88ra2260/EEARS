@@ -7,7 +7,7 @@ function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || 'unknown';
 }
 
-function createSimpleRateLimit({ windowMs, max, message }) {
+function createSimpleRateLimit({ windowMs, max, message, keyFn }) {
   const buckets = new Map();
   const windowSize = Number(windowMs) || 10 * 60 * 1000;
   const maxHits = Number(max) || 10;
@@ -16,19 +16,32 @@ function createSimpleRateLimit({ windowMs, max, message }) {
   return (req, res, next) => {
     const now = Date.now();
     const ip = getClientIp(req);
-    const current = buckets.get(ip);
+    const key = typeof keyFn === 'function' ? keyFn(req, ip) : ip;
+    const current = buckets.get(key);
 
     if (!current || now > current.resetAt) {
-      buckets.set(ip, { count: 1, resetAt: now + windowSize });
+      buckets.set(key, { count: 1, resetAt: now + windowSize });
       return next();
     }
 
     current.count += 1;
     if (current.count > maxHits) {
-      return res.status(429).json({ success: false, message: errorMessage });
+      return res.status(429).json({
+        success: false,
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: errorMessage,
+      });
     }
     return next();
   };
+}
+
+/** 護照學生端：有學號時僅依學號分桶；否則退回 IP（身分驗證前） */
+function elpStudentKey(req, ip) {
+  const source = req.method === 'GET' ? (req.query || {}) : (req.body || {});
+  const studentId = String(source.studentId || '').trim();
+  if (studentId) return `elp:stu:${studentId}`;
+  return `elp:ip:${ip}`;
 }
 
 async function verifyCaptchaToken(token) {
@@ -146,6 +159,7 @@ function publicLookupAudit(req, meta = {}) {
 
 module.exports = {
   createSimpleRateLimit,
+  elpStudentKey,
   requireCaptchaIfEnabled,
   normalizePublicLookupInput,
   requireLookupMinimumFields,

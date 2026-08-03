@@ -13,6 +13,17 @@
 import { useState, useCallback, useMemo } from 'react';
 import dayjs from 'dayjs';
 import useConfirm from '../components/ui/useConfirm';
+import { RESERVATION_CUTOFF_HOURS } from '../constants/reservationRules';
+import {
+  batchMarkEventNoShow,
+  checkinEventReservation,
+  createEventViolation,
+  deleteAdminReservation,
+  fetchEventReservations,
+  fetchEventViolations,
+  importEventCardExcel,
+  runEventAutoCheck,
+} from '../services/eventAdminService';
 
 /**
  * @typedef {Object} CurrentEvent
@@ -107,26 +118,14 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
   const [importError, setImportError] = useState('');
   const [importResult, setImportResult] = useState(/** @type {Object|null} */ (null));
 
-  const fetchEventReservations = useCallback(async (eventId) => {
-    const response = await fetch(`/api/events/${eventId}/reservations`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data.error || data.message || '載入預約資料失敗');
-    }
-    return data;
+  const loadEventReservations = useCallback(async (eventId) => {
+    return fetchEventReservations(token, eventId);
   }, [token]);
 
-  const fetchEventViolations = useCallback(async (eventId) => {
+  const loadEventViolations = useCallback(async (eventId) => {
     try {
-      const response = await fetch(`/api/events/${eventId}/violations`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setEventViolations(data || []);
-      }
+      const rows = await fetchEventViolations(token, eventId);
+      setEventViolations(rows);
     } catch (error) {
       console.error('載入違規記錄錯誤:', error);
     }
@@ -136,7 +135,7 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
     const id = targetEventId ?? currentEvent?.id;
     if (!id) return;
     try {
-      const data = await fetchEventReservations(id);
+      const data = await loadEventReservations(id);
       const list = data.reservations || data || [];
       setReservationData(list);
       setCurrentEvent(prev => {
@@ -152,10 +151,10 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
       console.error('刷新預約資料失敗:', error);
       if (showErrorMessage) showErrorMessage('刷新預約資料失敗：' + error.message);
     }
-  }, [token, currentEvent?.id, fetchEventReservations, showErrorMessage]);
+  }, [currentEvent?.id, loadEventReservations, showErrorMessage]);
 
   const viewReservations = useCallback(async (eventId, eventName, eventType, eventStartTime = null) => {
-    const data = await fetchEventReservations(eventId);
+    const data = await loadEventReservations(eventId);
     const list = data.reservations || data || [];
     setReservationData(list);
     setCurrentEvent({
@@ -166,8 +165,8 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
       eventType: eventType || 'English Table',
       autoCheckCompleted: data.autoCheckCompleted || false
     });
-    await fetchEventViolations(eventId);
-  }, [fetchEventReservations, fetchEventViolations]);
+    await loadEventViolations(eventId);
+  }, [loadEventReservations, loadEventViolations]);
 
   const viewReservationsWithError = useCallback(async (eventId, eventName, eventType, eventStartTime = null) => {
     try {
@@ -290,27 +289,15 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
 
     setCheckinLoading(prev => ({ ...prev, [reservationId]: true }));
     try {
-      const response = await fetch(`/api/events/${eventId}/checkin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ reservationId })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        if (showSuccessMessage) showSuccessMessage('簽到成功！');
-        setReservationData(prev =>
-          prev.map(r =>
-            r.id === reservationId
-              ? { ...r, checkinStatus: '已簽到', checkinTime: data.checkinTime }
-              : r
-          )
-        );
-      } else {
-        if (showErrorMessage) showErrorMessage(data.error || '簽到失敗');
-      }
+      const data = await checkinEventReservation(token, eventId, reservationId);
+      if (showSuccessMessage) showSuccessMessage('簽到成功！');
+      setReservationData((prev) =>
+        prev.map((r) =>
+          r.id === reservationId
+            ? { ...r, checkinStatus: '已簽到', checkinTime: data.checkinTime }
+            : r
+        )
+      );
     } catch (error) {
       console.error('簽到錯誤:', error);
       if (showErrorMessage) showErrorMessage('簽到失敗');
@@ -336,20 +323,9 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
       return;
     }
     try {
-      const response = await fetch(`/api/admin/reservations/${reservationId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        if (showSuccessMessage) showSuccessMessage('已成功刪除預約紀錄');
-        await refreshReservations();
-      } else {
-        if (showErrorMessage) showErrorMessage(data.error || '刪除預約失敗');
-      }
+      await deleteAdminReservation(token, reservationId);
+      if (showSuccessMessage) showSuccessMessage('已成功刪除預約紀錄');
+      await refreshReservations();
     } catch (error) {
       console.error('刪除預約錯誤:', error);
       if (showErrorMessage) showErrorMessage('刪除預約失敗：' + error.message);
@@ -362,7 +338,7 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
     const now = dayjs();
     const eventStart = dayjs(`${currentEvent.date}T${currentEvent.startTime}`);
     if (!eventStart.isValid()) return false;
-    const twoHoursBefore = eventStart.subtract(2, 'hour');
+    const twoHoursBefore = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
     return now.isBefore(twoHoursBefore);
   }, [currentEvent?.date, currentEvent?.startTime]);
 
@@ -396,30 +372,18 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
     setViolationError('');
     setViolationLoading(true);
     try {
-      const response = await fetch(`/api/events/${eventId}/violations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(violationData)
-      });
-      const data = await response.json();
-      if (response.ok) {
-        if (showSuccessMessage) showSuccessMessage('違規記錄已建立！');
-        setShowViolationModal(false);
-        setViolationData(DEFAULT_VIOLATION_FIELDS);
-        setViolationError('');
-        try {
-          await Promise.all([
-            fetchEventViolations(eventId),
-            refreshReservations(eventId)
-          ]);
-        } catch (refreshError) {
-          console.error('更新預約詳情失敗:', refreshError);
-        }
-      } else {
-        setViolationError(data.error || '登記違規失敗');
+      await createEventViolation(token, eventId, violationData);
+      if (showSuccessMessage) showSuccessMessage('違規記錄已建立！');
+      setShowViolationModal(false);
+      setViolationData(DEFAULT_VIOLATION_FIELDS);
+      setViolationError('');
+      try {
+        await Promise.all([
+          loadEventViolations(eventId),
+          refreshReservations(eventId),
+        ]);
+      } catch (refreshError) {
+        console.error('更新預約詳情失敗:', refreshError);
       }
     } catch (error) {
       console.error('登記違規錯誤:', error);
@@ -427,7 +391,7 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
     } finally {
       setViolationLoading(false);
     }
-  }, [token, currentEvent?.id, violationData, showSuccessMessage, fetchEventViolations, refreshReservations]);
+  }, [token, currentEvent?.id, violationData, showSuccessMessage, loadEventViolations, refreshReservations]);
 
   // 批次登記所有未簽到學生為「預約未到」
   const handleBatchMarkNoShow = useCallback(async () => {
@@ -453,30 +417,19 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
     }
     setBatchMarkNoShowLoading(true);
     try {
-      const response = await fetch(`/api/events/${eventId}/violations/batch-mark-no-show`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        if (showSuccessMessage) showSuccessMessage(data.message || `成功登記 ${data.successCount} 位學生為預約未到`);
-        await Promise.all([
-          fetchEventViolations(eventId),
-          refreshReservations(eventId)
-        ]);
-      } else {
-        if (showErrorMessage) showErrorMessage(data.error || '批次登記失敗');
-      }
+      const data = await batchMarkEventNoShow(token, eventId);
+      if (showSuccessMessage) showSuccessMessage(data.message || `成功登記 ${data.successCount} 位學生為預約未到`);
+      await Promise.all([
+        loadEventViolations(eventId),
+        refreshReservations(eventId),
+      ]);
     } catch (error) {
       console.error('批次登記未簽到學生錯誤:', error);
       if (showErrorMessage) showErrorMessage('批次登記失敗');
     } finally {
       setBatchMarkNoShowLoading(false);
     }
-  }, [token, currentEvent?.id, reservationData, showSuccessMessage, showErrorMessage, fetchEventViolations, refreshReservations]);
+  }, [token, currentEvent?.id, reservationData, showSuccessMessage, showErrorMessage, loadEventViolations, refreshReservations, confirm]);
 
   // 活動結束檢查：將違規記錄同步至黑名單並處理未簽到學生
   const handleAutoCheck = useCallback(async () => {
@@ -499,41 +452,26 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
 
     setAutoCheckLoading(true);
     try {
-      const response = await fetch(`/api/events/${eventId}/auto-check`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        const stats = data.results || {};
-        const summaryMessage = data.message ||
-          `處理完成：總筆數 ${stats.processedCount || 0}，違規記錄 ${stats.violationRecords || 0}，預約未到 ${stats.noShowRecords || 0}`;
-        if (showSuccessMessage) showSuccessMessage(summaryMessage);
-        // 標記活動已執行過檢查
-        setCurrentEventAutoCheckCompleted(true);
-        await Promise.all([
-          fetchEventViolations(eventId),
-          refreshReservations(eventId)
-        ]);
-      } else {
-        // 如果是因為已經執行過檢查而失敗，顯示特殊訊息
-        if (data.alreadyCompleted) {
-          setCurrentEventAutoCheckCompleted(true);
-        }
-        if (showErrorMessage) showErrorMessage(data.error || '活動結束檢查失敗');
-      }
+      const data = await runEventAutoCheck(token, eventId);
+      const stats = data.results || {};
+      const summaryMessage = data.message ||
+        `處理完成：總筆數 ${stats.processedCount || 0}，違規記錄 ${stats.violationRecords || 0}，預約未到 ${stats.noShowRecords || 0}`;
+      if (showSuccessMessage) showSuccessMessage(summaryMessage);
+      setCurrentEventAutoCheckCompleted(true);
+      await Promise.all([
+        loadEventViolations(eventId),
+        refreshReservations(eventId),
+      ]);
     } catch (error) {
       console.error('活動結束檢查錯誤:', error);
-      if (showErrorMessage) showErrorMessage('活動結束檢查失敗');
+      if (error.data?.alreadyCompleted) {
+        setCurrentEventAutoCheckCompleted(true);
+      }
+      if (showErrorMessage) showErrorMessage(error.message || '活動結束檢查失敗');
     } finally {
       setAutoCheckLoading(false);
     }
-  }, [token, currentEvent?.id, fetchEventViolations, refreshReservations, setCurrentEventAutoCheckCompleted, showSuccessMessage, showErrorMessage]);
+  }, [token, currentEvent?.id, loadEventViolations, refreshReservations, setCurrentEventAutoCheckCompleted, showSuccessMessage, showErrorMessage, confirm]);
 
   // Import excel flow
   const openImportExcelModal = useCallback(() => {
@@ -573,18 +511,8 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
     setImportLoading(true);
     setImportError('');
     setImportResult(null);
-    const formData = new FormData();
-    formData.append('file', importFile);
     try {
-      const response = await fetch(`/api/reservations/${eventId}/import-card-excel`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.error || data.message || '匯入失敗，請稍後再試');
-      }
+      const data = await importEventCardExcel(token, eventId, importFile);
       setImportResult(data);
       if (showSuccessMessage) showSuccessMessage(data.message || '匯入完成');
       await refreshReservations(eventId);
@@ -602,8 +530,8 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
     currentEvent,
     reservationData,
     eventViolations,
-    fetchEventReservations,
-    fetchEventViolations,
+    fetchEventReservations: loadEventReservations,
+    fetchEventViolations: loadEventViolations,
     refreshReservations,
     viewReservations: viewReservationsWithError,
     setCurrentEventAutoCheckCompleted,

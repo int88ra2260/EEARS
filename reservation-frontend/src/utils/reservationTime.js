@@ -62,8 +62,7 @@ export function calculateReservationTime(event) {
  * @param {number} weekday - 星期幾 (1=星期一, 2=星期二, ..., 7=星期日)
  * @returns {dayjs.Dayjs} - 最近的指定星期幾
  */
-function getLastWeekday(targetDate, weekday) {
-  const targetWeekday = weekday === 7 ? 0 : weekday; // dayjs 中星期日是 0
+export function getLastWeekday(targetDate, weekday) {
   
   // 找到上週的指定星期幾
   // 先找到本週的指定星期幾，然後減去7天
@@ -86,10 +85,9 @@ function getLastWeekday(targetDate, weekday) {
  * @param {number} weekday - 星期幾 (1=星期一, 2=星期二, ..., 7=星期日)
  * @returns {dayjs.Dayjs} - 當週或下週的指定星期幾
  */
-function getCurrentWeekday(targetDate, weekday) {
+export function getCurrentWeekday(targetDate, weekday) {
   // 取得當週的指定星期幾
   const startOfWeek = targetDate.startOf('week'); // 星期日
-  const targetWeekday = weekday === 7 ? 0 : weekday; // dayjs 中星期日是 0
   
   // 計算當週的目標星期幾
   let targetDay;

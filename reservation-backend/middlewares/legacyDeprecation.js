@@ -1,6 +1,7 @@
 'use strict';
 
 const { logSystemAsync } = require('../services/systemLogService');
+const { formatTaipeiTime } = require('../utils/time');
 const {
   resolveSemesterIdFromRequest,
   buildCanonicalPolicy
@@ -46,7 +47,7 @@ function legacyDeprecationHeaders(options = {}) {
           scope
         }
       };
-      console.warn(`[legacy-gone] scope=${scope} method=${method} path=${req.originalUrl} replacement=${replacementApi || 'TBD'}`);
+      console.warn(`[${formatTaipeiTime()}] [legacy-gone] scope=${scope} method=${method} path=${req.originalUrl} replacement=${replacementApi || 'TBD'}`);
       if (req.requestId) {
         logSystemAsync({
           requestId: req.requestId,
@@ -85,7 +86,7 @@ function legacyDeprecationHeaders(options = {}) {
           }
         };
         console.warn(
-          `[legacy-write-blocked] scope=${scope} method=${method} path=${req.originalUrl} semesterId=${semesterId} replacement=${replacementApi || canonicalPolicy.replacementApi}`
+          `[${formatTaipeiTime()}] [legacy-write-blocked] scope=${scope} method=${method} path=${req.originalUrl} semesterId=${semesterId} replacement=${replacementApi || canonicalPolicy.replacementApi}`
         );
         if (req.requestId) {
           logSystemAsync({
@@ -109,7 +110,7 @@ function legacyDeprecationHeaders(options = {}) {
         return res.status(409).json(payload);
       }
 
-      console.warn(`[legacy-write] scope=${scope} method=${method} path=${req.originalUrl} replacement=${replacementApi || 'TBD'}`);
+      console.warn(`[${formatTaipeiTime()}] [legacy-write] scope=${scope} method=${method} path=${req.originalUrl} replacement=${replacementApi || 'TBD'}`);
       if (req.requestId) {
         logSystemAsync({
           requestId: req.requestId,

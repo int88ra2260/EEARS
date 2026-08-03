@@ -25,13 +25,19 @@ const Teacher = sequelize.define('Teacher', {
     // unique: true 已移至 indexes 陣列中定義，避免重複創建索引
     comment: '老師帳號名稱'
   },
+  studentId: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    field: 'studentId',
+    comment: '學號（主要供 role=leader）',
+  },
   password: {
     type: DataTypes.STRING(255),
     allowNull: false,
     comment: '密碼（加密）'
   },
   role: {
-    type: DataTypes.ENUM('admin', 'worker', 'teacher'),
+    type: DataTypes.ENUM('admin', 'worker', 'teacher', 'office_staff', 'leader'),
     allowNull: false,
     defaultValue: 'teacher',
     comment: '帳號角色'
@@ -41,6 +47,11 @@ const Teacher = sequelize.define('Teacher', {
     allowNull: true,
     defaultValue: 'regular',
     comment: '老師層級：executive=執行長, et_manager=English Table負責人, if_manager=International Forum負責人, jt_manager=Job Talk負責人, regular=一般老師'
+  },
+  staffLevel: {
+    type: DataTypes.ENUM('event_lead', 'curriculum_lead', 'bestep_lead', 'deputy_manager'),
+    allowNull: true,
+    comment: '行政職員職務：活動／課務／培力英檢／副理（僅 role=office_staff 有意義）'
   },
   mustResetPassword: {
     type: DataTypes.BOOLEAN,

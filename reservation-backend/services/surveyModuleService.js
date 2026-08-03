@@ -14,6 +14,7 @@ const {
 const { validateSurveyData, processSurveyData } = require('../utils/surveyFormValidation');
 const { getCurrentSemester, isValidSemester } = require('../utils/semester');
 const { ruleTimeAllows, legacyModelForSurveyKey } = require('./surveyGateService');
+const { mergeWhereWithScope } = require('./accessControl/surveyScopeGuard');
 
 const surveysJsonPath = path.join(__dirname, '..', 'surveys.json');
 const STUDENT_SURVEY_COPY = {
@@ -36,14 +37,16 @@ function loadSurveysFallback() {
   }
 }
 
+const { sanitizeForAudit } = require('../utils/logSanitizer');
+
 async function writeAudit(actorId, action, entityType, entityId, beforeJson, afterJson, summary) {
   await SurveyAdminAuditLog.create({
     actorId: actorId || null,
     action,
     entityType,
     entityId: entityId != null ? String(entityId) : null,
-    beforeJson: beforeJson || null,
-    afterJson: afterJson || null,
+    beforeJson: beforeJson ? sanitizeForAudit(beforeJson) : null,
+    afterJson: afterJson ? sanitizeForAudit(afterJson) : null,
     summary: summary || null,
   });
 }
@@ -343,26 +346,55 @@ async function submitPublicResponse(surveyKey, body, req) {
     throw e;
   }
 
-  if (pkg.surveyDbId && pkg.versionId) {
-    const answersSnapshot = { ...body };
-    await SurveyModuleResponse.create({
-      surveyId: pkg.surveyDbId,
-      surveyVersionId: pkg.versionId,
-      studentId: body.studentId != null ? String(body.studentId).trim() : null,
-      studentName: body.studentName || body.name || null,
-      studentEmail: body.studentEmail || body.email || null,
-      eventId: body.eventId != null ? Number(body.eventId) : null,
-      eventType: body.eventType || null,
-      semesterKey: semester,
-      semester,
-      submittedAt: new Date(),
-      status: 'completed',
-      answersJson: answersSnapshot,
-      metadataJson: {
-        ip: req?.ip,
-        userAgent: req?.get?.('user-agent'),
-      },
-    }).catch(() => null);
+  if (pkg.surveyDbId) {
+    let versionId = pkg.versionId;
+    if (!versionId) {
+      const published = await SurveyVersion.findOne({
+        where: { surveyId: pkg.surveyDbId, status: 'published' },
+        order: [['versionNumber', 'DESC']],
+      }).catch(() => null);
+      versionId = published?.id || null;
+      if (!versionId) {
+        const fallback = await SurveyVersion.findOne({
+          where: { surveyId: pkg.surveyDbId },
+          order: [['versionNumber', 'DESC']],
+        }).catch(() => null);
+        versionId = fallback?.id || null;
+      }
+    }
+    if (versionId) {
+      const activityType =
+        surveyKey === 'english_table_feedback_114_1'
+          ? 'English Table'
+          : surveyKey === 'english_club_feedback_114_1'
+            ? 'English Club'
+            : body.eventType || null;
+      const answersSnapshot = { ...body };
+      await SurveyModuleResponse.create({
+        surveyId: pkg.surveyDbId,
+        surveyVersionId: versionId,
+        studentId: body.studentId != null ? String(body.studentId).trim() : null,
+        studentName: body.studentName || body.name || null,
+        studentEmail: body.studentEmail || body.email || null,
+        eventId: body.eventId != null ? Number(body.eventId) : null,
+        eventType: body.eventType || activityType,
+        activityType,
+        semesterKey: semester,
+        semester,
+        submittedAt: new Date(),
+        status: 'completed',
+        submissionStatus: 'submitted',
+        source: 'public_submit',
+        answersJson: answersSnapshot,
+        metadataJson: {
+          ip: req?.ip,
+          userAgent: req?.get?.('user-agent'),
+        },
+      }).catch((err) => {
+        console.error('[submitPublicResponse] survey_responses dual-write failed:', err.message);
+        return null;
+      });
+    }
   }
 
   const successMsg =
@@ -372,8 +404,11 @@ async function submitPublicResponse(surveyKey, body, req) {
   return { message: successMsg };
 }
 
-async function listSurveysAdmin() {
-  const rows = await Survey.findAll({ order: [['updatedAt', 'DESC']] }).catch(() => []);
+async function listSurveysAdmin(options = {}) {
+  const rows = await Survey.findAll({
+    where: mergeWhereWithScope({}, options.__scopeWhere),
+    order: [['updatedAt', 'DESC']],
+  }).catch(() => []);
   const semester = getCurrentSemester();
 
   const out = [];
@@ -589,22 +624,27 @@ async function listResponses(surveyId, query) {
     if (query.to) where.submittedAt[Op.lte] = new Date(query.to);
   }
 
+  const scopedWhere = mergeWhereWithScope(where, query.__scopeWhere);
   const { rows, count } = await SurveyModuleResponse.findAndCountAll({
-    where,
+    where: scopedWhere,
     order: [['submittedAt', 'DESC']],
     limit: Math.min(Number(query.limit) || 50, 200),
     offset: Number(query.offset) || 0,
   });
-  return { rows, count, semester: where.semester };
+  const { maskSurveyResponseListForAdminApi } = require('../utils/surveyResponseApiMask');
+  const mapped = rows.map((r) => r.toJSON());
+  const rowsOut = query.__forExport ? mapped : maskSurveyResponseListForAdminApi(mapped);
+  return { rows: rowsOut, count, semester: where.semester };
 }
 
 async function analyticsSummary(surveyId, query = {}) {
   const semester = resolveQuerySemester(query);
-  const total = await SurveyModuleResponse.count({ where: { surveyId, status: 'completed', semester } });
+  const baseWhere = mergeWhereWithScope({ surveyId, status: 'completed', semester }, query.__scopeWhere);
+  const total = await SurveyModuleResponse.count({ where: baseWhere });
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const last7 = await SurveyModuleResponse.count({
-    where: { surveyId, status: 'completed', semester, submittedAt: { [Op.gte]: sevenDaysAgo } },
+    where: mergeWhereWithScope({ surveyId, status: 'completed', semester, submittedAt: { [Op.gte]: sevenDaysAgo } }, query.__scopeWhere),
   });
   return {
     semester,
@@ -622,7 +662,7 @@ async function analyticsQuestions(surveyId, query = {}) {
   const schema = normalizeSchema(ver?.schemaJson);
   const questions = schema?.questions || [];
   const rows = await SurveyModuleResponse.findAll({
-    where: { surveyId, status: 'completed', semester },
+    where: mergeWhereWithScope({ surveyId, status: 'completed', semester }, query.__scopeWhere),
     attributes: ['answersJson'],
   });
 
@@ -655,7 +695,7 @@ async function analyticsQuestions(surveyId, query = {}) {
 }
 
 async function exportSurveyResponses(surveyId, query, res, actorId) {
-  const { rows } = await listResponses(surveyId, { ...query, limit: 10000, offset: 0 });
+  const { rows } = await listResponses(surveyId, { ...query, limit: 10000, offset: 0, __forExport: true });
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('responses');
   ws.columns = [
@@ -683,6 +723,33 @@ async function exportSurveyResponses(surveyId, query, res, actorId) {
   res.end();
 }
 
+async function exportSurveyPackageJson(surveyId, actorId) {
+  const { SurveyRule } = require('../models');
+  const survey = await Survey.findByPk(surveyId);
+  if (!survey) return null;
+
+  const [rule, versions] = await Promise.all([
+    SurveyRule.findOne({ where: { surveyId } }).catch(() => null),
+    listVersions(surveyId).catch(() => []),
+  ]);
+
+  const publishedVersion =
+    survey.currentPublishedVersionId != null
+      ? await SurveyVersion.findByPk(survey.currentPublishedVersionId).catch(() => null)
+      : null;
+
+  const pkg = {
+    exportedAt: new Date().toISOString(),
+    survey: survey.toJSON(),
+    rule: rule ? rule.toJSON() : null,
+    publishedVersion: publishedVersion ? publishedVersion.toJSON() : null,
+    versions: Array.isArray(versions) ? versions.map((v) => v.toJSON()) : [],
+  };
+
+  await writeAudit(actorId, 'export_json', 'Survey', surveyId, null, { versionCount: pkg.versions.length }, 'export survey package json');
+  return pkg;
+}
+
 module.exports = {
   getPublishedSurveyPackage,
   getPublicStatusPayload,
@@ -701,5 +768,6 @@ module.exports = {
   analyticsSummary,
   analyticsQuestions,
   exportSurveyResponses,
+  exportSurveyPackageJson,
   writeAudit,
 };

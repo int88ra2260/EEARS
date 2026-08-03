@@ -1,18 +1,34 @@
 /**
  * 產品級問卷模組：總覽（串接 GET /api/admin/surveys）
- * 詳細編輯／版本／規則等可逐步擴充子路由。
  */
-import React, { useEffect, useState, useMemo } from 'react';
+import React from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import Card from 'react-bootstrap/Card';
 import Table from 'react-bootstrap/Table';
 import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
+import StatusBadge from '../../components/ui/StatusBadge';
+import Dropdown from 'react-bootstrap/Dropdown';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
+import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
 import { P } from '../../constants/permissions';
+import { labelSurveyStatus } from '../../constants/surveyAdminUx';
+import { surveyModuleStatusToVariant } from '../../utils/statusBadgeUtils';
+import useToast from '../../components/ui/useToast';
+import { useSurveyAdminModule } from '../../hooks/useSurveyAdminModule';
+import {
+  formatShortUpdatedAt,
+  SurveyRuleSummary,
+  SURVEY_ACTION_MENU_POPPER,
+} from '../../utils/surveyAdminModuleHelpers';
+import SurveyAdminCreateModal from '../../components/admin/survey/SurveyAdminCreateModal';
+import SurveyAdminVersionsModal from '../../components/admin/survey/SurveyAdminVersionsModal';
+import './surveyAdminModule.css';
 
-export default function SurveyAdminModulePage() {
+export default function SurveyAdminModulePage({ embedded = false }) {
+  const toast = useToast();
   const { token, userRole, accessProfile: ctxProfile } = useOutletContext();
   const accessProfile = ctxProfile || buildAccessProfile(token || '', userRole || '');
   const canView = hasPermission(accessProfile, P.CAN_VIEW_SURVEYS);
@@ -21,142 +37,180 @@ export default function SurveyAdminModulePage() {
   const canResponses = hasPermission(accessProfile, P.CAN_VIEW_SURVEY_RESPONSES);
   const canAnalytics = hasPermission(accessProfile, P.CAN_VIEW_SURVEY_ANALYTICS);
   const canExportNew = hasPermission(accessProfile, P.CAN_EXPORT_SURVEY_RESPONSES);
+  const canAccessImportCenter = canAccessAdminRoute(accessProfile, '/admin/import-center');
 
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const {
+    loading,
+    error,
+    q,
+    setQ,
+    filteredRows,
+    load,
+    showCreate,
+    createForm,
+    setCreateForm,
+    createSubmitting,
+    openCreate,
+    closeCreate,
+    submitCreate,
+    versionsUi,
+    openVersions,
+    closeVersions,
+    createDraftVersion,
+    startEditVersion,
+    cancelEditVersion,
+    updateVersionsField,
+    saveVersion,
+    publishVersion,
+    exportSurveyJson,
+  } = useSurveyAdminModule({
+    token,
+    canView,
+    canPublish,
+    role: accessProfile.role,
+    toast,
+  });
 
-  const headers = useMemo(
-    () => ({
-      Authorization: `Bearer ${token}`,
-      'X-User-Role': accessProfile.role || 'worker',
-    }),
-    [token, accessProfile.role]
-  );
-
-  useEffect(() => {
-    if (!token || !canView) {
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const res = await fetch('/api/admin/surveys', { headers });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data.error || data.message || `載入失敗 (${res.status})`);
-        }
-        if (!cancelled) setRows(Array.isArray(data) ? data : []);
-      } catch (e) {
-        if (!cancelled) setError(e.message || '載入失敗');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [token, canView, headers]);
+  const pageWrapClass = embedded ? 'survey-admin-module' : 'container py-4';
 
   if (!canView) {
     return (
-      <div className="container py-4">
+      <div className={pageWrapClass}>
         <Alert variant="warning">您沒有檢視問卷模組的權限。</Alert>
       </div>
     );
   }
 
   return (
-    <div className="container py-4">
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div>
-          <h2 className="h4 mb-1 text-primary">問卷模組</h2>
+    <div className={pageWrapClass}>
+      <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3 survey-admin-toolbar">
+        <div className="flex-grow-1" style={{ minWidth: '12rem' }}>
+          <h2 className="h4 mb-1 text-primary">問卷中心</h2>
           <p className="text-muted small mb-0">
-            已發布版本為學生端正式來源；此列表來自資料庫（未遷移時可能為空）。
+            管理問卷主檔、題目版本與發布；<strong>已發布</strong>的版本才是學生與前台看到的正式內容。
           </p>
         </div>
-        {canManage && (
-          <Button variant="outline-primary" size="sm" disabled title="請使用 API 或後續「新增問卷」表單">
-            新增問卷（即將開放）
+        <div className="d-flex gap-2 align-items-center flex-wrap flex-shrink-0">
+          <Form.Control
+            size="sm"
+            className="survey-admin-search"
+            style={{ width: 'min(100%, 240px)' }}
+            placeholder="搜尋問卷名稱或代碼"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <Button variant="outline-secondary" size="sm" onClick={load} disabled={loading}>
+            重新整理
           </Button>
-        )}
+          {canManage && (
+            <Button variant="primary" size="sm" onClick={openCreate}>
+              新增問卷
+            </Button>
+          )}
+        </div>
       </div>
 
-      <Card className="border-0 shadow-sm">
-        <Card.Body>
+      <Card className="border-0 shadow-sm survey-admin-card">
+        <Card.Body className="p-0 position-relative">
           {loading && (
-            <div className="text-center py-5">
+            <div className="text-center py-5 px-3">
               <Spinner animation="border" role="status" variant="primary" />
             </div>
           )}
-          {!loading && error && <Alert variant="danger">{error}</Alert>}
-          {!loading && !error && rows.length === 0 && (
-            <Alert variant="info" className="mb-0">
-              尚無問卷資料。請先執行後端 migration（<code>20260410120000-create-survey-product-module-tables.js</code>
-              ）以從 <code>surveys.json</code> 與 <code>survey_settings</code> 初始化。
+          {!loading && error && <Alert variant="danger" className="m-3">{error}</Alert>}
+          {!loading && !error && filteredRows.length === 0 && (
+            <Alert variant="info" className="m-3 mb-0">
+              {q ? (
+                '查無符合搜尋條件的問卷。'
+              ) : (
+                <>
+                  <div className="fw-semibold mb-1">尚無問卷</div>
+                  <div className="small">
+                    請按右上角「新增問卷」建立第一份問卷；建立後請用「編輯與發布」新增草稿並發布，再到
+                    {' '}
+                    <Link to="/admin/survey-rules">啟用規則</Link>
+                    {' '}
+                    指定學期與活動何時要填。
+                  </div>
+                </>
+              )}
             </Alert>
           )}
-          {!loading && !error && rows.length > 0 && (
-            <div className="table-responsive">
+          {!loading && !error && filteredRows.length > 0 && (
+            <div className="survey-admin-table-scroll px-2 px-md-3 pb-2 pt-2">
               <Table hover size="sm" className="align-middle mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th>名稱</th>
-                    <th>surveyKey</th>
-                    <th>狀態</th>
-                    <th>發布版號</th>
-                    <th>啟用</th>
-                    <th>必填</th>
-                    <th>回答數</th>
-                    <th>更新</th>
-                    <th>操作</th>
+                    <th>問卷名稱</th>
+                    <th>問卷代碼</th>
+                    <th className="text-center">狀態</th>
+                    <th className="text-center">版號</th>
+                    <th>啟用規則</th>
+                    <th className="text-end">作答數</th>
+                    <th>最後更新</th>
+                    <th className="text-end">操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {filteredRows.map((r) => (
                     <tr key={r.id}>
-                      <td>{r.name}</td>
+                      <td className="survey-admin-name-cell" title={r.name}>{r.name}</td>
                       <td>
-                        <code className="small">{r.surveyKey}</code>
+                        <code className="survey-admin-code text-danger">{r.surveyKey}</code>
                       </td>
-                      <td>{r.status}</td>
-                      <td>{r.publishedVersionNumber ?? '—'}</td>
-                      <td>{r.isEnabled == null ? '—' : r.isEnabled ? '是' : '否'}</td>
-                      <td>{r.isRequired == null ? '—' : r.isRequired ? '是' : '否'}</td>
-                      <td>{r.responseCount}</td>
-                      <td className="text-nowrap small">{r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '—'}</td>
+                      <td className="text-center">
+                        <StatusBadge variant={surveyModuleStatusToVariant(r.status)} size="sm">
+                          {labelSurveyStatus(r.status)}
+                        </StatusBadge>
+                      </td>
+                      <td className="text-center">{r.publishedVersionNumber ?? '—'}</td>
                       <td>
-                        <div className="d-flex flex-wrap gap-1">
-                          <Button
-                            as="a"
-                            size="sm"
-                            variant="outline-secondary"
-                            href={`/survey/${r.surveyKey}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            預覽
-                          </Button>
-                          {canResponses && (
-                            <Link className="btn btn-sm btn-outline-primary" to={`/admin/survey-responses/${r.id}`}>
-                              作答
-                            </Link>
-                          )}
-                          {canAnalytics && (
-                            <Link className="btn btn-sm btn-outline-primary" to={`/admin/survey-analytics/${r.id}`}>
-                              統計
-                            </Link>
-                          )}
-                          {canPublish && (
-                            <span className="btn btn-sm btn-outline-secondary disabled">發布</span>
-                          )}
-                          {canExportNew && (
-                            <span className="btn btn-sm btn-outline-secondary disabled">匯出(JSON)</span>
-                          )}
-                        </div>
+                        <SurveyRuleSummary isEnabled={r.isEnabled} isRequired={r.isRequired} />
+                      </td>
+                      <td className="text-end fw-semibold">{r.responseCount ?? 0}</td>
+                      <td className="small text-nowrap text-muted">
+                        {formatShortUpdatedAt(r.updatedAt)}
+                      </td>
+                      <td className="text-end">
+                        <Dropdown align="end">
+                          <Dropdown.Toggle variant="outline-primary" size="sm" id={`survey-actions-${r.id}`}>
+                            操作
+                          </Dropdown.Toggle>
+                          <Dropdown.Menu popperConfig={SURVEY_ACTION_MENU_POPPER} renderOnMount>
+                            <Dropdown.Item href={`/survey/${r.surveyKey}`} target="_blank" rel="noreferrer">
+                              學生端預覽
+                            </Dropdown.Item>
+                            {canManage ? (
+                              <Dropdown.Item onClick={() => openVersions(r)}>
+                                編輯題目與發布
+                              </Dropdown.Item>
+                            ) : null}
+                            {canResponses ? (
+                              <Dropdown.Item as={Link} to={`/admin/survey-responses/${r.id}`}>
+                                查看作答紀錄
+                              </Dropdown.Item>
+                            ) : null}
+                            {canAnalytics ? (
+                              <Dropdown.Item as={Link} to={`/admin/survey-analytics/${r.id}`}>
+                                統計分析
+                              </Dropdown.Item>
+                            ) : null}
+                            <Dropdown.Divider />
+                            <Dropdown.Item as={Link} to="/admin/survey-rules">
+                              設定啟用規則…
+                            </Dropdown.Item>
+                            {canExportNew ? (
+                              <Dropdown.Item onClick={() => exportSurveyJson(r)}>
+                                下載問卷備份（JSON）
+                              </Dropdown.Item>
+                            ) : null}
+                            {canAccessImportCenter ? (
+                              <Dropdown.Item as={Link} to="/admin/import-center">
+                                資料匯入中心（匯出說明）
+                              </Dropdown.Item>
+                            ) : null}
+                          </Dropdown.Menu>
+                        </Dropdown>
                       </td>
                     </tr>
                   ))}
@@ -167,10 +221,26 @@ export default function SurveyAdminModulePage() {
         </Card.Body>
       </Card>
 
-      <p className="small text-muted mt-3 mb-0">
-        舊版「問卷管理」（依字串 surveyId 的統計／Excel）仍於{' '}
-        <Link to="/admin/surveys">/admin/surveys</Link> 保留相容。
-      </p>
+      <SurveyAdminCreateModal
+        show={showCreate}
+        form={createForm}
+        submitting={createSubmitting}
+        onHide={closeCreate}
+        onChange={setCreateForm}
+        onSubmit={submitCreate}
+      />
+
+      <SurveyAdminVersionsModal
+        versionsUi={versionsUi}
+        canPublish={canPublish}
+        onHide={closeVersions}
+        onCreateDraft={createDraftVersion}
+        onStartEdit={startEditVersion}
+        onCancelEdit={cancelEditVersion}
+        onFieldChange={updateVersionsField}
+        onSave={saveVersion}
+        onPublish={publishVersion}
+      />
     </div>
   );
 }

@@ -11,21 +11,23 @@ const {
   hasAllPermissions,
   canAccessEventType,
   canAccessSurvey,
+  isDeputyManagerUser,
+  isBestepLeadUser,
 } = require('../auth/accessProfile');
 const { P } = require('../auth/permissions');
 const { Teacher } = require('../models');
 const logger = require('../utils/logger');
+const { secretKey } = require('../config/jwtSecret');
+const auditLogService = require('../services/auditLogService');
 
-const secretKey = process.env.JWT_SECRET || 'MY_SUPER_SECRET_KEY';
-if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
-  // eslint-disable-next-line no-console
-  console.error(
-    '[EEARS][auth] 警告：未設定 JWT_SECRET，使用內建 fallback，生產環境極不安全。請立即設定環境變數。'
-  );
-} else if (!process.env.JWT_SECRET) {
-  // eslint-disable-next-line no-console
-  console.warn('[EEARS][auth] 開發模式：未設定 JWT_SECRET，使用內建 fallback。');
-}
+/** 權限拒絕時寫入稽核（避免洗版：僅高風險 permission） */
+const AUDIT_ON_DENIED_PERMISSIONS = new Set([
+  P.CAN_MANAGE_ACCOUNTS,
+  P.CAN_MANAGE_SETTINGS,
+  P.CAN_VIEW_AUDIT_LOGS,
+  P.CAN_VIEW_INTERNAL_DIAGNOSTICS,
+  P.CAN_MANAGE_ENGLISH_TEST_TRACKING,
+]);
 
 function buildAuthLogContext(req) {
   const method = req?.method || 'UNKNOWN';
@@ -38,7 +40,11 @@ function buildAuthLogContext(req) {
 
 function sendForbidden(res, message) {
   const apiError = createAPIError('INSUFFICIENT_PERMISSIONS', 403, message || undefined);
-  return res.status(403).json(apiError);
+  return res.status(403).json({
+    ...apiError,
+    code: 'INSUFFICIENT_PERMISSIONS',
+    success: false,
+  });
 }
 
 function sendPasswordResetRequired(res) {
@@ -71,13 +77,72 @@ function enforcePasswordResetMiddleware(req, res, next) {
   return next();
 }
 
-function sendStaleToken(res, latestAccessVersion) {
+function sendStaleToken(req, res, latestAccessVersion, tokenVersion) {
+  try {
+    const u = req.user || {};
+    auditLogService.logSecurityAuditImmediate(req, {
+      module: 'auth',
+      action: 'access_profile_stale',
+      entityType: 'Teacher',
+      entityId: u.id != null ? String(u.id) : 'unknown',
+      targetSummary: u.user || u.username || (u.id != null ? String(u.id) : ''),
+      afterData: {
+        teacherId: u.id != null ? u.id : null,
+        username: u.user || u.username || null,
+        jwtAccessVersion: tokenVersion != null ? Number(tokenVersion) : null,
+        dbAccessVersion: latestAccessVersion != null ? Number(latestAccessVersion) : null,
+        path: String(req.originalUrl || req.url || ''),
+        method: String(req.method || ''),
+        requestId: req.requestId || null,
+      },
+      status: 'failed',
+      errorMessage: 'ACCESS_PROFILE_STALE',
+      operatorId: u.id != null ? u.id : null,
+      operatorRole: u.role || null,
+      operatorName: u.name || u.user || null,
+    });
+  } catch (_) {
+    /* 稽核失敗不阻擋回應 */
+  }
   return res.status(401).json({
     code: 'ACCESS_PROFILE_STALE',
     error: '權限資料已更新，請重新登入',
     message: 'Access profile changed, please login again',
     actionHint: 'relogin',
     latestAccessVersion: latestAccessVersion != null ? Number(latestAccessVersion) : null,
+  });
+}
+
+function sendAccountDisabled(req, res) {
+  try {
+    const u = req.user || {};
+    auditLogService.logSecurityAuditImmediate(req, {
+      module: 'auth',
+      action: 'account_disabled_access_attempt',
+      entityType: 'Teacher',
+      entityId: u.id != null ? String(u.id) : 'unknown',
+      targetSummary: u.user || u.username || (u.id != null ? String(u.id) : ''),
+      afterData: {
+        teacherId: u.id != null ? u.id : null,
+        username: u.user || u.username || null,
+        path: String(req.originalUrl || req.url || ''),
+        method: String(req.method || ''),
+        requestId: req.requestId || null,
+      },
+      status: 'failed',
+      errorMessage: 'ACCOUNT_DISABLED',
+      operatorId: u.id != null ? u.id : null,
+      operatorRole: u.role || null,
+      operatorName: u.name || u.user || null,
+    });
+  } catch (_) {
+    /* ignore */
+  }
+  return res.status(401).json({
+    code: 'ACCOUNT_DISABLED',
+    error: '此帳號已停用，請聯絡管理員',
+    message: 'Account is disabled; contact an administrator.',
+    actionHint: 'relogin',
   });
 }
 
@@ -96,10 +161,33 @@ function isEnabled(name, defaultValue = false) {
   return String(val).toLowerCase() === 'true' || String(val) === '1';
 }
 
-function shouldEnforceStaleForRequest(req, user) {
-  const enabled = isEnabled('ACCESS_VERSION_CHECK_ENABLED', false);
-  if (!enabled) return false;
+let warnedProdAccessVersionDisabled = false;
 
+/**
+ * production：一律視為啟用 accessVersion 強制檢查（ACCESS_VERSION_CHECK_ENABLED=false 僅會被忽略並警告）。
+ * development / test：僅當 ACCESS_VERSION_CHECK_ENABLED=true 時啟用。
+ */
+function isAccessVersionCheckEnabled() {
+  if (process.env.NODE_ENV === 'production') {
+    if (String(process.env.ACCESS_VERSION_CHECK_ENABLED || '').toLowerCase() === 'false') {
+      if (!warnedProdAccessVersionDisabled) {
+        warnedProdAccessVersionDisabled = true;
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[EEARS][auth] ACCESS_VERSION_CHECK_ENABLED=false is ignored in production; access version enforcement remains on.'
+        );
+      }
+    }
+    return true;
+  }
+  return isEnabled('ACCESS_VERSION_CHECK_ENABLED', false);
+}
+
+function shouldEnforceStaleForRequest(req, user) {
+  if (!isAccessVersionCheckEnabled()) return false;
+  if (process.env.NODE_ENV === 'production') {
+    return true;
+  }
   const roles = parseCsvSet(process.env.ACCESS_VERSION_ENFORCE_ROLES || '');
   const prefixes = parseCsvSet(process.env.ACCESS_VERSION_ENFORCE_PATH_PREFIXES || '/api/admin');
   const path = String(req?.originalUrl || req?.url || '');
@@ -110,10 +198,21 @@ function shouldEnforceStaleForRequest(req, user) {
   return roleMatch || pathMatch;
 }
 
-async function checkAccessVersion(req, user, mode = 'auth') {
-  if (!user || !user.id) return { mismatch: false, tokenVersion: null, dbVersion: null };
-  const t = await Teacher.findByPk(user.id, { attributes: ['id', 'accessVersion'] });
-  if (!t) return { mismatch: false, tokenVersion: null, dbVersion: null };
+/**
+ * 單次 DB 讀取：帳號是否存在、是否啟用、accessVersion 是否與 JWT 一致。
+ * @returns {{ kind: 'missing'|'inactive'|'active', mismatch: boolean, tokenVersion: number|null, dbVersion: number|null }}
+ */
+async function assessTeacherSecurityGate(user, req, mode = 'auth') {
+  if (!user || !user.id) {
+    return { kind: 'missing', mismatch: false, tokenVersion: null, dbVersion: null };
+  }
+  const t = await Teacher.findByPk(user.id, { attributes: ['id', 'isActive', 'accessVersion'] });
+  if (!t) {
+    return { kind: 'missing', mismatch: false, tokenVersion: null, dbVersion: null };
+  }
+  if (!t.isActive) {
+    return { kind: 'inactive', mismatch: false, tokenVersion: null, dbVersion: null };
+  }
   const tokenVersion = Number(user.accessVersion || 0);
   const dbVersion = Number(t.accessVersion || 1);
   const mismatch = tokenVersion !== dbVersion;
@@ -136,7 +235,7 @@ async function checkAccessVersion(req, user, mode = 'auth') {
     console.log(JSON.stringify(payload));
   }
 
-  return { mismatch, tokenVersion, dbVersion };
+  return { kind: 'active', mismatch, tokenVersion, dbVersion };
 }
 
 function authMiddleware(req, res, next) {
@@ -172,6 +271,21 @@ function authMiddleware(req, res, next) {
         return res.status(401).json(apiError);
       }
       req.user = decoded;
+      let gate;
+      try {
+        gate = await assessTeacherSecurityGate(decoded, req, 'auth');
+      } catch (e) {
+        logError('TOKEN_INVALID', e, 'assessTeacherSecurityGate(authMiddleware)');
+        const apiError = createAPIError('TOKEN_INVALID', 401);
+        return res.status(401).json(apiError);
+      }
+      if (gate.kind === 'missing') {
+        const apiError = createAPIError('TOKEN_INVALID', 401);
+        return res.status(401).json(apiError);
+      }
+      if (gate.kind === 'inactive') {
+        return sendAccountDisabled(req, res);
+      }
       try {
         req.user = await resolveEffectiveAccessSources(req.user);
         if (req.user && req.user.__effectiveSource === 'json_fallback') {
@@ -189,11 +303,10 @@ function authMiddleware(req, res, next) {
       }
       attachAccessProfile(req);
       try {
-        const { mismatch, tokenVersion, dbVersion } = await checkAccessVersion(req, req.user, 'auth');
-        if (mismatch) {
-          req.accessVersionMismatch = { token: tokenVersion, current: dbVersion, mode: 'observe' };
+        if (gate.mismatch) {
+          req.accessVersionMismatch = { token: gate.tokenVersion, current: gate.dbVersion, mode: 'observe' };
           if (shouldEnforceStaleForRequest(req, req.user)) {
-            return sendStaleToken(res, dbVersion);
+            return sendStaleToken(req, res, gate.dbVersion, gate.tokenVersion);
           }
         }
       } catch (e) {
@@ -217,6 +330,16 @@ function optionalAuthMiddleware(req, res, next) {
     if (!token) return next();
     jwt.verify(token, secretKey, async (err, decoded) => {
       if (!err && decoded) {
+        let gate;
+        try {
+          gate = await assessTeacherSecurityGate(decoded, req, 'optional');
+        } catch (e) {
+          logError('TOKEN_INVALID', e, 'assessTeacherSecurityGate(optionalAuthMiddleware)');
+          return next();
+        }
+        if (gate.kind === 'missing' || gate.kind === 'inactive') {
+          return next();
+        }
         req.user = decoded;
         try {
           req.user = await resolveEffectiveAccessSources(req.user);
@@ -224,13 +347,8 @@ function optionalAuthMiddleware(req, res, next) {
           logError('INSUFFICIENT_PERMISSIONS', e, 'resolveEffectiveAccessSources(optionalAuthMiddleware)');
         }
         attachAccessProfile(req);
-        try {
-          const { mismatch, tokenVersion, dbVersion } = await checkAccessVersion(req, req.user, 'optional');
-          if (mismatch) {
-            req.accessVersionMismatch = { token: tokenVersion, current: dbVersion, mode: 'observe' };
-          }
-        } catch (e) {
-          logError('TOKEN_INVALID', e, 'accessVersion optional observe failed');
+        if (gate.mismatch) {
+          req.accessVersionMismatch = { token: gate.tokenVersion, current: gate.dbVersion, mode: 'observe' };
         }
       }
       next();
@@ -256,6 +374,34 @@ function requirePermission(permission, message) {
           null,
           `Missing permission: ${permission} user=${req.user.role}/${req.user.teacherLevel || ''}`
         );
+        if (AUDIT_ON_DENIED_PERMISSIONS.has(permission)) {
+          try {
+            const u = req.user || {};
+            const prof = req.accessProfile || buildAccessProfile(u);
+            auditLogService.logSecurityAuditImmediate(req, {
+              module: 'auth',
+              action: 'permission_denied',
+              entityType: 'Teacher',
+              entityId: u.id != null ? String(u.id) : 'unknown',
+              targetSummary: String(req.originalUrl || req.url || '').slice(0, 500),
+              afterData: {
+                requiredPermission: permission,
+                role: u.role || null,
+                teacherLevel: u.teacherLevel || null,
+                path: String(req.originalUrl || req.url || ''),
+                method: String(req.method || ''),
+                permissionSummary: Array.from(prof.permissionSet || []).slice(0, 80),
+              },
+              status: 'failed',
+              errorMessage: 'PERMISSION_DENIED',
+              operatorId: u.id != null ? u.id : null,
+              operatorRole: u.role || null,
+              operatorName: u.name || u.user || null,
+            });
+          } catch (_) {
+            /* ignore */
+          }
+        }
         return sendForbidden(res, message || '權限不足');
       }
       next();
@@ -324,6 +470,37 @@ function adminOrExecutiveMiddleware(req, res, next) {
   return requireAdminRights(req, res, next);
 }
 
+/**
+ * 網域管理權：admin、executive、或行政副理。
+ * 仍須搭配 requirePermission；勿用於副理未授權之端點（如班級刪除）。
+ */
+function adminExecutiveOrDeputyMiddleware(req, res, next) {
+  if (!req.user || !req.user.role) {
+    return sendForbidden(res, '權限不足');
+  }
+  if (req.user.role === 'admin') return next();
+  const profile = req.accessProfile || buildAccessProfile(req.user);
+  if (profile.hasAdminRights) return next();
+  if (isDeputyManagerUser(req.user)) return next();
+  return sendForbidden(res, '需要管理權限（管理員、執行長或副理）');
+}
+
+/**
+ * 培力英檢網域：admin、executive、副理、或培力英檢行政。
+ * 仍須搭配 requirePermission。
+ */
+function englishTestDomainMiddleware(req, res, next) {
+  if (!req.user || !req.user.role) {
+    return sendForbidden(res, '權限不足');
+  }
+  if (req.user.role === 'admin') return next();
+  const profile = req.accessProfile || buildAccessProfile(req.user);
+  if (profile.hasAdminRights) return next();
+  if (isDeputyManagerUser(req.user)) return next();
+  if (isBestepLeadUser(req.user)) return next();
+  return sendForbidden(res, '需要培力英檢管理權限（管理員、執行長、副理或培力英檢行政）');
+}
+
 function adminOrTeacherMiddleware(req, res, next) {
   const user = req.user || {};
   const role = String(user.role || '').toLowerCase();
@@ -342,7 +519,7 @@ function requireTeacher(req, res, next) {
     if (!req.user || !req.user.role) {
       return sendForbidden(res, '權限不足');
     }
-    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher' && req.user.role !== 'office_staff') {
       return sendForbidden(res, '需要教師或管理員身分');
     }
     next();
@@ -488,8 +665,8 @@ function workerMiddleware(req, res, next) {
       return sendForbidden(res, '權限不足');
     }
     const { role } = req.user;
-    if (role !== 'admin' && role !== 'worker' && role !== 'teacher') {
-      logError('INSUFFICIENT_PERMISSIONS', null, `User role '${role}' is not admin, worker or teacher`);
+    if (role !== 'admin' && role !== 'worker' && role !== 'teacher' && role !== 'office_staff') {
+      logError('INSUFFICIENT_PERMISSIONS', null, `User role '${role}' is not admin, worker, teacher or office_staff`);
       return sendForbidden(res, '權限不足');
     }
     next();
@@ -534,6 +711,8 @@ module.exports = {
   requireAdminRights,
   adminOnlyMiddleware,
   adminOrExecutiveMiddleware,
+  adminExecutiveOrDeputyMiddleware,
+  englishTestDomainMiddleware,
   adminOrTeacherMiddleware,
   requireTeacher,
   requireScope,
@@ -555,6 +734,7 @@ module.exports = {
   secretKey,
   getAccessProfileReadMode,
   shouldEnforceStaleForRequest,
+  isAccessVersionCheckEnabled,
   enforcePasswordResetMiddleware,
   P,
 };

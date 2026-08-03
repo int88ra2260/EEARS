@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
+const { authMiddleware, requirePermission, adminOrExecutiveMiddleware, P } = require('../middlewares/auth');
 const surveyHealthService = require('../services/surveyHealthService');
 const readinessService = require('../services/surveyReleaseReadinessService');
 const repairService = require('../services/surveyRepairExecutionService');
 
-router.get('/overview', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEALTH), async (req, res, next) => {
+router.get('/overview', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEALTH), async (req, res, next) => {
   try {
     res.json(await surveyHealthService.getHealthOverview());
   } catch (e) {
@@ -13,7 +13,7 @@ router.get('/overview', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEAL
   }
 });
 
-router.get('/problems', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEALTH), async (req, res, next) => {
+router.get('/problems', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEALTH), async (req, res, next) => {
   try {
     res.json(await surveyHealthService.getHealthProblems());
   } catch (e) {
@@ -21,7 +21,7 @@ router.get('/problems', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEAL
   }
 });
 
-router.get('/rules', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEALTH), async (req, res, next) => {
+router.get('/rules', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEALTH), async (req, res, next) => {
   try {
     res.json(await surveyHealthService.getRuleHealth());
   } catch (e) {
@@ -29,7 +29,7 @@ router.get('/rules', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEALTH)
   }
 });
 
-router.get('/readiness', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEALTH), async (req, res, next) => {
+router.get('/readiness', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEALTH), async (req, res, next) => {
   try {
     res.json(await readinessService.getReleaseReadiness());
   } catch (e) {
@@ -37,7 +37,7 @@ router.get('/readiness', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_HEA
   }
 });
 
-router.get('/recent-runs', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_REPAIR_AUDIT), async (req, res, next) => {
+router.get('/recent-runs', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_VIEW_SURVEY_REPAIR_AUDIT), async (req, res, next) => {
   try {
     const rows = await repairService.listRepairRuns({ ...req.query });
     res.json(rows.slice(0, 20));
@@ -46,7 +46,7 @@ router.get('/recent-runs', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_R
   }
 });
 
-router.post('/recheck/semester', authMiddleware, requirePermission(P.CAN_EXECUTE_SURVEY_REPAIRS), async (req, res, next) => {
+router.post('/recheck/semester', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_EXECUTE_SURVEY_REPAIRS), async (req, res, next) => {
   try {
     const dryRun = req.body?.dryRun !== false;
     res.json(await surveyHealthService.recheckSemester({ dryRun }));
@@ -55,7 +55,7 @@ router.post('/recheck/semester', authMiddleware, requirePermission(P.CAN_EXECUTE
   }
 });
 
-router.post('/recheck/version', authMiddleware, requirePermission(P.CAN_EXECUTE_SURVEY_REPAIRS), async (req, res, next) => {
+router.post('/recheck/version', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_EXECUTE_SURVEY_REPAIRS), async (req, res, next) => {
   try {
     const dryRun = req.body?.dryRun !== false;
     res.json(await surveyHealthService.recheckVersion({ dryRun }));
@@ -64,7 +64,7 @@ router.post('/recheck/version', authMiddleware, requirePermission(P.CAN_EXECUTE_
   }
 });
 
-router.post('/recheck/answers', authMiddleware, requirePermission(P.CAN_EXECUTE_SURVEY_REPAIRS), async (req, res, next) => {
+router.post('/recheck/answers', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_EXECUTE_SURVEY_REPAIRS), async (req, res, next) => {
   try {
     const dryRun = req.body?.dryRun !== false;
     res.json(await surveyHealthService.recheckAnswers({ dryRun }));

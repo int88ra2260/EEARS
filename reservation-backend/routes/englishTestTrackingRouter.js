@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware, adminOrExecutiveMiddleware } = require('../middlewares/auth');
+const { authMiddleware, englishTestDomainMiddleware } = require('../middlewares/auth');
 const { legacyDeprecationHeaders } = require('../middlewares/legacyDeprecation');
 const config = require('../config/englishTestTracking');
 const {
@@ -33,7 +33,7 @@ if (config.enabled) {
   }
   router.use(authMiddleware);
   // Domain 管理權限：admin 或 executive（學習歷程模組非 system-admin only）
-  router.use(adminOrExecutiveMiddleware);
+  router.use(englishTestDomainMiddleware);
   router.use(markDeprecatedEnglishTracking);
 
   router.get('/semesters', listSemesters);

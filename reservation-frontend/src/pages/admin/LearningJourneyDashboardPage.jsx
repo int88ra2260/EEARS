@@ -1,47 +1,98 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { P } from '../../constants/permissions';
+import { buildAccessProfile, hasAnyPermission } from '../../utils/accessControl';
+import { getCurrentSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
 import B2KpiSection from '../../components/learningJourneyV3/B2KpiSection';
 import BreakdownTabs from '../../components/learningJourneyV3/BreakdownTabs';
 import BreakdownTable from '../../components/learningJourneyV3/BreakdownTable';
 import StudentTable from '../../components/learningJourneyV3/StudentTable';
+import LearningJourneyAnalyticsPanel from '../../components/learningJourneyV3/LearningJourneyAnalyticsPanel';
+import StudentFilters, { DEFAULT_STUDENT_FILTERS } from '../../components/learningJourneyV3/StudentFilters';
 import {
   getLearningJourneyV3B2Report,
   getLearningJourneyV3Breakdown,
   getLearningJourneyV3Students,
 } from '../../services/learningJourneyV3Api';
 
-const RECENT_KEY = 'learning_journey_v3_recent_semesters';
+const DASHBOARD_SEMESTER_OPTIONS = SEMESTER_OPTIONS.filter((o) => o.value);
+const DEFAULT_SEMESTER = getCurrentSemester() || DASHBOARD_SEMESTER_OPTIONS[0]?.value || '114-2';
+const STUDENT_PAGE_LIMIT = 20;
+const STUDENT_QUERY_KEYS = [
+  'semester',
+  'page',
+  'keyword',
+  'grade',
+  'department',
+  'b2Skill',
+  'sortBy',
+  'sortDirection',
+  'limit'
+];
 
-function parseJwtPayload(token) {
-  try {
-    if (!token) return null;
-    const parts = String(token).split('.');
-    if (parts.length < 2) return null;
-    const raw = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const json = decodeURIComponent(
-      atob(raw)
-        .split('')
-        .map((c) => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`)
-        .join('')
-    );
-    return JSON.parse(json);
-  } catch (_) {
-    return null;
-  }
+function parsePositiveInt(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const i = Math.floor(n);
+  return i > 0 ? i : fallback;
 }
 
-function uniquePush(list, value) {
-  return [value, ...list.filter((v) => v !== value)].slice(0, 12);
+function filtersFromSearch(searchParams) {
+  return {
+    ...DEFAULT_STUDENT_FILTERS,
+    keyword: searchParams.get('keyword') || '',
+    grade: searchParams.get('grade') || '',
+    department: searchParams.get('department') || '',
+    b2Skill: searchParams.get('b2Skill') || '',
+    sortBy: searchParams.get('sortBy') || DEFAULT_STUDENT_FILTERS.sortBy,
+    sortOrder: searchParams.get('sortDirection') || searchParams.get('sortOrder') || DEFAULT_STUDENT_FILTERS.sortOrder
+  };
+}
+
+function pageFromSearch(searchParams) {
+  return parsePositiveInt(searchParams.get('page'), 1);
+}
+
+function limitFromSearch(searchParams) {
+  return parsePositiveInt(searchParams.get('limit'), STUDENT_PAGE_LIMIT);
+}
+
+function studentQueryFromSearch(searchText, fallbackSemesterId) {
+  const params = new URLSearchParams(searchText || '');
+  const page = pageFromSearch(params);
+  const limit = limitFromSearch(params);
+  const filters = filtersFromSearch(params);
+  return {
+    semesterId: (params.get('semester') || fallbackSemesterId || '').trim(),
+    page,
+    limit,
+    offset: (page - 1) * limit,
+    keyword: filters.keyword,
+    grade: filters.grade,
+    department: filters.department,
+    b2Skill: filters.b2Skill,
+    sortBy: filters.sortBy,
+    sortOrder: filters.sortOrder
+  };
 }
 
 export default function LearningJourneyDashboardPage() {
   const token = localStorage.getItem('token') || '';
-  const userRole = (localStorage.getItem('userRole') || '').toLowerCase();
-  const tokenPayload = parseJwtPayload(token) || {};
-  const teacherLevel = String(tokenPayload.teacherLevel || '').toLowerCase();
-  const teacherView = userRole === 'teacher' && teacherLevel !== 'executive';
-  const [semesterId, setSemesterId] = useState('');
-  const [recentSemesters, setRecentSemesters] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchText = searchParams.toString();
+  const querySemester = (searchParams.get('semester') || '').trim();
+  const queryPage = pageFromSearch(searchParams);
+  const queryLimit = limitFromSearch(searchParams);
+  const queryOffset = (queryPage - 1) * queryLimit;
+  const accessProfile = useMemo(() => buildAccessProfile(token), [token]);
+  const canViewLj = hasAnyPermission(accessProfile, [
+    P.CAN_VIEW_ENGLISH_TEST_TRACKING,
+    P.CAN_MANAGE_ENGLISH_TEST_TRACKING
+  ]);
+  const teacherView = accessProfile.isTeacher && !accessProfile.isExecutive;
+  const [semesterId, setSemesterId] = useState(() => querySemester || DEFAULT_SEMESTER);
   const [activeBreakdown, setActiveBreakdown] = useState('grade');
+  const initialSemesterSynced = useRef(false);
 
   const [kpiLoading, setKpiLoading] = useState(false);
   const [kpiError, setKpiError] = useState('');
@@ -50,21 +101,22 @@ export default function LearningJourneyDashboardPage() {
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsError, setStudentsError] = useState('');
   const [students, setStudents] = useState([]);
+  const [studentFilters, setStudentFilters] = useState(() => filtersFromSearch(searchParams));
+  const [studentsPagination, setStudentsPagination] = useState({
+    limit: queryLimit,
+    offset: queryOffset,
+    total: 0,
+    returned: 0
+  });
+  const [studentFilterOptions, setStudentFilterOptions] = useState({ departments: [], grades: [] });
+  const [studentsReloadToken, setStudentsReloadToken] = useState(0);
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
   const [breakdownRows, setBreakdownRows] = useState([]);
-
-  useEffect(() => {
-    try {
-      const fromStorage = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
-      const list = Array.isArray(fromStorage) ? fromStorage.filter(Boolean) : [];
-      setRecentSemesters(list);
-      if (list.length > 0) setSemesterId(list[0]);
-    } catch (_) {
-      setRecentSemesters([]);
-    }
-  }, []);
-
+  const studentQuery = useMemo(
+    () => studentQueryFromSearch(searchText, semesterId),
+    [searchText, semesterId]
+  );
   const normalizedBreakdownRows = useMemo(
     () =>
       (breakdownRows || []).map((row) => ({
@@ -76,22 +128,34 @@ export default function LearningJourneyDashboardPage() {
     [breakdownRows, activeBreakdown]
   );
 
-  const saveRecent = (id) => {
-    const next = uniquePush(recentSemesters, id);
-    setRecentSemesters(next);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  const updateStudentQuery = useCallback((patch = {}, { resetPage = false } = {}) => {
+    const next = new URLSearchParams(searchParams);
+    STUDENT_QUERY_KEYS.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(patch, key)) {
+        const value = patch[key];
+        if (value === undefined || value === null || String(value).trim() === '') {
+          next.delete(key);
+        } else {
+          next.set(key, String(value).trim());
+        }
+      }
+    });
+    if (resetPage) {
+      next.delete('page');
+    }
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const updateDashboardSemester = (nextValue) => {
+    setSemesterId(nextValue);
+    updateStudentQuery({ semester: nextValue }, { resetPage: true });
   };
 
-  const loadData = async () => {
-    const sem = String(semesterId || '').trim();
-    if (!sem) return;
-    saveRecent(sem);
-
+  const loadB2Report = useCallback(async (semesterOverride) => {
+    const sem = String((semesterOverride ?? semesterId) || '').trim();
+    if (!sem || !token) return;
     setKpiLoading(true);
     setKpiError('');
-    setStudentsLoading(true);
-    setStudentsError('');
-
     try {
       const data = await getLearningJourneyV3B2Report(token, sem);
       setB2Report(data || null);
@@ -101,29 +165,117 @@ export default function LearningJourneyDashboardPage() {
     } finally {
       setKpiLoading(false);
     }
+  }, [token, semesterId]);
 
-    try {
-      const data = await getLearningJourneyV3Students(token, sem, { limit: 200, offset: 0 });
-      setStudents(Array.isArray(data?.items) ? data.items : []);
-    } catch (err) {
-      setStudents([]);
-      setStudentsError(err.message || '讀取學生清單失敗');
-    } finally {
-      setStudentsLoading(false);
+  useEffect(() => {
+    if (initialSemesterSynced.current) return;
+    initialSemesterSynced.current = true;
+    if (!querySemester) {
+      updateStudentQuery({ semester: DEFAULT_SEMESTER }, { resetPage: true });
     }
+  }, [querySemester, updateStudentQuery]);
 
-    setBreakdownLoading(true);
-    setBreakdownError('');
-    try {
-      const data = await getLearningJourneyV3Breakdown(token, sem, activeBreakdown);
-      setBreakdownRows(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setBreakdownRows([]);
-      setBreakdownError(err.message || '讀取 Breakdown 失敗');
-    } finally {
-      setBreakdownLoading(false);
+  useEffect(() => {
+    const sem = String(semesterId || '').trim();
+    if (!sem) return;
+    loadB2Report(sem);
+    setStudentsReloadToken((v) => v + 1);
+  }, [semesterId, loadB2Report]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchText);
+    const nextFilters = filtersFromSearch(params);
+    const nextSemester = (params.get('semester') || '').trim();
+    const rawPage = params.get('page');
+    if (rawPage && pageFromSearch(params) === 1 && rawPage !== '1') {
+      const next = new URLSearchParams(searchText);
+      next.delete('page');
+      setSearchParams(next, { replace: true });
+      return;
     }
-  };
+    setStudentFilters(nextFilters);
+    setStudentsPagination((prev) => ({
+      ...prev,
+      limit: studentQuery.limit,
+      offset: studentQuery.offset
+    }));
+    if (nextSemester) {
+      setSemesterId(nextSemester);
+    }
+  }, [searchText, setSearchParams, studentQuery.limit, studentQuery.offset]);
+
+  useEffect(() => {
+    const nextKeyword = String(studentFilters.keyword || '').trim();
+    if (nextKeyword === studentQuery.keyword) return undefined;
+    const timer = setTimeout(() => {
+      updateStudentQuery({ keyword: nextKeyword }, { resetPage: true });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [studentFilters.keyword, studentQuery.keyword, updateStudentQuery]);
+
+  useEffect(() => {
+    const sem = String(studentQuery.semesterId || '').trim();
+    if (!sem) return;
+    const controller = new AbortController();
+    const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    setStudentsLoading(true);
+    setStudentsError('');
+    getLearningJourneyV3Students(token, sem, {
+      keyword: studentQuery.keyword,
+      grade: studentQuery.grade,
+      department: studentQuery.department,
+      b2Skill: studentQuery.b2Skill,
+      sortBy: studentQuery.sortBy,
+      sortOrder: studentQuery.sortOrder,
+      limit: studentQuery.limit,
+      offset: studentQuery.offset
+    }, {
+      signal: controller.signal
+    })
+      .then((data) => {
+        const elapsed = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt;
+        if (typeof console !== 'undefined' && console.debug) {
+          console.debug('[LearningJourneyStudentTable] fetch ms', Math.round(elapsed), {
+            semesterId: sem,
+            page: studentQuery.page,
+            limit: studentQuery.limit,
+            offset: studentQuery.offset,
+            total: data?.pagination?.total
+          });
+        }
+        const nextLimit = Number(data?.pagination?.limit ?? studentQuery.limit);
+        const nextTotal = Number(data?.pagination?.total ?? 0);
+        const nextTotalPages = Math.max(1, Math.ceil(nextTotal / Math.max(nextLimit, 1)));
+        if (nextTotal > 0 && studentQuery.page > nextTotalPages) {
+          updateStudentQuery({ page: nextTotalPages });
+          return;
+        }
+        setStudents(Array.isArray(data?.items) ? data.items : []);
+        setStudentsPagination((prev) => ({
+          limit: nextLimit,
+          offset: Number(data?.pagination?.offset ?? prev.offset),
+          total: nextTotal,
+          returned: Number(data?.pagination?.returned ?? 0)
+        }));
+        setStudentFilterOptions({
+          departments: Array.isArray(data?.filters?.departments) ? data.filters.departments : [],
+          grades: Array.isArray(data?.filters?.grades) ? data.filters.grades : []
+        });
+      })
+      .catch((err) => {
+        if (err?.name === 'AbortError') return;
+        setStudentsError(err.message || '讀取學生清單失敗');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setStudentsLoading(false);
+      });
+    return () => controller.abort();
+  }, [
+    token,
+    studentsReloadToken,
+    studentQuery,
+    updateStudentQuery
+  ]);
 
   useEffect(() => {
     const sem = String(semesterId || '').trim();
@@ -139,6 +291,14 @@ export default function LearningJourneyDashboardPage() {
       .finally(() => setBreakdownLoading(false));
   }, [token, semesterId, activeBreakdown]);
 
+  if (!canViewLj) {
+    return (
+      <div className="container-fluid py-3">
+        <div className="alert alert-warning mb-0">您沒有檢視英語學習歷程的權限。</div>
+      </div>
+    );
+  }
+
   return (
     <div className="container-fluid py-3">
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -149,36 +309,32 @@ export default function LearningJourneyDashboardPage() {
       </div>
 
       <div className="card mb-3">
-        <div className="card-body">
-          <div className="row g-2 align-items-end">
-            <div className="col-md-4">
-              <label className="form-label small mb-1">Semester</label>
-              <input
-                list="lj-v3-semesters"
-                className="form-control"
-                value={semesterId}
-                onChange={(e) => setSemesterId(e.target.value)}
-                placeholder="例如 114-1"
-              />
-              <datalist id="lj-v3-semesters">
-                {recentSemesters.map((id) => (
-                  <option value={id} key={id} />
-                ))}
-              </datalist>
-            </div>
-            <div className="col-md-2">
-              <button type="button" className="btn btn-primary w-100" onClick={loadData} disabled={!semesterId || kpiLoading || studentsLoading}>
-                載入 Dashboard
-              </button>
-            </div>
+        <div className="card-header fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <span>B2 KPI（四技能）</span>
+          <div className="d-flex align-items-center gap-2">
+            <label htmlFor="lj-dashboard-semester" className="small text-muted mb-0">學期</label>
+            <select
+              id="lj-dashboard-semester"
+              className="form-select form-select-sm"
+              style={{ width: '9rem' }}
+              value={semesterId}
+              onChange={(e) => updateDashboardSemester(e.target.value)}
+            >
+              {DASHBOARD_SEMESTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
+        </div>
+        <div className="card-body">
+          <B2KpiSection loading={kpiLoading} report={b2Report} error={kpiError} />
         </div>
       </div>
 
       <div className="card mb-3">
-        <div className="card-header fw-semibold">B2 KPI（四技能）</div>
+        <div className="card-header fw-semibold">成效分析摘要</div>
         <div className="card-body">
-          <B2KpiSection loading={kpiLoading} report={b2Report} error={kpiError} />
+          <LearningJourneyAnalyticsPanel token={token} semesterId={semesterId} />
         </div>
       </div>
 
@@ -199,11 +355,51 @@ export default function LearningJourneyDashboardPage() {
       <div className="card">
         <div className="card-header fw-semibold">Student Table</div>
         <div className="card-body">
+          <StudentFilters
+            value={studentFilters}
+            grades={studentFilterOptions.grades}
+            departments={studentFilterOptions.departments}
+            loading={studentsLoading}
+            onChange={(next, changedKey) => {
+              setStudentFilters(next);
+              if (changedKey === 'keyword') return;
+              updateStudentQuery({
+                keyword: next.keyword,
+                grade: next.grade,
+                department: next.department,
+                b2Skill: next.b2Skill,
+                sortBy: next.sortBy,
+                sortDirection: next.sortOrder
+              }, { resetPage: true });
+            }}
+            onKeywordCommit={(keyword) => {
+              const next = { ...studentFilters, keyword };
+              setStudentFilters(next);
+              updateStudentQuery({ keyword }, { resetPage: true });
+            }}
+            onReset={() => {
+              setStudentFilters(DEFAULT_STUDENT_FILTERS);
+              updateStudentQuery({
+                keyword: '',
+                grade: '',
+                department: '',
+                b2Skill: '',
+                sortBy: '',
+                sortDirection: '',
+                page: ''
+              });
+            }}
+          />
           <StudentTable
             loading={studentsLoading}
             error={studentsError}
             students={students}
             semesterId={semesterId}
+            pagination={studentsPagination}
+            onPageChange={(nextOffset) => {
+              const nextPage = Math.floor(Math.max(0, nextOffset) / Math.max(studentsPagination.limit, 1)) + 1;
+              updateStudentQuery({ page: nextPage });
+            }}
           />
         </div>
       </div>

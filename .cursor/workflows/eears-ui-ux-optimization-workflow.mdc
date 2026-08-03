@@ -1,0 +1,65 @@
+---
+description: EEARS UI/UX 優化工作流程（藍白風格、可及性、手機版一致性與業務警示）
+alwaysApply: false
+---
+
+# eears-ui-ux-optimization-workflow（UI/UX 優化）
+
+## 1) 觸發時機
+
+- 改善桌機/後台可用性、表單/Modal 體驗
+- 手機版顯示與操作改進（FullCalendar、modal 導向）
+- 調整 loading/error/empty state
+
+## 2) 分析步驟
+
+1. 範圍定位
+   - 是哪個頁面/元件？是否共用元件？
+2. 可及性與業務警示風險
+   - 是否可能移除/弱化警示：黑名單、未填問卷、截止、名額已滿、重複預約？
+3. 手機版影響
+   - 是否需要檢查桌機與手機顯示差異（FullCalendar）
+
+## 3) 修改步驟
+
+1. 使用既有設計系統變數（`design-system.css`）
+2. 只做必要重構
+3. Modal/表單錯誤處理保持既有語意
+4. 移動式顯示遵守規則：
+   - 手機版保留月曆模式
+   - 卡片可簡化但狀態提示不可移除
+   - 點擊後以 modal 顯示完整資訊
+
+## 4) 測試步驟
+
+1. 前端：
+   - `npm test -- --watchAll=false`
+   - `npm run lint`
+   - `npm run build`
+2. 手動：
+   - 手機寬度下檢查至少一個「預約入口」與「錯誤/警示」狀態
+
+## 5) Code review 步驟
+
+- 是否保留關鍵業務提示？
+- 是否新增了不可及性（鍵盤/aria）問題？
+- 是否破壞手機版 FullCalendar 操作？
+- 是否有直接硬編 API host 或移除既有 error handling？
+
+## 6) 最終回報格式
+
+```text
+【UI 變更摘要】
+- ...
+
+【業務警示一致性】
+- 黑名單：pass/fail
+- 未填問卷：pass/fail
+- 截止：pass/fail
+- 名額/重複：pass/fail
+
+【測試與驗證】
+- 前端：test/lint/build pass/fail
+- 手動：手機/桌機 pass/fail
+```
+

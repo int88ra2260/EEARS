@@ -16,6 +16,7 @@ const BESTEP_EMAIL_TEMPLATES = [
   'englishTestRegistrationFinalSuccess',
   'englishTestRegistrationFinalFailure',
   'englishTestRegistrationGroupPromo',
+  'englishTestEmailVerification',
   'learningPartnerInvitation',
   'learningPartnerInvitationResend',
   'learningPartnerAllApproved',
@@ -109,8 +110,6 @@ const getActivitySpecificContent = (eventType, startTime) => {
         chineseDescription: 'English Table',
         englishDescription: 'English Table',
         checkInTime: checkInTime,
-        chineseLocation: '中山大學圖資十樓',
-        englishLocation: '10th Floor, Library & Information Building, National Sun Yat-sen University',
         chineseReminder: `提醒您：逾時參加(12:20以後)等同遲到，遲到視為違規行為;違規達兩次以上，系統會自動將學生列入黑名單，敬請留意。`,
         englishReminder: `Reminder: Attending after 12:20 will be regarded as being late, and lateness will be treated as a violation. Students with two or more violations in the same semester will automatically be placed on the blacklist by the system. Please take note.`,
         //chineseAdditionalInfo: '請準備好您的英語能力，與國際學生進行輕鬆的英語對話交流！',
@@ -122,8 +121,6 @@ const getActivitySpecificContent = (eventType, startTime) => {
         chineseDescription: 'Job Talk',
         englishDescription: 'Job Talk',
         checkInTime: checkInTime,
-        chineseLocation: '中山貨櫃創業基地1樓 角落討論室',
-        englishLocation: 'NSYSU Startup Quarter',
         chineseReminder: `提醒您：逾時參加(活動開始5分鐘後)等同遲到，遲到視為違規行為;違規達兩次以上，系統會自動將學生列入黑名單，敬請留意。`,
         englishReminder: `Reminder: Reminder: 5 minutes after the start of any activities will be regarded as being late, and lateness will be treated as a violatiEMI Teaching Excellence.`,
         //chineseAdditionalInfo: '建議您準備相關問題，與講者進行互動交流，獲得寶貴的職涯建議！',
@@ -135,8 +132,6 @@ const getActivitySpecificContent = (eventType, startTime) => {
         chineseDescription: 'English Club',
         englishDescription: 'English Club',
         checkInTime: checkInTime,
-        chineseLocation: '中山大學綜合大樓 - GE3013教室',
-        englishLocation: 'GE3013, General Education Building, NSYSU',
         chineseReminder: `提醒您：逾時參加(活動開始5分鐘後)等同遲到，遲到視為違規行為;違規達兩次以上，系統會自動將學生列入黑名單，敬請留意。`,
         englishReminder: `Reminder: Reminder: 5 minutes after the start of any activities will be regarded as being late, and lateness will be treated as a violatiEMI Teaching Excellence.`,
         //chineseAdditionalInfo: '歡迎參與我們的英語俱樂部活動，享受輕鬆愉快的英語學習環境！',
@@ -148,8 +143,6 @@ const getActivitySpecificContent = (eventType, startTime) => {
         chineseDescription: 'International Forum',
         englishDescription: 'International Forum',
         checkInTime: checkInTime,
-        chineseLocation: '中山大學綜合大樓 - GE3013教室',
-        englishLocation: 'GE3013, General Education Building, NSYSU',
         chineseReminder: `提醒您：逾時參加(活動開始5分鐘後)等同遲到，遲到視為違規行為;違規達兩次以上，系統會自動將學生列入黑名單，敬請留意。`,
         englishReminder: `Reminder: Reminder: 5 minutes after the start of any activities will be regarded as being late, and lateness will be treated as a violatiEMI Teaching Excellence.`,
         //chineseAdditionalInfo: '這是一個高層次的國際議題討論平台，請準備好您的觀點與國際學生進行深度交流！',
@@ -161,8 +154,6 @@ const getActivitySpecificContent = (eventType, startTime) => {
         chineseDescription: '活動',
         englishDescription: 'Activity',
         checkInTime: checkInTime,
-        chineseLocation: '中山大學圖資十樓',
-        englishLocation: '10th Floor, Library & Information Building, National Sun Yat-sen University',
         chineseReminder: `提醒您：逾時參加(活動開始5分鐘後)等同遲到，遲到視為違規行為;違規達兩次以上，系統會自動將學生列入黑名單，敬請留意。`,
         englishReminder: `Reminder: Reminder: 5 minutes after the start of any activities will be regarded as being late, and lateness will be treated as a violatiEMI Teaching Excellence.`,
         chineseAdditionalInfo: '感謝您的參與！',
@@ -171,11 +162,20 @@ const getActivitySpecificContent = (eventType, startTime) => {
   }
 };
 
+const getEventLocationForEmail = (data = {}) => {
+  const location = typeof data.location === 'string' ? data.location.trim() : '';
+  return {
+    zh: location || '地點待公告',
+    en: location || 'To be announced',
+  };
+};
+
 // 郵件模板
 const emailTemplates = {
   // 預約成功通知
   reservationSuccess: (data) => {
     const activityInfo = getActivitySpecificContent(data.eventType, data.startTime);
+    const eventLocation = getEventLocationForEmail(data);
     return {
       from: process.env.GMAIL_USER || "siwansalon@gmail.com", // 活動預約郵件帳號
       to: data.studentEmail,
@@ -186,7 +186,7 @@ const emailTemplates = {
 已成功預約${activityInfo.chineseDescription}：「${data.eventName}」
 日期：${data.date}
 時間：${data.startTime} - ${data.endTime}
-地點：${activityInfo.chineseLocation}
+地點：${eventLocation.zh}
 
 【重要通知】活動規定修改：114-1學期起不再提供活動補蓋章服務，請同學們務必準時參加活動。
 
@@ -211,7 +211,7 @@ Your reservation for ${activityInfo.englishDescription} has been confirmed:
 Activity: 「${data.eventName}」
 Date: ${data.date}
 Time: ${data.startTime} - ${data.endTime}
-Location: ${activityInfo.englishLocation}
+Location: ${eventLocation.en}
 
 [Important Notice] Policy Update: Starting from Semester 114-1, make-up stamping services for activities will no longer be provided. Please ensure you attend activities on time.
 
@@ -236,6 +236,7 @@ Wishing you a wonderful day!
   // 預約取消通知
   reservationCancellation: (data) => {
   const activityInfo = getActivitySpecificContent(data.eventType, data.startTime);
+  const eventLocation = getEventLocationForEmail(data);
   return {
     from: process.env.GMAIL_USER || "siwansalon@gmail.com", // 活動預約郵件帳號
     to: data.studentEmail,
@@ -247,7 +248,7 @@ Wishing you a wonderful day!
 活動名稱：「${data.eventName}」
 日期：${data.date}
 時間：${data.startTime} - ${data.endTime}
-地點：${activityInfo.chineseLocation}
+地點：${eventLocation.zh}
 
 感謝您對本活動的支持，期待未來再次參與。
 
@@ -265,7 +266,7 @@ You have successfully canceled your reservation for the following ${activityInfo
 Activity: 「${data.eventName}」
 Date: ${data.date}
 Time: ${data.startTime} - ${data.endTime}
-Location: ${activityInfo.englishLocation}
+Location: ${eventLocation.en}
 
 Thank you for your interest in this activity. We hope you will participate in our future events.
 
@@ -279,6 +280,100 @@ Center for EMI Teaching Excellence
   };
 },
 
+  waitlistJoined: (data) => {
+    const activityInfo = getActivitySpecificContent(data.eventType, data.startTime);
+    const eventLocation = getEventLocationForEmail(data);
+    const pos = data.position != null ? String(data.position) : '—';
+    return {
+      from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
+      to: data.studentEmail,
+      subject: `${activityInfo.subjectPrefix} 候補登記成功通知`,
+      text: `
+親愛的 ${data.studentName} (${data.studentId}) 您好，
+
+您已加入候補名單，活動：「${data.eventName}」
+日期：${data.date}
+時間：${data.startTime} - ${data.endTime}
+地點：${eventLocation.zh}
+
+關於候補轉正說明：
+
+   自動遞補： 若有名額釋出，系統將按候補順序自動轉為正式預約，並發信通知。
+
+   確認時限： 請於活動前 2 小時留意信箱；若未收到通知信，則視為預約未成功。
+
+   注意事項： 候補名單僅為系統內遞補依據，與活動現場的參與（入場）資格無關。
+
+若有任何問題請聯繫:
+全英語卓越教學中心 (Center for EMI Teaching Excellence)
+Email: emicenter@mail.nsysu.edu.tw
+電話: (07)5252000#5808
+
+Dear ${data.studentName} (${data.studentId}),
+
+You have been added to the waitlist for: 「${data.eventName}」
+Date: ${data.date}
+Time: ${data.startTime} - ${data.endTime}
+Location: ${eventLocation.en}
+
+   Auto-Promotion: Spots are filled automatically from the waitlist. You will receive an email if you are promoted.
+
+   Final Confirmation: Please check your inbox up to 2 hours before the event starts. If you have not received a confirmation email by then, your booking was unsuccessful.
+
+   Note: The waitlist serves solely as the basis for system substitutions and is unrelated to participation (entry) eligibility at the event venue.
+
+Center for EMI Teaching Excellence
+Email: emicenter@mail.nsysu.edu.tw
+Phone: (07) 525-2000 ext. 5808
+`,
+    };
+  },
+
+  waitlistPromoted: (data) => {
+    const activityInfo = getActivitySpecificContent(data.eventType, data.startTime);
+    const eventLocation = getEventLocationForEmail(data);
+    const locZh = eventLocation.zh;
+    const locEn = eventLocation.en;
+    return {
+      from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
+      to: data.studentEmail,
+      subject: `${activityInfo.subjectPrefix} 候補轉正／正式預約通知`,
+      text: `
+親愛的 ${data.studentName} (${data.studentId}) 您好，
+
+您已由候補轉為正式預約，活動：「${data.eventName}」
+日期：${data.date}
+時間：${data.startTime} - ${data.endTime}
+地點：${locZh}
+
+【取消預約】須於活動開始前至少 2 小時完成；取消時需要您預約信上的驗證碼。
+
+【取消預約驗證碼】
+驗證碼：${data.cancellationCode || 'N/A'}
+
+若有任何問題請聯繫:
+全英語卓越教學中心 (Center for EMI Teaching Excellence)
+Email: emicenter@mail.nsysu.edu.tw
+電話: (07)5252000#5808
+
+Dear ${data.studentName} (${data.studentId}),
+
+Your waitlist spot has been promoted to a confirmed reservation for: 「${data.eventName}」
+Date: ${data.date}
+Time: ${data.startTime} - ${data.endTime}
+Location: ${locEn}
+
+[Cancellation] You must cancel at least 2 hours before the event start time, using the verification code below.
+
+[Verification code for cancellation]
+Code: ${data.cancellationCode || 'N/A'}
+
+Center for EMI Teaching Excellence
+Email: emicenter@mail.nsysu.edu.tw
+Phone: (07) 525-2000 ext. 5808
+`,
+    };
+  },
 
   // 黑名單通知
   blacklistNotification: (data) => {
@@ -318,6 +413,42 @@ Please make new reservations only after the suspension period has ended. If you 
 📞 Phone: (07) 525-2000 ext. 5808
 
 Thank you for your understanding and cooperation.
+`
+    };
+  },
+
+  // 培力英檢報名信箱驗證碼
+  englishTestEmailVerification: (data) => {
+    const minutes = data.expiresInMinutes || 10;
+    const code = data.code || '------';
+    return {
+      to: data.email,
+      subject: '【培力英檢報名】信箱驗證碼 / BESTEP Email Verification Code',
+      text: `
+您好，
+
+您正在進行培力英檢報名信箱驗證。請於報名表單輸入以下驗證碼：
+
+驗證碼：${code}
+有效時間：${minutes} 分鐘
+
+若您未申請此驗證碼，請忽略本信件。請勿將驗證碼轉告知他人。
+
+全英語卓越教學中心 敬上
+📧 emicenter@mail.nsysu.edu.tw
+
+---
+
+Hello,
+
+You are verifying your email for BESTEP registration. Please enter this code on the registration form:
+
+Code: ${code}
+Valid for: ${minutes} minutes
+
+If you did not request this code, please ignore this email.
+
+Center for EMI Teaching Excellence
 `
     };
   },

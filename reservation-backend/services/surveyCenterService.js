@@ -4,20 +4,39 @@ const { sequelize, Survey, SurveyVersion, SurveyRule, SurveyModuleResponse, Surv
 const surveyModuleService = require('./surveyModuleService');
 const { simulateSurveyRuleResolution } = require('./surveyRuleEvaluationService');
 const { normalizeSurveyResponseAnswers } = require('./surveyResponseNormalizationService');
+const {
+  maskSurveyResponseListForAdminApi,
+  maskSurveyResponseDetailForAdminApi,
+} = require('../utils/surveyResponseApiMask');
+const { mergeWhereWithScope } = require('./accessControl/surveyScopeGuard');
+const { isValidSemester } = require('../utils/semester');
+
+const ACTIVITY_TYPE_ALIASES = {
+  ET: 'English Table',
+  EC: 'English Club',
+};
+
+const LIST_PAGE_SIZE_MAX = 200;
+const EXPORT_PAGE_SIZE_MAX = 5000;
 
 function normalizePagination(query = {}) {
   const page = Math.max(Number(query.page) || 1, 1);
-  const pageSize = Math.min(Math.max(Number(query.pageSize) || 20, 1), 200);
+  const requested = Math.max(Number(query.pageSize) || 20, 1);
+  const cap = query.__forExport
+    ? Math.min(Math.max(Number(query.maxRows) || EXPORT_PAGE_SIZE_MAX, 1), EXPORT_PAGE_SIZE_MAX)
+    : LIST_PAGE_SIZE_MAX;
+  const pageSize = Math.min(requested, cap);
   return { page, pageSize, offset: (page - 1) * pageSize };
 }
 
 async function listSurveyCenter(query = {}) {
   const { page, pageSize, offset } = normalizePagination(query);
   const where = {};
+  if (query.id) where.id = Number(query.id);
   if (query.status) where.status = query.status;
   if (query.activityType) where.activityType = query.activityType;
   const { rows, count } = await Survey.findAndCountAll({
-    where,
+    where: mergeWhereWithScope(where, query.__scopeWhere),
     order: [['updatedAt', 'DESC']],
     limit: pageSize,
     offset,
@@ -50,7 +69,7 @@ async function listSurveyRules(query = {}) {
   const { sortBy, sortOrder } = parseSort(query, ['priority', 'updatedAt', 'startAt', 'endAt', 'id'], 'priority', 'ASC');
 
   const { rows, count } = await SurveyRule.findAndCountAll({
-    where,
+    where: mergeWhereWithScope(where, query.__scopeWhere),
     include: [
       { model: Survey, attributes: ['id', 'name', 'title', 'surveyKey'], required: false },
       { model: Semester, attributes: ['id', 'code', 'name'], required: false },
@@ -61,7 +80,7 @@ async function listSurveyRules(query = {}) {
     offset,
   });
 
-  const enabledRows = await SurveyRule.findAll({ where: { ...where, isEnabled: true }, order: [['priority', 'ASC'], ['updatedAt', 'DESC']] });
+  const enabledRows = await SurveyRule.findAll({ where: mergeWhereWithScope({ ...where, isEnabled: true }, query.__scopeWhere), order: [['priority', 'ASC'], ['updatedAt', 'DESC']] });
   const activeByScope = new Map();
   const now = new Date();
   enabledRows.forEach((r) => {
@@ -146,22 +165,46 @@ async function getEffectiveRule({ semesterId, activityType, eventId }) {
   return sim.selectedRule || null;
 }
 
-async function listSurveyResponses(query = {}) {
-  const { page, pageSize, offset } = normalizePagination(query);
+async function applyResponseListFilters(query) {
   const where = {};
-  const eqFields = [
-    'semesterId',
-    'surveyId',
-    'surveyVersionId',
-    'activityType',
-    'eventId',
-    'studentId',
-    'submissionStatus',
-  ];
+  const andParts = [];
+  const eqFields = ['surveyId', 'surveyVersionId', 'eventId', 'studentId', 'submissionStatus'];
   eqFields.forEach((f) => {
     if (query[f] != null && query[f] !== '') where[f] = query[f];
   });
+
+  if (query.semesterId != null && query.semesterId !== '') {
+    const sem = await Semester.findByPk(Number(query.semesterId));
+    if (sem?.code) {
+      andParts.push({ [Op.or]: [{ semesterId: Number(query.semesterId) }, { semester: sem.code }] });
+    } else {
+      where.semesterId = Number(query.semesterId);
+    }
+  } else if (query.semester && isValidSemester(query.semester)) {
+    where.semester = query.semester;
+  }
+
+  if (query.activityType) {
+    const raw = String(query.activityType).trim();
+    const resolved = ACTIVITY_TYPE_ALIASES[raw] || raw;
+    andParts.push({
+      [Op.or]: [{ activityType: resolved }, { activityType: raw }, { eventType: resolved }],
+    });
+  }
+
+  if (andParts.length) {
+    return { [Op.and]: [...andParts, ...(Object.keys(where).length ? [where] : [])] };
+  }
+  return where;
+}
+
+async function listSurveyResponses(query = {}) {
+  const { page, pageSize, offset } = normalizePagination(query);
+  let where = await applyResponseListFilters(query);
   if (query.studentName) where.studentName = { [Op.like]: `%${query.studentName}%` };
+  if (query.studentEmail && String(query.studentEmail).trim()) {
+    where.studentEmail = { [Op.like]: `%${String(query.studentEmail).trim()}%` };
+  }
   if (query.versionId && !where.surveyVersionId) where.surveyVersionId = query.versionId;
   if (query.startDate || query.endDate || query.from || query.to) {
     where.submittedAt = {};
@@ -176,8 +219,9 @@ async function listSurveyResponses(query = {}) {
     'DESC'
   );
 
+  const scopedWhere = mergeWhereWithScope(where, query.__scopeWhere);
   const { rows, count } = await SurveyModuleResponse.findAndCountAll({
-    where,
+    where: scopedWhere,
     include: [
       { model: Survey, attributes: ['id', 'name', 'title', 'surveyKey'], required: false },
       { model: SurveyVersion, attributes: ['id', 'versionNumber'], required: false },
@@ -205,7 +249,7 @@ async function listSurveyResponses(query = {}) {
       [fn('COUNT', fn('DISTINCT', col('eventId'))), 'distinctEventCount'],
       [fn('COUNT', fn('DISTINCT', col('semesterId'))), 'distinctSemesterCount'],
     ],
-    where,
+    where: scopedWhere,
     raw: true,
   });
   const s = summaryRows[0] || {};
@@ -220,8 +264,11 @@ async function listSurveyResponses(query = {}) {
     distinctSemesterCount: Number(s.distinctSemesterCount || 0),
   };
 
+  const mappedRows = rows.map((r) => ({ ...r.toJSON(), answersCount: answerMap.get(r.id) || 0 }));
+  const rowsOut = query.__forExport ? mappedRows : maskSurveyResponseListForAdminApi(mappedRows);
+
   return {
-    rows: rows.map((r) => ({ ...r.toJSON(), answersCount: answerMap.get(r.id) || 0 })),
+    rows: rowsOut,
     pagination: { page, pageSize, total: count, totalPages: Math.ceil(count / pageSize) },
     summary,
   };
@@ -231,13 +278,13 @@ async function getResponseDetail(id) {
   const response = await SurveyModuleResponse.findByPk(id);
   if (!response) return null;
   const normalized = await normalizeSurveyResponseAnswers(response);
-  return {
-    response,
+  return maskSurveyResponseDetailForAdminApi({
+    response: response.toJSON ? response.toJSON() : response,
     answers: normalized.answers,
     schemaJson: normalized.schemaJson,
     warnings: normalized.warnings,
     dataIntegrity: normalized.dataIntegrity,
-  };
+  });
 }
 
 async function analyticsOverview(query = {}) {
@@ -274,7 +321,7 @@ function buildAnalyticsWhere(query = {}) {
     if (query.startDate) where.submittedAt[Op.gte] = new Date(query.startDate);
     if (query.endDate) where.submittedAt[Op.lte] = new Date(query.endDate);
   }
-  return where;
+  return mergeWhereWithScope(where, query.__scopeWhere);
 }
 
 async function analyticsDistribution(query = {}) {
@@ -401,23 +448,175 @@ async function myStatus({ surveyId, studentId, semesterId }) {
 }
 
 async function listSemesters() {
-  return Semester.findAll({ order: [['startDate', 'DESC']] });
+  let rows = await Semester.findAll({ order: [['startDate', 'DESC']] });
+  if (!rows.length) {
+    const { ensureSemesterRows } = require('./surveyLegacyResponseSyncService');
+    await ensureSemesterRows();
+    rows = await Semester.findAll({ order: [['startDate', 'DESC']] });
+  }
+  return rows;
+}
+
+const EXPORT_ANSWERS_JSON_SKIP = new Set(['__legacyActivityType']);
+const EXPORT_QUESTION_SKIP = new Set([
+  '__legacyActivityType',
+  'studentId',
+  'studentName',
+  'name',
+  'email',
+  'studentEmail',
+]);
+
+function formatAnswerCellValue(value) {
+  if (value == null || value === '') return '';
+  if (Array.isArray(value)) return value.map((x) => String(x)).join(' | ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function flattenAnswersJsonForExport(answersJson) {
+  if (!answersJson || typeof answersJson !== 'object') return {};
+  const out = {};
+  Object.entries(answersJson).forEach(([key, value]) => {
+    if (EXPORT_ANSWERS_JSON_SKIP.has(key)) return;
+    out[key] = formatAnswerCellValue(value);
+  });
+  return out;
+}
+
+function buildAnswerKvForExport(answersJson, answerRows = []) {
+  const kv = {};
+  answerRows.forEach((a) => {
+    kv[a.questionKey] =
+      a.answerText ||
+      formatAnswerCellValue(a.answerJson) ||
+      (a.scoreValue != null ? String(a.scoreValue) : '');
+  });
+  Object.assign(kv, flattenAnswersJsonForExport(answersJson));
+  return kv;
+}
+
+function pickQuestionCells(kv, questionColumns) {
+  const cells = {};
+  questionColumns.forEach((col) => {
+    cells[col.colKey] = kv[col.key] ?? '';
+  });
+  return cells;
+}
+
+function questionExportHeader(q, likertOrdinal) {
+  const label = String(q.label || q.id || '').trim();
+  if (q.type === 'likert' && /^q\d+$/i.test(String(q.id)) && likertOrdinal != null) {
+    return `Q${likertOrdinal} ${label}`;
+  }
+  return label ? `${q.id} ${label}` : String(q.id);
+}
+
+async function buildExportQuestionColumns(query, rows) {
+  const { resolveSurveySchema } = require('./surveyResponseStatsService');
+  const columns = [];
+  const seen = new Set();
+
+  const add = (key, header, type) => {
+    if (!key || seen.has(key) || EXPORT_QUESTION_SKIP.has(key)) return;
+    seen.add(key);
+    columns.push({
+      key,
+      header,
+      type: type || 'text',
+      colKey: `q_${key}`,
+    });
+  };
+
+  const surveyIds = new Set();
+  if (query.surveyId != null && query.surveyId !== '') surveyIds.add(Number(query.surveyId));
+  rows.forEach((r) => {
+    if (r.surveyId) surveyIds.add(Number(r.surveyId));
+  });
+
+  for (const sid of [...surveyIds].sort((a, b) => a - b)) {
+    const surveyRow =
+      rows.find((r) => Number(r.surveyId) === sid)?.Survey ||
+      (await Survey.findByPk(sid).catch(() => null));
+    const schema = await resolveSurveySchema(surveyRow);
+    let likertOrdinal = 0;
+    (schema?.questions || []).forEach((q) => {
+      const isLikert = q.type === 'likert';
+      if (isLikert) likertOrdinal += 1;
+      add(q.id, questionExportHeader(q, isLikert ? likertOrdinal : null), q.type || 'text');
+    });
+  }
+
+  const extras = new Set();
+  rows.forEach((r) => {
+    Object.keys(flattenAnswersJsonForExport(r.answersJson)).forEach((k) => extras.add(k));
+  });
+  [...extras].sort().forEach((k) => {
+    add(k, k, /^q\d+$/i.test(k) ? 'likert' : 'text');
+  });
+
+  return columns;
+}
+
+function getRawAnswerForExport(row, questionKey, answersByResponseId) {
+  const answerRows = answersByResponseId.get(row.id) || [];
+  const fromTable = answerRows.find((a) => a.questionKey === questionKey);
+  if (fromTable) {
+    if (fromTable.scoreValue != null) return fromTable.scoreValue;
+    if (fromTable.answerText != null && fromTable.answerText !== '') return fromTable.answerText;
+    return fromTable.answerJson;
+  }
+  return row.answersJson?.[questionKey];
+}
+
+function computeExportAverageRow(rows, questionColumns, answersByResponseId) {
+  const { parseLikertScore } = require('./surveyResponseStatsService');
+  const cells = {};
+  questionColumns.forEach((col) => {
+    const isLikert = col.type === 'likert' || /^q\d+$/i.test(col.key);
+    if (!isLikert) {
+      cells[col.colKey] = '';
+      return;
+    }
+    let sum = 0;
+    let count = 0;
+    rows.forEach((r) => {
+      const score = parseLikertScore(getRawAnswerForExport(r, col.key, answersByResponseId));
+      if (score != null) {
+        sum += score;
+        count += 1;
+      }
+    });
+    cells[col.colKey] = count ? Number((sum / count).toFixed(2)) : '';
+  });
+  return cells;
 }
 
 async function exportSurveyResponsesXlsx(query, res, actorId) {
-  const list = await listSurveyResponses({ ...query, page: 1, pageSize: Math.min(Number(query.maxRows) || 5000, 5000) });
+  const list = await listSurveyResponses({
+    ...query,
+    page: 1,
+    pageSize: Math.min(Number(query.maxRows) || 5000, 5000),
+    __forExport: true,
+  });
   const rows = list.rows || [];
   const ids = rows.map((r) => r.id);
-  const answers = ids.length ? await SurveyResponseAnswer.findAll({ where: { responseId: { [Op.in]: ids } }, raw: true }) : [];
-  const answerMap = new Map();
-  answers.forEach((a) => {
-    if (!answerMap.has(a.responseId)) answerMap.set(a.responseId, []);
-    answerMap.get(a.responseId).push(a);
+  const answerRows = ids.length
+    ? await SurveyResponseAnswer.findAll({ where: { responseId: { [Op.in]: ids } }, raw: true })
+    : [];
+  const answersByResponseId = new Map();
+  answerRows.forEach((a) => {
+    if (!answersByResponseId.has(a.responseId)) answersByResponseId.set(a.responseId, []);
+    answersByResponseId.get(a.responseId).push(a);
   });
-  const allKeys = Array.from(new Set(answers.map((a) => a.questionKey))).sort();
+
+  const questionColumns = await buildExportQuestionColumns(query, rows);
 
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('survey_responses');
+  wb.creator = 'EEARS';
+  wb.created = new Date();
+
+  const ws = wb.addWorksheet('填答紀錄');
   const fixedCols = [
     { header: 'responseId', key: 'responseId', width: 10 },
     { header: 'semester', key: 'semester', width: 14 },
@@ -427,14 +626,17 @@ async function exportSurveyResponsesXlsx(query, res, actorId) {
     { header: 'eventId', key: 'eventId', width: 10 },
     { header: 'studentId', key: 'studentId', width: 14 },
     { header: 'studentName', key: 'studentName', width: 16 },
+    { header: 'studentEmail', key: 'studentEmail', width: 28 },
     { header: 'status', key: 'status', width: 14 },
     { header: 'submittedAt', key: 'submittedAt', width: 22 },
     { header: 'source', key: 'source', width: 16 },
   ];
-  ws.columns = fixedCols.concat(allKeys.map((k) => ({ header: `Q:${k}`, key: `q_${k}`, width: 25 })));
+  ws.columns = fixedCols.concat(
+    questionColumns.map((col) => ({ header: col.header, key: col.colKey, width: 28 }))
+  );
 
   rows.forEach((r) => {
-    const row = {
+    const base = {
       responseId: r.id,
       semester: r.Semester?.code || r.semester || '',
       survey: r.Survey?.title || r.Survey?.name || '',
@@ -442,19 +644,65 @@ async function exportSurveyResponsesXlsx(query, res, actorId) {
       activityType: r.activityType || '',
       eventId: r.eventId || '',
       studentId: r.studentId || '',
-      studentName: r.studentName || '',
+      studentName: r.studentName || r.answersJson?.name || '',
+      studentEmail: r.studentEmail || r.answersJson?.email || '',
       status: r.submissionStatus || '',
-      submittedAt: r.submittedAt || '',
+      submittedAt: r.submittedAt ? new Date(r.submittedAt).toISOString() : '',
       source: r.source || '',
     };
-    const kv = {};
-    (answerMap.get(r.id) || []).forEach((a) => {
-      kv[`q_${a.questionKey}`] =
-        a.answerText ||
-        (Array.isArray(a.answerJson) ? a.answerJson.join(' | ') : a.answerJson ? JSON.stringify(a.answerJson) : '');
-    });
-    ws.addRow({ ...row, ...kv });
+    const kv = buildAnswerKvForExport(r.answersJson, answersByResponseId.get(r.id) || []);
+    ws.addRow({ ...base, ...pickQuestionCells(kv, questionColumns) });
   });
+
+  if (rows.length > 0 && questionColumns.length > 0) {
+    const avgCells = computeExportAverageRow(rows, questionColumns, answersByResponseId);
+    const avgRow = ws.addRow({
+      responseId: '',
+      semester: '',
+      survey: '',
+      version: '',
+      activityType: '',
+      eventId: '',
+      studentId: '',
+      studentName: '平均',
+      studentEmail: '',
+      status: '',
+      submittedAt: '',
+      source: '',
+      ...avgCells,
+    });
+    avgRow.font = { bold: true };
+  }
+
+  try {
+    const { getResponseBasicStats } = require('./surveyResponseStatsService');
+    const stats = await getResponseBasicStats(query);
+    const summaryWs = wb.addWorksheet('基本統計');
+    summaryWs.columns = [
+      { header: '項目', key: 'item', width: 36 },
+      { header: '數值', key: 'value', width: 48 },
+    ];
+    summaryWs.addRow({ item: '總回應數', value: stats.totalResponses });
+    Object.entries(stats.gradeDistribution || {}).forEach(([grade, count]) => {
+      const pct = stats.gradeDistributionPercent?.[grade];
+      summaryWs.addRow({
+        item: `年級分布：${grade}`,
+        value: pct != null ? `${count}（${pct}%）` : String(count),
+      });
+    });
+    const primary = stats.primary || stats.groups?.[0];
+    if (primary?.overallLikertAverage != null) {
+      summaryWs.addRow({ item: '李克特整體平均', value: primary.overallLikertAverage });
+    }
+    (primary?.questionStats || []).forEach((q, idx) => {
+      summaryWs.addRow({
+        item: `Q${idx + 1} ${q.label}`,
+        value: q.average != null ? `${q.average}（n=${q.count}）` : '—',
+      });
+    });
+  } catch (_) {
+    // 統計 sheet 失敗不阻擋主資料匯出
+  }
 
   await surveyModuleService.writeAudit(
     actorId,
@@ -471,12 +719,122 @@ async function exportSurveyResponsesXlsx(query, res, actorId) {
   res.end();
 }
 
+async function exportSurveyAnalyticsXlsx(query, res, actorId) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'EEARS';
+  wb.created = new Date();
+
+  const filtersWs = wb.addWorksheet('filters');
+  filtersWs.columns = [
+    { header: 'key', key: 'key', width: 24 },
+    { header: 'value', key: 'value', width: 60 },
+  ];
+  Object.entries({
+    semesterId: query.semesterId || '',
+    surveyId: query.surveyId || '',
+    versionId: query.versionId || '',
+    activityType: query.activityType || '',
+    eventId: query.eventId || '',
+    startDate: query.startDate || '',
+    endDate: query.endDate || '',
+  }).forEach(([k, v]) => filtersWs.addRow({ key: k, value: v }));
+
+  const [overview, distribution, trends, comparison, openText] = await Promise.all([
+    analyticsOverview(query),
+    analyticsDistribution(query),
+    analyticsTrends(query),
+    analyticsComparison(query),
+    analyticsOpenTextSummary({ ...query, limit: Math.min(Number(query.limit) || 200, 200) }),
+  ]);
+
+  const surveyHealthService = require('./surveyHealthService');
+  const where = buildAnalyticsWhere(query);
+  const dataQuality = await surveyHealthService.dataQualityForWhere(where).catch(() => null);
+
+  const ows = wb.addWorksheet('overview');
+  ows.columns = [
+    { header: 'metric', key: 'metric', width: 24 },
+    { header: 'value', key: 'value', width: 20 },
+  ];
+  Object.entries(overview || {}).forEach(([k, v]) => ows.addRow({ metric: k, value: v == null ? '' : v }));
+
+  const dws = wb.addWorksheet('distribution');
+  dws.columns = [
+    { header: 'questionKey', key: 'questionKey', width: 32 },
+    { header: 'questionType', key: 'questionType', width: 14 },
+    { header: 'averageScore', key: 'averageScore', width: 14 },
+    { header: 'distribution', key: 'distribution', width: 80 },
+  ];
+  (distribution?.questions || []).forEach((q) => {
+    dws.addRow({
+      questionKey: q.questionKey,
+      questionType: q.questionType,
+      averageScore: q.averageScore != null ? q.averageScore : '',
+      distribution: q.distribution ? JSON.stringify(q.distribution) : '',
+    });
+  });
+
+  const tws = wb.addWorksheet('trends');
+  tws.columns = [
+    { header: 'day', key: 'day', width: 14 },
+    { header: 'count', key: 'count', width: 10 },
+  ];
+  (trends?.rows || []).forEach((r) => tws.addRow(r));
+
+  const cws = wb.addWorksheet('comparison');
+  cws.columns = [
+    { header: 'by', key: 'by', width: 16 },
+    { header: 'key', key: 'key', width: 20 },
+    { header: 'count', key: 'count', width: 10 },
+  ];
+  (comparison?.rows || []).forEach((r) => cws.addRow({ by: comparison.by || '', key: r.key, count: r.count }));
+
+  const otextWs = wb.addWorksheet('open_text');
+  otextWs.columns = [
+    { header: 'responseId', key: 'responseId', width: 12 },
+    { header: 'questionKey', key: 'questionKey', width: 24 },
+    { header: 'answerText', key: 'answerText', width: 80 },
+    { header: 'createdAt', key: 'createdAt', width: 22 },
+  ];
+  (openText?.rows || []).forEach((r) => otextWs.addRow(r));
+
+  const tokenWs = wb.addWorksheet('open_text_tokens');
+  tokenWs.columns = [
+    { header: 'token', key: 'token', width: 24 },
+    { header: 'count', key: 'count', width: 10 },
+  ];
+  (openText?.topTokens || []).forEach((t) => tokenWs.addRow(t));
+
+  const dqWs = wb.addWorksheet('data_quality');
+  dqWs.columns = [
+    { header: 'metric', key: 'metric', width: 32 },
+    { header: 'value', key: 'value', width: 20 },
+  ];
+  Object.entries(dataQuality || {}).forEach(([k, v]) => dqWs.addRow({ metric: k, value: v == null ? '' : v }));
+
+  await surveyModuleService.writeAudit(
+    actorId,
+    'export_analytics_xlsx',
+    'SurveyAnalytics',
+    String(query.surveyId || 'all'),
+    null,
+    { openTextRows: Number(openText?.total || 0) },
+    'export survey analytics xlsx'
+  );
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="survey-analytics-export.xlsx"');
+  await wb.xlsx.write(res);
+  res.end();
+}
+
 module.exports = {
   listSurveyCenter,
   listSurveyRules,
   createSurveyRule,
   updateSurveyRule,
   getEffectiveRule,
+  applyResponseListFilters,
   listSurveyResponses,
   getResponseDetail,
   analyticsOverview,
@@ -489,4 +847,8 @@ module.exports = {
   myStatus,
   listSemesters,
   exportSurveyResponsesXlsx,
+  exportSurveyAnalyticsXlsx,
+  computeExportAverageRow,
+  pickQuestionCells,
+  buildAnswerKvForExport,
 };

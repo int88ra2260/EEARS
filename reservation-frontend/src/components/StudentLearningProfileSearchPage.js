@@ -14,8 +14,8 @@ export default function StudentLearningProfileSearchPage() {
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
-    if (fromSemester.trim()) params.set('fromSemester', fromSemester.trim());
-    if (toSemester.trim()) params.set('toSemester', toSemester.trim());
+    const semesterId = toSemester.trim() || fromSemester.trim();
+    if (semesterId) params.set('semesterId', semesterId);
     const s = params.toString();
     return s ? `?${s}` : '';
   }, [fromSemester, toSemester]);
@@ -28,21 +28,28 @@ export default function StudentLearningProfileSearchPage() {
       return;
     }
 
-    // Phase 1：目前核心 API 以 studentId 為查詢 key
-    // 若未來支援姓名搜尋，可在此擴充（不在本次 Phase 1 範圍內）
-    navigate(`/admin/analytics/student/${encodeURIComponent(sid)}${queryString}`);
+    // Legacy/MVP search entry only. Official student profiles are served by Learning Journey V3.
+    navigate(`/admin/learning-journey/students/${encodeURIComponent(sid)}${queryString}`);
   };
 
   return (
     <div className="container-fluid px-2 px-md-3">
-      <p className="text-muted small mb-3">以學號查詢學生學習歷程。</p>
+      <p className="text-muted small mb-2">以學號查詢學生學習歷程，結果會開啟 Learning Journey V3 學生 profile。</p>
+      <p className="text-muted small mb-3">
+        查詢結果將以指定學期開啟 Learning Journey V3 profile；若同時填起訖學期，系統會以結束學期作為學生 profile 查詢學期。
+      </p>
 
       {error && <Alert variant="danger">{error}</Alert>}
 
       <Card className="mb-4">
         <Card.Header>查詢條件</Card.Header>
         <Card.Body>
-          <Form onSubmit={(e) => (e.preventDefault(), onSubmit())}>
+          <Form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSubmit();
+            }}
+          >
             <Form.Group className="mb-3" controlId="studentId">
               <Form.Label>學號</Form.Label>
               <Form.Control
@@ -65,7 +72,7 @@ export default function StudentLearningProfileSearchPage() {
 
             <div className="d-flex gap-3 flex-wrap">
               <Form.Group className="mb-3" controlId="fromSemester" style={{ minWidth: 220 }}>
-                <Form.Label>fromSemester（可選）</Form.Label>
+                <Form.Label>起始學期（可選）</Form.Label>
                 <Form.Control
                   value={fromSemester}
                   onChange={(e) => setFromSemester(e.target.value)}
@@ -74,7 +81,7 @@ export default function StudentLearningProfileSearchPage() {
               </Form.Group>
 
               <Form.Group className="mb-3" controlId="toSemester" style={{ minWidth: 220 }}>
-                <Form.Label>toSemester（可選）</Form.Label>
+                <Form.Label>結束學期（可選，優先作為 V3 profile 學期）</Form.Label>
                 <Form.Control
                   value={toSemester}
                   onChange={(e) => setToSemester(e.target.value)}
@@ -91,7 +98,7 @@ export default function StudentLearningProfileSearchPage() {
       </Card>
 
       <Alert variant="info" className="mb-0">
-        本 Phase 1 的查詢入口以 `studentId` 為主。
+        此入口保留為學生查詢入口；正式學生 profile 以 Learning Journey V3 為準。
       </Alert>
     </div>
   );

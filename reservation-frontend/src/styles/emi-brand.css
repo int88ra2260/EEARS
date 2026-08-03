@@ -1,0 +1,51 @@
+/**
+ * EMI 中心官網對齊 — 暖色紙質／珊瑚主色（僅學生端公開頁）
+ * 覆寫藍白學術風 token，不影響 .admin-layout-root
+ */
+
+.public-site,
+.home-page {
+  --color-primary: #d4564a;
+  --color-primary-dark: #b8453a;
+  --color-primary-light: #fdf0ee;
+  --color-text-primary: #3d2e24;
+  --color-text-secondary: #6b5c52;
+  --color-border-light: #e8ddd0;
+  --color-bg-secondary: #f9f4ec;
+  --color-bg-paper: #fffbf2;
+
+  --pub-canvas: #f9f4ec;
+  --pub-surface: #fffefb;
+  --pub-surface-muted: #f5efe6;
+  --pub-border: #e5d9cc;
+  --pub-text: #3d2e24;
+  --pub-text-body: #4a3f36;
+  --pub-text-muted: #7a6b5f;
+  --pub-primary: #d4564a;
+  --pub-primary-dark: #b8453a;
+  --pub-primary-light: #fdf0ee;
+  --pub-info-bg: #f3ebe4;
+  --pub-info-text: #8b5a3c;
+  --pub-shadow: 0 2px 12px rgba(61, 46, 36, 0.06);
+
+  --home-canvas: #f9f4ec;
+  --home-bone: #f5efe6;
+  --home-border: #e5d9cc;
+  --home-ink: #3d2e24;
+  --home-ink-soft: #4a3f36;
+  --home-muted: #7a6b5f;
+  --home-pastel-blue: #f3ebe4;
+  --home-pastel-blue-text: #8b5a3c;
+}
+
+.public-site .form-control:focus,
+.public-site .form-select:focus {
+  border-color: var(--pub-primary);
+  box-shadow: 0 0 0 3px rgba(212, 86, 74, 0.14);
+}
+
+.site-header {
+  background: rgba(255, 251, 242, 0.94);
+  border-bottom-color: rgba(212, 86, 74, 0.14);
+  box-shadow: 0 4px 20px rgba(61, 46, 36, 0.06);
+}

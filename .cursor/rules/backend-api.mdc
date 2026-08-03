@@ -1,0 +1,44 @@
+---
+description: 後端 API、路由與服務層慣例
+globs: reservation-backend/**/*.js
+alwaysApply: false
+---
+
+# 後端 API 慣例
+
+## 分層職責
+
+- **routes/**：HTTP 路由、參數驗證、呼叫 service/controller；檔名 `*Router.js`
+- **controllers/**：複雜 admin 端點（報表、匯入、批次操作）
+- **services/**：業務邏輯；子目錄依領域（`learningJourney/`、`englishTestTracking/`）
+- **models/**：Sequelize 模型；關聯在 `models/index.js` 集中定義
+
+## 新增 API 檢查清單
+
+1. 在 `routes/` 建立 router，於 `server.js` 掛載（注意 `/api` 前綴與既有路徑不衝突）
+2. 管理端路由加 `authMiddleware` + `requirePermission(P.XXX)`
+3. 業務邏輯放 service，不在 route handler 寫超過 30 行
+4. 錯誤用 `createAPIError`（`utils/errorMessages.js`）；由 `errorHandler` 統一處理
+5. 高風險操作寫入 `auditLogService`
+
+## 權限與安全
+
+```javascript
+const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
+
+router.get('/admin/foo', authMiddleware, requirePermission(P.CAN_VIEW_EVENTS_ADMIN), handler);
+```
+
+- 權限鍵定義於 `auth/permissions.js`（`P.*`）；前後端需同步
+- 生產環境 `JWT_SECRET`（≥32 字）與 `CORS_ORIGINS` 必填（`config/envValidation.js`）
+- 勿在生產啟用 `ENABLE_DB_SYNC=true`；schema 變更走 migration
+
+## 回應格式
+
+- 成功：`{ success: true, data: ... }` 或直接回傳資源（沿用既有路由風格）
+- 失敗：`{ success: false, code: 'ERROR_CODE', message: '...' }` + 適當 HTTP status
+
+## Legacy 注意
+
+- `englishTestTrackingRouter` 未掛載；新功能走 Learning Journey v3 canonical
+- 舊路由可能標 `legacyDeprecation` middleware；勿擴充 legacy 寫入路徑

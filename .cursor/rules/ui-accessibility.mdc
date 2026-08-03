@@ -1,0 +1,51 @@
+---
+description: EEARS UI/UX 可及性與手機版一致性守則
+globs:
+  - "reservation-frontend/src/**/*.{js,jsx,css}"
+alwaysApply: false
+---
+
+# EEARS UI/UX 可及性與手機版一致性
+
+本文件用於避免前端改動導致：
+- 後台/學生端出現不可用狀態（loading/error/empty）
+- 重要警示被隱藏或被誤刪（黑名單、未填問卷、名額已滿、截止提示）
+- 手機版 FullCalendar 或 modal 行為與桌機不同步造成誤解
+
+## 1) 風格與設計系統
+
+- 以 `reservation-frontend/src/styles/design-system.css` 既有 CSS 變數為準（藍白學術風）。
+- 不要引入新的全域樣式方案取代既有變數。
+
+## 2) loading / error / empty state
+
+- 表單與資料列表必須有：
+  - loading（不可閃爍/不可卡死）
+  - error（顯示可操作提示）
+  - empty（顯示原因或下一步）
+- API 錯誤訊息不可直接暴露敏感資訊；需沿用既有 UI 錯誤顯示方式。
+
+## 3) Modal/表單的可及性
+
+- Modal：
+  - 必須可關閉（鍵盤/按鈕）
+  - 內容層級清楚，必要時提供 `aria-*`
+- 表單：
+  - 錯誤訊息要跟欄位關聯（避免只顯示 toast）
+
+## 4) 手機版（FullCalendar）
+
+- 手機版需保留月曆模式。
+- 活動卡片資訊可精簡，但「必要狀態提示」不得移除。
+- 點擊活動後以 modal 顯示完整資訊。
+- 不得為了手機版重構而破壞桌機版後台操作。
+
+## 5) 業務警示不可消失
+
+所有改動都必須保留或等價呈現以下警示語意（以現有 UI 行為為準）：
+- 黑名單
+- 未填問卷（ET/EC gating）
+- 預約或取消截止
+- 名額已滿
+- 重複預約
+

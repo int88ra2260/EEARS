@@ -5,8 +5,8 @@ export function DotPattern({
   className = '',
   spacing = 16,
   dotSize = 1.2,
-  color = 'rgba(42, 93, 159, 0.22)',
-  glow = true,
+  color = 'rgba(17, 17, 17, 0.14)',
+  glow = false,
   fade = true,
 } = {}) {
   return (
@@ -39,6 +39,18 @@ export function AnimatedShinyText({
       style={{ '--shiny-width': `${shimmerWidth}px` }}
     >
       {children}
+    </span>
+  );
+}
+
+/** Magic UI 風格：主標題漸層流光（漸層必須套在實際文字節點上） */
+export function AnimatedGradientText({
+  children,
+  className = '',
+} = {}) {
+  return (
+    <span className={`magic-hero-gradient-text ${className}`}>
+      <span className="magic-hero-gradient-text__label">{children}</span>
     </span>
   );
 }
@@ -90,17 +102,48 @@ export function BlurIn({
   );
 }
 
-export function ShimmerButton({
-  to,
-  children,
-  className = '',
-  ariaLabel,
-} = {}) {
+function shimmerClasses(variant, className) {
+  return [
+    'magic-shimmer-button',
+    variant !== 'default' ? `magic-shimmer-button--${variant}` : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function ShimmerButtonInner({ children }) {
   return (
-    <Link to={to} className={`magic-shimmer-button ${className}`} aria-label={ariaLabel}>
+    <>
       <span className="magic-shimmer-button__shine" aria-hidden />
       <span className="magic-shimmer-button__label">{children}</span>
-    </Link>
+    </>
+  );
+}
+
+export function ShimmerButton({
+  to,
+  onClick,
+  type = 'button',
+  children,
+  className = '',
+  variant = 'default',
+  ariaLabel,
+} = {}) {
+  const classes = shimmerClasses(variant, className);
+
+  if (to) {
+    return (
+      <Link to={to} className={classes} aria-label={ariaLabel}>
+        <ShimmerButtonInner>{children}</ShimmerButtonInner>
+      </Link>
+    );
+  }
+
+  return (
+    <button type={type} onClick={onClick} className={classes} aria-label={ariaLabel}>
+      <ShimmerButtonInner>{children}</ShimmerButtonInner>
+    </button>
   );
 }
 

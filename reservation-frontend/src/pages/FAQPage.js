@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { FAQ_IDS } from '../data/faqs';
+import useFaqItems, { pickLocalizedText } from '../hooks/useFaqItems';
 import PageHeader from '../components/layout/PageHeader';
 import './FAQPage.css';
 
 export default function FAQPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const { faqItems } = useFaqItems();
   const [openId, setOpenId] = useState(null);
 
   const breadcrumbs = [
@@ -17,29 +18,32 @@ export default function FAQPage() {
     <div className="faq-page">
       <PageHeader breadcrumbs={breadcrumbs} title={t('faq.title')} />
       <div className="faq-page-list">
-        {FAQ_IDS.map((id) => {
-          const isOpen = openId === id;
+        {faqItems.map((item) => {
+          const itemId = item.id;
+          const isOpen = openId === itemId;
+          const question = pickLocalizedText(item.question, lang);
+          const answer = pickLocalizedText(item.answer, lang);
           return (
-            <div key={id} className="faq-page-item">
+            <div key={String(itemId)} className="faq-page-item">
               <button
                 type="button"
                 className="faq-page-question"
                 aria-expanded={isOpen}
-                aria-controls={`faq-${id}-answer`}
-                id={`faq-${id}-q`}
-                onClick={() => setOpenId(isOpen ? null : id)}
+                aria-controls={`faq-${itemId}-answer`}
+                id={`faq-${itemId}-q`}
+                onClick={() => setOpenId(isOpen ? null : itemId)}
               >
-                <span>{t(`homePage.${id}Q`)}</span>
-                <span className="faq-page-icon" aria-hidden>{isOpen ? '▲' : '▼'}</span>
+                <span>{question}</span>
+                <span className="faq-page-icon" aria-hidden>{isOpen ? '-' : '+'}</span>
               </button>
               <div
-                id={`faq-${id}-answer`}
+                id={`faq-${itemId}-answer`}
                 role="region"
-                aria-labelledby={`faq-${id}-q`}
+                aria-labelledby={`faq-${itemId}-q`}
                 className="faq-page-answer"
                 hidden={!isOpen}
               >
-                {t(`homePage.${id}A`)}
+                {answer}
               </div>
             </div>
           );

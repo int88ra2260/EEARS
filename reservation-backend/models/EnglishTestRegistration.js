@@ -238,6 +238,11 @@ const EnglishTestRegistration = sequelize.define('EnglishTestRegistration', {
     allowNull: false,
     comment: '從何得知培力英檢'
   },
+  extraAnswers: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: '自訂題答案 { [fieldKey]: value }（對應 form schema 非 system 題）'
+  },
   
   // 狀態欄位
   status: {

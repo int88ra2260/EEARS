@@ -1,0 +1,101 @@
+.game-hero__kicker,
+.listening-ladder-kicker,
+.phrasebook-kicker {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--activities-muted, #787774);
+}
+
+.game-hero__title,
+.listening-ladder-title {
+  margin: 0;
+  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-size: clamp(1.35rem, 2.8vw, 1.75rem);
+  font-weight: 500;
+  color: var(--activities-ink, #111111);
+}
+
+.game-hero__lead,
+.listening-ladder-lead {
+  max-width: 62ch;
+  margin: 0.75rem 0 0;
+  font-size: clamp(0.9rem, 2.2vw, 0.98rem);
+  line-height: 1.65;
+  color: var(--activities-muted, #787774);
+}
+
+.game-how-to {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--activities-border, #eaeaea);
+  border-radius: 10px;
+  background: var(--activities-bone, #f7f6f3);
+}
+
+.game-how-to__title {
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--activities-ink, #111111);
+}
+
+.game-how-to__list {
+  margin: 0;
+  padding-left: 1.2rem;
+  line-height: 1.6;
+  color: var(--activities-soft, #2f3437);
+}
+
+.game-timer {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--activities-border, #eaeaea);
+  border-radius: 10px;
+  background: var(--activities-surface, #fff);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.game-timer--urgent {
+  border-color: #c45c26;
+  background: #fff8f3;
+}
+
+.game-timer__value {
+  font-family: var(--activities-mono, monospace);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--activities-ink, #111111);
+}
+
+.game-timer--urgent .game-timer__value {
+  color: #c45c26;
+}
+
+.game-timer__label {
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--activities-muted, #787774);
+}
+
+.game-cefr-disclaimer {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--activities-muted, #787774);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-timer {
+    transition: none;
+  }
+}

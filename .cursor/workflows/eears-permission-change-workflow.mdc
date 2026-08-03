@@ -1,0 +1,73 @@
+---
+description: EEARS 權限修改工作流程（RBAC + scope + 401/403 測試）
+alwaysApply: false
+---
+
+# eears-permission-change-workflow（權限變更）
+
+## 1) 觸發時機
+
+- 新增/調整後台權限鍵（`P.CAN_*`）
+- 新增/調整角色對應的可見功能或可執行 API
+- 修正權限不一致導致的 401/403 問題
+
+## 2) 分析步驟
+
+1. 決定授權模型
+   - 需要「角色/層級」哪些條件？
+   - 是否還需要 scope guard（例如 event/class 範圍）？
+2. 對照現有矩陣/指南
+   - 後端：`reservation-backend/auth/permissions.js`、`accessProfile.js`、scope guard
+   - 前端：`reservation-frontend/src/constants/adminRouteAccess.js`、`adminNavigation.js`
+
+## 3) 修改步驟
+
+1. 後端先行（必須新增/保護）
+   - route：加入 `authMiddleware` + `requirePermission(P.XXX)`
+   - scope：必要時使用對應 guard service
+2. 前端同步
+   - `constants/permissions.js`
+   - `adminRouteAccess.js`
+   - `adminNavigation.js`
+3. Seed/DB（若有）
+   - 若需要調整 RolePermission / scope 相關資料：依既有流程補齊（注意 scripts 可能缺失）
+
+## 4) 測試步驟（強制）
+
+後端補測試至少涵蓋：
+1. 401：未登入/過期 token（或 access stale）
+2. 403：登入但無權限
+3. （若有 scope guard）scope mismatch：有權但不在 scope 內
+
+跑：
+- `cd reservation-backend && npm test -- --runInBand`
+
+前端跑：
+- `cd reservation-frontend && npm test -- --watchAll=false && npm run lint && npm run build`
+
+## 5) Code review 步驟
+
+- 前端 UI 隱藏是否符合後端實際授權（不可只改前端）？
+- 是否保留 stale token 行為（`ACCESS_PROFILE_STALE`）？
+- 是否沒有誤用 role/permission/level 變數？
+
+## 6) 最終回報格式
+
+```text
+【權限變更】
+- 權限鍵：P.CAN_XXXX
+- 涉及角色/層級：
+- 涉及 scope（若有）：
+
+【契約（401/403）】
+- 401：pass/fail（測試檔）
+- 403：pass/fail（測試檔）
+- scope mismatch：pass/fail（測試檔）
+
+【檔案清單】
+- ...
+
+【風險與待 UAT】
+- ...
+```
+

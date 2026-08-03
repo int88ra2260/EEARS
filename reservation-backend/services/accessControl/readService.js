@@ -22,15 +22,21 @@ function toScopesArray(rows) {
   return Array.from(new Set(values));
 }
 
-function normalizeRoleKey(role, teacherLevel) {
+function normalizeRoleKey(role, teacherLevel, staffLevel) {
+  if (typeof role === 'string') {
+    if (role.startsWith('teacher:') || role.startsWith('office_staff:')) {
+      return role;
+    }
+  }
   if (role === 'teacher') return `teacher:${teacherLevel || 'regular'}`;
+  if (role === 'office_staff') return `office_staff:${staffLevel || 'event_lead'}`;
   return role || '';
 }
 
 async function getRolePermissions(role, teacherLevel, options = {}) {
-  const roleKey = normalizeRoleKey(role, teacherLevel);
+  const { transaction, staffLevel } = options;
+  const roleKey = normalizeRoleKey(role, teacherLevel, staffLevel);
   if (!roleKey) return [];
-  const { transaction } = options;
   const rows = await RolePermission.findAll({
     where: { role: roleKey },
     attributes: ['permission'],
@@ -82,6 +88,7 @@ async function buildEffectiveAccessFromSources({
   userId,
   role = null,
   teacherLevel = null,
+  staffLevel = null,
   jsonPermissions = null,
   jsonScopes = null,
   mode = 'json_only',
@@ -102,7 +109,7 @@ async function buildEffectiveAccessFromSources({
   }
 
   const [tableBasePermissionsRaw, tablePermissionOverrides, tableScopeOverrides] = await Promise.all([
-    getRolePermissions(role, teacherLevel),
+    getRolePermissions(role, teacherLevel, { staffLevel }),
     getUserOverrides(userId),
     getUserScopes(userId),
   ]);

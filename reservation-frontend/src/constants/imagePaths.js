@@ -25,6 +25,7 @@ export const IMAGES = {
     `${BASE}/job_talk_5.jpg`,
     `${BASE}/job_talk_6.jpg`,
   ],
+  writingWorkshop: `${BASE}/Leap Write In.jpg`,
 };
 
 /** 取得 Hero 主視覺圖 */

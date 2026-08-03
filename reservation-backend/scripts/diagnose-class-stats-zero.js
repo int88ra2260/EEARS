@@ -3,6 +3,7 @@
 
 require('dotenv').config();
 const { sequelize, Class, ClassMembership, Reservation, Event } = require('../models');
+const { formatTaipeiDate } = require('../utils/time');
 
 async function diagnoseClassStatsZero() {
   try {
@@ -18,7 +19,7 @@ async function diagnoseClassStatsZero() {
     
     console.log('   114-1 學期範圍:', SEMESTER_RANGES['114-1']);
     console.log('   113-2 學期範圍:', SEMESTER_RANGES['113-2']);
-    console.log('   當前日期:', new Date().toISOString().split('T')[0]);
+    console.log('   當前日期:', formatTaipeiDate());
 
     // 2. 檢查活動日期範圍
     console.log('\n2. 檢查活動日期範圍...');

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import Card from 'react-bootstrap/Card';
 import Form from 'react-bootstrap/Form';
@@ -7,12 +7,22 @@ import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 import useToast from '../../components/ui/useToast';
+import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
+import { P } from '../../constants/permissions';
+import {
+  downloadBlob,
+  exportSurveyAnalyticsXlsx,
+  fetchSurveyAnalyticsBundle,
+  fetchSurveyCenterOptions,
+} from '../../services/surveyAdminApi';
 
 export default function AdminSurveyAnalyticsPage() {
   const { surveyId } = useParams();
-  const { token } = useOutletContext();
+  const { token, userRole, accessProfile: ctxProfile } = useOutletContext();
   const toast = useToast();
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
+  const accessProfile = ctxProfile || buildAccessProfile(token || '', userRole || '');
+  const canView = hasPermission(accessProfile, P.CAN_VIEW_SURVEY_ANALYTICS);
+  const canExport = hasPermission(accessProfile, P.CAN_EXPORT_SURVEY_RESPONSES);
   const [options, setOptions] = useState({ semesters: [], surveys: [], versions: [], events: [] });
   const [filters, setFilters] = useState({ semesterId: '', surveyId: surveyId || '', versionId: '', activityType: '', eventId: '' });
   const [loading, setLoading] = useState(false);
@@ -24,36 +34,23 @@ export default function AdminSurveyAnalyticsPage() {
   const [openText, setOpenText] = useState({ total: 0, rows: [], topTokens: [] });
   const [dataQuality, setDataQuality] = useState(null);
 
-  const loadOptions = async () => {
-    const res = await fetch('/api/admin/survey-center/meta/options', { headers });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || '載入選項失敗');
+  const loadOptions = useCallback(async () => {
+    const data = await fetchSurveyCenterOptions(token);
     setOptions({
       semesters: data.semesters || [],
       surveys: data.surveys || [],
       versions: data.versions || [],
       events: data.events || [],
     });
-  };
+  }, [token]);
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
       const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null)));
-      const [a, b, c, d, e] = await Promise.all([
-        fetch(`/api/admin/surveys/analytics/overview?${q.toString()}`, { headers }),
-        fetch(`/api/admin/surveys/analytics/distribution?${q.toString()}`, { headers }),
-        fetch(`/api/admin/surveys/analytics/trends?${q.toString()}`, { headers }),
-        fetch(`/api/admin/surveys/analytics/comparison?${q.toString()}`, { headers }),
-        fetch(`/api/admin/surveys/analytics/open-text-summary?${q.toString()}`, { headers }),
-      ]);
-      const [oa, ob, oc, od, oe] = await Promise.all([a.json(), b.json(), c.json(), d.json(), e.json()]);
-      if (!a.ok) throw new Error(oa.message || 'overview 載入失敗');
-      if (!b.ok) throw new Error(ob.message || 'distribution 載入失敗');
-      if (!c.ok) throw new Error(oc.message || 'trends 載入失敗');
-      if (!d.ok) throw new Error(od.message || 'comparison 載入失敗');
-      if (!e.ok) throw new Error(oe.message || 'open text 載入失敗');
+      const { overview: oa, distribution: ob, trends: oc, comparison: od, openTextSummary: oe } =
+        await fetchSurveyAnalyticsBundle(token, q);
       setOverview(oa);
       setDistribution(ob.questions || []);
       setTrends(oc.rows || []);
@@ -65,15 +62,36 @@ export default function AdminSurveyAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, token]);
+
+  const exportXlsx = useCallback(async () => {
+    try {
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null)));
+      const blob = await exportSurveyAnalyticsXlsx(token, q);
+      downloadBlob(blob, `survey-analytics-${Date.now()}.xlsx`);
+      toast.success('已下載 Excel');
+    } catch (e) {
+      toast.danger(e.message || '匯出失敗');
+    }
+  }, [filters, token, toast]);
 
   useEffect(() => {
+    if (!token || !canView) return;
     loadOptions().catch((e) => toast.danger(e.message || '載入選項失敗'));
-  }, []);
+  }, [canView, loadOptions, toast, token]);
 
   useEffect(() => {
+    if (!token || !canView) return;
     loadAll();
-  }, [filters.semesterId, filters.surveyId, filters.versionId, filters.activityType, filters.eventId]);
+  }, [canView, loadAll, token]);
+
+  if (!canView) {
+    return (
+      <div className="container py-4">
+        <Alert variant="warning">無權限檢視問卷分析。</Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="container py-4">
@@ -82,7 +100,12 @@ export default function AdminSurveyAnalyticsPage() {
           <h2 className="h4 text-primary mb-1">問卷分析</h2>
           <div className="text-muted small">MVP：KPI / 分布 / 趨勢 / 比較 / 開放題摘要</div>
         </div>
-        <Button variant="outline-primary" onClick={loadAll}>重新整理</Button>
+        <div className="d-flex gap-2">
+          {canExport ? (
+            <Button variant="outline-secondary" onClick={exportXlsx}>匯出 Excel</Button>
+          ) : null}
+          <Button variant="outline-primary" onClick={loadAll}>重新整理</Button>
+        </div>
       </div>
 
       <Card className="border-0 shadow-sm mb-3">

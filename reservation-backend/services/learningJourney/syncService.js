@@ -14,6 +14,7 @@ const {
   ActivityParticipation
 } = require('../../models');
 const { isValidSemesterId } = require('./reconciliationService');
+const { buildSemesterEventFilter } = require('./utils/semesterEventFilter');
 
 const SYNC_SOURCE_REF_RESERVATION = 'lj_sync_reservation';
 
@@ -50,10 +51,13 @@ function mapExamTypeToScope(examType) {
 }
 
 function mapEventTypeToActivityEnum(eventType) {
-  const t = String(eventType || '');
-  if (t === 'English Table') return 'ET';
-  if (t === 'English Club') return 'EC';
-  if (t === 'International Forum') return 'IF';
+  const t = String(eventType || '').trim();
+  if (!t) return null;
+  if (['ET', 'EC', 'IF'].includes(t)) return t;
+  const lower = t.toLowerCase();
+  if (lower === 'english table') return 'ET';
+  if (lower === 'english club') return 'EC';
+  if (lower === 'international forum') return 'IF';
   return null;
 }
 
@@ -410,98 +414,177 @@ async function syncBestepScoresToExamAttempts({ semesterId, dryRun }) {
   return stats;
 }
 
-/**
- * reservations + events（semesters.code）→ activity_participations
- */
-async function syncActivitiesToActivityParticipations({ semesterId, dryRun }) {
-  const stats = emptyResult();
-  const resRows = await sequelize.query(
+async function fetchReservationActivityRows({ semesterId, studentId = null, limit = null }) {
+  const semesterFilter = buildSemesterEventFilter(semesterId);
+  const replacements = { ...semesterFilter.replacements };
+  let studentWhere = '';
+  if (studentId) {
+    replacements.studentId = normStudentId(studentId);
+    studentWhere = 'AND UPPER(TRIM(r.studentId)) = :studentId';
+  }
+  let limitSql = '';
+  if (limit) {
+    replacements.rowLimit = Number(limit);
+    limitSql = 'LIMIT :rowLimit';
+  }
+  return sequelize.query(
     `
     SELECT r.id AS reservationId, UPPER(TRIM(r.studentId)) AS studentId, r.checkinStatus, r.checkinTime,
-           e.id AS eventId, e.eventType, e.date AS eventDate, e.startTime
+           e.id AS eventId, e.name AS eventName, e.eventType, e.date AS eventDate, e.startTime
     FROM reservations r
     INNER JOIN events e ON r.eventId = e.id
-    INNER JOIN semesters s ON e.semesterId = s.id
-    WHERE s.code = :semesterCode
+    ${semesterFilter.join}
+    WHERE 1=1
+    ${semesterFilter.where}
+    ${studentWhere}
+    ORDER BY e.date DESC, e.startTime DESC, r.id DESC
+    ${limitSql}
     `,
-    { replacements: { semesterCode: semesterId }, type: sequelize.QueryTypes.SELECT }
+    { replacements, type: sequelize.QueryTypes.SELECT }
   );
+}
 
-  const run = async (transaction) => {
-    for (const r of resRows) {
-      const sid = normStudentId(r.studentId);
-      const activityType = mapEventTypeToActivityEnum(r.eventType);
-      if (!sid || !activityType) {
-        stats.skipped += 1;
-        continue;
-      }
-      const eventIdStr = String(r.eventId);
-      const sourceRef = `${SYNC_SOURCE_REF_RESERVATION}:${r.reservationId}`;
-      try {
-        const existing = await ActivityParticipation.findOne({
-          where: { studentId: sid, eventId: eventIdStr, sourceRef },
+async function upsertReservationActivityRows(resRows, semesterId, dryRun, transaction, stats) {
+  for (const r of resRows) {
+    const sid = normStudentId(r.studentId);
+    const activityType = mapEventTypeToActivityEnum(r.eventType);
+    if (!sid || !activityType) {
+      stats.skipped += 1;
+      continue;
+    }
+    const eventIdStr = String(r.eventId);
+    const sourceRef = `${SYNC_SOURCE_REF_RESERVATION}:${r.reservationId}`;
+    try {
+      let existing = await ActivityParticipation.findOne({
+        where: { studentId: sid, eventId: eventIdStr, sourceRef },
+        transaction
+      });
+      if (!existing) {
+        existing = await ActivityParticipation.findOne({
+          where: { studentId: sid, eventId: eventIdStr },
           transaction
         });
-        if (existing) {
-          if (existing.metaJson && existing.metaJson.syncManualLock === true) {
-            stats.skipped += 1;
-            continue;
-          }
-          if (dryRun) {
-            stats.updated += 1;
-            continue;
-          }
-          await existing.update(
-            {
-              semesterId,
-              activityType,
-              attendanceStatus: mapCheckinToAttendance(r.checkinStatus),
-              participatedAt: r.checkinTime || null,
-              metaJson: { ...(existing.metaJson || {}), reservationId: r.reservationId, sync: true }
-            },
-            { transaction }
-          );
-          stats.updated += 1;
-          continue;
-        }
-
-        const { student, wouldCreateStudent } = await loadOrPrepareStudent(sid, sid, dryRun, transaction);
-        if (dryRun && wouldCreateStudent) {
-          stats.inserted += 1;
-          continue;
-        }
-        if (!student) {
+      }
+      if (existing) {
+        if (existing.metaJson && existing.metaJson.syncManualLock === true) {
           stats.skipped += 1;
           continue;
         }
         if (dryRun) {
-          stats.inserted += 1;
+          stats.updated += 1;
           continue;
         }
-        await ActivityParticipation.create(
+        await existing.update(
           {
-            studentPk: student.id,
-            studentId: sid,
             semesterId,
-            eventId: eventIdStr,
             activityType,
+            sourceRef: existing.sourceRef || sourceRef,
             attendanceStatus: mapCheckinToAttendance(r.checkinStatus),
             participatedAt: r.checkinTime || null,
-            sourceRef,
-            metaJson: { reservationId: r.reservationId, sync: true }
+            metaJson: {
+              ...(existing.metaJson || {}),
+              reservationId: r.reservationId,
+              eventName: r.eventName || existing.metaJson?.eventName || null,
+              eventDate: r.eventDate || existing.metaJson?.eventDate || null,
+              sync: true
+            }
           },
           { transaction }
         );
-        stats.inserted += 1;
-      } catch (e) {
-        pushErr(stats.errors, 'ACTIVITY_ROW', e.message);
+        stats.updated += 1;
+        continue;
       }
-    }
-  };
 
+      const { student, wouldCreateStudent } = await loadOrPrepareStudent(
+        sid,
+        r.studentDisplayName || sid,
+        dryRun,
+        transaction
+      );
+      if (dryRun && wouldCreateStudent) {
+        stats.inserted += 1;
+        continue;
+      }
+      if (!student) {
+        stats.skipped += 1;
+        continue;
+      }
+      if (dryRun) {
+        stats.inserted += 1;
+        continue;
+      }
+      await ActivityParticipation.create(
+        {
+          studentPk: student.id,
+          studentId: sid,
+          semesterId,
+          eventId: eventIdStr,
+          activityType,
+          attendanceStatus: mapCheckinToAttendance(r.checkinStatus),
+          participatedAt: r.checkinTime || null,
+          sourceRef,
+          metaJson: {
+            reservationId: r.reservationId,
+            eventName: r.eventName || null,
+            eventDate: r.eventDate || null,
+            sync: true
+          }
+        },
+        { transaction }
+      );
+      stats.inserted += 1;
+    } catch (e) {
+      pushErr(stats.errors, 'ACTIVITY_ROW', e.message);
+    }
+  }
+}
+
+/**
+ * reservations + events → activity_participations
+ */
+async function syncActivitiesToActivityParticipations({ semesterId, dryRun }) {
+  const stats = emptyResult();
+  const resRows = await fetchReservationActivityRows({ semesterId });
   const t = await sequelize.transaction();
   try {
-    await run(t);
+    await upsertReservationActivityRows(resRows, semesterId, dryRun, t, stats);
+    if (dryRun) await t.rollback();
+    else await t.commit();
+  } catch (e) {
+    await t.rollback();
+    pushErr(stats.errors, 'ACTIVITY_TX', e.message);
+  }
+  return stats;
+}
+
+/**
+ * 單一學生：由 reservations 補寫 activity_participations（供學習歷程詳情 on-read 使用）
+ */
+async function syncStudentActivitiesFromReservations({
+  studentId,
+  semesterId,
+  dryRun = false,
+  studentName = null,
+  reservationRows = null
+}) {
+  const stats = emptyResult();
+  const sid = normStudentId(studentId);
+  const sem = String(semesterId || '').trim();
+  if (!sid || !sem) {
+    pushErr(stats.errors, 'ACTIVITY_SCOPE', 'studentId 與 semesterId 必填');
+    return stats;
+  }
+  const resRows = Array.isArray(reservationRows) && reservationRows.length
+    ? reservationRows.map((row) => ({
+      ...row,
+      studentDisplayName: studentName || row.studentDisplayName || null
+    }))
+    : (await fetchReservationActivityRows({ semesterId: sem, studentId: sid, limit: 300 }))
+      .map((row) => ({ ...row, studentDisplayName: studentName || null }));
+  if (!resRows.length) return stats;
+  const t = await sequelize.transaction();
+  try {
+    await upsertReservationActivityRows(resRows, sem, dryRun, t, stats);
     if (dryRun) await t.rollback();
     else await t.commit();
   } catch (e) {
@@ -560,5 +643,7 @@ module.exports = {
   syncEnglishTestRegistrations,
   syncBestepScoresToExamAttempts,
   syncActivitiesToActivityParticipations,
+  syncStudentActivitiesFromReservations,
+  fetchReservationActivityRows,
   normalizeSections
 };

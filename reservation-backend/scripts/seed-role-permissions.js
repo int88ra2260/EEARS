@@ -9,13 +9,17 @@ function unique(arr) {
 
 function roleSeeds() {
   return [
-    { role: 'admin', teacherLevel: null, roleKey: 'admin' },
-    { role: 'worker', teacherLevel: null, roleKey: 'worker' },
-    { role: 'teacher', teacherLevel: 'executive', roleKey: 'teacher:executive' },
-    { role: 'teacher', teacherLevel: 'et_manager', roleKey: 'teacher:et_manager' },
-    { role: 'teacher', teacherLevel: 'if_manager', roleKey: 'teacher:if_manager' },
-    { role: 'teacher', teacherLevel: 'jt_manager', roleKey: 'teacher:jt_manager' },
-    { role: 'teacher', teacherLevel: 'regular', roleKey: 'teacher:regular' },
+    { role: 'admin', teacherLevel: null, staffLevel: null, roleKey: 'admin' },
+    { role: 'worker', teacherLevel: null, staffLevel: null, roleKey: 'worker' },
+    { role: 'teacher', teacherLevel: 'executive', staffLevel: null, roleKey: 'teacher:executive' },
+    { role: 'teacher', teacherLevel: 'et_manager', staffLevel: null, roleKey: 'teacher:et_manager' },
+    { role: 'teacher', teacherLevel: 'if_manager', staffLevel: null, roleKey: 'teacher:if_manager' },
+    { role: 'teacher', teacherLevel: 'jt_manager', staffLevel: null, roleKey: 'teacher:jt_manager' },
+    { role: 'teacher', teacherLevel: 'regular', staffLevel: null, roleKey: 'teacher:regular' },
+    { role: 'office_staff', teacherLevel: null, staffLevel: 'event_lead', roleKey: 'office_staff:event_lead' },
+    { role: 'office_staff', teacherLevel: null, staffLevel: 'curriculum_lead', roleKey: 'office_staff:curriculum_lead' },
+    { role: 'office_staff', teacherLevel: null, staffLevel: 'bestep_lead', roleKey: 'office_staff:bestep_lead' },
+    { role: 'office_staff', teacherLevel: null, staffLevel: 'deputy_manager', roleKey: 'office_staff:deputy_manager' },
   ];
 }
 
@@ -27,11 +31,13 @@ async function run() {
       const perms = unique(Array.from(buildBasePermissionSet({
         role: seed.role,
         teacherLevel: seed.teacherLevel,
+        staffLevel: seed.staffLevel,
       })));
       const result = await syncRolePermissionsIfNeeded(seed.roleKey, perms, { transaction: tx });
       summary.push({
         role: seed.role,
         teacherLevel: seed.teacherLevel,
+        staffLevel: seed.staffLevel,
         roleKey: seed.roleKey,
         permissionCount: result.count,
       });

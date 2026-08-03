@@ -1,4 +1,5 @@
 import React from 'react';
+import { getEmptyReasonText } from './emptyStateUtils';
 
 const EMPTY = '—';
 const SKILLS = ['listening', 'reading', 'speaking', 'writing'];
@@ -9,9 +10,9 @@ function cellText(skills, key) {
   return `${v.score ?? EMPTY} / ${v.cefr ?? EMPTY}`;
 }
 
-export default function ExamTimeline({ examAttempts }) {
+export default function ExamTimeline({ examAttempts, emptyReason }) {
   const rows = Array.isArray(examAttempts) ? examAttempts : [];
-  if (!rows.length) return <div className="alert alert-secondary mb-0">尚無考試紀錄。</div>;
+  if (!rows.length) return <div className="alert alert-secondary mb-0">{getEmptyReasonText(emptyReason, '尚無考試紀錄。')}</div>;
   return (
     <div className="table-responsive">
       <table className="table table-striped align-middle mb-0">

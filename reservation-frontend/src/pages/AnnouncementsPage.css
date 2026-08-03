@@ -1,5 +1,56 @@
 .announcements-page {
-  padding: 1rem 0 2rem;
+  padding: 1rem 0 2.5rem;
+  max-width: 1180px;
+  margin-inline: auto;
+}
+
+.announcements-hero {
+  margin-bottom: 1.25rem;
+  padding: 1.1rem 0 0.4rem;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.45), transparent 28%),
+    #f7f1e8;
+  border: 1px solid rgba(61, 46, 36, 0.08);
+}
+
+.announcements-hero .page-header {
+  margin-bottom: 0.9rem;
+}
+
+.announcements-hero-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: center;
+  padding: 0 0.25rem 1rem;
+}
+
+.announcements-hero-hint-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.announcements-toolbar {
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(61, 46, 36, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 254, 251, 0.92);
+  box-shadow: 0 12px 28px rgba(61, 46, 36, 0.04);
+}
+
+.announcements-toolbar .form-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6c6258;
+}
+
+.announcements-toolbar .form-control,
+.announcements-toolbar .form-select {
+  min-height: 42px;
+  border-color: rgba(61, 46, 36, 0.12);
 }
 
 .announcements-page-header h1 {
@@ -54,7 +105,7 @@
 
 @media (min-width: 768px) {
   .announcements-list {
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   }
 
   .announcements-page-skeleton-list {
@@ -63,30 +114,58 @@
   }
 }
 
+.announcement-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
 .announcement-card {
-  background: #fff;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
+  background: rgba(255, 254, 251, 0.94);
+  border: 1px solid rgba(61, 46, 36, 0.08);
+  border-radius: 18px;
   padding: 1.25rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 10px 26px rgba(61, 46, 36, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+}
+
+.announcement-card-link:hover .announcement-card {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 36px rgba(61, 46, 36, 0.07);
+  border-color: rgba(139, 90, 60, 0.18);
 }
 
 .announcement-meta {
   font-size: 0.85rem;
   color: #6c757d;
   margin-bottom: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .announcement-title {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 700;
   margin-bottom: 0.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .announcement-summary {
   font-size: 0.9rem;
-  color: #495057;
+  color: #564f47;
   margin-bottom: 0.75rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .announcement-list-cover img {
@@ -94,4 +173,75 @@
   height: 80px;
   object-fit: cover;
   display: block;
+}
+
+.announcement-list-cover {
+  width: 120px;
+}
+
+.announcement-card-cover {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+}
+
+.announcement-card-cover--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d7deea;
+  border-radius: 0.5rem;
+  background:
+    linear-gradient(135deg, rgba(13, 110, 253, 0.08), rgba(13, 110, 253, 0.02)),
+    #f8fbff;
+  color: #5b6f93;
+}
+
+.announcement-card-cover__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.announcement-readmore-row {
+  margin-top: auto;
+}
+
+.announcement-readmore {
+  user-select: none;
+  cursor: pointer;
+  color: #8b5a3c;
+  border-color: rgba(139, 90, 60, 0.18) !important;
+  background: rgba(255, 251, 242, 0.88);
+}
+
+@media (max-width: 576px) {
+  .announcements-page {
+    padding: 0 0 1.5rem;
+  }
+
+  .announcements-hero {
+    margin-bottom: 1rem;
+    padding: 0.5rem 0 0.35rem;
+    border-radius: 10px;
+  }
+
+  .announcements-hero-hints {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .announcement-card {
+    padding: 1rem;
+    min-height: auto;
+  }
+
+  .announcement-list-cover,
+  .announcement-card-cover {
+    width: 100%;
+    height: 140px;
+  }
 }

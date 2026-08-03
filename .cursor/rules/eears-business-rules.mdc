@@ -1,0 +1,79 @@
+---
+description: EEARS 不可違背業務底線（學生端/預約/問卷 Gate/黑名單）
+globs:
+  - "reservation-backend/**/*.js"
+  - "reservation-frontend/src/**/*.{js,jsx}"
+  - "reservation-backend/docs/**/*.md"
+alwaysApply: true
+---
+
+# EEARS 業務底線（AI coding assistant）
+
+本文件規範 EEARS 變更時「永遠不能被破壞」的核心規則。任何與下列項目相關的改動（包含 refactor、抽取函式、調整 middleware 順序、改錯誤碼/訊息、前端顯示）都必須先做確認。
+
+## 1) 學生端底線：不得改成登入系統
+
+- 學生端不建立帳號、不登入。
+- 學生端預約/查詢/取消皆以 `studentId`、`name`、`email`（以及取消用驗證碼）為主。
+- 不得因為簡化而移除既有檢查（例如：黑名單、問卷 gating、名額、重複預約、截止時間提示）。
+
+## 2) 預約/取消截止：活動開始前 2 小時（2hr，不是 24hr）
+
+- 預約開始/可預約範圍依活動 `eventType` 計算，但「截止」一律是活動開始前 `2` 小時。
+- 與前端一致性：
+  - 後端：`reservation-backend/utils/reservationTime.js`（`RESERVATION_CUTOFF_HOURS = 2`）
+  - 前端：`reservation-frontend/src/utils/reservationTime.js`
+- 取消（公開取消）也必須遵守「活動開始前至少 2 小時」。
+
+## 3) 預約開放窗：存在於 eventType（而非一律『7 天限制』）
+
+- `7 day` 是不同 `eventType` 的「預約開放起算」邏輯（例如 Job Talk 7 天前 12:00），不是統一的黑名單天數或統一禁止規則。
+- 因此：
+  - 不要把「7 天」誤當作「距離活動 7 天內不可預約」。
+  - 不要把「7 天」誤當作「問卷未填 7 天後才放行」。
+
+## 4) 黑名單：違規累積後封鎖預約；解除邏輯需維持
+
+- 目的：黑名單學生在黑名單期間不得預約。
+- 解除邏輯（週日解封）與「取消期間內預約」等限制，不得被改掉或刪除提示。
+
+檢查點（以程式實作為準）：
+- 後端路由/服務：`reservation-backend/routes/blacklistRouter.js`、`reservation-backend/services/blacklistEnforcementService.js`
+- 若要調整違規→封鎖→解封的邏輯，必須同步調整並保留：
+  - 預約檢查點（booking 前檢查 blacklist status）
+  - 違規累積計算
+  - 通知/寄信行為（若有）
+
+## 5) 問卷 Gate：僅 ET/EC 的 product 規則擋；未填要擋或導向
+
+必須維持以下語意：
+
+- Gate 僅對應 ET（English Table）/ EC（English Club）。
+- 後端以 `survey_rules`（啟用規則）決定是否「擋」：
+  - `rule.isEnabled`、`rule.isRequired` 必須同時滿足才會檢查並可能擋下
+  - `ruleTimeAllows(rule)` 判斷規則時間是否有效
+- `checkSurvey` middleware 在未完成時回傳 409，並附帶 `redirectUrl: /survey/{surveyKey}`。
+- 不能因為「前端看起來已處理」而移除後端 fail-close 行為。
+
+程式對照（以實作為準）：
+- `reservation-backend/middlewares/checkSurvey.js`
+- `reservation-backend/services/surveyGateService.js`
+
+## 6) 錯誤碼/redirectUrl：不可隨意改壞行為契約
+
+若發生規則擋下，前端通常依 `code` + `redirectUrl` 做導向/提示；因此：
+
+- 不要隨意改 `code` 字串
+- 不要移除 `redirectUrl`
+
+## AI 變更前檢查清單（建議在動手前逐項過）
+
+1. 這次修改會不會影響「學生端是否可預約/取消」？
+2. 這次修改會不會影響 `2hr` 截止或取消驗證碼語意？
+3. 這次修改會不會把 `7 day` 誤當成統一限制？
+4. 這次修改是否觸及：
+   - `checkSurvey` / `surveyGateService`
+   - `blacklistRouter` / `blacklistEnforcementService`
+   - `reservationTime`（前後端雙份）
+5. 若有觸及：是否同步修改並補測試（至少後端）？
+

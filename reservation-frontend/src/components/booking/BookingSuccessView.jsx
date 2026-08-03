@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { getDefaultLocation } from '../../utils/eventLocation';
+import { getEventLocationDisplay } from '../../utils/eventLocation';
 import { calculateReservationTime } from '../../utils/reservationTime';
 import { formatBookingCode } from '../../utils/bookingCode';
 
@@ -31,7 +31,7 @@ export default function BookingSuccessView({
     // ignore
   }
 
-  const locationLabel = safeEvent.location || getDefaultLocation(safeEvent.eventType) || '（未提供地點）';
+  const locationLabel = getEventLocationDisplay(safeEvent) || '（未提供地點）';
   const emailLabel = studentEmail || '您填寫的 Email';
   const bookingIdLabel = formatBookingCode(bookingCode, reservationId);
   const successAtLabel = successAt ? new Date(successAt).toLocaleString('zh-TW') : new Date().toLocaleString('zh-TW');

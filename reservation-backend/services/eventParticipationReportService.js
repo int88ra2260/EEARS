@@ -12,9 +12,9 @@ function eventTypeSortKey(t) {
 
 /**
  * 各學期 × 活動類型：已簽到預約的「不重複學號人數」與「簽到人次」（筆數）。
- * @param {{ user: object }} opts
+ * @param {{ user: object, eventScopeWhere?: object }} opts
  */
-async function getParticipationCheckinBySemesterAndType({ user }) {
+async function getParticipationCheckinBySemesterAndType({ user, eventScopeWhere }) {
   const rows = await Reservation.findAll({
     where: { checkinStatus: '已簽到' },
     include: [
@@ -22,6 +22,7 @@ async function getParticipationCheckinBySemesterAndType({ user }) {
         model: Event,
         required: true,
         attributes: ['id', 'date', 'eventType'],
+        where: eventScopeWhere,
       },
     ],
     attributes: ['id', 'studentId'],

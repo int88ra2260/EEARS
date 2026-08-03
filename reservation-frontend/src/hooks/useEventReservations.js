@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { EVENT_DETAIL_COPY } from '../constants/adminEventDetailCopy';
 import { debugEventDetail } from '../utils/eventDetailDebug';
+import { fetchEventReservations } from '../services/eventAdminService';
 
 /**
  * 活動預約／簽到用名單（GET /api/events/:id/reservations）— 依 tab lazy load
@@ -12,16 +13,9 @@ export function useEventReservations({ token, eventId, enabled }) {
   const [loaded, setLoaded] = useState(false);
   const loadedRef = useRef(false);
 
-  const fetchReservations = useCallback(async () => {
+  const loadReservations = useCallback(async () => {
     if (!eventId || !token) return null;
-    const res = await fetch(`/api/events/${eventId}/reservations`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.error || data.message || EVENT_DETAIL_COPY.reservationsLoadFailed);
-    }
-    return data;
+    return fetchEventReservations(token, eventId);
   }, [eventId, token]);
 
   const load = useCallback(
@@ -31,7 +25,7 @@ export function useEventReservations({ token, eventId, enabled }) {
       setLoading(true);
       setError('');
       try {
-        const data = await fetchReservations();
+        const data = await loadReservations();
         setPayload(data);
         loadedRef.current = true;
         setLoaded(true);
@@ -46,7 +40,7 @@ export function useEventReservations({ token, eventId, enabled }) {
         setLoading(false);
       }
     },
-    [eventId, token, fetchReservations]
+    [eventId, token, loadReservations]
   );
 
   useEffect(() => {
@@ -61,7 +55,7 @@ export function useEventReservations({ token, eventId, enabled }) {
     setLoading(true);
     setError('');
     try {
-      const data = await fetchReservations();
+      const data = await loadReservations();
       setPayload(data);
       loadedRef.current = true;
       setLoaded(true);
@@ -71,7 +65,7 @@ export function useEventReservations({ token, eventId, enabled }) {
     } finally {
       setLoading(false);
     }
-  }, [eventId, token, fetchReservations]);
+  }, [eventId, token, loadReservations]);
 
   const invalidateCache = useCallback(() => {
     loadedRef.current = false;

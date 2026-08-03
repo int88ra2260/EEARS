@@ -1,15 +1,9 @@
 /**
- * 培力英檢一鍵發信：報名成功 / 報名失敗 / 團體推廣信。
- * 封裝 sendingEmails 與 handleSendStatusEmails，維持 ConfirmModal 串接與原有 API 行為。
+ * 培力英檢一鍵發信。
  */
 import { useState, useCallback } from 'react';
+import { sendStatusEmails } from '../services/englishTestApi';
 
-/**
- * @param {Object} options
- * @param {string} options.token
- * @param {(config: object) => void} options.openConfirm - 開啟確認框（config: title, message, confirmLabel?, variant?, onConfirm? 等）
- * @param {(message: string, variant?: string) => void} options.showToast
- */
 export function useEnglishTestEmails({ token, openConfirm, showToast }) {
   const [sendingEmails, setSendingEmails] = useState(false);
 
@@ -29,26 +23,14 @@ export function useEnglishTestEmails({ token, openConfirm, showToast }) {
       onConfirm: async () => {
         setSendingEmails(true);
         try {
-          const response = await fetch('/api/english-test/registrations/send-status-emails', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ status })
-          });
-          const data = await response.json();
-          if (response.ok) {
-            showToast(
-              data.message + (data.failed > 0 ? `，${data.failed} 筆發送失敗` : ''),
-              data.failed > 0 ? 'warning' : 'success'
-            );
-          } else {
-            showToast(data.error || '發信失敗', 'danger');
-          }
+          const data = await sendStatusEmails(token, status);
+          showToast(
+            data.message + (data.failed > 0 ? `，${data.failed} 筆發送失敗` : ''),
+            data.failed > 0 ? 'warning' : 'success'
+          );
         } catch (e) {
           console.error(e);
-          showToast('發信時發生錯誤', 'danger');
+          showToast(e.message || '發信時發生錯誤', e.isGmailLocked ? 'warning' : 'danger');
         } finally {
           setSendingEmails(false);
         }
@@ -61,4 +43,3 @@ export function useEnglishTestEmails({ token, openConfirm, showToast }) {
     handleSendStatusEmails
   };
 }
-

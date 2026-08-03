@@ -15,7 +15,7 @@
 |------|-------------------|-----------------|------|
 | 帳號不存在或無法解析 | `Teacher` | **`unresolved`** | 登入失敗等；勿使用 `null` 當 `entityId` |
 | 同一請求內多筆批次（狀態批次更新等） | 業務實體名稱或 `AuditAggregate` | **`bulk`** 或 **`send-status-emails:${status}`** 等可讀複合鍵 | 細節放 `targetSummary`、`afterData`（含 `sampleIds`、筆數） |
-| 登入失敗 **時間窗合併**（高頻摘要） | **`AuditAggregate`** | **`login_failed:{ip}:{minuteBucket}`**（截斷 64 字元內） | `afterData` 含 `aggregate: true`、`count`、`sampleUsernames` |
+| 登入失敗 **時間窗合併**（高頻摘要） | **`AuditAggregate`** | **`login_failure:{ip}:{minuteBucket}`**（截斷 64 字元內） | `afterData` 含 `aggregate: true`、`count`、`sampleUsernames`、`reasons` |
 
 ## 與 `requestId` 的關係
 

@@ -1,14 +1,23 @@
 // server.js
 process.env.TZ = process.env.TZ || 'Asia/Taipei';
 require('dotenv').config();
+const { validateSecurityEnv } = require('./config/envValidation');
+validateSecurityEnv();
+
 const { handleUnhandledRejection, handleUncaughtException } = require('./middlewares/errorHandler');
 handleUnhandledRejection();
 handleUncaughtException();
 
 const express = require('express');
 const path = require('path');
-const cors = require('cors');
 const { sequelize } = require('./models');
+const { createCorsMiddleware } = require('./config/corsConfig');
+const {
+  applyTrustProxy,
+  createSecurityHeadersMiddleware,
+  createGlobalRateLimitMiddleware,
+  getRequestBodyLimit,
+} = require('./config/httpSecurity');
 
 const loginRouter = require('./routes/loginRouter');
 const eventRouter = require('./routes/eventRouter');
@@ -18,10 +27,10 @@ const settingsRouter = require('./routes/settingsRouter');
 const englishTableSurveyRouter = require('./routes/englishTableSurveyRouter');
 const surveyRouter = require('./routes/surveyRouter');
 const surveyProductAdminRouter = require('./routes/surveyProductAdminRouter');
-const surveySettingsRouter = require('./routes/surveySettingsRouter');
 const adminSurveyCenterRouter = require('./routes/adminSurveyCenterRouter');
 const adminSurveyRulesRouter = require('./routes/adminSurveyRulesRouter');
 const adminSurveyResponsesRouter = require('./routes/adminSurveyResponsesRouter');
+const adminSurveyGateGapsRouter = require('./routes/adminSurveyGateGapsRouter');
 const adminSurveyAnalyticsRouter = require('./routes/adminSurveyAnalyticsRouter');
 const adminSurveyHealthRouter = require('./routes/adminSurveyHealthRouter');
 const adminSurveyRepairsRouter = require('./routes/adminSurveyRepairsRouter');
@@ -29,37 +38,55 @@ const adminSurveyAnswerMappingRouter = require('./routes/adminSurveyAnswerMappin
 const surveyGatewayRouter = require('./routes/surveyGatewayRouter');
 const adminClassesRouter = require('./routes/adminClasses');
 const teacherRoutes = require('./routes/teacherRoutes');
-const featureFlagsRouter = require('./routes/featureFlagsRouter');
 const adminRouter = require('./routes/adminRouter');
 const englishTestRegistrationRouter = require('./routes/englishTestRegistrationRouter');
-const learningPartnerRouter = require('./routes/learningPartnerRouter');
+const englishLearningPassportRouter = require('./routes/englishLearningPassportRouter');
+const adminEnglishLearningPassportRouter = require('./routes/adminEnglishLearningPassportRouter');
 const bestepRouter = require('./routes/bestepRouter');
 const statsRouter = require('./routes/statsRouter');
 const analyticsRouter = require('./routes/analyticsRouter');
 const reportsRouter = require('./routes/reportsRouter');
 const announcementRouter = require('./routes/announcementRouter');
 const adminAnnouncementRouter = require('./routes/adminAnnouncementRouter');
+const weeklyReportRouter = require('./routes/weeklyReportRouter');
+const adminWeeklyReportRouter = require('./routes/adminWeeklyReportRouter');
+const adminWeeklyMediaRouter = require('./routes/adminWeeklyMediaRouter');
+const siteContentRouter = require('./routes/siteContentRouter');
+const adminSiteContentRouter = require('./routes/adminSiteContentRouter');
+const pageContentRouter = require('./routes/pageContentRouter');
+const adminPageContentRouter = require('./routes/adminPageContentRouter');
 const healthRouter = require('./routes/healthRouter');
 const notificationsRouter = require('./routes/notificationsRouter');
 const internalDiagnosticsRouter = require('./routes/internalDiagnosticsRouter');
 const learningJourneyRouter = require('./routes/learningJourneyRouter');
 const learningJourneyV3Router = require('./routes/learningJourneyV3Router');
+const learningAnalyticsRouter = require('./routes/learningAnalyticsRouter');
+const learningPartnerRouter = require('./routes/learningPartnerRouter');
+const etGroupingRouter = require('./routes/etGroupingRouter');
 
 const { errorHandler } = require('./middlewares/errorHandler');
 const { requestLogger } = require('./middlewares/requestLogger');
+const { authMiddleware, requirePermission, P } = require('./middlewares/auth');
 const { expireLearningPartnerTeams } = require('./scripts/learningPartnerExpireCron');
+const { startEventAutoCheckScheduler } = require('./scripts/eventAutoCheckScheduler');
 const adminLogsRouter = require('./routes/adminLogsRouter');
 const studentsRouter = require('./routes/studentsRouter');
+const importRunHistoryRouter = require('./routes/importRunHistoryRouter');
 const { isLearningJourneyV3ReadModelEnabled } = require('./services/learningJourney/learningJourneyFeatureFlags');
 
 const app = express();
 const port = process.env.PORT || 3000;
+const bodyLimit = getRequestBodyLimit();
+
+applyTrustProxy(app);
 
 // Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(createCorsMiddleware());
+app.use(createSecurityHeadersMiddleware());
+app.use(express.json({ limit: bodyLimit }));
+app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
 app.use(requestLogger);
+app.use('/api', createGlobalRateLimitMiddleware());
 
 app.use('/api', healthRouter);
 app.use('/api', notificationsRouter);
@@ -71,24 +98,24 @@ app.use('/api', reservationRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/blacklist', blacklistRouter);
 app.use('/api/survey', englishTableSurveyRouter);
-app.use('/api/admin/survey', englishTableSurveyRouter);
 app.use('/api/surveys', surveyRouter);
 app.use('/api/surveys', surveyGatewayRouter);
 app.use('/api/admin/surveys', surveyProductAdminRouter);
-app.use('/api/admin/surveys', surveyRouter);
+app.use('/api/admin/surveys', authMiddleware, requirePermission(P.CAN_VIEW_SURVEYS), surveyRouter);
 app.use('/api/admin/survey-center', adminSurveyCenterRouter);
 app.use('/api/admin/survey-rules', adminSurveyRulesRouter);
 app.use('/api/admin/survey-responses', adminSurveyResponsesRouter);
+app.use('/api/admin/survey-gate', adminSurveyGateGapsRouter);
 app.use('/api/admin/surveys/analytics', adminSurveyAnalyticsRouter);
 app.use('/api/admin/surveys/health', adminSurveyHealthRouter);
 app.use('/api/admin/surveys/repairs', adminSurveyRepairsRouter);
 app.use('/api/admin/surveys/answer-mappings', adminSurveyAnswerMappingRouter);
-app.use('/api/admin/survey-settings', surveySettingsRouter);
 app.use('/api/admin/classes', adminClassesRouter);
 app.use('/api', teacherRoutes);
-app.use('/api', featureFlagsRouter);
 app.use('/api', adminRouter);
 app.use('/api', englishTestRegistrationRouter);
+app.use('/api', englishLearningPassportRouter);
+app.use('/api/admin', adminEnglishLearningPassportRouter);
 app.use('/api', learningPartnerRouter);
 app.use('/api/admin/bestep', bestepRouter);
 // LEGACY - DO NOT USE:
@@ -97,12 +124,22 @@ app.use('/api/admin/bestep', bestepRouter);
 app.use('/api/admin/learning-journey', learningJourneyRouter);
 app.use('/api/v3/learning-journey', learningJourneyRouter);
 app.use('/api/admin/learning-journey-v3', learningJourneyV3Router);
+app.use('/api/admin/learning-analytics', learningAnalyticsRouter);
+app.use('/api/admin/et-grouping', etGroupingRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api', analyticsRouter);
 app.use('/api', reportsRouter);
 app.use('/api/announcements', announcementRouter);
 app.use('/api/admin/announcements', adminAnnouncementRouter);
+app.use('/api/weekly', weeklyReportRouter);
+app.use('/api/admin/weekly-reports', adminWeeklyReportRouter);
+app.use('/api/admin/weekly-media', adminWeeklyMediaRouter);
+app.use('/api/site-content', siteContentRouter);
+app.use('/api/admin/site-content', adminSiteContentRouter);
+app.use('/api', pageContentRouter);
+app.use('/api/admin', adminPageContentRouter);
 app.use('/api/admin/logs', adminLogsRouter);
+app.use('/api/admin/import-runs', importRunHistoryRouter);
 app.use('/api', studentsRouter);
 
 // 提供上傳檔案的靜態服務
@@ -113,8 +150,17 @@ app.use('/uploads', express.static(uploadsPath));
 const buildPath = path.join(__dirname, 'build');
 app.use(express.static(buildPath));
 
-// React Router fallback（支援 SPA 模式）
+// React Router fallback（支援 SPA 模式）；未匹配的 API 回 JSON，避免回傳 HTML 造成前端 JSON.parse 失敗
 app.get('*', (req, res) => {
+  const apiPath = String(req.path || req.url || '').split('?')[0];
+  if (apiPath.startsWith('/api/')) {
+    return res.status(404).json({
+      success: false,
+      error: 'API_NOT_FOUND',
+      message: `No handler for ${req.method} ${apiPath}`,
+      requestId: req.requestId || null,
+    });
+  }
   res.sendFile(path.join(buildPath, 'index.html'));
 });
 
@@ -172,6 +218,18 @@ sequelize.authenticate()
       logger.simple.success('All models synced.');
     }
 
+    try {
+      const { SurveyRule } = require('./models');
+      const { syncAllLegacySettingsToSurveyRules } = require('./services/surveySettingsSyncService');
+      const ruleCount = await SurveyRule.count();
+      if (ruleCount === 0) {
+        const synced = await syncAllLegacySettingsToSurveyRules({ source: 'startup_bootstrap' });
+        logger.simple.info(`問卷規則啟動同步：已將 legacy 設定匯入 survey_rules（${synced.length} 筆）`);
+      }
+    } catch (bootstrapErr) {
+      logger.error('問卷規則啟動同步失敗（不影響伺服器啟動）', bootstrapErr);
+    }
+
     app.listen(port, '0.0.0.0',() => {
       logger.simple.success(`後端伺服器運行中，port：${port}`);
       logger.simple.success('系統已準備就緒！');
@@ -192,6 +250,9 @@ sequelize.authenticate()
       expireLearningPartnerTeams().catch(error => {
         logger.error('初始過期檢查錯誤', error);
       });
+
+      // 每日 23:59:59 自動執行活動結束檢查
+      startEventAutoCheckScheduler(logger);
     });
   })
   .catch(err => {

@@ -1,0 +1,136 @@
+.activity-step1-tools {
+  margin-top: 1rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.activity-step1-tools__eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--activities-muted, #787774);
+}
+
+.activity-step1-tools__grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 768px) {
+  .activity-step1-tools__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+.activity-step1-tool {
+  padding: 1rem;
+  border: 1px solid var(--activities-border, #eaeaea);
+  border-radius: 10px;
+  background: var(--activities-surface, #ffffff);
+}
+
+.activity-step1-tool__head {
+  display: none;
+}
+
+.activity-step1-tool__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--activities-ink, #111111);
+}
+
+.activity-step1-tool__lead {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--activities-muted, #787774);
+}
+
+.activity-step1-tool__meta {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--activities-soft, #2f3437);
+}
+
+.activity-step1-tool__rec-label {
+  margin: 0.75rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--activities-muted, #787774);
+}
+
+.activity-step1-tool__empty {
+  margin: 0.65rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--activities-muted, #787774);
+}
+
+.activity-step1-tools__grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 768px) {
+  .activity-step1-tools__grid--single {
+    max-width: 36rem;
+  }
+}
+
+.activity-step1-tool__summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.activity-step1-tool__edit {
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--activities-border, #eaeaea);
+  border-radius: 6px;
+  background: var(--activities-surface, #ffffff);
+  color: var(--activities-ink, #111111);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.35;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.activity-step1-tool__edit:hover {
+  border-color: #d4564a;
+  background: #fdf0ee;
+  color: #b8453a;
+}
+
+.activity-step1-tool__edit:focus-visible {
+  outline: 2px solid #d4564a;
+  outline-offset: 2px;
+}
+
+.activity-step1-tool--style .word-bridge-survey-fields {
+  margin-top: 0.35rem;
+}
+
+.activity-step1-tool--style .word-bridge-survey-field {
+  margin-top: 0.65rem;
+}
+
+.activity-step1-tool--style .word-bridge-survey-option {
+  font-size: 0.86rem;
+}
+
+.activity-step1-tool--style .word-bridge-disclaimer--inline {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+}

@@ -3,7 +3,16 @@ const express = require('express');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const { EnglishTableSurveyResponse, EnglishClubSurveyResponse, Reservation, Event } = require('../models');
-const { authMiddleware, adminMiddleware } = require('../middlewares/auth');
+const { authMiddleware, adminMiddleware, requirePermission, requireAnyPermission, P } = require('../middlewares/auth');
+const { logLegacySurveyExportAudit } = require('../utils/legacySurveyExportAudit');
+
+const legacySurveyExportAuth = [
+  authMiddleware,
+  requireAnyPermission(
+    [P.CAN_EXPORT_SURVEY_RESPONSES, P.CAN_EXPORT_SURVEYS],
+    '需要問卷填答匯出權限'
+  ),
+];
 const { getCurrentSemester, isValidSemester } = require('../utils/semester');
 
 function resolveLegacyStatsSemester(req) {
@@ -14,6 +23,18 @@ function resolveLegacyStatsSemester(req) {
 router.use((req, res, next) => {
   res.setHeader('X-EEARS-Deprecated', 'true');
   next();
+});
+
+function isAdminSurveyLegacyBase(req) {
+  return String(req.baseUrl || '').startsWith('/api/admin/survey');
+}
+
+// P0: 避免 legacy survey router 在 admin 前綴下出現未授權存取。
+router.use((req, res, next) => {
+  if (!isAdminSurveyLegacyBase(req)) return next();
+  return authMiddleware(req, res, () =>
+    requirePermission(P.CAN_VIEW_SURVEYS)(req, res, next)
+  );
 });
 
 // 檢查學生是否已填問卷（通用路由，支援 English Table 和 English Club）
@@ -268,8 +289,8 @@ router.post('/english-club', async (req, res, next) => {
   }
 });
 
-// 匯出English Table問卷資料至Excel（管理員專用）
-router.get('/export', authMiddleware, adminMiddleware, async (req, res, next) => {
+// 匯出 English Table 問卷資料至 Excel（需問卷匯出權限；完整個資僅在匯出檔內，audit 不含原文）
+router.get('/export', ...legacySurveyExportAuth, async (req, res, next) => {
   try {
     const semester = resolveLegacyStatsSemester(req);
     const surveys = await EnglishTableSurveyResponse.findAll({
@@ -320,6 +341,14 @@ router.get('/export', authMiddleware, adminMiddleware, async (req, res, next) =>
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="english-table-survey-responses.xlsx"');
     await wb.xlsx.write(res);
+
+    logLegacySurveyExportAudit(req, {
+      action: 'legacy_english_table_survey_export',
+      surveyType: 'english_table',
+      rowCount: surveys.length,
+      filters: { semester },
+    });
+
     res.end();
   } catch (err) {
     next(err);

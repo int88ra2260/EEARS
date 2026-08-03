@@ -270,6 +270,22 @@
 
 /* 響應式調整 */
 @media (max-width: 576px) {
+  .event-list-shell--in-page .fc-toolbar {
+    font-size: 0.8rem;
+  }
+
+  .event-list-shell--in-page .fc-toolbar-chunk {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .event-list-shell--in-page .fc-list-event {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
   .fc-toolbar {
     font-size: 0.8rem;
   }

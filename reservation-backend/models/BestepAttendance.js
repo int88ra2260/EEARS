@@ -19,9 +19,9 @@ const BestepAttendance = sequelize.define('BestepAttendance', {
     comment: '學期（如 114-1）'
   },
   examType: {
-    type: DataTypes.ENUM('LR', 'SW'),
+    type: DataTypes.ENUM('L', 'R', 'S', 'W', 'LR', 'SW'),
     allowNull: false,
-    comment: '考試類型：LR（聽讀）或 SW（說寫）'
+    comment: '考試類型：L/R/S/W 單項或 LR/SW 組合'
   },
   examDate: {
     type: DataTypes.DATEONLY,
@@ -48,6 +48,11 @@ const BestepAttendance = sequelize.define('BestepAttendance', {
     type: DataTypes.STRING(255),
     allowNull: true,
     comment: '來源檔案名稱'
+  },
+  importBatchId: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+    comment: '匯入批次 ID，供匯入紀錄中心回滾'
   }
 }, {
   tableName: 'bestep_attendance',
@@ -69,6 +74,10 @@ const BestepAttendance = sequelize.define('BestepAttendance', {
     {
       fields: ['studentId'],
       name: 'idx_studentId'
+    },
+    {
+      fields: ['importBatchId'],
+      name: 'idx_bestep_attendance_import_batch'
     }
   ]
 });

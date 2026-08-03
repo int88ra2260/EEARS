@@ -8,6 +8,7 @@ import useReservationLookup from '../hooks/useReservationLookup';
 import ReservationLookupSection from './reservations/ReservationLookupSection';
 import ReservationResultList from './reservations/ReservationResultList';
 import ToastMessage from './ui/ToastMessage';
+import '../styles/public-ui.css';
 
 function ReservationSearchModal({ show, onClose }) {
   const { t } = useLanguage();
@@ -43,8 +44,8 @@ function ReservationSearchModal({ show, onClose }) {
 
   return (
     <>
-      <div className="modal fade show" style={{ display: 'block' }} role="dialog">
-        <div className="modal-dialog" role="document">
+      <div className="modal fade show public-reservation-modal" style={{ display: 'block' }} role="dialog">
+        <div className="modal-dialog modal-dialog-scrollable modal-lg" role="document">
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title">{t('page.reservationLookupTitle')}</h5>

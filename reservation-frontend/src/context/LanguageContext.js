@@ -1,11 +1,14 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import { LANG_ZH, LANG_EN, translations, getTranslation } from '../constants/translations';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
+import { LANG_ZH, LANG_EN, getTranslation } from '../constants/translations';
+import { fetchSiteContent } from '../services/siteContentApi';
+import { formatMessage } from '../utils/formatMessage';
 
 const STORAGE_KEY = 'eears_lang';
 
-const LanguageContext = createContext(null);
+export const LanguageContext = createContext(null);
 
 export function LanguageProvider({ children }) {
+  const [textOverrides, setTextOverrides] = useState({});
   const [lang, setLangState] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -22,9 +25,40 @@ export function LanguageProvider({ children }) {
     } catch (e) {}
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetchSiteContent({ force: true })
+        .then((data) => {
+          if (!cancelled && data?.textOverrides) {
+            setTextOverrides(data.textOverrides);
+          }
+        })
+        .catch(() => {});
+    };
+    load();
+    window.addEventListener('eears:site-content-updated', load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('eears:site-content-updated', load);
+    };
+  }, []);
+
   const t = useCallback(
-    (path) => getTranslation(lang, path),
-    [lang]
+    (path, vars) => {
+      const override = textOverrides[path];
+      let template;
+      if (override) {
+        const localized = override[lang] ?? override[LANG_ZH] ?? override[LANG_EN];
+        if (localized) template = localized;
+      }
+      if (!template) template = getTranslation(lang, path);
+      if (vars && typeof vars === 'object') {
+        return formatMessage(template, vars);
+      }
+      return template;
+    },
+    [lang, textOverrides]
   );
 
   const value = useMemo(

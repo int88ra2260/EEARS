@@ -1,10 +1,11 @@
 import React from 'react';
+import { getEmptyReasonText } from './emptyStateUtils';
 
 const EMPTY = '—';
 
-export default function CourseRecordsTable({ courseRecords }) {
+export default function CourseRecordsTable({ courseRecords, emptyReason }) {
   const rows = Array.isArray(courseRecords) ? courseRecords : [];
-  if (rows.length === 0) return <div className="alert alert-secondary mb-0">尚無修課紀錄。</div>;
+  if (rows.length === 0) return <div className="alert alert-secondary mb-0">{getEmptyReasonText(emptyReason, '尚無修課紀錄。')}</div>;
   return (
     <div className="table-responsive">
       <table className="table table-sm table-striped align-middle mb-0">

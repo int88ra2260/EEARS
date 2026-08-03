@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
+const { authMiddleware, requirePermission, adminOrExecutiveMiddleware, P } = require('../middlewares/auth');
 const mappingService = require('../services/surveyAnswerMappingService');
 
 function ensureMappingEnabled(req, res, next) {
@@ -9,7 +9,7 @@ function ensureMappingEnabled(req, res, next) {
   return next();
 }
 
-router.get('/', authMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), async (req, res, next) => {
+router.get('/', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), async (req, res, next) => {
   try {
     res.json(await mappingService.listMappings(req.query));
   } catch (e) {
@@ -17,7 +17,7 @@ router.get('/', authMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAP
   }
 });
 
-router.post('/proposals', authMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), ensureMappingEnabled, async (req, res, next) => {
+router.post('/proposals', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), ensureMappingEnabled, async (req, res, next) => {
   try {
     const proposals = await mappingService.generateProposals(req.body || {});
     res.json({ proposals });
@@ -26,7 +26,7 @@ router.post('/proposals', authMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_
   }
 });
 
-router.post('/', authMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), ensureMappingEnabled, async (req, res, next) => {
+router.post('/', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), ensureMappingEnabled, async (req, res, next) => {
   try {
     res.status(201).json(await mappingService.createMapping(req.body || {}, req.user?.id));
   } catch (e) {
@@ -34,7 +34,7 @@ router.post('/', authMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MA
   }
 });
 
-router.put('/:id(\\d+)', authMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), ensureMappingEnabled, async (req, res, next) => {
+router.put('/:id(\\d+)', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), ensureMappingEnabled, async (req, res, next) => {
   try {
     const row = await mappingService.updateMapping(Number(req.params.id), req.body || {});
     if (!row) return res.status(404).json({ message: 'mapping not found' });
@@ -44,7 +44,7 @@ router.put('/:id(\\d+)', authMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_A
   }
 });
 
-router.post('/:id(\\d+)/approve', authMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), ensureMappingEnabled, async (req, res, next) => {
+router.post('/:id(\\d+)/approve', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), ensureMappingEnabled, async (req, res, next) => {
   try {
     const row = await mappingService.approveMapping(Number(req.params.id), req.user?.id);
     if (!row) return res.status(404).json({ message: 'mapping not found' });
@@ -54,7 +54,7 @@ router.post('/:id(\\d+)/approve', authMiddleware, requirePermission(P.CAN_MANAGE
   }
 });
 
-router.post('/:id(\\d+)/reject', authMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), ensureMappingEnabled, async (req, res, next) => {
+router.post('/:id(\\d+)/reject', authMiddleware, adminOrExecutiveMiddleware, requirePermission(P.CAN_MANAGE_SURVEY_ANSWER_MAPPING), ensureMappingEnabled, async (req, res, next) => {
   try {
     const row = await mappingService.rejectMapping(Number(req.params.id), req.user?.id, req.body?.notes || null);
     if (!row) return res.status(404).json({ message: 'mapping not found' });

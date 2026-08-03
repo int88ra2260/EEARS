@@ -24,11 +24,18 @@ const {
 const { checkSurvey } = require('../middlewares/checkSurvey');
 const { calculateReservationTime } = require('../utils/reservationTime');
 const { validateStudentId, validateName } = require('../utils/validators');
-const { sendEmail, transporter } = require('../config/email');
 const { Op } = require('sequelize');
 const auditLogService = require('../services/auditLogService');
+const { newImportBatchId } = require('../utils/importBatchId');
+const importRollbackManifestService = require('../services/importRollbackManifestService');
 const notificationService = require('../services/notificationService');
 const reservationService = require('../services/reservationService');
+const waitlistService = require('../services/waitlistService');
+const logger = require('../utils/logger');
+const {
+  assertCanAccessEvent,
+  buildEventScopeWhere,
+} = require('../services/accessControl/eventScopeGuard');
 
 const STUDENT_ID_HEADERS = ['學號', '工號', '學員', 'studentid', '卡號', '編號'];
 const NAME_HEADERS = ['姓名', 'name', '學生姓名'];
@@ -60,6 +67,14 @@ async function eventTypeByParam(req) {
   return event?.eventType || null;
 }
 
+function sendScopeDenied(res, err) {
+  return res.status(err.status || 403).json({
+    success: false,
+    errorCode: err.code || 'EVENT_SCOPE_DENIED',
+    message: err.message || '您沒有存取此活動資料的權限。',
+  });
+}
+
 // 生成取消預約驗證碼（6位數字）
 function generateCancellationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -69,6 +84,60 @@ function formatBookingCode(reservationId) {
   const idNum = Number(reservationId);
   if (!Number.isFinite(idNum)) return `R-${String(reservationId || '').trim()}`;
   return `R-${String(idNum).padStart(6, '0')}`;
+}
+
+function buildReservationCancellationEmailData(reservation) {
+  const event = reservation.Event;
+  if (!event) return null;
+  return {
+    studentId: reservation.studentId,
+    studentName: reservation.studentName,
+    studentEmail: reservation.studentEmail,
+    eventName: event.name,
+    eventType: event.eventType,
+    date: event.date,
+    startTime: event.startTime,
+    endTime: event.endTime,
+    eventId: event.id,
+  };
+}
+
+function notifyReservationCancelled(reservation, req) {
+  const emailData = buildReservationCancellationEmailData(reservation);
+  if (!emailData || !emailData.studentEmail) return;
+
+  const emailQueue = require('../utils/emailQueue');
+  const requestId = req.requestId;
+
+  emailQueue.enqueue('reservationCancellation', emailData, {
+    requestId,
+    relatedEntityType: 'reservation',
+    relatedEntityId: reservation.id,
+  }).catch((err) => {
+    console.error('取消預約郵件加入佇列失敗:', err);
+  });
+
+  notificationService
+    .createFromEmailTemplate('reservationCancellation', emailData, {
+      userId: reservation.userId,
+      requestId,
+      relatedEntityType: 'reservation',
+      relatedEntityId: reservation.id,
+    })
+    .catch((err) => {
+      console.error('寫入取消預約通知失敗:', err);
+    });
+}
+
+async function loadWaitlistEventType(req, res, next) {
+  try {
+    const event = await Event.findByPk(req.params.eventId, { attributes: ['id', 'eventType'] });
+    if (!event) return res.status(404).json({ error: '活動不存在' });
+    req._waitlistEventType = event.eventType;
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
 function findValueByHeaders(row, headerOptions) {
@@ -210,6 +279,22 @@ router.get('/users/blacklist-status', async (req, res) => {
     });
   }
 });
+
+// GET /api/admin/events/:eventId/waitlist — 管理端候補名單
+router.get(
+  '/admin/events/:eventId/waitlist',
+  authMiddleware,
+  loadWaitlistEventType,
+  requirePermissionAndEventAccess(P.CAN_VIEW_RESERVATIONS, (req) => req._waitlistEventType),
+  async (req, res, next) => {
+    try {
+      const data = await waitlistService.listEventWaitlist({ eventId: req.params.eventId });
+      return res.json(data);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // 建立預約
 // POST /api/reservations
@@ -408,6 +493,7 @@ router.post('/reservations', checkSurvey, async (req, res) => {
       date: event.date,
       startTime: event.startTime,
       endTime: event.endTime,
+      location: event.location,
       cancellationCode: cancellationCode  // 包含驗證碼
     };
 
@@ -496,6 +582,7 @@ router.post(
       });
 
       if (result.cancelled && result.reservation?.Event) {
+        notifyReservationCancelled(result.reservation, req);
         try {
           auditLogService.logAuditAsync({
             module: 'reservations',
@@ -513,10 +600,26 @@ router.post(
         } catch (_) {}
       }
 
-      return genericLookupResponse(res, {
+      const out = genericLookupResponse(res, {
         found: !!result.cancelled,
         message: 'If the reservation matches the provided information, it has been cancelled.',
       });
+
+      if (result.cancelled && result.reservation?.Event?.id) {
+        const eventId = result.reservation.Event.id;
+        waitlistService
+          .promoteNextWaitlistedStudent({
+            eventId,
+            triggeredBy: 'public_cancel',
+            requestId: req.requestId,
+            req,
+          })
+          .catch((err) => {
+            logger.error('[waitlist] promote after public cancel failed', { eventId, err });
+          });
+      }
+
+      return out;
     } catch (err) {
       console.error(err);
       return res.status(500).json({ success: false, message: 'Server error.' });
@@ -532,6 +635,16 @@ router.delete(
   async (req, res) => {
     try {
       const body = req.body || {};
+      const reservation = await Reservation.findByPk(req.params.id, { include: [Event] });
+      if (!reservation) {
+        return res.status(404).json({ success: false, message: 'Reservation not found.' });
+      }
+      try {
+        assertCanAccessEvent(req.user, reservation.Event, { explicitEventContext: true });
+      } catch (scopeErr) {
+        return sendScopeDenied(res, scopeErr);
+      }
+
       const result = await reservationService.cancelReservationByAdmin({
         reservationId: req.params.id,
         operator: req.user,
@@ -546,6 +659,8 @@ router.delete(
         }
         return res.status(404).json({ success: false, message: 'Reservation not found.' });
       }
+
+      notifyReservationCancelled(result.reservation, req);
 
       try {
         auditLogService.logAuditAsync({
@@ -562,6 +677,21 @@ router.delete(
           req,
         });
       } catch (_) {}
+
+      if (result.reservation?.Event?.id) {
+        const eventId = result.reservation.Event.id;
+        waitlistService
+          .promoteNextWaitlistedStudent({
+            eventId,
+            triggeredBy: 'admin_cancel',
+            requestId: req.requestId,
+            req,
+          })
+          .catch((err) => {
+            logger.error('[waitlist] promote after admin cancel failed', { eventId, err });
+          });
+      }
+
       return res.json({ success: true, message: 'Reservation cancelled.' });
     } catch (err) {
       console.error(err);
@@ -602,7 +732,7 @@ router.get(
       attributes: ['id', 'studentId', 'studentName', 'studentEmail', 'timestamp', 'eventId'],
       include: [{
         model: Event,
-        attributes: ['id', 'name', 'date', 'startTime', 'endTime', 'eventType'],
+        attributes: ['id', 'name', 'date', 'startTime', 'endTime', 'eventType', 'location'],
         required: false
       }],
       order: [['timestamp', 'DESC']],
@@ -624,7 +754,8 @@ router.get(
       eventName: r.Event ? r.Event.name : '',
       date: r.Event ? r.Event.date : '',
       startTime: r.Event ? r.Event.startTime : '',
-      endTime: r.Event ? r.Event.endTime : ''
+      endTime: r.Event ? r.Event.endTime : '',
+      location: r.Event ? r.Event.location : null
     }));
     publicLookupAudit(req, {
       action: 'reservation_public_lookup',
@@ -647,11 +778,34 @@ router.get(
 // 管理員/工讀生查詢所有預約（需要認證）
 router.get('/reservations', authMiddleware, requirePermission(P.CAN_VIEW_RESERVATIONS), async (req, res) => {
   try {
-    const { studentId, studentName, studentEmail } = req.query;
+    const { studentId, studentName, studentEmail, eventId } = req.query;
 
     // 組合搜尋條件
     // 若想做「完全比對」就使用 '='；若想做「部分比對」(like) 即可用 [Op.like].
     let whereClause = {};
+    let includeEventScopeWhere;
+
+    if (eventId) {
+      const event = await Event.findByPk(eventId, { attributes: ['id', 'eventType'] });
+      if (!event) {
+        return res.status(404).json({ success: false, errorCode: 'EVENT_NOT_FOUND', message: '活動不存在' });
+      }
+      try {
+        assertCanAccessEvent(req.user, event, { explicitEventContext: true });
+      } catch (scopeErr) {
+        return sendScopeDenied(res, scopeErr);
+      }
+      whereClause.eventId = event.id;
+    } else {
+      includeEventScopeWhere = buildEventScopeWhere(req.user);
+      if (includeEventScopeWhere === null) {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'MISSING_EVENT_CONTEXT',
+          message: '此操作需要指定活動或預約來源。',
+        });
+      }
+    }
 
     if (studentId) {
       // 完全比對
@@ -680,8 +834,9 @@ router.get('/reservations', authMiddleware, requirePermission(P.CAN_VIEW_RESERVA
       attributes: ['id', 'studentId', 'studentName', 'studentEmail', 'timestamp', 'eventId'],
       include: [{
         model: Event,
-        attributes: ['id', 'name', 'date', 'startTime', 'endTime', 'eventType'],
-        required: false  // LEFT JOIN
+        attributes: ['id', 'name', 'date', 'startTime', 'endTime', 'eventType', 'location'],
+        where: includeEventScopeWhere,
+        required: !!includeEventScopeWhere && Object.keys(includeEventScopeWhere).length > 0
       }],
       order: [['timestamp', 'DESC']], // 依預約時間由新到舊排序
       limit: 1000  // 限制結果數量，避免過多資料
@@ -702,7 +857,8 @@ router.get('/reservations', authMiddleware, requirePermission(P.CAN_VIEW_RESERVA
       eventName: r.Event ? r.Event.name : '',
       date: r.Event ? r.Event.date : '',
       startTime: r.Event ? r.Event.startTime : '',
-      endTime: r.Event ? r.Event.endTime : ''
+      endTime: r.Event ? r.Event.endTime : '',
+      location: r.Event ? r.Event.location : null
       // ...其他你需要的資訊
     }));
 
@@ -756,6 +912,8 @@ router.post(
       let totalImported = 0;
       let successCount = 0;
       const updatedRecords = [];
+      const importBatchId = newImportBatchId('card-excel', eventId);
+      const reservationRollbacks = [];
 
       const notFoundSet = new Set();
       const duplicatesSet = new Set();
@@ -798,6 +956,12 @@ router.post(
           continue;
         }
 
+        reservationRollbacks.push({
+          id: reservation.id,
+          checkinStatus: reservation.checkinStatus,
+          checkinTime: reservation.checkinTime,
+        });
+
         await reservation.update(
           {
             checkinStatus: '已簽到',
@@ -817,6 +981,19 @@ router.post(
 
       await transaction.commit();
 
+      if (reservationRollbacks.length) {
+        await importRollbackManifestService.saveManifest({
+          importBatchId,
+          sourceModule: 'reservations',
+          kind: 'event_card_excel',
+          manifest: {
+            kind: 'event_card_excel',
+            eventId: Number(eventId),
+            reservationRollbacks,
+          },
+        });
+      }
+
       // 稽核：卡片 Excel 匯入（只記錄摘要，避免寫入原始檔內容）
       auditLogService.logAuditAsync({
         module: 'reservations',
@@ -825,7 +1002,8 @@ router.post(
         entityId: `event:${eventId}`,
         targetSummary: `eventId=${eventId}`,
         afterData: {
-          eventId,
+          importBatchId,
+          eventId: Number(eventId),
           successCount,
           totalImported,
           notFoundCount: notFoundSet.size,
@@ -837,6 +1015,7 @@ router.post(
 
       return res.json({
         message: `匯入完成，已簽到 ${successCount} 人`,
+        importBatchId,
         successCount,
         totalImported,
         notFound: Array.from(notFoundSet),

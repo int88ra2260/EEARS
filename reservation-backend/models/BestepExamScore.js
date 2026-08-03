@@ -88,6 +88,11 @@ const BestepExamScore = sequelize.define('BestepExamScore', {
     type: DataTypes.STRING(255),
     allowNull: true,
     comment: '來源檔案名稱'
+  },
+  importBatchId: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+    comment: '匯入批次 ID，供匯入紀錄中心回滾'
   }
 }, {
   tableName: 'bestep_exam_scores',
@@ -113,6 +118,10 @@ const BestepExamScore = sequelize.define('BestepExamScore', {
     {
       fields: ['semester', 'passed'],
       name: 'idx_passed'
+    },
+    {
+      fields: ['importBatchId'],
+      name: 'idx_bestep_exam_scores_import_batch'
     }
   ],
 });

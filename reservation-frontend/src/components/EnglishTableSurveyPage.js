@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Button, Form, Alert, Card, Row, Col } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import { submitEnglishTableSurvey } from '../services/surveyPublicApi';
 
 // 年級選項
 const GRADE_OPTIONS = [
@@ -166,25 +167,17 @@ export default function EnglishTableSurveyPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/survey/english-table', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const { ok, data } = await submitEnglishTableSurvey({
           studentId: formData.studentId,
           name: formData.studentName,
           email: formData.studentEmail,
           grade: formData.grade,
           department: formData.department,
           interviewEmail: formData.interviewEmail || null,
-          ...likertResponses
-        })
-      });
+          ...likertResponses,
+        });
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (ok) {
         setSuccess('問卷已成功送出，謝謝您的寶貴意見！');
         setTimeout(() => {
           navigate('/');

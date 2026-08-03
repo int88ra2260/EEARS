@@ -9,6 +9,7 @@ import ReservationLookupSection from '../components/reservations/ReservationLook
 import ReservationResultList from '../components/reservations/ReservationResultList';
 import useReservationLookup from '../hooks/useReservationLookup';
 import ToastMessage from '../components/ui/ToastMessage';
+import '../styles/public-ui.css';
 
 export default function MyReservationsPage() {
   const { t } = useLanguage();
@@ -46,13 +47,14 @@ export default function MyReservationsPage() {
   ];
 
   return (
-    <div className="my-reservations-page my-reservations-page--lookup">
+    <div className="my-reservations-page my-reservations-page--lookup public-reservation-page">
       <PageHeader
         breadcrumbs={breadcrumbs}
         title={t('page.myReservationsTitle')}
         lead={t('page.myReservationsLead')}
       />
 
+      <div className="public-card">
       <ReservationLookupSection
         studentId={form.studentId}
         studentName={form.studentName}
@@ -65,6 +67,7 @@ export default function MyReservationsPage() {
         error={error}
         showHint={true}
       />
+      </div>
 
       <ReservationResultList
         records={records}

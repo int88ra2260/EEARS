@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useOutletContext } from 'react-router-dom';
 import { Button, Modal, Pagination, Table, Form } from 'react-bootstrap';
-import axiosClient from '../../utils/axiosClient';
+import {
+  fetchAuditLogs,
+  fetchEmailLogs,
+  fetchLogMetricsSummary,
+  fetchLogsByRequestId,
+  fetchSystemLogs,
+} from '../../services/auditAdminApi';
 
 function buildParams(params) {
   const out = {};
@@ -11,43 +17,20 @@ function buildParams(params) {
   return out;
 }
 
-async function fetchAudit(token, params) {
-  const res = await axiosClient.get('/api/admin/logs/audit', {
-    params,
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return res.data;
-}
-
-async function fetchLogsByRequestId(token, requestId) {
-  const res = await axiosClient.get(`/api/admin/logs/request/${encodeURIComponent(requestId)}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return res.data;
-}
-
-async function fetchSystemLogs(token, params) {
-  const res = await axiosClient.get('/api/admin/logs/system', {
-    params,
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return res.data;
-}
-
-async function fetchEmailLogs(token, params) {
-  const res = await axiosClient.get('/api/admin/logs/email', {
-    params,
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return res.data;
-}
-
-async function fetchMetricsSummary(token) {
-  const res = await axiosClient.get('/api/admin/logs/metrics/summary', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return res.data;
-}
+const ACCOUNT_SECURITY_ACTION_PRESETS = [
+  'login_success',
+  'login_failure',
+  'access_profile_stale',
+  'account_disabled_access_attempt',
+  'permission_denied',
+  'account_created',
+  'account_updated',
+  'account_enabled',
+  'account_disabled',
+  'account_password_reset',
+  'account_password_changed',
+  'permission_override_changed',
+];
 
 export default function AdminAuditLogsPage() {
   const { token } = useOutletContext();
@@ -61,6 +44,7 @@ export default function AdminAuditLogsPage() {
   const [page, setPage] = useState(1);
   const [moduleName, setModuleName] = useState('');
   const [action, setAction] = useState('');
+  const [actionMatchExact, setActionMatchExact] = useState(false);
   const [status, setStatus] = useState('');
   const [keyword, setKeyword] = useState('');
   const [operatorId, setOperatorId] = useState('');
@@ -77,8 +61,14 @@ export default function AdminAuditLogsPage() {
   const limit = 20;
 
   const load = useCallback(
-    async (pageOverride) => {
+    async (pageOverride, auditFilter) => {
       const pg = pageOverride != null ? pageOverride : page;
+      const actionForQuery =
+        auditFilter && typeof auditFilter.action === 'string' ? auditFilter.action : action;
+      const actionExactForQuery =
+        auditFilter && typeof auditFilter.actionMatchExact === 'boolean'
+          ? auditFilter.actionMatchExact
+          : actionMatchExact;
       setLoading(true);
       try {
         const baseParams = buildParams({
@@ -93,10 +83,11 @@ export default function AdminAuditLogsPage() {
 
         let data;
         if (logType === 'audit') {
-          data = await fetchAudit(token, buildParams({
+          data = await fetchAuditLogs(token, buildParams({
             ...baseParams,
             module: moduleName.trim() || undefined,
-            action: action.trim() || undefined,
+            action: actionForQuery.trim() || undefined,
+            actionMode: actionForQuery.trim() && actionExactForQuery ? 'exact' : undefined,
           }));
         } else if (logType === 'system') {
           data = await fetchSystemLogs(token, buildParams({
@@ -120,7 +111,7 @@ export default function AdminAuditLogsPage() {
         setLoading(false);
       }
     },
-    [token, page, logType, moduleName, action, status, keyword, operatorId, dateFrom, dateTo]
+    [token, page, logType, moduleName, action, actionMatchExact, status, keyword, operatorId, dateFrom, dateTo]
   );
 
   useEffect(() => {
@@ -129,7 +120,7 @@ export default function AdminAuditLogsPage() {
 
   useEffect(() => {
     if (!token) return;
-    fetchMetricsSummary(token)
+    fetchLogMetricsSummary(token)
       .then((d) => setMetrics(d.metrics || null))
       .catch(() => setMetrics(null));
   }, [token]);
@@ -242,7 +233,23 @@ export default function AdminAuditLogsPage() {
         </div>
         <div className="col-md-2">
           <Form.Label className="small mb-0">操作</Form.Label>
-          <Form.Control size="sm" value={action} onChange={(e) => setAction(e.target.value)} placeholder="關鍵字" />
+          <Form.Control
+            size="sm"
+            value={action}
+            onChange={(e) => {
+              setAction(e.target.value);
+              setActionMatchExact(false);
+            }}
+            placeholder="關鍵字；可勾選下方「完全比對」"
+          />
+          <Form.Check
+            className="small mt-1"
+            type="checkbox"
+            id="audit-action-exact"
+            label="操作完全比對（後端 actionMode=exact）"
+            checked={actionMatchExact}
+            onChange={(e) => setActionMatchExact(e.target.checked)}
+          />
         </div>
         <div className="col-md-2">
           <Form.Label className="small mb-0">log type</Form.Label>
@@ -294,6 +301,31 @@ export default function AdminAuditLogsPage() {
             套用篩選
           </Button>
         </div>
+        {logType === 'audit' ? (
+          <div className="col-12 small text-muted mb-1">
+            帳號安全常用 action（點擊即套用<strong>完全比對</strong>並查詢）：
+          </div>
+        ) : null}
+        {logType === 'audit' ? (
+          <div className="col-12 d-flex flex-wrap gap-1 mb-2">
+            {ACCOUNT_SECURITY_ACTION_PRESETS.map((a) => (
+              <Button
+                key={a}
+                size="sm"
+                variant={action === a && actionMatchExact ? 'primary' : 'outline-secondary'}
+                className="py-0"
+                onClick={() => {
+                  setAction(a);
+                  setActionMatchExact(true);
+                  setPage(1);
+                  load(1, { action: a, actionMatchExact: true });
+                }}
+              >
+                {a}
+              </Button>
+            ))}
+          </div>
+        ) : null}
       </Form>
 
       {loading ? (

@@ -1,0 +1,39 @@
+---
+description: EEARS 專案總覽與通用開發原則
+alwaysApply: true
+---
+
+# EEARS 專案總覽
+
+## 架構
+
+- **Monorepo**：`reservation-backend`（Express + Sequelize + MySQL）+ `reservation-frontend`（CRA + React 18）
+- **部署**：Node 後端 port 3000；前端 build 後由後端 `build/` 或 IIS `web.config` 提供 SPA
+- **時區**：`Asia/Taipei`（`server.js` 強制設定）
+- **CI**：`.github/workflows/ci.yml` — Node 20；backend `npm test` + `lint`；frontend `test` + `lint` + `build`
+
+## 通用原則
+
+- **最小變更**：只改與任務直接相關的檔案；不重構無關程式
+- **沿用慣例**：後端 CommonJS；前端新頁面放 `pages/`（`.jsx`），舊元件留 `components/`（`.js`）
+- **不提交秘密**：`.env`、JWT secret、DB 密碼不可入版控
+- **不主動 commit**：除非使用者明確要求
+- **回應語言**：繁體中文
+
+## 領域模組對照
+
+| 模組 | 後端路由 | 前端路徑 |
+|------|----------|----------|
+| 活動/預約/候補 | `eventRouter`, `reservationRouter` | `pages/EventsPage`, `hooks/useEventBooking` |
+| 問卷 | `surveyRouter`, `adminSurvey*Router` | `pages/admin/AdminSurvey*` |
+| 英檢報名 | `englishTestRegistrationRouter` | `components/EnglishTestManagement` |
+| 學習歷程 v3 | `learningJourneyV3Router` | `pages/admin/LearningJourney*` |
+| BESTEP/班級 | `bestepRouter`, `adminClasses` | `components/ClassOverview` |
+| 權限 | `auth/permissions.js` | `constants/adminRouteAccess.js` |
+
+## 變更後驗證
+
+```bash
+cd reservation-backend && npm test -- --runInBand && npm run lint
+cd reservation-frontend && npm test -- --watchAll=false && npm run lint && npm run build
+```

@@ -108,11 +108,11 @@ async function flushLoginFailureBuckets() {
   const entries = [...loginFailureBuckets.entries()];
   loginFailureBuckets.clear();
   for (const [, bucket] of entries) {
-    const { count, samples, lastReq, minuteKey, ip } = bucket;
-    const entityId = `login_failed:${ip}:${minuteKey}`.slice(0, 64);
+    const { count, samples, lastReq, minuteKey, ip, reasons } = bucket;
+    const entityId = `login_failure:${ip}:${minuteKey}`.slice(0, 64);
     await logAudit({
       module: 'auth',
-      action: 'login_failed',
+      action: 'login_failure',
       entityType: 'AuditAggregate',
       entityId,
       targetSummary: `aggregate count=${count} window=${minuteKey}`,
@@ -121,9 +121,10 @@ async function flushLoginFailureBuckets() {
         count,
         sampleUsernames: samples,
         ip,
+        reasons: reasons && typeof reasons === 'object' ? reasons : {},
       },
       status: 'failed',
-      errorMessage: 'invalid_credentials',
+      errorMessage: 'login_failure_aggregate',
       req: lastReq,
       immediate: true,
     });
@@ -135,20 +136,25 @@ async function flushLoginFailureBuckets() {
  * @param {import('express').Request} req
  * @param {string} username
  * @param {number|string|null|undefined} teacherId 帳號存在但密碼錯誤時帶入，便於 entityId 收斂
+ * @param {'USER_NOT_FOUND'|'PASSWORD_INVALID'|'ACCOUNT_DISABLED'|undefined} [reason]
  */
-function queueAuthLoginFailure(req, username, teacherId) {
+function queueAuthLoginFailure(req, username, teacherId, reason) {
+  const r = reason && String(reason).trim() ? String(reason).trim().slice(0, 64) : 'UNKNOWN';
+
   if (LOGIN_FAILURE_AGGREGATE_MS <= 0) {
     const entityId =
       teacherId != null && teacherId !== undefined ? String(teacherId) : 'unresolved';
-    logAuditAsync({
+    logAudit({
       module: 'auth',
-      action: 'login_failed',
+      action: 'login_failure',
       entityType: 'Teacher',
       entityId,
       targetSummary: `username=${String(username).slice(0, 64)}`,
       status: 'failed',
-      errorMessage: 'invalid_credentials',
+      errorMessage: r,
+      afterData: { reason: r },
       req,
+      immediate: true,
     });
     return;
   }
@@ -160,15 +166,55 @@ function queueAuthLoginFailure(req, username, teacherId) {
 
   let b = loginFailureBuckets.get(mapKey);
   if (!b) {
-    b = { count: 0, samples: [], lastReq: req, minuteKey, ip };
+    b = { count: 0, samples: [], lastReq: req, minuteKey, ip, reasons: {} };
     loginFailureBuckets.set(mapKey, b);
   }
   b.count += 1;
+  b.reasons[r] = (b.reasons[r] || 0) + 1;
   if (username && b.samples.length < 8) {
     b.samples.push(String(username).slice(0, 64));
   }
   b.lastReq = req;
   scheduleLoginFailureFlush();
+}
+
+/**
+ * 帳號安全／治理事件（立即寫入；不含 token／密碼）
+ * @param {import('express').Request} req
+ * @param {object} opts
+ */
+function logSecurityAuditImmediate(req, opts = {}) {
+  const mod = opts.module || 'auth';
+  const {
+    action,
+    entityType = 'Teacher',
+    entityId = 'unknown',
+    targetSummary = null,
+    beforeData = null,
+    afterData = null,
+    status = 'success',
+    errorMessage = null,
+    operatorId = null,
+    operatorRole = null,
+    operatorName = null,
+  } = opts;
+  if (!action) return;
+  logAudit({
+    module: mod,
+    action,
+    entityType,
+    entityId: entityId != null ? String(entityId).slice(0, 64) : 'unknown',
+    targetSummary,
+    beforeData: beforeData ? sanitizeForAudit(beforeData) : null,
+    afterData: afterData ? sanitizeForAudit(afterData) : null,
+    status,
+    errorMessage,
+    req,
+    operatorId,
+    operatorRole,
+    operatorName,
+    immediate: true,
+  });
 }
 
 function buildAuditRow(payload) {
@@ -318,6 +364,7 @@ module.exports = {
   logAuditAsync,
   getAuditLogQueueStats,
   queueAuthLoginFailure,
+  logSecurityAuditImmediate,
   logAccessGovernanceAudit,
   operatorFromReq,
   metaFromReq,

@@ -268,7 +268,11 @@ export async function authenticatedAPICall(url, options = {}, onTokenExpired = n
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw { response, data: errorData };
+      const error = new Error(errorData.error || errorData.message || 'API request failed');
+      error.response = response;
+      error.data = errorData;
+      error.status = response.status;
+      throw error;
     }
     
     const data = await response.json().catch(() => null);
@@ -310,7 +314,7 @@ export function withLoadingState(asyncFunction, setLoading = null) {
   };
 }
 
-export default {
+const errorHandler = {
   createErrorMessage,
   handleAPIError,
   showErrorMessage,
@@ -320,3 +324,5 @@ export default {
   handleValidationError,
   withLoadingState
 };
+
+export default errorHandler;

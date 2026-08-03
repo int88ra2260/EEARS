@@ -7,6 +7,7 @@ const {
   getUserScopes,
   buildEffectiveAccessTableFirst,
   buildEffectiveAccessJsonFirst,
+  buildAccessDebugApiPayload,
   diffAccess,
   analyzeFallback,
   generateSuggestion,
@@ -40,12 +41,25 @@ async function run() {
   const args = parseArgs(process.argv);
   const userId = Number(args.userId);
   const verbose = Boolean(args.verbose);
+  const asJson = Boolean(args.json);
   const permission = args.permission ? String(args.permission) : null;
   const tokenVersion = args.tokenVersion != null ? Number(args.tokenVersion) : null;
 
   if (!Number.isFinite(userId) || userId <= 0) {
-    console.error('用法：node scripts/debug-access.js --userId=123 [--verbose] [--permission=can_xxx] [--tokenVersion=5]');
+    console.error(
+      '用法：node scripts/debug-access.js --userId=123 [--verbose] [--json] [--permission=can_xxx] [--tokenVersion=5]'
+    );
     process.exit(1);
+  }
+
+  if (asJson) {
+    const apiPayload = await buildAccessDebugApiPayload(userId);
+    if (!apiPayload) {
+      console.error(`找不到 userId=${userId}`);
+      process.exit(2);
+    }
+    console.log(JSON.stringify(apiPayload, null, 2));
+    return;
   }
 
   const basic = await getUserBasicInfo(userId);
@@ -54,7 +68,7 @@ async function run() {
     process.exit(2);
   }
 
-  const roleKey = normalizeRoleKey(basic.role, basic.teacherLevel);
+  const roleKey = normalizeRoleKey(basic.role, basic.teacherLevel, basic.staffLevel);
   const [rolePermissionsRows, overrideRows, scopeRows, tableFirst, jsonFirst] = await Promise.all([
     getRolePermissions(roleKey),
     getUserOverrides(userId),
@@ -63,6 +77,7 @@ async function run() {
       userId,
       role: basic.role,
       teacherLevel: basic.teacherLevel,
+      staffLevel: basic.staffLevel,
       jsonPermissions: basic.permissions || null,
       jsonScopes: Array.isArray(basic.scopes) ? basic.scopes : null,
     }),
@@ -70,6 +85,7 @@ async function run() {
       userId,
       role: basic.role,
       teacherLevel: basic.teacherLevel,
+      staffLevel: basic.staffLevel,
       jsonPermissions: basic.permissions || null,
       jsonScopes: Array.isArray(basic.scopes) ? basic.scopes : null,
     }),
@@ -89,6 +105,7 @@ async function run() {
   kv('User', basic.id);
   kv('Role', basic.role);
   kv('TeacherLevel', basic.teacherLevel || 'regular');
+  kv('StaffLevel', basic.staffLevel || '(null)');
   kv('RoleKey', roleKey);
   kv('AccessVersion(DB)', basic.accessVersion);
   if (tokenVersion != null) kv('TokenVersion(input)', tokenVersion);

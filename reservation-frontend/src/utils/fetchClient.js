@@ -33,6 +33,58 @@ export function mergeRequestIdHeaders(init = {}) {
   return { headers, clientRequestId };
 }
 
+/** 清除登入相關 localStorage（供 fetch / axios 共用） */
+export function clearClientAuthStorage() {
+  try {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('username');
+    localStorage.removeItem('teacherName');
+    localStorage.removeItem('mustResetPassword');
+  } catch (_) {
+    // ignore
+  }
+}
+
+let authInvalidHandledAt = 0;
+let authInvalidHandledRequestId = null;
+
+/**
+ * 401 + ACCESS_PROFILE_STALE / ACCOUNT_DISABLED：清 session 並觸發全域事件。
+ */
+export async function handleAuthSessionInvalidResponse(res) {
+  if (!res || res.status !== 401) return;
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (!ct.includes('application/json')) return;
+
+  let payload = null;
+  try {
+    payload = await res.clone().json();
+  } catch (_) {
+    return;
+  }
+  const code = payload && payload.code;
+  if (code !== 'ACCESS_PROFILE_STALE' && code !== 'ACCOUNT_DISABLED') return;
+
+  const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
+  const now = Date.now();
+  if (requestId && requestId === authInvalidHandledRequestId && now - authInvalidHandledAt < 5000) return;
+  if (now - authInvalidHandledAt < 2000) return;
+  authInvalidHandledAt = now;
+  authInvalidHandledRequestId = requestId;
+
+  clearClientAuthStorage();
+  try {
+    if (code === 'ACCESS_PROFILE_STALE') {
+      window.dispatchEvent(new CustomEvent('eears:access-stale', { detail: payload }));
+    } else {
+      window.dispatchEvent(new CustomEvent('eears:account-disabled', { detail: payload }));
+    }
+  } catch (_) {
+    // ignore
+  }
+}
+
 /**
  * @param {RequestInfo} input
  * @param {RequestInit} [init]
@@ -46,7 +98,7 @@ export async function fetchClient(input, init = {}) {
     credentials: init.credentials ?? 'same-origin',
   };
   const res = await fetch(input, nextInit);
-  await handleStaleAccessResponse(res);
+  await handleAuthSessionInvalidResponse(res);
   return res;
 }
 
@@ -63,7 +115,7 @@ export async function fetchClientThrow(input, init = {}) {
     credentials: init.credentials ?? 'same-origin',
   };
   const res = await fetch(input, nextInit);
-  await handleStaleAccessResponse(res);
+  await handleAuthSessionInvalidResponse(res);
   if (res.ok) return res;
   const serverRid = res.headers.get('x-request-id') || res.headers.get('X-Request-Id');
   const requestId = serverRid || clientRequestId || null;
@@ -91,41 +143,7 @@ export async function fetchClientThrow(input, init = {}) {
   throw err;
 }
 
-let staleHandledAt = 0;
-let staleHandledRequestId = null;
-
+/** @deprecated 使用 handleAuthSessionInvalidResponse；保留相容別名 */
 export async function handleStaleAccessResponse(res) {
-  if (!res || res.status !== 401) return;
-  const ct = (res.headers.get('content-type') || '').toLowerCase();
-  if (!ct.includes('application/json')) return;
-
-  let payload = null;
-  try {
-    payload = await res.clone().json();
-  } catch (_) {
-    return;
-  }
-  if (!payload || payload.code !== 'ACCESS_PROFILE_STALE') return;
-
-  const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
-  const now = Date.now();
-  if (requestId && requestId === staleHandledRequestId && now - staleHandledAt < 5000) return;
-  if (now - staleHandledAt < 2000) return;
-  staleHandledAt = now;
-  staleHandledRequestId = requestId;
-
-  try {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('username');
-    localStorage.removeItem('teacherName');
-    localStorage.removeItem('mustResetPassword');
-  } catch (_) {
-    // ignore
-  }
-  try {
-    window.dispatchEvent(new CustomEvent('eears:access-stale', { detail: payload }));
-  } catch (_) {
-    // ignore
-  }
+  return handleAuthSessionInvalidResponse(res);
 }

@@ -2,13 +2,15 @@
  * 活動日曆區塊：FullCalendar 顯示與單一活動點擊
  * 不負責資料取得，由父層傳入 events、canReserveAndReason、onEventClick
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import useMediaQuery from '../../hooks/useMediaQuery';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
 import { getEventAbbreviation } from '../../constants/eventTypes';
 import { getEventLocationDisplay } from '../../utils/eventLocation';
 import StatusBadge from '../ui/StatusBadge';
+import EventDeadlineHint from './EventDeadlineHint';
 import useToast from '../ui/useToast';
 import './eventHoverCard.css';
 
@@ -34,14 +36,17 @@ function hoverBadgeLabel(reasonCode, t) {
   }
 }
 
-export default function EventCalendarSection({
+export default forwardRef(function EventCalendarSection({
   events,
   canReserveAndReason,
+  canWaitlistAndReason,
   onEventClick,
   t,
   surveyActive = false,
-}) {
+}, ref) {
   const toast = useToast();
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const isNarrow = useMediaQuery('(max-width: 575px)');
   const enableHover = useMemo(() => {
     if (typeof window === 'undefined') return false;
     if (typeof window.matchMedia === 'function') {
@@ -53,6 +58,18 @@ export default function EventCalendarSection({
   const [hoverPreview, setHoverPreview] = useState(null);
   /** 手機／窄螢幕清單檢視：展開列內摘要（不依賴 hover） */
   const [expandedEventId, setExpandedEventId] = useState(null);
+  const calendarRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    gotoDate(dateStr) {
+      const api = calendarRef.current?.getApi?.();
+      if (!api || !dateStr) return;
+      api.gotoDate(dateStr);
+      if (isMobile) {
+        api.changeView('listWeek');
+      }
+    },
+  }), [isMobile]);
 
   const calendarEvents = events.map((evt) => ({
     id: evt.id,
@@ -64,12 +81,18 @@ export default function EventCalendarSection({
 
   const handleClick = (info) => {
     const evt = info.event.extendedProps.originalEvent;
-    const { canReserve, reasonMessage } = canReserveAndReason(evt);
-    if (!canReserve) {
-      toast.warning(reasonMessage);
+    const { canReserve, reasonMessage, reasonCode } = canReserveAndReason(evt);
+    if (canReserve) {
+      onEventClick(evt);
       return;
     }
-    onEventClick(evt);
+    const wl =
+      typeof canWaitlistAndReason === 'function' ? canWaitlistAndReason(evt) : { canWaitlist: false };
+    if (reasonCode === 'FULL' && wl.canWaitlist) {
+      onEventClick(evt);
+      return;
+    }
+    toast.warning(reasonMessage);
   };
 
   const handleMouseEnter = (info) => {
@@ -122,8 +145,7 @@ export default function EventCalendarSection({
 
   const renderEventContent = (info) => {
     const evt = info.event.extendedProps.originalEvent;
-    const isNarrow = window.innerWidth < 576;
-    const showMobileExpand = window.innerWidth < 768;
+    const showMobileExpand = isMobile;
     const { canReserve, reasonMessage, reasonCode } = canReserveAndReason(evt);
     const dotColor = canReserve ? 'text-success' : 'text-danger';
     const nameLabel = isNarrow ? getEventAbbreviation(evt.eventType || evt.name) : evt.name;
@@ -139,6 +161,10 @@ export default function EventCalendarSection({
     })();
 
     const expanded = expandedEventId === evt.id;
+    const statusLabel = canReserve ? t('home.eventHoverBadgeOpen') : hoverBadgeLabel(reasonCode, t);
+    const wl =
+      typeof canWaitlistAndReason === 'function' ? canWaitlistAndReason(evt) : { canWaitlist: false };
+    const showBookCta = canReserve || (reasonCode === 'FULL' && wl.canWaitlist);
 
     if (showMobileExpand) {
       return (
@@ -168,12 +194,12 @@ export default function EventCalendarSection({
               role="presentation"
             >
               <div className="text-body">{evt.startTime} – {evt.endTime}</div>
-              <div className="fc-event-mobile-status">
+              <div className="fc-event-mobile-status d-flex flex-wrap gap-1 align-items-center">
                 <StatusBadge
                   variant={calendarAvailabilityVariant(canReserve, reasonCode)}
                   size="sm"
                 >
-                  {canReserve ? t('home.eventStatusOpen') : t('home.eventStatusClosed')}
+                  {statusLabel}
                 </StatusBadge>
               </div>
               {surveyRequired && (
@@ -190,9 +216,20 @@ export default function EventCalendarSection({
                 {t('home.eventHoverSpotsPrefix')}
                 {typeof evt.availableSpots === 'number' ? evt.availableSpots : '—'}
               </div>
+              <EventDeadlineHint event={evt} t={t} compact showWindow={!canReserve} className="mt-2" />
               {!canReserve && reasonShort && (
-                <div className="text-danger small mt-1">{reasonShort}</div>
+                <div className="event-deadline-hint__reason-fallback small mt-1">{reasonShort}</div>
               )}
+              <button
+                type="button"
+                className={`btn btn-sm mt-2 ${showBookCta ? 'btn-primary' : 'btn-outline-primary'} fc-event-mobile-cta`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEventClick(evt);
+                }}
+              >
+                {showBookCta ? t('home.eventCtaBookNow') : t('home.eventCtaViewDetail')}
+              </button>
             </div>
           )}
         </div>
@@ -200,29 +237,48 @@ export default function EventCalendarSection({
     }
 
     return (
-      <div className="ps-3">
-        <span className={`fs-5 ${dotColor}`}>●</span>
-        <div className="fw-bold">{evt.name}</div>
-        <div>{evt.startTime} - {evt.endTime}</div>
+      <div className="fc-event-desktop-pill" title={evt.name}>
+        <span
+          className={`fc-event-desktop-dot fc-event-desktop-dot--${
+            canReserve ? 'open' : reasonCode === 'FULL' ? 'full' : 'closed'
+          }`}
+          aria-hidden="true"
+        />
+        <span className="fc-event-desktop-time">{evt.startTime}</span>
+        <span className="fc-event-desktop-title">{nameLabel}</span>
       </div>
     );
   };
 
+  const resolveEventClassNames = (arg) => {
+    const evt = arg.event.extendedProps.originalEvent;
+    if (!evt) return ['calendar-event'];
+    const { canReserve, reasonCode } = canReserveAndReason(evt);
+    const classes = ['calendar-event'];
+    if (canReserve) classes.push('calendar-event--open');
+    else if (reasonCode === 'FULL') classes.push('calendar-event--full');
+    else classes.push('calendar-event--closed');
+    return classes;
+  };
+
   return (
     <>
+      <div className="event-calendar-wrap">
       <FullCalendar
+        ref={calendarRef}
+        key={isMobile ? 'mobile-list' : 'desktop-month'}
         plugins={[dayGridPlugin, listPlugin]}
-        initialView={window.innerWidth < 768 ? 'listWeek' : 'dayGridMonth'}
+        initialView={isMobile ? 'listWeek' : 'dayGridMonth'}
         events={calendarEvents}
         eventContent={renderEventContent}
         eventClick={handleClick}
         eventMouseEnter={handleMouseEnter}
         eventMouseLeave={handleMouseLeave}
-        height={window.innerWidth < 768 ? 'auto' : 600}
+        height={isMobile ? 'auto' : 600}
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
-          right: window.innerWidth < 768 ? 'listWeek' : 'dayGridMonth,listWeek',
+          right: isMobile ? 'listWeek' : 'dayGridMonth,listWeek',
         }}
         views={{
           dayGridMonth: {
@@ -237,10 +293,11 @@ export default function EventCalendarSection({
             listDaySideFormat: false,
           },
         }}
-        eventClassNames="calendar-event"
+        eventClassNames={resolveEventClassNames}
         dayHeaderClassNames="calendar-day-header"
         dayCellClassNames="calendar-day-cell"
       />
+      </div>
 
       {enableHover && hoverPreview && (
         <div
@@ -285,11 +342,15 @@ export default function EventCalendarSection({
               {typeof hoverPreview.evt.availableSpots === 'number' ? hoverPreview.evt.availableSpots : '—'}
             </span>
           </div>
-          {!hoverPreview.canReserve && hoverPreview.reasonShort && (
-            <div className="event-hover-card__reason">{hoverPreview.reasonShort}</div>
-          )}
+          <EventDeadlineHint
+            event={hoverPreview.evt}
+            t={t}
+            compact
+            showWindow={!hoverPreview.canReserve}
+            className="event-hover-card__deadline"
+          />
         </div>
       )}
     </>
   );
-}
+});

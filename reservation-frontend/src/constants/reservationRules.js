@@ -1,0 +1,2 @@
+export const RESERVATION_CUTOFF_HOURS = 2;
+

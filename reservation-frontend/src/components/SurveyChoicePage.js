@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Spinner, Alert } from 'react-bootstrap';
 import { useLanguage } from '../context/LanguageContext';
+import { fetchEnabledSurveys } from '../services/surveyPublicApi';
 
 export default function SurveyChoicePage() {
   const { t } = useLanguage();
@@ -14,10 +15,8 @@ export default function SurveyChoicePage() {
   useEffect(() => {
     const fetchEnabled = async () => {
       try {
-        const res = await fetch('/api/surveys/enabled');
-        if (!res.ok) throw new Error('無法載入問卷列表');
-        const data = await res.json();
-        setList(data || []);
+        const data = await fetchEnabledSurveys();
+        setList(data);
       } catch (e) {
         setError(e.message || '載入失敗');
       } finally {

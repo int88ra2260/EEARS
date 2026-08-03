@@ -26,7 +26,7 @@ export default function QuickActions() {
       descKey: 'homePage.quickSurveyDesc',
     },
     {
-      to: '/faq',
+      to: '/about#faq',
       icon: '📌',
       titleKey: 'homePage.quickRules',
       descKey: 'homePage.quickRulesDesc',

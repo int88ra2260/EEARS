@@ -2,8 +2,26 @@
  * 後台導覽設定（Phase 2 IA）
  * 權限與舊版 AdminLayout nav-tabs 一致，不擴權。
  *
- * @typedef {{ actualUserRole: string, isTeacher: boolean, hasAdminRights: boolean, canViewReport: boolean, canViewSurvey: boolean }} AdminNavContext
+ * 側欄排序原則：日常營運 → 英檢／問卷 → 資料匯入 → 分析報表 → 合規／公告 → 帳號 → 系統（含營運總覽）
+ *
+ * @typedef {{ actualUserRole: string, isTeacher: boolean, hasAdminRights: boolean, canViewReport: boolean, canViewSurvey: boolean, accessProfile?: object }} AdminNavContext
  */
+
+import { P } from './permissions';
+import { canAccessAdminRoute } from './adminRouteAccess';
+import { isDeputyManagerProfile, isEventLeadProfile, isEtManagerProfile, isJtManagerProfile, isOfficeStaffOpsDenied, canAccessWeeklyReports } from '../utils/accessControl';
+
+function canAccessImportCenter(c) {
+  if (
+    isDeputyManagerProfile(c?.accessProfile)
+    || isEventLeadProfile(c?.accessProfile)
+    || isEtManagerProfile(c?.accessProfile)
+    || isJtManagerProfile(c?.accessProfile)
+  ) {
+    return false;
+  }
+  return canAccessAdminRoute(c?.accessProfile, '/admin/import-center');
+}
 
 /**
  * visibility 鍵：
@@ -14,6 +32,8 @@
  * - surveyGroup：問卷側欄群組是否出現
  * - canViewSurvey：問卷管理子項
  * - adminOnly：需 hasAdminRights（admin／executive）
+ * - opsDashboard：營運總覽（非一般授課老師）
+ * - teachingImpactTrends：教學綜合趨勢（admin／executive／活動負責人）
  */
 export function isNavItemVisible(visibility, c) {
   // Phase 2：permission-based visibility（以 accessProfile.finalPermissions 為主）
@@ -27,16 +47,62 @@ export function isNavItemVisible(visibility, c) {
       return true;
     case 'canViewReport':
       return c.canViewReport;
-    case 'classes':
-      return c.hasAdminRights || c.isTeacher;
-    case 'english':
-      return c.hasAdminRights;
+    case 'classes': {
+      const set = c?.accessProfile?.permissionSet;
+      const canClass =
+        !!(set && set.has && (set.has(P.CAN_VIEW_CLASSES) || set.has(P.CAN_MANAGE_CLASSES)));
+      return c.hasAdminRights || c.isTeacher || canClass;
+    }
+    case 'english': {
+      const set = c?.accessProfile?.permissionSet;
+      const canEnglish =
+        !!(set && set.has && (
+          set.has(P.CAN_VIEW_ENGLISH_TEST_METRICS) ||
+          set.has(P.CAN_VIEW_ENGLISH_TESTS) ||
+          set.has(P.CAN_VIEW_ENGLISH_TEST_TRACKING) ||
+          set.has(P.CAN_MANAGE_ENGLISH_TEST_TRACKING) ||
+          set.has(P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS) ||
+          set.has(P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS) ||
+          set.has(P.CAN_MANAGE_LEARNING_PARTNER_ADMIN)
+        ));
+      return c.hasAdminRights || canEnglish;
+    }
+    case 'englishLearningJourney': {
+      if (isDeputyManagerProfile(c?.accessProfile)) return false;
+      const set = c?.accessProfile?.permissionSet;
+      const canLj =
+        !!(set && set.has && (
+          set.has(P.CAN_VIEW_ENGLISH_TEST_TRACKING) ||
+          set.has(P.CAN_MANAGE_ENGLISH_TEST_TRACKING)
+        ));
+      return c.hasAdminRights || canLj;
+    }
     case 'surveyGroup':
       return c.hasAdminRights || c.canViewSurvey;
     case 'canViewSurvey':
       return c.canViewSurvey;
     case 'adminOnly':
       return c.hasAdminRights;
+    case 'importCenter':
+      return canAccessImportCenter(c);
+    case 'opsDashboard':
+      if (isDeputyManagerProfile(c?.accessProfile) || isOfficeStaffOpsDenied(c?.accessProfile)) return false;
+      if (c.actualUserRole === 'teacher' && !c.hasAdminRights) return false;
+      return true;
+    case 'teachingImpactTrends': {
+      if (c.hasAdminRights) return true;
+      const level = c?.accessProfile?.teacherLevel;
+      return (
+        c.isTeacher &&
+        (level === 'et_manager' || level === 'if_manager' || level === 'jt_manager') &&
+        c?.accessProfile?.permissionSet?.has?.(P.CAN_VIEW_ANALYTICS)
+      );
+    }
+    case 'weeklyReports':
+      return canAccessWeeklyReports(c?.accessProfile);
+    case 'accountNav':
+      if (c?.accessProfile?.permissionSet?.has(P.CAN_MANAGE_ACCOUNTS)) return true;
+      return !!c?.accessProfile?.role;
     default:
       return false;
   }
@@ -50,6 +116,13 @@ export function isWorkerRestrictedMenu(c) {
   return c.actualUserRole === 'worker';
 }
 
+export function canShowAdminNavItem(item, c) {
+  if (item?.hiddenFromNav) return false;
+  if (item?.visibility && !isNavItemVisible(item.visibility, c)) return false;
+  if (item?.path && !canAccessAdminRoute(c?.accessProfile, item.path)) return false;
+  return true;
+}
+
 /**
  * @typedef {{ id: string, label: string, path: string, matchPrefixes: string[], visibility: string, breadcrumbLabel?: string, pageTitle?: string, hiddenFromNav?: boolean }} AdminNavLeaf
  * @typedef {{ id: string, label: string, visibility: string, expandable?: boolean, children?: AdminNavLeaf[], path?: string, matchPrefixes?: string[], pageTitle?: string, breadcrumbLabel?: string, hiddenFromNav?: boolean }} AdminNavSection
@@ -58,18 +131,8 @@ export function isWorkerRestrictedMenu(c) {
 /** @type {AdminNavSection[]} */
 export const ADMIN_NAV_SECTIONS = [
   {
-    id: 'dashboard',
-    label: '營運總覽',
-    visibility: 'all',
-    path: '/admin/dashboard',
-    matchPrefixes: ['/admin/dashboard', '/admin'],
-    pageTitle: '營運總覽',
-    breadcrumbLabel: '營運總覽',
-  },
-  {
     id: 'events',
     label: '活動與預約',
-    visibility: 'canViewReport',
     expandable: true,
     children: [
       {
@@ -90,6 +153,60 @@ export const ADMIN_NAV_SECTIONS = [
         pageTitle: '簽到參與統計',
         breadcrumbLabel: '簽到參與統計',
       },
+      {
+        id: 'et-grouping-settings',
+        label: 'ET 分組設定',
+        path: '/admin/et-grouping/settings',
+        matchPrefixes: ['/admin/et-grouping/settings'],
+        visibility: 'perm:can_manage_et_grouping',
+        pageTitle: 'ET 分組設定',
+        breadcrumbLabel: 'ET 分組設定',
+      },
+      {
+        id: 'et-task-templates',
+        label: 'ET 任務模板',
+        path: '/admin/et-grouping/tasks',
+        matchPrefixes: ['/admin/et-grouping/tasks'],
+        visibility: 'perm:can_manage_et_grouping',
+        pageTitle: 'ET 任務模板',
+        breadcrumbLabel: 'ET 任務模板',
+      },
+      {
+        id: 'et-grouping-reports',
+        label: 'ET 場次報表',
+        path: '/admin/et-grouping/reports',
+        matchPrefixes: ['/admin/et-grouping/reports'],
+        visibility: 'perm:can_view_et_grouping',
+        pageTitle: 'ET 場次報表彙總',
+        breadcrumbLabel: 'ET 場次報表',
+      },
+      {
+        id: 'et-student-trends',
+        label: 'ET 學生趨勢',
+        path: '/admin/et-grouping/student-trends',
+        matchPrefixes: ['/admin/et-grouping/student-trends'],
+        visibility: 'perm:can_view_et_grouping',
+        pageTitle: 'ET 學生學期趨勢',
+        breadcrumbLabel: 'ET 學生趨勢',
+      },
+      {
+        id: 'et-leader-sessions',
+        label: '我的帶班場次',
+        path: '/admin/et-grouping/my-sessions',
+        matchPrefixes: ['/admin/et-grouping/my-sessions'],
+        visibility: 'perm:can_mark_et_session_tasks',
+        pageTitle: '我的帶班場次',
+        breadcrumbLabel: '我的帶班場次',
+      },
+      {
+        id: 'events-compliance',
+        label: '合規與違規',
+        path: '/admin/violations',
+        matchPrefixes: ['/admin/violations'],
+        visibility: 'perm:can_manage_violations',
+        pageTitle: '違規管理',
+        breadcrumbLabel: '合規與違規',
+      },
     ],
   },
   {
@@ -108,11 +225,20 @@ export const ADMIN_NAV_SECTIONS = [
     expandable: true,
     children: [
       {
+        id: 'english-learning-passport',
+        label: '英語實踐歷程護照',
+        path: '/admin/english-learning-passports',
+        matchPrefixes: ['/admin/english-learning-passports'],
+        visibility: 'perm:can_view_english_learning_passports',
+        pageTitle: '英語實踐歷程護照',
+        breadcrumbLabel: '英語實踐歷程護照',
+      },
+      {
         id: 'english-registration',
         label: '培力英檢管理',
         path: '/admin/english-test',
         matchPrefixes: ['/admin/english-test', '/admin/english-tests'],
-        visibility: 'english',
+        visibility: 'perm:can_view_english_tests',
         pageTitle: '培力英檢管理',
         breadcrumbLabel: '培力英檢管理',
       },
@@ -124,9 +250,40 @@ export const ADMIN_NAV_SECTIONS = [
           '/admin/learning-journey',
           '/admin/learning-journey-center',
         ],
-        visibility: 'english',
+        visibility: 'englishLearningJourney',
         pageTitle: '英語學習歷程中心',
         breadcrumbLabel: '英語學習歷程中心',
+      },
+      {
+        id: 'learning-journey-import',
+        label: '學習歷程資料匯入',
+        path: '/admin/learning-journey/import',
+        matchPrefixes: ['/admin/learning-journey/import'],
+        visibility: 'english',
+        pageTitle: '學習歷程資料匯入',
+        breadcrumbLabel: '學習歷程資料匯入',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'learning-journey-ewl-sync',
+        label: '英文寫作工坊（EWL）同步',
+        path: '/admin/learning-journey/ewl-sync',
+        matchPrefixes: ['/admin/learning-journey/ewl-sync'],
+        visibility: 'english',
+        pageTitle: '英文寫作工坊（EWL）同步',
+        breadcrumbLabel: 'EWL 同步',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'learning-journey-operations',
+        label: '資料維運紀錄',
+        path: '/admin/learning-journey/operations',
+        matchPrefixes: ['/admin/learning-journey/operations'],
+        visibility: 'perm:can_view_english_test_tracking',
+        pageTitle: '資料維運紀錄',
+        breadcrumbLabel: '資料維運紀錄',
+        // P14-7：維運查詢入口已整合至資料匯入中心；保留 route／麵包屑 meta，僅自側欄隱藏
+        hiddenFromNav: true,
       },
       {
         id: 'bestep-import',
@@ -136,6 +293,8 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'english',
         pageTitle: 'BESTEP 資料匯入',
         breadcrumbLabel: 'BESTEP 資料匯入',
+        // P14-5：匯入入口已整合至資料匯入中心；保留 route／麵包屑 meta，僅自側欄隱藏
+        hiddenFromNav: true,
       },
     ],
   },
@@ -147,7 +306,7 @@ export const ADMIN_NAV_SECTIONS = [
     children: [
       {
         id: 'survey-center',
-        label: '問卷中心',
+        label: '問卷中心（建立／發布）',
         path: '/admin/survey-center',
         matchPrefixes: ['/admin/survey-center'],
         visibility: 'perm:can_view_surveys',
@@ -156,30 +315,30 @@ export const ADMIN_NAV_SECTIONS = [
       },
       {
         id: 'survey-rules-new',
-        label: '問卷規則',
+        label: '啟用規則',
         path: '/admin/survey-rules',
         matchPrefixes: ['/admin/survey-rules'],
         visibility: 'perm:can_manage_survey_settings',
-        pageTitle: '問卷規則',
-        breadcrumbLabel: '問卷規則',
+        pageTitle: '啟用規則',
+        breadcrumbLabel: '啟用規則',
       },
       {
         id: 'survey-health',
-        label: '資料健康',
+        label: '資料品質（維運）',
         path: '/admin/survey-health',
         matchPrefixes: ['/admin/survey-health'],
-        visibility: 'perm:can_view_surveys',
-        pageTitle: 'Survey Data Health',
-        breadcrumbLabel: '資料健康',
+        visibility: 'perm:can_view_survey_health',
+        pageTitle: '問卷資料品質',
+        breadcrumbLabel: '資料品質',
       },
       {
         id: 'survey-answer-mappings',
-        label: '答案映射',
+        label: '答案對照（維運）',
         path: '/admin/survey-answer-mappings',
         matchPrefixes: ['/admin/survey-answer-mappings'],
         visibility: 'perm:can_manage_survey_answer_mapping',
-        pageTitle: 'Survey Answer Mapping',
-        breadcrumbLabel: '答案映射',
+        pageTitle: '問卷答案對照',
+        breadcrumbLabel: '答案對照',
       },
       {
         id: 'survey-manage',
@@ -199,27 +358,124 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'perm:can_view_surveys',
         pageTitle: '問卷模組',
         breadcrumbLabel: '問卷模組',
-      },
-      {
-        id: 'survey-settings',
-        label: '問卷設定（Legacy）',
-        path: '/admin/survey-settings',
-        matchPrefixes: ['/admin/survey-settings', '/admin/surveys/settings'],
-        visibility: 'adminOnly',
-        pageTitle: '問卷設定（Legacy）',
-        breadcrumbLabel: '問卷設定',
         hiddenFromNav: true,
       },
     ],
   },
   {
-    id: 'compliance',
-    label: '合規與違規',
-    visibility: 'adminOnly',
-    path: '/admin/violations',
-    matchPrefixes: ['/admin/violations'],
-    pageTitle: '違規管理',
-    breadcrumbLabel: '違規管理',
+    id: 'import-center',
+    label: '資料匯入中心',
+    visibility: 'importCenter',
+    expandable: true,
+    children: [
+      {
+        id: 'import-center-home',
+        label: '匯入入口',
+        path: '/admin/import-center',
+        matchPrefixes: ['/admin/import-center'],
+        visibility: 'importCenter',
+        pageTitle: '資料匯入中心',
+        breadcrumbLabel: '匯入入口',
+      },
+      {
+        id: 'import-center-runs',
+        label: '匯入紀錄',
+        path: '/admin/import-center/runs',
+        matchPrefixes: ['/admin/import-center/runs'],
+        visibility: 'importCenter',
+        pageTitle: '匯入紀錄中心',
+        breadcrumbLabel: '匯入紀錄',
+      },
+    ],
+  },
+  {
+    id: 'learning-analytics',
+    label: '學習成效分析',
+    visibility: 'perm:can_view_learning_analytics',
+    expandable: true,
+    children: [
+      {
+        id: 'learning-analytics-overview',
+        label: '中心成效總覽',
+        path: '/admin/learning-analytics/overview',
+        matchPrefixes: ['/admin/learning-analytics/overview', '/admin/learning-analytics'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '英語學習成效分析',
+        breadcrumbLabel: '中心成效總覽',
+      },
+      {
+        id: 'learning-analytics-cohorts',
+        label: '學生群體分析',
+        path: '/admin/learning-analytics/cohorts',
+        matchPrefixes: ['/admin/learning-analytics/cohorts'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '學生群體分析',
+        breadcrumbLabel: '群體分析',
+      },
+      {
+        id: 'learning-analytics-resources',
+        label: '課程與活動效益',
+        path: '/admin/learning-analytics/resources',
+        matchPrefixes: ['/admin/learning-analytics/resources'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '課程與活動效益',
+        breadcrumbLabel: '資源效益',
+      },
+      {
+        id: 'learning-analytics-skills',
+        label: '技能成長分析',
+        path: '/admin/learning-analytics/skills',
+        matchPrefixes: ['/admin/learning-analytics/skills'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '技能成長分析',
+        breadcrumbLabel: '技能成長',
+      },
+      {
+        id: 'learning-analytics-students',
+        label: '學生學習軌跡',
+        path: '/admin/learning-analytics/students',
+        matchPrefixes: ['/admin/learning-analytics/students'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '學生學習軌跡',
+        breadcrumbLabel: '學習軌跡',
+      },
+      {
+        id: 'learning-analytics-raw',
+        label: '原始資料探索',
+        path: '/admin/learning-analytics/raw-data',
+        matchPrefixes: ['/admin/learning-analytics/raw-data'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '原始資料探索',
+        breadcrumbLabel: '原始資料',
+      },
+      {
+        id: 'learning-analytics-insights',
+        label: '決策支援',
+        path: '/admin/learning-analytics/insights',
+        matchPrefixes: ['/admin/learning-analytics/insights'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '決策支援分析',
+        breadcrumbLabel: '決策支援',
+      },
+      {
+        id: 'learning-analytics-model-runs',
+        label: '模型紀錄',
+        path: '/admin/learning-analytics/model-runs',
+        matchPrefixes: ['/admin/learning-analytics/model-runs'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '模型執行紀錄',
+        breadcrumbLabel: '模型紀錄',
+      },
+      {
+        id: 'learning-analytics-settings',
+        label: '模組設定',
+        path: '/admin/learning-analytics/settings',
+        matchPrefixes: ['/admin/learning-analytics/settings'],
+        visibility: 'perm:can_manage_learning_analytics_settings',
+        pageTitle: '學習成效分析設定',
+        breadcrumbLabel: '模組設定',
+      },
+    ],
   },
   {
     id: 'analytics',
@@ -229,12 +485,13 @@ export const ADMIN_NAV_SECTIONS = [
     children: [
       {
         id: 'analytics-students',
-        label: '學習歷程',
+        // Legacy 學號搜尋入口；老師請用「英語學習歷程中心」Student Table（同 V3 資料源）
+        label: '學生學習歷程查詢',
         path: '/admin/analytics/students',
         matchPrefixes: ['/admin/analytics/students', '/admin/analytics/student/'],
-        visibility: 'adminOnly',
-        pageTitle: '學習歷程',
-        breadcrumbLabel: '學習歷程',
+        visibility: 'perm:can_view_english_test_tracking',
+        pageTitle: '學生學習歷程查詢',
+        breadcrumbLabel: '學生學習歷程查詢',
       },
       {
         id: 'analytics-overview',
@@ -274,21 +531,21 @@ export const ADMIN_NAV_SECTIONS = [
       },
       {
         id: 'analytics-teacher-dash',
-        label: '教師總覽',
+        label: '我的教學儀表板',
         path: '/admin/teachers/dashboard',
         matchPrefixes: ['/admin/teachers/dashboard'],
-        visibility: 'adminOnly',
-        pageTitle: '教師總覽',
-        breadcrumbLabel: '教師總覽',
+        visibility: 'perm:can_view_analytics',
+        pageTitle: '我的教學儀表板',
+        breadcrumbLabel: '我的教學儀表板',
       },
       {
         id: 'analytics-teacher-impact',
-        label: '教師影響力指標',
+        label: '教學綜合趨勢',
         path: '/admin/analytics/teacher-impact',
         matchPrefixes: ['/admin/analytics/teacher-impact'],
-        visibility: 'adminOnly',
-        pageTitle: '教師影響力指標',
-        breadcrumbLabel: '教師影響力指標',
+        visibility: 'teachingImpactTrends',
+        pageTitle: '教學綜合趨勢',
+        breadcrumbLabel: '教學綜合趨勢',
       },
     ],
   },
@@ -302,9 +559,36 @@ export const ADMIN_NAV_SECTIONS = [
     breadcrumbLabel: '公告管理',
   },
   {
+    id: 'weekly-reports',
+    label: '英語中心週報',
+    visibility: 'weeklyReports',
+    path: '/admin/weekly-reports',
+    matchPrefixes: ['/admin/weekly-reports'],
+    pageTitle: '英語中心週報',
+    breadcrumbLabel: '英語中心週報',
+  },
+  {
+    id: 'site-content',
+    label: '網站文案',
+    visibility: 'perm:can_manage_site_content',
+    path: '/admin/site-content',
+    matchPrefixes: ['/admin/site-content'],
+    pageTitle: '網站文案管理',
+    breadcrumbLabel: '網站文案管理',
+  },
+  {
+    id: 'page-content',
+    label: '頁面內容',
+    visibility: 'perm:can_manage_site_content',
+    path: '/admin/page-content',
+    matchPrefixes: ['/admin/page-content'],
+    pageTitle: '頁面內容管理',
+    breadcrumbLabel: '頁面內容管理',
+  },
+  {
     id: 'accounts',
     label: '帳號與權限',
-    visibility: 'perm:can_manage_accounts',
+    visibility: 'accountNav',
     expandable: true,
     children: [
       {
@@ -330,9 +614,17 @@ export const ADMIN_NAV_SECTIONS = [
   {
     id: 'system',
     label: '系統與稽核',
-    visibility: 'perm:can_manage_settings',
     expandable: true,
     children: [
+      {
+        id: 'system-dashboard',
+        label: '營運總覽',
+        path: '/admin/dashboard',
+        matchPrefixes: ['/admin/dashboard'],
+        visibility: 'opsDashboard',
+        pageTitle: '營運總覽',
+        breadcrumbLabel: '營運總覽',
+      },
       {
         id: 'system-settings',
         label: '系統設定',
@@ -473,6 +765,35 @@ export function getAdminPageMeta(pathname, ctx) {
     }
   }
 
+  if (pathname === '/admin/english-test/import' || pathname === '/admin/bestep/import') {
+    const english = filtered.find((s) => s.id === 'english');
+    if (english) {
+      return {
+        groupLabel: english.label,
+        pageTitle: 'BESTEP 資料匯入',
+        breadcrumbLeaf: 'BESTEP 資料匯入',
+        sectionId: 'english',
+        childId: 'bestep-import',
+      };
+    }
+  }
+
+  if (
+    pathname === '/admin/learning-journey/operations' ||
+    pathname.startsWith('/admin/learning-journey/operations/')
+  ) {
+    const english = filtered.find((s) => s.id === 'english');
+    if (english) {
+      return {
+        groupLabel: english.label,
+        pageTitle: '資料維運紀錄',
+        breadcrumbLeaf: '資料維運紀錄',
+        sectionId: 'english',
+        childId: 'learning-journey-operations',
+      };
+    }
+  }
+
   if (pathname.startsWith('/admin/classes')) {
     const classesSection = filtered.find((s) => s.id === 'classes');
     if (classesSection) {
@@ -535,12 +856,22 @@ export function getAdminPageMeta(pathname, ctx) {
   let breadcrumbLeaf = best.leaf.breadcrumbLabel || best.leaf.label;
   let pageTitle = best.leaf.pageTitle || best.leaf.label;
   if (pathname.startsWith('/admin/analytics/student/')) {
-    breadcrumbLeaf = '學生學習歷程';
-    pageTitle = '學生學習歷程';
+    breadcrumbLeaf = '學生學習歷程查詢';
+    pageTitle = '學生學習歷程查詢';
   }
 
   if (pathname === '/admin' || pathname === '/admin/dashboard') {
-    breadcrumbLeaf = '總覽';
+    const sys = filtered.find((s) => s.id === 'system');
+    if (sys) {
+      return {
+        groupLabel: sys.label,
+        pageTitle: '營運總覽',
+        breadcrumbLeaf: '營運總覽',
+        sectionId: 'system',
+        childId: 'system-dashboard',
+      };
+    }
+    breadcrumbLeaf = '營運總覽';
     pageTitle = '營運總覽';
   }
 
@@ -559,21 +890,20 @@ export function getAdminPageMeta(pathname, ctx) {
  * @returns {AdminNavSection[]}
  */
 export function filterVisibleNav(sections, c) {
-  const workerOnly = isWorkerRestrictedMenu(c);
   return sections
     .map((section) => {
-      if (workerOnly && section.id !== 'dashboard') {
-        return null;
-      }
-      if (!isNavItemVisible(section.visibility, c)) {
-        return null;
-      }
       if (section.children?.length) {
-        const children = section.children.filter((ch) => !ch.hiddenFromNav && isNavItemVisible(ch.visibility, c));
+        if (section.visibility && !isNavItemVisible(section.visibility, c)) {
+          return null;
+        }
+        const children = section.children.filter((ch) => canShowAdminNavItem(ch, c));
         if (children.length === 0) {
           return null;
         }
         return { ...section, children };
+      }
+      if (!canShowAdminNavItem(section, c)) {
+        return null;
       }
       return { ...section };
     })

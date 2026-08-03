@@ -1,7 +1,12 @@
 // controllers/bestepClassController.js
-const ExcelJS = require('exceljs');
 const { Class } = require('../models');
 const { getClassBestepOverview, buildClassBestepExportData } = require('../services/bestepClassService');
+const { writeClassBestepExportWorkbook } = require('../services/bestepClassExportExcel');
+const {
+  assertCanAccessClass,
+  sendClassScopeDenied,
+} = require('../services/accessControl/classScopeGuard');
+const { logExportAudit } = require('../utils/exportAudit');
 
 function sanitizeFileName(name) {
   return String(name || '')
@@ -25,8 +30,24 @@ async function getBestepOverview(req, res, next) {
       return res.status(400).json({ error: '請指定學期' });
     }
 
+    const numericClassId = parseInt(classId, 10);
+    if (!numericClassId || isNaN(numericClassId)) {
+      return res.status(400).json({ error: 'ç„¡æ•ˆçš„ç­ç´šID' });
+    }
+
+    const classRecord = await Class.findByPk(numericClassId);
+    if (!classRecord) {
+      return res.status(404).json({ error: 'æ‰¾ä¸åˆ°ç­ç´š' });
+    }
+
+    try {
+      await assertCanAccessClass(req.user, classRecord);
+    } catch (scopeErr) {
+      return sendClassScopeDenied(res, scopeErr);
+    }
+
     const result = await getClassBestepOverview(
-      parseInt(classId),
+      numericClassId,
       semester,
       examType,
       {
@@ -67,44 +88,17 @@ async function exportClassBestepOverview(req, res, next) {
     }
 
     // 老師僅能匯出自己的班級（與班級明細匯出一致的權限檢查方式）
-    if (req.user && req.user.role === 'teacher') {
-      if (classRecord.teacherName !== req.user.name) {
-        return res.status(403).json({ error: '您沒有權限匯出此班級' });
-      }
+    try {
+      await assertCanAccessClass(req.user, classRecord);
+    } catch (scopeErr) {
+      return sendClassScopeDenied(res, scopeErr);
     }
 
     const exportData = await buildClassBestepExportData(numericClassId, semester, examType, {
       search: String(search || '').trim()
     });
 
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('BESTEP資料');
-
-    worksheet.columns = [
-      { header: '學號', key: 'studentId', width: 15 },
-      { header: '姓名', key: 'studentName', width: 15 },
-      { header: '個人報名項目', key: 'personalRegistrationItem', width: 22 },
-      { header: '抵免項目', key: 'exemptionItem', width: 18 },
-      { header: '出席狀況', key: 'attendanceStatus', width: 15 },
-      { header: '聽力CEFR', key: 'listeningCEFR', width: 12 },
-      { header: '閱讀CEFR', key: 'readingCEFR', width: 12 },
-      { header: '寫作CEFR', key: 'writingCEFR', width: 12 },
-      { header: '口說CEFR', key: 'speakingCEFR', width: 12 },
-      { header: '團體報名', key: 'groupRegistrationLabel', width: 15 }
-    ];
-
-    // 表頭樣式
-    const headerRow = worksheet.getRow(1);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' }
-    };
-
-    (exportData.rows || []).forEach((row) => {
-      worksheet.addRow(row);
-    });
+    const workbook = writeClassBestepExportWorkbook(exportData);
 
     const dateStr = new Date().toISOString().split('T')[0];
     const safeClassName = sanitizeFileName(exportData.classInfo?.className || classRecord.name || `class-${classId}`);
@@ -119,6 +113,19 @@ async function exportClassBestepOverview(req, res, next) {
     );
 
     await workbook.xlsx.write(res);
+
+    logExportAudit(req, {
+      module: 'bestep',
+      action: 'bestep_class_export',
+      entityType: 'BestepClassExport',
+      entityId: `class:${numericClassId}:${semester}`,
+      exportType: 'xlsx',
+      reportType: 'bestep_class',
+      rowCount: (exportData.rows || []).length,
+      filters: { semester, examType, classId: numericClassId, search: String(search || '').trim() || null },
+      fileName,
+    });
+
     res.end();
   } catch (error) {
     next(error);

@@ -1,0 +1,43 @@
+---
+description: 後端 Jest 測試慣例
+globs: reservation-backend/tests/**/*
+alwaysApply: false
+---
+
+# 後端測試
+
+## 設定
+
+- 測試檔：`tests/**/*.test.js`（`jest.config.js`）
+- Setup：`tests/setup.js`（`NODE_ENV=test`、固定 JWT secret、關閉 rate limit）
+- 執行：`npm test` 或 `npm test -- --runInBand`（CI 用）
+
+## 測試類型
+
+| 類型 | 位置 | 做法 |
+|------|------|------|
+| 單元 | `tests/*.test.js` | 直接 `require` service/util |
+| 整合 | `tests/integration/` | `supertest` + 輕量 Express app |
+| 安全 | `tests/security/` | 命名 `*Auth.test.js`、`*ScopeGuard.test.js` |
+
+## 撰寫原則
+
+- 新 API 或權限變更必補測試
+- Mock 外部依賴（DB、email）；勿依賴真實 MySQL（除非 integration 明確需要）
+- 權限測試涵蓋：未登入 401、權限不足 403、正確角色 200
+- 只測真實行為；避免 trivial assertion
+
+## 範例（權限守衛）
+
+```javascript
+const request = require('supertest');
+const app = require('../testApp'); // 或自建輕量 app
+
+it('denies teacher without permission', async () => {
+  const res = await request(app)
+    .get('/api/admin/foo')
+    .set('Authorization', `Bearer ${teacherToken}`);
+  expect(res.status).toBe(403);
+  expect(res.body.code).toBe('INSUFFICIENT_PERMISSIONS');
+});
+```

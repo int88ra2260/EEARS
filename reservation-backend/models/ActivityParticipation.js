@@ -7,7 +7,7 @@ const ActivityParticipation = sequelize.define('ActivityParticipation', {
   studentId: { type: DataTypes.STRING(20), allowNull: false, field: 'student_id' },
   semesterId: { type: DataTypes.STRING(12), allowNull: true, field: 'semester_id' },
   eventId: { type: DataTypes.STRING(40), allowNull: false, field: 'event_id' },
-  activityType: { type: DataTypes.ENUM('ET', 'EC', 'IF'), allowNull: false, field: 'activity_type' },
+  activityType: { type: DataTypes.ENUM('ET', 'EC', 'IF', 'EWL'), allowNull: false, field: 'activity_type' },
   attendanceStatus: {
     type: DataTypes.ENUM('registered', 'attended', 'absent', 'cancelled'),
     allowNull: false,

@@ -3,8 +3,12 @@ import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import EventList from '../components/EventList';
 import PageHeader from '../components/layout/PageHeader';
+import ActivityPhrasebookPanel from '../components/guides/ActivityPhrasebookPanel';
+import '../styles/student-events.css';
+import '../components/guides/ActivityPhrasebook.css';
 import { slugToTab, isValidActivitySlug, getCategoryTitleKey } from '../data/activitySlugs';
 import { getEventsCalendarPath } from '../utils/eventTypeQuery';
+import { BOOKABLE_ACTIVITY_CARDS } from '../constants/activityCatalog';
 
 /**
  * 活動「分類頁」：依 slug 顯示該類型活動的日曆與預約入口（共用 EventList + initialTab）。
@@ -28,6 +32,9 @@ export default function ActivityCategoryPage() {
     { label: t(titleKey) },
   ];
 
+  const catalogCard = BOOKABLE_ACTIVITY_CARDS.find((card) => card.slug === slug);
+  const activityType = catalogCard?.type;
+
   return (
     <div className="activity-category-page">
       <PageHeader
@@ -44,6 +51,9 @@ export default function ActivityCategoryPage() {
           {t('page.calendarBookingTitle')} →
         </button>
       </div>
+      {activityType ? (
+        <ActivityPhrasebookPanel activityType={activityType} maxItems={3} compact />
+      ) : null}
       <EventList initialTab={initialTab} />
     </div>
   );

@@ -21,6 +21,10 @@ const {
   getStudentCourses
 } = require('../services/learningJourney/courseRecordService');
 const {
+  dryRunAcademicCourseRosterImport,
+  applyAcademicCourseRosterImport
+} = require('../services/learningJourney/academicCourseRosterImportService');
+const {
   getStudentJourneyReport,
   renderStudentJourneyHtml
 } = require('../services/learningJourney/studentJourneyReportService');
@@ -722,6 +726,70 @@ async function postCourseImportApply(req, res) {
   }
 }
 
+function parseSyncClassRosterFlag(body) {
+  if (!body || body.syncClassRoster === undefined || body.syncClassRoster === null || body.syncClassRoster === '') {
+    return true;
+  }
+  const raw = String(body.syncClassRoster).trim().toLowerCase();
+  return !['0', 'false', 'no', 'off'].includes(raw);
+}
+
+async function postAcademicCourseRosterDryRun(req, res) {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: '請上傳教務處修課名單 Excel', requestId: req.requestId });
+    }
+    const semesterId = String((req.body && req.body.semesterId) || req.query.semesterId || '').trim();
+    if (!semesterId) {
+      return res.status(400).json({ error: 'semesterId 為必填（例如 114-2）', requestId: req.requestId });
+    }
+    const data = await dryRunAcademicCourseRosterImport({
+      fileBuffer: req.file.buffer,
+      semesterId,
+      syncClassRoster: parseSyncClassRosterFlag(req.body),
+    });
+    if (data.error && !data.validRows) {
+      return res.status(400).json({ error: data.error, data, requestId: req.requestId });
+    }
+    return res.json(envelope(req, data, [], { mode: 'academic_course_roster_dry_run' }));
+  } catch (error) {
+    return res.status(500).json({ error: error.message, requestId: req.requestId });
+  }
+}
+
+async function postAcademicCourseRosterApply(req, res) {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: '請上傳教務處修課名單 Excel', requestId: req.requestId });
+    }
+    const semesterId = String((req.body && req.body.semesterId) || req.query.semesterId || '').trim();
+    if (!semesterId) {
+      return res.status(400).json({ error: 'semesterId 為必填（例如 114-2）', requestId: req.requestId });
+    }
+    const actor = {
+      id: req.user && req.user.id ? req.user.id : null,
+      role: req.user && req.user.role ? req.user.role : null,
+      teacherLevel: req.user && req.user.teacherLevel ? req.user.teacherLevel : null
+    };
+    const data = await applyAcademicCourseRosterImport({
+      fileBuffer: req.file.buffer,
+      semesterId,
+      syncClassRoster: parseSyncClassRosterFlag(req.body),
+      sourceFile: req.file.originalname,
+      actor,
+    });
+    if (data.error) {
+      return res.status(400).json({ error: data.error, data, requestId: req.requestId });
+    }
+    console.info(
+      `[learning-journey-academic-roster-audit] actorId=${actor.id || 'unknown'} role=${actor.role || 'unknown'} file=${req.file.originalname} semester=${semesterId} rows=${data.validRows || 0}`
+    );
+    return res.json(envelope(req, data, [], { mode: 'academic_course_roster_apply' }));
+  } catch (error) {
+    return res.status(500).json({ error: error.message, requestId: req.requestId });
+  }
+}
+
 async function rebuildCache(req, res) {
   try {
     const semesterId = req.body && req.body.semesterId ? String(req.body.semesterId).trim() : (req.query.semesterId || '').trim();
@@ -781,5 +849,7 @@ module.exports = {
   postSync,
   postCourseImportDryRun,
   postCourseImportApply,
+  postAcademicCourseRosterDryRun,
+  postAcademicCourseRosterApply,
   rebuildCache
 };

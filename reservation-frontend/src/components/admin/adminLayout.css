@@ -1,28 +1,41 @@
-/* Phase 2：後台 Sidebar + 主內容區（不重做設計系統，僅 IA 結構） */
+/* 後台 Sidebar + 主內容區（minimalist-ui：暖色單色、扁平、行政可讀） */
+
+/* PublicLayout 殼層：略過全域 .container 1200px，改約 90% 視窗寬 */
+.app-main--admin {
+  width: 90%;
+  max-width: none;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 0;
+  padding-right: 0;
+}
 
 .admin-layout-root {
   display: flex;
-  min-height: calc(100vh - 0px);
+  min-height: 100dvh;
   align-items: stretch;
 }
 
 .admin-sidebar {
-  width: 260px;
+  width: 264px;
   flex-shrink: 0;
-  background: #f8f9fa;
-  border-right: 1px solid #dee2e6;
+  background: var(--admin-surface-muted, #f7f6f3);
+  border-right: 1px solid var(--admin-border, #eaeaea);
   display: flex;
   flex-direction: column;
-  padding: 0.75rem 0;
+  padding: 0.5rem 0;
   overflow-y: auto;
 }
 
 .admin-sidebar__brand {
-  font-weight: 600;
-  font-size: 1rem;
-  padding: 0.5rem 1rem 0.75rem;
-  border-bottom: 1px solid #dee2e6;
-  margin-bottom: 0.5rem;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--admin-text, #2f3437);
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--admin-border, #eaeaea);
+  margin-bottom: 0.35rem;
 }
 
 .admin-sidebar__nav {
@@ -36,11 +49,11 @@
   text-align: left;
   border: none;
   background: transparent;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  color: #212529;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.25rem;
+  color: var(--admin-text, #2f3437);
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -48,47 +61,78 @@
 }
 
 .admin-sidebar__section-label:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .admin-sidebar__section-label--active {
-  background: rgba(13, 110, 253, 0.12);
-  color: #0d6efd;
+  background: var(--admin-pastel-blue, #e1f3fe);
+  color: var(--admin-pastel-blue-text, #1f6c9f);
 }
 
 .admin-sidebar__chevron {
-  font-size: 0.65rem;
-  opacity: 0.7;
+  font-size: 0.6rem;
+  opacity: 0.55;
+  font-family: ui-monospace, 'SF Mono', monospace;
 }
 
 .admin-sidebar__sub {
   list-style: none;
   margin: 0;
-  padding: 0 0 0.35rem 0.5rem;
+  padding: 0 0 0.25rem 0.35rem;
+  border-left: 1px solid var(--admin-border, #eaeaea);
+  margin-left: 0.85rem;
+}
+
+.admin-sidebar__group-link {
+  display: block;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--admin-text, #2f3437);
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.admin-sidebar__group-link:hover {
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--admin-text, #2f3437);
+}
+
+.admin-sidebar__group-link--active {
+  background: var(--admin-pastel-blue, #e1f3fe);
+  color: var(--admin-pastel-blue-text, #1f6c9f);
+}
+
+.admin-sidebar__group-link--active:hover {
+  color: var(--admin-pastel-blue-text, #1f6c9f);
 }
 
 .admin-sidebar__link {
   display: block;
-  padding: 0.35rem 0.75rem 0.35rem 1rem;
+  padding: 0.35rem 0.65rem;
   font-size: 0.8125rem;
-  color: #495057;
+  font-weight: 400;
+  color: var(--admin-text-muted, #787774);
   text-decoration: none;
-  border-radius: 0.25rem;
+  border-radius: 6px;
+  line-height: 1.45;
 }
 
 .admin-sidebar__link:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #212529;
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--admin-text, #2f3437);
 }
 
 .admin-sidebar__link--active {
-  background: #0d6efd;
-  color: #fff;
+  background: var(--admin-surface, #ffffff);
+  color: var(--admin-text, #2f3437);
   font-weight: 500;
+  box-shadow: inset 2px 0 0 var(--admin-ink, #111111);
+  border: 1px solid var(--admin-border, #eaeaea);
 }
 
 .admin-sidebar__link--active:hover {
-  color: #fff;
+  color: var(--admin-text, #2f3437);
 }
 
 .admin-main {
@@ -96,42 +140,65 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  background: var(--admin-canvas, #fbfbfa);
 }
 
 .admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #dee2e6;
-  background: #fff;
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid var(--admin-border, #eaeaea);
+  background: var(--admin-surface, #ffffff);
 }
 
 .admin-topbar__title {
-  font-size: 1.25rem;
+  font-size: 0.9375rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--admin-text-muted, #787774);
   margin: 0;
 }
 
 .admin-page-header {
-  padding: 1rem 1rem 0;
+  padding: 1rem 1.25rem 0.5rem;
+  border-bottom: 1px solid var(--admin-border, #eaeaea);
+  margin-bottom: 0;
+  background: var(--admin-surface, #ffffff);
 }
 
 .admin-page-header__title {
-  font-size: 1.125rem;
+  font-size: 1.375rem;
   font-weight: 600;
-  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--admin-text, #2f3437);
+  margin: 0 0 0.35rem;
+  text-wrap: balance;
 }
 
 .admin-layout__content {
-  padding: 0 1rem 1.5rem;
+  width: 100%;
+  max-width: none;
+  padding: 1.25rem;
   flex: 1;
 }
 
+.admin-layout__content > .container,
+.admin-layout__content > .container-fluid {
+  max-width: 100%;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .admin-sidebar-toggle {
-  margin-right: 0.5rem;
+  min-height: 38px;
+  min-width: 64px;
 }
 
 @media (max-width: 991.98px) {
@@ -142,8 +209,8 @@
     bottom: 0;
     z-index: 1040;
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
-    box-shadow: 0 0 1rem rgba(0, 0, 0, 0.15);
+    transition: transform 0.15s ease;
+    box-shadow: 12px 0 32px rgba(17, 17, 17, 0.08);
   }
 
   .admin-sidebar--open {
@@ -153,7 +220,25 @@
   .admin-sidebar-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(17, 17, 17, 0.25);
     z-index: 1039;
+  }
+
+  .admin-layout__content {
+    padding: 1rem;
+  }
+
+  .admin-page-header {
+    padding: 0.85rem 1rem 0.5rem;
+  }
+
+  .admin-page-header__title {
+    font-size: 1.2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar {
+    transition: none;
   }
 }

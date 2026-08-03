@@ -1,0 +1,663 @@
+/* 學習歷程資料匯入 — Premium Utilitarian Minimalism */
+
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap');
+
+.lj-import-page {
+  --lj-serif: 'Newsreader', 'Georgia', 'Times New Roman', serif;
+  --lj-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  max-width: 1180px;
+  margin-inline: auto;
+  padding: 1.25rem 0 2.5rem;
+}
+
+/* ---- Reveal ---- */
+.lj-import-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 600ms var(--lj-ease) var(--reveal-delay, 0ms),
+    transform 600ms var(--lj-ease) var(--reveal-delay, 0ms);
+  will-change: transform, opacity;
+}
+
+.lj-import-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---- Header ---- */
+.lj-import-page__header {
+  margin-bottom: 1.75rem;
+}
+
+.lj-import-page__kicker {
+  margin: 0 0 0.45rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted, #787774);
+}
+
+.lj-import-page__title {
+  margin: 0 0 0.5rem;
+  font-family: var(--lj-serif);
+  font-size: clamp(1.5rem, 3.2vw, 2rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: var(--admin-ink, #111111);
+  text-wrap: balance;
+}
+
+.lj-import-page__lede {
+  margin: 0 0 0.75rem;
+  max-width: 58ch;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--admin-text-muted, #787774);
+}
+
+.lj-import-page__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-size: 0.8125rem;
+}
+
+.lj-import-page__nav a {
+  color: var(--admin-text-muted, #787774);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.lj-import-page__nav a:hover {
+  color: var(--admin-ink, #111111);
+  border-bottom-color: var(--admin-border, #eaeaea);
+}
+
+/* ---- Workflow guide ---- */
+.lj-import-guide {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.lj-import-guide__item {
+  padding: 0.85rem 1rem;
+  background: var(--admin-surface, #ffffff);
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 8px;
+}
+
+.lj-import-guide__step {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--admin-pastel-blue-text, #1f6c9f);
+}
+
+.lj-import-guide__text {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--admin-text-muted, #787774);
+}
+
+/* ---- Bento import grid ---- */
+.lj-import-bento {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.lj-import-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lj-import-block--course,
+.lj-import-block--baseline {
+  grid-column: 1 / -1;
+}
+
+.lj-import-block--course {
+  padding: 1.15rem;
+  background: var(--admin-surface-muted, #f7f6f3);
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 8px;
+}
+
+.lj-import-block__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lj-import-block__title-group {
+  flex: 1 1 12rem;
+}
+
+.lj-import-block__kind {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+}
+
+.lj-import-block__kind--enrollment {
+  background: var(--admin-pastel-blue, #e1f3fe);
+  color: var(--admin-pastel-blue-text, #1f6c9f);
+  border-color: rgba(31, 108, 159, 0.12);
+}
+
+.lj-import-block__kind--exam {
+  background: var(--admin-pastel-green, #edf3ec);
+  color: var(--admin-pastel-green-text, #346538);
+  border-color: rgba(52, 101, 56, 0.12);
+}
+
+.lj-import-block__kind--course {
+  background: var(--admin-pastel-yellow, #fbf3db);
+  color: var(--admin-pastel-yellow-text, #956400);
+  border-color: rgba(149, 100, 0, 0.12);
+}
+
+.lj-import-block__kind--baseline {
+  background: var(--admin-surface, #ffffff);
+  color: var(--admin-text-muted, #787774);
+  border-color: var(--admin-border, #eaeaea);
+}
+
+.lj-import-block__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--admin-ink, #111111);
+}
+
+.lj-import-block__desc {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--admin-text-muted, #787774);
+}
+
+.lj-import-semester {
+  max-width: 11rem;
+}
+
+.lj-import-semester .form-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted, #787774);
+  margin-bottom: 0.3rem;
+}
+
+.lj-import-course-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--admin-text-muted, #787774);
+}
+
+.lj-import-course-steps__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.lj-import-course-steps__item.is-active {
+  color: var(--admin-ink, #111111);
+  font-weight: 500;
+}
+
+.lj-import-course-steps__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 4px;
+  background: var(--admin-surface, #ffffff);
+}
+
+.lj-import-course-steps__item.is-active .lj-import-course-steps__num {
+  background: var(--admin-ink, #111111);
+  border-color: var(--admin-ink, #111111);
+  color: #ffffff;
+}
+
+.lj-import-course-steps__sep {
+  color: var(--admin-border, #eaeaea);
+}
+
+/* ---- Upload panel (minimal) ---- */
+.import-upload-panel--minimal {
+  border: 1px solid var(--admin-border, #eaeaea) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  background: var(--admin-surface, #ffffff) !important;
+}
+
+.import-upload-panel--minimal .card-body {
+  padding: 1rem 1.1rem;
+}
+
+.import-upload-panel--minimal .import-upload-panel__title {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--admin-text, #2f3437);
+}
+
+.import-upload-panel--minimal .import-upload-panel__desc {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--admin-text-muted, #787774);
+}
+
+.import-upload-panel--minimal .import-upload-panel__notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--admin-border, #eaeaea);
+}
+
+.import-upload-panel--minimal .form-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted, #787774);
+}
+
+.import-upload-panel--minimal .form-control[type='file'] {
+  font-size: 0.8125rem;
+}
+
+.import-upload-panel--minimal .form-text {
+  font-size: 0.75rem;
+}
+
+.import-upload-panel--minimal .form-check-label {
+  font-size: 0.8125rem;
+  color: var(--admin-text, #2f3437);
+}
+
+/* ---- Results ---- */
+.lj-import-result {
+  margin-top: 0.75rem;
+}
+
+.lj-import-result .alert {
+  font-size: 0.8125rem;
+  border-radius: 8px;
+}
+
+.lj-import-result__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.lj-import-result__stat {
+  padding: 0.5rem 0.65rem;
+  background: var(--admin-surface-muted, #f7f6f3);
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 6px;
+}
+
+.lj-import-result__stat-label {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted, #787774);
+  margin-bottom: 0.15rem;
+}
+
+.lj-import-result__stat-value {
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--admin-ink, #111111);
+  line-height: 1.2;
+}
+
+.lj-import-result details {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--admin-text-muted, #787774);
+}
+
+.lj-import-result details summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.lj-import-error-inline {
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--admin-pastel-red-text, #9f2f2d);
+  background: var(--admin-pastel-red, #fdebec);
+  border: 1px solid rgba(159, 47, 45, 0.15);
+  border-radius: 6px;
+}
+
+/* ---- History panel ---- */
+.lj-import-history {
+  margin-top: 2rem;
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 8px;
+  background: var(--admin-surface, #ffffff);
+  overflow: hidden;
+}
+
+.lj-import-history__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  background: var(--admin-surface-muted, #f7f6f3);
+  border-bottom: 1px solid var(--admin-border, #eaeaea);
+}
+
+.lj-import-history__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--admin-ink, #111111);
+  letter-spacing: -0.01em;
+}
+
+.lj-import-history__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem;
+}
+
+.lj-import-history__semester .form-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted, #787774);
+  margin-bottom: 0.25rem;
+}
+
+.lj-import-history__semester .form-select {
+  min-width: 9rem;
+  min-height: 34px;
+  font-size: 0.8125rem;
+}
+
+.lj-import-history__body {
+  padding: 1rem 1.15rem 1.15rem;
+}
+
+.lj-import-history__hint {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--admin-text-muted, #787774);
+  max-width: 62ch;
+}
+
+.lj-import-history__hint a {
+  color: var(--admin-text, #2f3437);
+}
+
+.lj-import-history__empty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--admin-text-muted, #787774);
+  background: var(--admin-surface-muted, #f7f6f3);
+  border: 1px dashed var(--admin-border, #eaeaea);
+  border-radius: 8px;
+}
+
+.lj-import-history__loading {
+  font-size: 0.875rem;
+  color: var(--admin-text-muted, #787774);
+  padding: 0.5rem 0;
+}
+
+.lj-import-history-table-wrap {
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lj-import-history-table {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.lj-import-history-table thead th {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted, #787774) !important;
+  background: var(--admin-surface-muted, #f7f6f3) !important;
+  border-bottom: 1px solid var(--admin-border, #eaeaea) !important;
+  white-space: nowrap;
+}
+
+.lj-import-history-table tbody td {
+  border-color: var(--admin-border, #eaeaea);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+
+.lj-import-history-status {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border-radius: 9999px;
+}
+
+.lj-import-history-status--success {
+  background: var(--admin-pastel-green, #edf3ec);
+  color: var(--admin-pastel-green-text, #346538);
+}
+
+.lj-import-history-status--failed {
+  background: var(--admin-pastel-red, #fdebec);
+  color: var(--admin-pastel-red-text, #9f2f2d);
+}
+
+.lj-import-history-status--partial {
+  background: var(--admin-pastel-yellow, #fbf3db);
+  color: var(--admin-pastel-yellow-text, #956400);
+}
+
+.lj-import-history-status--rolled_back,
+.lj-import-history-status--processing {
+  background: var(--admin-surface-muted, #f7f6f3);
+  color: var(--admin-text-muted, #787774);
+  border: 1px solid var(--admin-border, #eaeaea);
+}
+
+.lj-import-history-details {
+  margin-top: 1rem;
+}
+
+.lj-import-history-details__item {
+  border: none;
+  border-bottom: 1px solid var(--admin-border, #eaeaea);
+  padding: 0.65rem 0;
+}
+
+.lj-import-history-details__item:last-child {
+  border-bottom: none;
+}
+
+.lj-import-history-details__item summary {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--admin-text, #2f3437);
+  cursor: pointer;
+}
+
+.lj-import-history-details__item summary:hover {
+  color: var(--admin-ink, #111111);
+}
+
+.lj-import-history-details__body {
+  padding-top: 0.65rem;
+  font-size: 0.75rem;
+}
+
+.lj-import-history-details__section {
+  margin-bottom: 0.65rem;
+}
+
+.lj-import-history-details__section strong {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted, #787774);
+  margin-bottom: 0.25rem;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 991px) {
+  .lj-import-bento {
+    grid-template-columns: 1fr;
+  }
+
+  .lj-import-block--course,
+  .lj-import-block--baseline {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 767px) {
+  .lj-import-guide {
+    grid-template-columns: 1fr;
+  }
+
+  .lj-import-history__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lj-import-history__controls {
+    width: 100%;
+  }
+
+  .lj-import-history__semester,
+  .lj-import-history__semester .form-select {
+    width: 100%;
+  }
+
+  .lj-import-history-table-wrap {
+    display: none;
+  }
+
+  .lj-import-history-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .lj-import-history-card {
+    padding: 0.85rem;
+    border: 1px solid var(--admin-border, #eaeaea);
+    border-radius: 8px;
+    background: var(--admin-surface, #ffffff);
+  }
+
+  .lj-import-history-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .lj-import-history-card__type {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--admin-ink, #111111);
+  }
+
+  .lj-import-history-card__time {
+    font-size: 0.75rem;
+    color: var(--admin-text-muted, #787774);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lj-import-history-card__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .lj-import-history-card__grid dt {
+    color: var(--admin-text-muted, #787774);
+    font-weight: 500;
+  }
+
+  .lj-import-history-card__grid dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    color: var(--admin-text, #2f3437);
+  }
+}
+
+@media (min-width: 768px) {
+  .lj-import-history-cards {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lj-import-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

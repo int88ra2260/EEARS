@@ -3,6 +3,7 @@ const express = require('express');
 
 const P = {
   CAN_MANAGE_EVENTS: 'can_manage_events',
+  CAN_MANAGE_RESERVATIONS: 'can_manage_reservations',
 };
 
 const hasPermission = (user, permission) =>
@@ -15,7 +16,32 @@ const canAccessEventType = (user, eventType) => {
 };
 
 jest.mock('../middlewares/auth', () => ({
-  authMiddleware: (req, _res, next) => next(),
+  authMiddleware: (req, res, next) => {
+    const authHeader = req.headers.authorization || '';
+    if (!authHeader) {
+      return res.status(401).json({ error: '缺少或無效的認證令牌' });
+    }
+    if (authHeader === 'Bearer manage-events-et') {
+      req.user = {
+        role: 'teacher',
+        permissions: [P.CAN_MANAGE_EVENTS, P.CAN_MANAGE_RESERVATIONS],
+        allowedEventTypes: ['English Table'],
+      };
+    } else if (authHeader === 'Bearer no-permission') {
+      req.user = {
+        role: 'teacher',
+        permissions: [],
+        allowedEventTypes: ['English Table'],
+      };
+    } else if (authHeader === 'Bearer no-scope') {
+      req.user = {
+        role: 'teacher',
+        permissions: [P.CAN_MANAGE_RESERVATIONS],
+        allowedEventTypes: ['Job Talk'],
+      };
+    }
+    next();
+  },
   optionalAuthMiddleware: (req, _res, next) => {
     const authHeader = req.headers.authorization || '';
     if (authHeader === 'Bearer manage-events-et') {
@@ -39,7 +65,12 @@ jest.mock('../middlewares/auth', () => ({
     }
     next();
   },
-  requirePermission: () => (_req, _res, next) => next(),
+  requirePermission: (permission) => (req, res, next) => {
+    if (!req.user || !hasPermission(req.user, permission)) {
+      return res.status(403).json({ error: '權限不足' });
+    }
+    return next();
+  },
   requirePermissionAndEventAccess: () => (_req, _res, next) => next(),
   hasPermission,
   canAccessEventType,
@@ -67,6 +98,21 @@ jest.mock('../models', () => ({
 
 jest.mock('../middlewares/checkSurvey', () => ({
   checkSurvey: (_req, _res, next) => next(),
+}));
+
+jest.mock('../services/accessControl/eventScopeGuard', () => ({
+  assertCanAccessEvent: jest.fn(),
+  buildEventScopeWhere: jest.fn(() => ({})),
+}));
+
+const mockCancelReservationByAdmin = jest.fn();
+jest.mock('../services/reservationService', () => ({
+  cancelReservationPublic: jest.requireActual('../services/reservationService').cancelReservationPublic,
+  cancelReservationByAdmin: (...args) => mockCancelReservationByAdmin(...args),
+}));
+
+jest.mock('../services/waitlistService', () => ({
+  promoteNextWaitlistedStudent: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('../utils/reservationTime', () => ({
@@ -137,12 +183,19 @@ describe('DELETE /api/reservations/:id auth regression', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCancelReservationByAdmin.mockReset();
     app = express();
     app.use(express.json());
     app.use('/api', reservationRouter);
   });
 
-  it('前台：正確驗證碼可取消成功', async () => {
+  it('deprecated 路由：DELETE /api/reservations/:id 回 410', async () => {
+    const res = await request(app).delete('/api/reservations/99').send({});
+    expect(res.status).toBe(410);
+    expect(String(res.body.message || '')).toContain('deprecated');
+  });
+
+  it('前台：正確驗證碼可取消成功（新路由）', async () => {
     const reservation = makeReservation({
       date: '2026-04-10',
       startTime: '15:00:00',
@@ -151,15 +204,21 @@ describe('DELETE /api/reservations/:id auth regression', () => {
     mockReservationFindByPk.mockResolvedValueOnce(reservation);
 
     const res = await request(app)
-      .delete('/api/reservations/99')
-      .send({ cancellationCode: '111222' });
+      .post('/api/reservations/99/cancel-public')
+      .send({
+        studentId: reservation.studentId,
+        studentName: reservation.studentName,
+        email: reservation.studentEmail,
+        cancellationCode: '111222',
+      });
 
     expect(res.status).toBe(200);
-    expect(res.body.message).toContain('已取消');
+    expect(res.body.success).toBe(true);
+    expect(res.body.found).toBe(true);
     expect(reservation.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it('前台：錯誤驗證碼會失敗', async () => {
+  it('前台：錯誤驗證碼不會取消（新路由 fail-close）', async () => {
     const reservation = makeReservation({
       date: '2026-04-10',
       startTime: '15:00:00',
@@ -168,15 +227,21 @@ describe('DELETE /api/reservations/:id auth regression', () => {
     mockReservationFindByPk.mockResolvedValueOnce(reservation);
 
     const res = await request(app)
-      .delete('/api/reservations/99')
-      .send({ cancellationCode: '999999' });
+      .post('/api/reservations/99/cancel-public')
+      .send({
+        studentId: reservation.studentId,
+        studentName: reservation.studentName,
+        email: reservation.studentEmail,
+        cancellationCode: '999999',
+      });
 
-    expect(res.status).toBe(400);
-    expect(String(res.body.error || '')).toContain('驗證碼錯誤');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.found).toBe(false);
     expect(reservation.destroy).not.toHaveBeenCalled();
   });
 
-  it('前台：活動前 2 小時內取消會失敗', async () => {
+  it('前台：身分欄位不符不會成功取消（新路由）', async () => {
     const reservation = makeReservation({
       date: '2026-04-10',
       startTime: '11:00:00',
@@ -185,53 +250,61 @@ describe('DELETE /api/reservations/:id auth regression', () => {
     mockReservationFindByPk.mockResolvedValueOnce(reservation);
 
     const res = await request(app)
-      .delete('/api/reservations/99')
-      .send({ cancellationCode: '111222' });
+      .post('/api/reservations/99/cancel-public')
+      .send({
+        studentId: reservation.studentId,
+        studentName: reservation.studentName,
+        email: 'wrong@example.com',
+        cancellationCode: '111222',
+      });
 
-    expect(res.status).toBe(400);
-    expect(String(res.body.error || '')).toContain('2小時');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.found).toBe(false);
     expect(reservation.destroy).not.toHaveBeenCalled();
   });
 
-  it('後台：有 can_manage_events 且有 event scope 可刪除成功', async () => {
+  it('後台：管理端新路由可刪除成功', async () => {
     const reservation = makeReservation({
       eventType: 'English Table',
       cancellationCode: '111222',
     });
     mockReservationFindByPk.mockResolvedValueOnce(reservation);
+    mockCancelReservationByAdmin.mockImplementationOnce(async () => {
+      await reservation.destroy();
+      return {
+        cancelled: true,
+        reservation,
+        reason: null,
+      };
+    });
 
     const res = await request(app)
-      .delete('/api/reservations/99')
+      .delete('/api/admin/reservations/99')
       .set('Authorization', 'Bearer manage-events-et')
-      .send({});
+      .send({ cancellationCode: '111222' });
 
     expect(res.status).toBe(200);
-    expect(res.body.message).toContain('已取消');
+    expect(String(res.body.message || '')).toContain('cancelled');
     expect(reservation.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it('後台：有 token 但無權限或無 scope 直接 403', async () => {
+  it('後台：有 token 但無權限時回 403', async () => {
     const reservation1 = makeReservation({ eventType: 'English Table' });
     mockReservationFindByPk.mockResolvedValueOnce(reservation1);
     const r1 = await request(app)
-      .delete('/api/reservations/99')
+      .delete('/api/admin/reservations/99')
       .set('Authorization', 'Bearer no-permission')
-      .send({});
+      .send({ cancellationCode: '123456' });
 
     expect(r1.status).toBe(403);
-    expect(String(r1.body.error || '')).toContain('權限不足');
+    expect(String(r1.body.message || r1.body.error || '')).toContain('權限');
     expect(reservation1.destroy).not.toHaveBeenCalled();
+  });
 
-    const reservation2 = makeReservation({ eventType: 'English Table' });
-    mockReservationFindByPk.mockResolvedValueOnce(reservation2);
-    const r2 = await request(app)
-      .delete('/api/reservations/99')
-      .set('Authorization', 'Bearer no-scope')
-      .send({});
-
-    expect(r2.status).toBe(403);
-    expect(String(r2.body.error || '')).toContain('權限不足');
-    expect(reservation2.destroy).not.toHaveBeenCalled();
+  it('後台：admin 取消路由未帶 token 回 401', async () => {
+    const res = await request(app).delete('/api/admin/reservations/99').send({ cancellationCode: '111222' });
+    expect(res.status).toBe(401);
   });
 });
 

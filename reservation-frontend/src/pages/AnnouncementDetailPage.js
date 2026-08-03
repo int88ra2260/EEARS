@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Badge, Button } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import { useLanguage } from '../context/LanguageContext';
 import PageHeader from '../components/layout/PageHeader';
+import StatusBadge from '../components/ui/StatusBadge';
+import { formatMessage } from '../utils/formatMessage';
 import { fetchPublicAnnouncement, normalizeAnnouncementItem } from '../services/announcementApi';
 import './AnnouncementDetailPage.css';
 import { ANNOUNCEMENT_CATEGORY_LABELS } from '../constants/announcementLabels';
+import { formatDateTimeYMDHM, formatDateYMD } from '../utils/announcementFormatters';
+import SkeletonCard from '../components/ui/SkeletonCard';
 
 export default function AnnouncementDetailPage() {
   const { idOrSlug } = useParams();
@@ -82,14 +86,27 @@ export default function AnnouncementDetailPage() {
     };
   }, [item]);
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    try {
-      const d = new Date(dateStr);
-      return Number.isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
-    } catch {
-      return dateStr;
-    }
+  const renderAnnouncementBody = (text) => {
+    const raw = String(text || '');
+    if (!raw.trim()) return null;
+
+    // 允許「段落換行（空行分段）」與「段內換行（換行插入 br）」。
+    const paragraphs = raw.split(/\n{2,}/).filter((p) => p.trim().length > 0);
+    if (paragraphs.length === 0) return null;
+
+    return paragraphs.map((p, idx) => {
+      const lines = p.split('\n');
+      return (
+        <p key={idx}>
+          {lines.map((line, i) => (
+            <React.Fragment key={i}>
+              {i > 0 ? <br /> : null}
+              {line}
+            </React.Fragment>
+          ))}
+        </p>
+      );
+    });
   };
 
   const copyLink = async () => {
@@ -115,6 +132,11 @@ export default function AnnouncementDetailPage() {
         <div className="announcement-detail-loading">
           <div className="spinner-border text-primary" role="status" />
           <p className="mt-2">{t('home.loading')}</p>
+          <div className="mt-3" aria-hidden="true">
+            <SkeletonCard lines={4} titleHeight={18} />
+            <div style={{ height: 12 }} />
+            <SkeletonCard lines={7} titleHeight={14} />
+          </div>
         </div>
       </div>
     );
@@ -168,31 +190,40 @@ export default function AnnouncementDetailPage() {
           ← {t('homePage.backToAnnouncementsList')}
         </Link>
         <Button type="button" size="sm" variant="outline-secondary" onClick={copyLink}>
-          {copyDone ? '已複製連結' : '複製連結'}
+          {copyDone ? t('announcementsPage.copyLinkDone') : t('announcementsPage.copyLink')}
         </Button>
       </div>
       <article className="announcement-detail-article">
         <p className="announcement-detail-meta d-flex flex-wrap align-items-center gap-2">
-          <span>{formatDate(item.date || item.publishedAt)}</span>
-          {item.readingMinutes ? <span className="text-muted">· 約 {item.readingMinutes} 分鐘閱讀</span> : null}
+          <span>{formatDateYMD(item.date || item.publishedAt)}</span>
+          {item.readingMinutes ? (
+            <span className="text-muted">
+              · {formatMessage(t('announcementsPage.readingMinutes'), { minutes: item.readingMinutes })}
+            </span>
+          ) : null}
           {item.authorName ? <span className="text-muted">· {item.authorName}</span> : null}
+          {item.updatedAt ? (
+            <span className="text-muted">
+              · {t('announcementsPage.updatedAt')} {formatDateTimeYMDHM(item.updatedAt)}
+            </span>
+          ) : null}
           {item.category ? (
-            <Badge bg="light" text="dark">
+            <StatusBadge variant="neutral" size="sm">
               {ANNOUNCEMENT_CATEGORY_LABELS[item.category] || item.category}
-            </Badge>
+            </StatusBadge>
           ) : null}
           {item.isPinned ? (
-            <Badge bg="warning" text="dark">
-              置頂
-            </Badge>
+            <StatusBadge variant="warning" size="sm">
+              {t('announcementsPage.badgePinned')}
+            </StatusBadge>
           ) : null}
         </p>
         {Array.isArray(item.tags) && item.tags.length > 0 ? (
           <p className="mb-3">
             {item.tags.map((tg) => (
-              <Badge key={tg} bg="secondary" className="me-1 fw-normal">
+              <StatusBadge key={tg} variant="neutral" size="sm" className="me-1">
                 {tg}
-              </Badge>
+              </StatusBadge>
             ))}
           </p>
         ) : null}
@@ -208,11 +239,17 @@ export default function AnnouncementDetailPage() {
             />
           </div>
         ) : null}
-        <div className="announcement-detail-body">{item.content || item.summary || ''}</div>
-        <div className="announcement-detail-back mt-4">
+        <div className="announcement-detail-body">{renderAnnouncementBody(item.content || item.summary || '')}</div>
+
+        <div className="announcement-detail-actions mt-4 d-flex flex-wrap gap-2 align-items-center">
           <Link to="/announcements" className="btn btn-outline-secondary">
             ← {t('homePage.backToAnnouncementsList')}
           </Link>
+          {item.category === 'activity' ? (
+            <Link to="/activities" className="btn btn-primary">
+              {t('announcementsPage.goBookActivity')}
+            </Link>
+          ) : null}
         </div>
       </article>
     </div>

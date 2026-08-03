@@ -5,6 +5,8 @@ import { useOutletContext } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { safeAPICall, showErrorMessage } from '../utils/errorHandler';
 import useConfirm from './ui/useConfirm';
+import { P } from '../constants/permissions';
+import { hasAnyPermission } from '../utils/accessControl';
 
 // 學期日期範圍判斷函數
 function getSemesterInfo(date) {
@@ -48,7 +50,7 @@ function getSemesterOptions() {
 }
 
 function ViolationManagement() {
-  const { token, userRole } = useOutletContext();
+  const { token, userRole, accessProfile } = useOutletContext();
   const { confirm } = useConfirm();
   
   // ===== 違規管理 =====
@@ -73,7 +75,12 @@ function ViolationManagement() {
 
   // 角色權限檢查
   const actualUserRole = userRole || 'worker';
-  const isAdmin = actualUserRole === 'admin';
+  const canAccessViolations = hasAnyPermission(accessProfile, [
+    P.CAN_MANAGE_VIOLATIONS,
+    P.CAN_MANAGE_BLACKLIST,
+    P.CAN_VIEW_BLACKLIST,
+  ]);
+  const canManageBlacklist = accessProfile?.permissionSet?.has(P.CAN_MANAGE_BLACKLIST);
 
   // 取得黑名單紀錄
   const fetchBlacklistRecords = async (semester = 'all') => {
@@ -163,6 +170,10 @@ function ViolationManagement() {
 
   // 刪除違規紀錄
   const handleDeleteViolation = async (violationId) => {
+    if (!canManageBlacklist) {
+      showErrorMessage('您沒有刪除違規紀錄的權限');
+      return;
+    }
     const ok = await confirm({
       title: '確認刪除違規紀錄？',
       description: '此操作無法復原。',
@@ -259,13 +270,13 @@ function ViolationManagement() {
 
   // 初始化載入
   useEffect(() => {
-    if (isAdmin) {
+    if (canAccessViolations) {
       fetchBlacklistRecords(selectedViolationSemester);
     }
-  }, [isAdmin]); // 只在組件掛載時執行一次
+  }, [canAccessViolations]); // 只在組件掛載時執行一次
 
-  // 如果沒有管理員權限，顯示權限不足訊息
-  if (!isAdmin) {
+  // 如果沒有違規管理權限，顯示權限不足訊息
+  if (!canAccessViolations) {
     return (
       <div className="alert alert-warning">
         <i className="fas fa-exclamation-triangle me-2"></i>
@@ -423,12 +434,17 @@ function ViolationManagement() {
                   <td>{r.User?.blacklistUntil ? dayjs(r.User.blacklistUntil).format('YYYY/MM/DD HH:mm') : '—'}</td>
                   <td>{r.reason || '—'}</td>
                   <td>
-                    <button 
-                      className="btn btn-sm btn-outline-danger" 
-                      onClick={() => handleDeleteViolation(r.id)}
-                    >
-                      刪除
-                    </button>
+                    {canManageBlacklist ? (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => handleDeleteViolation(r.id)}
+                      >
+                        刪除
+                      </button>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                 </tr>
               ))

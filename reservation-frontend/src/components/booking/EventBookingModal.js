@@ -2,20 +2,35 @@
  * 活動預約 Modal：表單、提交、黑名單／問卷子流程
  * 由 EventDetail 對外暴露，EventList 僅依賴 EventDetail
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Modal, Button } from 'react-bootstrap';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import useEventBooking from '../../hooks/useEventBooking';
 import EventBookingSummary from './EventBookingSummary';
 import EventBookingFormSection from './EventBookingFormSection';
+import BookingStepIndicator from './BookingStepIndicator';
 import EnglishTableSurveyModal from '../EnglishTableSurveyModal';
+import { useLanguage } from '../../context/LanguageContext';
+import { formatMessage } from '../../utils/formatMessage';
 import '../EventDetail.css';
+import '../../styles/student-events.css';
 import BookingSuccessView from './BookingSuccessView';
+import WaitlistSuccessView from './WaitlistSuccessView';
+import { canWaitlistFromState, getEventBookingState } from '../../utils/eventBookingState';
+
+gsap.registerPlugin(useGSAP);
 
 export default function EventBookingModal({ show, event, onClose }) {
+  const { t, lang } = useLanguage();
   const [isMobile, setIsMobile] = useState(false);
   // 1:填寫, 2:問卷, 3:成功
   const [bookingStep, setBookingStep] = useState(1);
+  const [mobileSubStep, setMobileSubStep] = useState('session');
   const [successEmail, setSuccessEmail] = useState('');
+  const bodyScopeRef = useRef(null);
+  const blacklistScopeRef = useRef(null);
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -38,10 +53,25 @@ export default function EventBookingModal({ show, event, onClose }) {
     blacklist,
     survey,
     successMeta,
+    waitlistSuccessMeta,
     handleReserve,
+    handleJoinWaitlist,
     handleSurveyClose,
     handleSurveyComplete,
+    resetBookingModalState,
   } = booking;
+
+  const waitlistInfo = useMemo(() => {
+    const state = getEventBookingState(event);
+    const allowWaitlist = canWaitlistFromState(state);
+    return {
+      isFull: state.code === 'FULL',
+      allowWaitlist,
+    };
+  }, [event]);
+
+  const surveyMayBeRequired =
+    event?.eventType === 'English Table' || event?.eventType === 'English Club';
 
   // Step 2：若內建問卷 modal 開啟，就高亮 Step 2
   useEffect(() => {
@@ -87,11 +117,13 @@ export default function EventBookingModal({ show, event, onClose }) {
 
   const resetLocalFlowState = () => {
     setBookingStep(1);
+    setMobileSubStep('session');
     setSuccessEmail('');
   };
 
   const handleCloseModal = () => {
     resetLocalFlowState();
+    if (typeof resetBookingModalState === 'function') resetBookingModalState();
     if (typeof onClose === 'function') onClose();
   };
 
@@ -101,6 +133,19 @@ export default function EventBookingModal({ show, event, onClose }) {
   };
 
   const handleSurveyCompleteClick = () => {
+    try {
+      const raw = sessionStorage.getItem('pendingWaitlist');
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p && String(p.eventId) === String(event.id)) {
+          sessionStorage.removeItem('pendingWaitlist');
+          handleJoinWaitlist(event, () => setBookingStep(3), {});
+          return;
+        }
+      }
+    } catch (_) {
+      // ignore
+    }
     handleSurveyComplete(event, () => {
       setSuccessEmail(form.studentEmail);
       setBookingStep(3);
@@ -111,8 +156,129 @@ export default function EventBookingModal({ show, event, onClose }) {
   useEffect(() => {
     if (!show) return;
     setBookingStep(1);
+    setMobileSubStep('session');
     setSuccessEmail('');
-  }, [show]);
+    if (typeof resetBookingModalState === 'function') resetBookingModalState();
+  }, [show, resetBookingModalState]);
+
+  const showBookingSummary =
+    bookingStep !== 3
+    && (!isMobile || bookingStep !== 1 || mobileSubStep === 'session' || bookingStep === 2);
+  const showStep1Form = bookingStep === 1 && (!isMobile || mobileSubStep === 'form');
+  const isMobileSessionPanel = isMobile && bookingStep === 1 && mobileSubStep === 'session';
+
+  useGSAP(() => {
+    if (!show) {
+      wasOpenRef.current = false;
+      return undefined;
+    }
+
+    const isOpening = !wasOpenRef.current;
+    wasOpenRef.current = true;
+
+    const mm = gsap.matchMedia();
+    mm.add(
+      { reduceMotion: '(prefers-reduced-motion: reduce)' },
+      (context) => {
+        const { reduceMotion } = context.conditions;
+        const duration = reduceMotion ? 0 : 0.42;
+        const stagger = reduceMotion ? 0 : 0.07;
+        const ease = 'power2.out';
+
+        if (isOpening) {
+          gsap.from('[data-booking-intro]', {
+            autoAlpha: 0,
+            y: -10,
+            duration,
+            ease,
+          });
+          gsap.from('[data-booking-step-dot]', {
+            autoAlpha: 0,
+            scale: 0.85,
+            duration,
+            stagger,
+            ease,
+          });
+          gsap.from('[data-booking-summary]', {
+            autoAlpha: 0,
+            y: 14,
+            duration,
+            delay: reduceMotion ? 0 : 0.08,
+            ease,
+          });
+        }
+
+        const activePanel = bodyScopeRef.current?.querySelector(
+          `[data-booking-step="${bookingStep}"]`,
+        );
+        if (activePanel) {
+          gsap.from(activePanel, {
+            autoAlpha: 0,
+            y: 18,
+            duration,
+            ease,
+          });
+        }
+
+        const activeDot = bodyScopeRef.current?.querySelector(
+          `[data-booking-step-dot="${bookingStep}"]`,
+        );
+        if (activeDot && duration > 0) {
+          gsap.fromTo(
+            activeDot,
+            { scale: 0.82 },
+            { scale: 1, duration: 0.34, ease: 'back.out(1.6)' },
+          );
+        }
+
+        return undefined;
+      },
+      bodyScopeRef,
+    );
+
+    return () => mm.revert();
+  }, {
+    scope: bodyScopeRef,
+    dependencies: [show, bookingStep],
+    revertOnUpdate: true,
+  });
+
+  useGSAP(() => {
+    if (!blacklist?.showBlacklistModal) return undefined;
+
+    const mm = gsap.matchMedia();
+    mm.add(
+      { reduceMotion: '(prefers-reduced-motion: reduce)' },
+      (context) => {
+        const { reduceMotion } = context.conditions;
+        const duration = reduceMotion ? 0 : 0.38;
+        const ease = 'power2.out';
+
+        gsap.from('[data-blacklist-intro]', {
+          autoAlpha: 0,
+          y: 16,
+          duration,
+          ease,
+        });
+        gsap.from('[data-blacklist-detail]', {
+          autoAlpha: 0,
+          y: 12,
+          duration,
+          stagger: reduceMotion ? 0 : 0.08,
+          ease,
+        });
+
+        return undefined;
+      },
+      blacklistScopeRef,
+    );
+
+    return () => mm.revert();
+  }, {
+    scope: blacklistScopeRef,
+    dependencies: [blacklist?.showBlacklistModal],
+    revertOnUpdate: true,
+  });
 
   if (!event) return null;
   const surveyKeyByEventType = event.eventType === 'English Club'
@@ -133,67 +299,6 @@ export default function EventBookingModal({ show, event, onClose }) {
   const buttonStyle = isMobile ? { minHeight: '48px', fontSize: '16px' } : {};
   const buttonClass = isMobile ? 'flex-fill' : '';
 
-  const stepIndicator = (
-    <div className="d-flex align-items-center gap-2 mb-3" aria-label="Reservation progress">
-      <div className="d-flex align-items-center gap-2">
-        <div
-          className="rounded-circle d-flex align-items-center justify-content-center"
-          style={{
-            width: 28,
-            height: 28,
-            backgroundColor: bookingStep === 1 ? '#0d6efd' : bookingStep > 1 ? '#198754' : '#e9ecef',
-            color: 'white',
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          1
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: bookingStep === 1 ? '#0d6efd' : '#6c757d' }}>
-          填寫預約資料
-        </div>
-      </div>
-      <div style={{ flex: 1, height: 2, backgroundColor: '#e9ecef' }} />
-      <div className="d-flex align-items-center gap-2">
-        <div
-          className="rounded-circle d-flex align-items-center justify-content-center"
-          style={{
-            width: 28,
-            height: 28,
-            backgroundColor: bookingStep === 2 ? '#0dcaf0' : bookingStep > 2 ? '#198754' : '#e9ecef',
-            color: bookingStep === 1 ? '#6c757d' : 'white',
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          2
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: bookingStep === 2 ? '#0dcaf0' : '#6c757d' }}>
-          完成必要問卷
-        </div>
-      </div>
-      <div style={{ flex: 1, height: 2, backgroundColor: '#e9ecef' }} />
-      <div className="d-flex align-items-center gap-2">
-        <div
-          className="rounded-circle d-flex align-items-center justify-content-center"
-          style={{
-            width: 28,
-            height: 28,
-            backgroundColor: bookingStep === 3 ? '#198754' : '#e9ecef',
-            color: 'white',
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          3
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: bookingStep === 3 ? '#198754' : '#6c757d' }}>
-          預約完成
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <>
       <Modal
@@ -202,34 +307,41 @@ export default function EventBookingModal({ show, event, onClose }) {
         centered={!isMobile}
         fullscreen={isMobile ? 'sm-down' : false}
         scrollable={isMobile}
+        className={`event-booking-modal${isMobileSessionPanel ? ' event-booking-modal--mobile-session' : ''}`}
+        dialogClassName="event-booking-modal__dialog"
         style={isMobile ? { zIndex: 1055 } : {}}
       >
         <Modal.Header closeButton>
-          <Modal.Title>{event.name} 預約</Modal.Title>
+          <Modal.Title>{formatMessage(t('booking.modalTitle'), { name: event.name })}</Modal.Title>
         </Modal.Header>
 
-        <Modal.Body style={bodyStyle}>
-          {stepIndicator}
+        <Modal.Body ref={bodyScopeRef} style={bodyStyle}>
+          <BookingStepIndicator step={bookingStep} waitlistSuccess={Boolean(waitlistSuccessMeta)} />
 
-          <EventBookingSummary event={event} isMobile={isMobile} />
+          {showBookingSummary ? (
+            <div data-booking-summary>
+              <EventBookingSummary
+                event={event}
+                allowWaitlist={waitlistInfo.allowWaitlist}
+                surveyRequired={surveyMayBeRequired}
+              />
+            </div>
+          ) : null}
 
-          {bookingStep === 1 && (
-            <EventBookingFormSection
-              studentId={form.studentId}
-              studentName={form.studentName}
-              studentEmail={form.studentEmail}
-              onStudentIdChange={form.setStudentId}
-              onStudentNameChange={form.setStudentName}
-              onStudentEmailChange={form.setStudentEmail}
-              violationWarning={violationWarning}
-              msg={message.msg}
-              variant={message.variant}
-              isMobile={isMobile}
-            />
-          )}
+          {isMobileSessionPanel ? (
+            <p className="event-booking-mobile-hint mb-0" role="status">
+              {t('booking.mobileSessionStep')}
+            </p>
+          ) : null}
 
-          {bookingStep === 2 && (
-            <div>
+          {showStep1Form && (
+            <div data-booking-step="1">
+              {waitlistInfo.isFull && !waitlistInfo.allowWaitlist && (
+                <div className="alert alert-warning py-2 mb-3" role="alert">
+                  {t('booking.fullNoWaitlist')}
+                </div>
+              )}
+
               <EventBookingFormSection
                 studentId={form.studentId}
                 studentName={form.studentName}
@@ -238,33 +350,63 @@ export default function EventBookingModal({ show, event, onClose }) {
                 onStudentNameChange={form.setStudentName}
                 onStudentEmailChange={form.setStudentEmail}
                 violationWarning={violationWarning}
-                msg={message.msg || '此預約需要完成問卷後才能完成。系統將引導你完成問卷，完成後會自動恢復原流程。'}
+                msg={message.msg}
+                variant={message.variant}
+                isMobile={isMobile}
+              />
+            </div>
+          )}
+
+          {bookingStep === 2 && (
+            <div data-booking-step="2">
+              <EventBookingFormSection
+                studentId={form.studentId}
+                studentName={form.studentName}
+                studentEmail={form.studentEmail}
+                onStudentIdChange={form.setStudentId}
+                onStudentNameChange={form.setStudentName}
+                onStudentEmailChange={form.setStudentEmail}
+                violationWarning={violationWarning}
+                msg={message.msg || t('booking.surveyStepMsg')}
                 variant={message.variant || 'info'}
                 isMobile={isMobile}
                 disabled
               />
-              <div className="alert alert-info mt-3 mb-0">
-                <i className="fas fa-info-circle me-2" />
-                此活動需先完成問卷。系統即將帶你前往問卷頁，完成後會自動恢復並完成原預約流程。
+              <div className="alert alert-info mt-3 mb-0" role="status">
+                <i className="fas fa-info-circle me-2" aria-hidden />
+                {t('booking.surveyStepInfo')}
               </div>
             </div>
           )}
 
-          {bookingStep === 3 && (
-            <BookingSuccessView
-              event={event}
-              studentEmail={successMeta?.studentEmail || successEmail || form.studentEmail}
-              reservationId={successMeta?.reservationId || null}
-              bookingCode={successMeta?.bookingCode || null}
-              successAt={successMeta?.createdAt || null}
-              onClose={handleCloseModal}
-            />
+          {bookingStep === 3 && waitlistSuccessMeta && (
+            <div data-booking-step="3">
+              <WaitlistSuccessView
+                event={event}
+                studentEmail={waitlistSuccessMeta.studentEmail || form.studentEmail}
+                position={waitlistSuccessMeta.position}
+                onClose={handleCloseModal}
+              />
+            </div>
+          )}
+
+          {bookingStep === 3 && !waitlistSuccessMeta && (
+            <div data-booking-step="3">
+              <BookingSuccessView
+                event={event}
+                studentEmail={successMeta?.studentEmail || successEmail || form.studentEmail}
+                reservationId={successMeta?.reservationId || null}
+                bookingCode={successMeta?.bookingCode || null}
+                successAt={successMeta?.createdAt || null}
+                onClose={handleCloseModal}
+              />
+            </div>
           )}
         </Modal.Body>
 
         <Modal.Footer style={footerStyle}>
-          {bookingStep === 1 && (
-            <div className={isMobile ? 'd-flex w-100 gap-2' : 'd-flex gap-2'}>
+          {bookingStep === 1 && isMobileSessionPanel && (
+            <div className="d-flex w-100 gap-2">
               <Button
                 variant="secondary"
                 onClick={handleCloseModal}
@@ -272,16 +414,53 @@ export default function EventBookingModal({ show, event, onClose }) {
                 className={buttonClass}
                 style={buttonStyle}
               >
-                取消
+                {t('booking.btnCancel')}
               </Button>
               <Button
                 variant="primary"
-                onClick={handleReserveClick}
+                onClick={() => setMobileSubStep('form')}
+                disabled={waitlistInfo.isFull && !waitlistInfo.allowWaitlist}
+                className={buttonClass}
+                style={buttonStyle}
+              >
+                {t('booking.mobileContinue')}
+              </Button>
+            </div>
+          )}
+
+          {bookingStep === 1 && showStep1Form && (
+            <div className={isMobile ? 'd-flex w-100 gap-2' : 'd-flex gap-2'}>
+              <Button
+                variant="secondary"
+                onClick={isMobile ? () => setMobileSubStep('session') : handleCloseModal}
                 disabled={isSubmitting}
                 className={buttonClass}
                 style={buttonStyle}
               >
-                {isSubmitting ? '處理中...' : 'Reserve / 預約'}
+                {isMobile ? t('booking.mobileBackSession') : t('booking.btnCancel')}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={waitlistInfo.allowWaitlist ? () =>
+                  handleJoinWaitlist(
+                    event,
+                    () => {
+                      setBookingStep(3);
+                    },
+                    {
+                      onSurveyRequired: () => setBookingStep(2),
+                    }
+                  ) : handleReserveClick
+                }
+                disabled={isSubmitting || (waitlistInfo.isFull && !waitlistInfo.allowWaitlist)}
+                className={buttonClass}
+                style={buttonStyle}
+              >
+                {isSubmitting
+                  ? t('booking.btnProcessing')
+                  : waitlistInfo.allowWaitlist
+                    ? t('booking.btnWaitlist')
+                    : t('booking.btnReserve')}
               </Button>
             </div>
           )}
@@ -295,10 +474,10 @@ export default function EventBookingModal({ show, event, onClose }) {
                 className={buttonClass}
                 style={buttonStyle}
               >
-                返回
+                {t('booking.btnBack')}
               </Button>
               <Button variant="primary" disabled className={buttonClass} style={buttonStyle}>
-                前往問卷中...
+                {t('booking.btnSurveyPending')}
               </Button>
             </div>
           )}
@@ -306,7 +485,7 @@ export default function EventBookingModal({ show, event, onClose }) {
           {bookingStep === 3 && (
             <div className="d-flex w-100 justify-content-end">
               <Button variant="secondary" onClick={handleCloseModal} className={buttonClass} style={buttonStyle}>
-                關閉
+                {t('booking.btnClose')}
               </Button>
             </div>
           )}
@@ -332,24 +511,26 @@ export default function EventBookingModal({ show, event, onClose }) {
       >
         <Modal.Header closeButton className="bg-danger text-white">
           <Modal.Title>
-            <i className="fas fa-ban me-2" />
-            無法預約 - 黑名單限制
+            <i className="fas fa-ban me-2" aria-hidden />
+            {t('booking.blacklistTitle')}
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          <div className="alert alert-danger">
+        <Modal.Body ref={blacklistScopeRef}>
+          <div className="alert alert-danger" data-blacklist-intro>
             <h5 className="alert-heading">
-              <i className="fas fa-exclamation-triangle me-2" />
-              您目前被列入黑名單
+              <i className="fas fa-exclamation-triangle me-2" aria-hidden />
+              {t('booking.blacklistHeading')}
             </h5>
             <p className="mb-2">
-              根據系統記錄，您目前有 <strong>{blacklist.blacklistInfo?.violationCount || 0}</strong> 次違規紀錄，已被列入黑名單。
+              {formatMessage(t('booking.blacklistBody'), {
+                count: blacklist.blacklistInfo?.violationCount || 0,
+              })}
             </p>
             {blacklist.blacklistInfo?.blacklistUntil && (
               <p className="mb-0">
-                <strong>黑名單解除時間：</strong>
+                <strong>{t('booking.blacklistUntil')}</strong>
                 <br />
-                {new Date(blacklist.blacklistInfo.blacklistUntil).toLocaleString('zh-TW', {
+                {new Date(blacklist.blacklistInfo.blacklistUntil).toLocaleString(lang === 'en' ? 'en-US' : 'zh-TW', {
                   year: 'numeric',
                   month: '2-digit',
                   day: '2-digit',
@@ -359,25 +540,23 @@ export default function EventBookingModal({ show, event, onClose }) {
               </p>
             )}
           </div>
-          <div className="mt-3">
-            <h6>違規行為說明：</h6>
+          <div className="mt-3" data-blacklist-detail>
+            <h6>{t('booking.blacklistViolationsTitle')}</h6>
             <ul className="mb-0">
-              <li>成功預約但未到場</li>
-              <li>活動中無正當理由中途離席</li>
-              <li>活動開始後 5 分鐘才抵達現場</li>
-              <li>其他違反活動規範的行為</li>
+              <li>{t('booking.blacklistViolation1')}</li>
+              <li>{t('booking.blacklistViolation2')}</li>
+              <li>{t('booking.blacklistViolation3')}</li>
+              <li>{t('booking.blacklistViolation4')}</li>
             </ul>
           </div>
-          <div className="mt-3">
-            <h6>規範說明：</h6>
-            <p className="text-muted mb-0">
-              同一學期內，若同學累積兩次違規紀錄，將被列入黑名單兩週。在此期間內，您將無法預約任何活動。
-            </p>
+          <div className="mt-3" data-blacklist-detail>
+            <h6>{t('booking.blacklistRulesTitle')}</h6>
+            <p className="text-muted mb-0">{t('booking.blacklistRulesBody')}</p>
           </div>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => blacklist.setShowBlacklistModal(false)}>
-            我知道了
+            {t('booking.blacklistAck')}
           </Button>
         </Modal.Footer>
       </Modal>

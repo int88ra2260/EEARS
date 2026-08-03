@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useOutletContext, useParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import Spinner from 'react-bootstrap/Spinner';
 import useAdminEventWorkspace from '../../hooks/useAdminEventWorkspace';
 import AdminEventDetailTabs from '../../components/admin/events/AdminEventDetailTabs';
@@ -8,8 +8,14 @@ import { EVENT_DETAIL_COPY } from '../../constants/adminEventDetailCopy';
 
 export default function AdminEventDetailPage() {
   const { eventId } = useParams();
+  const [searchParams] = useSearchParams();
   const { token, userRole, accessProfile } = useOutletContext();
-  const [activeTab, setActiveTab] = useState('reservations');
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'reservations');
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
   const ws = useAdminEventWorkspace({ token, userRole, accessProfile, eventId, activeTab });
 
   if (ws.detailLoading) {
@@ -38,7 +44,17 @@ export default function AdminEventDetailPage() {
     <div>
       <AdminEventDetailHeader ws={ws} onGoCheckinTab={() => setActiveTab('checkin')} />
 
-      <AdminEventDetailTabs {...ws} activeKey={activeTab} onSelect={setActiveTab} />
+      <AdminEventDetailTabs
+        activeKey={activeTab}
+        onSelect={setActiveTab}
+        reservationsTabProps={ws.reservationsTabProps}
+        checkinTabProps={ws.checkinTabProps}
+        importExportTabProps={ws.importExportTabProps}
+        violationsTabProps={ws.violationsTabProps}
+        groupingTabProps={ws.groupingTabProps}
+        taskMarksTabProps={ws.taskMarksTabProps}
+        violationModalProps={ws.violationModalProps}
+      />
     </div>
   );
 }

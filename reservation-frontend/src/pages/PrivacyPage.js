@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import ContentText from '../components/siteContent/ContentText';
 import PageHeader from '../components/layout/PageHeader';
 import './PrivacyPage.css';
 
@@ -21,13 +22,17 @@ export default function PrivacyPage() {
 
   return (
     <div className="privacy-page">
-      <PageHeader breadcrumbs={breadcrumbs} title={t('privacyPage.title')} lead={t('privacyPage.lastUpdated')} />
+      <PageHeader
+        breadcrumbs={breadcrumbs}
+        title={<ContentText k="privacyPage.title" />}
+        lead={<ContentText k="privacyPage.lastUpdated" />}
+      />
       <div className="privacy-page-content">
-        <p className="privacy-page-intro">{t('privacyPage.intro')}</p>
+        <ContentText k="privacyPage.intro" as="p" className="privacy-page-intro" />
         {sections.map(({ titleKey, bodyKey }) => (
           <section key={titleKey} className="privacy-page-section">
-            <h2>{t(`privacyPage.${titleKey}`)}</h2>
-            <p>{t(`privacyPage.${bodyKey}`)}</p>
+            <ContentText k={`privacyPage.${titleKey}`} as="h2" />
+            <ContentText k={`privacyPage.${bodyKey}`} as="p" />
           </section>
         ))}
       </div>

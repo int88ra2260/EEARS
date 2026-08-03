@@ -5,6 +5,7 @@ import Table from 'react-bootstrap/Table';
 import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
 import { safeAPICall } from '../../utils/errorHandler';
+import { fetchParticipationCheckins } from '../../services/reportsAdminApi';
 
 const SEMESTER_LABEL = {
   '113-2': '113-2',
@@ -29,16 +30,7 @@ export default function AdminEventParticipationStatsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
-    const result = await safeAPICall(async () => {
-      const res = await fetch('/api/reports/participation-checkins', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw { response: { status: res.status, data: errBody } };
-      }
-      return res.json();
-    }, () => {});
+    const result = await safeAPICall(async () => fetchParticipationCheckins(token), () => {});
     if (result.success) {
       const data = result.data || {};
       setRows(Array.isArray(data.rows) ? data.rows : []);

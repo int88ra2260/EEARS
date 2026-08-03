@@ -54,3 +54,32 @@ export async function checkBlacklist(studentId) {
   const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
   return { ok: res.ok, data, requestId };
 }
+
+/**
+ * 活動額滿時加入候補（POST /api/events/:eventId/waitlist）
+ * @param {{ eventId: number|string, studentId: string, studentName: string, studentEmail: string }} payload
+ * @returns {Promise<{ ok: boolean, status: number, data: object|null }>}
+ */
+export async function joinWaitlist(payload) {
+  const eventId = payload.eventId;
+  const res = await fetchClient(`/api/events/${encodeURIComponent(eventId)}/waitlist`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      studentId: (payload.studentId || '').trim(),
+      studentName: (payload.studentName || '').trim(),
+      studentEmail: (payload.studentEmail || '').trim(),
+    }),
+  });
+
+  let data = null;
+  try {
+    const text = await res.text();
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: '無法解析伺服器響應' };
+  }
+
+  const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
+  return { ok: res.ok, status: res.status, data, requestId };
+}

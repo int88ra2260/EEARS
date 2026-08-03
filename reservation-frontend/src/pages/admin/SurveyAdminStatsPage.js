@@ -1,10 +1,14 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useOutletContext, useParams } from 'react-router-dom';
 import Card from 'react-bootstrap/Card';
 import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
+import {
+  fetchSurveyAnalyticsQuestions,
+  fetchSurveyAnalyticsSummary,
+} from '../../services/surveyAdminApi';
 
 export default function SurveyAdminStatsPage() {
   const { surveyId } = useParams();
@@ -17,14 +21,6 @@ export default function SurveyAdminStatsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const headers = useMemo(
-    () => ({
-      Authorization: `Bearer ${token}`,
-      'X-User-Role': accessProfile.role || 'worker',
-    }),
-    [token, accessProfile.role]
-  );
-
   useEffect(() => {
     if (!token || !canView) {
       setLoading(false);
@@ -34,14 +30,10 @@ export default function SurveyAdminStatsPage() {
     (async () => {
       setLoading(true);
       try {
-        const [sRes, qRes] = await Promise.all([
-          fetch(`/api/admin/surveys/${surveyId}/analytics/summary`, { headers }),
-          fetch(`/api/admin/surveys/${surveyId}/analytics/questions`, { headers }),
+        const [sJson, qJson] = await Promise.all([
+          fetchSurveyAnalyticsSummary(token, surveyId),
+          fetchSurveyAnalyticsQuestions(token, surveyId),
         ]);
-        const sJson = await sRes.json().catch(() => ({}));
-        const qJson = await qRes.json().catch(() => ({}));
-        if (!sRes.ok) throw new Error(sJson.error || '摘要載入失敗');
-        if (!qRes.ok) throw new Error(qJson.error || '題目統計載入失敗');
         if (!cancelled) {
           setSummary(sJson);
           setQuestions(qJson);
@@ -55,7 +47,7 @@ export default function SurveyAdminStatsPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, canView, surveyId, headers]);
+  }, [token, canView, surveyId]);
 
   if (!canView) {
     return (

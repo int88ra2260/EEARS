@@ -1,6 +1,8 @@
 const { SurveyRepairRun, SurveyRepairRunItem } = require('../models');
 const governance = require('./surveyDataGovernanceService');
 const health = require('./surveyHealthService');
+const legacySync = require('./surveyLegacyResponseSyncService');
+const mappingService = require('./surveyAnswerMappingService');
 
 function requireExecuteGuard(payload = {}) {
   const phrase = String(payload.confirmPhrase || '').trim();
@@ -64,6 +66,25 @@ async function executeRepair(type, payload, user) {
       report = await governance.backfillResponseLinks({ dryRun });
     } else if (type === 'answer_recheck') {
       report = await health.recheckAnswers({ dryRun });
+    } else if (type === 'legacy_response_sync') {
+      report = await legacySync.syncLegacyResponsesToModule({
+        semester: payload.semester,
+        dryRun,
+      });
+    } else if (type === 'bootstrap_answer_mappings') {
+      report = await mappingService.bootstrapStandardAnswerMappings({
+        surveyId: payload.surveyId || null,
+        userId: user?.id,
+        dryRun,
+      });
+    } else if (type === 'recommended_fix') {
+      const eventReport = await governance.backfillEventSemesters({ dryRun });
+      const responsePart = await governance.backfillResponseLinks({ dryRun });
+      const mappings = await mappingService.bootstrapStandardAnswerMappings({
+        userId: user?.id,
+        dryRun,
+      });
+      report = { eventReport, responsePart, mappings };
     } else {
       throw new Error(`unsupported repair type: ${type}`);
     }

@@ -6,13 +6,21 @@ import {
   Button, 
   Form, 
   Alert, 
-  Spinner, 
   Row, 
   Col,
   Tabs,
   Tab
 } from 'react-bootstrap';
 import { handleAPIError } from '../utils/errorHandler';
+import { importBestepAttendance, importBestepScores } from '../services/bestepAdminApi';
+import {
+  downloadBestepAttendanceTemplate,
+  downloadBestepScoreTemplate,
+} from '../utils/bestepImportTemplates';
+import ImportUploadPanel from './admin/import/ImportUploadPanel';
+import ImportResultSummary from './admin/import/ImportResultSummary';
+import ImportErrorList from './admin/import/ImportErrorList';
+import LearningPartnerTeamRankingPanel from './learning-partner/LearningPartnerTeamRankingPanel';
 
 const SEMESTER_OPTIONS = [
   { value: '114-1', label: '114-1學期' },
@@ -21,6 +29,74 @@ const SEMESTER_OPTIONS = [
   { value: '115-1', label: '115-1學期' },
   { value: '115-2', label: '115-2學期' }
 ];
+
+function collectBestepImportIssues(result) {
+  const warnings = [];
+  const errors = [];
+  const skipped = [];
+
+  if (!result || typeof result !== 'object') {
+    return { warnings, errors, skipped };
+  }
+
+  if (Array.isArray(result.warnings)) {
+    warnings.push(...result.warnings);
+  }
+
+  if (Array.isArray(result.errors)) {
+    errors.push(...result.errors);
+  }
+  if (Array.isArray(result.validationErrors)) {
+    errors.push(...result.validationErrors);
+  }
+  if (Array.isArray(result.errorDetails)) {
+    errors.push(...result.errorDetails);
+  }
+
+  if (Array.isArray(result.skippedDetails)) {
+    skipped.push(...result.skippedDetails);
+  } else if (Array.isArray(result.skipped) && result.skipped.length && typeof result.skipped[0] === 'object') {
+    skipped.push(...result.skipped);
+  }
+
+  return { warnings, errors, skipped };
+}
+
+function getBestepSuccessCount(result) {
+  if (!result || typeof result !== 'object') return 0;
+  const keys = ['successCount', 'imported', 'success'];
+  for (const key of keys) {
+    if (result[key] !== undefined && result[key] !== null && result[key] !== '') {
+      const n = Number(result[key]);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return 0;
+}
+
+function getBestepSkippedCount(result) {
+  if (!result || typeof result !== 'object') return 0;
+  const keys = ['skippedCount', 'skipped'];
+  for (const key of keys) {
+    if (result[key] !== undefined && result[key] !== null && result[key] !== '') {
+      const n = Number(result[key]);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return 0;
+}
+
+function getBestepTotalCount(result) {
+  if (!result || typeof result !== 'object') return undefined;
+  const keys = ['totalRows', 'total', 'totalCount'];
+  for (const key of keys) {
+    if (result[key] !== undefined && result[key] !== null && result[key] !== '') {
+      const n = Number(result[key]);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return undefined;
+}
 
 export default function BestepImportPage() {
   const navigate = useNavigate();
@@ -45,13 +121,7 @@ export default function BestepImportPage() {
   const [scoreResult, setScoreResult] = useState(null);
   const [scoreError, setScoreError] = useState('');
 
-  // 團體名次計算
-  const [rankingData, setRankingData] = useState({
-    semester: '114-1'
-  });
-  const [rankingCalculating, setRankingCalculating] = useState(false);
-  const [rankingResult, setRankingResult] = useState(null);
-  const [rankingError, setRankingError] = useState('');
+  const [rankingSemester, setRankingSemester] = useState('114-1');
 
   // 匯入出席資料
   const handleAttendanceImport = async () => {
@@ -76,27 +146,23 @@ export default function BestepImportPage() {
       formData.append('examType', attendanceData.examType);
       formData.append('examDate', attendanceData.examDate);
 
-      const response = await fetch('/api/admin/bestep/attendance/import', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setAttendanceResult(result);
-        setAttendanceData(prev => ({ ...prev, file: null }));
-      } else {
-        setAttendanceError(result.error || '匯入失敗');
-      }
+      const token = localStorage.getItem('token');
+      const result = await importBestepAttendance(token, formData);
+      setAttendanceResult(result);
+      setAttendanceData((prev) => ({ ...prev, file: null }));
     } catch (err) {
       setAttendanceError(handleAPIError(err));
     } finally {
       setAttendanceUploading(false);
     }
+  };
+
+  const handleAttendanceFormSubmit = async (event, fileFromPanel) => {
+    event.preventDefault();
+    if (fileFromPanel && fileFromPanel !== attendanceData.file) {
+      setAttendanceData((prev) => ({ ...prev, file: fileFromPanel }));
+    }
+    await handleAttendanceImport();
   };
 
   // 匯入成績資料
@@ -115,22 +181,10 @@ export default function BestepImportPage() {
       formData.append('file', scoreData.file);
       formData.append('semester', scoreData.semester);
 
-      const response = await fetch('/api/admin/bestep/scores/import', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setScoreResult(result);
-        setScoreData(prev => ({ ...prev, file: null }));
-      } else {
-        setScoreError(result.error || '匯入失敗');
-      }
+      const token = localStorage.getItem('token');
+      const result = await importBestepScores(token, formData);
+      setScoreResult(result);
+      setScoreData((prev) => ({ ...prev, file: null }));
     } catch (err) {
       setScoreError(handleAPIError(err));
     } finally {
@@ -138,36 +192,12 @@ export default function BestepImportPage() {
     }
   };
 
-  // 計算團體名次
-  const handleCalculateRanking = async () => {
-    setRankingCalculating(true);
-    setRankingError('');
-    setRankingResult(null);
-
-    try {
-      const response = await fetch('/api/admin/bestep/teams/calculate-ranking', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          semester: rankingData.semester
-        })
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setRankingResult(result);
-      } else {
-        setRankingError(result.error || '計算失敗');
-      }
-    } catch (err) {
-      setRankingError(handleAPIError(err));
-    } finally {
-      setRankingCalculating(false);
+  const handleScoreFormSubmit = async (event, fileFromPanel) => {
+    event.preventDefault();
+    if (fileFromPanel && fileFromPanel !== scoreData.file) {
+      setScoreData((prev) => ({ ...prev, file: fileFromPanel }));
     }
+    await handleScoreImport();
   };
 
   // 下載錯誤報表
@@ -206,20 +236,22 @@ export default function BestepImportPage() {
                 <ul className="mb-0 mt-2">
                   <li>請分別匯入 LR（聽讀）和 SW（說寫）兩場考試的出席資料</li>
                   <li>檔案格式：Excel (.xlsx, .xls)</li>
-                  <li>必須包含欄位：學號、姓名、出席狀態</li>
+                  <li>建議欄位：學號、姓名、報考項目、L/R/S/W 出缺席、缺席原因（簡易格式：學號、姓名、出席狀態）</li>
                   <li>系統會自動識別欄位名稱（支援中英文）</li>
+                  <li>可點「下載出席匯入範例」取得標準表頭與填寫說明</li>
                   <li>只有「報名成功」（status='success'）的學生才會被匯入</li>
                 </ul>
               </Alert>
 
-              <Row className="g-3">
+              <Row className="g-3 mb-3">
                 <Col md={3}>
                   <Form.Label>學期 <span className="text-danger">*</span></Form.Label>
                   <Form.Select
                     value={attendanceData.semester}
-                    onChange={(e) => setAttendanceData(prev => ({ ...prev, semester: e.target.value }))}
+                    onChange={(e) => setAttendanceData((prev) => ({ ...prev, semester: e.target.value }))}
+                    disabled={attendanceUploading}
                   >
-                    {SEMESTER_OPTIONS.map(option => (
+                    {SEMESTER_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -230,7 +262,8 @@ export default function BestepImportPage() {
                   <Form.Label>考試類型 <span className="text-danger">*</span></Form.Label>
                   <Form.Select
                     value={attendanceData.examType}
-                    onChange={(e) => setAttendanceData(prev => ({ ...prev, examType: e.target.value }))}
+                    onChange={(e) => setAttendanceData((prev) => ({ ...prev, examType: e.target.value }))}
+                    disabled={attendanceUploading}
                   >
                     <option value="LR">LR（聽讀）</option>
                     <option value="SW">SW（說寫）</option>
@@ -241,35 +274,75 @@ export default function BestepImportPage() {
                   <Form.Control
                     type="date"
                     value={attendanceData.examDate}
-                    onChange={(e) => setAttendanceData(prev => ({ ...prev, examDate: e.target.value }))}
-                  />
-                </Col>
-                <Col md={3}>
-                  <Form.Label>選擇檔案 <span className="text-danger">*</span></Form.Label>
-                  <Form.Control
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={(e) => setAttendanceData(prev => ({ ...prev, file: e.target.files[0] }))}
+                    onChange={(e) => setAttendanceData((prev) => ({ ...prev, examDate: e.target.value }))}
+                    disabled={attendanceUploading}
                   />
                 </Col>
               </Row>
 
               {attendanceError && (
-                <Alert variant="danger" className="mt-3">
+                <Alert variant="danger" className="mb-3">
                   {attendanceError}
                 </Alert>
               )}
 
+              <ImportUploadPanel
+                title="匯入出席資料"
+                description="請選擇 BESTEP 出席名單 Excel 檔案並送出。"
+                acceptedFileTypes=".xlsx,.xls"
+                selectedFile={attendanceData.file}
+                onFileChange={(file) =>
+                  setAttendanceData((prev) => ({
+                    ...prev,
+                    file: file || null
+                  }))
+                }
+                onSubmit={handleAttendanceFormSubmit}
+                isSubmitting={attendanceUploading}
+                submitLabel={attendanceUploading ? '匯入中...' : '開始匯入'}
+                disabled={
+                  attendanceUploading ||
+                  !attendanceData.semester ||
+                  !attendanceData.examType ||
+                  !attendanceData.examDate
+                }
+                notice={(
+                  <Button
+                    type="button"
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={downloadBestepAttendanceTemplate}
+                    disabled={attendanceUploading}
+                  >
+                    <i className="fas fa-download me-2" aria-hidden="true"></i>
+                    下載出席匯入範例
+                  </Button>
+                )}
+                className="border"
+              />
+
               {attendanceResult && (
-                <Alert variant={attendanceResult.success ? 'success' : 'warning'} className="mt-3">
-                  <h6>匯入結果</h6>
-                  <ul className="mb-0">
-                    <li>成功匯入: {attendanceResult.imported} 筆</li>
-                    <li>跳過: {attendanceResult.skipped} 筆</li>
-                    {attendanceResult.errors && attendanceResult.errors.length > 0 && (
-                      <li>錯誤: {attendanceResult.errors.length} 筆</li>
-                    )}
-                  </ul>
+                <div className="mt-3">
+                  <ImportResultSummary
+                    result={attendanceResult}
+                    successCount={getBestepSuccessCount(attendanceResult)}
+                    skippedCount={getBestepSkippedCount(attendanceResult)}
+                    totalCount={getBestepTotalCount(attendanceResult)}
+                    failedCount={
+                      Array.isArray(attendanceResult.errors) ? attendanceResult.errors.length : undefined
+                    }
+                    className="mb-2"
+                  />
+                  <ImportErrorList
+                    errors={collectBestepImportIssues(attendanceResult).errors}
+                    title="錯誤明細"
+                  />
+                  <ImportErrorList
+                    errors={collectBestepImportIssues(attendanceResult).skipped}
+                    title="略過明細"
+                    variant="info"
+                    className="mt-2"
+                  />
                   {attendanceResult.errorFileUrl && (
                     <Button
                       variant="outline-danger"
@@ -281,28 +354,8 @@ export default function BestepImportPage() {
                       下載錯誤報表
                     </Button>
                   )}
-                </Alert>
+                </div>
               )}
-
-              <div className="mt-3">
-                <Button
-                  variant="primary"
-                  onClick={handleAttendanceImport}
-                  disabled={attendanceUploading || !attendanceData.file || !attendanceData.examDate}
-                >
-                  {attendanceUploading ? (
-                    <>
-                      <Spinner size="sm" className="me-2" />
-                      匯入中...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-upload me-2"></i>
-                      開始匯入
-                    </>
-                  )}
-                </Button>
-              </div>
             </Card.Body>
           </Card>
         </Tab>
@@ -321,50 +374,84 @@ export default function BestepImportPage() {
                   <li>必須包含欄位：學號、姓名、聽力分數、閱讀分數、口說分數、寫作分數、各項 CEFR 等級</li>
                   <li>系統會自動識別欄位名稱（支援多種變體）</li>
                   <li>系統會自動計算總分、整體等級和達標狀態</li>
+                  <li>可點「下載成績匯入範例」取得標準表頭與填寫說明</li>
                   <li>只有「報名成功」（status='success'）的學生才會被匯入</li>
                 </ul>
               </Alert>
 
-              <Row className="g-3">
+              <Row className="g-3 mb-3">
                 <Col md={4}>
                   <Form.Label>學期 <span className="text-danger">*</span></Form.Label>
                   <Form.Select
                     value={scoreData.semester}
-                    onChange={(e) => setScoreData(prev => ({ ...prev, semester: e.target.value }))}
+                    onChange={(e) => setScoreData((prev) => ({ ...prev, semester: e.target.value }))}
+                    disabled={scoreUploading}
                   >
-                    {SEMESTER_OPTIONS.map(option => (
+                    {SEMESTER_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
                   </Form.Select>
                 </Col>
-                <Col md={8}>
-                  <Form.Label>選擇檔案 <span className="text-danger">*</span></Form.Label>
-                  <Form.Control
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={(e) => setScoreData(prev => ({ ...prev, file: e.target.files[0] }))}
-                  />
-                </Col>
               </Row>
 
               {scoreError && (
-                <Alert variant="danger" className="mt-3">
+                <Alert variant="danger" className="mb-3">
                   {scoreError}
                 </Alert>
               )}
 
+              <ImportUploadPanel
+                title="匯入成績資料"
+                description="請選擇 BESTEP 成績 Excel 檔案並送出。"
+                acceptedFileTypes=".xlsx,.xls"
+                selectedFile={scoreData.file}
+                onFileChange={(file) =>
+                  setScoreData((prev) => ({
+                    ...prev,
+                    file: file || null
+                  }))
+                }
+                onSubmit={handleScoreFormSubmit}
+                isSubmitting={scoreUploading}
+                submitLabel={scoreUploading ? '匯入中...' : '開始匯入'}
+                disabled={scoreUploading || !scoreData.semester}
+                notice={(
+                  <Button
+                    type="button"
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={downloadBestepScoreTemplate}
+                    disabled={scoreUploading}
+                  >
+                    <i className="fas fa-download me-2" aria-hidden="true"></i>
+                    下載成績匯入範例
+                  </Button>
+                )}
+                className="border"
+              />
+
               {scoreResult && (
-                <Alert variant={scoreResult.success ? 'success' : 'warning'} className="mt-3">
-                  <h6>匯入結果</h6>
-                  <ul className="mb-0">
-                    <li>成功匯入: {scoreResult.imported} 筆</li>
-                    <li>跳過: {scoreResult.skipped} 筆</li>
-                    {scoreResult.errors && scoreResult.errors.length > 0 && (
-                      <li>錯誤: {scoreResult.errors.length} 筆</li>
-                    )}
-                  </ul>
+                <div className="mt-3">
+                  <ImportResultSummary
+                    result={scoreResult}
+                    successCount={getBestepSuccessCount(scoreResult)}
+                    skippedCount={getBestepSkippedCount(scoreResult)}
+                    totalCount={getBestepTotalCount(scoreResult)}
+                    failedCount={Array.isArray(scoreResult.errors) ? scoreResult.errors.length : undefined}
+                    className="mb-2"
+                  />
+                  <ImportErrorList
+                    errors={collectBestepImportIssues(scoreResult).errors}
+                    title="錯誤明細"
+                  />
+                  <ImportErrorList
+                    errors={collectBestepImportIssues(scoreResult).skipped}
+                    title="略過明細"
+                    variant="info"
+                    className="mt-2"
+                  />
                   {scoreResult.errorFileUrl && (
                     <Button
                       variant="outline-danger"
@@ -376,101 +463,25 @@ export default function BestepImportPage() {
                       下載錯誤報表
                     </Button>
                   )}
-                </Alert>
-              )}
-
-              <div className="mt-3">
-                <Button
-                  variant="primary"
-                  onClick={handleScoreImport}
-                  disabled={scoreUploading || !scoreData.file}
-                >
-                  {scoreUploading ? (
-                    <>
-                      <Spinner size="sm" className="me-2" />
-                      匯入中...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-upload me-2"></i>
-                      開始匯入
-                    </>
+                  {getBestepSuccessCount(scoreResult) > 0 && (
+                    <Alert variant="success" className="mt-3 mb-0">
+                      成績已寫入。請切換至「團體名次」分頁，選擇相同學期後按「重新計算名次」更新排行榜。
+                    </Alert>
                   )}
-                </Button>
-              </div>
+                </div>
+              )}
             </Card.Body>
           </Card>
         </Tab>
 
-        {/* 團體名次計算 */}
-        <Tab eventKey="ranking" title="團體名次計算">
-          <Card>
-            <Card.Header>
-              <h5>計算團體名次</h5>
-            </Card.Header>
-            <Card.Body>
-              <Alert variant="info">
-                <strong>說明：</strong>
-                <ul className="mb-0 mt-2">
-                  <li>根據團體成員的平均分數計算名次</li>
-                  <li>支援並列名次（分數相同者視為同一名次）</li>
-                  <li>名次並列時，其後名次會跳過並列數量</li>
-                  <li>系統會自動計算獎勵金額</li>
-                  <li>只有已匯入成績的團體才會被計算</li>
-                </ul>
-              </Alert>
-
-              <Row className="g-3">
-                <Col md={4}>
-                  <Form.Label>學期 <span className="text-danger">*</span></Form.Label>
-                  <Form.Select
-                    value={rankingData.semester}
-                    onChange={(e) => setRankingData(prev => ({ ...prev, semester: e.target.value }))}
-                  >
-                    {SEMESTER_OPTIONS.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Col>
-              </Row>
-
-              {rankingError && (
-                <Alert variant="danger" className="mt-3">
-                  {rankingError}
-                </Alert>
-              )}
-
-              {rankingResult && (
-                <Alert variant="success" className="mt-3">
-                  <h6>計算結果</h6>
-                  <p>已計算 {rankingResult.teams?.length || 0} 個團體的名次</p>
-                  <p>計算時間: {new Date(rankingResult.calculatedAt).toLocaleString('zh-TW')}</p>
-                </Alert>
-              )}
-
-              <div className="mt-3">
-                <Button
-                  variant="primary"
-                  onClick={handleCalculateRanking}
-                  disabled={rankingCalculating}
-                >
-                  {rankingCalculating ? (
-                    <>
-                      <Spinner size="sm" className="me-2" />
-                      計算中...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-calculator me-2"></i>
-                      開始計算
-                    </>
-                  )}
-                </Button>
-              </div>
-            </Card.Body>
-          </Card>
+        {/* 團體名次 */}
+        <Tab eventKey="ranking" title="團體名次">
+          <LearningPartnerTeamRankingPanel
+            semester={rankingSemester}
+            onSemesterChange={setRankingSemester}
+            showWorkflowHint
+            importPageLink={null}
+          />
         </Tab>
       </Tabs>
     </div>

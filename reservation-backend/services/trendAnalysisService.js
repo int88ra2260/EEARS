@@ -133,6 +133,11 @@ async function getOverviewTrends(fromSemester, toSemester) {
   const highRiskImprovementRate =
     prevIdx >= 0 ? computeImprovementRate(metrics.riskHighCount[prevIdx], metrics.riskHighCount[lastIdx]) : null;
 
+  /**
+   * API 鍵名保留 `teacherImpact`（向後相容）。語意為：全校班級「教學綜合分」跨期差分（scoringService proxy），
+   * 不代表個別教師對學生成果之因果影響。前端應稱「教學綜合指標變化」。
+   * 詳見 docs/analytics-and-reports-metric-definitions.md。
+   */
   let teacherImpact = null;
   if (prevIdx >= 0) {
     const prevSem = semesters[prevIdx];

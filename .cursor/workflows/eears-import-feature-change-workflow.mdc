@@ -1,0 +1,67 @@
+---
+description: EEARS 匯入功能修改工作流程（Excel 欄位、去重/一致性、import-runs、安全/PII）
+alwaysApply: false
+---
+
+# eears-import-feature-change-workflow（匯入功能變更）
+
+## 1) 觸發時機
+
+- 修改任何 Excel 匯入模組（LJ、BESTEP、班級名冊、英檢、刷卡等）
+- 修改 Import Center 卡片/模板/欄位說明或導流行為
+- 修改匯入紀錄 import-runs 顯示/刪除/維運摘要
+
+## 2) 分析步驟
+
+1. 明確模組範圍（不是 Import Center）
+   - 請先列出被修改的後端 service/controller 或 router
+2. 釐清契約
+   - 去重鍵（dedupe key）
+   - 衝突策略（quarantine/狀態流轉）
+   - 錯誤回報格式（錯誤碼/列號/欄位）
+3. 安全與稽核
+   - 這次變更會不會新增 log（PII/Token/驗證碼禁止）
+   - 是否依賴 audit log 或匯入紀錄寫入
+
+## 3) 修改步驟
+
+1. 後端先行（欄位映射/驗證/狀態流轉）
+2. 前端只做呈現或模板支援（必要時補測試）
+3. Import Center 僅更新導流與說明
+   - 不要把統一上傳 API 搬進 Import Center（除非後端配套明確）
+
+## 4) 測試步驟
+
+1. 後端 Jest（優先）
+   - 對去重/衝突/錯誤碼與狀態流轉補測
+2. 本地手動驗證（如果需要）
+   - 用既有範例 Excel 測試「錯誤列/正確列」行為
+3. 若涉及刪除 import-runs
+   - 補測權限與錯誤語意
+
+## 5) Code review 步驟
+
+- 是否維持檔案大小/類型限制（mimetype/ext）？
+- 是否維持 filename 正規化（避免 path traversal）？
+- 是否保持去重與 quarantine 邏輯一致？
+- 是否沒有新增 PII/驗證碼/token log？
+
+## 6) 最終回報格式
+
+```text
+【匯入變更摘要】
+- 模組/入口：...
+
+【資料一致性】
+- dedupe key：未變更/已變更（說明）
+- quarantine/衝突：未變更/已變更（說明）
+
+【安全與稽核】
+- 是否新增 log：是/否（若是，如何 mask）
+- audit/import-runs：是否仍可追溯
+
+【測試與驗證】
+- Jest：pass/fail（覆蓋哪些案例）
+- 手動驗證：pass/fail（使用哪些模板）
+```
+

@@ -19,22 +19,34 @@ const FIELD_MAPPINGS = {
   attendance: {
     studentId: ['學號', 'Student ID', 'studentId', '學號代碼', 'student_id'],
     name: ['姓名', 'Name', 'name', '學生姓名', 'student_name'],
+    examItems: ['報考項目', '應考項目', '考試項目', 'examItems', 'exam_items', 'examItem'],
+    lAbsent: ['L出缺席', 'L 出缺席', '聽力出缺席', 'listeningAttendance', 'listening_absence', 'L出席'],
+    rAbsent: ['R出缺席', 'R 出缺席', '閱讀出缺席', 'readingAttendance', 'reading_absence', 'R出席'],
+    wAbsent: ['W出缺席', 'W 出缺席', '寫作出缺席', 'writingAttendance', 'writing_absence', 'W出席'],
+    sAbsent: ['S出缺席', 'S 出缺席', '口說出缺席', 'speakingAttendance', 'speaking_absence', 'S出席'],
     attended: ['出席狀態', 'Attendance', 'attended', '是否出席', '出席/缺席', '出席'],
     absentReason: ['缺席原因', 'Absent Reason', 'absentReason', '原因', '備註', '缺席原因']
   },
   scores: {
     studentId: ['學號', 'Student ID', 'studentId', '學號代碼', 'student_id'],
-    name: ['姓名', 'Name', 'name', '學生姓名', 'student_name'],
-    listeningScore: ['聽力分數', 'Listening', 'listeningScore', '聽力', 'L', '聽力成績', 'listening_score'],
-    readingScore: ['閱讀分數', 'Reading', 'readingScore', '閱讀', 'R', '閱讀成績', 'reading_score'],
-    speakingScore: ['口說分數', 'Speaking', 'speakingScore', '口說', 'S', '口說成績', 'speaking_score'],
-    writingScore: ['寫作分數', 'Writing', 'writingScore', '寫作', 'W', '寫作成績', 'writing_score'],
-    listeningLevel: ['聽力等級', 'Listening Level', 'listeningLevel', '聽力CEFR', '聽力級別', 'listening_level'],
-    readingLevel: ['閱讀等級', 'Reading Level', 'readingLevel', '閱讀CEFR', '閱讀級別', 'reading_level'],
-    speakingLevel: ['口說等級', 'Speaking Level', 'speakingLevel', '口說CEFR', '口說級別', 'speaking_level'],
-    writingLevel: ['寫作等級', 'Writing Level', 'writingLevel', '寫作CEFR', '寫作級別', 'writing_level'],
+    name: ['姓名', 'Name', 'name', '學生姓名', '考生姓名', 'student_name'],
+    listeningScore: ['聽力分數', 'Listening', 'listeningScore', '聽力', 'L', '聽力成績', '聽力總分', 'listening_score'],
+    readingScore: ['閱讀分數', 'Reading', 'readingScore', '閱讀', 'R', '閱讀成績', '閱讀總分', 'reading_score'],
+    speakingScore: ['口說分數', 'Speaking', 'speakingScore', '口說', 'S', '口說成績', '口說總分', 'speaking_score'],
+    writingScore: ['寫作分數', 'Writing', 'writingScore', '寫作', 'W', '寫作成績', '寫作總分', 'writing_score'],
+    listeningLevel: ['聽力等級', 'Listening Level', 'listeningLevel', '聽力CEFR', '聽力級別', '聽力CEFR級數', 'listening_level'],
+    readingLevel: ['閱讀等級', 'Reading Level', 'readingLevel', '閱讀CEFR', '閱讀級別', '閱讀CEFR級數', 'reading_level'],
+    speakingLevel: ['口說等級', 'Speaking Level', 'speakingLevel', '口說CEFR', '口說級別', '口說CEFR級數', 'speaking_level'],
+    writingLevel: ['寫作等級', 'Writing Level', 'writingLevel', '寫作CEFR', '寫作級別', '寫作CEFR級數', 'writing_level'],
     totalScore: ['總分', 'Total', 'totalScore', '總成績', '合計', 'total_score']
   }
+};
+
+const SCORE_RANGES = {
+  listening: { min: 0, max: 140, label: '聽力' },
+  reading: { min: 0, max: 140, label: '閱讀' },
+  speaking: { min: 0, max: 360, label: '口說' },
+  writing: { min: 0, max: 360, label: '寫作' }
 };
 
 /**
@@ -51,7 +63,33 @@ function getFieldValue(row, fieldType, targetField) {
       return row[mapping];
     }
   }
+  // Excel 表頭可能含前後空白，再以 trim 比對一次
+  const normalizedEntries = Object.entries(row || {}).map(([key, value]) => [
+    String(key || '').trim(),
+    value
+  ]);
+  for (const mapping of mappings) {
+    const hit = normalizedEntries.find(([key]) => key === mapping);
+    if (hit && hit[1] !== undefined && hit[1] !== null && hit[1] !== '') {
+      return hit[1];
+    }
+  }
   return null;
+}
+
+function parseNullableScore(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const score = parseFloat(String(value).replace(/,/g, '').trim());
+  return Number.isNaN(score) ? NaN : score;
+}
+
+function normalizeCefrLevel(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const text = String(value).trim().toUpperCase();
+  if (!text) return null;
+  if (text.includes('未達A1')) return 'A1';
+  const match = text.match(/^(A1|A2|B1|B2|C1|C2)\+?$/);
+  return match ? match[1] : text;
 }
 
 /**
@@ -64,6 +102,193 @@ function parseAttendanceStatus(value) {
   const str = String(value).trim().toLowerCase();
   const attendedValues = ['出席', '是', 'y', 'yes', 'true', '1', '✓', 'v'];
   return attendedValues.includes(str);
+}
+
+function normalizeExamItemToken(token) {
+  const text = String(token || '').trim().toUpperCase();
+  if (!text) return null;
+  if (text === 'LR') return 'LR';
+  if (text === 'SW') return 'SW';
+  if (text === 'L') return 'L';
+  if (text === 'R') return 'R';
+  if (text === 'S') return 'S';
+  if (text === 'W') return 'W';
+  if (text === 'LRSW') return 'LRSW';
+  return null;
+}
+
+function parseExamItems(rawValue) {
+  const source = String(rawValue || '').trim();
+  if (!source) return [];
+  const chunks = source.split(/[,，/、\s]+/).map((item) => normalizeExamItemToken(item)).filter(Boolean);
+  return [...new Set(chunks)];
+}
+
+function isAbsentMark(value) {
+  const text = String(value == null ? '' : value).trim();
+  return text.includes('缺席');
+}
+
+function expandToAtomicExamTypes(tokens) {
+  const atomic = new Set();
+  for (const token of tokens) {
+    if (token === 'LR') {
+      atomic.add('L');
+      atomic.add('R');
+      continue;
+    }
+    if (token === 'SW') {
+      atomic.add('S');
+      atomic.add('W');
+      continue;
+    }
+    if (token === 'LRSW') {
+      atomic.add('L');
+      atomic.add('R');
+      atomic.add('S');
+      atomic.add('W');
+      continue;
+    }
+    atomic.add(token);
+  }
+  return [...atomic];
+}
+
+function buildLegacyAbsentReason(baseReason, attended) {
+  const reason = String(baseReason || '').trim();
+  if (attended) return null;
+  return reason || '缺席';
+}
+
+function newBestepImportBatchId(kind) {
+  const prefix = kind === 'scores' ? 'bestep-scores' : 'bestep-attendance';
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildBestepAttendanceRecords({
+  row,
+  requestedExamType,
+  semester,
+  examDate,
+  studentId,
+  sourceFile,
+  importBatchId
+}) {
+  const rows = [];
+  const examItemsRaw = getFieldValue(row, 'attendance', 'examItems');
+  const parsedExamItems = parseExamItems(examItemsRaw);
+  const examItems = parsedExamItems.length > 0 ? parsedExamItems : (requestedExamType ? [requestedExamType] : []);
+  const atomicTypes = expandToAtomicExamTypes(examItems);
+
+  const lAbsentRaw = getFieldValue(row, 'attendance', 'lAbsent');
+  const rAbsentRaw = getFieldValue(row, 'attendance', 'rAbsent');
+  const wAbsentRaw = getFieldValue(row, 'attendance', 'wAbsent');
+  const sAbsentRaw = getFieldValue(row, 'attendance', 'sAbsent');
+  const hasLAbsentColumn = lAbsentRaw !== null && lAbsentRaw !== undefined && String(lAbsentRaw).trim() !== '';
+  const hasRAbsentColumn = rAbsentRaw !== null && rAbsentRaw !== undefined && String(rAbsentRaw).trim() !== '';
+  const hasWAbsentColumn = wAbsentRaw !== null && wAbsentRaw !== undefined && String(wAbsentRaw).trim() !== '';
+  const hasSAbsentColumn = sAbsentRaw !== null && sAbsentRaw !== undefined && String(sAbsentRaw).trim() !== '';
+  const lAbsent = isAbsentMark(lAbsentRaw);
+  const rAbsent = isAbsentMark(rAbsentRaw);
+  const wAbsent = isAbsentMark(wAbsentRaw);
+  const sAbsent = isAbsentMark(sAbsentRaw);
+  const baseReason = getFieldValue(row, 'attendance', 'absentReason');
+  const attendedValue = getFieldValue(row, 'attendance', 'attended');
+  const hasLegacyAttendedColumn = attendedValue !== null && attendedValue !== undefined;
+  const legacyAttended = parseAttendanceStatus(attendedValue);
+
+  for (const atomicType of atomicTypes) {
+    let attended = true;
+    let absentReason = null;
+
+    if (atomicType === 'L') {
+      if (hasLAbsentColumn) {
+        attended = !lAbsent;
+        absentReason = attended ? null : '聽力缺席';
+      } else if (hasLegacyAttendedColumn) {
+        attended = legacyAttended;
+        absentReason = buildLegacyAbsentReason(baseReason, attended);
+      }
+    } else if (atomicType === 'R') {
+      if (hasRAbsentColumn) {
+        attended = !rAbsent;
+        absentReason = attended ? null : '閱讀缺席';
+      } else if (hasLegacyAttendedColumn) {
+        attended = legacyAttended;
+        absentReason = buildLegacyAbsentReason(baseReason, attended);
+      }
+    } else if (atomicType === 'S') {
+      if (hasSAbsentColumn) {
+        attended = !sAbsent;
+        absentReason = attended ? null : '口說缺席';
+      } else if (hasLegacyAttendedColumn) {
+        attended = legacyAttended;
+        absentReason = buildLegacyAbsentReason(baseReason, attended);
+      }
+    } else if (atomicType === 'W') {
+      if (hasWAbsentColumn) {
+        attended = !wAbsent;
+        absentReason = attended ? null : '寫作缺席';
+      } else if (hasLegacyAttendedColumn) {
+        attended = legacyAttended;
+        absentReason = buildLegacyAbsentReason(baseReason, attended);
+      }
+    }
+
+    rows.push({
+      studentId,
+      semester,
+      examType: atomicType,
+      examDate,
+      attended,
+      absentReason,
+      importedAt: new Date(),
+      sourceFile,
+      importBatchId
+    });
+  }
+
+  const hasL = atomicTypes.includes('L');
+  const hasR = atomicTypes.includes('R');
+  const hasS = atomicTypes.includes('S');
+  const hasW = atomicTypes.includes('W');
+
+  if (hasL && hasR) {
+    const l = rows.find((x) => x.examType === 'L');
+    const r = rows.find((x) => x.examType === 'R');
+    rows.push({
+      studentId,
+      semester,
+      examType: 'LR',
+      examDate,
+      attended: Boolean(l && l.attended) && Boolean(r && r.attended),
+      absentReason: (!l?.attended || !r?.attended) ? '聽讀缺席' : null,
+      importedAt: new Date(),
+      sourceFile,
+      importBatchId
+    });
+  }
+
+  if (hasS && hasW) {
+    const s = rows.find((x) => x.examType === 'S');
+    const w = rows.find((x) => x.examType === 'W');
+    const reasons = [];
+    if (s && !s.attended) reasons.push('口說缺席');
+    if (w && !w.attended) reasons.push('寫作缺席');
+    rows.push({
+      studentId,
+      semester,
+      examType: 'SW',
+      examDate,
+      attended: Boolean(s && s.attended) && Boolean(w && w.attended),
+      absentReason: reasons.length > 0 ? reasons.join('、') : null,
+      importedAt: new Date(),
+      sourceFile,
+      importBatchId
+    });
+  }
+
+  return rows;
 }
 
 /**
@@ -95,7 +320,7 @@ function isPassed(levels) {
  * 匯入出席資料
  * @param {string} filePath - Excel 檔案路徑
  * @param {string} semester - 學期
- * @param {string} examType - 'LR' 或 'SW'
+ * @param {string|null} examType - 可傳 LR/SW/L/R/S/W；官方模板可省略
  * @param {string} examDate - 考試日期
  * @returns {Promise<object>}
  */
@@ -104,6 +329,7 @@ async function importAttendanceData(filePath, semester, examType, examDate) {
   const errors = [];
   let imported = 0;
   let skipped = 0;
+  const importBatchId = newBestepImportBatchId('attendance');
 
   try {
     // 讀取 Excel
@@ -122,8 +348,6 @@ async function importAttendanceData(filePath, semester, examType, examDate) {
         // 取得欄位值
         const studentId = getFieldValue(row, 'attendance', 'studentId');
         const name = getFieldValue(row, 'attendance', 'name');
-        const attendedValue = getFieldValue(row, 'attendance', 'attended');
-        const absentReason = getFieldValue(row, 'attendance', 'absentReason');
 
         // 驗證學號
         if (!studentId || String(studentId).trim() === '') {
@@ -161,24 +385,33 @@ async function importAttendanceData(filePath, semester, examType, examDate) {
           continue;
         }
 
-        // 解析出席狀態
-        const attended = parseAttendanceStatus(attendedValue);
-
-        // 更新或建立出席記錄
-        await BestepAttendance.upsert({
-          studentId: cleanStudentId,
+        const examTypeInput = String(examType || '').trim().toUpperCase();
+        const attendanceRecords = buildBestepAttendanceRecords({
+          row,
+          requestedExamType: examTypeInput || null,
           semester,
-          examType,
           examDate,
-          attended,
-          absentReason: absentReason ? String(absentReason).trim() : null,
-          importedAt: new Date(),
-          sourceFile
-        }, {
-          transaction
+          studentId: cleanStudentId,
+          sourceFile,
+          importBatchId
         });
 
-        imported++;
+        if (attendanceRecords.length === 0) {
+          errors.push({
+            row: rowNum,
+            studentId: cleanStudentId,
+            name: name || '',
+            error: 'MISSING_EXAM_ITEMS',
+            message: '缺少應考項目，無法判斷要寫入哪個考試類型'
+          });
+          skipped++;
+          continue;
+        }
+
+        for (const record of attendanceRecords) {
+          await BestepAttendance.upsert(record, { transaction });
+          imported++;
+        }
 
       } catch (error) {
         errors.push({
@@ -197,7 +430,9 @@ async function importAttendanceData(filePath, semester, examType, examDate) {
     return {
       imported,
       skipped,
-      errors
+      errors,
+      importBatchId,
+      sourceFile
     };
 
   } catch (error) {
@@ -217,6 +452,7 @@ async function importScoreData(filePath, semester) {
   const errors = [];
   let imported = 0;
   let skipped = 0;
+  const importBatchId = newBestepImportBatchId('scores');
 
   try {
     // 讀取 Excel
@@ -283,34 +519,49 @@ async function importScoreData(filePath, semester) {
 
         // 驗證分數（轉換為數字）
         const scores = {
-          listening: listeningScore ? parseFloat(listeningScore) : null,
-          reading: readingScore ? parseFloat(readingScore) : null,
-          speaking: speakingScore ? parseFloat(speakingScore) : null,
-          writing: writingScore ? parseFloat(writingScore) : null
+          listening: parseNullableScore(listeningScore),
+          reading: parseNullableScore(readingScore),
+          speaking: parseNullableScore(speakingScore),
+          writing: parseNullableScore(writingScore)
         };
 
-        // 驗證分數範圍（0-150，可配置）
-        const MAX_SCORE = 150;
+        let validationFailed = false;
         for (const [key, value] of Object.entries(scores)) {
-          if (value !== null && (isNaN(value) || value < 0 || value > MAX_SCORE)) {
+          const range = SCORE_RANGES[key];
+          if (value !== null && (Number.isNaN(value) || value < range.min || value > range.max)) {
             errors.push({
               row: rowNum,
               studentId: cleanStudentId,
               name: name || '',
               error: 'INVALID_SCORE',
-              message: `${key}分數格式錯誤或超出範圍（0-${MAX_SCORE}）`
+              message: `${range.label}分數格式錯誤或超出範圍（${range.min}-${range.max}）`
             });
             skipped++;
-            continue;
+            validationFailed = true;
+            break;
           }
+        }
+        if (validationFailed) continue;
+
+        const scoreValuesForPresence = Object.values(scores).filter(s => s !== null);
+        if (scoreValuesForPresence.length === 0) {
+          errors.push({
+            row: rowNum,
+            studentId: cleanStudentId,
+            name: name || '',
+            error: 'MISSING_SCORES',
+            message: '找不到可匯入的分數欄位，請確認 Excel 表頭是否符合格式'
+          });
+          skipped++;
+          continue;
         }
 
         // 驗證等級
         const levels = {
-          listening: listeningLevel ? String(listeningLevel).trim().toUpperCase() : null,
-          reading: readingLevel ? String(readingLevel).trim().toUpperCase() : null,
-          speaking: speakingLevel ? String(speakingLevel).trim().toUpperCase() : null,
-          writing: writingLevel ? String(writingLevel).trim().toUpperCase() : null
+          listening: normalizeCefrLevel(listeningLevel),
+          reading: normalizeCefrLevel(readingLevel),
+          speaking: normalizeCefrLevel(speakingLevel),
+          writing: normalizeCefrLevel(writingLevel)
         };
 
         // 驗證等級格式
@@ -324,12 +575,14 @@ async function importScoreData(filePath, semester) {
               message: `${key}等級格式錯誤（應為 A1, A2, B1, B2, C1, C2 之一）`
             });
             skipped++;
-            continue;
+            validationFailed = true;
+            break;
           }
         }
+        if (validationFailed) continue;
 
         // 計算總分（若未提供）
-        let calculatedTotalScore = totalScore ? parseFloat(totalScore) : null;
+        let calculatedTotalScore = parseNullableScore(totalScore);
         if (calculatedTotalScore === null || isNaN(calculatedTotalScore)) {
           const scoreValues = Object.values(scores).filter(s => s !== null);
           if (scoreValues.length === 4) {
@@ -383,7 +636,8 @@ async function importScoreData(filePath, semester) {
           overallLevel,
           passed,
           importedAt: new Date(),
-          sourceFile
+          sourceFile,
+          importBatchId
         }, {
           transaction
         });
@@ -407,7 +661,9 @@ async function importScoreData(filePath, semester) {
     return {
       imported,
       skipped,
-      errors
+      errors,
+      importBatchId,
+      sourceFile
     };
 
   } catch (error) {
@@ -452,5 +708,11 @@ async function generateErrorReport(errors, outputPath) {
 module.exports = {
   importAttendanceData,
   importScoreData,
-  generateErrorReport
+  generateErrorReport,
+  buildBestepAttendanceRecords,
+  parseExamItems,
+  getFieldValue,
+  normalizeCefrLevel,
+  parseNullableScore,
+  FIELD_MAPPINGS
 };

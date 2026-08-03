@@ -1,8 +1,12 @@
 // components/LearningPartnerStatusPage.js
 // 學習有伴團體狀態查詢頁面
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useMediaQuery from '../hooks/useMediaQuery';
+import {
+  fetchLearningPartnerTeamStatus,
+  resendLearningPartnerInvite,
+} from '../services/learningPartnerPublicApi';
 
 export default function LearningPartnerStatusPage() {
   const { teamId } = useParams();
@@ -15,57 +19,38 @@ export default function LearningPartnerStatusPage() {
   const [error, setError] = useState(null);
   const [resending, setResending] = useState({});
 
-  useEffect(() => {
-    loadTeamStatus();
-    // 每 30 秒自動重新載入
-    const interval = setInterval(loadTeamStatus, 30000);
-    return () => clearInterval(interval);
-  }, [teamId]);
-
-  const loadTeamStatus = async () => {
+  const loadTeamStatus = useCallback(async () => {
     try {
-      const response = await fetch(`/api/learning-partner/teams/${teamId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setTeam(data.team);
-        setError(null);
-      } else {
-        const data = await response.json();
-        setError(data.error || '載入團體狀態失敗');
-      }
+      const data = await fetchLearningPartnerTeamStatus(teamId);
+      setTeam(data.team);
+      setError(null);
     } catch (error) {
       console.error('載入團體狀態錯誤:', error);
       setError('載入團體狀態時發生錯誤');
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamId]);
+
+  useEffect(() => {
+    loadTeamStatus();
+    // 每 30 秒自動重新載入
+    const interval = setInterval(loadTeamStatus, 30000);
+    return () => clearInterval(interval);
+  }, [loadTeamStatus]);
 
   const handleResend = async (memberId) => {
-    setResending({ ...resending, [memberId]: true });
+    setResending((prev) => ({ ...prev, [memberId]: true }));
     
     try {
-      const response = await fetch(`/api/learning-partner/teams/${teamId}/resend`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ memberId })
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        alert('已重新發送邀請連結');
-        loadTeamStatus();
-      } else {
-        alert(data.error || '重新發送失敗');
-      }
+      await resendLearningPartnerInvite(teamId, memberId);
+      alert('已重新發送邀請連結');
+      loadTeamStatus();
     } catch (error) {
       console.error('重新發送錯誤:', error);
       alert('重新發送時發生錯誤');
     } finally {
-      setResending({ ...resending, [memberId]: false });
+      setResending((prev) => ({ ...prev, [memberId]: false }));
     }
   };
 

@@ -1,5 +1,5 @@
 // 培力英檢抵免審核（資料來源：english_test_registrations，有 B2 成績者）
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import {
   Card,
   Table,
@@ -13,8 +13,7 @@ import {
   Col
 } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentSemester } from '../../utils/semesterUtils';
-import { handleAPIError } from '../../utils/errorHandler';
+import { useEnglishTestExemption } from '../../hooks/useEnglishTestExemption';
 
 const EXAM_TYPE_LABEL = {
   LRSW: '聽說讀寫',
@@ -50,102 +49,36 @@ function fileToUrl(path) {
 
 export default function ExemptionReviewSection({ token }) {
   const navigate = useNavigate();
-  const [semester, setSemester] = useState(getCurrentSemester() || '114-1');
-  const [search, setSearch] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [rows, setRows] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const limit = 30;
-
-  const [showModal, setShowModal] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const [pendingNav, setPendingNav] = useState(null); // 'prev' | 'next' | null
-  const [reviewAction, setReviewAction] = useState('approved'); // approved | rejected | revision | pending
-  const [verifiedType, setVerifiedType] = useState('LRSW');
-  const [reviewNote, setReviewNote] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [lightbox, setLightbox] = useState(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const params = new URLSearchParams({
-        semester,
-        page: String(page),
-        limit: String(limit)
-      });
-      if (appliedSearch.trim()) params.append('search', appliedSearch.trim());
-      const res = await fetch(`/api/english-test/registrations/exemption-review?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || '載入失敗');
-      }
-      const data = await res.json();
-      setRows(data.data || []);
-      setTotal(data.total || 0);
-      setTotalPages(data.totalPages || 1);
-    } catch (e) {
-      const errMsg = handleAPIError(e);
-      setError(errMsg?.display || errMsg?.zh || '載入失敗');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, semester, page, appliedSearch]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const openReview = (row) => {
-    setSelected(row);
-    setReviewAction(
-      row.exemption_review_status === 'approved' ? 'approved' :
-      row.exemption_review_status === 'rejected' ? 'rejected' :
-      row.exemption_review_status === 'revision' ? 'revision' : 'pending'
-    );
-    setVerifiedType(row.exemption_verified_type || 'LRSW');
-    setReviewNote(row.exemption_review_note || '');
-    setShowModal(true);
-  };
-
-  const submitReview = async () => {
-    if (!selected) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/english-test/registrations/${selected.id}/exemption-review`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          exemption_review_status: reviewAction,
-          exemption_verified_type: reviewAction === 'approved' ? verifiedType : null,
-          exemption_review_note: reviewNote
-        })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || '更新失敗');
-      setShowModal(false);
-      setSelected(null);
-      load();
-    } catch (e) {
-      try {
-        window.dispatchEvent(
-          new CustomEvent('eears:toast', { detail: { message: handleAPIError(e)?.display || '操作失敗', variant: 'danger' } })
-        );
-      } catch (_) {}
-    } finally {
-      setSaving(false);
-    }
-  };
+  const {
+    semester,
+    setSemester,
+    search,
+    setSearch,
+    page,
+    setPage,
+    loading,
+    error,
+    rows,
+    total,
+    totalPages,
+    showModal,
+    setShowModal,
+    selected,
+    pendingNav,
+    setPendingNav,
+    reviewAction,
+    setReviewAction,
+    verifiedType,
+    setVerifiedType,
+    reviewNote,
+    setReviewNote,
+    saving,
+    lightbox,
+    setLightbox,
+    openReview,
+    submitReview,
+    applySearch,
+  } = useEnglishTestExemption({ token });
 
   const goBestepClass = (row) => {
     if (row.bestepClassId) {
@@ -173,7 +106,7 @@ export default function ExemptionReviewSection({ token }) {
   const canNavigateNext =
     !saving &&
     selected &&
-    (selectedIndexInPage >= 0 && selectedIndexInPage < rows.length - 1 || page < totalPages);
+    ((selectedIndexInPage >= 0 && selectedIndexInPage < rows.length - 1) || page < totalPages);
 
   const navigateModalPrevNext = async (dir) => {
     if (!selected || saving) return;
@@ -242,16 +175,13 @@ export default function ExemptionReviewSection({ token }) {
                 placeholder="可選"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (setPage(1), load())}
+                onKeyDown={(e) => e.key === 'Enter' && applySearch()}
               />
             </Col>
             <Col md="auto">
               <Button
                 variant="primary"
-                onClick={() => {
-                  setPage(1);
-                  setAppliedSearch(search);
-                }}
+                onClick={applySearch}
               >
                 查詢
               </Button>

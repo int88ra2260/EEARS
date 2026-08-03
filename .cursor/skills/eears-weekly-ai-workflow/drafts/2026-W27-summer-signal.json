@@ -1,0 +1,171 @@
+{
+  "issueKey": "2026-W27",
+  "slug": "2026-w27-summer-signal",
+  "title": "EEARS Weekly · Summer Signal",
+  "weekStart": "2026-06-29",
+  "weekEnd": "2026-07-05",
+  "status": "draft",
+  "blocksVersion": 1,
+  "blocks": [
+    {
+      "id": "hero-summer-signal",
+      "type": "hero",
+      "props": {
+        "kicker": "EEARS Weekly · Issue 27",
+        "title": "Summer Signal 暑假信號",
+        "subtitle": "學期即將換頻——這週不追分數，只問一件事：你的英語，準備好跟著夏天一起發射了嗎？",
+        "imageUrl": "/uploads/weekly/2026-w27-hero-summer-signal.png",
+        "imageAlt": "夏日色調的英語中心週報封面：書本、耳機與窗外綠意"
+      }
+    },
+    {
+      "id": "rt-summer-letter",
+      "type": "richText",
+      "props": {
+        "html": "<p>親愛的英語探險者：</p><p>如果 NYT <em>Connections</em> 教會我們一件事，那就是——<strong>每週固定出現的小儀式</strong>，會讓大腦自動進入「準備好了」模式。EEARS 這期把期末週變成 <strong>Summer Signal</strong>：不催你讀完一百頁，只邀你用 5 分鐘投票、答兩題、玩一場語彙挑戰，替暑假的英語頻率校準一次。</p><h3>本週三個小任務</h3><ul><li>投一票：你的暑假英語目標是什麼？</li><li>答兩題：旅行 &amp; 天氣小測驗</li><li>完成語彙挑戰並分享你的 🟩🟩🟩🟩 成績卡</li></ul><p>活動預約仍照常——記得每場開始前 <strong>2 小時</strong> 是截止線，提早安排才不會錯過本學期最後幾場 ET / EC。</p>"
+      }
+    },
+    {
+      "id": "col-summer-ritual",
+      "type": "columns",
+      "props": {
+        "ratio": "40-60",
+        "left": {
+          "kind": "richText",
+          "html": "<h3>暑假英語微型儀式</h3><p><strong>週一</strong>：用 3 個英文詞描述上週。<br><strong>週三</strong>：看一段 30 秒短片，只記 1 句台詞。<br><strong>週五</strong>：找一位朋友，用英文說出你的週末計畫——哪怕只有 15 秒。</p><p>不需要完美，只需要<strong>出現</strong>。</p>",
+          "url": "",
+          "alt": "",
+          "caption": ""
+        },
+        "right": {
+          "kind": "image",
+          "html": "",
+          "url": "/uploads/weekly/2026-w27-column-flatlay.png",
+          "alt": "夏日英語學習氛圍：護照、耳機、筆記本與冰咖啡 flat lay",
+          "caption": "Summer Signal · EEARS Weekly"
+        }
+      }
+    },
+    {
+      "id": "embed-summer-talk",
+      "type": "embed",
+      "props": {
+        "url": "https://embed.ted.com/talks/julian_treasure_how_to_speak_so_that_people_want_to_listen",
+        "title": "加分項 · 3 分鐘：讓人想聽你說話",
+        "height": 360
+      }
+    },
+    {
+      "id": "div-dots-1",
+      "type": "divider",
+      "props": { "style": "dots" }
+    },
+    {
+      "id": "poll-summer-goal",
+      "type": "poll",
+      "props": {
+        "question": "如果暑假只能選一個英語目標，你會鎖定哪一項？",
+        "options": [
+          { "id": "opt-speak", "label": "🎤 敢開口 — 多說、不怕錯" },
+          { "id": "opt-travel", "label": "✈️ 旅行實用 — 機場/餐廳/問路" },
+          { "id": "opt-exam", "label": "📚 考試或檢定 — 穩扎穩打" },
+          { "id": "opt-fun", "label": "🎮 好玩就好 — 遊戲、影集、音樂" },
+          { "id": "opt-rest", "label": "😴 先休息 — 九月再說（也合理）" }
+        ],
+        "allowMultiple": false,
+        "showResults": "afterVote"
+      }
+    },
+    {
+      "id": "quiz-summer-mini",
+      "type": "quiz",
+      "props": {
+        "title": "Summer Mini Quiz · 兩題熱身",
+        "questions": [
+          {
+            "id": "q-sun",
+            "type": "choice",
+            "prompt": "It's 38°C outside. You definitely need ___ and water.",
+            "options": ["sunscreen", "snow boots", "a scarf", "gloves"],
+            "correctAnswer": "sunscreen",
+            "audioUrl": "",
+            "explanation": "sunscreen = 防曬乳；酷暑必備。"
+          },
+          {
+            "id": "q-fill-umbrella",
+            "type": "fill",
+            "prompt": "Dark clouds are coming. Don't forget your ___ (6 letters, starts with u).",
+            "correctAnswer": "umbrella",
+            "audioUrl": "",
+            "explanation": "umbrella = 雨傘。梅雨季也適用！"
+          }
+        ]
+      }
+    },
+    {
+      "id": "callout-summer-tip",
+      "type": "callout",
+      "props": {
+        "variant": "tip",
+        "title": "學習一點 · Signal Phrase",
+        "body": "試著這週找一天，對自己說：\"I'm switching to summer mode, but my English is still on.\" 一句話，就是頻率切換的開關。"
+      }
+    },
+    {
+      "id": "quote-summer",
+      "type": "quote",
+      "props": {
+        "text": "One language sets you in a corridor for life. Two languages open every door along the way.",
+        "attribution": "Frank Smith"
+      }
+    },
+    {
+      "id": "wb-summer-a2",
+      "type": "wordBridgeChallenge",
+      "props": {
+        "level": "A2",
+        "themeIds": ["a2-travel", "a2-weekend", "a2-weathergear", "a2-hobbies"]
+      }
+    },
+    {
+      "id": "spacer-breathe",
+      "type": "spacer",
+      "props": { "size": "lg" }
+    },
+    {
+      "id": "ev-last-chances",
+      "type": "eventsHighlight",
+      "props": {
+        "title": "本學期最後幾場 · Last Call",
+        "eventIds": []
+      }
+    },
+    {
+      "id": "callout-booking",
+      "type": "callout",
+      "props": {
+        "variant": "info",
+        "title": "預約提醒",
+        "body": "每場活動開始前 2 小時截止預約與取消。期末週名額變動快，看到喜歡的場次就別猶豫。"
+      }
+    },
+    {
+      "id": "cta-book",
+      "type": "cta",
+      "props": {
+        "label": "預約本週活動 →",
+        "href": "/events",
+        "variant": "primary"
+      }
+    },
+    {
+      "id": "cta-more-games",
+      "type": "cta",
+      "props": {
+        "label": "還想玩更多語彙遊戲？",
+        "href": "/activities",
+        "variant": "outline"
+      }
+    }
+  ]
+}

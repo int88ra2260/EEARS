@@ -12,7 +12,7 @@ const {
   P,
   canAccessEventType,
 } = require('../middlewares/auth');
-const { Event, Reservation, User, EventViolation, BlackListRecord } = require('../models');
+const { Event, Reservation, User, EventViolation } = require('../models');
 const { requirePasswordConfirmation } = require('../middlewares/requirePasswordConfirmation');
 const { Op } = require('sequelize');
 const { createAPIError, logError } = require('../utils/errorMessages');
@@ -20,7 +20,18 @@ const auditLogService = require('../services/auditLogService');
 const notificationService = require('../services/notificationService');
 const { getMultipleEventsCheckinStats } = require('../utils/eventStats');
 const { getSemesterInfo } = require('../utils/eventSemesterFromDate');
+const { filterEventsByDateQuery } = require('../utils/eventDateFilter');
 const eventParticipationReportService = require('../services/eventParticipationReportService');
+const { runEventAutoCheck } = require('../services/eventAutoCheckService');
+const { checkSurvey } = require('../middlewares/checkSurvey');
+const waitlistService = require('../services/waitlistService');
+const { getPublishedAssignmentMap } = require('../services/etGrouping/etGroupingService');
+const { buildReservationGroupsForDisplay } = require('../services/etGrouping/etReservationGroupDisplayService');
+const { normalizeEventCapacityInput, formatCapacityPayload } = require('../utils/eventCapacity');
+const {
+  assertCanAccessEvent,
+  buildEventScopeWhere,
+} = require('../services/accessControl/eventScopeGuard');
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
@@ -43,6 +54,33 @@ async function loadEventForAccess(req, res, next) {
 
 function accessEventType(req) {
   return req.accessEvent?.eventType || req.query?.eventType || req.body?.eventType;
+}
+
+function sendScopeDenied(res, err) {
+  return res.status(err.status || 403).json({
+    success: false,
+    errorCode: err.code || 'EVENT_SCOPE_DENIED',
+    message: err.message || '您沒有存取此活動資料的權限。',
+  });
+}
+
+function buildScopedEventQuery(req, res) {
+  const eventScopeWhere = buildEventScopeWhere(req.user);
+  if (eventScopeWhere === null) {
+    res.status(403).json({
+      success: false,
+      errorCode: 'MISSING_EVENT_CONTEXT',
+      message: '此操作需要指定活動或班級資料來源。',
+    });
+    return null;
+  }
+  return eventScopeWhere;
+}
+
+function normalizeLocation(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed || null;
 }
 
 // 1) GET /api/events - 前台取得全部活動 (無需 Token)
@@ -73,6 +111,7 @@ router.get('/events', async (req, res, next) => {
         startTime: e.startTime,
         endTime: e.endTime,
         maxCapacity: maxCapacity,
+        ...formatCapacityPayload(e),
         eventType: e.eventType || 'English Table',
         customReservationRule: e.customReservationRule,
         location: e.location,
@@ -103,6 +142,8 @@ router.get(
         'startTime',
         'endTime',
         'maxCapacity',
+        'groupCount',
+        'perGroupCapacity',
         'eventType',
         'customReservationRule',
         'location',
@@ -124,6 +165,7 @@ router.get(
       startTime: event.startTime,
       endTime: event.endTime,
       maxCapacity,
+      ...formatCapacityPayload(event),
       eventType: event.eventType || 'English Table',
       customReservationRule: event.customReservationRule,
       location: event.location,
@@ -225,8 +267,11 @@ router.get(
   requirePermission(P.CAN_VIEW_EVENTS_ADMIN),
   async (req, res, next) => {
     try {
+      const eventScopeWhere = buildScopedEventQuery(req, res);
+      if (eventScopeWhere === null) return;
       const data = await eventParticipationReportService.getParticipationCheckinBySemesterAndType({
         user: req.user,
+        eventScopeWhere,
       });
       res.json(data);
     } catch (err) {
@@ -235,11 +280,19 @@ router.get(
   }
 );
 
-// 4) GET /api/reports/summary - 後台報表(需 Token)，並依日期時間排序，支援學期、活動類別與單日日期篩選
+// 4) GET /api/reports/summary - 後台報表(需 Token)，並依日期時間排序，支援學期、活動類別與單日／區間日期篩選
 router.get('/reports/summary', authMiddleware, requirePermission(P.CAN_VIEW_EVENTS_ADMIN), async (req, res, next) => {
   try {
-    const { semester, eventType, date: dateQuery } = req.query;
+    const {
+      semester,
+      eventType,
+      date: dateQuery,
+      dateFrom: dateFromQuery,
+      dateTo: dateToQuery,
+    } = req.query;
     const userRole = req.user.role;
+    const eventScopeWhere = buildScopedEventQuery(req, res);
+    if (eventScopeWhere === null) return;
 
     // 明確類型查詢時，先做 permission+scope 驗證（worker 例外：維持營運視角）
     if (eventType && eventType !== 'all' && eventType !== 'other' && userRole !== 'worker') {
@@ -250,6 +303,7 @@ router.get('/reports/summary', authMiddleware, requirePermission(P.CAN_VIEW_EVEN
     
     // let => 可以重新指派
     let events = await Event.findAll({
+      where: eventScopeWhere,
       include: { model: Reservation, attributes: ['id'] }
     });
 
@@ -290,9 +344,13 @@ router.get('/reports/summary', authMiddleware, requirePermission(P.CAN_VIEW_EVEN
     }
 
     const dateStr = dateQuery != null ? String(dateQuery).trim() : '';
-    if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      events = events.filter((event) => event.date === dateStr);
-    }
+    const dateFromStr = dateFromQuery != null ? String(dateFromQuery).trim() : '';
+    const dateToStr = dateToQuery != null ? String(dateToQuery).trim() : '';
+    events = filterEventsByDateQuery(events, {
+      date: dateStr,
+      dateFrom: dateFromStr,
+      dateTo: dateToStr,
+    });
 
     // 依日期 -> 時間排序
     events.sort((a, b) => {
@@ -332,8 +390,10 @@ router.get('/reports/summary', authMiddleware, requirePermission(P.CAN_VIEW_EVEN
         startTime: evt.startTime,
         endTime: evt.endTime,
         maxCapacity: maxCapacity,
+        ...formatCapacityPayload(evt),
         eventType: evt.eventType || 'English Table',
         customReservationRule: evt.customReservationRule,
+        location: evt.location,
         reservedCount: reservedCount,
         checkedIn: Math.max(0, parseInt(stats.checkedIn) || 0),
         notCheckedIn: Math.max(0, parseInt(stats.notCheckedIn) || 0),
@@ -373,41 +433,12 @@ router.get(
     });
     if (!event) return res.status(404).json({ error: "活動不存在" });
 
-    // 計算分組邏輯：只有 English Table 活動類型才進行分組
     const eventType = event.eventType || 'English Table';
     const shouldGroup = eventType === 'English Table';
-    
-    let reservations;
-    
-    if (shouldGroup) {
-      // 將總人數平均分散到9組
-      const totalStudents = event.Reservations.length;
-      const totalGroups = 9;
-      
-      // 計算每組的基本人數和餘數
-      const baseGroupSize = Math.floor(totalStudents / totalGroups);
-      const remainder = totalStudents % totalGroups;
-      
-      // 建立分組陣列，前 remainder 組會多1人
-      const groupSizes = Array(totalGroups).fill(baseGroupSize);
-      for (let i = 0; i < remainder; i++) {
-        groupSizes[i]++;
-      }
-      
-      // 計算每個學生應該屬於哪一組
-      let currentGroup = 1;
-      let studentsInCurrentGroup = 0;
-      
-      reservations = event.Reservations.map((r, index) => {
-        // 如果當前組已滿，移到下一組
-        if (studentsInCurrentGroup >= groupSizes[currentGroup - 1]) {
-          currentGroup++;
-          studentsInCurrentGroup = 0;
-        }
-        
-        studentsInCurrentGroup++;
-        
-        return {
+    const assignmentMap = shouldGroup ? await getPublishedAssignmentMap(event.id) : null;
+    const reservations = shouldGroup
+      ? await buildReservationGroupsForDisplay(event, event.Reservations, { assignmentMap })
+      : event.Reservations.map((r) => ({
           id: r.id,
           studentId: r.studentId,
           studentName: r.studentName,
@@ -415,32 +446,17 @@ router.get(
           timestamp: r.timestamp,
           checkinStatus: r.checkinStatus || '未簽到',
           checkinTime: r.checkinTime,
-          group: r.group || `Group ${currentGroup}`
-        };
-      });
-    } else {
-      // 非 English Table 活動類型，不進行分組
-      reservations = event.Reservations.map((r) => {
-        return {
-          id: r.id,
-          studentId: r.studentId,
-          studentName: r.studentName,
-          studentEmail: r.studentEmail,
-          timestamp: r.timestamp,
-          checkinStatus: r.checkinStatus || '未簽到',
-          checkinTime: r.checkinTime,
-          group: null // 不顯示組別
-        };
-      });
-    }
+          group: null,
+        }));
 
     res.json({
-      reservations: reservations,
+      reservations,
       eventDate: event.date,
       eventStartTime: event.startTime,
       eventName: event.name,
-      eventType: event.eventType || 'English Table',
-      autoCheckCompleted: event.autoCheckCompleted || false
+      eventType,
+      autoCheckCompleted: event.autoCheckCompleted || false,
+      groupingMode: event.groupingMode || 'legacy_sequential',
     });
   } catch (err) {
     next(err);
@@ -483,56 +499,32 @@ router.get(
     worksheet.columns = columns;
 
     const sortedReservations = event.Reservations.sort((a, b) => a.id - b.id);
-    
-    if (shouldGroup) {
-      // 新的分組邏輯：將總人數平均分散到9組
-      const totalStudents = sortedReservations.length;
-      const totalGroups = 9;
-      
-      // 計算每組的基本人數和餘數
-      const baseGroupSize = Math.floor(totalStudents / totalGroups);
-      const remainder = totalStudents % totalGroups;
-      
-      // 建立分組陣列，前 remainder 組會多1人
-      const groupSizes = Array(totalGroups).fill(baseGroupSize);
-      for (let i = 0; i < remainder; i++) {
-        groupSizes[i]++;
-      }
-      
-      // 計算每個學生應該屬於哪一組
-      let currentGroup = 1;
-      let studentsInCurrentGroup = 0;
-      
-      sortedReservations.forEach((r, index) => {
-        // 如果當前組已滿，移到下一組
-        if (studentsInCurrentGroup >= groupSizes[currentGroup - 1]) {
-          currentGroup++;
-          studentsInCurrentGroup = 0;
-        }
-        
-        const formattedTime = dayjs(r.timestamp).tz('Asia/Taipei').format('YYYY-MM-DD HH:mm:ss');
-        studentsInCurrentGroup++;
+    const assignmentMap = shouldGroup ? await getPublishedAssignmentMap(event.id) : null;
+    const groupedRows = shouldGroup
+      ? await buildReservationGroupsForDisplay(event, sortedReservations, { assignmentMap })
+      : null;
 
+    if (groupedRows) {
+      for (const row of groupedRows) {
+        const formattedTime = dayjs(row.timestamp).tz('Asia/Taipei').format('YYYY-MM-DD HH:mm:ss');
+        worksheet.addRow({
+          id: row.id,
+          studentId: row.studentId,
+          studentName: row.studentName,
+          studentEmail: row.studentEmail,
+          timestamp: formattedTime,
+          group: row.group,
+        });
+      }
+    } else {
+      sortedReservations.forEach((r) => {
+        const formattedTime = dayjs(r.timestamp).tz('Asia/Taipei').format('YYYY-MM-DD HH:mm:ss');
         worksheet.addRow({
           id: r.id,
           studentId: r.studentId,
           studentName: r.studentName,
           studentEmail: r.studentEmail,
           timestamp: formattedTime,
-          group: `Group ${currentGroup}`
-        });
-      });
-    } else {
-      // 非 English Table 活動類型，不進行分組
-      sortedReservations.forEach((r) => {
-        const formattedTime = dayjs(r.timestamp).tz('Asia/Taipei').format('YYYY-MM-DD HH:mm:ss');
-
-        worksheet.addRow({
-          id: r.id,
-          studentId: r.studentId,
-          studentName: r.studentName,
-          studentEmail: r.studentEmail,
-          timestamp: formattedTime
         });
       });
     }
@@ -563,7 +555,9 @@ router.get(
 
 router.get('/reports/export', authMiddleware, requirePermission(P.CAN_EXPORT_REPORTS), async (req, res, next) => {
   try {
-    const events = await Event.findAll();
+    const eventScopeWhere = buildScopedEventQuery(req, res);
+    if (eventScopeWhere === null) return;
+    const events = await Event.findAll({ where: eventScopeWhere });
 
     // 使用共用函數取得準確的預約統計
     const eventIds = events.map(e => e.id);
@@ -633,11 +627,21 @@ router.get('/reports/export', authMiddleware, requirePermission(P.CAN_EXPORT_REP
 });
 
 // 5) POST /api/events - 新增活動 (需 Token)
-router.post('/events', authMiddleware, adminOrExecutiveMiddleware, async (req, res, next) => {
+router.post('/events', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), async (req, res, next) => {
   try {
-    const { name, date, startTime, endTime, maxCapacity, eventType, customReservationRule, location } = req.body;
-    if (!name || !date || !startTime || !endTime || !maxCapacity) {
+    const { name, date, startTime, endTime, maxCapacity, eventType, customReservationRule, location, groupCount, perGroupCapacity } = req.body;
+    if (!name || !date || !startTime || !endTime) {
       return res.status(400).json({ error: "缺少必要欄位" });
+    }
+
+    const capacity = normalizeEventCapacityInput({
+      eventType: eventType || 'English Table',
+      groupCount,
+      perGroupCapacity,
+      maxCapacity,
+    });
+    if (capacity.error) {
+      return res.status(400).json({ error: capacity.error });
     }
     
     const newEvent = await Event.create({ 
@@ -645,10 +649,12 @@ router.post('/events', authMiddleware, adminOrExecutiveMiddleware, async (req, r
       date, 
       startTime, 
       endTime, 
-      maxCapacity, 
+      maxCapacity: capacity.maxCapacity,
+      groupCount: capacity.groupCount,
+      perGroupCapacity: capacity.perGroupCapacity,
       eventType: eventType || 'English Table',
       customReservationRule: customReservationRule || null,
-      location: location || null
+      location: normalizeLocation(location)
     });
     auditLogService.logAuditAsync({
       module: 'events',
@@ -671,7 +677,7 @@ router.post('/events', authMiddleware, adminOrExecutiveMiddleware, async (req, r
 });
 
 // 5.5) POST /api/events/batch - 批量新增活動 (需 Token)
-router.post('/events/batch', authMiddleware, adminOrExecutiveMiddleware, async (req, res, next) => {
+router.post('/events/batch', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), async (req, res, next) => {
   try {
     const { events } = req.body;
     
@@ -695,37 +701,43 @@ router.post('/events/batch', authMiddleware, adminOrExecutiveMiddleware, async (
         
         try {
           // 驗證必要欄位
-          if (!eventData.name || !eventData.date || !eventData.startTime || !eventData.endTime || !eventData.maxCapacity) {
+          if (!eventData.name || !eventData.date || !eventData.startTime || !eventData.endTime) {
             results.failureCount++;
             results.errors.push(`第 ${i + 1} 個活動：缺少必要欄位`);
             continue;
           }
 
-          // 驗證人數限制
-          const maxCapacity = Number(eventData.maxCapacity);
-          if (isNaN(maxCapacity) || maxCapacity < 1 || maxCapacity > 100) {
+          const capacity = normalizeEventCapacityInput({
+            eventType: eventData.eventType || 'English Table',
+            groupCount: eventData.groupCount,
+            perGroupCapacity: eventData.perGroupCapacity,
+            maxCapacity: eventData.maxCapacity,
+          });
+          if (capacity.error) {
             results.failureCount++;
-            results.errors.push(`第 ${i + 1} 個活動：人數限制必須在 1-100 之間`);
+            results.errors.push(`第 ${i + 1} 個活動：${capacity.error}`);
             continue;
           }
 
-          // 創建活動
           const newEvent = await Event.create({
             name: eventData.name,
             date: eventData.date,
             startTime: eventData.startTime,
             endTime: eventData.endTime,
-            maxCapacity: maxCapacity,
+            maxCapacity: capacity.maxCapacity,
+            groupCount: capacity.groupCount,
+            perGroupCapacity: capacity.perGroupCapacity,
             eventType: eventData.eventType || 'English Table',
             customReservationRule: eventData.customReservationRule || null,
-            location: eventData.location || null
+            location: normalizeLocation(eventData.location)
           }, { transaction });
 
           results.successCount++;
           results.createdEvents.push({
             id: newEvent.id,
             name: newEvent.name,
-            date: newEvent.date
+            date: newEvent.date,
+            location: newEvent.location
           });
         } catch (err) {
           console.error(`批量新增活動時發生錯誤（第 ${i + 1} 個）:`, err);
@@ -779,7 +791,7 @@ router.post('/events/batch', authMiddleware, adminOrExecutiveMiddleware, async (
 });
 
 // 6) DELETE /api/events/:id - 刪除活動 (需 Token)
-router.delete('/events/:id', authMiddleware, adminOrExecutiveMiddleware, async (req, res, next) => {
+router.delete('/events/:id', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), async (req, res, next) => {
   try {
     const event = await Event.findByPk(req.params.id, { include: Reservation });
     if (!event) return res.status(404).json({ error: "活動不存在" });
@@ -812,7 +824,7 @@ router.delete('/events/:id', authMiddleware, adminOrExecutiveMiddleware, async (
 });
 
 // 6.5) DELETE /api/events/:id/force-delete - 強制刪除活動 (需密碼確認)
-router.delete('/events/:id/force-delete', authMiddleware, adminOrExecutiveMiddleware, requirePasswordConfirmation, async (req, res, next) => {
+router.delete('/events/:id/force-delete', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), requirePasswordConfirmation, async (req, res, next) => {
   try {
     const { id } = req.params;
     // 前端應傳 currentPassword（或 confirmPassword / x-confirm-password）供後端驗證操作者本人密碼
@@ -844,7 +856,7 @@ router.delete('/events/:id/force-delete', authMiddleware, adminOrExecutiveMiddle
 });
 
   // 7) PUT /api/events/:id - 修改活動 (需 Token)
-router.put('/events/:id', authMiddleware, adminOrExecutiveMiddleware, async (req, res, next) => {
+const updateEventHandler = async (req, res, next) => {
   try {
     const event = await Event.findByPk(req.params.id);
     if (!event) return res.status(404).json({ error: "活動不存在" });
@@ -860,15 +872,29 @@ router.put('/events/:id', authMiddleware, adminOrExecutiveMiddleware, async (req
       customReservationRule: event.customReservationRule,
     };
 
-    const { name, date, startTime, endTime, maxCapacity, eventType, customReservationRule, location } = req.body;
+    const { name, date, startTime, endTime, maxCapacity, eventType, customReservationRule, location, groupCount, perGroupCapacity } = req.body;
     if (name !== undefined) event.name = name;
     if (date !== undefined) event.date = date;
     if (startTime !== undefined) event.startTime = startTime;
     if (endTime !== undefined) event.endTime = endTime;
     if (eventType !== undefined) event.eventType = eventType;
     if (customReservationRule !== undefined) event.customReservationRule = customReservationRule;
-    if (location !== undefined) event.location = location;
-    if (maxCapacity !== undefined) event.maxCapacity = maxCapacity;
+    if (location !== undefined) event.location = normalizeLocation(location);
+
+    if (maxCapacity !== undefined || groupCount !== undefined || perGroupCapacity !== undefined) {
+      const capacity = normalizeEventCapacityInput({
+        eventType: eventType !== undefined ? eventType : event.eventType,
+        groupCount: groupCount !== undefined ? groupCount : event.groupCount,
+        perGroupCapacity: perGroupCapacity !== undefined ? perGroupCapacity : event.perGroupCapacity,
+        maxCapacity: maxCapacity !== undefined ? maxCapacity : event.maxCapacity,
+      });
+      if (capacity.error) {
+        return res.status(400).json({ error: capacity.error });
+      }
+      event.maxCapacity = capacity.maxCapacity;
+      event.groupCount = capacity.groupCount;
+      event.perGroupCapacity = capacity.perGroupCapacity;
+    }
 
     await event.save();
     const after = {
@@ -896,7 +922,10 @@ router.put('/events/:id', authMiddleware, adminOrExecutiveMiddleware, async (req
   } catch (err) {
     next(err);
   }
-});
+};
+
+router.put('/events/:id', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), updateEventHandler);
+router.patch('/events/:id', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), updateEventHandler);
 
 // 新增簽到功能 API（單筆）
 // POST /api/events/:id/checkin
@@ -1046,36 +1075,30 @@ router.post(
         checkinTime: reservation.checkinTime || null,
       };
 
-      try {
-        await reservation.update(
-          {
-            checkinStatus: '已簽到',
-            checkinTime: now
-          },
-          { transaction }
-        );
+      await reservation.update(
+        {
+          checkinStatus: '已簽到',
+          checkinTime: now
+        },
+        { transaction }
+      );
 
-        successCount += 1;
-        checkedInIds.push(reservation.id);
+      successCount += 1;
+      checkedInIds.push(reservation.id);
 
-        auditLogService.logAuditAsync({
-          module: 'events',
-          action: 'checkin',
-          entityType: 'Reservation',
-          entityId: reservation.id,
-          targetSummary: `eventId=${event.id}`,
-          beforeData: before,
-          afterData: {
-            checkinStatus: '已簽到',
-            checkinTime: reservation.checkinTime || now,
-          },
-          req,
-        });
-      } catch (err) {
-        failedCount += 1;
-        failedIds.push(reservation.id);
-        logError(err);
-      }
+      auditLogService.logAuditAsync({
+        module: 'events',
+        action: 'checkin',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        targetSummary: `eventId=${event.id}`,
+        beforeData: before,
+        afterData: {
+          checkinStatus: '已簽到',
+          checkinTime: reservation.checkinTime || now,
+        },
+        req,
+      });
     }
 
     // 處理 request 中但資料庫不存在或不屬於該活動的 id
@@ -1085,6 +1108,10 @@ router.post(
         failedCount += 1;
         failedIds.push(rawId);
       }
+    }
+
+    if (failedCount > 0) {
+      throw new Error(`BULK_CHECKIN_PARTIAL_FAILURE:${failedCount}`);
     }
 
     await transaction.commit();
@@ -1195,16 +1222,7 @@ router.post(
       studentId: user.studentId || null,
     };
 
-    // 創建違規記錄
-    console.log('[EventViolation] create request', {
-      eventId: event.id,
-      eventIdParam,
-      studentId: trimmedStudentId,
-      violationType,
-      recordedBy
-    });
-
-    // 創建違規記錄
+    const transaction = await require('../models').sequelize.transaction();
     let violation;
     try {
       violation = await EventViolation.create({
@@ -1214,68 +1232,50 @@ router.post(
         description: description || null,
         recordedBy: recordedBy,
         recordedAt: new Date()
-      });
-      console.log('[EventViolation] 成功創建違規記錄:', violation.id);
+      }, { transaction });
 
-      // 寫入通知（不影響違規建立主流程）
-      notificationService
-        .createNotification({
-          userId: user.id,
-          type: 'violation_create',
-          title: '違規記錄已建立',
-          content: `你的違規記錄已完成：${violationType}`,
-          data: {
-            eventId: event.id,
-            eventName: event.name,
-            violationType,
-          },
-          requestId: req.requestId || null,
-          relatedEntityType: 'EventViolation',
-          relatedEntityId: String(violation.id),
-        })
-        .catch((err) => {
-          console.error('寫入違規通知失敗:', err);
-        });
-    } catch (createError) {
-      console.error('[EventViolation] 創建違規記錄失敗:', {
-        error: createError.name,
-        message: createError.message,
-        stack: createError.stack,
-        eventId: event.id,
-        userId: user.id,
-        violationType: violationType
-      });
-      throw createError;
-    }
-
-    // 更新預約狀態，確保前端可見
-    try {
       reservation.checkinStatus = '已登記違規';
-      await reservation.save();
-      console.log('[EventViolation] 成功更新預約狀態:', reservation.id);
-
-      auditLogService.logAuditAsync({
-        module: 'events',
-        action: 'violation_create',
-        entityType: 'EventViolation',
-        entityId: violation && violation.id ? violation.id : 'unknown',
-        targetSummary: `eventId=${event.id}, violationType=${violationType}`,
-        beforeData: {
-          reservation: { id: reservation.id, checkinStatus: beforeReservation.checkinStatus },
-        },
-        afterData: {
-          reservation: { id: reservation.id, checkinStatus: '已登記違規' },
-        },
-        req,
-      });
-    } catch (updateError) {
-      console.error('[EventViolation] 更新預約狀態失敗:', {
-        error: updateError.name,
-        message: updateError.message,
-        reservationId: reservation.id
-      });
-      // 即使更新預約狀態失敗，違規記錄已建立，所以繼續執行
+      await reservation.save({ transaction });
+      await transaction.commit();
+    } catch (createOrUpdateError) {
+      await transaction.rollback();
+      throw createOrUpdateError;
     }
+
+    // 寫入通知（不影響違規建立主流程）
+    notificationService
+      .createNotification({
+        userId: user.id,
+        type: 'violation_create',
+        title: '違規記錄已建立',
+        content: `你的違規記錄已完成：${violationType}`,
+        data: {
+          eventId: event.id,
+          eventName: event.name,
+          violationType,
+        },
+        requestId: req.requestId || null,
+        relatedEntityType: 'EventViolation',
+        relatedEntityId: String(violation.id),
+      })
+      .catch((err) => {
+        console.error('寫入違規通知失敗:', err);
+      });
+
+    auditLogService.logAuditAsync({
+      module: 'events',
+      action: 'violation_create',
+      entityType: 'EventViolation',
+      entityId: violation && violation.id ? violation.id : 'unknown',
+      targetSummary: `eventId=${event.id}, violationType=${violationType}`,
+      beforeData: {
+        reservation: { id: reservation.id, checkinStatus: beforeReservation.checkinStatus },
+      },
+      afterData: {
+        reservation: { id: reservation.id, checkinStatus: '已登記違規' },
+      },
+      req,
+    });
 
     res.json({ 
       message: "違規記錄已建立",
@@ -1307,131 +1307,40 @@ router.post(
   requirePermissionAndEventAccess(P.CAN_MANAGE_VIOLATIONS, accessEventType),
   async (req, res, next) => {
   try {
-    const eventIdParam = req.params.id;
-    const parsedEventId = Number(eventIdParam);
-    
-    if (!Number.isInteger(parsedEventId)) {
-      return res.status(400).json({
-        success: false,
-        errorCode: 'INVALID_EVENT_ID',
-        message: '活動ID格式錯誤',
-        error: `活動ID必須為數字，收到值: ${eventIdParam}`
-      });
+    if (!hasPermission(req.user, P.CAN_MANAGE_BLACKLIST)) {
+      return res.status(403).json({ error: '批次登記預約未到已包含活動結束檢查，需黑名單管理權限' });
+    }
+    if (!canAccessEventType(req.user, accessEventType(req))) {
+      return res.status(403).json({ error: '無權限存取此活動類型' });
     }
 
     const recordedBy = req.user.user || req.user.username || req.user.name || null;
     if (!recordedBy) {
-      return res.status(400).json({ 
-        error: "登入資訊缺少使用者帳號，無法登記違規"
+      return res.status(400).json({
+        error: '登入資訊缺少使用者帳號，無法登記違規',
       });
     }
 
-    const event = await Event.findByPk(parsedEventId, {
-      include: [
-        {
-          model: Reservation,
-          include: [User]
-        }
-      ]
-    });
-    
-    if (!event) {
-      return res.status(404).json({ error: "活動不存在" });
-    }
-
-    // 找出所有未簽到的預約（排除已登記違規的）
-    const noShowReservations = event.Reservations.filter(
-      r => r.checkinStatus === '未簽到'
-    );
-
-    if (noShowReservations.length === 0) {
-      return res.json({
-        message: "沒有需要登記的未簽到學生",
-        successCount: 0,
-        failureCount: 0,
-        results: []
-      });
-    }
-
-    const results = {
-      successCount: 0,
-      failureCount: 0,
-      results: []
-    };
-
-    // 批次處理每個未簽到的學生
-    for (const reservation of noShowReservations) {
-      try {
-        // 檢查是否已經有違規記錄
-        const existingViolation = await EventViolation.findOne({
-          where: {
-            eventId: event.id,
-            userId: reservation.User.id
-          }
-        });
-
-        if (existingViolation) {
-          results.results.push({
-            studentId: reservation.User.studentId,
-            studentName: reservation.User.name,
-            status: 'skipped',
-            message: '已有違規記錄'
-          });
-          continue;
-        }
-
-        // 創建違規記錄
-        await EventViolation.create({
-          eventId: event.id,
-          userId: reservation.User.id,
-          violationType: '預約未到',
-          description: '活動當天未簽到',
-          recordedBy: recordedBy,
-          recordedAt: new Date()
-        });
-
-        // 更新預約狀態
-        reservation.checkinStatus = '已登記違規';
-        await reservation.save();
-
-        results.successCount++;
-        results.results.push({
-          studentId: reservation.User.studentId,
-          studentName: reservation.User.name,
-          status: 'success',
-          message: '已登記為預約未到'
-        });
-      } catch (error) {
-        console.error(`處理學生 ${reservation.User.studentId} 時發生錯誤:`, error);
-        results.failureCount++;
-        results.results.push({
-          studentId: reservation.User.studentId,
-          studentName: reservation.User.name,
-          status: 'failed',
-          message: error.message || '登記失敗'
-        });
-      }
-    }
-
-    auditLogService.logAuditAsync({
-      module: 'events',
-      action: 'batch_mark_no_show',
-      entityType: 'Event',
-      entityId: event.id,
-      targetSummary: `eventId=${event.id}`,
-      afterData: {
-        attemptedCount: noShowReservations.length,
-        successCount: results.successCount,
-        failureCount: results.failureCount,
-      },
+    const result = await runEventAutoCheck({
+      eventId: req.params.id,
       req,
+      triggeredBy: 'batch_mark_no_show',
+      recordedBy,
     });
 
-    res.json({
-      message: `批次登記完成：成功 ${results.successCount} 筆，失敗 ${results.failureCount} 筆`,
-      successCount: results.successCount,
-      failureCount: results.failureCount,
-      results: results.results
+    if (result.notFound) {
+      return res.status(404).json({ error: '活動不存在' });
+    }
+    if (result.alreadyCompleted) {
+      return res.status(400).json({
+        error: result.error,
+        alreadyCompleted: true,
+      });
+    }
+
+    return res.json({
+      message: '批次未到登記與活動結束檢查已完成',
+      results: result.results,
     });
   } catch (err) {
     console.error('[EventViolation] 批次登記未簽到學生時發生錯誤:', {
@@ -1473,6 +1382,57 @@ router.get(
   }
 });
 
+// 學生加入活動候補（額滿；問卷／時間窗／黑名單與正式預約一致）
+// POST /api/events/:eventId/waitlist
+router.post(
+  '/events/:eventId/waitlist',
+  (req, res, next) => {
+    req.body = { ...(req.body || {}), eventId: req.params.eventId };
+    next();
+  },
+  checkSurvey,
+  async (req, res, next) => {
+    try {
+      const { eventId, studentId, studentName, studentEmail } = req.body;
+      const result = await waitlistService.joinWaitlist({
+        eventId,
+        studentId,
+        studentName,
+        studentEmail,
+        requestId: req.requestId,
+        req,
+      });
+
+      if (!result.ok) {
+        const code = result.code;
+        if (code === 'EVENT_NOT_FOUND') {
+          return res.status(404).json({ success: false, errorCode: code, message: result.message });
+        }
+        if (code === 'BLACKLIST') {
+          return res.status(403).json({ success: false, errorCode: code, message: result.message });
+        }
+        const status = 400;
+        const body = {
+          success: false,
+          errorCode: code,
+          message: result.message,
+        };
+        if (result.position != null) body.position = result.position;
+        return res.status(status).json(body);
+      }
+
+      return res.json({
+        success: true,
+        status: result.status,
+        position: result.position,
+        message: result.message,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // 活動結束後自動檢查並記錄違規
 // POST /api/events/:id/auto-check
 router.post(
@@ -1482,164 +1442,34 @@ router.post(
   requirePermissionAndEventAccess(P.CAN_MANAGE_BLACKLIST, accessEventType),
   async (req, res, next) => {
   try {
-    const eventId = req.params.id;
-    
-    // 查找活動
-    const event = await Event.findByPk(eventId, {
-      include: [
-        {
-          model: Reservation,
-          include: [User]
-        }
-      ]
-    });
-
-    if (!event) {
-      return res.status(404).json({ error: "活動不存在" });
-    }
-
-    // 檢查是否已經執行過活動結束檢查
-    if (event.autoCheckCompleted) {
-      return res.status(400).json({ 
-        error: "此活動已經執行過活動結束檢查，無法重複執行",
-        alreadyCompleted: true
+    const recordedBy = req.user.user || req.user.username || req.user.name || null;
+    if (!recordedBy) {
+      return res.status(400).json({
+        error: '登入資訊缺少使用者帳號，無法執行活動結束檢查',
       });
     }
 
-    // 查找活動期間的違規記錄
-    const eventViolations = await EventViolation.findAll({
-      where: { eventId: eventId },
-      include: [User]
+    const result = await runEventAutoCheck({
+      eventId: req.params.id,
+      req,
+      triggeredBy: 'manual_auto_check',
+      recordedBy,
     });
 
-    const results = {
-      processedCount: 0,
-      violationRecords: 0,
-      noShowRecords: 0,
-      errors: []
-    };
-
-    // 處理每個預約
-    for (const reservation of event.Reservations) {
-      try {
-        results.processedCount++;
-        
-        // 檢查是否有違規記錄
-        const hasViolation = eventViolations.some(v => v.userId === reservation.User.id);
-        
-        if (hasViolation) {
-          // 有違規記錄，寫入黑名單系統
-          await BlackListRecord.create({
-            userId: reservation.User.id,
-            recordedAt: new Date(),
-            reason: '活動期間違規'
-          });
-          
-          // 更新使用者違規次數
-          const user = reservation.User;
-          user.violationCount += 1;
-          
-          // 若違規次數 >= 2 => 進入黑名單
-          if (user.violationCount >= 2) {
-            const now = dayjs();
-            const dayOfWeek = now.day();
-            let daysToAdd = 0;
-
-            if (dayOfWeek === 0) {
-              daysToAdd = 7;
-            } else {
-              daysToAdd = 14 - dayOfWeek;
-            }
-
-            const unlockDate = now
-              .add(daysToAdd, 'day')
-              .hour(23)
-              .minute(59)
-              .second(59);
-
-            user.isBlacklisted = true;
-            user.blacklistUntil = unlockDate.toDate();
-          }
-          
-          await user.save();
-          results.violationRecords++;
-          
-        } else if (reservation.checkinStatus === '未簽到') {
-          // 未簽到，記錄為預約未到
-          await BlackListRecord.create({
-            userId: reservation.User.id,
-            recordedAt: new Date(),
-            reason: '預約未到'
-          });
-          
-          // 更新預約記錄狀態為"已登記違規"
-          reservation.checkinStatus = '已登記違規';
-          await reservation.save();
-          
-          // 更新使用者違規次數
-          const user = reservation.User;
-          user.violationCount += 1;
-          
-          // 若違規次數 >= 2 => 進入黑名單
-          if (user.violationCount >= 2) {
-            const now = dayjs();
-            const dayOfWeek = now.day();
-            let daysToAdd = 0;
-
-            if (dayOfWeek === 0) {
-              daysToAdd = 7;
-            } else {
-              daysToAdd = 14 - dayOfWeek;
-            }
-
-            const unlockDate = now
-              .add(daysToAdd, 'day')
-              .hour(23)
-              .minute(59)
-              .second(59);
-
-            user.isBlacklisted = true;
-            user.blacklistUntil = unlockDate.toDate();
-          }
-          
-          await user.save();
-          results.noShowRecords++;
-        }
-        
-      } catch (error) {
-        console.error(`處理預約 ${reservation.id} 時發生錯誤:`, error);
-        results.errors.push({
-          reservationId: reservation.id,
-          error: error.message
-        });
-      }
+    if (result.notFound) {
+      return res.status(404).json({ error: '活動不存在' });
+    }
+    if (result.alreadyCompleted) {
+      return res.status(400).json({
+        error: result.error,
+        alreadyCompleted: true,
+      });
     }
 
-    // 標記活動已執行過檢查
-    event.autoCheckCompleted = true;
-    await event.save();
-
-    auditLogService.logAuditAsync({
-      module: 'events',
-      action: 'auto_check',
-      entityType: 'Event',
-      entityId: event.id,
-      targetSummary: `eventId=${event.id}`,
-      afterData: {
-        processedCount: results.processedCount,
-        violationRecords: results.violationRecords,
-        noShowRecords: results.noShowRecords,
-        errorCount: results.errors ? results.errors.length : 0,
-        autoCheckCompleted: true,
-      },
-      req,
+    return res.json({
+      message: '活動結束檢查完成',
+      results: result.results,
     });
-
-    res.json({
-      message: "自動檢查完成",
-      results: results
-    });
-    
   } catch (err) {
     next(err);
   }

@@ -11,6 +11,18 @@ import { useEventViolations } from './useEventViolations';
 import { debugEventDetail } from '../utils/eventDetailDebug';
 import { buildAccessProfile, canAccessEventType, hasPermission } from '../utils/accessControl';
 import { P } from '../constants/permissions';
+import { RESERVATION_CUTOFF_HOURS } from '../constants/reservationRules';
+import {
+  batchMarkEventNoShow,
+  checkinEventReservation,
+  createEventViolation,
+  deleteAdminReservation,
+  fetchEventWaitlist,
+  importEventCardExcel,
+  runEventAutoCheck,
+} from '../services/eventAdminService';
+import { downloadBlob, exportEventReservations } from '../services/eventService';
+import { exportEventEtGrouping, downloadEtBlob } from '../services/etGroupingApi';
 
 export default function useAdminEventWorkspace({ token, userRole, accessProfile: ctxProfile, eventId, activeTab = 'reservations' }) {
   const { confirm } = useConfirm();
@@ -45,6 +57,10 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
   const canViewBlacklist = hasPermission(accessProfile, P.CAN_VIEW_BLACKLIST);
   const canManageBlacklist = hasPermission(accessProfile, P.CAN_MANAGE_BLACKLIST);
   const canManageEvents = hasPermission(accessProfile, P.CAN_MANAGE_EVENTS);
+  const canViewEtGrouping = hasPermission(accessProfile, P.CAN_VIEW_ET_GROUPING);
+  const canManageEtGrouping = hasPermission(accessProfile, P.CAN_MANAGE_ET_GROUPING);
+  const canExportEtGrouping = hasPermission(accessProfile, P.CAN_EXPORT_ET_GROUPING);
+  const canMarkEtSessionTasks = hasPermission(accessProfile, P.CAN_MARK_ET_SESSION_TASKS);
 
   const needReservations = canViewReservations && ['reservations', 'checkin', 'violations'].includes(activeTab);
   const needViolations = (canManageViolations || canViewBlacklist) && activeTab === 'violations';
@@ -70,18 +86,36 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     });
   }, [activeTab, meta.loading, meta.ready, meta.error, resv.loading, resv.loaded, resv.error, vio.loading, vio.loaded, vio.error]);
 
-  const actualUserRole = userRole || 'worker';
   const hasAdminRights = Boolean(accessProfile.hasAdminRights);
   const isAdmin = Boolean(accessProfile.isAdmin);
   const canImportExcel = canCheckinStudents && canManageEvents;
 
   const currentEventId = meta.eventId;
+  const [waitlistItems, setWaitlistItems] = useState([]);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistError, setWaitlistError] = useState('');
+
   const currentEventName = resv.loaded && resv.eventName ? resv.eventName : meta.name;
   const currentEventDate = resv.loaded && resv.eventDate ? resv.eventDate : meta.date;
   const currentEventStartTime = resv.loaded && resv.eventStartTime ? resv.eventStartTime : meta.startTime;
   const currentEventType = resv.loaded && resv.eventType ? resv.eventType : meta.eventType;
   const canAccessCurrentEvent = canAccessEventType(accessProfile, currentEventType);
   const currentEventAutoCheckCompleted = resv.loaded ? resv.autoCheckCompleted : meta.autoCheckCompleted;
+
+  const fetchWaitlist = useCallback(async () => {
+    if (!currentEventId || !canViewReservations || !canAccessCurrentEvent || !token) return;
+    setWaitlistLoading(true);
+    setWaitlistError('');
+    try {
+      const items = await fetchEventWaitlist(token, currentEventId);
+      setWaitlistItems(items);
+    } catch (e) {
+      setWaitlistError(e.message || '載入候補名單失敗');
+      setWaitlistItems([]);
+    } finally {
+      setWaitlistLoading(false);
+    }
+  }, [currentEventId, token, canViewReservations, canAccessCurrentEvent]);
 
   const reservationData = resv.reservations;
 
@@ -99,11 +133,13 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     return dayjs().format('YYYY-MM-DD') === dateStr;
   }, []);
 
-  const refreshCurrentEventReservations = useCallback(async () => {
-    await resv.refresh();
-  }, [resv]);
+  useEffect(() => {
+    if (activeTab !== 'reservations') return;
+    if (!meta.ready || !canViewReservations || !canAccessCurrentEvent || !currentEventId) return;
+    fetchWaitlist();
+  }, [activeTab, meta.ready, canViewReservations, canAccessCurrentEvent, currentEventId, fetchWaitlist, resv.loaded]);
 
-  const handleCheckin = async (reservationId) => {
+  const handleCheckin = useCallback(async (reservationId) => {
     if (!currentEventId) return;
     if (!canCheckinStudents || !canAccessCurrentEvent) {
       showErrorMessage('您沒有簽到權限');
@@ -126,47 +162,45 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
 
     setCheckinLoading((prev) => ({ ...prev, [reservationId]: true }));
     try {
-      const response = await fetch(`/api/events/${currentEventId}/checkin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reservationId }),
+      const data = await checkinEventReservation(token, currentEventId, reservationId);
+      showSuccessMessage('簽到成功');
+      resv.setPayload((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          reservations: (prev.reservations || []).map((r) =>
+            r.id === reservationId ? { ...r, checkinStatus: '已簽到', checkinTime: data.checkinTime } : r
+          ),
+        };
       });
-      const data = await response.json();
-      if (response.ok) {
-        showSuccessMessage('簽到成功');
-        resv.setPayload((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            reservations: (prev.reservations || []).map((r) =>
-              r.id === reservationId ? { ...r, checkinStatus: '已簽到', checkinTime: data.checkinTime } : r
-            ),
-          };
-        });
-      } else {
-        showErrorMessage(data.error || '簽到失敗');
-      }
     } catch (error) {
       console.error('簽到錯誤:', error);
-      showErrorMessage('簽到失敗');
+      showErrorMessage(error.message || '簽到失敗');
     } finally {
       setCheckinLoading((prev) => ({ ...prev, [reservationId]: false }));
     }
-  };
+  }, [
+    canAccessCurrentEvent,
+    canCheckinStudents,
+    canManageEvents,
+    confirm,
+    currentEventDate,
+    currentEventId,
+    isEventToday,
+    resv,
+    token,
+  ]);
 
   const canCancelReservation = () => {
     if (!currentEventDate || !currentEventStartTime) return false;
     const now = dayjs();
     const eventStart = dayjs(`${currentEventDate}T${currentEventStartTime}`);
     if (!eventStart.isValid()) return false;
-    const twoHoursBefore = eventStart.subtract(2, 'hour');
+    const twoHoursBefore = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
     return now.isBefore(twoHoursBefore);
   };
 
-  const handleDeleteReservation = async (reservationId, studentId, studentName, verificationCode) => {
+  const handleDeleteReservation = useCallback(async (reservationId, studentId, studentName, verificationCode) => {
     if (!canManageEvents || !canAccessCurrentEvent) {
       showErrorMessage('您沒有刪除預約權限');
       return false;
@@ -178,38 +212,26 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     }
 
     try {
-      const response = await fetch(`/api/admin/reservations/${reservationId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ verificationCode: code }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        showSuccessMessage('已成功刪除預約紀錄');
-        await resv.refresh();
-        await meta.reload();
-        return true;
-      } else {
-        showErrorMessage(data.error || data.message || '刪除預約失敗');
-        return false;
-      }
+      await deleteAdminReservation(token, reservationId, { verificationCode: code });
+      showSuccessMessage('已成功刪除預約紀錄');
+      await resv.refresh();
+      await meta.reload();
+      await fetchWaitlist();
+      return true;
     } catch (error) {
       console.error('刪除預約錯誤:', error);
-      showErrorMessage('刪除預約失敗：' + error.message);
+      showErrorMessage(error.message || '刪除預約失敗');
       return false;
     }
-  };
+  }, [canAccessCurrentEvent, canManageEvents, fetchWaitlist, meta, resv, token]);
 
-  const handleImportFileChange = (event) => {
+  const handleImportFileChange = useCallback((event) => {
     const file = event?.target?.files?.[0] || null;
     setImportFile(file);
     setImportError('');
-  };
+  }, []);
 
-  const handleImportExcel = async (event) => {
+  const handleImportExcel = useCallback(async (event) => {
     if (!canImportExcel || !canAccessCurrentEvent) {
       setImportError('您沒有匯入簽到權限');
       return;
@@ -226,18 +248,8 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     setImportLoading(true);
     setImportError('');
     setImportResult(null);
-    const formData = new FormData();
-    formData.append('file', importFile);
     try {
-      const response = await fetch(`/api/reservations/${currentEventId}/import-card-excel`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.error || data.message || '匯入失敗，請稍後再試');
-      }
+      const data = await importEventCardExcel(token, currentEventId, importFile);
       setImportResult(data);
       showSuccessMessage(data.message || '匯入完成');
       await resv.refresh();
@@ -249,18 +261,18 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     } finally {
       setImportLoading(false);
     }
-  };
+  }, [canAccessCurrentEvent, canImportExcel, currentEventId, importFile, meta, resv, token]);
 
-  const openViolationModal = (studentId = '') => {
+  const openViolationModal = useCallback((studentId = '') => {
     setViolationData({
       studentId: studentId || '',
       violationType: '擾亂秩序',
       description: '',
     });
     setShowViolationModal(true);
-  };
+  }, []);
 
-  const handleRecordEventViolation = async () => {
+  const handleRecordEventViolation = useCallback(async () => {
     if (!canManageViolations || !canAccessCurrentEvent) {
       showErrorMessage('您沒有違規處置權限');
       return;
@@ -274,42 +286,30 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       return;
     }
     try {
-      const response = await fetch(`/api/events/${currentEventId}/violations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(violationData),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        showSuccessMessage('違規記錄已建立！');
-        setShowViolationModal(false);
-        setViolationData({ studentId: '', violationType: '擾亂秩序', description: '' });
-        await Promise.all([vio.refresh(), resv.refresh()]);
-        await meta.reload();
-        if (data.reservation) {
-          resv.setPayload((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              reservations: (prev.reservations || []).map((r) =>
-                r.id === data.reservation.id ? { ...r, checkinStatus: data.reservation.checkinStatus } : r
-              ),
-            };
-          });
-        }
-      } else {
-        showErrorMessage(data.error || '登記違規失敗');
+      const data = await createEventViolation(token, currentEventId, violationData);
+      showSuccessMessage('違規記錄已建立！');
+      setShowViolationModal(false);
+      setViolationData({ studentId: '', violationType: '擾亂秩序', description: '' });
+      await Promise.all([vio.refresh(), resv.refresh()]);
+      await meta.reload();
+      if (data.reservation) {
+        resv.setPayload((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            reservations: (prev.reservations || []).map((r) =>
+              r.id === data.reservation.id ? { ...r, checkinStatus: data.reservation.checkinStatus } : r
+            ),
+          };
+        });
       }
     } catch (error) {
       console.error('登記違規錯誤:', error);
-      showErrorMessage('登記違規失敗');
+      showErrorMessage(error.message || '登記違規失敗');
     }
-  };
+  }, [canAccessCurrentEvent, canManageViolations, currentEventId, meta, resv, token, violationData, vio]);
 
-  const handleBatchMarkNoShow = async () => {
+  const handleBatchMarkNoShow = useCallback(async () => {
     if (!currentEventId) return;
     if (!canManageViolations || !canAccessCurrentEvent) {
       showErrorMessage('您沒有違規處置權限');
@@ -330,30 +330,29 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     if (!ok) return;
     setBatchMarkNoShowLoading(true);
     try {
-      const response = await fetch(`/api/events/${currentEventId}/violations/batch-mark-no-show`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        showSuccessMessage(data.message || `成功登記 ${data.successCount} 位學生為預約未到`);
-        await Promise.all([vio.refresh(), resv.refresh()]);
-        await meta.reload();
-      } else {
-        showErrorMessage(data.error || '批次登記失敗');
-      }
+      const data = await batchMarkEventNoShow(token, currentEventId);
+      showSuccessMessage(data.message || `成功登記 ${data.successCount} 位學生為預約未到`);
+      await Promise.all([vio.refresh(), resv.refresh()]);
+      await meta.reload();
     } catch (error) {
       console.error('批次登記未簽到學生錯誤:', error);
-      showErrorMessage('批次登記失敗');
+      showErrorMessage(error.message || '批次登記失敗');
     } finally {
       setBatchMarkNoShowLoading(false);
     }
-  };
+  }, [
+    canAccessCurrentEvent,
+    canManageViolations,
+    confirm,
+    currentEventId,
+    meta,
+    reservationData,
+    resv,
+    token,
+    vio,
+  ]);
 
-  const handleAutoCheck = async () => {
+  const handleAutoCheck = useCallback(async () => {
     if (!currentEventId) return;
     if (!canManageBlacklist || !canAccessCurrentEvent) {
       showErrorMessage('您沒有執行活動結束檢查權限');
@@ -369,70 +368,63 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     if (!ok) return;
     setAutoCheckLoading(true);
     try {
-      const response = await fetch(`/api/events/${currentEventId}/auto-check`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        const stats = data.results || {};
-        const summaryMessage =
-          data.message ||
-          `處理完成：總筆數 ${stats.processedCount || 0}，違規記錄 ${stats.violationRecords || 0}，預約未到 ${stats.noShowRecords || 0}`;
-        showSuccessMessage(summaryMessage);
-        await Promise.all([vio.refresh(), resv.refresh()]);
-        await meta.reload();
-      } else {
-        if (data.alreadyCompleted) {
-          resv.setPayload((prev) => (prev ? { ...prev, autoCheckCompleted: true } : prev));
-          await meta.reload();
-        }
-        showErrorMessage(data.error || '活動結束檢查失敗');
-      }
+      const data = await runEventAutoCheck(token, currentEventId);
+      const stats = data.results || {};
+      const summaryMessage =
+        data.message ||
+        `處理完成：總筆數 ${stats.processedCount || 0}，違規記錄 ${stats.violationRecords || 0}，預約未到 ${stats.noShowRecords || 0}`;
+      showSuccessMessage(summaryMessage);
+      await Promise.all([vio.refresh(), resv.refresh()]);
+      await meta.reload();
     } catch (error) {
       console.error('活動結束檢查錯誤:', error);
-      showErrorMessage('活動結束檢查失敗');
+      if (error.data?.alreadyCompleted) {
+        resv.setPayload((prev) => (prev ? { ...prev, autoCheckCompleted: true } : prev));
+        await meta.reload();
+      }
+      showErrorMessage(error.message || '活動結束檢查失敗');
     } finally {
       setAutoCheckLoading(false);
     }
-  };
+  }, [canAccessCurrentEvent, canManageBlacklist, confirm, currentEventId, meta, resv, token, vio]);
 
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     if (!currentEventId) return;
     if (!canExportReservations || !canAccessCurrentEvent) {
       showErrorMessage('您沒有匯出權限');
       return;
     }
     try {
-      const response = await fetch(`/api/events/${currentEventId}/export`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('匯出失敗');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `活動預約清單_${currentEventId}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const blob = await exportEventReservations(token, currentEventId);
+      downloadBlob(blob, `活動預約清單_${currentEventId}.xlsx`);
     } catch (error) {
       showErrorMessage('匯出失敗：' + error.message);
     }
-  };
+  }, [canAccessCurrentEvent, canExportReservations, currentEventId, token]);
 
-  const handleReservationSort = (field) => {
+  const handleExportEtGrouping = useCallback(async () => {
+    if (!currentEventId) return;
+    if (!canExportEtGrouping || !canAccessCurrentEvent) {
+      showErrorMessage('您沒有 ET 分組匯出權限');
+      return;
+    }
+    try {
+      const { blob, filename } = await exportEventEtGrouping(token, currentEventId);
+      downloadEtBlob(blob, filename);
+      showSuccessMessage('ET 分組報表已下載');
+    } catch (error) {
+      showErrorMessage('匯出失敗：' + error.message);
+    }
+  }, [canAccessCurrentEvent, canExportEtGrouping, currentEventId, token]);
+
+  const handleReservationSort = useCallback((field) => {
     if (reservationSortField === field) {
       setReservationSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
     } else {
       setReservationSortField(field);
       setReservationSortOrder('asc');
     }
-  };
+  }, [reservationSortField]);
 
   const sortedReservationData = useMemo(() => {
     return [...reservationData].sort((a, b) => {
@@ -531,10 +523,226 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     if (activeTab === 'violations') {
       await vio.load(true);
     }
+    if (activeTab === 'reservations') {
+      await fetchWaitlist();
+    }
     debugEventDetail('workspace:reload:done', { activeTab });
-  }, [activeTab, meta, resv, vio]);
+  }, [activeTab, meta, resv, vio, fetchWaitlist]);
 
   const eventViolations = vio.list;
+
+  const resBlocking = resv.loading && !resv.loaded;
+  const vioBlocking =
+    activeTab === 'violations' &&
+    (!resv.loaded || !vio.loaded) &&
+    (resv.loading || vio.loading);
+
+  const reservationsTabProps = useMemo(
+    () => ({
+      resBlocking,
+      reservationsError: resv.error,
+      reservationSearchTerm,
+      setReservationSearchTerm,
+      reservationSortField,
+      reservationSortOrder,
+      handleReservationSort,
+      filteredReservationData,
+      currentEventType,
+      canCheckinStudents,
+      canManageViolations,
+      canManageEvents,
+      canViewReservations,
+      checkinLoading,
+      handleCheckin,
+      isEventToday,
+      currentEventDate,
+      waitlistItems,
+      waitlistLoading,
+      waitlistError,
+      refreshWaitlist: fetchWaitlist,
+      handleDeleteReservation,
+    }),
+    [
+      resBlocking,
+      resv.error,
+      reservationSearchTerm,
+      reservationSortField,
+      reservationSortOrder,
+      handleReservationSort,
+      filteredReservationData,
+      currentEventType,
+      canCheckinStudents,
+      canManageViolations,
+      canManageEvents,
+      canViewReservations,
+      checkinLoading,
+      handleCheckin,
+      isEventToday,
+      currentEventDate,
+      waitlistItems,
+      waitlistLoading,
+      waitlistError,
+      fetchWaitlist,
+      handleDeleteReservation,
+    ],
+  );
+
+  const checkinTabProps = useMemo(
+    () => ({
+      resBlocking,
+      reservationsError: resv.error,
+      pendingCheckinRows,
+      currentEventType,
+      currentEventDate,
+      canCheckinStudents,
+      canManageEvents,
+      checkinLoading,
+      handleCheckin,
+      isEventToday,
+    }),
+    [
+      resBlocking,
+      resv.error,
+      pendingCheckinRows,
+      currentEventType,
+      currentEventDate,
+      canCheckinStudents,
+      canManageEvents,
+      checkinLoading,
+      handleCheckin,
+      isEventToday,
+    ],
+  );
+
+  const importExportTabProps = useMemo(
+    () => ({
+      canExportReservations,
+      canExportEtGrouping,
+      currentEventType,
+      handleExport,
+      handleExportEtGrouping,
+      canImportExcel,
+      importFile,
+      importLoading,
+      importError,
+      importResult,
+      handleImportFileChange,
+      handleImportExcel,
+    }),
+    [
+      canExportReservations,
+      canExportEtGrouping,
+      currentEventType,
+      handleExport,
+      handleExportEtGrouping,
+      canImportExcel,
+      importFile,
+      importLoading,
+      importError,
+      importResult,
+      handleImportFileChange,
+      handleImportExcel,
+    ],
+  );
+
+  const groupingTabProps = useMemo(
+    () => ({
+      visible: canViewEtGrouping && canAccessCurrentEvent && (currentEventType || 'English Table') === 'English Table',
+      token,
+      eventId: currentEventId,
+      eventType: currentEventType,
+      canManage: canManageEtGrouping,
+      canExport: canExportEtGrouping,
+      onExport: handleExportEtGrouping,
+      onPublished: () => {
+        if (resv.refresh) resv.refresh();
+      },
+    }),
+    [
+      canViewEtGrouping,
+      canManageEtGrouping,
+      canExportEtGrouping,
+      handleExportEtGrouping,
+      canAccessCurrentEvent,
+      currentEventType,
+      token,
+      currentEventId,
+      resv.refresh,
+    ],
+  );
+
+  const taskMarksTabProps = useMemo(
+    () => ({
+      visible: (canMarkEtSessionTasks || canManageEtGrouping)
+        && canAccessCurrentEvent
+        && (currentEventType || 'English Table') === 'English Table',
+      token,
+      eventId: currentEventId,
+      eventType: currentEventType,
+      canManage: canManageEtGrouping,
+      canMark: canMarkEtSessionTasks || canManageEtGrouping,
+    }),
+    [
+      canMarkEtSessionTasks,
+      canManageEtGrouping,
+      canAccessCurrentEvent,
+      currentEventType,
+      token,
+      currentEventId,
+    ],
+  );
+
+  const violationsTabProps = useMemo(
+    () => ({
+      vioBlocking,
+      reservationsError: resv.error,
+      violationsError: vio.error,
+      canManageViolations,
+      canManageBlacklist,
+      currentEventId,
+      currentEventAutoCheckCompleted,
+      noShowReservationCount,
+      batchMarkNoShowLoading,
+      handleBatchMarkNoShow,
+      autoCheckLoading,
+      handleAutoCheck,
+      openViolationModal,
+      eventViolations,
+    }),
+    [
+      vioBlocking,
+      resv.error,
+      vio.error,
+      canManageViolations,
+      canManageBlacklist,
+      currentEventId,
+      currentEventAutoCheckCompleted,
+      noShowReservationCount,
+      batchMarkNoShowLoading,
+      handleBatchMarkNoShow,
+      autoCheckLoading,
+      handleAutoCheck,
+      openViolationModal,
+      eventViolations,
+    ],
+  );
+
+  const violationModalProps = useMemo(
+    () => ({
+      showViolationModal,
+      setShowViolationModal,
+      violationData,
+      setViolationData,
+      handleRecordEventViolation,
+      canManageViolations,
+    }),
+    [
+      showViolationModal,
+      violationData,
+      handleRecordEventViolation,
+      canManageViolations,
+    ],
+  );
 
   return {
     detailLoading: meta.loading,
@@ -548,6 +756,11 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     violationsLoading: vio.loading,
     violationsLoaded: vio.loaded,
     violationsError: vio.error,
+
+    waitlistItems,
+    waitlistLoading,
+    waitlistError,
+    refreshWaitlist: fetchWaitlist,
 
     currentEventName,
     currentEventDate,
@@ -608,5 +821,12 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     handleBatchMarkNoShow,
     autoCheckLoading,
     handleAutoCheck,
+    reservationsTabProps,
+    checkinTabProps,
+    groupingTabProps,
+    taskMarksTabProps,
+    importExportTabProps,
+    violationsTabProps,
+    violationModalProps,
   };
 }

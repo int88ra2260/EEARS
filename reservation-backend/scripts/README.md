@@ -56,6 +56,37 @@ SKIP_CONFIRM=true node scripts/clean-demo-data.js
 
 **注意**: 此腳本會刪除所有相關資料，執行前請確認！
 
+### `clear-learning-journey-exam-import-data.js`
+**用途**: 清除「英語學習歷程中心考試匯入」資料
+
+**功能**:
+- 刪除 `et_exam_attempts` 中由考試匯入產生的資料（`sourceType=excel_import` 或 `batchId` 前綴為 `v3-exam:`）
+- 同步刪除對應的 `et_exam_attempt_skill_scores`
+- 具備互動式確認機制（需輸入 `YES`）
+
+**使用方法**:
+```bash
+node scripts/clear-learning-journey-exam-import-data.js
+
+# 跳過確認（謹慎使用）
+SKIP_CONFIRM=true node scripts/clear-learning-journey-exam-import-data.js
+```
+
+### `clear-bestep-attendance-import-data.js`
+**用途**: 清除 BESTEP 出席匯入資料
+
+**功能**:
+- 刪除 `bestep_attendance` 全部資料
+- 具備互動式確認機制（需輸入 `YES`）
+
+**使用方法**:
+```bash
+node scripts/clear-bestep-attendance-import-data.js
+
+# 跳過確認（謹慎使用）
+SKIP_CONFIRM=true node scripts/clear-bestep-attendance-import-data.js
+```
+
 ## 資料盤點
 
 ### `check-semester-data.js`
@@ -82,21 +113,16 @@ node scripts/check-semester-data.js
 node scripts/populate-semester-for-registrations.js
 ```
 
-### `create-teacher-account.js`
-**用途**: 建立老師帳號
+### 老師帳號建立／重設密碼（已移除一次性腳本）
 
-**使用方法**:
-```bash
-node scripts/create-teacher-account.js
-```
+先前曾提供 `create-teacher-account.js`、`reset-teacher-password.js`，會要求於 `.env` 設定 `TEACHER_PASSWORD_<username>`。此作法易讓密碼留在環境檔、且清單硬編碼不利維護，**已自本 repo 移除**。
 
-### `reset-teacher-password.js`
-**用途**: 重設老師密碼
+請改使用：
 
-**使用方法**:
-```bash
-node scripts/reset-teacher-password.js
-```
+- **後台**「帳號管理」：新增帳號、編輯角色／職務、**重設密碼**（產生臨時密碼並 bump `accessVersion`）。
+- 或呼叫既有 API：`POST /api/admin/teachers`、`PATCH /api/admin/teachers/:id`、`POST /api/admin/teachers/:id/reset-password`（需具 `can_manage_accounts` 等權限）。
+
+若仍有一次性大量匯入需求，建議以**獨立維運腳本**（不放進版控）或**管理 API + 稽核**處理，勿將使用者密碼寫入 `.env`。
 
 ## 注意事項
 

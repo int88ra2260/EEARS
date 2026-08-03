@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import ContentText from '../components/siteContent/ContentText';
 import PageHeader from '../components/layout/PageHeader';
 import './TermsPage.css';
 
@@ -21,13 +22,17 @@ export default function TermsPage() {
 
   return (
     <div className="terms-page">
-      <PageHeader breadcrumbs={breadcrumbs} title={t('termsPage.title')} lead={t('termsPage.lastUpdated')} />
+      <PageHeader
+        breadcrumbs={breadcrumbs}
+        title={<ContentText k="termsPage.title" />}
+        lead={<ContentText k="termsPage.lastUpdated" />}
+      />
       <div className="terms-page-content">
-        <p className="terms-page-intro">{t('termsPage.intro')}</p>
+        <ContentText k="termsPage.intro" as="p" className="terms-page-intro" />
         {sections.map(({ titleKey, bodyKey }) => (
           <section key={titleKey} className="terms-page-section">
-            <h2>{t(`termsPage.${titleKey}`)}</h2>
-            <p>{t(`termsPage.${bodyKey}`)}</p>
+            <ContentText k={`termsPage.${titleKey}`} as="h2" />
+            <ContentText k={`termsPage.${bodyKey}`} as="p" />
           </section>
         ))}
       </div>

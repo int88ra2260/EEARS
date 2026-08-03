@@ -1,5 +1,8 @@
 const { Op } = require('sequelize');
 const { Event, Reservation, Semester, SurveyModuleResponse, SurveyVersion } = require('../models');
+const { isValidSemester } = require('../utils/semester');
+
+const SEMESTER_CODE_IN_TEXT_RE = /\b(1\d{2}-\d)\b/;
 
 function parseEventDate(event) {
   if (event.date) {
@@ -11,6 +14,17 @@ function parseEventDate(event) {
     if (Number.isFinite(d.getTime())) return d;
   }
   return null;
+}
+
+async function resolveSemesterByCode(code) {
+  if (!code || !isValidSemester(code)) return null;
+  const row = await Semester.findOne({ where: { code: String(code).trim() } });
+  return row?.id || null;
+}
+
+function inferSemesterCodeFromEvent(event) {
+  const m = String(event?.name || '').match(SEMESTER_CODE_IN_TEXT_RE);
+  return m ? m[1] : null;
 }
 
 async function resolveSemesterByDate(date) {
@@ -31,6 +45,7 @@ async function backfillEventSemesters({ dryRun = true } = {}) {
   const events = await Event.findAll();
   let alreadyLinked = 0;
   let backfilledByDate = 0;
+  let backfilledByCode = 0;
   let unresolved = 0;
   let ambiguous = 0;
   const unresolvedIds = [];
@@ -38,6 +53,13 @@ async function backfillEventSemesters({ dryRun = true } = {}) {
   for (const ev of events) {
     if (ev.semesterId) {
       alreadyLinked += 1;
+      continue;
+    }
+    const codeFromName = inferSemesterCodeFromEvent(ev);
+    const byCode = codeFromName ? await resolveSemesterByCode(codeFromName) : null;
+    if (byCode) {
+      backfilledByCode += 1;
+      if (!dryRun) await ev.update({ semesterId: byCode });
       continue;
     }
     const d = parseEventDate(ev);
@@ -61,6 +83,7 @@ async function backfillEventSemesters({ dryRun = true } = {}) {
     totalEvents: events.length,
     alreadyLinked,
     backfilledByDate,
+    backfilledByCode,
     unresolved,
     ambiguous,
     unresolvedEventIds: unresolvedIds.slice(0, 200),
@@ -90,6 +113,7 @@ async function backfillResponseLinks({ dryRun = true } = {}) {
     totalResponses: responses.length,
     semesterByEvent: 0,
     semesterByReservation: 0,
+    semesterBySemesterCode: 0,
     semesterBySubmittedAt: 0,
     unresolvedSemester: 0,
     validatedVersion: 0,
@@ -120,6 +144,24 @@ async function backfillResponseLinks({ dryRun = true } = {}) {
           semesterSource = 'by_reservation_event';
           stats.semesterByReservation += 1;
         }
+      }
+    }
+
+    if (!nextSemesterId && r.semester && isValidSemester(r.semester)) {
+      const byCode = await resolveSemesterByCode(r.semester);
+      if (byCode) {
+        nextSemesterId = byCode;
+        semesterSource = 'by_semester_code';
+        stats.semesterBySemesterCode += 1;
+      }
+    }
+
+    if (!nextSemesterId && r.semesterKey && isValidSemester(r.semesterKey)) {
+      const byCode = await resolveSemesterByCode(r.semesterKey);
+      if (byCode) {
+        nextSemesterId = byCode;
+        semesterSource = 'by_semester_key';
+        stats.semesterBySemesterCode += 1;
       }
     }
 

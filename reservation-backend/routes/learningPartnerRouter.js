@@ -1,12 +1,25 @@
 // routes/learningPartnerRouter.js
 const express = require('express');
+const { logExportAudit } = require('../utils/exportAudit');
 const router = express.Router();
 const { Op, Sequelize, QueryTypes } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 const { LearningPartnerTeam, LearningPartnerTeamMember, EnglishTestRegistration, Settings, sequelize } = require('../models');
-const { authMiddleware, adminMiddleware } = require('../middlewares/auth');
+const {
+  authMiddleware,
+  adminExecutiveOrDeputyMiddleware,
+  requirePermission,
+  P,
+} = require('../middlewares/auth');
+
+const learningPartnerAdminAuth = [
+  authMiddleware,
+  adminExecutiveOrDeputyMiddleware,
+  requirePermission(P.CAN_MANAGE_LEARNING_PARTNER_ADMIN, '需要學習有伴團體報名管理權限'),
+];
 const { sendEmail } = require('../config/email');
 const emailQueue = require('../utils/emailQueue');
+const { isGroupRegistrationEnabled } = require('../services/registrationSettingsService');
 
 // 輔助函數：取得設定值
 async function getSetting(key, defaultValue) {
@@ -188,8 +201,8 @@ router.post('/learning-partner/teams', async (req, res) => {
       });
     }
 
-    // 檢查功能是否啟用
-    const enabled = await getSetting('learning_partner_enabled', true);
+    // 檢查功能是否啟用（與團體報名開關同步）
+    const enabled = await isGroupRegistrationEnabled();
     if (!enabled) {
       await transaction.rollback();
       return res.status(403).json({
@@ -772,7 +785,7 @@ router.post('/learning-partner/teams/:teamId/resend', async (req, res) => {
 });
 
 // 6. POST /api/learning-partner/teams/:teamId/cancel - 取消團體（管理端）
-router.post('/learning-partner/teams/:teamId/cancel', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/learning-partner/teams/:teamId/cancel', ...learningPartnerAdminAuth, async (req, res) => {
   const transaction = await LearningPartnerTeam.sequelize.transaction();
   
   try {
@@ -861,7 +874,7 @@ router.post('/learning-partner/teams/:teamId/cancel', authMiddleware, adminMiddl
 });
 
 // 7. GET /api/admin/learning-partner/teams - 管理端列表
-router.get('/admin/learning-partner/teams', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/learning-partner/teams', ...learningPartnerAdminAuth, async (req, res) => {
   try {
     const { status, q, page = 1, limit = 20, semester } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -1021,7 +1034,7 @@ router.get('/admin/learning-partner/teams', authMiddleware, adminMiddleware, asy
 });
 
 // 8. GET /api/admin/learning-partner/teams/:teamId - 管理端詳情
-router.get('/admin/learning-partner/teams/:teamId', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/learning-partner/teams/:teamId', ...learningPartnerAdminAuth, async (req, res) => {
   try {
     const { teamId } = req.params;
 
@@ -1056,7 +1069,7 @@ router.get('/admin/learning-partner/teams/:teamId', authMiddleware, adminMiddlew
 });
 
 // 9. GET /api/admin/learning-partner/export - 匯出（CSV/Excel）
-router.get('/admin/learning-partner/export', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/learning-partner/export', ...learningPartnerAdminAuth, async (req, res) => {
   try {
     const { format = 'csv' } = req.query;
 
@@ -1106,8 +1119,22 @@ router.get('/admin/learning-partner/export', authMiddleware, adminMiddleware, as
       const csvContent = csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
       const csvWithBOM = '\uFEFF' + csvContent; // 加入 BOM 以支援 Excel 中文顯示
 
+      const memberRowCount = teams.reduce((sum, t) => sum + (t.members?.length || 0), 0);
+      const exportFileName = `learning-partner-teams-${new Date().toISOString().split('T')[0]}.csv`;
+      logExportAudit(req, {
+        module: 'learning_partner',
+        action: 'learning_partner_teams_export',
+        entityType: 'LearningPartnerExport',
+        entityId: `teams:${req.requestId || Date.now()}`,
+        exportType: 'csv',
+        reportType: 'learning_partner_teams',
+        rowCount: memberRowCount,
+        filters: { format: 'csv', teamCount: teams.length },
+        fileName: exportFileName,
+      });
+
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="learning-partner-teams-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${exportFileName}"`);
       return res.send(csvWithBOM);
     } else {
       // JSON 格式

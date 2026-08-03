@@ -1,5 +1,10 @@
 const { Teacher, RolePermission, UserPermissionOverride, UserScope } = require('../../models');
 const { normalizeRoleKey, buildEffectiveAccessFromSources } = require('./readService');
+const {
+  buildBasePermissionSet,
+  buildAccessProfile,
+  getAccessProfileReadMode,
+} = require('../../auth/accessProfile');
 
 function sortUnique(list) {
   return Array.from(new Set(list || [])).sort();
@@ -7,7 +12,28 @@ function sortUnique(list) {
 
 async function getUserBasicInfo(userId) {
   return Teacher.findByPk(userId, {
-    attributes: ['id', 'role', 'teacherLevel', 'permissions', 'scopes', 'accessVersion', 'isActive'],
+    attributes: ['id', 'role', 'teacherLevel', 'staffLevel', 'permissions', 'scopes', 'accessVersion', 'isActive'],
+  });
+}
+
+async function loadUserForAccessDebug(userId) {
+  if (!userId) return null;
+  return Teacher.findByPk(userId, {
+    attributes: [
+      'id',
+      'username',
+      'name',
+      'email',
+      'role',
+      'teacherLevel',
+      'staffLevel',
+      'permissions',
+      'scopes',
+      'accessVersion',
+      'isActive',
+      'mustResetPassword',
+      'lastLoginAt',
+    ],
   });
 }
 
@@ -49,22 +75,24 @@ async function getJsonScopes(userId) {
   return t ? (Array.isArray(t.scopes) ? t.scopes : null) : null;
 }
 
-async function buildEffectiveAccessTableFirst({ userId, role, teacherLevel, jsonPermissions, jsonScopes }) {
+async function buildEffectiveAccessTableFirst({ userId, role, teacherLevel, staffLevel, jsonPermissions, jsonScopes }) {
   return buildEffectiveAccessFromSources({
     userId,
     role,
     teacherLevel,
+    staffLevel: staffLevel != null ? staffLevel : null,
     jsonPermissions,
     jsonScopes,
     mode: 'table_first',
   });
 }
 
-async function buildEffectiveAccessJsonFirst({ userId, role, teacherLevel, jsonPermissions, jsonScopes }) {
+async function buildEffectiveAccessJsonFirst({ userId, role, teacherLevel, staffLevel, jsonPermissions, jsonScopes }) {
   return buildEffectiveAccessFromSources({
     userId,
     role,
     teacherLevel,
+    staffLevel: staffLevel != null ? staffLevel : null,
     jsonPermissions,
     jsonScopes,
     mode: 'json_first',
@@ -119,6 +147,145 @@ function generateSuggestion(diffResult, data) {
   return hints;
 }
 
+/**
+ * HTTP / 後台除錯用：單一使用者權限來源分解（不含密碼／token）
+ * @param {number|string} userId
+ * @returns {Promise<object|null>}
+ */
+async function buildAccessDebugApiPayload(userId) {
+  const uid = Number(userId);
+  if (!Number.isFinite(uid) || uid <= 0) return null;
+
+  const basic = await loadUserForAccessDebug(uid);
+  if (!basic) return null;
+
+  const plain = basic.get ? basic.get({ plain: true }) : basic;
+  const roleKey = normalizeRoleKey(plain.role, plain.teacherLevel, plain.staffLevel);
+  const [rolePermissionsRows, overrideRows, scopeRows, tableFirst, jsonFirst] = await Promise.all([
+    getRolePermissions(roleKey),
+    getUserOverrides(uid),
+    getUserScopes(uid),
+    buildEffectiveAccessTableFirst({
+      userId: uid,
+      role: plain.role,
+      teacherLevel: plain.teacherLevel,
+      staffLevel: plain.staffLevel,
+      jsonPermissions: plain.permissions || null,
+      jsonScopes: Array.isArray(plain.scopes) ? plain.scopes : null,
+    }),
+    buildEffectiveAccessJsonFirst({
+      userId: uid,
+      role: plain.role,
+      teacherLevel: plain.teacherLevel,
+      staffLevel: plain.staffLevel,
+      jsonPermissions: plain.permissions || null,
+      jsonScopes: Array.isArray(plain.scopes) ? plain.scopes : null,
+    }),
+  ]);
+
+  const userLike = {
+    id: plain.id,
+    role: plain.role,
+    teacherLevel: plain.role === 'teacher' ? (plain.teacherLevel || 'regular') : null,
+    staffLevel: plain.role === 'office_staff' ? (plain.staffLevel || 'event_lead') : null,
+    permissions: plain.permissions || null,
+    scopes: Array.isArray(plain.scopes) ? plain.scopes : null,
+  };
+  const profile = buildAccessProfile(userLike);
+
+  const roleBaseSet = buildBasePermissionSet(userLike);
+  const roleBase = sortUnique(Array.from(roleBaseSet));
+
+  const allowList = [];
+  const denyList = [];
+  for (const row of overrideRows || []) {
+    if (row.value === 'allow') allowList.push(row.permission);
+    else if (row.value === 'deny') denyList.push(row.permission);
+  }
+
+  const jsonPermKeys =
+    plain.permissions && typeof plain.permissions === 'object'
+      ? sortUnique(Object.keys(plain.permissions))
+      : [];
+
+  const diff = diffAccess(tableFirst, jsonFirst);
+  const data = {
+    table: { rolePermissions: rolePermissionsRows, overrides: overrideRows, scopes: scopeRows },
+    effective: { tableFirst, jsonFirst },
+  };
+  const fallback = analyzeFallback(tableFirst, jsonFirst);
+
+  const diagnostics = [];
+  if (diff.permissionsOnlyInTable.length || diff.permissionsOnlyInJson.length) {
+    diagnostics.push({
+      level: 'warning',
+      code: 'FRONTEND_BACKEND_PERMISSION_MISMATCH',
+      message:
+        'table_first 與 json_first 有效權限集合不一致，請檢查 role_permissions／override 與 JSON mirror。',
+    });
+  }
+  if (fallback.mismatch) {
+    diagnostics.push({
+      level: 'warning',
+      code: 'PERMISSION_OVERRIDE_SOURCE_MISMATCH',
+      message: 'Table 與 JSON 權限覆寫內容不一致（consistency.hasMismatch）。',
+    });
+  }
+  if (fallback.required) {
+    diagnostics.push({
+      level: 'info',
+      code: 'JSON_FALLBACK_IN_USE',
+      message: fallback.reason || 'JSON fallback 使用中',
+    });
+  }
+
+  const readMode = getAccessProfileReadMode();
+  const canonical =
+    readMode === 'table_first'
+      ? sortUnique(tableFirst?.finalPermissions || [])
+      : sortUnique(jsonFirst?.finalPermissions || []);
+
+  return {
+    teacher: {
+      id: plain.id,
+      username: plain.username,
+      name: plain.name,
+      email: plain.email,
+      role: plain.role,
+      teacherLevel: plain.teacherLevel || null,
+      staffLevel: plain.staffLevel || null,
+      isActive: !!plain.isActive,
+      mustResetPassword: !!plain.mustResetPassword,
+      accessVersion: Number(plain.accessVersion || 1),
+      lastLoginAt: plain.lastLoginAt || null,
+    },
+    effectiveAccess: {
+      readMode,
+      permissions: sortUnique(profile.finalPermissions || canonical),
+      scopes: profile.finalScopes || [],
+    },
+    sources: {
+      roleBase,
+      teacherLevelBase: [],
+      rolePermissionsTable: sortUnique((rolePermissionsRows || []).map((r) => r.permission)),
+      userPermissionOverridesAllow: sortUnique(allowList),
+      userPermissionOverridesDeny: sortUnique(denyList),
+      jsonPermissions: jsonPermKeys,
+      jwtPermissions: null,
+      scopeSources: {
+        userScopeRows: (scopeRows || []).map((s) => `${s.scopeType}:${s.scopeValue}`),
+        jsonScopes: Array.isArray(plain.scopes) ? plain.scopes : [],
+      },
+    },
+    diagnostics,
+    staleTokenCheck: {
+      currentDbAccessVersion: Number(plain.accessVersion || 1),
+      sampleJwtAccessVersion: null,
+      note: 'JWT accessVersion 需由客戶端比對；此處僅顯示 DB 目前版本。',
+    },
+  };
+}
+
 function explainPermission(permission, ctx) {
   const base = sortUnique((ctx?.table?.rolePermissions || []).map((r) => r.permission));
   const overrides = ctx?.table?.overrides || [];
@@ -137,6 +304,7 @@ function explainPermission(permission, ctx) {
 module.exports = {
   normalizeRoleKey,
   getUserBasicInfo,
+  loadUserForAccessDebug,
   getRolePermissions,
   getUserOverrides,
   getUserScopes,
@@ -144,6 +312,7 @@ module.exports = {
   getJsonScopes,
   buildEffectiveAccessTableFirst,
   buildEffectiveAccessJsonFirst,
+  buildAccessDebugApiPayload,
   diffAccess,
   analyzeFallback,
   generateSuggestion,

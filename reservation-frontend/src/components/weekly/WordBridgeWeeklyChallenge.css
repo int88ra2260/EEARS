@@ -1,0 +1,35 @@
+.word-bridge-weekly__lead {
+  margin-bottom: 0.85rem;
+  color: #4a3f36;
+  line-height: 1.55;
+}
+
+.word-bridge-weekly__status {
+  margin-bottom: 1rem;
+}
+
+.word-bridge-weekly__toolbar {
+  margin-top: 1rem;
+}
+
+.word-bridge-weekly--result {
+  padding: 0.5rem 0;
+}
+
+.word-bridge-weekly__result-title {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.word-bridge-weekly__result-meta {
+  margin: 0 0 0.85rem;
+  color: #7a6b5f;
+  font-size: 0.875rem;
+}
+
+.word-bridge-weekly__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

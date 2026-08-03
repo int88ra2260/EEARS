@@ -1,4 +1,5 @@
 import React from 'react';
+import { getEmptyReasonText } from './emptyStateUtils';
 
 const ITEMS = [
   { key: 'listening', label: '聽力' },
@@ -7,9 +8,18 @@ const ITEMS = [
   { key: 'writing', label: '寫作' },
 ];
 
-export default function BestSkillCards({ bestSkills }) {
+export default function BestSkillCards({ bestSkills, emptyReason }) {
+  const hasAnySkill = ITEMS.some((item) => {
+    const cell = bestSkills?.[item.key];
+    return !!(cell && (cell.cefr || Number(cell.rank || 0) > 0));
+  });
   return (
     <div className="row g-3">
+      {!hasAnySkill ? (
+        <div className="col-12">
+          <div className="alert alert-secondary mb-0">{getEmptyReasonText(emptyReason, '此學生目前沒有英檢成績紀錄')}</div>
+        </div>
+      ) : null}
       {ITEMS.map((item) => {
         const cell = bestSkills?.[item.key] || null;
         const rank = Number(cell?.rank || 0);

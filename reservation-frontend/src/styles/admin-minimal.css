@@ -1,0 +1,355 @@
+/* EEARS 管理後台 — Premium Utilitarian Minimalism（僅 .admin-layout-root 內生效） */
+
+.admin-layout-root {
+  --admin-canvas: #fbfbfa;
+  --admin-surface: #ffffff;
+  --admin-surface-muted: #f7f6f3;
+  --admin-border: #eaeaea;
+  --admin-text: #2f3437;
+  --admin-text-muted: #787774;
+  --admin-ink: #111111;
+  --admin-pastel-blue: #e1f3fe;
+  --admin-pastel-blue-text: #1f6c9f;
+  --admin-pastel-green: #edf3ec;
+  --admin-pastel-green-text: #346538;
+  --admin-pastel-yellow: #fbf3db;
+  --admin-pastel-yellow-text: #956400;
+  --admin-pastel-red: #fdebec;
+  --admin-pastel-red-text: #9f2f2d;
+  --admin-radius: 8px;
+
+  font-family: 'Helvetica Neue', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: var(--admin-text);
+  background: var(--admin-canvas);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 頂部角色／狀態標籤 */
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.admin-badge--role {
+  background: var(--admin-pastel-green);
+  color: var(--admin-pastel-green-text);
+  border-color: rgba(52, 101, 56, 0.12);
+}
+
+.admin-badge--warn {
+  background: var(--admin-pastel-yellow);
+  color: var(--admin-pastel-yellow-text);
+  border-color: rgba(149, 100, 0, 0.12);
+}
+
+/* 按鈕：扁平、無陰影、無位移 */
+.admin-layout-root .btn {
+  border-radius: 6px;
+  font-weight: 500;
+  box-shadow: none !important;
+}
+
+.admin-layout-root .btn:hover,
+.admin-layout-root .btn:focus-visible {
+  transform: none;
+  box-shadow: none !important;
+}
+
+.admin-layout-root .btn-primary {
+  background-color: var(--admin-ink);
+  border-color: var(--admin-ink);
+}
+
+.admin-layout-root .btn-primary:hover,
+.admin-layout-root .btn-primary:focus,
+.admin-layout-root .btn-primary:active {
+  background-color: #333333;
+  border-color: #333333;
+}
+
+.admin-layout-root .btn-outline-primary {
+  color: var(--admin-ink);
+  border-color: var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.admin-layout-root .btn-outline-primary:hover {
+  background: var(--admin-surface-muted);
+  border-color: #d4d4d4;
+  color: var(--admin-ink);
+}
+
+.admin-layout-root .btn-outline-secondary {
+  color: var(--admin-text-muted);
+  border-color: var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.admin-layout-root .btn-outline-secondary:hover {
+  background: var(--admin-surface-muted);
+  color: var(--admin-text);
+  border-color: #d4d4d4;
+}
+
+/* 表單 */
+.admin-layout-root .form-control,
+.admin-layout-root .form-select {
+  border-color: var(--admin-border);
+  border-radius: 6px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+.admin-layout-root .form-control:focus,
+.admin-layout-root .form-select:focus {
+  border-color: #c8c8c8;
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.06);
+}
+
+.admin-layout-root .form-label {
+  color: var(--admin-text);
+  font-weight: 500;
+  font-size: 0.8125rem;
+}
+
+/* 表格 */
+.admin-layout-root .table {
+  box-shadow: none;
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+.admin-layout-root .table thead {
+  background: var(--admin-surface-muted) !important;
+  color: var(--admin-text) !important;
+}
+
+.admin-layout-root .table thead th {
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  border-bottom: 1px solid var(--admin-border) !important;
+  color: var(--admin-text-muted) !important;
+  padding: 0.65rem 0.85rem;
+}
+
+.admin-layout-root .table tbody td {
+  border-color: var(--admin-border);
+  padding: 0.65rem 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-layout-root .table tbody tr:hover {
+  background: var(--admin-surface-muted);
+}
+
+.admin-layout-root .table-striped > tbody > tr:nth-of-type(odd) > * {
+  background: rgba(247, 246, 243, 0.55);
+}
+
+.admin-layout-root .table-light {
+  --bs-table-bg: var(--admin-surface-muted);
+  --bs-table-color: var(--admin-text);
+}
+
+/* 卡片 */
+.admin-layout-root .card {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  box-shadow: none;
+  background: var(--admin-surface);
+}
+
+.admin-layout-root .card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.admin-layout-root .card-header {
+  background: var(--admin-surface-muted);
+  color: var(--admin-text);
+  border-bottom: 1px solid var(--admin-border);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: var(--admin-radius) var(--admin-radius) 0 0 !important;
+}
+
+/* 警示 */
+.admin-layout-root .alert {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  box-shadow: none;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.admin-layout-root .alert-info {
+  background: var(--admin-pastel-blue);
+  color: var(--admin-pastel-blue-text);
+  border-color: rgba(31, 108, 159, 0.15);
+}
+
+.admin-layout-root .alert-warning {
+  background: var(--admin-pastel-yellow);
+  color: var(--admin-pastel-yellow-text);
+  border-color: rgba(149, 100, 0, 0.15);
+}
+
+.admin-layout-root .alert-danger {
+  background: var(--admin-pastel-red);
+  color: var(--admin-pastel-red-text);
+  border-color: rgba(159, 47, 45, 0.15);
+}
+
+.admin-layout-root .alert-success {
+  background: var(--admin-pastel-green);
+  color: var(--admin-pastel-green-text);
+  border-color: rgba(52, 101, 56, 0.15);
+}
+
+.admin-layout-root .alert-light {
+  background: var(--admin-surface);
+  color: var(--admin-text-muted);
+}
+
+/* Bootstrap Badge → 柔和標籤 */
+.admin-layout-root .badge {
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.03em;
+  border-radius: 9999px;
+  padding: 0.25rem 0.5rem;
+}
+
+.admin-layout-root .badge.bg-primary,
+.admin-layout-root .bg-primary.badge {
+  background: var(--admin-pastel-blue) !important;
+  color: var(--admin-pastel-blue-text) !important;
+}
+
+.admin-layout-root .badge.bg-success,
+.admin-layout-root .bg-success.badge {
+  background: var(--admin-pastel-green) !important;
+  color: var(--admin-pastel-green-text) !important;
+}
+
+.admin-layout-root .badge.bg-warning,
+.admin-layout-root .bg-warning.badge {
+  background: var(--admin-pastel-yellow) !important;
+  color: var(--admin-pastel-yellow-text) !important;
+}
+
+.admin-layout-root .badge.bg-danger,
+.admin-layout-root .bg-danger.badge {
+  background: var(--admin-pastel-red) !important;
+  color: var(--admin-pastel-red-text) !important;
+}
+
+.admin-layout-root .badge.bg-info,
+.admin-layout-root .bg-info.badge {
+  background: var(--admin-pastel-blue) !important;
+  color: var(--admin-pastel-blue-text) !important;
+}
+
+.admin-layout-root .badge.bg-secondary,
+.admin-layout-root .bg-secondary.badge {
+  background: var(--admin-surface-muted) !important;
+  color: var(--admin-text-muted) !important;
+  border: 1px solid var(--admin-border);
+}
+
+/* Modal */
+.admin-layout-root .modal-content {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.admin-layout-root .modal-header {
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  border-bottom: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius) var(--admin-radius) 0 0;
+}
+
+.admin-layout-root .modal-title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.admin-layout-root .modal-footer {
+  border-top: 1px solid var(--admin-border);
+  background: var(--admin-surface-muted);
+}
+
+/* 麵包屑 */
+.admin-layout-root .breadcrumb {
+  --bs-breadcrumb-divider: '/';
+  margin-bottom: 0;
+}
+
+.admin-layout-root .breadcrumb-item a {
+  color: var(--admin-text-muted);
+  text-decoration: none;
+}
+
+.admin-layout-root .breadcrumb-item a:hover {
+  color: var(--admin-text);
+  text-decoration: underline;
+}
+
+.admin-layout-root .breadcrumb-item.active {
+  color: var(--admin-text);
+  font-weight: 500;
+}
+
+/* Accordion */
+.admin-layout-root .accordion-item {
+  border-color: var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.admin-layout-root .accordion-button {
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: none !important;
+  font-size: 0.875rem;
+}
+
+.admin-layout-root .accordion-button:not(.collapsed) {
+  background: var(--admin-surface-muted);
+  color: var(--admin-text);
+}
+
+/* Offcanvas */
+.admin-layout-root .offcanvas {
+  border-left: 1px solid var(--admin-border);
+}
+
+.admin-layout-root .offcanvas-header {
+  border-bottom: 1px solid var(--admin-border);
+}
+
+/* 分頁／Spinner 維持低調 */
+.admin-layout-root .spinner-border {
+  color: var(--admin-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-layout-root .btn,
+  .admin-layout-root .card,
+  .admin-sidebar {
+    transition: none !important;
+  }
+}

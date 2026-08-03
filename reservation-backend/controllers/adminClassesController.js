@@ -3,9 +3,23 @@ const { Class, ClassMembership, Reservation, Event, User, BlackListRecord, Class
 const { Op } = require('sequelize');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
+const { newImportBatchId } = require('../utils/importBatchId');
+const importRollbackManifestService = require('../services/importRollbackManifestService');
 const { getStudentParticipationStats: getStudentParticipationStatsUtil } = require('../utils/eventStats');
 const { SEMESTER_RANGES } = require('../utils/semesterConstants');
 const auditLogService = require('../services/auditLogService');
+const { logExportAudit } = require('../utils/exportAudit');
+const {
+  assertCanAccessClass,
+  buildClassScopeWhere,
+  sendClassScopeDenied,
+} = require('../services/accessControl/classScopeGuard');
+const {
+  parseClassRosterPdf,
+  buildClassDisplayName,
+} = require('../services/classRosterPdfParseService');
+const { applyStructuredClassRosterImport } = require('../services/classRosterImportService');
+const fs = require('fs');
 
 // 活動類型映射
 const ACTIVITY_TYPE_MAP = {
@@ -52,7 +66,7 @@ function getSemesterByDate(date) {
  */
 const importClassRoster = async (req, res, next) => {
   try {
-    let { semester, className, teacherName } = req.query;
+    let { semester, className, teacherName, courseName, courseCode } = req.query;
     const file = req.file;
 
     if (!file) {
@@ -67,12 +81,25 @@ const importClassRoster = async (req, res, next) => {
       }
     }
 
+    const resolvedCourseName = String(courseName || '').trim();
+    const resolvedCourseCode = String(courseCode || '').trim();
+    if (!className && (resolvedCourseName || resolvedCourseCode)) {
+      className = buildClassDisplayName(resolvedCourseName, resolvedCourseCode);
+    }
+
     if (!className) {
-      return res.status(400).json({ error: '請指定班級名稱' });
+      return res.status(400).json({ error: '請指定課程名稱（與課程代碼）或班級名稱' });
     }
 
     if (!teacherName) {
       return res.status(400).json({ error: '請指定老師姓名' });
+    }
+
+    if (resolvedCourseName && !resolvedCourseCode) {
+      return res.status(400).json({ error: '請填寫課程代碼' });
+    }
+    if (resolvedCourseCode && !resolvedCourseName) {
+      return res.status(400).json({ error: '請填寫課程名稱' });
     }
 
     // 解析 Excel 檔案
@@ -103,6 +130,10 @@ const importClassRoster = async (req, res, next) => {
     let membersUpserted = 0;
     let skipped = 0;
     const warnings = [];
+    const importBatchId = newImportBatchId('class-roster', semester);
+    const createdMembershipIds = [];
+    const updatedSnapshots = [];
+    let resolvedClassId = null;
 
     // 處理每一行資料
     for (let i = 0; i < data.length; i++) {
@@ -134,6 +165,21 @@ const importClassRoster = async (req, res, next) => {
         } else {
           classesUpdated++;
         }
+        resolvedClassId = classRecord.id;
+
+        const existingMembership = await ClassMembership.findOne({
+          where: { semester, classId: classRecord.id, studentId },
+        });
+        if (existingMembership) {
+          updatedSnapshots.push({
+            id: existingMembership.id,
+            studentId: existingMembership.studentId,
+            studentName: existingMembership.studentName,
+            department: existingMembership.department,
+            email: existingMembership.email,
+            grade: existingMembership.grade,
+          });
+        }
 
         // 處理班級成員
         await ClassMembership.upsert({
@@ -146,12 +192,36 @@ const importClassRoster = async (req, res, next) => {
           grade: fieldMapping.grade ? parseInt(row[fieldMapping.grade]) || null : null
         });
 
+        if (!existingMembership) {
+          const createdMembership = await ClassMembership.findOne({
+            where: { semester, classId: classRecord.id, studentId },
+            attributes: ['id'],
+          });
+          if (createdMembership?.id) createdMembershipIds.push(createdMembership.id);
+        }
+
         membersUpserted++;
 
       } catch (error) {
         warnings.push(`第 ${rowNum} 行處理失敗：${error.message}`);
         skipped++;
       }
+    }
+
+    if (resolvedClassId && (createdMembershipIds.length || updatedSnapshots.length)) {
+      await importRollbackManifestService.saveManifest({
+        importBatchId,
+        sourceModule: 'admin_classes',
+        kind: 'class_roster',
+        manifest: {
+          kind: 'class_roster',
+          classId: resolvedClassId,
+          semester,
+          className,
+          createdMembershipIds,
+          updatedSnapshots,
+        },
+      });
     }
 
     auditLogService.logAuditAsync({
@@ -161,6 +231,10 @@ const importClassRoster = async (req, res, next) => {
       entityId: `${semester}:${className}:${teacherName}`,
       targetSummary: `semester=${semester}, className=${className}`,
       afterData: {
+        importBatchId,
+        classId: resolvedClassId,
+        semester,
+        className,
         classesCreated,
         classesUpdated,
         membersUpserted,
@@ -173,6 +247,7 @@ const importClassRoster = async (req, res, next) => {
     res.json({
       ok: true,
       semester,
+      importBatchId,
       classesCreated,
       classesUpdated,
       membersUpserted,
@@ -197,6 +272,114 @@ const importClassRoster = async (req, res, next) => {
   }
 };
 
+function unlinkUploadQuietly(file) {
+  if (!file?.path) return;
+  try {
+    fs.unlinkSync(file.path);
+  } catch (_) {
+    // ignore cleanup errors
+  }
+}
+
+/**
+ * PDF 預覽：解析選課系統修課名單，不寫入 DB
+ * POST /api/admin/classes/roster/import-pdf/preview
+ */
+const previewClassRosterPdf = async (req, res, next) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: '請上傳 PDF 檔案' });
+    }
+    const buffer = fs.readFileSync(file.path);
+    const parsed = await parseClassRosterPdf(buffer);
+    unlinkUploadQuietly(file);
+    return res.json({
+      ok: true,
+      preview: true,
+      ...parsed,
+      suggestedClassName: buildClassDisplayName(parsed.course?.courseName, parsed.course?.courseCode),
+    });
+  } catch (error) {
+    unlinkUploadQuietly(req.file);
+    if (error.code && String(error.code).startsWith('PDF_')) {
+      return res.status(422).json({ error: error.message, code: error.code });
+    }
+    return next(error);
+  }
+};
+
+/**
+ * PDF 匯入：可帶覆寫的學期／課程名稱／課程代碼／老師姓名
+ * POST /api/admin/classes/roster/import-pdf
+ * multipart: file + optional fields semester, courseName, courseCode, teacherName
+ */
+const importClassRosterPdf = async (req, res, next) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: '請上傳 PDF 檔案' });
+    }
+    const buffer = fs.readFileSync(file.path);
+    const parsed = await parseClassRosterPdf(buffer);
+    unlinkUploadQuietly(file);
+
+    const body = req.body || {};
+    const semester = String(body.semester || req.query.semester || parsed.course?.semester || '').trim();
+    const courseName = String(body.courseName || req.query.courseName || parsed.course?.courseName || '').trim();
+    const courseCode = String(body.courseCode || req.query.courseCode || parsed.course?.courseCode || '').trim();
+    const teacherName = String(body.teacherName || req.query.teacherName || parsed.course?.teacherName || '').trim();
+    const className = buildClassDisplayName(courseName, courseCode);
+
+    if (!semester || !courseName || !courseCode || !teacherName) {
+      return res.status(400).json({
+        error: '請確認學期、課程名稱、課程代碼、老師姓名皆已填寫',
+        parsedCourse: parsed.course,
+      });
+    }
+
+    const result = await applyStructuredClassRosterImport({
+      semester,
+      className,
+      teacherName,
+      students: parsed.students,
+      source: 'selcrs_pdf',
+      req,
+    });
+
+    return res.json({
+      ...result,
+      course: {
+        semester,
+        courseName,
+        courseCode,
+        teacherName,
+      },
+      parseStats: parsed.stats,
+      parseWarnings: parsed.warnings,
+    });
+  } catch (error) {
+    unlinkUploadQuietly(req.file);
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
+    if (error.code && String(error.code).startsWith('PDF_')) {
+      return res.status(422).json({ error: error.message, code: error.code });
+    }
+    auditLogService.logAuditAsync({
+      module: 'admin_classes',
+      action: 'import_class_roster',
+      entityType: 'ClassRosterImport',
+      entityId: 'pdf_import_failed',
+      targetSummary: 'import_class_roster_pdf_failed',
+      status: 'failed',
+      errorMessage: error && error.message ? error.message : String(error),
+      req,
+    });
+    return next(error);
+  }
+};
+
 /**
  * 取得班級總覽
  */
@@ -206,6 +389,9 @@ const getClassOverview = async (req, res, next) => {
       semester = '114-1',
       activityType = 'All',
       q = '',
+      search = '',
+      studentId = '',
+      teacherName = '',
       sortBy = 'coverage',
       sortOrder = 'desc',
       page = 1,
@@ -221,17 +407,91 @@ const getClassOverview = async (req, res, next) => {
 
     // 建立查詢條件
     const whereClause = { semester };
-    
-    // 如果是老師，只能看到自己的班級
-    if (req.user && req.user.role === 'teacher') {
-      whereClause.teacherName = req.user.name;
+
+    const classScopeWhere = buildClassScopeWhere(req.user);
+    if (classScopeWhere === null) {
+      return res.status(403).json({
+        success: false,
+        errorCode: 'MISSING_CLASS_CONTEXT',
+        message: '此操作需要指定活動或班級資料來源。',
+      });
     }
+    Object.assign(whereClause, classScopeWhere);
     
-    if (q) {
+    const classSearch = q || search;
+    if (classSearch) {
       whereClause[Op.or] = [
-        { name: { [Op.like]: `%${q}%` } },
-        { department: { [Op.like]: `%${q}%` } }
+        { name: { [Op.like]: `%${classSearch}%` } },
+        { department: { [Op.like]: `%${classSearch}%` } }
       ];
+    }
+
+    const teacherSearch = String(teacherName || '').trim();
+    if (teacherSearch) {
+      const teacherFilter = { [Op.like]: `%${teacherSearch}%` };
+      if (whereClause.teacherName) {
+        whereClause[Op.and] = [
+          ...(whereClause[Op.and] || []),
+          { teacherName: whereClause.teacherName },
+          { teacherName: teacherFilter }
+        ];
+        delete whereClause.teacherName;
+      } else {
+        whereClause.teacherName = teacherFilter;
+      }
+    }
+
+    const cleanedStudentId = cleanStudentId(studentId);
+    if (cleanedStudentId) {
+      const semesterReservation = await Reservation.findOne({
+        attributes: ['id'],
+        include: [{
+          model: Event,
+          attributes: [],
+          where: {
+            date: {
+              [Op.between]: [semesterRange.start, semesterRange.end]
+            }
+          }
+        }],
+        where: { studentId: cleanedStudentId }
+      });
+
+      if (!semesterReservation) {
+        return res.json({
+          data: [],
+          pagination: {
+            page: parseInt(page),
+            pageSize: parseInt(pageSize),
+            total: 0,
+            totalPages: 0
+          }
+        });
+      }
+
+      const matchingMemberships = await ClassMembership.findAll({
+        attributes: ['classId'],
+        where: {
+          semester,
+          studentId: cleanedStudentId
+        },
+        group: ['classId']
+      });
+
+      const classIds = matchingMemberships.map(m => m.classId).filter(Boolean);
+      if (classIds.length === 0) {
+        return res.json({
+          data: [],
+          pagination: {
+            page: parseInt(page),
+            pageSize: parseInt(pageSize),
+            total: 0,
+            totalPages: 0
+          }
+        });
+      }
+
+      whereClause.id = { [Op.in]: classIds };
     }
 
     // 取得班級列表
@@ -360,15 +620,15 @@ const getClassDetail = async (req, res, next) => {
 
     // 取得班級基本資訊
     const classRecord = await Class.findByPk(classId);
+    if (classRecord) {
+      try {
+        await assertCanAccessClass(req.user, classRecord);
+      } catch (scopeErr) {
+        return sendClassScopeDenied(res, scopeErr);
+      }
+    }
     if (!classRecord) {
       return res.status(404).json({ error: '找不到班級' });
-    }
-
-    // 如果是老師，檢查是否為該老師的班級
-    if (req.user && req.user.role === 'teacher') {
-      if (classRecord.teacherName !== req.user.name) {
-        return res.status(403).json({ error: '您沒有權限查看此班級' });
-      }
     }
 
     // 取得班級成員
@@ -443,12 +703,16 @@ const exportClassOverview = async (req, res, next) => {
 
     // 建立查詢條件
     const whereClause = { semester };
-    
-    // 如果是老師，只能匯出自己的班級
-    if (req.user && req.user.role === 'teacher') {
-      whereClause.teacherName = req.user.name;
+    const exportOverviewScopeWhere = buildClassScopeWhere(req.user);
+    if (exportOverviewScopeWhere === null) {
+      return res.status(403).json({
+        success: false,
+        errorCode: 'MISSING_CLASS_CONTEXT',
+        message: '此操作需要指定活動或班級資料來源。',
+      });
     }
-
+    Object.assign(whereClause, exportOverviewScopeWhere);
+    
     // 取得所有班級資料
     const classes = await Class.findAll({
       where: whereClause,
@@ -537,13 +801,16 @@ const exportClassOverview = async (req, res, next) => {
 
     await workbook.xlsx.write(res);
 
-    auditLogService.logAuditAsync({
-      module: 'admin_classes',
-      action: 'export_class_overview_excel',
+    logExportAudit(req, {
+      module: 'class',
+      action: 'class_overview_export',
       entityType: 'ClassExport',
       entityId: `overview:${semester}`,
-      targetSummary: `semester=${semester}`,
-      req,
+      exportType: 'xlsx',
+      reportType: 'class_overview',
+      rowCount: classStats.length,
+      filters: { semester, activityType },
+      fileName: `班級參與概況_${semester}.xlsx`,
     });
 
     res.end();
@@ -568,15 +835,15 @@ const exportClassDetail = async (req, res, next) => {
 
     // 取得班級資訊
     const classRecord = await Class.findByPk(classId);
+    if (classRecord) {
+      try {
+        await assertCanAccessClass(req.user, classRecord);
+      } catch (scopeErr) {
+        return sendClassScopeDenied(res, scopeErr);
+      }
+    }
     if (!classRecord) {
       return res.status(404).json({ error: '找不到班級' });
-    }
-
-    // 如果是老師，檢查是否為該老師的班級
-    if (req.user && req.user.role === 'teacher') {
-      if (classRecord.teacherName !== req.user.name) {
-        return res.status(403).json({ error: '您沒有權限匯出此班級' });
-      }
     }
 
     // 取得班級成員
@@ -631,13 +898,16 @@ const exportClassDetail = async (req, res, next) => {
 
     await workbook.xlsx.write(res);
 
-    auditLogService.logAuditAsync({
-      module: 'admin_classes',
-      action: 'export_class_detail_excel',
+    logExportAudit(req, {
+      module: 'class',
+      action: 'class_students_export',
       entityType: 'ClassExport',
       entityId: `detail:${classId}:${semester}`,
-      targetSummary: `classId=${classId}, semester=${semester}`,
-      req,
+      exportType: 'xlsx',
+      reportType: 'class_students',
+      rowCount: studentStats.length,
+      filters: { semester, activityType, classId: Number(classId) },
+      fileName: `${classRecord.name}_明細_${semester}.xlsx`,
     });
 
     res.end();
@@ -993,22 +1263,6 @@ function getHeaderSuggestionsNewFormat(headers) {
 }
 
 /**
- * 清洗字串資料
- */
-function cleanString(value) {
-  if (!value) return null;
-  return String(value).trim().replace(/\s+/g, ' ');
-}
-
-/**
- * 清洗學號資料
- */
-function cleanStudentId(value) {
-  if (!value) return null;
-  return String(value).trim().toUpperCase().replace(/\s+/g, '');
-}
-
-/**
  * 刪除班級與相關資料
  * DELETE /api/admin/classes/:classId
  */
@@ -1058,6 +1312,8 @@ async function deleteClassRecord(req, res) {
 
 module.exports = {
   importClassRoster,
+  previewClassRosterPdf,
+  importClassRosterPdf,
   getClassOverview,
   getClassDetail,
   exportClassOverview,

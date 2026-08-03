@@ -1,0 +1,70 @@
+---
+description: EEARS DB schema 修改工作流程（migration、down 可逆、交易與測試）
+alwaysApply: false
+---
+
+# eears-database-schema-change-workflow（DB schema 變更）
+
+## 1) 觸發時機
+
+- 新增/調整表、欄位、FK/索引/唯一鍵
+- ENUM 擴充或欄位型別對齊
+- 涉及匯入/預約/問卷/黑名單/LJ/BESTEP 的 schema 契約
+
+## 2) 分析步驟
+
+1. 決定變更類型
+   - 新表/欄位/索引/unique/FK/ENUM
+2. 檢查關聯與型別契約
+   - FK 型別必須與被參照欄位一致（見 `.cursor/rules/database-migrations.mdc`）
+3. 找出受影響的程式鏈
+   - models / services / routes / tests / import flows
+
+## 3) 修改步驟
+
+1. 只用 migration（不要 sync）
+   - 新 migration：`YYYYMMDDHHMMSS-kebab-description.js`
+   - `down()` 必須可逆
+2. 更新模型
+   - models 新增/調整欄位
+   - 更新 `models/index.js` 關聯
+3. 若涉及大量資料搬遷/backfill
+   - 優先走既有 scripts 或新建 scripts（migration 內避免大量轉換）
+
+## 4) 測試步驟
+
+1. 本機 migration 驗證
+   - 在 `reservation-backend`：
+     - 跑 migration
+     - 驗證主要 flow 測試（至少相關 Jest）
+2. 後端測試
+   - `npm test -- --runInBand`（pass/fail）
+
+## 5) Code review 步驟
+
+- `down` 能否正確回復？
+- FK / unique / index 是否符合預期查詢模式？
+- 是否會影響匯入 dedupe/transaction 行為？
+- 任何 schema 例外是否有註記與測試？
+
+## 6) 最終回報格式
+
+```text
+【DB 變更摘要】
+- ...
+
+【migration 檔】
+- 路徑：...
+
+【影響契約】
+- 相關 endpoint/service（列出）
+- 是否影響交易/匯入一致性
+
+【測試與驗證】
+- migration up/down：pass/fail
+- Jest：pass/fail
+
+【回滾計畫】
+- 依 down 或備份還原策略
+```
+

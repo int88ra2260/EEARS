@@ -1,117 +1,137 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge } from 'react-bootstrap';
-import { useLanguage } from '../../context/LanguageContext';
+import ContentText from '../siteContent/ContentText';
 import useAnnouncements from '../../hooks/useAnnouncements';
 import { announcementDetailPath, truncateAnnouncementPreview } from '../../services/announcementApi';
 import { ANNOUNCEMENT_CATEGORY_LABELS } from '../../constants/announcementLabels';
+import { formatDateYMD } from '../../utils/announcementFormatters';
 import './home.css';
 
-export default function AnnouncementPreview() {
-  const { t } = useLanguage();
-  const { items, loading, error } = useAnnouncements(3);
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    try {
-      const d = new Date(dateStr);
-      return Number.isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
-    } catch {
-      return dateStr;
+function sortAnnouncements(items) {
+  return [...items].sort((a, b) => {
+    if (Boolean(a.isPinned) !== Boolean(b.isPinned)) {
+      return b.isPinned ? 1 : -1;
     }
-  };
+    const aTime = new Date(a.date || a.publishedAt || 0).getTime();
+    const bTime = new Date(b.date || b.publishedAt || 0).getTime();
+    return bTime - aTime;
+  });
+}
+
+export default function AnnouncementPreview() {
+  const { items, loading, error } = useAnnouncements(4);
+  const sortedItems = useMemo(() => sortAnnouncements(items), [items]);
 
   return (
-    <section id="announcements" className="home-section" aria-labelledby="announcements-title">
-      <h2 id="announcements-title" className="home-section-title">
-        {t('homePage.announcementsTitle')}
-      </h2>
+    <section id="announcements" className="home-section home-section--flat" aria-labelledby="announcements-title">
+      <div className="home-shell home-reveal">
+        <header className="home-section__header home-section__header--split">
+          <div>
+            <ContentText k="homePage.announcementsKicker" as="p" className="home-kicker home-kicker--section" />
+            <ContentText
+              k="homePage.announcementsTitle"
+              as="h2"
+              id="announcements-title"
+              className="home-section__title"
+            />
+            <ContentText k="homePage.announcementsLead" as="p" className="home-section__lead" />
+          </div>
+          <Link to="/announcements" className="home-btn home-btn--ghost home-section__header-action">
+            <ContentText k="homePage.viewAllAnnouncements" />
+          </Link>
+        </header>
 
-      {loading && (
-        <div className="home-announcements-loading" aria-busy="true" aria-live="polite">
-          <div className="home-announcements-skeleton">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="home-announcement-card home-announcement-skeleton-card">
-                <div className="skeleton-line skeleton-meta" />
-                <div className="skeleton-line skeleton-title" />
-                <div className="skeleton-line skeleton-summary" />
+        {loading && (
+          <div className="home-announce-grid home-announce-grid--bento" aria-busy="true" aria-live="polite">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className={`home-announce-card home-announce-card--skeleton${i === 1 ? ' home-announce-card--featured' : ''}`}
+              >
+                <div className="home-skeleton home-skeleton--meta" />
+                <div className="home-skeleton home-skeleton--title" />
+                <div className="home-skeleton home-skeleton--body" />
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {!loading && error && (
-        <div className="home-announcements-error">
-          <p className="home-announcements-error-text">{t('homePage.announcementsError')}</p>
-          <div className="home-announcements-error-actions">
-            <Link to="/" className="btn btn-outline-primary">{t('homePage.announcementsEmptyBack')}</Link>
-            <Link to="/activities" className="btn btn-primary">{t('homePage.announcementsEmptyActivities')}</Link>
+        {!loading && error && (
+          <div className="home-empty-state">
+            <p><ContentText k="homePage.announcementsError" /></p>
+            <div className="home-empty-state__actions">
+              <Link to="/" className="home-btn home-btn--ghost">
+                <ContentText k="homePage.announcementsEmptyBack" />
+              </Link>
+              <Link to="/activities" className="home-btn home-btn--solid">
+                <ContentText k="homePage.announcementsEmptyActivities" />
+              </Link>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {!loading && !error && items.length > 0 && (
-        <>
-          <div className="home-announcements-grid">
-            {items.map((item) => (
-              <article key={item.id} className="home-announcement-card">
-                {item.coverImage ? (
-                  <Link to={announcementDetailPath(item)} className="home-announcement-cover-link d-block mb-2">
+        {!loading && !error && sortedItems.length > 0 && (
+          <div className="home-announce-grid home-announce-grid--bento">
+            {sortedItems.map((item, index) => (
+              <Link
+                key={item.id}
+                to={announcementDetailPath(item)}
+                className={[
+                  'home-announce-card-link',
+                  index === 0 ? 'home-announce-card-link--featured' : '',
+                ].filter(Boolean).join(' ')}
+              >
+                <article className="home-announce-card">
+                  {item.coverImage ? (
                     <img
                       src={item.coverImage}
                       alt={item.coverImageAlt || ''}
-                      className="home-announcement-cover img-fluid rounded"
+                      className="home-announce-card__cover"
                       onError={(e) => {
                         e.target.style.display = 'none';
                       }}
                     />
-                  </Link>
-                ) : null}
-                <p className="meta d-flex flex-wrap align-items-center gap-1">
-                  <span>{formatDate(item.date)}</span>
-                  {item.category ? (
-                    <Badge bg="light" text="dark" className="fw-normal">
-                      {ANNOUNCEMENT_CATEGORY_LABELS[item.category] || item.category}
-                    </Badge>
                   ) : null}
-                  {item.isPinned ? (
-                    <Badge bg="warning" text="dark" className="fw-normal">
-                      置頂
-                    </Badge>
-                  ) : null}
-                </p>
-                <h4>
-                  <Link to={announcementDetailPath(item)} className="text-decoration-none text-dark">
-                    {item.title}
-                  </Link>
-                </h4>
-                {item.summary && (
-                  <p className="summary">{truncateAnnouncementPreview(item.summary, 80)}</p>
-                )}
-                <Link to={announcementDetailPath(item)} className="btn btn-sm btn-outline-primary mt-2">
-                  {t('homePage.readMore')}
-                </Link>
-              </article>
+                  <div className="home-announce-card__content">
+                    <div className="home-announce-card__meta">
+                      <time dateTime={item.date}>{formatDateYMD(item.date)}</time>
+                      {item.category ? (
+                        <span className="home-tag home-tag--neutral">
+                          {ANNOUNCEMENT_CATEGORY_LABELS[item.category] || item.category}
+                        </span>
+                      ) : null}
+                      {item.isPinned ? (
+                        <span className="home-tag home-tag--yellow">
+                          <ContentText k="homePage.pinnedBadge" />
+                        </span>
+                      ) : null}
+                    </div>
+                    <h3>{item.title}</h3>
+                    {item.summary ? (
+                      <p>{truncateAnnouncementPreview(item.summary, index === 0 ? 120 : 88)}</p>
+                    ) : null}
+                    <span className="home-text-link">
+                      <ContentText k="homePage.readMore" />
+                      <span aria-hidden="true"> →</span>
+                    </span>
+                  </div>
+                </article>
+              </Link>
             ))}
           </div>
-          <div className="text-center mt-3">
-            <Link to="/announcements" className="btn btn-outline-primary">
-              {t('homePage.viewAllAnnouncements')}
-            </Link>
-          </div>
-        </>
-      )}
+        )}
 
-      {!loading && !error && items.length === 0 && (
-        <div className="home-announcements-empty">
-          <p className="home-announcements-empty-text">{t('homePage.noAnnouncements')}</p>
-          <div className="home-announcements-empty-actions">
-            <Link to="/" className="btn btn-outline-primary">{t('homePage.announcementsEmptyBack')}</Link>
-            <Link to="/activities" className="btn btn-primary">{t('homePage.announcementsEmptyActivities')}</Link>
+        {!loading && !error && sortedItems.length === 0 && (
+          <div className="home-empty-state">
+            <p><ContentText k="homePage.noAnnouncements" /></p>
+            <div className="home-empty-state__actions">
+              <Link to="/activities" className="home-btn home-btn--solid">
+                <ContentText k="homePage.announcementsEmptyActivities" />
+              </Link>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 }

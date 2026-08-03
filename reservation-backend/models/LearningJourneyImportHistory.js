@@ -5,13 +5,13 @@ const LearningJourneyImportHistory = sequelize.define('LearningJourneyImportHist
   id: { type: DataTypes.BIGINT.UNSIGNED, autoIncrement: true, primaryKey: true },
   semesterId: { type: DataTypes.STRING(20), allowNull: true, field: 'semester_id' },
   importType: {
-    type: DataTypes.ENUM('enrollment', 'external_exam'),
+    type: DataTypes.ENUM('enrollment', 'external_exam', 'baseline_gsat'),
     allowNull: false,
     field: 'import_type'
   },
   sourceFile: { type: DataTypes.STRING(255), allowNull: true, field: 'source_file' },
   status: {
-    type: DataTypes.ENUM('success', 'partial', 'failed'),
+    type: DataTypes.ENUM('success', 'partial', 'failed', 'rolled_back'),
     allowNull: false,
     defaultValue: 'success'
   },

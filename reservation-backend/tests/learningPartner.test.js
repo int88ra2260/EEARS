@@ -1,190 +1,190 @@
-// tests/learningPartner.test.js
-// 學習有伴團體報名功能整合測試
-
 const request = require('supertest');
-const app = require('../server');
-const { LearningPartnerTeam, LearningPartnerTeamMember, EnglishTestRegistration } = require('../models');
+const express = require('express');
 
-describe('Learning Partner API Tests', () => {
-  let testRegistrations = [];
-  let testTeamId = null;
+const mockSettingsFindOne = jest.fn();
+const mockTeamCount = jest.fn();
+const mockTeamCreate = jest.fn();
+const mockTeamFindByPk = jest.fn();
+const mockMemberCreate = jest.fn();
+const mockMemberFindOne = jest.fn();
+const mockMemberFindAll = jest.fn();
+const mockMemberFindOneInOtherTeam = jest.fn();
+const mockRegistrationFindOne = jest.fn();
+const mockTeamTx = { commit: jest.fn(), rollback: jest.fn() };
+const mockMemberTx = { commit: jest.fn(), rollback: jest.fn() };
 
-  beforeAll(async () => {
-    // 建立測試用的個人報名記錄（status = 'success'）
-    testRegistrations = await Promise.all([
-      EnglishTestRegistration.create({
+jest.mock('../models', () => {
+  const sequelizeLock = { UPDATE: 'UPDATE' };
+  return {
+    Op: { in: Symbol('in') },
+    Sequelize: { Transaction: { LOCK: sequelizeLock } },
+    QueryTypes: {},
+    Settings: { findOne: (...args) => mockSettingsFindOne(...args) },
+    EnglishTestRegistration: { findOne: (...args) => mockRegistrationFindOne(...args) },
+    LearningPartnerTeam: {
+      sequelize: { transaction: jest.fn(async () => mockTeamTx) },
+      count: (...args) => mockTeamCount(...args),
+      create: (...args) => mockTeamCreate(...args),
+      findByPk: (...args) => mockTeamFindByPk(...args),
+    },
+    LearningPartnerTeamMember: {
+      sequelize: { transaction: jest.fn(async () => mockMemberTx) },
+      findOne: (...args) => {
+        const query = args[0] || {};
+        if (Array.isArray(query.include) && query.include[0] && query.include[0].as === 'team') {
+          return mockMemberFindOneInOtherTeam(...args);
+        }
+        return mockMemberFindOne(...args);
+      },
+      create: (...args) => mockMemberCreate(...args),
+      findAll: (...args) => mockMemberFindAll(...args),
+      update: jest.fn(),
+    },
+    sequelize: { query: jest.fn() },
+  };
+});
+
+jest.mock('../middlewares/auth', () => ({
+  authMiddleware: (_req, _res, next) => next(),
+  adminExecutiveOrDeputyMiddleware: (_req, _res, next) => next(),
+  requirePermission: () => (_req, _res, next) => next(),
+  P: {
+    CAN_MANAGE_LEARNING_PARTNER_ADMIN: 'can_manage_learning_partner_admin',
+  },
+}));
+
+jest.mock('../config/email', () => ({ sendEmail: jest.fn() }));
+jest.mock('../utils/emailQueue', () => ({ enqueue: jest.fn(async () => {}) }));
+
+const router = require('../routes/learningPartnerRouter');
+
+function resetDefaults() {
+  jest.clearAllMocks();
+  mockSettingsFindOne.mockResolvedValue({ value: 'true', valueBool: true });
+  mockTeamCount.mockResolvedValue(0);
+  mockRegistrationFindOne.mockImplementation(async ({ where }) => ({
+    id: where.studentId === 'TEST001' ? 1 : 2,
+    email: `${String(where.studentId).toLowerCase()}@example.com`,
+  }));
+  mockMemberFindOneInOtherTeam.mockResolvedValue(null);
+  mockTeamCreate.mockResolvedValue({
+    id: 501,
+    teamName: '測試團體',
+    teamSize: 3,
+    status: 'pending_approval',
+    expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+  });
+  let memberId = 1;
+  mockMemberCreate.mockImplementation(async (attrs) => ({
+    id: memberId++,
+    ...attrs,
+  }));
+  mockTeamFindByPk.mockResolvedValue({
+    id: 501,
+    teamName: '測試團體',
+    teamSize: 3,
+    status: 'pending_approval',
+    representativeStudentId: 'TEST001',
+    createdAt: new Date(),
+    expiresAt: new Date(Date.now() + 2 * 3600 * 1000),
+    approvedAt: null,
+    members: [
+      {
         studentId: 'TEST001',
         name: '測試學生一',
-        idNumber: 'A123456789',
-        email: 'test1@example.com',
-        studentNameZh: '測試學生一',
-        lastNameEn: 'TEST',
-        firstNameEn: 'ONE',
-        hasCEFRB2: '否',
-        status: 'success',
-        agreedToTerms: true,
-        infoSource: '其他'
-      }),
-      EnglishTestRegistration.create({
-        studentId: 'TEST002',
-        name: '測試學生二',
-        idNumber: 'A987654321',
-        email: 'test2@example.com',
-        studentNameZh: '測試學生二',
-        lastNameEn: 'TEST',
-        firstNameEn: 'TWO',
-        hasCEFRB2: '否',
-        status: 'success',
-        agreedToTerms: true,
-        infoSource: '其他'
-      }),
-      EnglishTestRegistration.create({
-        studentId: 'TEST003',
-        name: '測試學生三',
-        idNumber: 'A111222333',
-        email: 'test3@example.com',
-        studentNameZh: '測試學生三',
-        lastNameEn: 'TEST',
-        firstNameEn: 'THREE',
-        hasCEFRB2: '否',
-        status: 'success',
-        agreedToTerms: true,
-        infoSource: '其他'
-      })
-    ]);
+        email: 'aaa@example.com',
+        isRepresentative: true,
+        approvalStatus: 'pending',
+        toJSON() { return this; },
+      },
+    ],
+  });
+  mockMemberFindOne.mockResolvedValue(null);
+  mockMemberFindAll.mockResolvedValue([{ approvalStatus: 'approved', email: 'a@a.com', name: 'A', studentId: 'TEST001' }]);
+}
+
+describe('Learning Partner Router unit tests (DB mocked)', () => {
+  let app;
+
+  beforeEach(() => {
+    resetDefaults();
+    app = express();
+    app.use(express.json());
+    app.use('/api', router);
   });
 
-  afterAll(async () => {
-    // 清理測試資料
-    if (testTeamId) {
-      await LearningPartnerTeamMember.destroy({ where: { teamId: testTeamId } });
-      await LearningPartnerTeam.destroy({ where: { id: testTeamId } });
-    }
-    await EnglishTestRegistration.destroy({ where: { studentId: { [require('sequelize').Op.in]: ['TEST001', 'TEST002', 'TEST003'] } } });
+  it('POST /api/learning-partner/teams 建立成功', async () => {
+    const response = await request(app).post('/api/learning-partner/teams').send({
+      teamName: '測試團體',
+      teamSize: 3,
+      members: [
+        { studentId: 'TEST001', name: '測試學生一' },
+        { studentId: 'TEST002', name: '測試學生二' },
+        { studentId: 'TEST003', name: '測試學生三' },
+      ],
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.team.id).toBe(501);
+    expect(mockTeamTx.commit).toHaveBeenCalled();
   });
 
-  describe('POST /api/learning-partner/teams', () => {
-    test('應該成功建立 2 人團體', async () => {
-      const response = await request(app)
-        .post('/api/learning-partner/teams')
-        .send({
-          teamName: '測試團體',
-          teamSize: 2,
-          members: [
-            { studentId: 'TEST001', name: '測試學生一' },
-            { studentId: 'TEST002', name: '測試學生二' }
-          ]
-        });
-
-      expect(response.status).toBe(201);
-      expect(response.body.team).toBeDefined();
-      expect(response.body.team.teamSize).toBe(2);
-      expect(response.body.team.status).toBe('pending_approval');
-      testTeamId = response.body.team.id;
-    });
-
-    test('應該拒絕不符合資格的成員', async () => {
-      const response = await request(app)
-        .post('/api/learning-partner/teams')
-        .send({
-          teamSize: 2,
-          members: [
-            { studentId: 'INVALID001', name: '不存在學生' },
-            { studentId: 'TEST001', name: '測試學生一' }
-          ]
-        });
-
-      expect(response.status).toBe(400);
-      expect(response.body.code).toBe('LP_MEMBER_NOT_ELIGIBLE');
-      expect(response.body.ineligibleMembers).toBeDefined();
-    });
-
-    test('應該拒絕無效的團隊人數', async () => {
-      const response = await request(app)
-        .post('/api/learning-partner/teams')
-        .send({
-          teamSize: 5, // 超過上限
-          members: [
-            { studentId: 'TEST001', name: '測試學生一' },
-            { studentId: 'TEST002', name: '測試學生二' },
-            { studentId: 'TEST003', name: '測試學生三' },
-            { studentId: 'TEST001', name: '測試學生一' },
-            { studentId: 'TEST002', name: '測試學生二' }
-          ]
-        });
-
-      expect(response.status).toBe(400);
-      expect(response.body.code).toBe('LP_INVALID_TEAM_SIZE');
-    });
-  });
-
-  describe('GET /api/learning-partner/teams/:teamId', () => {
-    test('應該成功查詢團體狀態', async () => {
-      if (!testTeamId) {
-        // 如果前面的測試失敗，先建立一個團體
-        const createResponse = await request(app)
-          .post('/api/learning-partner/teams')
-          .send({
-            teamSize: 2,
-            members: [
-              { studentId: 'TEST001', name: '測試學生一' },
-              { studentId: 'TEST002', name: '測試學生二' }
-            ]
-          });
-        testTeamId = createResponse.body.team.id;
+  it('POST /api/learning-partner/teams 團體報名關閉時回 403', async () => {
+    mockSettingsFindOne.mockImplementation(async ({ where }) => {
+      if (where.key === 'english_test_registration_group_enabled') {
+        return { value: 'false', valueBool: false };
       }
-
-      const response = await request(app)
-        .get(`/api/learning-partner/teams/${testTeamId}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.team).toBeDefined();
-      expect(response.body.team.id).toBe(testTeamId);
-      expect(response.body.team.members).toBeDefined();
+      return { value: 'true', valueBool: true };
     });
 
-    test('應該回傳 404 當團體不存在', async () => {
-      const response = await request(app)
-        .get('/api/learning-partner/teams/99999');
-
-      expect(response.status).toBe(404);
+    const response = await request(app).post('/api/learning-partner/teams').send({
+      teamName: '測試團體',
+      teamSize: 3,
+      members: [
+        { studentId: 'TEST001', name: '測試學生一' },
+        { studentId: 'TEST002', name: '測試學生二' },
+        { studentId: 'TEST003', name: '測試學生三' },
+      ],
     });
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe('LP_FEATURE_DISABLED');
+    expect(mockTeamTx.rollback).toHaveBeenCalled();
   });
 
-  describe('POST /api/learning-partner/approve/confirm', () => {
-    test('應該成功完成同意', async () => {
-      if (!testTeamId) return;
-
-      // 取得成員的 token
-      const member = await LearningPartnerTeamMember.findOne({
-        where: { teamId: testTeamId, studentId: 'TEST001' }
-      });
-
-      if (!member || !member.approvalToken) {
-        console.log('無法取得 token，跳過此測試');
-        return;
-      }
-
-      const response = await request(app)
-        .post('/api/learning-partner/approve/confirm')
-        .send({ token: member.approvalToken });
-
-      // 第一次應該成功
-      if (response.status === 200) {
-        expect(response.body.team).toBeDefined();
-      } else {
-        // 如果已經同意過，會回傳錯誤
-        expect(response.status).toBe(400);
-      }
+  it('POST /api/learning-partner/teams 團隊人數錯誤會 400', async () => {
+    const response = await request(app).post('/api/learning-partner/teams').send({
+      teamSize: 5,
+      members: [],
     });
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('LP_INVALID_TEAM_SIZE');
+  });
 
-    test('應該拒絕無效的 token', async () => {
-      const response = await request(app)
-        .post('/api/learning-partner/approve/confirm')
-        .send({ token: 'invalid-token' });
-
-      expect(response.status).toBe(404);
-      expect(response.body.code).toBe('LP_TOKEN_INVALID');
+  it('POST /api/learning-partner/teams 成員不符資格會 400', async () => {
+    mockRegistrationFindOne.mockResolvedValueOnce(null);
+    const response = await request(app).post('/api/learning-partner/teams').send({
+      teamSize: 3,
+      members: [
+        { studentId: 'INVALID', name: '不存在學生' },
+        { studentId: 'TEST002', name: '測試學生二' },
+        { studentId: 'TEST003', name: '測試學生三' },
+      ],
     });
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('LP_MEMBER_NOT_ELIGIBLE');
+  });
+
+  it('GET /api/learning-partner/teams/:id 成功回傳團隊', async () => {
+    const response = await request(app).get('/api/learning-partner/teams/501');
+    expect(response.status).toBe(200);
+    expect(response.body.team.id).toBe(501);
+  });
+
+  it('POST /api/learning-partner/approve/confirm 無效 token 回 404', async () => {
+    mockMemberFindOne.mockResolvedValueOnce(null);
+    const response = await request(app).post('/api/learning-partner/approve/confirm').send({ token: 'bad-token' });
+    expect(response.status).toBe(404);
+    expect(response.body.code).toBe('LP_TOKEN_INVALID');
   });
 });

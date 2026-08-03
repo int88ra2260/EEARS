@@ -1,6 +1,8 @@
 import React from 'react';
 import { Table, Button, Badge, Form } from 'react-bootstrap';
 import dayjs from 'dayjs';
+import useMediaQuery from '../../../hooks/useMediaQuery';
+import SkeletonCard from '../../ui/SkeletonCard';
 
 const STATUS_BADGE = {
   draft: { bg: 'secondary', label: '草稿' },
@@ -12,7 +14,7 @@ const STATUS_BADGE = {
 
 function fmt(d) {
   if (!d) return '—';
-  return dayjs(d).format('YYYY-MM-DD HH:mm');
+  return dayjs(d).format('YYYY/MM/DD HH:mm');
 }
 
 function statusBadge(row) {
@@ -29,6 +31,7 @@ export default function AnnouncementTable({
   items,
   loading,
   selectedIds,
+  actionBusyId,
   onToggleSelect,
   onToggleSelectAll,
   onEdit,
@@ -38,15 +41,109 @@ export default function AnnouncementTable({
   onArchive,
   onDuplicate,
 }) {
+  const isMobile = useMediaQuery('(max-width: 767px)');
+
   if (loading) {
-    return <p className="text-muted">載入中…</p>;
+    return (
+      <div>
+        <div className="row g-2">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            // eslint-disable-next-line react/no-array-index-key
+            <div key={idx} className="col-12">
+              <SkeletonCard lines={3} titleHeight={14} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (!items.length) {
-    return <p className="text-muted">沒有符合條件的公告。</p>;
+    return (
+      <div className="text-center text-muted py-4" role="status" aria-live="polite">
+        尚未建立公告。點擊「新增公告」建立第一則公告。
+      </div>
+    );
   }
 
   const allChecked = items.length > 0 && items.every((r) => selectedIds.has(r.id));
+  const isRowBusy = (row) => actionBusyId != null && row?.id === actionBusyId;
+
+  if (isMobile) {
+    return (
+      <div className="d-flex flex-column gap-2">
+        {items.map((row) => (
+          <div key={row.id} className="p-2 border rounded bg-white">
+            <div className="d-flex justify-content-between align-items-start gap-2">
+              <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+                <div
+                  className="fw-semibold"
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                  title={row.title}
+                >
+                  {row.title}
+                </div>
+                <div className="small text-muted d-flex flex-wrap align-items-center gap-2 mt-1">
+                  {statusBadge(row)}
+                  {row.isPinned ? <Badge bg="warning" text="dark">置頂</Badge> : null}
+                  <span title={row.slug}>
+                    <code className="small">{row.slug}</code>
+                  </span>
+                  <span>{fmt(row.publishedAt)}</span>
+                  <span className="text-muted" style={{ opacity: 0.9 }}>
+                    更新 {fmt(row.updatedAt)}
+                  </span>
+                </div>
+              </div>
+
+              <Form.Check
+                checked={selectedIds.has(row.id)}
+                onChange={(e) => onToggleSelect(row.id, e.target.checked)}
+                aria-label={`選取 ${row.title}`}
+                style={{ marginTop: 6, flex: '0 0 auto' }}
+              />
+            </div>
+
+            <div className="d-flex flex-wrap gap-1 mt-2">
+              <Button size="sm" variant="outline-primary" onClick={() => onEdit(row)} disabled={isRowBusy(row)}>
+                編輯
+              </Button>
+              <Button
+                size="sm"
+                variant={row.status === 'published' || row.isPublished ? 'outline-warning' : 'outline-success'}
+                onClick={() => onTogglePublish(row)}
+                disabled={isRowBusy(row)}
+              >
+                {row.status === 'published' || row.isPublished ? '下架' : '發布'}
+              </Button>
+              <Button
+                size="sm"
+                variant={row.isPinned ? 'outline-secondary' : 'outline-info'}
+                onClick={() => onTogglePin(row)}
+                disabled={isRowBusy(row)}
+              >
+                {row.isPinned ? '取消置頂' : '置頂'}
+              </Button>
+              <Button size="sm" variant="outline-dark" onClick={() => onArchive(row)} disabled={isRowBusy(row) || row.status === 'archived'}>
+                封存
+              </Button>
+              <Button size="sm" variant="outline-secondary" onClick={() => onDuplicate(row)} disabled={isRowBusy(row)}>
+                複製
+              </Button>
+              <Button size="sm" variant="outline-danger" onClick={() => onDeleteClick(row)} disabled={isRowBusy(row)}>
+                刪除
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="table-responsive">
@@ -93,13 +190,14 @@ export default function AnnouncementTable({
               <td className="small">{row.authorNameSnapshot || row.authorId || '—'}</td>
               <td>
                 <div className="d-flex flex-wrap gap-1">
-                  <Button size="sm" variant="outline-primary" onClick={() => onEdit(row)}>
+                  <Button size="sm" variant="outline-primary" onClick={() => onEdit(row)} disabled={isRowBusy(row)}>
                     編輯
                   </Button>
                   <Button
                     size="sm"
                     variant={row.status === 'published' || row.isPublished ? 'outline-warning' : 'outline-success'}
                     onClick={() => onTogglePublish(row)}
+                    disabled={isRowBusy(row)}
                   >
                     {row.status === 'published' || row.isPublished ? '下架' : '發布'}
                   </Button>
@@ -107,16 +205,17 @@ export default function AnnouncementTable({
                     size="sm"
                     variant={row.isPinned ? 'outline-secondary' : 'outline-info'}
                     onClick={() => onTogglePin(row)}
+                    disabled={isRowBusy(row)}
                   >
                     {row.isPinned ? '取消置頂' : '置頂'}
                   </Button>
-                  <Button size="sm" variant="outline-dark" onClick={() => onArchive(row)} disabled={row.status === 'archived'}>
+                  <Button size="sm" variant="outline-dark" onClick={() => onArchive(row)} disabled={isRowBusy(row) || row.status === 'archived'}>
                     封存
                   </Button>
-                  <Button size="sm" variant="outline-secondary" onClick={() => onDuplicate(row)}>
+                  <Button size="sm" variant="outline-secondary" onClick={() => onDuplicate(row)} disabled={isRowBusy(row)}>
                     複製
                   </Button>
-                  <Button size="sm" variant="outline-danger" onClick={() => onDeleteClick(row)}>
+                  <Button size="sm" variant="outline-danger" onClick={() => onDeleteClick(row)} disabled={isRowBusy(row)}>
                     刪除
                   </Button>
                 </div>

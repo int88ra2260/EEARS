@@ -12,6 +12,7 @@ const {
   EtExamAttempt,
   ActivityParticipation
 } = require('../../models');
+const { buildSemesterEventFilter } = require('./utils/semesterEventFilter');
 
 const MAX_DIFF_LIST = 200;
 
@@ -274,6 +275,7 @@ async function getSemesterReconciliation(semesterIdRaw) {
   };
 
   /* ---------- E. 活動（reservations+events vs activity_participations） ---------- */
+  const semesterFilter = buildSemesterEventFilter(semesterId);
   const resStudentRows = await safe(
     'reservations_events_by_semester',
     () =>
@@ -282,10 +284,11 @@ async function getSemesterReconciliation(semesterIdRaw) {
         SELECT DISTINCT UPPER(TRIM(r.studentId)) AS studentId
         FROM reservations r
         INNER JOIN events e ON r.eventId = e.id
-        INNER JOIN semesters s ON e.semesterId = s.id
-        WHERE s.code = :semesterCode
+        ${semesterFilter.join}
+        WHERE 1=1
+        ${semesterFilter.where}
         `,
-        { replacements: { semesterCode: semesterId }, type: sequelize.QueryTypes.SELECT }
+        { replacements: semesterFilter.replacements, type: sequelize.QueryTypes.SELECT }
       ),
     errors
   );

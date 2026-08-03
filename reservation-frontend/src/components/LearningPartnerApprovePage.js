@@ -1,8 +1,12 @@
 // components/LearningPartnerApprovePage.js
 // 學習有伴同意落地頁（二次確認）
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import useMediaQuery from '../hooks/useMediaQuery';
+import {
+  confirmLearningPartnerApproval,
+  prepareLearningPartnerApproval,
+} from '../services/learningPartnerPublicApi';
 
 export default function LearningPartnerApprovePage() {
   const [searchParams] = useSearchParams();
@@ -17,34 +21,15 @@ export default function LearningPartnerApprovePage() {
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
-  useEffect(() => {
-    if (!token) {
-      setError('缺少授權 token');
-      setLoading(false);
-      return;
-    }
-    loadTeamInfo();
-  }, [token]);
-
-  const loadTeamInfo = async () => {
+  const loadTeamInfo = useCallback(async () => {
     try {
-      const response = await fetch('/api/learning-partner/approve/prepare', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ token })
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
+      const { ok, data } = await prepareLearningPartnerApproval(token);
+      if (ok) {
         setTeamInfo(data);
         setError(null);
       } else {
         setError(data.error || '載入團體資訊失敗');
         if (data.code === 'LP_TOKEN_USED' || data.code === 'LP_TOKEN_EXPIRED' || data.code === 'LP_TEAM_EXPIRED') {
-          // 如果 token 已使用或過期，顯示團隊資訊（如果有的話）
           if (data.team) {
             setTeamInfo({ team: data.team });
           }
@@ -56,7 +41,16 @@ export default function LearningPartnerApprovePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      setError('缺少授權 token');
+      setLoading(false);
+      return;
+    }
+    loadTeamInfo();
+  }, [token, loadTeamInfo]);
 
   const handleConfirm = async () => {
     if (!token) return;
@@ -64,27 +58,13 @@ export default function LearningPartnerApprovePage() {
     setConfirming(true);
 
     try {
-      const response = await fetch('/api/learning-partner/approve/confirm', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ token })
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setConfirmed(true);
-        setTeamInfo({ team: data.team });
-      } else {
-        alert(data.error || '確認同意時發生錯誤');
-        // 重新載入資訊
-        loadTeamInfo();
-      }
+      const data = await confirmLearningPartnerApproval(token);
+      setConfirmed(true);
+      setTeamInfo({ team: data.team });
     } catch (error) {
       console.error('確認同意錯誤:', error);
-      alert('確認同意時發生錯誤');
+      alert(error.message || error.data?.error || '確認同意時發生錯誤');
+      loadTeamInfo();
     } finally {
       setConfirming(false);
     }
@@ -120,8 +100,6 @@ export default function LearningPartnerApprovePage() {
   // 如果已確認或 token 已使用/過期
   if (confirmed || (error && teamInfo?.team)) {
     const isSuccess = confirmed;
-    const isExpired = error && (error.includes('過期') || error.includes('失效') || error.includes('已使用'));
-
     return (
       <div className="container mt-5">
         <div className="card shadow-lg" style={{ maxWidth: '600px', margin: '0 auto' }}>

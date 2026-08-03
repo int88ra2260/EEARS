@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import ContentText from '../components/siteContent/ContentText';
 import { SITE_CONTACT, EMI_CENTER_URL } from '../config/siteContact';
 import PageHeader from '../components/layout/PageHeader';
 import './ContactPage.css';
@@ -14,21 +15,28 @@ export default function ContactPage() {
 
   return (
     <div className="contact-page">
-      <PageHeader breadcrumbs={breadcrumbs} title={t('homePage.contactTitle')} />
-      <div className="contact-page-card">
+      <PageHeader
+        breadcrumbs={breadcrumbs}
+        title={<ContentText k="homePage.contactTitle" />}
+      />
+      <div className="contact-page-card public-card">
         <h2 className="contact-page-name">{SITE_CONTACT.name}</h2>
         <dl className="contact-page-dl">
-          <dt>{t('homePage.contactAddress')}</dt>
-          <dd>{SITE_CONTACT.address}</dd>
-          <dt>{t('homePage.contactPhone')}</dt>
-          <dd>{SITE_CONTACT.phone}</dd>
-          <dt>{t('homePage.contactEmail')}</dt>
-          <dd><a href={`mailto:${SITE_CONTACT.email}`}>{SITE_CONTACT.email}</a></dd>
-          <dt>{t('homePage.contactHours')}</dt>
-          <dd>{SITE_CONTACT.hours}</dd>
+          <dt><ContentText k="homePage.contactAddress" /></dt>
+          <dd><ContentText k="homePage.contactAddressValue" /></dd>
+          <dt><ContentText k="homePage.contactPhone" /></dt>
+          <dd><ContentText k="homePage.contactPhoneValue" /></dd>
+          <dt><ContentText k="homePage.contactEmail" /></dt>
+          <dd>
+            <a href={`mailto:${t('homePage.contactEmailValue')}`}>
+              <ContentText k="homePage.contactEmailValue" />
+            </a>
+          </dd>
+          <dt><ContentText k="homePage.contactHours" /></dt>
+          <dd><ContentText k="homePage.contactHoursValue" /></dd>
         </dl>
         <a href={EMI_CENTER_URL} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
-          {t('homePage.goToCenter')}
+          <ContentText k="homePage.goToCenter" />
         </a>
       </div>
     </div>

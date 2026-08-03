@@ -1,5 +1,9 @@
 // services/kpiService.js
 // Phase 2.5：KPI 統一層
+//
+// 母體：呼叫端傳入之 studentIds（多為 class_memberships 當學期名冊），非 EtEnrollmentSnapshot LJ active roster。
+// participationRate / bestepPassRate 等為班級行政管理口徑，不得與 learningJourneyCoreKpi 之 canonical 達標混用。
+// 詳見 docs/analytics-and-reports-metric-definitions.md。
 
 const {
   EnglishTestRegistration,

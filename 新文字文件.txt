@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMI Center · Scroll-World Demo</title>
+<style>
+  :root {
+    --coral: #D4564A;
+    --cream: #F5EDE0;
+    --teal: #3D7C6E;
+    --indigo: #5B6BB5;
+    --plum: #8A6BB5;
+    --ink: #241D2B;
+    --sand: #EBDDBB;
+    --skin: #E8B896;
+    --shadow: rgba(36,29,43,0.12);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  .world { position: relative; }
+  .viewport {
+    position: sticky; top: 0;
+    height: 100vh; width: 100%;
+    overflow: hidden;
+    background: var(--cream);
+  }
+
+  /* Segment stack: each SVG scene wraps in a stage that we transform on scroll */
+  .stage {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    will-change: opacity, transform;
+  }
+  .stage.active { opacity: 1; }
+
+  .stage svg {
+    width: 100%; height: 100%;
+    /* Camera transform driven by JS-set custom props */
+    transform: scale(var(--zoom, 1)) translate(var(--tx, 0px), var(--ty, 0px));
+    transition: transform 0.05s linear;
+    transform-origin: 50% 55%;
+  }
+
+  /* Roof group lifts + fades during dive reveal */
+  .roof {
+    transform: translateY(var(--roof-y, 0px));
+    opacity: var(--roof-op, 1);
+    transition: transform 0.05s linear, opacity 0.05s linear;
+    transform-origin: 50% 30%;
+    transform-box: fill-box;
+  }
+
+  /* Tilt-shift blur at top/bottom to sell miniature feel */
+  .viewport::before, .viewport::after {
+    content: ""; position: absolute; left: 0; right: 0;
+    height: 12vh; pointer-events: none; z-index: 5;
+    backdrop-filter: blur(2px);
+  }
+  .viewport::before { top: 0; mask: linear-gradient(to bottom, black, transparent); }
+  .viewport::after  { bottom: 0; mask: linear-gradient(to top, black, transparent); }
+
+  /* ============ Overlay copy ============ */
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 0 8vw 14vh; pointer-events: none; z-index: 10;
+  }
+  .caption {
+    max-width: 560px; opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .caption.show { opacity: 1; transform: translateY(0); }
+  .eyebrow {
+    display: inline-block;
+    padding: 6px 14px;
+    background: rgba(36,29,43,0.08);
+    backdrop-filter: blur(8px);
+    border-radius: 999px;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    margin-bottom: 18px;
+  }
+  .caption h2 {
+    font-size: clamp(30px, 4.2vw, 52px);
+    font-weight: 700; letter-spacing: -0.02em;
+    line-height: 1.2; margin-bottom: 14px;
+  }
+  .caption p { font-size: 16px; opacity: 0.75; margin-bottom: 18px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag {
+    font-size: 13px; padding: 4px 12px;
+    background: rgba(255,255,255,0.8);
+    backdrop-filter: blur(6px);
+    border-radius: 999px;
+  }
+
+  /* ============ Chrome ============ */
+  .brand {
+    position: fixed; top: 22px; left: 32px; z-index: 100;
+    font-size: 15px; font-weight: 700;
+  }
+  .brand small {
+    display: block; font-size: 12px; font-weight: 400;
+    opacity: 0.55; margin-top: 2px;
+  }
+  .progress {
+    position: fixed; top: 0; left: 0;
+    height: 3px; background: var(--coral);
+    width: 0%; z-index: 200;
+    transition: width 0.08s linear;
+  }
+  .nav-dots {
+    position: fixed; right: 32px; top: 50%;
+    transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 14px;
+    z-index: 100;
+  }
+  .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: rgba(36,29,43,0.22);
+    transition: all 0.3s; cursor: pointer;
+  }
+  .dot.active { background: var(--coral); transform: scale(1.35); }
+
+  .hint {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px; letter-spacing: 0.15em;
+    opacity: 0.4; z-index: 50;
+  }
+
+  /* ============ Final CTA ============ */
+  .cta {
+    position: relative;
+    padding: 20vh 8vw 14vh;
+    background: var(--cream);
+    text-align: center;
+  }
+  .cta h1 {
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 300; letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .cta .lede { opacity: 0.6; margin-bottom: 36px; }
+  .buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    padding: 15px 30px; border-radius: 999px;
+    font-size: 16px; font-weight: 600; text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(36,29,43,0.12); }
+  .btn-primary { background: var(--coral); color: white; }
+  .btn-secondary { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  全英語卓越教學中心
+  <small>國立中山大學 · 西灣學院</small>
+</div>
+<div class="progress" id="progress"></div>
+<div class="nav-dots">
+  <div class="dot" data-section="0" title="活動"></div>
+  <div class="dot" data-section="1" title="課務"></div>
+  <div class="dot" data-section="2" title="學習"></div>
+  <div class="dot" data-section="3" title="服務"></div>
+</div>
+<div class="hint">↓ SCROLL ↓</div>
+
+<div class="world" id="world">
+  <div class="viewport">
+
+    <!-- ============ SVG Defs (glows, shadows) ============ -->
+    <svg width="0" height="0" style="position:absolute">
+      <defs>
+        <radialGradient id="screenGlow" cx="50%" cy="50%" r="60%">
+          <stop offset="0%" stop-color="#FFF6D9" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#FFE4B0" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="lampGlow" cx="50%" cy="50%" r="60%">
+          <stop offset="0%" stop-color="#FFE9A8" stop-opacity="0.85"/>
+          <stop offset="100%" stop-color="#FFE9A8" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="warmSky" cx="50%" cy="30%" r="80%">
+          <stop offset="0%" stop-color="#FFDCC4"/>
+          <stop offset="100%" stop-color="#F5EDE0"/>
+        </radialGradient>
+        <symbol id="figure" viewBox="-12 -32 24 40">
+          <ellipse cx="0" cy="6" rx="8" ry="2.5" fill="#241D2B" opacity="0.15"/>
+          <rect x="-6" y="-8" width="12" height="16" rx="6" fill="currentColor"/>
+          <circle cx="0" cy="-14" r="6" fill="#E8B896"/>
+        </symbol>
+        <symbol id="tree" viewBox="-20 -40 40 50">
+          <ellipse cx="0" cy="10" rx="12" ry="3" fill="#241D2B" opacity="0.15"/>
+          <rect x="-3" y="-8" width="6" height="16" fill="#8A5D4A"/>
+          <circle cx="0" cy="-18" r="15" fill="#3D7C6E"/>
+          <circle cx="-8" cy="-14" r="10" fill="#4E9080"/>
+          <circle cx="8" cy="-14" r="10" fill="#4E9080"/>
+        </symbol>
+      </defs>
+    </svg>
+
+    <!-- ============ Segment 0: DIVE 01 · EVENTS ============ -->
+    <div class="stage" data-segment="0" data-kind="dive" data-hasroof="1">
+      <svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice">
+        <rect width="800" height="500" fill="url(#warmSky)"/>
+        <!-- island -->
+        <ellipse cx="400" cy="455" rx="290" ry="18" fill="#241D2B" opacity="0.12"/>
+        <ellipse cx="400" cy="425" rx="285" ry="32" fill="var(--sand)"/>
+        <ellipse cx="400" cy="410" rx="280" ry="28" fill="#F5EDE0"/>
+
+        <!-- interior -->
+        <g>
+          <!-- back wall of hall -->
+          <path d="M 240 400 L 240 200 Q 240 180 260 180 L 540 180 Q 560 180 560 200 L 560 400 Z" fill="#EAD8C1"/>
+          <path d="M 240 200 L 560 200 L 560 210 L 240 210 Z" fill="#241D2B" opacity="0.15"/>
+
+          <!-- coral curtains (parted) -->
+          <path d="M 244 180 Q 268 220 275 400 L 244 400 Z" fill="#D4564A"/>
+          <path d="M 244 180 Q 260 210 268 400 L 250 400 Z" fill="#B4453A"/>
+          <path d="M 556 180 Q 532 220 525 400 L 556 400 Z" fill="#D4564A"/>
+          <path d="M 556 180 Q 540 210 532 400 L 550 400 Z" fill="#B4453A"/>
+
+          <!-- glowing display -->
+          <rect x="315" y="225" width="170" height="110" rx="6" fill="#E8DAB8"/>
+          <rect x="322" y="232" width="156" height="96" rx="4" fill="#FFE4B0"/>
+          <rect x="322" y="232" width="156" height="96" rx="4" fill="url(#screenGlow)"/>
+
+          <!-- audience seats (3 curved rows) -->
+          <g fill="#5B6BB5">
+            <ellipse cx="295" cy="360" rx="11" ry="5"/>
+            <ellipse cx="332" cy="362" rx="11" ry="5"/>
+            <ellipse cx="369" cy="364" rx="11" ry="5"/>
+            <ellipse cx="406" cy="364" rx="11" ry="5"/>
+            <ellipse cx="443" cy="364" rx="11" ry="5"/>
+            <ellipse cx="480" cy="362" rx="11" ry="5"/>
+            <ellipse cx="517" cy="360" rx="11" ry="5"/>
+            <ellipse cx="305" cy="378" rx="11" ry="5"/>
+            <ellipse cx="345" cy="380" rx="11" ry="5"/>
+            <ellipse cx="385" cy="382" rx="11" ry="5"/>
+            <ellipse cx="425" cy="382" rx="11" ry="5"/>
+            <ellipse cx="465" cy="380" rx="11" ry="5"/>
+            <ellipse cx="507" cy="378" rx="11" ry="5"/>
+          </g>
+
+          <!-- check-in kiosk (right of hall) -->
+          <g transform="translate(615,395)">
+            <ellipse cx="0" cy="4" rx="18" ry="3" fill="#241D2B" opacity="0.15"/>
+            <rect x="-14" y="-40" width="28" height="42" rx="3" fill="#3D7C6E"/>
+            <rect x="-11" y="-36" width="22" height="14" rx="2" fill="#FFE4B0"/>
+            <rect x="-11" y="-36" width="22" height="14" rx="2" fill="url(#screenGlow)"/>
+          </g>
+
+          <!-- 2 clay figures with name tags -->
+          <g transform="translate(590,405)" color="#5B6BB5">
+            <use href="#figure" width="24" height="40" x="-12" y="-32"/>
+            <rect x="-4" y="-12" width="8" height="5" rx="1" fill="#F5EDE0"/>
+          </g>
+          <g transform="translate(660,405)" color="#D4564A">
+            <use href="#figure" width="24" height="40" x="-12" y="-32"/>
+            <rect x="-4" y="-12" width="8" height="5" rx="1" fill="#F5EDE0"/>
+          </g>
+        </g>
+
+        <!-- ROOF: string light garland (lifts away) -->
+        <g class="roof">
+          <path d="M 220 180 Q 400 130 580 180" stroke="#241D2B" stroke-width="1" fill="none" opacity="0.4"/>
+          <g fill="#FFD97D">
+            <circle cx="240" cy="172" r="4"/>
+            <circle cx="295" cy="152" r="4"/>
+            <circle cx="350" cy="140" r="4"/>
+            <circle cx="400" cy="135" r="4"/>
+            <circle cx="450" cy="140" r="4"/>
+            <circle cx="505" cy="152" r="4"/>
+            <circle cx="560" cy="172" r="4"/>
+          </g>
+          <g fill="#FFD97D" opacity="0.4">
+            <circle cx="240" cy="172" r="10"/>
+            <circle cx="295" cy="152" r="10"/>
+            <circle cx="350" cy="140" r="10"/>
+            <circle cx="400" cy="135" r="10"/>
+            <circle cx="450" cy="140" r="10"/>
+            <circle cx="505" cy="152" r="10"/>
+            <circle cx="560" cy="172" r="10"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ============ Segment 1: CONNECTOR 01 (events → courses) ============ -->
+    <div class="stage" data-segment="1" data-kind="connector">
+      <svg viewBox="0 0 1400 500" preserveAspectRatio="xMidYMid slice">
+        <rect width="1400" height="500" fill="url(#warmSky)"/>
+        <!-- left island (events, small) -->
+        <g transform="translate(300,300)">
+          <ellipse cx="0" cy="30" rx="120" ry="10" fill="#241D2B" opacity="0.12"/>
+          <ellipse cx="0" cy="15" rx="115" ry="14" fill="var(--sand)"/>
+          <ellipse cx="0" cy="8" rx="110" ry="12" fill="#F5EDE0"/>
+          <!-- small hall silhouette with coral hint -->
+          <rect x="-45" y="-30" width="90" height="40" rx="6" fill="#D4564A" opacity="0.85"/>
+          <rect x="-38" y="-24" width="26" height="18" rx="2" fill="#FFE4B0"/>
+        </g>
+        <!-- right island (courses, small) -->
+        <g transform="translate(1100,300)">
+          <ellipse cx="0" cy="30" rx="120" ry="10" fill="#241D2B" opacity="0.12"/>
+          <ellipse cx="0" cy="15" rx="115" ry="14" fill="var(--sand)"/>
+          <ellipse cx="0" cy="8" rx="110" ry="12" fill="#F5EDE0"/>
+          <!-- small building silhouette with teal roof -->
+          <rect x="-45" y="-30" width="90" height="40" fill="#EAD8C1"/>
+          <path d="M -55 -30 L 0 -70 L 55 -30 Z" fill="#3D7C6E"/>
+        </g>
+        <!-- aerial connector path (dashed) -->
+        <path d="M 300 200 Q 700 100 1100 200" stroke="#D4564A" stroke-width="2" stroke-dasharray="6 6" fill="none" opacity="0.5"/>
+        <!-- floating dust particles for depth -->
+        <g fill="#D4564A" opacity="0.4">
+          <circle cx="500" cy="180" r="2"/>
+          <circle cx="650" cy="140" r="2"/>
+          <circle cx="800" cy="120" r="2.5"/>
+          <circle cx="950" cy="150" r="2"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ============ Segment 2: DIVE 02 · COURSES ============ -->
+    <div class="stage" data-segment="2" data-kind="dive" data-hasroof="1">
+      <svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice">
+        <rect width="800" height="500" fill="url(#warmSky)"/>
+        <ellipse cx="400" cy="455" rx="290" ry="18" fill="#241D2B" opacity="0.12"/>
+        <ellipse cx="400" cy="425" rx="285" ry="32" fill="var(--sand)"/>
+        <ellipse cx="400" cy="410" rx="280" ry="28" fill="#F5EDE0"/>
+
+        <!-- interior -->
+        <g>
+          <!-- building shell -->
+          <rect x="220" y="220" width="360" height="180" rx="4" fill="#EAD8C1"/>
+          <rect x="220" y="218" width="360" height="10" fill="#241D2B" opacity="0.12"/>
+
+          <!-- chalkboard -->
+          <rect x="255" y="245" width="150" height="90" rx="4" fill="#2D4A3E"/>
+          <rect x="252" y="242" width="156" height="6" rx="2" fill="#8A5D4A"/>
+          <g stroke="#F5EDE0" stroke-width="2.5" fill="none" opacity="0.7" stroke-linecap="round">
+            <path d="M 275 268 Q 295 262 320 270"/>
+            <path d="M 275 285 L 340 285"/>
+            <line x1="275" y1="302" x2="330" y2="302"/>
+            <circle cx="370" cy="285" r="10"/>
+          </g>
+
+          <!-- chart board -->
+          <rect x="430" y="245" width="130" height="90" rx="4" fill="#F5EDE0"/>
+          <rect x="428" y="242" width="134" height="6" rx="2" fill="#8A5D4A"/>
+          <line x1="445" y1="320" x2="550" y2="320" stroke="#241D2B" stroke-width="1" opacity="0.3"/>
+          <rect x="448" y="285" width="16" height="35" fill="#D4564A"/>
+          <rect x="470" y="270" width="16" height="50" fill="#5B6BB5"/>
+          <rect x="492" y="260" width="16" height="60" fill="#D4564A"/>
+          <rect x="514" y="290" width="16" height="30" fill="#3D7C6E"/>
+          <rect x="536" y="278" width="16" height="42" fill="#8A6BB5"/>
+
+          <!-- desks (2 rows of 3) -->
+          <g fill="#8A5D4A">
+            <rect x="265" y="360" width="34" height="14" rx="2"/>
+            <rect x="315" y="360" width="34" height="14" rx="2"/>
+            <rect x="365" y="360" width="34" height="14" rx="2"/>
+            <rect x="265" y="385" width="34" height="14" rx="2"/>
+            <rect x="315" y="385" width="34" height="14" rx="2"/>
+            <rect x="365" y="385" width="34" height="14" rx="2"/>
+          </g>
+
+          <!-- teacher pointing -->
+          <g transform="translate(430,375)" color="#3D7C6E">
+            <use href="#figure" width="24" height="40" x="-12" y="-32"/>
+            <!-- pointing arm -->
+            <line x1="-6" y1="-18" x2="-24" y2="-25" stroke="#3D7C6E" stroke-width="4" stroke-linecap="round"/>
+          </g>
+
+          <!-- booklet stack -->
+          <g transform="translate(510,382)">
+            <rect x="0" y="0" width="26" height="5" rx="1" fill="#D4564A"/>
+            <rect x="1" y="-5" width="26" height="5" rx="1" fill="#5B6BB5"/>
+            <rect x="0" y="-10" width="26" height="5" rx="1" fill="#3D7C6E"/>
+          </g>
+        </g>
+
+        <!-- ROOF: teal pitched -->
+        <g class="roof">
+          <path d="M 200 220 L 400 110 L 600 220 Z" fill="#3D7C6E"/>
+          <path d="M 200 220 L 400 110 L 400 140 L 210 240 Z" fill="#2C6055"/>
+          <path d="M 400 110 L 600 220 L 590 240 L 400 140 Z" fill="#4E9080"/>
+          <!-- chimney -->
+          <rect x="470" y="145" width="20" height="40" fill="#8A5D4A"/>
+          <rect x="465" y="140" width="30" height="10" fill="#6D4638"/>
+          <!-- roof line -->
+          <line x1="400" y1="110" x2="400" y2="140" stroke="#241D2B" opacity="0.2" stroke-width="1"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ============ Segment 3: CONNECTOR 02 (courses → learning) ============ -->
+    <div class="stage" data-segment="3" data-kind="connector">
+      <svg viewBox="0 0 1400 500" preserveAspectRatio="xMidYMid slice">
+        <rect width="1400" height="500" fill="url(#warmSky)"/>
+        <g transform="translate(300,300)">
+          <ellipse cx="0" cy="30" rx="120" ry="10" fill="#241D2B" opacity="0.12"/>
+          <ellipse cx="0" cy="15" rx="115" ry="14" fill="var(--sand)"/>
+          <ellipse cx="0" cy="8" rx="110" ry="12" fill="#F5EDE0"/>
+          <rect x="-45" y="-30" width="90" height="40" fill="#EAD8C1"/>
+          <path d="M -55 -30 L 0 -70 L 55 -30 Z" fill="#3D7C6E"/>
+        </g>
+        <g transform="translate(1100,300)">
+          <ellipse cx="0" cy="30" rx="120" ry="10" fill="#241D2B" opacity="0.12"/>
+          <ellipse cx="0" cy="15" rx="115" ry="14" fill="var(--sand)"/>
+          <ellipse cx="0" cy="8" rx="110" ry="12" fill="#F5EDE0"/>
+          <rect x="-45" y="-30" width="90" height="40" fill="#EAD8C1"/>
+          <path d="M -55 -30 L 0 -70 L 55 -30 Z" fill="#5B6BB5"/>
+          <circle cx="0" cy="-50" r="6" fill="#F5EDE0"/>
+        </g>
+        <path d="M 300 200 Q 700 100 1100 200" stroke="#5B6BB5" stroke-width="2" stroke-dasharray="6 6" fill="none" opacity="0.5"/>
+        <g fill="#5B6BB5" opacity="0.4">
+          <circle cx="500" cy="180" r="2"/>
+          <circle cx="650" cy="140" r="2"/>
+          <circle cx="800" cy="120" r="2.5"/>
+          <circle cx="950" cy="150" r="2"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ============ Segment 4: DIVE 03 · LEARNING ============ -->
+    <div class="stage" data-segment="4" data-kind="dive" data-hasroof="1">
+      <svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice">
+        <rect width="800" height="500" fill="url(#warmSky)"/>
+        <ellipse cx="400" cy="455" rx="290" ry="18" fill="#241D2B" opacity="0.12"/>
+        <ellipse cx="400" cy="425" rx="285" ry="32" fill="var(--sand)"/>
+        <ellipse cx="400" cy="410" rx="280" ry="28" fill="#F5EDE0"/>
+
+        <g>
+          <!-- library shell -->
+          <rect x="220" y="220" width="360" height="180" rx="4" fill="#E8D5C0"/>
+
+          <!-- left bookshelf -->
+          <rect x="235" y="240" width="80" height="150" fill="#8A5D4A"/>
+          <g>
+            <rect x="240" y="248" width="10" height="28" fill="#D4564A"/>
+            <rect x="252" y="248" width="10" height="28" fill="#5B6BB5"/>
+            <rect x="264" y="248" width="10" height="28" fill="#3D7C6E"/>
+            <rect x="276" y="248" width="10" height="28" fill="#8A6BB5"/>
+            <rect x="288" y="248" width="10" height="28" fill="#D4564A"/>
+            <rect x="300" y="248" width="10" height="28" fill="#5B6BB5"/>
+            <rect x="240" y="282" width="10" height="28" fill="#3D7C6E"/>
+            <rect x="252" y="282" width="10" height="28" fill="#D4564A"/>
+            <rect x="264" y="282" width="10" height="28" fill="#8A6BB5"/>
+            <rect x="276" y="282" width="10" height="28" fill="#5B6BB5"/>
+            <rect x="288" y="282" width="10" height="28" fill="#D4564A"/>
+            <rect x="300" y="282" width="10" height="28" fill="#3D7C6E"/>
+            <rect x="240" y="316" width="10" height="28" fill="#5B6BB5"/>
+            <rect x="252" y="316" width="10" height="28" fill="#D4564A"/>
+            <rect x="264" y="316" width="10" height="28" fill="#3D7C6E"/>
+            <rect x="276" y="316" width="10" height="28" fill="#8A6BB5"/>
+            <rect x="288" y="316" width="10" height="28" fill="#5B6BB5"/>
+            <rect x="300" y="316" width="10" height="28" fill="#D4564A"/>
+          </g>
+          <line x1="235" y1="278" x2="315" y2="278" stroke="#241D2B" opacity="0.25"/>
+          <line x1="235" y1="312" x2="315" y2="312" stroke="#241D2B" opacity="0.25"/>
+          <line x1="235" y1="346" x2="315" y2="346" stroke="#241D2B" opacity="0.25"/>
+
+          <!-- right bookshelf (mirrored) -->
+          <rect x="485" y="240" width="80" height="150" fill="#8A5D4A"/>
+          <g>
+            <rect x="490" y="248" width="10" height="28" fill="#5B6BB5"/>
+            <rect x="502" y="248" width="10" height="28" fill="#D4564A"/>
+            <rect x="514" y="248" width="10" height="28" fill="#8A6BB5"/>
+            <rect x="526" y="248" width="10" height="28" fill="#3D7C6E"/>
+            <rect x="538" y="248" width="10" height="28" fill="#D4564A"/>
+            <rect x="550" y="248" width="10" height="28" fill="#5B6BB5"/>
+            <rect x="490" y="282" width="10" height="28" fill="#3D7C6E"/>
+            <rect x="502" y="282" width="10" height="28" fill="#8A6BB5"/>
+            <rect x="514" y="282" width="10" height="28" fill="#D4564A"/>
+            <rect x="526" y="282" width="10" height="28" fill="#5B6BB5"/>
+            <rect x="538" y="282" width="10" height="28" fill="#3D7C6E"/>
+            <rect x="550" y="282" width="10" height="28" fill="#D4564A"/>
+            <rect x="490" y="316" width="10" height="28" fill="#8A6BB5"/>
+            <rect x="502" y="316" width="10" height="28" fill="#D4564A"/>
+            <rect x="514" y="316" width="10" height="28" fill="#5B6BB5"/>
+            <rect x="526" y="316" width="10" height="28" fill="#3D7C6E"/>
+            <rect x="538" y="316" width="10" height="28" fill="#D4564A"/>
+            <rect x="550" y="316" width="10" height="28" fill="#8A6BB5"/>
+          </g>
+          <line x1="485" y1="278" x2="565" y2="278" stroke="#241D2B" opacity="0.25"/>
+          <line x1="485" y1="312" x2="565" y2="312" stroke="#241D2B" opacity="0.25"/>
+          <line x1="485" y1="346" x2="565" y2="346" stroke="#241D2B" opacity="0.25"/>
+
+          <!-- reading table (round, with lamp glow) -->
+          <ellipse cx="400" cy="380" rx="70" ry="16" fill="#8A5D4A"/>
+          <ellipse cx="400" cy="373" rx="65" ry="14" fill="#A67B58"/>
+          <!-- lamp glow -->
+          <ellipse cx="400" cy="360" rx="80" ry="35" fill="url(#lampGlow)"/>
+          <!-- lamp -->
+          <rect x="396" y="330" width="8" height="30" fill="#241D2B"/>
+          <path d="M 380 320 L 420 320 L 415 335 L 385 335 Z" fill="#241D2B"/>
+          <ellipse cx="400" cy="335" rx="15" ry="4" fill="#FFE9A8"/>
+          <!-- passport booklet -->
+          <rect x="368" y="366" width="24" height="16" rx="2" fill="#D4564A"/>
+          <!-- 2 student figures -->
+          <g transform="translate(340,390)" color="#5B6BB5">
+            <use href="#figure" width="24" height="40" x="-12" y="-32"/>
+          </g>
+          <g transform="translate(460,390)" color="#8A6BB5">
+            <use href="#figure" width="24" height="40" x="-12" y="-32"/>
+          </g>
+        </g>
+
+        <!-- ROOF: indigo pitched with attic window -->
+        <g class="roof">
+          <path d="M 200 220 L 400 110 L 600 220 Z" fill="#5B6BB5"/>
+          <path d="M 200 220 L 400 110 L 400 140 L 210 240 Z" fill="#4A5AA0"/>
+          <path d="M 400 110 L 600 220 L 590 240 L 400 140 Z" fill="#6D7EC5"/>
+          <!-- round attic window -->
+          <circle cx="400" cy="175" r="18" fill="#F5EDE0"/>
+          <circle cx="400" cy="175" r="14" fill="#FFE4B0"/>
+          <line x1="386" y1="175" x2="414" y2="175" stroke="#241D2B" opacity="0.4"/>
+          <line x1="400" y1="161" x2="400" y2="189" stroke="#241D2B" opacity="0.4"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ============ Segment 5: CONNECTOR 03 (learning → other) ============ -->
+    <div class="stage" data-segment="5" data-kind="connector">
+      <svg viewBox="0 0 1400 500" preserveAspectRatio="xMidYMid slice">
+        <rect width="1400" height="500" fill="url(#warmSky)"/>
+        <g transform="translate(300,300)">
+          <ellipse cx="0" cy="30" rx="120" ry="10" fill="#241D2B" opacity="0.12"/>
+          <ellipse cx="0" cy="15" rx="115" ry="14" fill="var(--sand)"/>
+          <ellipse cx="0" cy="8" rx="110" ry="12" fill="#F5EDE0"/>
+          <rect x="-45" y="-30" width="90" height="40" fill="#EAD8C1"/>
+          <path d="M -55 -30 L 0 -70 L 55 -30 Z" fill="#5B6BB5"/>
+        </g>
+        <g transform="translate(1100,300)">
+          <ellipse cx="0" cy="30" rx="120" ry="10" fill="#241D2B" opacity="0.12"/>
+          <ellipse cx="0" cy="15" rx="115" ry="14" fill="var(--sand)"/>
+          <ellipse cx="0" cy="8" rx="110" ry="12" fill="#F5EDE0"/>
+          <!-- plaza silhouette: fountain + kiosk hint -->
+          <circle cx="0" cy="-8" r="16" fill="#5B6BB5" opacity="0.3"/>
+          <circle cx="0" cy="-8" r="8" fill="#8A6BB5"/>
+          <rect x="-40" y="-25" width="14" height="20" fill="#8A6BB5"/>
+        </g>
+        <path d="M 300 200 Q 700 100 1100 200" stroke="#8A6BB5" stroke-width="2" stroke-dasharray="6 6" fill="none" opacity="0.5"/>
+        <g fill="#8A6BB5" opacity="0.4">
+          <circle cx="500" cy="180" r="2"/>
+          <circle cx="650" cy="140" r="2"/>
+          <circle cx="800" cy="120" r="2.5"/>
+          <circle cx="950" cy="150" r="2"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ============ Segment 6: DIVE 04 · OTHER (open plaza) ============ -->
+    <div class="stage" data-segment="6" data-kind="dive" data-hasroof="0">
+      <svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice">
+        <rect width="800" height="500" fill="url(#warmSky)"/>
+        <ellipse cx="400" cy="455" rx="310" ry="20" fill="#241D2B" opacity="0.12"/>
+        <ellipse cx="400" cy="425" rx="305" ry="34" fill="var(--sand)"/>
+        <ellipse cx="400" cy="410" rx="300" ry="30" fill="#F5EDE0"/>
+
+        <!-- plaza tiles hint (soft radial) -->
+        <ellipse cx="400" cy="380" rx="180" ry="40" fill="#EBDDBB" opacity="0.6"/>
+
+        <!-- central fountain -->
+        <g transform="translate(400,370)">
+          <ellipse cx="0" cy="12" rx="60" ry="12" fill="#241D2B" opacity="0.12"/>
+          <!-- basin -->
+          <ellipse cx="0" cy="0" rx="55" ry="14" fill="#B0A088"/>
+          <ellipse cx="0" cy="-4" rx="52" ry="12" fill="#8DAABE"/>
+          <ellipse cx="0" cy="-4" rx="45" ry="10" fill="#A8C4D6"/>
+          <!-- water plume -->
+          <path d="M -6 -8 Q -3 -30 0 -35 Q 3 -30 6 -8 Z" fill="#C4DDE8" opacity="0.9"/>
+          <ellipse cx="0" cy="-38" rx="6" ry="3" fill="#E8F1F5"/>
+          <!-- ripples -->
+          <ellipse cx="0" cy="-4" rx="30" ry="7" fill="none" stroke="#F5EDE0" stroke-width="1" opacity="0.6"/>
+          <ellipse cx="0" cy="-4" rx="18" ry="4" fill="none" stroke="#F5EDE0" stroke-width="1" opacity="0.5"/>
+        </g>
+
+        <!-- plum info kiosk (right) -->
+        <g transform="translate(590,390)">
+          <ellipse cx="0" cy="4" rx="22" ry="4" fill="#241D2B" opacity="0.15"/>
+          <rect x="-18" y="-70" width="36" height="72" rx="4" fill="#8A6BB5"/>
+          <rect x="-14" y="-64" width="28" height="30" rx="3" fill="#FFE4B0"/>
+          <rect x="-14" y="-64" width="28" height="30" rx="3" fill="url(#screenGlow)"/>
+        </g>
+
+        <!-- notice board (left) -->
+        <g transform="translate(220,380)">
+          <ellipse cx="0" cy="10" rx="26" ry="4" fill="#241D2B" opacity="0.15"/>
+          <rect x="-2" y="-30" width="4" height="40" fill="#8A5D4A"/>
+          <rect x="-24" y="-60" width="48" height="34" rx="3" fill="#8A5D4A"/>
+          <rect x="-20" y="-56" width="18" height="26" rx="1" fill="#F5EDE0"/>
+          <rect x="2" y="-56" width="18" height="26" rx="1" fill="#F5EDE0"/>
+        </g>
+
+        <!-- 2 benches -->
+        <g transform="translate(300,405)">
+          <ellipse cx="0" cy="4" rx="20" ry="3" fill="#241D2B" opacity="0.15"/>
+          <rect x="-18" y="-6" width="36" height="6" rx="2" fill="#8A5D4A"/>
+          <rect x="-16" y="0" width="4" height="4" fill="#6D4638"/>
+          <rect x="12" y="0" width="4" height="4" fill="#6D4638"/>
+        </g>
+        <g transform="translate(500,405)">
+          <ellipse cx="0" cy="4" rx="20" ry="3" fill="#241D2B" opacity="0.15"/>
+          <rect x="-18" y="-6" width="36" height="6" rx="2" fill="#8A5D4A"/>
+          <rect x="-16" y="0" width="4" height="4" fill="#6D4638"/>
+          <rect x="12" y="0" width="4" height="4" fill="#6D4638"/>
+        </g>
+
+        <!-- 2 trees flanking -->
+        <g transform="translate(160,395)"><use href="#tree" width="60" height="70" x="-30" y="-55"/></g>
+        <g transform="translate(660,395)"><use href="#tree" width="60" height="70" x="-30" y="-55"/></g>
+
+        <!-- 3 walking clay figures -->
+        <g transform="translate(370,410)" color="#D4564A">
+          <use href="#figure" width="22" height="36" x="-11" y="-30"/>
+        </g>
+        <g transform="translate(430,412)" color="#3D7C6E">
+          <use href="#figure" width="22" height="36" x="-11" y="-30"/>
+        </g>
+        <g transform="translate(240,415)" color="#5B6BB5">
+          <use href="#figure" width="22" height="36" x="-11" y="-30"/>
+        </g>
+
+        <!-- warm evening light wash -->
+        <rect width="800" height="500" fill="url(#lampGlow)" opacity="0.15"/>
+      </svg>
+    </div>
+
+    <!-- ============ Text overlays ============ -->
+    <div class="overlay">
+      <div class="caption" id="cap-0">
+        <span class="eyebrow">英語增能活動</span>
+        <h2>從預約到簽到,一站完成</h2>
+        <p>英語桌、英語社群、論壇等活動,學生無需登入即可預約與查詢。</p>
+        <div class="tags"><span class="tag">活動預約</span><span class="tag">候補名單</span><span class="tag">簽到</span></div>
+      </div>
+      <div class="caption" id="cap-1">
+        <span class="eyebrow">課務與培力</span>
+        <h2>班級、培力英檢與課程編排</h2>
+        <p>整合培力英檢、班級概況與課務流程,支援全英語教學與英語增能。</p>
+        <div class="tags"><span class="tag">BESTEP</span><span class="tag">班級概況</span><span class="tag">課務</span></div>
+      </div>
+      <div class="caption" id="cap-2">
+        <span class="eyebrow">學習歷程</span>
+        <h2>學習歷程與英語護照</h2>
+        <p>記錄參與與成長軌跡,累積英語學習紀錄並申請能力認證。</p>
+        <div class="tags"><span class="tag">Learning Journey</span><span class="tag">學習有伴</span><span class="tag">英語護照</span></div>
+      </div>
+      <div class="caption" id="cap-3">
+        <span class="eyebrow">更多服務</span>
+        <h2>問卷、公告與中心服務</h2>
+        <p>學期問卷、中心公告、週報與聯絡入口,歡迎走進中心。</p>
+        <div class="tags"><span class="tag">問卷</span><span class="tag">公告週報</span><span class="tag">聯絡我們</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<section class="cta">
+  <h1>走進中心,一起精進英語</h1>
+  <p class="lede">從活動預約、課務、學習歷程到問卷公告——一站走進中心的英語學習生態。</p>
+  <div class="buttons">
+    <a href="/events" class="btn btn-primary">立即預約活動</a>
+    <a href="/about" class="btn btn-secondary">關於中心</a>
+  </div>
+</section>
+
+<script>
+const SEGMENTS = [
+  { id: 'dive_01', duration: 8, section: 0, isDive: true  },
+  { id: 'conn_01', duration: 5, section: null, isDive: false },
+  { id: 'dive_02', duration: 8, section: 1, isDive: true  },
+  { id: 'conn_02', duration: 5, section: null, isDive: false },
+  { id: 'dive_03', duration: 8, section: 2, isDive: true  },
+  { id: 'conn_03', duration: 5, section: null, isDive: false },
+  { id: 'dive_04', duration: 8, section: 3, isDive: true  },
+];
+
+const TOTAL = SEGMENTS.reduce((s, x) => s + x.duration, 0);
+let accum = 0;
+SEGMENTS.forEach(seg => {
+  seg.startP = accum / TOTAL;
+  accum += seg.duration;
+  seg.endP = accum / TOTAL;
+});
+
+// Caption range: show late in dive, hold through half of connector
+SEGMENTS.forEach((seg, i) => {
+  if (!seg.isDive) return;
+  const span = seg.endP - seg.startP;
+  const nextConn = SEGMENTS[i + 1];
+  seg.captionRange = [
+    seg.startP + span * 0.55,
+    nextConn ? nextConn.startP + (nextConn.endP - nextConn.startP) * 0.5 : seg.endP
+  ];
+});
+
+const world = document.getElementById('world');
+const stages = document.querySelectorAll('.stage');
+const captions = [0,1,2,3].map(i => document.getElementById('cap-' + i));
+const dots = document.querySelectorAll('.dot');
+const progressBar = document.getElementById('progress');
+
+const VH_PER_SEGMENT = 220;
+world.style.height = (SEGMENTS.length * VH_PER_SEGMENT) + 'vh';
+
+let ticking = false;
+function update() {
+  const rect = world.getBoundingClientRect();
+  const worldH = world.offsetHeight - window.innerHeight;
+  const scrolled = Math.max(0, -rect.top);
+  const p = Math.min(1, scrolled / worldH);
+  progressBar.style.width = (p * 100) + '%';
+
+  // find active segment
+  let activeIdx = SEGMENTS.length - 1;
+  for (let i = 0; i < SEGMENTS.length; i++) {
+    if (p <= SEGMENTS[i].endP) { activeIdx = i; break; }
+  }
+  const active = SEGMENTS[activeIdx];
+  const localP = Math.max(0, Math.min(1, (p - active.startP) / (active.endP - active.startP)));
+
+  stages.forEach((stage, i) => {
+    const isActive = i === activeIdx;
+    stage.classList.toggle('active', isActive);
+    if (!isActive) return;
+
+    const seg = SEGMENTS[i];
+    if (seg.isDive) {
+      // Dive camera: high & small → close & large
+      const zoom = 0.75 + localP * 1.8;   // 0.75 → 2.55
+      const ty = 20 - localP * 90;         // downward push
+      stage.style.setProperty('--zoom', zoom);
+      stage.style.setProperty('--tx', '0px');
+      stage.style.setProperty('--ty', ty + 'px');
+
+      // Roof lift after 45% progress (if scene has a roof)
+      const hasRoof = stage.dataset.hasroof === '1';
+      if (hasRoof) {
+        const roofP = Math.max(0, Math.min(1, (localP - 0.45) / 0.4));
+        const roof = stage.querySelector('.roof');
+        if (roof) {
+          roof.style.setProperty('--roof-y', (-90 * roofP) + 'px');
+          roof.style.setProperty('--roof-op', 1 - roofP);
+        }
+      }
+    } else {
+      // Connector: aerial pan left → right, arcs high in middle
+      const tx = 220 - localP * 440;
+      const zoom = 1.0 - Math.abs(localP - 0.5) * 0.35;
+      stage.style.setProperty('--zoom', zoom);
+      stage.style.setProperty('--tx', tx + 'px');
+      stage.style.setProperty('--ty', '0px');
+    }
+  });
+
+  captions.forEach((cap, sectionIdx) => {
+    const diveSeg = SEGMENTS.find(s => s.section === sectionIdx);
+    if (!diveSeg) return;
+    const [start, end] = diveSeg.captionRange;
+    cap.classList.toggle('show', p >= start && p <= end);
+  });
+
+  const currentSection = active.section !== null
+    ? active.section
+    : (activeIdx > 0 ? SEGMENTS[activeIdx - 1].section : 0);
+  dots.forEach((dot, i) => dot.classList.toggle('active', i === currentSection));
+
+  ticking = false;
+}
+
+function onScroll() {
+  if (!ticking) { requestAnimationFrame(update); ticking = true; }
+}
+
+dots.forEach((dot, i) => {
+  dot.addEventListener('click', () => {
+    const diveSeg = SEGMENTS.find(s => s.section === i);
+    const worldH = world.offsetHeight - window.innerHeight;
+    window.scrollTo({ top: (diveSeg.startP + 0.03) * worldH, behavior: 'smooth' });
+  });
+});
+
+window.addEventListener('scroll', onScroll, { passive: true });
+window.addEventListener('resize', onScroll);
+update();
+
+// Hide hint after user scrolls
+window.addEventListener('scroll', () => {
+  const hint = document.querySelector('.hint');
+  if (hint && window.scrollY > 200) hint.style.opacity = '0';
+}, { once: false, passive: true });
+</script>
+
+</body>
+</html>

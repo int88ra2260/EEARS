@@ -1,0 +1,217 @@
+/* 培力英檢／團體報名 — 公開頁學術風（無漸層、無大幅動畫） */
+
+.public-registration {
+  --reg-canvas: #fbfbfa;
+  --reg-surface: #ffffff;
+  --reg-border: #e3eaf3;
+  --reg-primary: #2a5d9f;
+  --reg-primary-dark: #1c3d6e;
+  --reg-primary-light: #eaf1fc;
+  --reg-text: #2f3437;
+  --reg-text-muted: #6c757d;
+  min-height: 100dvh;
+  background: var(--reg-canvas);
+  padding: 1rem;
+}
+
+.public-registration__nav {
+  max-width: 900px;
+  margin: 0 auto 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.public-registration__container {
+  max-width: 900px;
+  margin-inline: auto;
+}
+
+.public-registration__container--narrow {
+  max-width: 520px;
+}
+
+.public-registration__card {
+  background: var(--reg-surface);
+  border: 1px solid var(--reg-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 4px rgba(28, 61, 110, 0.06);
+}
+
+@media (min-width: 768px) {
+  .public-registration__card {
+    padding: 2rem;
+  }
+}
+
+.public-registration__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--reg-primary-dark);
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.public-registration__subtitle {
+  font-size: 0.875rem;
+  color: var(--reg-text-muted);
+  margin: 0.35rem 0 0;
+  line-height: 1.5;
+}
+
+.public-registration__steps {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 1.25rem 0 1.5rem;
+}
+
+.public-registration__step-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--reg-border);
+  transition: background-color 0.2s ease;
+}
+
+.public-registration__step-bar.is-done {
+  background: var(--reg-primary);
+}
+
+.public-registration__step-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--reg-text-muted);
+  white-space: nowrap;
+  margin-left: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.public-registration__section {
+  border: 1px solid var(--reg-border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: var(--reg-surface);
+}
+
+.public-registration__section-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--reg-text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.public-registration__quota {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--reg-primary-light);
+  border: 1px solid var(--reg-border);
+  border-radius: 8px;
+}
+
+.public-registration__quota-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 7rem;
+}
+
+.public-registration__quota-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--reg-primary-dark);
+}
+
+.public-registration__quota-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--reg-text);
+  font-weight: 500;
+}
+
+.public-registration__members {
+  display: grid;
+  gap: 1rem;
+}
+
+.public-registration__member-card {
+  border: 1px solid var(--reg-border);
+  border-radius: 8px;
+  padding: 1rem;
+  background: #fafcfe;
+}
+
+.public-registration__member-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--reg-primary-dark);
+  margin-bottom: 0.75rem;
+}
+
+.public-registration__submit-bar {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--reg-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.public-registration__submit-bar .btn {
+  min-height: 44px;
+}
+
+.public-registration .form-control:focus {
+  border-color: var(--reg-primary);
+  box-shadow: 0 0 0 3px rgba(42, 93, 159, 0.12);
+}
+
+.public-registration .form-control.is-invalid,
+.public-registration .form-control.error {
+  border-color: #dc3545;
+  background: #fff8f8;
+}
+
+.public-registration .btn-primary {
+  background: var(--reg-primary);
+  border-color: var(--reg-primary);
+}
+
+.public-registration .btn-primary:hover {
+  background: var(--reg-primary-dark);
+  border-color: var(--reg-primary-dark);
+}
+
+.public-registration .privacy-panel {
+  border: 1px solid var(--reg-border);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--reg-primary-light);
+}
+
+.public-registration .doc-image {
+  border: 1px solid var(--reg-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+@media (max-width: 576px) {
+  .public-registration {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .public-registration__submit-bar .btn {
+    flex: 1 1 100%;
+  }
+}

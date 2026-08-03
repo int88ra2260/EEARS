@@ -1,54 +1,83 @@
+const { Op } = require('sequelize');
 const { Event, SurveyModuleResponse, SurveyRule } = require('../models');
+
+const VALID_RESPONSE_WHERE = { surveyId: { [Op.ne]: null } };
 const { normalizeSurveyResponseAnswers } = require('./surveyResponseNormalizationService');
 const { detectRuleConflicts } = require('./surveyRuleEvaluationService');
 const { backfillEventSemesters, backfillResponseLinks } = require('./surveyDataGovernanceService');
 
 async function getHealthOverview() {
-  const totalResponses = await SurveyModuleResponse.count();
-  const missingSemesterCount = await SurveyModuleResponse.count({ where: { semesterId: null } });
-  const missingVersionCount = await SurveyModuleResponse.count({ where: { surveyVersionId: null } });
+  const totalResponses = await SurveyModuleResponse.count({ where: VALID_RESPONSE_WHERE });
+  const orphanResponses = await SurveyModuleResponse.count({ where: { surveyId: null } });
+  const missingSemesterCount = await SurveyModuleResponse.count({
+    where: { ...VALID_RESPONSE_WHERE, semesterId: null },
+  });
+  const missingVersionCount = await SurveyModuleResponse.count({
+    where: { ...VALID_RESPONSE_WHERE, surveyVersionId: null },
+  });
   const eventsMissingSemester = await Event.count({ where: { semesterId: null } });
 
-  const sample = await SurveyModuleResponse.findAll({ limit: 200, order: [['updatedAt', 'DESC']] });
+  const scanLimit = Math.min(totalResponses, 800);
+  const sample = await SurveyModuleResponse.findAll({
+    where: VALID_RESPONSE_WHERE,
+    limit: scanLimit,
+    order: [['updatedAt', 'DESC']],
+  });
   let unmatchedAnswersCount = 0;
   let fallbackRenderedResponsesCount = 0;
+  let responsesWithUnmatched = 0;
   for (const r of sample) {
     const n = await normalizeSurveyResponseAnswers(r);
-    unmatchedAnswersCount += Number(n?.dataIntegrity?.unmatchedAnswerCount || 0);
-    if (n?.dataIntegrity?.normalizedWithFallback) fallbackRenderedResponsesCount += 1;
+    const u = Number(n?.dataIntegrity?.unmatchedAnswerCount || 0);
+    unmatchedAnswersCount += u;
+    if (u > 0) responsesWithUnmatched += 1;
+    if (n?.dataIntegrity?.normalizedWithFallback && u > 0) fallbackRenderedResponsesCount += 1;
   }
 
   return {
     responsesTotal: totalResponses,
+    orphanResponses,
     missingSemesterCount,
     missingVersionCount,
     unresolvedSemesterCount: missingSemesterCount,
     unresolvedVersionCount: missingVersionCount,
     unmatchedAnswersCount,
+    responsesWithUnmatched,
     fallbackRenderedResponsesCount,
     eventsMissingSemester,
     sampleSizeForNormalization: sample.length,
+    normalizationScanComplete: scanLimit >= totalResponses,
   };
 }
 
 async function getHealthProblems() {
   const [responsesMissingSemester, responsesMissingVersion, eventsMissingSemester] = await Promise.all([
-    SurveyModuleResponse.findAll({ where: { semesterId: null }, limit: 200, order: [['submittedAt', 'DESC']] }),
-    SurveyModuleResponse.findAll({ where: { surveyVersionId: null }, limit: 200, order: [['submittedAt', 'DESC']] }),
+    SurveyModuleResponse.findAll({
+      where: { ...VALID_RESPONSE_WHERE, semesterId: null },
+      limit: 200,
+      order: [['submittedAt', 'DESC']],
+    }),
+    SurveyModuleResponse.findAll({
+      where: { ...VALID_RESPONSE_WHERE, surveyVersionId: null },
+      limit: 200,
+      order: [['submittedAt', 'DESC']],
+    }),
     Event.findAll({ where: { semesterId: null }, limit: 200, order: [['id', 'DESC']] }),
   ]);
 
-  const responseIds = responsesMissingSemester.map((r) => r.id).concat(responsesMissingVersion.map((r) => r.id));
   const answerIssues = [];
-  if (responseIds.length) {
-    const uniqIds = Array.from(new Set(responseIds));
-    for (const id of uniqIds.slice(0, 100)) {
-      const r = await SurveyModuleResponse.findByPk(id);
-      if (!r) continue;
-      const n = await normalizeSurveyResponseAnswers(r);
-      if (n.dataIntegrity.unmatchedAnswerCount > 0) {
-        answerIssues.push({ responseId: id, unmatchedAnswerCount: n.dataIntegrity.unmatchedAnswerCount });
-      }
+  const scanForAnswers = await SurveyModuleResponse.findAll({
+    where: VALID_RESPONSE_WHERE,
+    limit: 300,
+    order: [['submittedAt', 'DESC']],
+  });
+  for (const r of scanForAnswers) {
+    const n = await normalizeSurveyResponseAnswers(r);
+    if (n.dataIntegrity.unmatchedAnswerCount > 0) {
+      answerIssues.push({
+        responseId: r.id,
+        unmatchedAnswerCount: n.dataIntegrity.unmatchedAnswerCount,
+      });
     }
   }
 

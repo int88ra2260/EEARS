@@ -2,13 +2,13 @@
 // 學習有伴團體報名頁面
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useMediaQuery from '../hooks/useMediaQuery';
+import { fetchEnglishTestRegistrationGroupEnabledPublic } from '../services/settingsAdminApi';
+import { createLearningPartnerTeam, fetchLearningPartnerQuota } from '../services/learningPartnerPublicApi';
+import '../styles/registration-public.css';
 
 export default function LearningPartnerRegistrationPage() {
   const navigate = useNavigate();
-  const isMobile = useMediaQuery('(max-width: 768px)');
-  const isSmallMobile = useMediaQuery('(max-width: 576px)');
-  
+
   const [teamSize, setTeamSize] = useState(null);
   const [teamName, setTeamName] = useState('');
   const [members, setMembers] = useState([]);
@@ -26,19 +26,12 @@ export default function LearningPartnerRegistrationPage() {
     const loadRegistrationStatus = async () => {
       try {
         // 檢查團體報名功能是否啟用（與後台「團體報名」開關一致）
-        const enabledResponse = await fetch('/api/settings/english-test-registration-group-enabled');
-        if (enabledResponse.ok) {
-          const enabledData = await enabledResponse.json();
-          setRegistrationEnabled(enabledData.enabled !== false);
-        } else {
-          setRegistrationEnabled(true);
-        }
-
-        // 查詢名額狀態
-        const quotaResponse = await fetch('/api/learning-partner/quota');
-        if (quotaResponse.ok) {
-          const quotaData = await quotaResponse.json();
+        setRegistrationEnabled(await fetchEnglishTestRegistrationGroupEnabledPublic());
+        try {
+          const quotaData = await fetchLearningPartnerQuota();
           setQuotaInfo(quotaData);
+        } catch (_) {
+          // 名額查詢失敗時保留預設值
         }
       } catch (error) {
         console.error('載入報名狀態錯誤:', error);
@@ -109,43 +102,30 @@ export default function LearningPartnerRegistrationPage() {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch('/api/learning-partner/teams', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          teamName: teamName.trim() || null,
-          teamSize,
-          members: members.map(m => ({
-            studentId: m.studentId.trim(),
-            name: m.name.trim()
-          }))
-        })
+      const data = await createLearningPartnerTeam({
+        teamName: teamName.trim() || null,
+        teamSize,
+        members: members.map((m) => ({
+          studentId: m.studentId.trim(),
+          name: m.name.trim(),
+        })),
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSubmittedTeam(data.team);
-      } else {
-        // 處理錯誤
-        if (data.code === 'LP_QUOTA_FULL') {
-          alert(`團體報名名額已滿（目前 ${data.current}/${data.quota}）`);
-        } else if (data.code === 'LP_MEMBER_NOT_ELIGIBLE' && data.ineligibleMembers) {
-          const memberList = data.ineligibleMembers.map(m => 
-            `${m.name} (${m.studentId}): ${m.reason}`
-          ).join('\n');
-          alert(`以下成員不符合報名資格：\n\n${memberList}`);
-        } else if (data.code === 'LP_MEMBER_ALREADY_IN_TEAM') {
-          alert('部分成員已在其他團體中，無法重複報名');
-        } else {
-          alert(data.error || '建立團體報名時發生錯誤');
-        }
-      }
+      setSubmittedTeam(data.team);
     } catch (error) {
       console.error('提交錯誤:', error);
-      alert('提交時發生錯誤，請稍後再試');
+      const data = error.data || {};
+      if (data.code === 'LP_QUOTA_FULL') {
+        alert(`團體報名名額已滿（目前 ${data.current}/${data.quota}）`);
+      } else if (data.code === 'LP_MEMBER_NOT_ELIGIBLE' && data.ineligibleMembers) {
+        const memberList = data.ineligibleMembers.map((m) =>
+          `${m.name} (${m.studentId}): ${m.reason}`,
+        ).join('\n');
+        alert(`以下成員不符合報名資格：\n\n${memberList}`);
+      } else if (data.code === 'LP_MEMBER_ALREADY_IN_TEAM') {
+        alert('部分成員已在其他團體中，無法重複報名');
+      } else {
+        alert(error.message || data.error || '提交時發生錯誤，請稍後再試');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -165,144 +145,74 @@ export default function LearningPartnerRegistrationPage() {
   // 同意頁面 - 需要先審閱並同意才能進入報名表單
   if (!hasConfirmedAgreement) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          backgroundImage: 'url("/images/bg-pattern2.png")',
-          backgroundRepeat: 'repeat',
-          backgroundSize: 'auto',
-          backgroundAttachment: 'fixed',
-          padding: isSmallMobile ? '1rem 0.5rem' : isMobile ? '1.5rem 1rem' : '2rem 1rem',
-        }}
-      >
-        <div className="container">
-          <nav className="d-flex align-items-center justify-content-between mb-4">
-            <button
-              onClick={() => navigate('/register/english-test')}
-              className="btn btn-outline-secondary"
-              style={{
-                padding: isSmallMobile ? '0.5rem 1rem' : '0.625rem 1.25rem',
-                fontSize: isSmallMobile ? '0.875rem' : '1rem'
-              }}
-            >
-              <i className="fas fa-arrow-left me-2"></i>
-              {isSmallMobile ? '上一頁' : '← 上一頁'}
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="btn btn-outline-secondary"
-              style={{
-                padding: isSmallMobile ? '0.5rem 1rem' : '0.625rem 1.25rem',
-                fontSize: isSmallMobile ? '0.875rem' : '1rem'
-              }}
-            >
-              {isSmallMobile ? '返回' : '返回首頁'}
-            </button>
-          </nav>
+      <div className="public-registration">
+        <nav className="public-registration__nav">
+          <button type="button" onClick={() => navigate('/register/english-test')} className="btn btn-outline-secondary btn-sm">
+            返回個人報名
+          </button>
+          <button type="button" onClick={() => navigate('/')} className="btn btn-outline-secondary btn-sm">
+            返回首頁
+          </button>
+        </nav>
 
-          <div className="card shadow-lg" style={{ maxWidth: '900px', margin: '0 auto' }}>
-            <div className="card-body p-4">
-              <h2 className="mb-4 text-center" style={{ color: '#FF6B6B', fontWeight: 'bold' }}>
-                🎓 學習有伴團體報名 - 請先審閱相關文件
-              </h2>
+        <div className="public-registration__container">
+          <div className="public-registration__card">
+            <header className="mb-3 text-center">
+              <h1 className="public-registration__title">學習有伴團體報名</h1>
+              <p className="public-registration__subtitle">請先審閱並同意下列文件，再進入報名表單。</p>
+            </header>
 
-              <div className="alert alert-warning mb-4">
-                <strong>⚠️ 重要提醒：</strong>
-                <p className="mb-0 mt-2">
-                  請仔細閱讀以下文件，確認您已了解並同意相關規定後，再進行團體報名。
-                </p>
+            <div className="alert alert-warning py-2 small mb-4">
+              請仔細閱讀文件內容，確認了解相關規定後再勾選同意。
+            </div>
+
+            <div className="public-registration__section mb-3">
+              <div className="public-registration__section-title">個資使用同意書</div>
+              <div className="doc-image text-center">
+                <img src="/個資使用同意書.jpg" alt="個資使用同意書" className="img-fluid" />
               </div>
+            </div>
 
-              {/* 個資使用同意書 */}
-              <div className="mb-4">
-                <h5 className="mb-3">
-                  <i className="fas fa-file-alt me-2"></i>
-                  個資使用同意書
-                </h5>
-                <div className="text-center mb-3">
-                  <img
-                    src="/個資使用同意書.jpg"
-                    alt="個資使用同意書"
-                    className="img-fluid"
-                    style={{
-                      maxWidth: '100%',
-                      height: 'auto',
-                      border: '1px solid #dee2e6',
-                      borderRadius: '0.375rem',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                </div>
+            <div className="public-registration__section mb-3">
+              <div className="public-registration__section-title">團體報名簡章</div>
+              <div className="doc-image text-center">
+                <img src="/團體報名簡章.jpg" alt="團體報名簡章" className="img-fluid" />
               </div>
+            </div>
 
-              {/* 團體報名簡章 */}
-              <div className="mb-4">
-                <h5 className="mb-3">
-                  <i className="fas fa-file-alt me-2"></i>
-                  團體報名簡章
-                </h5>
-                <div className="text-center mb-3">
-                  <img
-                    src="/團體報名簡章.jpg"
-                    alt="團體報名簡章"
-                    className="img-fluid"
-                    style={{
-                      maxWidth: '100%',
-                      height: 'auto',
-                      border: '1px solid #dee2e6',
-                      borderRadius: '0.375rem',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                </div>
+            <div className="privacy-panel mb-4">
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="agreeCheckbox"
+                  checked={hasAgreed}
+                  onChange={(e) => setHasAgreed(e.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="agreeCheckbox">
+                  我已確實審閱並同意上述文件內容
+                </label>
               </div>
+            </div>
 
-              {/* 同意勾選框 */}
-              <div className="card bg-light mb-4">
-                <div className="card-body">
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="agreeCheckbox"
-                      checked={hasAgreed}
-                      onChange={(e) => setHasAgreed(e.target.checked)}
-                      style={{ width: '1.25rem', height: '1.25rem', cursor: 'pointer' }}
-                    />
-                    <label className="form-check-label" htmlFor="agreeCheckbox" style={{ cursor: 'pointer', fontSize: '1.1rem', fontWeight: '500' }}>
-                      <strong>我已確實審閱並同意上述文件內容</strong>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* 確認進入按鈕 */}
-              <div className="d-flex justify-content-center">
-                <button
-                  type="button"
-                  className="btn btn-primary btn-lg"
-                  onClick={() => {
-                    if (hasAgreed) {
-                      setHasConfirmedAgreement(true);
-                      // 滾動到頂部
-                      setTimeout(() => {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }, 100);
-                    } else {
-                      alert('請先勾選「我已確實審閱並同意上述文件內容」');
-                    }
-                  }}
-                  disabled={!hasAgreed}
-                  style={{
-                    minWidth: '200px',
-                    padding: '0.75rem 2rem',
-                    fontSize: '1.1rem'
-                  }}
-                >
-                  <i className="fas fa-arrow-right me-2"></i>
-                  {hasAgreed ? '確認進入報名表單' : '請先勾選同意'}
-                </button>
-              </div>
+            <div className="public-registration__submit-bar justify-content-center">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  if (hasAgreed) {
+                    setHasConfirmedAgreement(true);
+                    setTimeout(() => {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }, 100);
+                  } else {
+                    alert('請先勾選「我已確實審閱並同意上述文件內容」');
+                  }
+                }}
+                disabled={!hasAgreed}
+              >
+                {hasAgreed ? '確認進入報名表單' : '請先勾選同意'}
+              </button>
             </div>
           </div>
         </div>
@@ -399,63 +309,42 @@ export default function LearningPartnerRegistrationPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundImage: 'url("/images/bg-pattern2.png")',
-        backgroundRepeat: 'repeat',
-        backgroundSize: 'auto',
-        backgroundAttachment: 'fixed',
-        padding: isSmallMobile ? '1rem 0.5rem' : isMobile ? '1.5rem 1rem' : '2rem 1rem',
-      }}
-    >
-      <div className="container">
-        <nav className="d-flex align-items-center justify-content-between mb-4">
-          <button
-            onClick={() => navigate('/register/english-test')}
-            className="btn btn-outline-secondary"
-            style={{
-              padding: isSmallMobile ? '0.5rem 1rem' : '0.625rem 1.25rem',
-              fontSize: isSmallMobile ? '0.875rem' : '1rem'
-            }}
-          >
-            <i className="fas fa-arrow-left me-2"></i>
-            {isSmallMobile ? '上一頁' : '← 上一頁'}
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className="btn btn-outline-secondary"
-            style={{
-              padding: isSmallMobile ? '0.5rem 1rem' : '0.625rem 1.25rem',
-              fontSize: isSmallMobile ? '0.875rem' : '1rem'
-            }}
-          >
-            {isSmallMobile ? '返回' : '返回首頁'}
-          </button>
-        </nav>
+    <div className="public-registration">
+      <nav className="public-registration__nav">
+        <button type="button" onClick={() => navigate('/register/english-test')} className="btn btn-outline-secondary btn-sm">
+          返回個人報名
+        </button>
+        <button type="button" onClick={() => navigate('/')} className="btn btn-outline-secondary btn-sm">
+          返回首頁
+        </button>
+      </nav>
 
-        <div className="card shadow-lg" style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <div className="card-body p-4">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h2 className="mb-0" style={{ color: '#FF6B6B', fontWeight: 'bold' }}>
-                🎓 學習有伴團體報名
-              </h2>
-              {/* 名額狀態顯示 */}
-              <div className="text-end">
-                <div className="badge bg-info" style={{ fontSize: '0.9rem', padding: '0.5rem 1rem' }}>
-                  名額：{quotaInfo.current} / {quotaInfo.quota} 組
-                </div>
-                {quotaInfo.remaining > 0 && quotaInfo.remaining <= 5 && (
-                  <div className="text-warning small mt-1">
-                    ⚠️ 僅剩 {quotaInfo.remaining} 組名額
-                  </div>
-                )}
-              </div>
+      <div className="public-registration__container public-registration__container--narrow">
+        <div className="public-registration__card">
+          <header className="mb-3">
+            <h1 className="public-registration__title">學習有伴團體報名</h1>
+            <p className="public-registration__subtitle">請填寫團體成員資料，送出後成員需於時限內完成同意。</p>
+          </header>
+
+          <div className="public-registration__quota">
+            <div className="public-registration__quota-item">
+              <span className="public-registration__quota-label">目前報名組數</span>
+              <span className="public-registration__quota-value">{quotaInfo.current} / {quotaInfo.quota} 組</span>
             </div>
+            <div className="public-registration__quota-item">
+              <span className="public-registration__quota-label">剩餘名額</span>
+              <span className="public-registration__quota-value">{quotaInfo.remaining} 組</span>
+            </div>
+          </div>
 
-            <form onSubmit={handleSubmit}>
-              {/* 選擇團隊人數 */}
-              <div className="mb-4">
+          {quotaInfo.remaining > 0 && quotaInfo.remaining <= 5 && (
+            <div className="alert alert-warning py-2 small">僅剩 {quotaInfo.remaining} 組名額，請盡快完成報名。</div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <div className="public-registration__section">
+              <div className="public-registration__section-title">團體設定</div>
+              <div className="mb-3">
                 <label className="form-label fw-bold">
                   選擇團隊人數 <span className="text-danger">*</span>
                 </label>
@@ -493,21 +382,20 @@ export default function LearningPartnerRegistrationPage() {
                 </div>
               )}
 
-              {/* 成員資料 */}
+            </div>
+
               {teamSize && members.length === teamSize && (
-                <div className="mb-4">
-                  <label className="form-label fw-bold">
-                    填寫成員資料 <span className="text-danger">*</span>
-                  </label>
+                <div className="public-registration__section">
+                  <div className="public-registration__section-title">團體成員資料</div>
                   <div className="alert alert-info small mb-3">
-                    <strong>注意：</strong>所有成員（包含代表者）必須已完成個人培力英檢「四項」報名且狀態為「報名成功」
+                    所有成員（含代表者）須已完成個人培力英檢四項報名且狀態為「報名成功」。
                   </div>
-                  
+
+                  <div className="public-registration__members">
                   {members.map((member, index) => (
-                    <div key={index} className="card mb-3">
-                      <div className="card-body">
-                        <h6 className="card-title">
-                          {index === 0 ? '👤 代表者（填寫表單者）' : `成員 ${index + 1}`}
+                    <div key={index} className="public-registration__member-card">
+                        <h6 className="public-registration__member-title">
+                          {index === 0 ? '代表者（填寫表單者）' : `成員 ${index + 1}`}
                         </h6>
                         <div className="row">
                           <div className="col-md-6 mb-3">
@@ -539,33 +427,23 @@ export default function LearningPartnerRegistrationPage() {
                             )}
                           </div>
                         </div>
-                      </div>
                     </div>
                   ))}
+                  </div>
                 </div>
               )}
 
-              {/* 提交按鈕 */}
               {teamSize && (
-                <div className="d-flex justify-content-end gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => navigate('/')}
-                  >
+                <div className="public-registration__submit-bar">
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => navigate('/')}>
                     取消
                   </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? '提交中...' : '送出團體報名'}
+                  <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                    {isSubmitting ? '提交中…' : '送出團體報名'}
                   </button>
                 </div>
               )}
             </form>
-          </div>
         </div>
       </div>
     </div>

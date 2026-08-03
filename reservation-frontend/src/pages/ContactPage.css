@@ -1,26 +1,34 @@
 .contact-page {
   padding: 1rem 0 2rem;
+  color: var(--pub-text-body, #4a3f36);
 }
 
 .contact-page-header h1 {
-  font-size: clamp(1.5rem, 4vw, 1.75rem);
-  font-weight: 700;
+  font-family: var(--font-family-serif, 'Newsreader', serif);
+  font-size: clamp(1.75rem, 4vw, 2.1rem);
+  font-weight: 500;
   margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+  color: var(--pub-text, #3d2e24);
 }
 
 .contact-page-card {
-  background: #fff;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 254, 251, 0.94), rgba(255, 254, 251, 0.94)),
+    url('../assets/paper_texture.png');
+  background-size: auto, 360px;
+  border: 1px solid var(--pub-border, #e5d9cc);
+  border-radius: 16px;
   padding: 1.5rem;
   max-width: 480px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 10px 24px rgba(61, 46, 36, 0.045);
 }
 
 .contact-page-name {
   font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 1rem;
+  color: var(--pub-text, #3d2e24);
 }
 
 .contact-page-dl {
@@ -32,6 +40,7 @@
   font-size: 0.9rem;
   margin-top: 0.75rem;
   margin-bottom: 0.25rem;
+  color: var(--pub-text, #3d2e24);
 }
 
 .contact-page-dl dt:first-of-type {
@@ -40,8 +49,9 @@
 
 .contact-page-dl dd {
   margin-left: 0;
+  color: var(--pub-text-body, #4a3f36);
 }
 
 .contact-page-dl a {
-  color: var(--bs-primary);
+  color: var(--pub-primary, #d4564a);
 }

@@ -5,6 +5,13 @@ const { sendEmail, emailTemplates } = require('../config/email');
 const { logEmailAsync } = require('../services/emailLogService');
 const { randomUUID } = require('crypto');
 
+function delay(ms) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    if (typeof timer.unref === 'function') timer.unref();
+  });
+}
+
 class EmailQueue {
   constructor() {
     this.queue = [];
@@ -58,7 +65,7 @@ class EmailQueue {
       }
 
       // 避免阻塞，每次發送後稍作延遲
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await delay(100);
     }
 
     this.processing = false;
@@ -110,7 +117,7 @@ class EmailQueue {
 
         if (shouldRetry) {
           // 延遲後重試
-          await new Promise((resolve) => setTimeout(resolve, this.retryDelay));
+          await delay(this.retryDelay);
         } else {
           throw new Error(`Email failed after ${job.maxRetries} retries: ${error.message}`);
         }

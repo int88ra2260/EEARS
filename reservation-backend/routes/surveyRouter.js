@@ -3,7 +3,8 @@ const express = require('express');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const { EnglishTableSurveyResponse, EnglishClubSurveyResponse, SurveySettings } = require('../models');
-const { authMiddleware, requirePermission, requireSurveyAccess, P } = require('../middlewares/auth');
+const { authMiddleware, requirePermission, requireAnyPermission, requireSurveyAccess, P } = require('../middlewares/auth');
+const { logLegacySurveyExportAudit } = require('../utils/legacySurveyExportAudit');
 const { legacyDeprecationHeaders } = require('../middlewares/legacyDeprecation');
 const surveyModuleService = require('../services/surveyModuleService');
 const { getCurrentSemester, isValidSemester } = require('../utils/semester');
@@ -28,6 +29,19 @@ const markGoneSurveyConfigRoute = legacyDeprecationHeaders({
 
 // 載入問卷配置（後台 /config、舊相容）
 const surveysConfig = require('../surveys.json');
+
+function isAdminSurveysBase(req) {
+  return String(req.baseUrl || '').startsWith('/api/admin/surveys');
+}
+
+// P0: 同一份 router 會同時掛在 /api/surveys 與 /api/admin/surveys。
+// 針對 admin 前綴加一道最小防線，避免公開路由在 admin 前綴下被未授權存取。
+router.use((req, res, next) => {
+  if (!isAdminSurveysBase(req)) return next();
+  return authMiddleware(req, res, () =>
+    requirePermission(P.CAN_VIEW_SURVEYS)(req, res, next)
+  );
+});
 
 /** 統一公開提交錯誤回應 */
 function handlePublicSubmitError(e, res, next) {
@@ -86,45 +100,11 @@ router.post('/public/:surveyKey/responses', async (req, res, next) => {
   }
 });
 
-// 公開 API：取得啟用中的活動問卷列表（供首頁重要通知與問卷選擇頁使用）
+// 公開 API：取得啟用中的活動問卷列表（依 survey_rules，供首頁與問卷選擇頁）
 router.get('/enabled', async (req, res, next) => {
   try {
-    const settings = await SurveySettings.findAll({
-      where: { isEnabled: true },
-      attributes: ['surveyId', 'surveyName', 'relatedEventTypes', 'startDate', 'endDate']
-    });
-    const now = new Date();
-    const allowedTypes = ['English Table', 'English Club'];
-    const idToType = { survey_1: 'English Table', survey_2: 'English Club', english_table_feedback_114_1: 'English Table', english_club_feedback_114_1: 'English Club' };
-
-    const parseTypes = (s) => {
-      if (Array.isArray(s.relatedEventTypes)) return s.relatedEventTypes;
-      if (typeof s.relatedEventTypes === 'string') {
-        try { return JSON.parse(s.relatedEventTypes); } catch (_) { return []; }
-      }
-      return [];
-    };
-
-    const list = settings
-      .filter(s => {
-        const types = parseTypes(s);
-        const matchByType = types.some(t => allowedTypes.includes(t));
-        const matchById = idToType[s.surveyId];
-        if (!matchByType && !matchById) return false;
-        if (s.startDate && new Date(s.startDate) > now) return false;
-        if (s.endDate && new Date(s.endDate) < now) return false;
-        return true;
-      })
-      .map(s => ({
-        surveyId: s.surveyId === 'survey_1' ? 'english_table_feedback_114_1' : s.surveyId === 'survey_2' ? 'english_club_feedback_114_1' : s.surveyId,
-        surveyName:
-          (s.surveyId === 'survey_1' || s.surveyId === 'english_table_feedback_114_1')
-            ? 'English Table Feedback Questionnaire'
-            : (s.surveyId === 'survey_2' || s.surveyId === 'english_club_feedback_114_1')
-              ? 'English Club Feedback Questionnaire'
-              : s.surveyName,
-        relatedEventTypes: parseTypes(s).length ? parseTypes(s) : (idToType[s.surveyId] ? [idToType[s.surveyId]] : [])
-      }));
+    const { listEnabledActivitySurveys } = require('../services/surveyEnabledListService');
+    const list = await listEnabledActivitySurveys();
     res.json(list);
   } catch (err) {
     next(err);
@@ -255,12 +235,15 @@ router.get(
   }
 });
 
-// 匯出問卷資料至Excel（管理員、執行長和English Table負責人可用）
+// 匯出問卷資料至 Excel（需問卷匯出權限；完整個資僅在匯出檔內，audit 不含原文）
 router.get(
   '/export/:surveyId',
   markDeprecatedSurveyRoute,
   authMiddleware,
-  requirePermission(P.CAN_EXPORT_SURVEYS),
+  requireAnyPermission(
+    [P.CAN_EXPORT_SURVEY_RESPONSES, P.CAN_EXPORT_SURVEYS],
+    '需要問卷填答匯出權限'
+  ),
   requireSurveyAccess('surveyId'),
   async (req, res, next) => {
   try {
@@ -370,6 +353,19 @@ router.get(
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
+
+    const surveyType = surveyId === 'english_club_feedback_114_1' ? 'english_club' : 'english_table';
+    const auditAction = surveyType === 'english_club'
+      ? 'legacy_english_club_survey_export'
+      : 'legacy_english_table_survey_export';
+    logLegacySurveyExportAudit(req, {
+      action: auditAction,
+      surveyType,
+      rowCount: surveys.length,
+      filters: { semester },
+      surveyId,
+    });
+
     res.end();
   } catch (err) {
     next(err);

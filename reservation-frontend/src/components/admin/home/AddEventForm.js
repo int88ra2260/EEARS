@@ -3,15 +3,18 @@
 
 import React from 'react';
 import ErrorAlert from '../shared/ErrorAlert';
+import LocationSelectField from '../LocationSelectField';
+import EventCapacityFields from './EventCapacityFields';
+import { getDefaultCapacityFields } from '../../../utils/eventCapacityFields';
 
 /**
  * @param {Object} props
- * @param {Object} props.fields - { name, eventType, date, startTime, endTime, maxParticipants, customEventType, customReservationRule }
+ * @param {Object} props.fields
  * @param {(next: Object) => void} props.onFieldsChange
  * @param {boolean} props.loading
  * @param {string} props.error
  * @param {(e: React.FormEvent) => void} props.onSubmit
- * @param {() => void} props.onOpenBatchAdd - 開啟批量新增 Modal（parent 負責 setBatchEvents / setShowBatchAddModal 等）
+ * @param {() => void} props.onOpenBatchAdd
  */
 export default function AddEventForm({
   fields,
@@ -22,19 +25,19 @@ export default function AddEventForm({
   onOpenBatchAdd
 }) {
   const setField = (key, value) => {
+    if (key === 'eventType') {
+      onFieldsChange({
+        ...fields,
+        eventType: value,
+        ...getDefaultCapacityFields(value),
+      });
+      return;
+    }
     onFieldsChange({ ...fields, [key]: value });
   };
 
-  const handleMaxParticipantsChange = (e) => {
-    const value = e.target.value;
-    if (value === '') {
-      setField('maxParticipants', '');
-    } else {
-      const numValue = parseInt(value, 10);
-      if (!isNaN(numValue) && numValue >= 1 && numValue <= 100) {
-        setField('maxParticipants', numValue);
-      }
-    }
+  const handleCapacityChange = (nextFields) => {
+    onFieldsChange(nextFields);
   };
 
   return (
@@ -67,19 +70,12 @@ export default function AddEventForm({
               <option value="其他">其他</option>
             </select>
           </div>
-          <div className="col-md-2">
-            <label className="form-label">人數限制 *</label>
-            <input
-              type="number"
-              className="form-control"
-              placeholder="30"
-              min="1"
-              max="100"
-              required
-              value={fields.maxParticipants === '' ? '' : fields.maxParticipants}
-              onChange={handleMaxParticipantsChange}
-            />
-          </div>
+          <EventCapacityFields
+            eventType={fields.eventType}
+            fields={fields}
+            onFieldsChange={handleCapacityChange}
+            layout="inline"
+          />
           <div className="col-md-2">
             <label className="form-label">日期 *</label>
             <input
@@ -116,6 +112,12 @@ export default function AddEventForm({
               required
               value={fields.endTime}
               onChange={(e) => setField('endTime', e.target.value)}
+            />
+          </div>
+          <div className="col-md-4">
+            <LocationSelectField
+              value={fields.location || ''}
+              onChange={(location) => setField('location', location)}
             />
           </div>
           <div className="col-md-2">

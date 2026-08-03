@@ -7,7 +7,8 @@ module.exports = {
     'middlewares/**/*.js',
     '!**/node_modules/**'
   ],
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.js']
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+  globalTeardown: '<rootDir>/tests/teardown.js',
 };
 
 

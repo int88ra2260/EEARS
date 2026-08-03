@@ -1,6 +1,8 @@
 // utils/logger.js
 // 統一日誌管理工具，讓終端機輸出更清晰
 
+const { formatTaipeiTime } = require('./time');
+
 const LOG_LEVELS = {
   DEBUG: 0,
   INFO: 1,
@@ -31,8 +33,7 @@ const colors = {
 
 // 格式化時間戳記
 const formatTimestamp = () => {
-  const now = new Date();
-  return now.toISOString().replace('T', ' ').substring(0, 19);
+  return formatTaipeiTime();
 };
 
 // 格式化日誌訊息

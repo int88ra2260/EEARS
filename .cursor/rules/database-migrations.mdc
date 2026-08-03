@@ -1,0 +1,45 @@
+---
+description: Sequelize migration 與模型慣例
+globs: reservation-backend/{migrations,models}/**/*
+alwaysApply: false
+---
+
+# 資料庫與 Migration
+
+## 命名規範
+
+- **新 migration**：`YYYYMMDDHHMMSS-kebab-description.js`
+- 範例：`20260508120000-create-event-waitlist-entries.js`
+- 避免新增舊式 `add-*.js` 或裸 `.sql` 檔
+
+## Migration 模板
+
+```javascript
+'use strict';
+
+/** @type {import('sequelize-cli').Migration} */
+module.exports = {
+  async up(queryInterface, Sequelize) { /* ... */ },
+  async down(queryInterface, Sequelize) { /* ... */ },
+};
+```
+
+## 常見陷阱
+
+- FK 型別必須與參照欄位一致（`events.id` 為 signed `INTEGER`，非 `UNSIGNED`）
+- ENUM 擴充需獨立 migration（參考 `expand-*-enum-*.js`）
+- `down` 必須可逆；刪表/欄位前確認無生產資料依賴
+- 模型變更後更新 `models/index.js` 關聯
+
+## 執行
+
+```bash
+cd reservation-backend
+npx sequelize-cli db:migrate
+npx sequelize-cli db:migrate:undo   # 僅開發環境
+```
+
+## 禁止事項
+
+- 生產環境勿用 `sequelize.sync()`（僅 `ENABLE_DB_SYNC=true` 時啟用）
+- 勿在 migration 內做大量資料轉換；大量 backfill 用 `scripts/` 獨立腳本
