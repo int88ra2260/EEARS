@@ -6,10 +6,33 @@ const adminMiddleware = require('../middlewares/adminMiddleware');
 const { Op } = require('sequelize');
 
 /**
+ * 週報 API Token 驗證中間件
+ * 支援兩種方式：
+ * 1. 標準登入 token（透過 authMiddleware）
+ * 2. 專用 API Token（透過環境變數 WEEKLY_REPORT_API_TOKEN）
+ */
+const weeklyReportAuth = (req, res, next) => {
+  const apiToken = process.env.WEEKLY_REPORT_API_TOKEN;
+  const authHeader = req.headers.authorization;
+  
+  // 檢查是否使用專用 API Token
+  if (apiToken && authHeader === `Bearer ${apiToken}`) {
+    req.user = { username: 'cursor-agent', role: 'admin' };
+    return next();
+  }
+  
+  // 否則使用標準登入驗證
+  authMiddleware(req, res, (err) => {
+    if (err) return next(err);
+    adminMiddleware(req, res, next);
+  });
+};
+
+/**
  * GET /api/weekly-reports
  * 取得週報列表
  */
-router.get('/', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/', weeklyReportAuth, async (req, res) => {
   try {
     const { status, year } = req.query;
     
@@ -50,7 +73,7 @@ router.get('/', authMiddleware, adminMiddleware, async (req, res) => {
  * GET /api/weekly-reports/:id
  * 取得單一週報
  */
-router.get('/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/:id', weeklyReportAuth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -87,12 +110,12 @@ router.get('/:id', authMiddleware, adminMiddleware, async (req, res) => {
  * POST /api/weekly-reports
  * 新增週報
  */
-router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/', weeklyReportAuth, async (req, res) => {
   try {
-    const { year, week, title, startDate, endDate, content } = req.body;
+    const { year, week, title, startDate, endDate, content, status } = req.body;
     
     if (!year || !week || !title || !startDate || !endDate) {
-      return res.status(400).json({ error: '缺少必要欄位' });
+      return res.status(400).json({ error: '缺少必要欄位 (year, week, title, startDate, endDate)' });
     }
 
     const existing = await WeeklyReport.findOne({
@@ -112,7 +135,7 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
       startDate,
       endDate,
       content: content || '',
-      status: 'draft',
+      status: status || 'draft',
       createdBy: username,
       updatedBy: username,
     });
@@ -137,7 +160,7 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
  * PUT /api/weekly-reports/:id
  * 更新週報
  */
-router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/:id', weeklyReportAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, startDate, endDate, content } = req.body;
@@ -182,7 +205,7 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
  * POST /api/weekly-reports/:id/submit
  * 送審週報
  */
-router.post('/:id/submit', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/:id/submit', weeklyReportAuth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -217,7 +240,7 @@ router.post('/:id/submit', authMiddleware, adminMiddleware, async (req, res) => 
  * POST /api/weekly-reports/:id/publish
  * 發布週報
  */
-router.post('/:id/publish', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/:id/publish', weeklyReportAuth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -253,7 +276,7 @@ router.post('/:id/publish', authMiddleware, adminMiddleware, async (req, res) =>
  * DELETE /api/weekly-reports/:id
  * 刪除週報
  */
-router.delete('/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.delete('/:id', weeklyReportAuth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -278,5 +301,144 @@ router.delete('/:id', authMiddleware, adminMiddleware, async (req, res) => {
     res.status(500).json({ error: '無法刪除週報' });
   }
 });
+
+/**
+ * POST /api/weekly-reports/generate
+ * 自動生成週報（供 Cursor Agent 使用）
+ * 根據日期自動計算年份和週數
+ */
+router.post('/generate', weeklyReportAuth, async (req, res) => {
+  try {
+    const { startDate, endDate, title, content, autoPublish } = req.body;
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: '缺少必要欄位 (startDate, endDate)' });
+    }
+
+    // 從起始日期計算年份和 ISO 週數
+    const start = new Date(startDate);
+    const year = start.getFullYear();
+    const week = getISOWeek(start);
+    
+    // 自動生成標題
+    const generatedTitle = title || `EEARS Weekly 第 ${week} 期`;
+
+    const existing = await WeeklyReport.findOne({
+      where: { year, week }
+    });
+
+    if (existing) {
+      return res.status(409).json({ 
+        error: `${year} 年第 ${week} 週的週報已存在`,
+        existingReport: {
+          id: existing.id,
+          title: existing.title,
+          status: existing.status,
+        }
+      });
+    }
+
+    const username = req.user?.username || 'cursor-agent';
+    
+    const report = await WeeklyReport.create({
+      year,
+      week,
+      title: generatedTitle,
+      startDate,
+      endDate,
+      content: content || generateDefaultContent(year, week, startDate, endDate),
+      status: autoPublish ? 'published' : 'draft',
+      createdBy: username,
+      updatedBy: username,
+      publishedAt: autoPublish ? new Date() : null,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `週報已建立${autoPublish ? '並發布' : ''}`,
+      report: {
+        id: report.id,
+        weekCode: `${report.year}-W${String(report.week).padStart(2, '0')}`,
+        year: report.year,
+        week: report.week,
+        title: report.title,
+        startDate: report.startDate,
+        endDate: report.endDate,
+        status: report.status,
+      },
+    });
+  } catch (error) {
+    console.error('Error generating weekly report:', error);
+    res.status(500).json({ error: '無法生成週報' });
+  }
+});
+
+/**
+ * 計算 ISO 週數
+ */
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+/**
+ * 生成預設週報內容
+ */
+function generateDefaultContent(year, week, startDate, endDate) {
+  const startDateFormatted = startDate.replace(/-/g, '/');
+  const endDateFormatted = endDate.replace(/-/g, '/');
+  
+  return `# EEARS 系統週報
+
+**週報期間**: ${startDateFormatted} ~ ${endDateFormatted}
+**週次**: ${year}-W${String(week).padStart(2, '0')}
+
+---
+
+## 📌 本週摘要
+
+（請填寫本週主要完成的工作和重要進展）
+
+---
+
+## ✅ 本週完成項目
+
+| 項目 | 狀態 | 備註 |
+|------|------|------|
+| | | |
+
+---
+
+## 🔄 進行中項目
+
+| 項目 | 進度 | 備註 |
+|------|------|------|
+| | | |
+
+---
+
+## 📅 下週計劃
+
+1. 
+2. 
+3. 
+
+---
+
+## ⚠️ 問題與風險
+
+| 問題描述 | 影響範圍 | 處理狀態 |
+|----------|----------|----------|
+| | | |
+
+---
+
+## 📝 其他備註
+
+`;
+}
 
 module.exports = router;
