@@ -66,6 +66,7 @@ const MigrationCheckpoint = require('./MigrationCheckpoint');
 const MigrationQuarantine = require('./MigrationQuarantine');
 const LearningJourneyImportHistory = require('./LearningJourneyImportHistory');
 const JobRun = require('./JobRun');
+const WeeklyReport = require('./WeeklyReport');
 
 Survey.hasMany(SurveyVersion, { foreignKey: 'surveyId', onDelete: 'CASCADE' });
 SurveyVersion.belongsTo(Survey, { foreignKey: 'surveyId' });
@@ -263,4 +264,5 @@ module.exports = {
   MigrationQuarantine,
   LearningJourneyImportHistory,
   JobRun,
+  WeeklyReport,
 };
