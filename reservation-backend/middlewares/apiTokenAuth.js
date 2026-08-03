@@ -16,6 +16,15 @@ function createApiTokenAuth(tokenEnvVar, options = {}) {
     const apiToken = process.env[tokenEnvVar];
     const authHeader = req.headers.authorization;
 
+    // 調試輸出
+    console.log('[apiTokenAuth] Checking:', {
+      tokenEnvVar,
+      hasApiToken: !!apiToken,
+      apiTokenLength: apiToken ? apiToken.length : 0,
+      authHeader: authHeader || 'none',
+      expectedHeader: apiToken ? `Bearer ${apiToken.substring(0, 8)}...` : 'N/A',
+    });
+
     // 檢查是否使用 API Token
     if (apiToken && authHeader === `Bearer ${apiToken}`) {
       // 設定虛擬用戶資訊
