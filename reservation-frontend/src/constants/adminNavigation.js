@@ -137,6 +137,15 @@ export const ADMIN_NAV_SECTIONS = [
         pageTitle: 'BESTEP 資料匯入',
         breadcrumbLabel: 'BESTEP 資料匯入',
       },
+      {
+        id: 'weekly-reports',
+        label: '英語中心週報',
+        path: '/admin/weekly-reports',
+        matchPrefixes: ['/admin/weekly-reports'],
+        visibility: 'english',
+        pageTitle: '英語中心週報',
+        breadcrumbLabel: '英語中心週報',
+      },
     ],
   },
   {
@@ -271,15 +280,6 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'perm:can_export_reports',
         pageTitle: '報表下載',
         breadcrumbLabel: '報表下載',
-      },
-      {
-        id: 'weekly-reports',
-        label: '週報管理',
-        path: '/admin/weekly-reports',
-        matchPrefixes: ['/admin/weekly-reports'],
-        visibility: 'adminOnly',
-        pageTitle: '週報管理',
-        breadcrumbLabel: '週報管理',
       },
       {
         id: 'analytics-teacher-dash',
