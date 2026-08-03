@@ -137,15 +137,6 @@ export const ADMIN_NAV_SECTIONS = [
         pageTitle: 'BESTEP 資料匯入',
         breadcrumbLabel: 'BESTEP 資料匯入',
       },
-      {
-        id: 'weekly-reports',
-        label: '英語中心週報',
-        path: '/admin/weekly-reports',
-        matchPrefixes: ['/admin/weekly-reports'],
-        visibility: 'english',
-        pageTitle: '英語中心週報',
-        breadcrumbLabel: '英語中心週報',
-      },
     ],
   },
   {
@@ -309,6 +300,15 @@ export const ADMIN_NAV_SECTIONS = [
     matchPrefixes: ['/admin/announcements'],
     pageTitle: '公告管理',
     breadcrumbLabel: '公告管理',
+  },
+  {
+    id: 'weekly-reports',
+    label: '英語中心週報',
+    visibility: 'adminOnly',
+    path: '/admin/weekly-reports',
+    matchPrefixes: ['/admin/weekly-reports'],
+    pageTitle: '英語中心週報',
+    breadcrumbLabel: '英語中心週報',
   },
   {
     id: 'accounts',
