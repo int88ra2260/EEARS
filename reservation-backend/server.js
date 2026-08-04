@@ -115,6 +115,9 @@ app.use('/api', teacherRoutes);
 app.use('/api', adminRouter);
 app.use('/api', englishTestRegistrationRouter);
 app.use('/api', englishLearningPassportRouter);
+// 週報路由需要在 adminEnglishLearningPassportRouter 之前，因為後者有全局 authMiddleware
+app.use('/api/admin/weekly-reports', adminWeeklyReportRouter);
+app.use('/api/admin/weekly-media', adminWeeklyMediaRouter);
 app.use('/api/admin', adminEnglishLearningPassportRouter);
 app.use('/api', learningPartnerRouter);
 app.use('/api/admin/bestep', bestepRouter);
@@ -132,8 +135,6 @@ app.use('/api', reportsRouter);
 app.use('/api/announcements', announcementRouter);
 app.use('/api/admin/announcements', adminAnnouncementRouter);
 app.use('/api/weekly', weeklyReportRouter);
-app.use('/api/admin/weekly-reports', adminWeeklyReportRouter);
-app.use('/api/admin/weekly-media', adminWeeklyMediaRouter);
 app.use('/api/site-content', siteContentRouter);
 app.use('/api/admin/site-content', adminSiteContentRouter);
 app.use('/api', pageContentRouter);
