@@ -67,7 +67,7 @@ const P = {
   // 公告（後台）
   CAN_MANAGE_ANNOUNCEMENTS: 'can_manage_announcements',
 
-  // 學生端靜態文案（後台）
+  // 學生端內容（文案、資源頁、修課說明等）
   CAN_MANAGE_SITE_CONTENT: 'can_manage_site_content',
 
   // 稽核 / 系統日誌

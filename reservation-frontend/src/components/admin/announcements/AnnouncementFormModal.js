@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Modal, Form, Button, Alert, Row, Col } from 'react-bootstrap';
+import SharedMediaLibraryModal from '../../media/SharedMediaLibraryModal';
+import '../../media/SharedMediaLibraryModal.css';
 
 const empty = {
   title: '',
@@ -65,7 +67,57 @@ function baseSlugFromTitle(title) {
   return base.slice(0, 160);
 }
 
-export default function AnnouncementFormModal({ show, onHide, initial, onSubmit, saving }) {
+function AnnouncementImageField({
+  label,
+  value,
+  onChange,
+  token,
+  placeholder = '從媒體庫選擇，或貼上圖片網址',
+  helpText,
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  return (
+    <>
+      <Form.Group className="mb-2">
+        <Form.Label>{label}</Form.Label>
+        <div className="d-flex gap-2">
+          <Form.Control
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+          />
+          <Button
+            variant="outline-secondary"
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            disabled={!token}
+          >
+            選擇圖片
+          </Button>
+        </div>
+        {helpText ? <Form.Text className="text-muted">{helpText}</Form.Text> : null}
+        {value ? (
+          <div className="shared-media-preview">
+            <img src={value} alt="" />
+          </div>
+        ) : null}
+      </Form.Group>
+      <SharedMediaLibraryModal
+        show={pickerOpen}
+        onHide={() => setPickerOpen(false)}
+        token={token}
+        title={`選擇${label}`}
+        uploadScope="announcement"
+        onSelect={(item) => {
+          onChange(item.url || item.urlPath || '');
+          setPickerOpen(false);
+        }}
+      />
+    </>
+  );
+}
+
+export default function AnnouncementFormModal({ show, onHide, initial, onSubmit, saving, token }) {
   const [form, setForm] = useState(empty);
   const [localError, setLocalError] = useState('');
   const baselineRef = useRef('');
@@ -214,14 +266,13 @@ export default function AnnouncementFormModal({ show, onHide, initial, onSubmit,
           </Form.Group>
           <Row className="g-2">
             <Col md={6}>
-              <Form.Group className="mb-2">
-                <Form.Label>封面圖 URL</Form.Label>
-                <Form.Control
-                  value={form.coverImage}
-                  onChange={(e) => setForm((f) => ({ ...f, coverImage: e.target.value }))}
-                  placeholder="https://..."
-                />
-              </Form.Group>
+              <AnnouncementImageField
+                label="封面圖"
+                value={form.coverImage}
+                onChange={(url) => setForm((f) => ({ ...f, coverImage: url }))}
+                token={token}
+                helpText="從共用媒體庫挑選；也可貼上外部網址。"
+              />
             </Col>
             <Col md={6}>
               <Form.Group className="mb-2">
@@ -258,10 +309,13 @@ export default function AnnouncementFormModal({ show, onHide, initial, onSubmit,
               </Form.Group>
             </Col>
           </Row>
-          <Form.Group className="mb-2">
-            <Form.Label>OG 圖片 URL（選填）</Form.Label>
-            <Form.Control value={form.ogImageUrl} onChange={(e) => setForm((f) => ({ ...f, ogImageUrl: e.target.value }))} />
-          </Form.Group>
+          <AnnouncementImageField
+            label="OG 圖片（選填）"
+            value={form.ogImageUrl}
+            onChange={(url) => setForm((f) => ({ ...f, ogImageUrl: url }))}
+            token={token}
+            helpText="社群分享預覽圖；留空時前台可回退使用封面。"
+          />
           <Row className="g-2">
             <Col md={4}>
               <Form.Group className="mb-2">

@@ -6,21 +6,28 @@ import {
 } from '../../../services/englishTestFormSchemaApi';
 import { ensureEnglishTestFormSystemParts } from '../../../utils/englishTestFormSchemaEnsure';
 import FormQuestionEditorModal from './FormQuestionEditorModal';
+import FormSectionEditorModal from './FormSectionEditorModal';
 import FormQuestionCard from './FormQuestionCard';
+import FormStudentPreviewModal from './FormStudentPreviewModal';
 import './EnglishTestFormBuilder.css';
 
-/** 對應學生端報名階段（Google Forms 分頁感） */
+/** 舊資料沒有 navLabel 時的後備顯示 */
 const STEP_META = {
-  privacy: { step: '步驟 1', short: '個資同意' },
-  verify: { step: '步驟 2', short: '身分驗證' },
-  eligibility: { step: '步驟 3', short: '培力資格' },
-  contact: { step: '步驟 4 · A', short: '基本聯絡' },
-  academic: { step: '步驟 4 · B', short: '學籍資料' },
-  special: { step: '步驟 4 · C', short: '特殊需求' },
-  photo: { step: '步驟 4 · D', short: '照片同意' },
-  info: { step: '步驟 4 · E', short: '資訊來源' },
-  custom: { step: '其他', short: '自訂題目' },
+  privacy: { step: '步驟 1' },
+  verify: { step: '步驟 2' },
+  eligibility: { step: '步驟 3' },
+  contact: { step: '步驟 4 · A' },
+  academic: { step: '步驟 4 · B' },
+  special: { step: '步驟 4 · C' },
+  photo: { step: '步驟 4 · D' },
+  info: { step: '步驟 4 · E' },
+  custom: { step: '其他' },
 };
+
+function sectionDisplayLabel(section) {
+  if (section?.navLabel) return section.navLabel;
+  return STEP_META[section?.id]?.step || '階段';
+}
 
 function newCustomQuestion(sectionId, order) {
   const stamp = Date.now().toString(36);
@@ -58,10 +65,13 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
   const [backfillNotice, setBackfillNotice] = useState('');
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [isNewQuestion, setIsNewQuestion] = useState(false);
+  const [editingSection, setEditingSection] = useState(null);
+  const [isNewSection, setIsNewSection] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState(null);
   const [search, setSearch] = useState('');
   const [showHidden, setShowHidden] = useState(true);
+  const [showStudentPreview, setShowStudentPreview] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,11 +85,9 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
       setUpdatedAt(data.updatedAt);
       setDirty(changed);
       if (changed) {
-        setBackfillNotice(
-          '已在編輯器補上步驟 1／2（個資／驗證）等系統階段。請按「儲存變更」寫入資料庫；若儲存失敗，請先部署並重啟後端再重試。'
-        );
+        setBackfillNotice('已校正表單階段順序。題目可自由新增／編輯／刪除，記得按「儲存變更」。');
       } else if (data.systemPartsBackfilled) {
-        setBackfillNotice('後端已自動補齊步驟 1／2 等系統階段並寫入資料庫。');
+        setBackfillNotice('後端已自動校正表單階段。');
       } else {
         setBackfillNotice('');
       }
@@ -160,6 +168,12 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
       setVersion(saved.version);
       setUpdatedAt(saved.updatedAt);
       setDirty(false);
+      if (Array.isArray(saved.warnings) && saved.warnings.length > 0) {
+        setBackfillNotice(saved.warnings.join(' '));
+        window.alert(`已儲存。\n\n提醒：\n${saved.warnings.join('\n')}`);
+      } else {
+        setBackfillNotice('');
+      }
     } catch (err) {
       setError(err.message || '儲存失敗');
     } finally {
@@ -199,17 +213,13 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
   };
 
   const handleDelete = (question) => {
-    if (question.system) {
-      window.alert('系統題不可永久刪除。請改用「隱藏」，學生端就不會顯示此題。');
-      return;
-    }
     if (!window.confirm(`確定永久刪除「${question.label}」？此操作儲存後才會套用到學生端。`)) return;
     updateQuestions((schema.questions || []).filter((q) => q.id !== question.id));
     if (selectedQuestionId === question.id) setSelectedQuestionId(null);
   };
 
   const handleHide = (question) => {
-    if (!window.confirm(`確定從學生表單隱藏「${question.label}」？\n（系統題無法永久刪除，隱藏後等同不顯示）`)) {
+    if (!window.confirm(`確定從學生表單隱藏「${question.label}」？`)) {
       return;
     }
     patchQuestion(question.id, { visible: false });
@@ -217,6 +227,20 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
 
   const handleRestore = (question) => {
     patchQuestion(question.id, { visible: true });
+  };
+
+  const handleDuplicate = (question) => {
+    const stamp = Date.now().toString(36);
+    const copy = {
+      ...JSON.parse(JSON.stringify(question)),
+      id: `q_copy_${stamp}`,
+      fieldKey: `${question.fieldKey || 'extra'}_copy_${stamp}`,
+      label: `${question.label || '題目'}（副本）`,
+      system: false,
+      order: (Number(question.order) || 1) + 1,
+    };
+    updateQuestions([...(schema.questions || []), copy]);
+    setSelectedQuestionId(copy.id);
   };
 
   const handleMove = (question, direction) => {
@@ -260,6 +284,84 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
     setDirty(true);
   };
 
+  const updateSections = (nextSections) => {
+    setSchema((prev) => ({ ...prev, sections: nextSections }));
+    setDirty(true);
+  };
+
+  const handleAddSection = () => {
+    const maxOrder = Math.max(0, ...(schema.sections || []).map((s) => s.order || 0));
+    const stamp = Date.now().toString(36);
+    setIsNewSection(true);
+    setEditingSection({
+      id: `section_${stamp}`,
+      title: '新區塊',
+      navLabel: `步驟 · 新區塊`,
+      order: maxOrder + 1,
+    });
+  };
+
+  const handleEditSection = (section) => {
+    setIsNewSection(false);
+    setEditingSection({ ...section });
+  };
+
+  const handleSectionEditorSave = (edited) => {
+    if (isNewSection) {
+      updateSections([...(schema.sections || []), edited].sort((a, b) => a.order - b.order));
+      setActiveSectionId(edited.id);
+    } else {
+      updateSections(
+        (schema.sections || [])
+          .map((s) => (s.id === edited.id ? { ...s, ...edited } : s))
+          .sort((a, b) => a.order - b.order)
+      );
+    }
+    setEditingSection(null);
+    setIsNewSection(false);
+  };
+
+  const handleDeleteSection = (section) => {
+    if (!section) return;
+    if ((schema.sections || []).length <= 1) {
+      window.alert('至少需保留一個階段／區塊。');
+      return;
+    }
+    const qCount = (schema.questions || []).filter((q) => q.sectionId === section.id).length;
+    const msg =
+      qCount > 0
+        ? `確定刪除「${sectionDisplayLabel(section)} · ${section.title}」？\n其中 ${qCount} 題也會一併刪除。`
+        : `確定刪除「${sectionDisplayLabel(section)} · ${section.title}」？`;
+    if (!window.confirm(msg)) return;
+
+    const nextSections = (schema.sections || []).filter((s) => s.id !== section.id);
+    const nextQuestions = (schema.questions || []).filter((q) => q.sectionId !== section.id);
+    setSchema((prev) => ({ ...prev, sections: nextSections, questions: nextQuestions }));
+    setDirty(true);
+    if (activeSectionId === section.id) {
+      const nextActive = [...nextSections].sort((a, b) => a.order - b.order)[0];
+      setActiveSectionId(nextActive?.id || null);
+    }
+    setSelectedQuestionId(null);
+  };
+
+  const handleMoveSection = (section, direction) => {
+    const list = [...(schema.sections || [])].sort((a, b) => a.order - b.order);
+    const idx = list.findIndex((s) => s.id === section.id);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= list.length) return;
+    const a = list[idx];
+    const b = list[swapIdx];
+    const orderA = a.order;
+    updateSections(
+      (schema.sections || []).map((s) => {
+        if (s.id === a.id) return { ...s, order: b.order };
+        if (s.id === b.id) return { ...s, order: orderA };
+        return s;
+      })
+    );
+  };
+
   if (loading) {
     return <div className="p-4 text-muted">載入報名表單…</div>;
   }
@@ -275,7 +377,7 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
     );
   }
 
-  const stepInfo = STEP_META[activeSection?.id] || { step: '階段', short: activeSection?.title };
+  const stepInfo = { step: sectionDisplayLabel(activeSection), short: activeSection?.title };
 
   return (
     <div className="et-form-builder">
@@ -288,7 +390,7 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
             {dirty ? ' · 尚未儲存' : ''}
           </div>
           <div className="small text-muted mt-1">
-            左側切換學生端各階段；卡片預覽等同 Google Forms。自訂題可「刪除」；系統題請用「隱藏」。
+            左側可新增／編輯／刪除／排序「步驟與區塊」；右側編輯題目。與 Google Forms 相同，階段與題目皆可自由 CRUD。
           </div>
         </div>
         <div className="d-flex flex-wrap gap-2 align-items-center">
@@ -310,6 +412,13 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
               顯示已隱藏
             </label>
           </div>
+          <button
+            type="button"
+            className="btn btn-outline-info btn-sm"
+            onClick={() => setShowStudentPreview(true)}
+          >
+            學生端預覽
+          </button>
           {canManage ? (
             <>
               <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleReset} disabled={saving}>
@@ -339,26 +448,57 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
         <aside className="et-form-builder__steps" aria-label="表單階段">
           <div className="et-form-builder__steps-title">表單階段</div>
           {sections.map((s) => {
-            const meta = STEP_META[s.id] || { step: '階段', short: s.title };
             const count = sectionCounts[s.id] || { total: 0, visible: 0 };
             return (
-              <button
+              <div
                 key={s.id}
-                type="button"
                 className={`et-form-step ${activeSection?.id === s.id ? 'is-active' : ''}`}
-                onClick={() => {
-                  setActiveSectionId(s.id);
-                  setSelectedQuestionId(null);
-                }}
               >
-                <span className="et-form-step__label">{meta.step} · {s.title}</span>
-                <span className="et-form-step__count">
-                  {count.visible} 題顯示
-                  {count.total > count.visible ? `（隱藏 ${count.total - count.visible}）` : ''}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  className="et-form-step__main"
+                  onClick={() => {
+                    setActiveSectionId(s.id);
+                    setSelectedQuestionId(null);
+                  }}
+                >
+                  <span className="et-form-step__label">
+                    {sectionDisplayLabel(s)} · {s.title}
+                  </span>
+                  <span className="et-form-step__count">
+                    {count.visible} 題顯示
+                    {count.total > count.visible ? `（隱藏 ${count.total - count.visible}）` : ''}
+                  </span>
+                </button>
+                {canManage ? (
+                  <div className="et-form-step__actions">
+                    <button type="button" className="btn btn-sm btn-link p-0" title="上移" onClick={() => handleMoveSection(s, 'up')}>
+                      ↑
+                    </button>
+                    <button type="button" className="btn btn-sm btn-link p-0" title="下移" onClick={() => handleMoveSection(s, 'down')}>
+                      ↓
+                    </button>
+                    <button type="button" className="btn btn-sm btn-link p-0" title="編輯" onClick={() => handleEditSection(s)}>
+                      編輯
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-link text-danger p-0"
+                      title="刪除"
+                      onClick={() => handleDeleteSection(s)}
+                    >
+                      刪
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             );
           })}
+          {canManage ? (
+            <button type="button" className="btn btn-outline-success btn-sm w-100 mt-2" onClick={handleAddSection}>
+              ＋ 新增階段／區塊
+            </button>
+          ) : null}
         </aside>
 
         <div className="et-form-builder__canvas">
@@ -366,19 +506,51 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
             <h2>{schema.title || '培力英檢報名表單'}</h2>
             <p>
               正在檢視：{stepInfo.step} — {activeSection?.title}
-              。此預覽對應學生端分階段填寫流程。
+              。儲存後學生端會依 schema 顯示對應題目；步驟流程若綁定固定 ID（privacy／verify 等）請留意。
             </p>
           </header>
 
           <div className="et-form-builder__section-bar">
             {canManage ? (
-              <input
-                className="form-control form-control-sm"
-                style={{ maxWidth: 420 }}
-                value={activeSection?.title || ''}
-                onChange={(e) => updateSectionTitle(activeSection.id, e.target.value)}
-                aria-label="階段標題"
-              />
+              <div className="et-form-builder__section-edit">
+                <input
+                  className="form-control form-control-sm"
+                  style={{ maxWidth: 280 }}
+                  value={activeSection?.title || ''}
+                  onChange={(e) => updateSectionTitle(activeSection.id, e.target.value)}
+                  aria-label="區塊標題"
+                  placeholder="區塊標題"
+                />
+                <input
+                  className="form-control form-control-sm"
+                  style={{ maxWidth: 160 }}
+                  value={activeSection?.navLabel || ''}
+                  onChange={(e) => {
+                    const navLabel = e.target.value;
+                    updateSections(
+                      (schema.sections || []).map((s) =>
+                        s.id === activeSection.id ? { ...s, navLabel } : s
+                      )
+                    );
+                  }}
+                  aria-label="導覽標籤"
+                  placeholder="步驟標籤"
+                />
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={() => handleEditSection(activeSection)}
+                >
+                  編輯階段
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm"
+                  onClick={() => handleDeleteSection(activeSection)}
+                >
+                  刪除階段
+                </button>
+              </div>
             ) : (
               <h3>{activeSection?.title}</h3>
             )}
@@ -412,6 +584,7 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
                 onDelete={() => handleDelete(q)}
                 onHide={() => handleHide(q)}
                 onRestore={() => handleRestore(q)}
+                onDuplicate={() => handleDuplicate(q)}
                 onMoveUp={() => handleMove(q, 'up')}
                 onMoveDown={() => handleMove(q, 'down')}
               />
@@ -440,7 +613,7 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
           }}
           onSave={handleEditorSave}
           onDelete={
-            canManage && !editingQuestion.system
+            canManage
               ? () => {
                   handleDelete(editingQuestion);
                   setEditingQuestion(null);
@@ -449,6 +622,24 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
               : undefined
           }
         />
+      )}
+
+      {editingSection && (
+        <FormSectionEditorModal
+          section={editingSection}
+          isNew={isNewSection}
+          readOnly={!canManage}
+          existingIds={(schema.sections || []).map((s) => s.id)}
+          onClose={() => {
+            setEditingSection(null);
+            setIsNewSection(false);
+          }}
+          onSave={handleSectionEditorSave}
+        />
+      )}
+
+      {showStudentPreview && (
+        <FormStudentPreviewModal schema={schema} onClose={() => setShowStudentPreview(false)} />
       )}
     </div>
   );

@@ -1,3 +1,5 @@
+const path = require('path');
+const fs = require('fs');
 const { Op } = require('sequelize');
 const {
   LearningResourceSite,
@@ -6,7 +8,11 @@ const {
   RegulationsFormsGroup,
   RegulationsFormsItem,
   ScrollWorldTestSegment,
+  CourseGuideSection,
+  CourseGuideTopic,
 } = require('../models');
+const { COURSE_GUIDE_DEFAULT } = require('../data/courseGuideDefaults');
+const { uploadDir: courseGuideUploadDir } = require('../middlewares/courseGuideImageUpload');
 
 function trimOrNull(v) {
   if (v == null) return null;
@@ -870,10 +876,315 @@ async function reorderScrollWorldSegments(sectionIds, actorId) {
   return { updated };
 }
 
+function parseBlocksJson(maybeJson) {
+  if (!maybeJson) return [];
+  try {
+    const parsed = typeof maybeJson === 'string' ? JSON.parse(maybeJson) : maybeJson;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function serializeCourseGuideTopic(row) {
+  const plain = row.get ? row.get({ plain: true }) : row;
+  return {
+    id: plain.id,
+    sectionId: plain.sectionId,
+    topicKey: plain.topicKey,
+    titleZh: plain.titleZh,
+    titleEn: plain.titleEn,
+    defaultOpen: !!plain.defaultOpen,
+    blocks: parseBlocksJson(plain.contentJson),
+    sortOrder: plain.sortOrder,
+    isActive: !!plain.isActive,
+  };
+}
+
+function serializeCourseGuideSection(row) {
+  const plain = row.get ? row.get({ plain: true }) : row;
+  const topics = Array.isArray(plain.topics)
+    ? plain.topics.map(serializeCourseGuideTopic).sort((a, b) => a.sortOrder - b.sortOrder)
+    : [];
+  return {
+    id: plain.id,
+    sectionKey: plain.sectionKey,
+    titleZh: plain.titleZh,
+    titleEn: plain.titleEn,
+    introZh: plain.introZh,
+    introEn: plain.introEn,
+    sortOrder: plain.sortOrder,
+    isActive: !!plain.isActive,
+    topics,
+  };
+}
+
+async function ensureCourseGuideDefaults() {
+  const count = await CourseGuideSection.count();
+  if (count > 0) return;
+
+  const sections = COURSE_GUIDE_DEFAULT.sections || [];
+  for (let i = 0; i < sections.length; i++) {
+    const s = sections[i];
+    // eslint-disable-next-line no-await-in-loop
+    const section = await CourseGuideSection.create({
+      sectionKey: s.sectionKey,
+      titleZh: s.titleZh || '',
+      titleEn: s.titleEn || '',
+      introZh: s.introZh || null,
+      introEn: s.introEn || null,
+      sortOrder: Number.isFinite(s.sortOrder) ? s.sortOrder : i,
+      isActive: s.isActive !== false,
+    });
+    const topics = Array.isArray(s.topics) ? s.topics : [];
+    for (let j = 0; j < topics.length; j++) {
+      const t = topics[j];
+      // eslint-disable-next-line no-await-in-loop
+      await CourseGuideTopic.create({
+        sectionId: section.id,
+        topicKey: t.topicKey || `topic-${j + 1}`,
+        titleZh: t.titleZh || '',
+        titleEn: t.titleEn || '',
+        defaultOpen: !!t.defaultOpen,
+        contentJson: JSON.stringify(Array.isArray(t.blocks) ? t.blocks : []),
+        sortOrder: Number.isFinite(t.sortOrder) ? t.sortOrder : j,
+        isActive: t.isActive !== false,
+      });
+    }
+  }
+}
+
+async function listCourseGuide({ admin = false } = {}) {
+  await ensureCourseGuideDefaults();
+  const where = admin ? {} : { isActive: true };
+  const topicWhere = admin ? {} : { isActive: true };
+  const sections = await CourseGuideSection.findAll({
+    where,
+    include: [{ model: CourseGuideTopic, as: 'topics', where: topicWhere, required: false }],
+    order: [
+      ['sortOrder', 'ASC'],
+      ['id', 'ASC'],
+      [{ model: CourseGuideTopic, as: 'topics' }, 'sortOrder', 'ASC'],
+    ],
+  });
+
+  return {
+    pageTitleZh: COURSE_GUIDE_DEFAULT.pageTitleZh,
+    pageTitleEn: COURSE_GUIDE_DEFAULT.pageTitleEn,
+    pageLeadZh: COURSE_GUIDE_DEFAULT.pageLeadZh,
+    pageLeadEn: COURSE_GUIDE_DEFAULT.pageLeadEn,
+    sections: sections.map(serializeCourseGuideSection),
+  };
+}
+
+async function createCourseGuideSection(payload, actorId) {
+  const sectionKey = trimOrNull(payload.sectionKey);
+  if (!sectionKey) {
+    const err = new Error('sectionKey is required');
+    err.status = 400;
+    throw err;
+  }
+  const maxSort = await CourseGuideSection.max('sortOrder');
+  const row = await CourseGuideSection.create({
+    sectionKey,
+    titleZh: payload.titleZh || '',
+    titleEn: payload.titleEn || '',
+    introZh: trimOrNull(payload.introZh),
+    introEn: trimOrNull(payload.introEn),
+    sortOrder: Number.isFinite(Number(payload.sortOrder)) ? Number(payload.sortOrder) : (maxSort || 0) + 1,
+    isActive: toBool(payload.isActive) !== false,
+    updatedBy: actorId || null,
+  });
+  return serializeCourseGuideSection(row);
+}
+
+async function updateCourseGuideSection(id, payload, actorId) {
+  const row = await CourseGuideSection.findByPk(id);
+  if (!row) {
+    const err = new Error('Section not found');
+    err.status = 404;
+    throw err;
+  }
+  const patch = { updatedBy: actorId || null };
+  if (payload.titleZh != null) patch.titleZh = String(payload.titleZh);
+  if (payload.titleEn != null) patch.titleEn = String(payload.titleEn);
+  if (payload.introZh !== undefined) patch.introZh = trimOrNull(payload.introZh);
+  if (payload.introEn !== undefined) patch.introEn = trimOrNull(payload.introEn);
+  if (payload.sortOrder != null) patch.sortOrder = Number(payload.sortOrder) || 0;
+  if (payload.isActive != null) patch.isActive = toBool(payload.isActive) !== false;
+  if (payload.sectionKey != null) patch.sectionKey = trimOrNull(payload.sectionKey) || row.sectionKey;
+  await row.update(patch);
+  const full = await CourseGuideSection.findByPk(row.id, {
+    include: [{ model: CourseGuideTopic, as: 'topics' }],
+  });
+  return serializeCourseGuideSection(full);
+}
+
+async function deleteCourseGuideSection(id) {
+  const row = await CourseGuideSection.findByPk(id);
+  if (!row) {
+    const err = new Error('Section not found');
+    err.status = 404;
+    throw err;
+  }
+  await row.destroy();
+  return { ok: true };
+}
+
+async function createCourseGuideTopic(payload, actorId) {
+  const sectionId = Number(payload.sectionId);
+  if (!sectionId) {
+    const err = new Error('sectionId is required');
+    err.status = 400;
+    throw err;
+  }
+  const section = await CourseGuideSection.findByPk(sectionId);
+  if (!section) {
+    const err = new Error('Section not found');
+    err.status = 404;
+    throw err;
+  }
+  const topicKey = trimOrNull(payload.topicKey) || `topic-${Date.now()}`;
+  const maxSort = await CourseGuideTopic.max('sortOrder', { where: { sectionId } });
+  const blocks = Array.isArray(payload.blocks) ? payload.blocks : parseBlocksJson(payload.contentJson);
+  const row = await CourseGuideTopic.create({
+    sectionId,
+    topicKey,
+    titleZh: payload.titleZh || '',
+    titleEn: payload.titleEn || '',
+    defaultOpen: !!toBool(payload.defaultOpen),
+    contentJson: JSON.stringify(blocks),
+    sortOrder: Number.isFinite(Number(payload.sortOrder)) ? Number(payload.sortOrder) : (maxSort || 0) + 1,
+    isActive: toBool(payload.isActive) !== false,
+    updatedBy: actorId || null,
+  });
+  return serializeCourseGuideTopic(row);
+}
+
+async function updateCourseGuideTopic(id, payload, actorId) {
+  const row = await CourseGuideTopic.findByPk(id);
+  if (!row) {
+    const err = new Error('Topic not found');
+    err.status = 404;
+    throw err;
+  }
+  const patch = { updatedBy: actorId || null };
+  if (payload.titleZh != null) patch.titleZh = String(payload.titleZh);
+  if (payload.titleEn != null) patch.titleEn = String(payload.titleEn);
+  if (payload.topicKey != null) patch.topicKey = trimOrNull(payload.topicKey) || row.topicKey;
+  if (payload.defaultOpen != null) patch.defaultOpen = !!toBool(payload.defaultOpen);
+  if (payload.sortOrder != null) patch.sortOrder = Number(payload.sortOrder) || 0;
+  if (payload.isActive != null) patch.isActive = toBool(payload.isActive) !== false;
+  if (payload.blocks != null || payload.contentJson != null) {
+    const blocks = Array.isArray(payload.blocks) ? payload.blocks : parseBlocksJson(payload.contentJson);
+    patch.contentJson = JSON.stringify(blocks);
+  }
+  await row.update(patch);
+  return serializeCourseGuideTopic(await row.reload());
+}
+
+async function deleteCourseGuideTopic(id) {
+  const row = await CourseGuideTopic.findByPk(id);
+  if (!row) {
+    const err = new Error('Topic not found');
+    err.status = 404;
+    throw err;
+  }
+  await row.destroy();
+  return { ok: true };
+}
+
+async function reorderCourseGuideSections(ids, actorId) {
+  if (!Array.isArray(ids) || !ids.length) return { updated: 0 };
+  const cleanIds = ids.map((x) => Number(x)).filter((n) => Number.isFinite(n));
+  const rows = await CourseGuideSection.findAll({ where: { id: { [Op.in]: cleanIds } } });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  let updated = 0;
+  for (let i = 0; i < cleanIds.length; i++) {
+    const row = byId.get(cleanIds[i]);
+    if (!row) continue;
+    // eslint-disable-next-line no-await-in-loop
+    await row.update({ sortOrder: i, updatedBy: actorId || null });
+    updated++;
+  }
+  return { updated };
+}
+
+async function reorderCourseGuideTopics(ids, actorId) {
+  if (!Array.isArray(ids) || !ids.length) return { updated: 0 };
+  const cleanIds = ids.map((x) => Number(x)).filter((n) => Number.isFinite(n));
+  const rows = await CourseGuideTopic.findAll({ where: { id: { [Op.in]: cleanIds } } });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  let updated = 0;
+  for (let i = 0; i < cleanIds.length; i++) {
+    const row = byId.get(cleanIds[i]);
+    if (!row) continue;
+    // eslint-disable-next-line no-await-in-loop
+    await row.update({ sortOrder: i, updatedBy: actorId || null });
+    updated++;
+  }
+  return { updated };
+}
+
+const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
+
+function mimeFromExt(ext) {
+  const e = String(ext || '').toLowerCase();
+  if (e === '.jpg' || e === '.jpeg') return 'image/jpeg';
+  if (e === '.png') return 'image/png';
+  if (e === '.webp') return 'image/webp';
+  if (e === '.gif') return 'image/gif';
+  return 'application/octet-stream';
+}
+
+/**
+ * Step2 輕量媒體列表（uploads/course-guide）
+ * 形狀對齊未來 MediaAsset：{ id, url, label, source, mime, originalName }
+ */
+function listCourseGuideUploadedMedia() {
+  if (!fs.existsSync(courseGuideUploadDir)) return [];
+  const files = fs.readdirSync(courseGuideUploadDir);
+  return files
+    .filter((name) => IMAGE_EXT.has(path.extname(name).toLowerCase()))
+    .map((name) => {
+      const ext = path.extname(name).toLowerCase();
+      // strip timestamp-uuid- prefix when present for nicer label
+      const label = name.replace(/^\d{13}-[a-f0-9]{8}-/i, '') || name;
+      return {
+        id: `upload:${name}`,
+        url: `/uploads/course-guide/${name}`,
+        label,
+        source: 'upload',
+        mime: mimeFromExt(ext),
+        originalName: label,
+        storedName: name,
+      };
+    })
+    .sort((a, b) => String(b.storedName).localeCompare(String(a.storedName)));
+}
+
+function deleteCourseGuideUploadedMedia(storedName) {
+  const safe = path.basename(String(storedName || ''));
+  if (!safe || safe !== storedName) {
+    const err = new Error('Invalid filename');
+    err.status = 400;
+    throw err;
+  }
+  const full = path.join(courseGuideUploadDir, safe);
+  if (!full.startsWith(courseGuideUploadDir) || !fs.existsSync(full)) {
+    const err = new Error('File not found');
+    err.status = 404;
+    throw err;
+  }
+  fs.unlinkSync(full);
+  return { ok: true };
+}
+
 module.exports = {
   listLearningResources,
   listRegulationsForms,
   listScrollWorldSegments,
+  listCourseGuide,
 
   createLearningResource,
   updateLearningResource,
@@ -893,9 +1204,21 @@ module.exports = {
   updateScrollWorldSegment,
   reorderScrollWorldSegments,
 
-  // exported for potential future seed/admin features
+  createCourseGuideSection,
+  updateCourseGuideSection,
+  deleteCourseGuideSection,
+  reorderCourseGuideSections,
+  createCourseGuideTopic,
+  updateCourseGuideTopic,
+  deleteCourseGuideTopic,
+  reorderCourseGuideTopics,
+
+  listCourseGuideUploadedMedia,
+  deleteCourseGuideUploadedMedia,
+
   ensureLearningResourcesDefaults,
   ensureRegulationsFormsDefaults,
   ensureScrollWorldDefaults,
+  ensureCourseGuideDefaults,
 };
 

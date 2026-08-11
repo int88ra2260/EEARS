@@ -161,3 +161,101 @@ export async function reorderScrollWorldTestSegmentsAdmin(token, sectionIds) {
   });
 }
 
+// Course guide
+export async function fetchCourseGuideAdmin(token) {
+  return requestJson('/api/admin/page-content/course-guide', { token, method: 'GET' });
+}
+
+export async function createCourseGuideSectionAdmin(token, payload) {
+  return requestJson('/api/admin/page-content/course-guide/sections', {
+    token,
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function updateCourseGuideSectionAdmin(token, id, payload) {
+  return requestJson(`/api/admin/page-content/course-guide/sections/${id}`, {
+    token,
+    method: 'PUT',
+    body: payload,
+  });
+}
+
+export async function deleteCourseGuideSectionAdmin(token, id) {
+  const res = await fetchClient(`/api/admin/page-content/course-guide/sections/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function reorderCourseGuideSectionsAdmin(token, ids) {
+  return requestJson('/api/admin/page-content/course-guide/sections/reorder', {
+    token,
+    method: 'POST',
+    body: { ids },
+  });
+}
+
+export async function createCourseGuideTopicAdmin(token, payload) {
+  return requestJson('/api/admin/page-content/course-guide/topics', {
+    token,
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function updateCourseGuideTopicAdmin(token, id, payload) {
+  return requestJson(`/api/admin/page-content/course-guide/topics/${id}`, {
+    token,
+    method: 'PUT',
+    body: payload,
+  });
+}
+
+export async function deleteCourseGuideTopicAdmin(token, id) {
+  const res = await fetchClient(`/api/admin/page-content/course-guide/topics/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function reorderCourseGuideTopicsAdmin(token, ids) {
+  return requestJson('/api/admin/page-content/course-guide/topics/reorder', {
+    token,
+    method: 'POST',
+    body: { ids },
+  });
+}
+
+export async function fetchCourseGuideMediaAdmin(token) {
+  return requestJson('/api/admin/page-content/course-guide/media', { token, method: 'GET' });
+}
+
+export async function uploadCourseGuideMediaAdmin(token, file, { signal } = {}) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetchClient('/api/admin/page-content/course-guide/media/upload', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: formData,
+    signal,
+  });
+
+  return parseJsonOrThrow(res);
+}
+
+export async function deleteCourseGuideMediaAdmin(token, storedName) {
+  const res = await fetchClient(
+    `/api/admin/page-content/course-guide/media/${encodeURIComponent(storedName)}`,
+    {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    },
+  );
+  return parseJsonOrThrow(res);
+}
+

@@ -8,6 +8,7 @@ import { fetchRegistrations } from '../services/englishTestApi';
 const SORT_CONFIG_KEY = 'englishTestSortConfig';
 const DEFAULT_SORT = { key: 'id', direction: 'ASC' };
 const LIMIT = 100;
+const VALID_STATUS = new Set(['all', 'pending', 'approved', 'success', 'revision', 'failed']);
 
 const defaultStats = () => ({
   total: 0,
@@ -45,13 +46,21 @@ function getInitialSortConfig() {
  * @param {boolean} [options.canViewEnglishTests=true]
  * @param {(message: string, variant?: string) => void} [options.showToast]
  */
-export function useEnglishTestRegistrations({ token, mainTab, canViewEnglishTests = true, showToast }) {
+export function useEnglishTestRegistrations({
+  token,
+  mainTab,
+  canViewEnglishTests = true,
+  showToast,
+  initialStatusFilter = 'all',
+}) {
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(
+    VALID_STATUS.has(initialStatusFilter) ? initialStatusFilter : 'all'
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [advancedFilters, setAdvancedFilters] = useState(defaultAdvancedFilters());
   const [sortConfig, setSortConfig] = useState(() => getInitialSortConfig());

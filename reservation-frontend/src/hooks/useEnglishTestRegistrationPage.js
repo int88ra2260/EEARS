@@ -79,11 +79,24 @@ export default function useEnglishTestRegistrationPage() {
 
     setIsLoadingRegistration(true);
     try {
-      const { ok, data } = await queryEnglishTestRegistration({
+      const { ok, status, data } = await queryEnglishTestRegistration({
         studentId: englishTestForm.studentId,
         name: englishTestForm.name,
         idNumber: englishTestForm.idNumber,
       });
+
+      if (
+        status === 409 &&
+        data?.code === 'ENGLISH_TEST_STUDENT_IDCARD_MISMATCH' &&
+        (data.error || data.message)
+      ) {
+        await alert({
+          title: '資料不符',
+          description: data.error || data.message,
+          variant: 'warning',
+        });
+        return;
+      }
 
       if (ok && data.found) {
         setExistingRegistration(data.registration);
@@ -173,6 +186,19 @@ export default function useEnglishTestRegistrationPage() {
         setStudentData(null);
         setEnglishTestStep(2);
         setIsLoadingStudent(false);
+        return;
+      }
+
+      if (
+        checkStatus === 409 &&
+        registrationCheckData?.code === 'ENGLISH_TEST_STUDENT_IDCARD_MISMATCH' &&
+        (registrationCheckData.error || registrationCheckData.message)
+      ) {
+        await alert({
+          title: '資料不符',
+          description: registrationCheckData.error || registrationCheckData.message,
+          variant: 'warning',
+        });
         return;
       }
 
@@ -286,7 +312,7 @@ export default function useEnglishTestRegistrationPage() {
         submitData.append('writingScore', '');
       }
 
-      const { ok, data } = await registerEnglishTest(submitData);
+      const { ok, status, data } = await registerEnglishTest(submitData);
 
       if (ok) {
         const successUrl = '/english-test-success.html';
@@ -298,13 +324,25 @@ export default function useEnglishTestRegistrationPage() {
         }, 100);
         handleCloseEnglishTestModal();
       } else {
+        if (
+          status === 409 &&
+          data?.code === 'ENGLISH_TEST_STUDENT_IDCARD_MISMATCH' &&
+          (data.error || data.message)
+        ) {
+          await alert({
+            title: '資料不符',
+            description: data.error || data.message,
+            variant: 'warning',
+          });
+          return;
+        }
         toast.error(data.error || data.message || '提交失敗，請稍後再試');
       }
     } catch (error) {
       console.error('提交報名資料錯誤:', error);
       toast.error('提交失敗，請稍後再試');
     }
-  }, [englishTestForm, toast, handleCloseEnglishTestModal]);
+  }, [englishTestForm, toast, alert, handleCloseEnglishTestModal]);
 
   const handleNavigateToGroupRegistration = useCallback(() => {
     navigate('/register/english-test/group');

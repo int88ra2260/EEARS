@@ -10,6 +10,7 @@ import AnalyticsSection from './english-test/AnalyticsSection';
 import LearningPartnerManagement from './LearningPartnerManagement';
 import ExemptionReviewSection from './english-test/ExemptionReviewSection';
 import EnglishTestIndividualTab from './english-test/EnglishTestIndividualTab';
+import EnglishTestStudentRosterTab from './english-test/EnglishTestStudentRosterTab';
 import EnglishTestLegacyDetailModal from './english-test/EnglishTestLegacyDetailModal';
 import EnglishTestStatusModal from './english-test/EnglishTestStatusModal';
 import EnglishTestRejectionModal from './english-test/EnglishTestRejectionModal';
@@ -47,8 +48,8 @@ export default function EnglishTestManagement() {
     handleToggleRegistration, handleToggleRegistrationGroup,
   } = m.settings;
 
-  const { infoSourceStats, analyticsLoading } = m.analytics;
-  const { exportStatusFilter, setExportStatusFilter, handleExport, handleExportPhotos } = m.exportOps;
+  const { infoSourceStats, departmentStats, gradeStats, analyticsLoading, analyticsError } = m.analytics;
+  const { handleExport, handleExportPhotos } = m.exportOps;
   const {
     selectedRows, setSelectedRows, handleBulkApprove, handleBulkReject,
     handleBulkDelete, handleBulkSetSuccess, handleBulkSetFailed,
@@ -150,6 +151,16 @@ export default function EnglishTestManagement() {
             報名表單
           </button>
         )}
+        {canManageEnglishTests && (
+          <button
+            className={`nav-link fw-semibold flex-shrink-0 ${mainTab === 'roster' ? 'active' : ''}`}
+            onClick={() => setMainTab('roster')}
+            role="tab"
+            aria-selected={mainTab === 'roster'}
+          >
+            學名單比對
+          </button>
+        )}
       </div>
 
       {!canViewEnglishTests && mainTab !== 'group' && (
@@ -164,6 +175,10 @@ export default function EnglishTestManagement() {
         <EnglishTestFormBuilderTab token={token} canManage={canManageEnglishTests} />
       )}
 
+      {canManageEnglishTests && mainTab === 'roster' && (
+        <EnglishTestStudentRosterTab token={token} />
+      )}
+
       {canManageLearningPartner && mainTab === 'group' && (
         <LearningPartnerManagement token={token} />
       )}
@@ -175,8 +190,10 @@ export default function EnglishTestManagement() {
       {canViewEnglishTests && mainTab === 'analytics' && (
         <AnalyticsSection
           loading={analyticsLoading}
-          data={infoSourceStats.data || []}
-          total={infoSourceStats.total || 0}
+          error={analyticsError}
+          infoSource={infoSourceStats}
+          department={departmentStats}
+          grade={gradeStats}
         />
       )}
 
@@ -188,10 +205,8 @@ export default function EnglishTestManagement() {
           canReviewEnglishTests={canReviewEnglishTests}
           canExportEnglishTestData={canExportEnglishTestData}
           canManageSettings={canToggleRegistrationSettings}
-          exportStatusFilter={exportStatusFilter}
-          onExportStatusFilterChange={setExportStatusFilter}
           onOpenQuickReview={handleOpenQuickReview}
-          onExport={handleExport}
+          onExport={() => handleExport(statusFilter)}
           onExportPhotos={handleExportPhotos}
           onSendStatusEmails={handleSendStatusEmails}
           sendingEmails={sendingEmails}

@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Alert from 'react-bootstrap/Alert';
+import Button from 'react-bootstrap/Button';
 
 import Spinner from 'react-bootstrap/Spinner';
+import Form from 'react-bootstrap/Form';
 
 import { Link } from 'react-router-dom';
 
@@ -19,7 +21,7 @@ import ResourceSkillProfileEditor from '../../components/learningAnalytics/Resou
 
 import { LA_TERM_HELP } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
-import { getLearningAnalyticsSettings } from '../../services/learningAnalyticsService';
+import { getLearningAnalyticsSettings, postPruneAnalyticsSnapshots } from '../../services/learningAnalyticsService';
 
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 
@@ -50,6 +52,11 @@ export default function LearningAnalyticsSettingsPage({ token }) {
   const [data, setData] = useState(null);
 
 
+
+  const [pruning, setPruning] = useState(false);
+  const [pruneKeepGlobalCount, setPruneKeepGlobalCount] = useState(1);
+  const [pruneResultMessage, setPruneResultMessage] = useState('');
+  const [pruneError, setPruneError] = useState('');
 
   const accessProfile = useMemo(() => buildAccessProfile(token), [token]);
 
@@ -102,6 +109,25 @@ export default function LearningAnalyticsSettingsPage({ token }) {
   };
 
 
+
+  const runPrune = useCallback(async ({ dryRun }) => {
+    if (!token || !canManage || pruning) return;
+    setPruning(true);
+    setPruneError('');
+    setPruneResultMessage('');
+    try {
+      const resp = await postPruneAnalyticsSnapshots(token, {
+        dryRun,
+        keepGlobalCount: pruneKeepGlobalCount,
+      });
+      const msg = resp?.result?.message || '完成';
+      setPruneResultMessage(msg);
+    } catch (e) {
+      setPruneError(e.message || '執行失敗');
+    } finally {
+      setPruning(false);
+    }
+  }, [canManage, pruneKeepGlobalCount, pruning, token]);
 
   const lvaCustomBadge = data?.lvaConfig?.hasCustomOverrides ? '已校準' : null;
 
@@ -309,6 +335,59 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
             </ul>
 
+          </div>
+
+          <div className="la-panel mb-3">
+            <div className="la-panel-title">快照清理操作（dry-run / apply）</div>
+            <p className="small text-muted mb-2">
+              可直接在前端觸發 <code>/api/admin/learning-analytics/snapshots/prune</code>，
+              先 dry-run 確認會刪除哪些版本，再執行 apply。
+            </p>
+
+            <Form.Group className="mb-3" style={{ maxWidth: 360 }}>
+              <Form.Label className="small text-muted mb-1">keepGlobalCount（保留最新全域快照數）</Form.Label>
+              <Form.Control
+                type="number"
+                min={1}
+                value={pruneKeepGlobalCount}
+                onChange={(e) => setPruneKeepGlobalCount(Math.max(1, Number(e.target.value || 1)))}
+                disabled={pruning}
+              />
+            </Form.Group>
+
+            <div className="d-flex flex-wrap gap-2">
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => runPrune({ dryRun: true })}
+                disabled={pruning}
+              >
+                {pruning ? '執行中…' : 'dry-run'}
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  const ok = window.confirm('確定要執行 snapshot prune（apply）並刪除舊版本資料？');
+                  if (!ok) return;
+                  runPrune({ dryRun: false });
+                }}
+                disabled={pruning}
+              >
+                {pruning ? '執行中…' : 'apply'}
+              </Button>
+            </div>
+
+            {pruneError ? (
+              <Alert variant="danger" className="small mt-3 mb-0 py-2">
+                {pruneError}
+              </Alert>
+            ) : null}
+            {pruneResultMessage ? (
+              <Alert variant="info" className="small mt-3 mb-0 py-2">
+                {pruneResultMessage}
+              </Alert>
+            ) : null}
           </div>
 
         </>

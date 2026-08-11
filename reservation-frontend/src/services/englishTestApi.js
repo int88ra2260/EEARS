@@ -138,6 +138,18 @@ export async function fetchInfoSourceStats(token) {
   return data;
 }
 
+/** 數據分析：Q21 宣傳來源、系所、年級 */
+export async function fetchEnglishTestAnalyticsStats(token) {
+  const res = await fetchClient(`${BASE}/stats/analytics`, { headers: authHeaders(token) });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '載入統計失敗');
+  return {
+    infoSource: data.infoSource || { data: [], total: 0 },
+    department: data.department || { data: [], total: 0 },
+    grade: data.grade || { data: [], total: 0 },
+  };
+}
+
 export async function fetchClassBestepLink(token, registrationId) {
   const res = await fetchClient(`${BASE}/${registrationId}/class-bestep-link`, {
     headers: authHeaders(token),

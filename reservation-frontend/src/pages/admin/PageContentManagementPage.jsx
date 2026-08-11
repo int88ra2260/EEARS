@@ -21,8 +21,19 @@ import {
   fetchScrollWorldTestSegmentsAdmin,
   updateScrollWorldTestSegmentAdmin,
   reorderScrollWorldTestSegmentsAdmin,
+  fetchCourseGuideAdmin,
+  createCourseGuideSectionAdmin,
+  updateCourseGuideSectionAdmin,
+  deleteCourseGuideSectionAdmin,
+  reorderCourseGuideSectionsAdmin,
+  createCourseGuideTopicAdmin,
+  updateCourseGuideTopicAdmin,
+  deleteCourseGuideTopicAdmin,
+  reorderCourseGuideTopicsAdmin,
 } from '../../services/pageContentAdminApi';
 import './PageContentManagementPage.css';
+import CourseGuideBlocksEditor from '../../components/courseGuide/CourseGuideBlocksEditor';
+import './StudentContentHubPage.css';
 
 function sortBySortOrder(items) {
   return [...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.id ?? 0) - (b.id ?? 0));
@@ -114,9 +125,9 @@ const PAGE_PREVIEW_BY_TAB = {
     path: '/learning-resources',
     label: '學習資源',
     tips: [
-      '左側改標題、連結與排序；右側即時看到學生端畫面。',
-      '「啟用」關掉後，該項目不會出現在前台。',
-      '改完後按「重新整理預覽」，或點「開前台頁」在新分頁確認。',
+      '左側改標題、連結與排序；右側可對照學生端畫面。',
+      '關掉「啟用」後，該項目不會出現在前台。',
+      '改完可按「重新整理預覽」，或開前台頁確認。',
     ],
   },
   regulations: {
@@ -124,8 +135,8 @@ const PAGE_PREVIEW_BY_TAB = {
     label: '法規表單',
     tips: [
       '先選左側群組，再上傳 PDF 並填標題。',
-      'fileUrl 可直接用「預覽 PDF」檢查檔案是否正確。',
-      '群組與項目的排序，會直接影響前台摺疊區塊順序。',
+      '可用「預覽 PDF」確認檔案是否正確。',
+      '群組與項目的排序會影響前台順序。',
     ],
   },
   scrollWorld: {
@@ -133,8 +144,17 @@ const PAGE_PREVIEW_BY_TAB = {
     label: 'Scroll World',
     tips: [
       '這裡只改文字、按鈕標籤與連結；場景影片維持固定。',
-      '停用段落後，前台導覽列與畫面會一起隱藏該段。',
-      'Scroll World 較重，預覽載入可能需要幾秒。',
+      '停用段落後，前台導覽與畫面會一起隱藏該段。',
+      '此頁較重，預覽載入可能需要幾秒。',
+    ],
+  },
+  courseGuide: {
+    path: '/course-guide',
+    label: '修課說明',
+    tips: [
+      '左側選大章節，右側編輯學年度或細項。',
+      '圖片來自媒體庫：可點縮圖挑選，或上傳後共用。',
+      '也可到「媒體庫」任務集中管理、停用或刪除圖片。',
     ],
   },
 };
@@ -183,22 +203,24 @@ function PublicPreviewPane({ path, label, refreshKey, onRefresh, onOpenExternal 
   );
 }
 
-export default function PageContentManagementPage() {
+export default function PageContentManagementPage({ embedded = false, forcedTab = null } = {}) {
   const { token } = useOutletContext();
   const toast = useToast();
 
-  const [activeTab, setActiveTab] = useState('learning');
+  const [activeTab, setActiveTab] = useState(forcedTab || 'learning');
   const [showSplitPreview, setShowSplitPreview] = useState(true);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
   const [learning, setLearning] = useState(null);
   const [regulations, setRegulations] = useState(null);
   const [scrollWorld, setScrollWorld] = useState(null);
+  const [courseGuide, setCourseGuide] = useState(null);
 
   const [loading, setLoading] = useState({
     learning: true,
     regulations: true,
     scrollWorld: true,
+    courseGuide: true,
   });
 
   const [saving, setSaving] = useState(false);
@@ -236,18 +258,41 @@ export default function PageContentManagementPage() {
     }
   };
 
+  const refreshCourseGuide = async () => {
+    setLoading((s) => ({ ...s, courseGuide: true }));
+    try {
+      const data = await fetchCourseGuideAdmin(token);
+      setCourseGuide(data);
+    } finally {
+      setLoading((s) => ({ ...s, courseGuide: false }));
+    }
+  };
+
   useEffect(() => {
+    if (forcedTab) setActiveTab(forcedTab);
+  }, [forcedTab]);
+
+  useEffect(() => {
+    if (embedded && forcedTab) {
+      if (forcedTab === 'learning') refreshLearning();
+      else if (forcedTab === 'regulations') refreshRegulations();
+      else if (forcedTab === 'scrollWorld') refreshScrollWorld();
+      else if (forcedTab === 'courseGuide') refreshCourseGuide();
+      return;
+    }
     refreshLearning();
     refreshRegulations();
     refreshScrollWorld();
+    refreshCourseGuide();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [embedded, forcedTab]);
 
   const tabs = useMemo(
     () => [
-      { id: 'learning', label: '學習資源', hint: '文字 / 超連結 / 排序 / 啟用' },
-      { id: 'regulations', label: '法規表單', hint: '群組 / PDF / 排序' },
-      { id: 'scrollWorld', label: 'Scroll World', hint: '文字 / CTA / 排序' },
+      { id: 'learning', label: '學習資源', hint: '連結、標題、排序與啟用' },
+      { id: 'regulations', label: '法規表單', hint: '群組與 PDF' },
+      { id: 'scrollWorld', label: 'Scroll World', hint: '段落文字與按鈕' },
+      { id: 'courseGuide', label: '修課說明', hint: '章節、學年度與圖文' },
     ],
     [],
   );
@@ -275,8 +320,18 @@ export default function PageContentManagementPage() {
         total: Array.isArray(scrollWorld) ? scrollWorld.length : 0,
         active: countActive(scrollWorld),
       },
+      {
+        id: 'courseGuide',
+        title: '修課說明',
+        total:
+          (courseGuide?.sections?.length || 0) +
+          (courseGuide?.sections || []).reduce((sum, s) => sum + (s?.topics?.length || 0), 0),
+        active:
+          countActive(courseGuide?.sections) +
+          (courseGuide?.sections || []).reduce((sum, s) => sum + countActive(s?.topics), 0),
+      },
     ],
-    [learning, regulations, scrollWorld],
+    [learning, regulations, scrollWorld, courseGuide],
   );
 
   const upsertLearningItem = async (kind, payload) => {
@@ -328,14 +383,27 @@ export default function PageContentManagementPage() {
   };
 
   const [regActiveGroupId, setRegActiveGroupId] = useState(null);
+  const [cgActiveSectionId, setCgActiveSectionId] = useState(null);
 
   useEffect(() => {
     if (!regulations?.groups?.length) return;
     if (regActiveGroupId == null) setRegActiveGroupId(String(regulations.groups[0].id));
   }, [regActiveGroupId, regulations]);
 
+  useEffect(() => {
+    if (!courseGuide?.sections?.length) return;
+    if (cgActiveSectionId == null) setCgActiveSectionId(String(courseGuide.sections[0].id));
+  }, [cgActiveSectionId, courseGuide]);
+
   const regGroups = regulations?.groups || [];
   const regActiveGroup = regGroups.find((g) => String(g.id) === String(regActiveGroupId)) || null;
+  const cgSections = courseGuide?.sections || [];
+  const cgActiveSection = cgSections.find((s) => String(s.id) === String(cgActiveSectionId)) || null;
+
+  const afterCourseGuideChange = async () => {
+    await refreshCourseGuide();
+    bumpPreview();
+  };
 
   const saveScrollWorldSegment = async (sectionId, payload) => {
     setSaving(true);
@@ -374,74 +442,98 @@ export default function PageContentManagementPage() {
   };
 
   return (
-    <div className={`container-fluid py-4 page-content-admin${showSplitPreview ? ' page-content-admin--split' : ''}`}>
-      <div className="page-content-admin__hero mb-4">
-        <div className="page-content-admin__hero-copy">
-          <div className="page-content-admin__eyebrow">Page content workspace</div>
-          <h2 className="h4 mb-2">頁面內容管理</h2>
-          <p className="text-muted mb-0">
-            以接近前台的方式編輯學生端內容：左側改文字／連結／PDF／排序，右側即時對照學生看到的頁面。
-          </p>
-        </div>
-        <div className="page-content-admin__hero-note">
-          <div className="small fw-semibold mb-1">WYSIWYG 建議</div>
-          <div className="small text-muted mb-2">
-            開「分割視圖」邊改邊看；存檔後右側預覽會自動重整。也可用「開前台頁」在新分頁確認。
-          </div>
-          <div className="d-flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={`btn btn-sm ${showSplitPreview ? 'btn-dark' : 'btn-outline-dark'}`}
-              onClick={() => setShowSplitPreview((v) => !v)}
-            >
-              {showSplitPreview ? '關閉分割視圖' : '開啟分割視圖'}
-            </button>
-            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={openFrontPage}>
-              開前台頁 · {previewMeta.label}
-            </button>
-            {showSplitPreview ? (
-              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={bumpPreview}>
-                重新整理預覽
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="row g-3 mb-4">
-        {summaryCards.map((card) => (
-          <div key={card.id} className="col-12 col-md-4">
-            <button
-              type="button"
-              className={`page-content-admin__summary-card ${activeTab === card.id ? 'is-active' : ''}`}
-              onClick={() => setActiveTab(card.id)}
-            >
-              <div className="page-content-admin__summary-title">{card.title}</div>
-              <div className="page-content-admin__summary-meta">
-                <strong>{card.total}</strong> 筆內容
-              </div>
-              <div className="page-content-admin__summary-meta">啟用中 {card.active} 筆</div>
-              <div className="page-content-admin__summary-link">
-                前台：{PAGE_PREVIEW_BY_TAB[card.id]?.path}
-              </div>
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <div className="page-content-admin__tabs mb-3">
-        {tabs.map((t) => (
+    <div
+      className={`page-content-admin${embedded ? '' : ' container-fluid py-4'}${showSplitPreview ? ' page-content-admin--split' : ''}${embedded ? ' page-content-admin--embedded' : ''}`}
+    >
+      {embedded ? (
+        <div className="d-flex flex-wrap gap-2 mb-3">
           <button
-            key={t.id}
             type="button"
-            className={`page-content-admin__tab ${activeTab === t.id ? 'is-active' : ''}`}
-            onClick={() => setActiveTab(t.id)}
+            className={`btn btn-sm ${showSplitPreview ? 'btn-dark' : 'btn-outline-dark'}`}
+            onClick={() => setShowSplitPreview((v) => !v)}
           >
-            <span className="fw-semibold">{t.label}</span>
-            <small>{t.hint}</small>
+            {showSplitPreview ? '關閉預覽' : '開啟預覽'}
           </button>
-        ))}
-      </div>
+          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={openFrontPage}>
+            開前台頁 · {previewMeta.label}
+          </button>
+          {showSplitPreview ? (
+            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={bumpPreview}>
+              重新整理預覽
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <div className="page-content-admin__hero mb-4">
+            <div className="page-content-admin__hero-copy">
+              <div className="page-content-admin__eyebrow">Page content workspace</div>
+              <h2 className="h4 mb-2">頁面內容管理</h2>
+              <p className="text-muted mb-0">
+                以接近前台的方式編輯學生端內容：左側改文字／連結／PDF／排序，右側即時對照學生看到的頁面。
+              </p>
+            </div>
+            <div className="page-content-admin__hero-note">
+              <div className="small fw-semibold mb-1">編輯建議</div>
+              <div className="small text-muted mb-2">
+                開「分割視圖」邊改邊看；存檔後右側預覽會自動重整。也可用「開前台頁」在新分頁確認。
+              </div>
+              <div className="d-flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${showSplitPreview ? 'btn-dark' : 'btn-outline-dark'}`}
+                  onClick={() => setShowSplitPreview((v) => !v)}
+                >
+                  {showSplitPreview ? '關閉分割視圖' : '開啟分割視圖'}
+                </button>
+                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={openFrontPage}>
+                  開前台頁 · {previewMeta.label}
+                </button>
+                {showSplitPreview ? (
+                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={bumpPreview}>
+                    重新整理預覽
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="row g-3 mb-4 page-content-admin__summary-row">
+            {summaryCards.map((card) => (
+              <div key={card.id} className="col-12 col-sm-6 col-xl-3">
+                <button
+                  type="button"
+                  className={`page-content-admin__summary-card ${activeTab === card.id ? 'is-active' : ''}`}
+                  onClick={() => setActiveTab(card.id)}
+                >
+                  <div className="page-content-admin__summary-title">{card.title}</div>
+                  <div className="page-content-admin__summary-meta">
+                    <strong>{card.total}</strong> 筆內容
+                  </div>
+                  <div className="page-content-admin__summary-meta">啟用中 {card.active} 筆</div>
+                  <div className="page-content-admin__summary-link">
+                    前台：{PAGE_PREVIEW_BY_TAB[card.id]?.path}
+                  </div>
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="page-content-admin__tabs mb-3">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`page-content-admin__tab ${activeTab === t.id ? 'is-active' : ''}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                <span className="fw-semibold">{t.label}</span>
+                <small>{t.hint}</small>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="page-content-admin__workspace">
         <div className="page-content-admin__editor">
@@ -516,6 +608,66 @@ export default function PageContentManagementPage() {
                   saving={saving}
                   onSave={(sectionId, payload) => saveScrollWorldSegment(sectionId, payload)}
                   onReorder={(sectionIds) => reorderScrollWorld(sectionIds)}
+                />
+              )}
+            </div>
+          ) : null}
+
+          {activeTab === 'courseGuide' ? (
+            <div>
+              {loading.courseGuide ? (
+                <div>載入中…</div>
+              ) : (
+                <CourseGuideEditor
+                  sections={cgSections}
+                  activeSection={cgActiveSection}
+                  setActiveSectionId={setCgActiveSectionId}
+                  saving={saving}
+                  onCreateSection={async (payload) => {
+                    await createCourseGuideSectionAdmin(token, payload);
+                    toast({ message: '已新增區塊', variant: 'success' });
+                    await afterCourseGuideChange();
+                  }}
+                  onUpdateSection={async (id, payload) => {
+                    await updateCourseGuideSectionAdmin(token, id, payload);
+                    toast({ message: '已更新區塊', variant: 'success' });
+                    await afterCourseGuideChange();
+                  }}
+                  onDeleteSection={async (id) => {
+                    // eslint-disable-next-line no-alert
+                    if (!window.confirm('確定刪除此區塊及其所有主題？')) return;
+                    await deleteCourseGuideSectionAdmin(token, id);
+                    setCgActiveSectionId(null);
+                    toast({ message: '已刪除區塊', variant: 'success' });
+                    await afterCourseGuideChange();
+                  }}
+                  onReorderSections={async (ids) => {
+                    await reorderCourseGuideSectionsAdmin(token, ids);
+                    toast({ message: '區塊排序已更新', variant: 'success' });
+                    await afterCourseGuideChange();
+                  }}
+                  onCreateTopic={async (payload) => {
+                    await createCourseGuideTopicAdmin(token, payload);
+                    toast({ message: '已新增主題', variant: 'success' });
+                    await afterCourseGuideChange();
+                  }}
+                  onUpdateTopic={async (id, payload) => {
+                    await updateCourseGuideTopicAdmin(token, id, payload);
+                    toast({ message: '已更新主題', variant: 'success' });
+                    await afterCourseGuideChange();
+                  }}
+                  onDeleteTopic={async (id) => {
+                    // eslint-disable-next-line no-alert
+                    if (!window.confirm('確定刪除此主題？')) return;
+                    await deleteCourseGuideTopicAdmin(token, id);
+                    toast({ message: '已刪除主題', variant: 'success' });
+                    await afterCourseGuideChange();
+                  }}
+                  onReorderTopics={async (ids) => {
+                    await reorderCourseGuideTopicsAdmin(token, ids);
+                    toast({ message: '主題排序已更新', variant: 'success' });
+                    await afterCourseGuideChange();
+                  }}
                 />
               )}
             </div>
@@ -1517,6 +1669,509 @@ function ScrollWorldEditor({ segments, saving, onSave, onReorder }) {
           </SectionCard>
         </div>
       ))}
+    </div>
+  );
+}
+
+function slugifyKey(text) {
+  const base = String(text || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\u4e00-\u9fff-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return base || `item-${Date.now()}`;
+}
+
+function CourseGuideEditor({
+  sections,
+  activeSection,
+  setActiveSectionId,
+  saving,
+  onCreateSection,
+  onUpdateSection,
+  onDeleteSection,
+  onReorderSections,
+  onCreateTopic,
+  onUpdateTopic,
+  onDeleteTopic,
+  onReorderTopics,
+}) {
+  const [sectionDraft, setSectionDraft] = useState({
+    titleZh: '',
+    titleEn: '',
+    introZh: '',
+    introEn: '',
+    isActive: true,
+    showAdvanced: false,
+    sectionKey: '',
+  });
+  const [sectionEdits, setSectionEdits] = useState({});
+  const [topicDraft, setTopicDraft] = useState({
+    titleZh: '',
+    titleEn: '',
+    defaultOpen: false,
+    isActive: true,
+    blocks: [],
+    showAdvanced: false,
+    topicKey: '',
+  });
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    const next = {};
+    (sections || []).forEach((s) => {
+      next[s.id] = {
+        sectionKey: s.sectionKey || '',
+        titleZh: s.titleZh || '',
+        titleEn: s.titleEn || '',
+        introZh: s.introZh || '',
+        introEn: s.introEn || '',
+        isActive: !!s.isActive,
+      };
+    });
+    setSectionEdits(next);
+  }, [sections]);
+
+  useEffect(() => {
+    setTopicDraft({
+      titleZh: '',
+      titleEn: '',
+      defaultOpen: false,
+      isActive: true,
+      blocks: [],
+      showAdvanced: false,
+      topicKey: '',
+    });
+    setFormError('');
+  }, [activeSection?.id]);
+
+  const orderedSectionIds = useMemo(() => sortBySortOrder(sections).map((s) => s.id), [sections]);
+  const orderedTopics = useMemo(
+    () => (activeSection?.topics ? sortBySortOrder(activeSection.topics) : []),
+    [activeSection],
+  );
+
+  const reorderSection = (sectionId, dir) => {
+    const idx = orderedSectionIds.indexOf(sectionId);
+    const next = moveInArray(orderedSectionIds, idx, dir);
+    if (!next) return;
+    onReorderSections(next).catch(() => {});
+  };
+
+  const reorderTopic = (topicId, dir) => {
+    const ids = orderedTopics.map((t) => t.id);
+    const idx = ids.indexOf(topicId);
+    const next = moveInArray(ids, idx, dir);
+    if (!next) return;
+    onReorderTopics(next).catch(() => {});
+  };
+
+  return (
+    <div className="row g-4">
+      <div className="col-md-4">
+        <SectionCard
+          title="大章節"
+          subtitle="對應前台左側大摺疊，例如修課說明、抵免、認證、歷程檔案。"
+          stats={[
+            { label: '章節數', value: sections.length },
+            { label: '啟用中', value: countActive(sections) },
+          ]}
+        >
+          <div className="mb-3">
+            <Field label="章節標題（中文）">
+              <input
+                className="form-control form-control-sm"
+                value={sectionDraft.titleZh}
+                onChange={(e) => setSectionDraft((d) => ({ ...d, titleZh: e.target.value }))}
+                placeholder="例如：抵免標準"
+              />
+            </Field>
+            <Field label="章節標題（英文）">
+              <input
+                className="form-control form-control-sm"
+                value={sectionDraft.titleEn}
+                onChange={(e) => setSectionDraft((d) => ({ ...d, titleEn: e.target.value }))}
+              />
+            </Field>
+            <div className="d-flex align-items-center gap-3 mb-2">
+              <span className="small text-muted">啟用（關掉後學生看不到）</span>
+              <StatusSwitch
+                value={sectionDraft.isActive}
+                onChange={(v) => setSectionDraft((d) => ({ ...d, isActive: v }))}
+              />
+            </div>
+            <details className="mb-2">
+              <summary className="small text-muted" style={{ cursor: 'pointer' }}>
+                進階選項
+              </summary>
+              <Field label="系統識別碼（可留空自動產生）">
+                <input
+                  className="form-control form-control-sm"
+                  value={sectionDraft.sectionKey}
+                  onChange={(e) => setSectionDraft((d) => ({ ...d, sectionKey: e.target.value }))}
+                  placeholder="自動產生"
+                />
+              </Field>
+            </details>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={saving || !sectionDraft.titleZh.trim()}
+              onClick={async () => {
+                const key = sectionDraft.sectionKey.trim() || slugifyKey(sectionDraft.titleZh);
+                await onCreateSection({
+                  ...sectionDraft,
+                  sectionKey: key,
+                  sortOrder: sections.length,
+                });
+                setSectionDraft({
+                  titleZh: '',
+                  titleEn: '',
+                  introZh: '',
+                  introEn: '',
+                  isActive: true,
+                  showAdvanced: false,
+                  sectionKey: '',
+                });
+              }}
+            >
+              新增大章節
+            </button>
+          </div>
+
+          <div style={{ maxHeight: 560, overflow: 'auto' }}>
+            {sortBySortOrder(sections).map((s) => (
+              <div
+                key={s.id}
+                className={`page-content-admin__group-card ${String(s.id) === String(activeSection?.id) ? 'is-active' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="page-content-admin__group-pick"
+                  onClick={() => setActiveSectionId(String(s.id))}
+                >
+                  <div className="fw-semibold">{s.titleZh || s.titleEn || '（未命名）'}</div>
+                  <div className="small text-muted">{s.topics?.length || 0} 個細項</div>
+                </button>
+                <div className="row g-2 mt-1">
+                  <div className="col-12">
+                    <input
+                      className="form-control form-control-sm"
+                      placeholder="標題（中文）"
+                      value={sectionEdits[s.id]?.titleZh || ''}
+                      onChange={(e) =>
+                        setSectionEdits((cur) => ({ ...cur, [s.id]: { ...cur[s.id], titleZh: e.target.value } }))
+                      }
+                    />
+                  </div>
+                  <div className="col-12">
+                    <input
+                      className="form-control form-control-sm"
+                      placeholder="標題（英文）"
+                      value={sectionEdits[s.id]?.titleEn || ''}
+                      onChange={(e) =>
+                        setSectionEdits((cur) => ({ ...cur, [s.id]: { ...cur[s.id], titleEn: e.target.value } }))
+                      }
+                    />
+                  </div>
+                  <div className="col-12">
+                    <textarea
+                      className="form-control form-control-sm"
+                      rows={2}
+                      placeholder="章節說明（中文，顯示在細項上方）"
+                      value={sectionEdits[s.id]?.introZh || ''}
+                      onChange={(e) =>
+                        setSectionEdits((cur) => ({ ...cur, [s.id]: { ...cur[s.id], introZh: e.target.value } }))
+                      }
+                    />
+                  </div>
+                  <div className="col-12">
+                    <textarea
+                      className="form-control form-control-sm"
+                      rows={2}
+                      placeholder="章節說明（英文）"
+                      value={sectionEdits[s.id]?.introEn || ''}
+                      onChange={(e) =>
+                        setSectionEdits((cur) => ({ ...cur, [s.id]: { ...cur[s.id], introEn: e.target.value } }))
+                      }
+                    />
+                  </div>
+                  <div className="col-12 d-flex align-items-center gap-2 flex-wrap">
+                    <StatusSwitch
+                      value={!!sectionEdits[s.id]?.isActive}
+                      onChange={(v) =>
+                        setSectionEdits((cur) => ({ ...cur, [s.id]: { ...cur[s.id], isActive: v } }))
+                      }
+                    />
+                    <span className="small text-muted">啟用</span>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary"
+                      disabled={saving}
+                      onClick={() => reorderSection(s.id, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary"
+                      disabled={saving}
+                      onClick={() => reorderSection(s.id, 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary"
+                      disabled={saving}
+                      onClick={() => onUpdateSection(s.id, sectionEdits[s.id])}
+                    >
+                      儲存
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      disabled={saving}
+                      onClick={() => onDeleteSection(s.id)}
+                    >
+                      刪除
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="col-md-8">
+        {!activeSection ? (
+          <EmptyState title="請先選擇左側大章節" hint="點選或新增大章節後，即可新增學年度／細項與圖文。" />
+        ) : (
+          <SectionCard
+            title={`細項 · ${activeSection.titleZh || '未命名'}`}
+            subtitle="每個細項對應前台一個可展開列（例如某個學年度）。用下方表單編輯圖文。"
+            stats={[
+              { label: '細項數', value: orderedTopics.length },
+              { label: '啟用中', value: countActive(orderedTopics) },
+            ]}
+          >
+            {formError ? (
+              <div className="alert alert-danger py-2 px-3 small" role="alert">
+                {formError}
+              </div>
+            ) : null}
+
+            <div className="page-content-admin__composer mb-3">
+              <div className="row g-2">
+                <div className="col-md-4">
+                  <Field label="細項標題（中文）">
+                    <input
+                      className="form-control form-control-sm"
+                      value={topicDraft.titleZh}
+                      onChange={(e) => setTopicDraft((d) => ({ ...d, titleZh: e.target.value }))}
+                      placeholder="例如：112-115 學年度入學生"
+                    />
+                  </Field>
+                </div>
+                <div className="col-md-4">
+                  <Field label="細項標題（英文）">
+                    <input
+                      className="form-control form-control-sm"
+                      value={topicDraft.titleEn}
+                      onChange={(e) => setTopicDraft((d) => ({ ...d, titleEn: e.target.value }))}
+                    />
+                  </Field>
+                </div>
+                <div className="col-md-2">
+                  <Field label="預設展開">
+                    <StatusSwitch
+                      value={topicDraft.defaultOpen}
+                      onChange={(v) => setTopicDraft((d) => ({ ...d, defaultOpen: v }))}
+                    />
+                  </Field>
+                </div>
+                <div className="col-md-2 d-flex align-items-end">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm w-100"
+                    disabled={saving || !topicDraft.titleZh.trim()}
+                    onClick={async () => {
+                      setFormError('');
+                      await onCreateTopic({
+                        sectionId: activeSection.id,
+                        topicKey: topicDraft.topicKey.trim() || slugifyKey(topicDraft.titleZh),
+                        titleZh: topicDraft.titleZh,
+                        titleEn: topicDraft.titleEn,
+                        defaultOpen: topicDraft.defaultOpen,
+                        isActive: topicDraft.isActive,
+                        blocks: Array.isArray(topicDraft.blocks) ? topicDraft.blocks : [],
+                      });
+                    }}
+                  >
+                    新增細項
+                  </button>
+                </div>
+                <div className="col-12">
+                  <details>
+                    <summary className="small text-muted mb-2" style={{ cursor: 'pointer' }}>
+                      進階：自訂識別碼
+                    </summary>
+                    <Field label="系統識別碼（可留空）">
+                      <input
+                        className="form-control form-control-sm"
+                        value={topicDraft.topicKey}
+                        onChange={(e) => setTopicDraft((d) => ({ ...d, topicKey: e.target.value }))}
+                      />
+                    </Field>
+                  </details>
+                </div>
+                <div className="col-12">
+                  <div className="small fw-semibold mb-2">細項內容（可先空白，之後再編）</div>
+                  <CourseGuideBlocksEditor
+                    value={topicDraft.blocks}
+                    onChange={(blocks) => setTopicDraft((d) => ({ ...d, blocks }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {orderedTopics.length === 0 ? (
+              <EmptyState title="此章節尚無細項" hint="新增學年度或細項後，可在下方用表單編輯圖文。" />
+            ) : (
+              <div className="d-flex flex-column gap-3">
+                {orderedTopics.map((topic, index) => (
+                  <CourseGuideTopicRow
+                    key={topic.id}
+                    topic={topic}
+                    index={index}
+                    saving={saving}
+                    onSave={(payload) => onUpdateTopic(topic.id, payload)}
+                    onDelete={() => onDeleteTopic(topic.id)}
+                    onReorder={(dir) => reorderTopic(topic.id, dir)}
+                    onError={setFormError}
+                  />
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CourseGuideTopicRow({ topic, index, saving, onSave, onDelete, onReorder, onError }) {
+  const [draft, setDraft] = useState(() => ({
+    topicKey: topic.topicKey || '',
+    titleZh: topic.titleZh || '',
+    titleEn: topic.titleEn || '',
+    defaultOpen: !!topic.defaultOpen,
+    isActive: !!topic.isActive,
+    blocks: Array.isArray(topic.blocks) ? topic.blocks : [],
+  }));
+
+  useEffect(() => {
+    setDraft({
+      topicKey: topic.topicKey || '',
+      titleZh: topic.titleZh || '',
+      titleEn: topic.titleEn || '',
+      defaultOpen: !!topic.defaultOpen,
+      isActive: !!topic.isActive,
+      blocks: Array.isArray(topic.blocks) ? topic.blocks : [],
+    });
+  }, [topic]);
+
+  return (
+    <div className="page-content-admin__group-card">
+      <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div>
+          <div className="fw-semibold">
+            #{index + 1} {topic.titleZh || '（未命名）'}
+          </div>
+        </div>
+        <div className="d-flex gap-2 flex-wrap">
+          <button type="button" className="btn btn-sm btn-outline-secondary" disabled={saving} onClick={() => onReorder(-1)}>
+            ↑
+          </button>
+          <button type="button" className="btn btn-sm btn-outline-secondary" disabled={saving} onClick={() => onReorder(1)}>
+            ↓
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            disabled={saving}
+            onClick={() => {
+              onError?.('');
+              onSave({
+                topicKey: draft.topicKey || slugifyKey(draft.titleZh),
+                titleZh: draft.titleZh,
+                titleEn: draft.titleEn,
+                defaultOpen: draft.defaultOpen,
+                isActive: draft.isActive,
+                blocks: Array.isArray(draft.blocks) ? draft.blocks : [],
+              });
+            }}
+          >
+            儲存
+          </button>
+          <button type="button" className="btn btn-sm btn-outline-danger" disabled={saving} onClick={onDelete}>
+            刪除
+          </button>
+        </div>
+      </div>
+      <div className="row g-2">
+        <div className="col-md-5">
+          <Field label="標題（中文）">
+            <input
+              className="form-control form-control-sm"
+              value={draft.titleZh}
+              onChange={(e) => setDraft((d) => ({ ...d, titleZh: e.target.value }))}
+            />
+          </Field>
+        </div>
+        <div className="col-md-5">
+          <Field label="標題（英文）">
+            <input
+              className="form-control form-control-sm"
+              value={draft.titleEn}
+              onChange={(e) => setDraft((d) => ({ ...d, titleEn: e.target.value }))}
+            />
+          </Field>
+        </div>
+        <div className="col-md-1">
+          <Field label="預開">
+            <StatusSwitch value={draft.defaultOpen} onChange={(v) => setDraft((d) => ({ ...d, defaultOpen: v }))} />
+          </Field>
+        </div>
+        <div className="col-md-1">
+          <Field label="啟用">
+            <StatusSwitch value={draft.isActive} onChange={(v) => setDraft((d) => ({ ...d, isActive: v }))} />
+          </Field>
+        </div>
+        <div className="col-12">
+          <details className="mb-2">
+            <summary className="small text-muted" style={{ cursor: 'pointer' }}>
+              進階：系統識別碼
+            </summary>
+            <Field label="識別碼">
+              <input
+                className="form-control form-control-sm"
+                value={draft.topicKey}
+                onChange={(e) => setDraft((d) => ({ ...d, topicKey: e.target.value }))}
+              />
+            </Field>
+          </details>
+        </div>
+        <div className="col-12">
+          <div className="small fw-semibold mb-2">圖文內容</div>
+          <CourseGuideBlocksEditor
+            value={draft.blocks}
+            onChange={(blocks) => setDraft((d) => ({ ...d, blocks }))}
+          />
+        </div>
+      </div>
     </div>
   );
 }

@@ -13,3 +13,15 @@ logs/
 Thumbs.db
 
 .vscode/
+
+# Runtime data / PII (never commit)
+reservation-backend/uploads/
+reservation-backend/exports/
+reservation-frontend/exports/
+
+# Local generation / scratch workspace
+scroll-world-work/
+
+# Root-only capture junk (do not use bare *.mp4 — that would ignore public videos)
+/*.mp4
+/messageImage_*.jpg

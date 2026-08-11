@@ -22,16 +22,30 @@ import {
   fetchRegistrationById,
 } from '../services/englishTestApi';
 
+const VALID_MAIN_TABS = new Set(['individual', 'group', 'analytics', 'exemption', 'form', 'roster']);
+const VALID_STATUS_FILTERS = new Set(['all', 'pending', 'approved', 'success', 'revision', 'failed']);
+
+function readTabFromSearch(search) {
+  const tab = new URLSearchParams(search).get('tab');
+  return VALID_MAIN_TABS.has(tab) ? tab : 'individual';
+}
+
+function readStatusFromSearch(search) {
+  const status = new URLSearchParams(search).get('status');
+  return VALID_STATUS_FILTERS.has(status) ? status : null;
+}
+
 export function useEnglishTestManagement({ token, canViewEnglishTests }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [mainTab, setMainTab] = useState('individual');
+  const [mainTab, setMainTab] = useState(() => readTabFromSearch(window.location.search));
   const [toast, setToast] = useState({ show: false, message: '', variant: 'success' });
   const [adjustingSequence, setAdjustingSequence] = useState(false);
   const tableContainerRef = useRef(null);
   const scrollPositionRef = useRef(0);
   const openRejectionModalRef = useRef(() => {});
   const setShowRejectionModalRef = useRef(() => {});
+  const urlHydratedRef = useRef(false);
   const { confirmModal, openConfirm, closeConfirm } = useConfirmModal();
 
   const showToast = useCallback((message, variant = 'success') => {
@@ -43,6 +57,7 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
     mainTab,
     canViewEnglishTests,
     showToast,
+    initialStatusFilter: readStatusFromSearch(window.location.search) || 'all',
   });
 
   const settings = useRegistrationSetting({ token, showToast });
@@ -161,6 +176,41 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
       setSortConfig({ key: 'successSequence', direction: 'ASC' });
     }
   }, [statusFilter, sortConfig.key, setSortConfig]);
+
+  // 將主 Tab／狀態篩選寫入 URL，方便分享與重新整理還原
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const nextTab = mainTab || 'individual';
+    const nextStatus = statusFilter || 'all';
+
+    let changed = false;
+    if (params.get('tab') !== nextTab) {
+      params.set('tab', nextTab);
+      changed = true;
+    }
+    if (nextTab === 'individual') {
+      if (nextStatus === 'all') {
+        if (params.has('status')) {
+          params.delete('status');
+          changed = true;
+        }
+      } else if (params.get('status') !== nextStatus) {
+        params.set('status', nextStatus);
+        changed = true;
+      }
+    } else if (params.has('status')) {
+      params.delete('status');
+      changed = true;
+    }
+
+    if (!changed && urlHydratedRef.current) return;
+    urlHydratedRef.current = true;
+    if (!changed) return;
+
+    const newSearch = params.toString();
+    const newUrl = newSearch ? `${location.pathname}?${newSearch}` : location.pathname;
+    navigate(newUrl, { replace: true });
+  }, [mainTab, statusFilter, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);

@@ -1,0 +1,13 @@
+.media-library-panel__detail {
+  padding: 0.85rem 1rem;
+  border: 1px solid #eaeaea;
+  border-radius: 10px;
+  background: #fbfbfa;
+}
+
+.media-library-panel__detail-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 0.25rem;
+}

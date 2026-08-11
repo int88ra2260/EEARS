@@ -121,6 +121,66 @@ function estimateB2PlusProbability(student) {
   };
 }
 
+function clamp(value, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+function meanFinite(values) {
+  const nums = (values || []).map(Number).filter((v) => Number.isFinite(v));
+  if (!nums.length) return null;
+  return nums.reduce((sum, v) => sum + v, 0) / nums.length;
+}
+
+/**
+ * 針對 insights/outlook：用 quasiCausal / IPW / AIPW 的「資源估計效應」做分層校正
+ * （仍屬觀察性估計，不是因果保證）
+ */
+function estimateB2PlusProbabilityFromResourceEffects(student, participatedTypes, effectMaps) {
+  const band = resolveBaselineCefrBand(student) || 'UNKNOWN';
+  let p = CEFR_B2_PRIOR[band] ?? 0.2;
+  if (student.isB2plus) return { probability: 1, band, factors: ['已達 B2+'] };
+
+  const factors = [];
+  if (student.retestFlag) {
+    p += 0.08;
+    factors.push('重測(+8%)');
+  }
+  if (Number(student.examCount) >= 2) {
+    p += 0.04;
+    factors.push('多次英檢(+4%)');
+  }
+  if (student.baselineEnglishScore != null && Number(student.baselineEnglishScore) >= 10) {
+    p += 0.03;
+    factors.push('學測基準較佳(+3%)');
+  }
+
+  // effectScore：把每個資源的（quasi/IPW/AIPW）估計效應取平均後，再對資源取平均
+  const typeEffects = [...participatedTypes].map((type) => {
+    const effects = [
+      effectMaps?.quasi?.get(type),
+      effectMaps?.ipw?.get(type),
+      effectMaps?.aipw?.get(type),
+    ];
+    return meanFinite(effects);
+  }).filter((v) => v != null);
+
+  const effectScore = meanFinite(typeEffects);
+  if (effectScore != null) {
+    // 以觀察估計效應做機率校正：效應越正，通過機率越高（反之亦然）
+    const delta = clamp(effectScore * 0.18, -0.1, 0.1);
+    p += delta;
+    if (Math.abs(delta) > 1e-9) factors.push(`資源效應校正(${delta >= 0 ? '+' : ''}${delta.toFixed(2)})`);
+  }
+
+  return {
+    probability: round(clamp(p, 0.05, 0.92), 4),
+    band,
+    factors,
+  };
+}
+
 function buildResourceRecommendations(weakSkills, participatedTypes = new Set()) {
   const profiles = getResourceSkillProfilesMap();
   return Object.entries(profiles)
@@ -220,6 +280,24 @@ async function getAdvancedVisualizations(query = {}) {
   const episodes = computeAdjustedGrowthEpisodes(exams, studentById);
   const lva = await getLvaAnalytics({ ...query, snapshot_version: snapshotVersion });
 
+  // 以考前 course/activity 的累積時數推估該學生「可能參與的資源大類」
+  const courseHoursByStudentId = new Map();
+  const activityHoursByStudentId = new Map();
+  for (const exam of exams) {
+    const sid = exam.studentId;
+    const ch = Number(exam.courseHoursBeforeExam || 0);
+    const ah = Number(exam.activityHoursBeforeExam || 0);
+    if (!courseHoursByStudentId.has(sid)) courseHoursByStudentId.set(sid, 0);
+    if (!activityHoursByStudentId.has(sid)) activityHoursByStudentId.set(sid, 0);
+    courseHoursByStudentId.set(sid, Math.max(courseHoursByStudentId.get(sid) || 0, ch));
+    activityHoursByStudentId.set(sid, Math.max(activityHoursByStudentId.get(sid) || 0, ah));
+  }
+
+  const quasiEffectByResource = new Map((lva.quasiCausalEstimates?.byResource || []).map((r) => [r.resourceType, r.estimatedEffect]));
+  const ipwEffectByResource = new Map((lva.propensityWeightedEstimates?.byResource || []).map((r) => [r.resourceType, r.estimatedEffect]));
+  const aipwEffectByResource = new Map((lva.aipwEstimates?.byResource || []).map((r) => [r.resourceType, r.estimatedEffect]));
+  const effectMaps = { quasi: quasiEffectByResource, ipw: ipwEffectByResource, aipw: aipwEffectByResource };
+
   const participationVsGrowth = episodes
     .filter((ep) => ep.resourceHoursBeforeExam != null)
     .slice(0, 500)
@@ -289,7 +367,16 @@ async function getAdvancedVisualizations(query = {}) {
   const notYetB2 = students.filter((s) => !s.isB2plus);
   const outlookBuckets = { high: 0, medium: 0, low: 0 };
   const outlookSamples = notYetB2.slice(0, 2000).map((student) => {
-    const { probability } = estimateB2PlusProbability(student);
+    const participatedTypes = new Set();
+    const courseH = courseHoursByStudentId.get(student.studentId) || 0;
+    const activityH = activityHoursByStudentId.get(student.studentId) || 0;
+    if (courseH > 0) participatedTypes.add('GE');
+    if (activityH > 0) {
+      participatedTypes.add('ENGLISH_TABLE');
+      participatedTypes.add('ENGLISH_CLUB');
+    }
+
+    const { probability } = estimateB2PlusProbabilityFromResourceEffects(student, participatedTypes, effectMaps);
     if (probability >= 0.65) outlookBuckets.high += 1;
     else if (probability >= 0.4) outlookBuckets.medium += 1;
     else outlookBuckets.low += 1;
@@ -310,7 +397,7 @@ async function getAdvancedVisualizations(query = {}) {
       topProspects: outlookSamples
         .sort((a, b) => b.probability - a.probability)
         .slice(0, 10),
-      disclaimer: '通過機率為啟發式估計；僅供資源配置參考，非錄取或認證保證。',
+      disclaimer: '通過機率為觀察性估計分層（已校正資源效應：quasiCausal / IPW / AIPW）；僅供資源配置參考，非錄取或認證保證。',
     },
     causalClaimAllowed: false,
   };

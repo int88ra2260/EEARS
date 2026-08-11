@@ -1,8 +1,13 @@
 import React from 'react';
-import { Table, Button, Badge, Form } from 'react-bootstrap';
+import { Table, Button, Badge, Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import dayjs from 'dayjs';
 import useMediaQuery from '../../../hooks/useMediaQuery';
 import SkeletonCard from '../../ui/SkeletonCard';
+import {
+  ANNOUNCEMENT_ACTION_HINTS,
+  ANNOUNCEMENT_STATUS_HINTS,
+  getAnnouncementPublishAction,
+} from '../../../constants/announcementLabels';
 
 const STATUS_BADGE = {
   draft: { bg: 'secondary', label: '草稿' },
@@ -17,13 +22,81 @@ function fmt(d) {
   return dayjs(d).format('YYYY/MM/DD HH:mm');
 }
 
+function HintWrap({ hint, children }) {
+  if (!hint) return children;
+  return (
+    <OverlayTrigger placement="top" overlay={<Tooltip>{hint}</Tooltip>}>
+      <span className="d-inline-block">{children}</span>
+    </OverlayTrigger>
+  );
+}
+
 function statusBadge(row) {
   const st = row.status || (row.isPublished ? 'published' : 'draft');
   const cfg = STATUS_BADGE[st] || STATUS_BADGE.draft;
-  return (
+  const hint = ANNOUNCEMENT_STATUS_HINTS[st];
+  const badge = (
     <Badge bg={cfg.bg} text={cfg.text}>
       {cfg.label}
     </Badge>
+  );
+  return hint ? <HintWrap hint={hint}>{badge}</HintWrap> : badge;
+}
+
+function ActionButton({ hint, children, ...props }) {
+  return (
+    <HintWrap hint={hint}>
+      <Button size="sm" {...props}>
+        {children}
+      </Button>
+    </HintWrap>
+  );
+}
+
+function renderRowActions(row, handlers, isRowBusy) {
+  const busy = isRowBusy(row);
+  const publishAction = getAnnouncementPublishAction(row);
+  const isArchived = row.status === 'archived';
+
+  return (
+    <>
+      <ActionButton hint={ANNOUNCEMENT_ACTION_HINTS.edit} variant="outline-primary" onClick={() => handlers.onEdit(row)} disabled={busy}>
+        編輯
+      </ActionButton>
+      <ActionButton
+        hint={publishAction.hint}
+        variant={publishAction.willUnpublish ? 'outline-warning' : 'outline-success'}
+        onClick={() => handlers.onTogglePublish(row)}
+        disabled={busy}
+      >
+        {publishAction.label}
+      </ActionButton>
+      <ActionButton
+        hint={row.isPinned ? ANNOUNCEMENT_ACTION_HINTS.unpin : ANNOUNCEMENT_ACTION_HINTS.pin}
+        variant={row.isPinned ? 'outline-secondary' : 'outline-info'}
+        onClick={() => handlers.onTogglePin(row)}
+        disabled={busy}
+      >
+        {row.isPinned ? '取消置頂' : '置頂'}
+      </ActionButton>
+      {!isArchived ? (
+        <ActionButton hint={ANNOUNCEMENT_ACTION_HINTS.archive} variant="outline-dark" onClick={() => handlers.onArchive(row)} disabled={busy}>
+          封存
+        </ActionButton>
+      ) : (
+        <HintWrap hint="已封存；若要恢復前台顯示，請使用「再發布」">
+          <Button size="sm" variant="outline-secondary" disabled>
+            已封存
+          </Button>
+        </HintWrap>
+      )}
+      <ActionButton hint={ANNOUNCEMENT_ACTION_HINTS.duplicate} variant="outline-secondary" onClick={() => handlers.onDuplicate(row)} disabled={busy}>
+        複製
+      </ActionButton>
+      <ActionButton hint={ANNOUNCEMENT_ACTION_HINTS.delete} variant="outline-danger" onClick={() => handlers.onDeleteClick(row)} disabled={busy}>
+        刪除
+      </ActionButton>
+    </>
   );
 }
 
@@ -42,6 +115,14 @@ export default function AnnouncementTable({
   onDuplicate,
 }) {
   const isMobile = useMediaQuery('(max-width: 767px)');
+  const handlers = {
+    onEdit,
+    onDeleteClick,
+    onTogglePublish,
+    onTogglePin,
+    onArchive,
+    onDuplicate,
+  };
 
   if (loading) {
     return (
@@ -109,36 +190,7 @@ export default function AnnouncementTable({
               />
             </div>
 
-            <div className="d-flex flex-wrap gap-1 mt-2">
-              <Button size="sm" variant="outline-primary" onClick={() => onEdit(row)} disabled={isRowBusy(row)}>
-                編輯
-              </Button>
-              <Button
-                size="sm"
-                variant={row.status === 'published' || row.isPublished ? 'outline-warning' : 'outline-success'}
-                onClick={() => onTogglePublish(row)}
-                disabled={isRowBusy(row)}
-              >
-                {row.status === 'published' || row.isPublished ? '下架' : '發布'}
-              </Button>
-              <Button
-                size="sm"
-                variant={row.isPinned ? 'outline-secondary' : 'outline-info'}
-                onClick={() => onTogglePin(row)}
-                disabled={isRowBusy(row)}
-              >
-                {row.isPinned ? '取消置頂' : '置頂'}
-              </Button>
-              <Button size="sm" variant="outline-dark" onClick={() => onArchive(row)} disabled={isRowBusy(row) || row.status === 'archived'}>
-                封存
-              </Button>
-              <Button size="sm" variant="outline-secondary" onClick={() => onDuplicate(row)} disabled={isRowBusy(row)}>
-                複製
-              </Button>
-              <Button size="sm" variant="outline-danger" onClick={() => onDeleteClick(row)} disabled={isRowBusy(row)}>
-                刪除
-              </Button>
-            </div>
+            <div className="d-flex flex-wrap gap-1 mt-2">{renderRowActions(row, handlers, isRowBusy)}</div>
           </div>
         ))}
       </div>
@@ -165,7 +217,7 @@ export default function AnnouncementTable({
             <th>發布時間</th>
             <th>更新</th>
             <th>作者</th>
-            <th style={{ minWidth: 280 }}>操作</th>
+            <th style={{ minWidth: 300 }}>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -189,36 +241,7 @@ export default function AnnouncementTable({
               <td>{fmt(row.updatedAt)}</td>
               <td className="small">{row.authorNameSnapshot || row.authorId || '—'}</td>
               <td>
-                <div className="d-flex flex-wrap gap-1">
-                  <Button size="sm" variant="outline-primary" onClick={() => onEdit(row)} disabled={isRowBusy(row)}>
-                    編輯
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={row.status === 'published' || row.isPublished ? 'outline-warning' : 'outline-success'}
-                    onClick={() => onTogglePublish(row)}
-                    disabled={isRowBusy(row)}
-                  >
-                    {row.status === 'published' || row.isPublished ? '下架' : '發布'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={row.isPinned ? 'outline-secondary' : 'outline-info'}
-                    onClick={() => onTogglePin(row)}
-                    disabled={isRowBusy(row)}
-                  >
-                    {row.isPinned ? '取消置頂' : '置頂'}
-                  </Button>
-                  <Button size="sm" variant="outline-dark" onClick={() => onArchive(row)} disabled={isRowBusy(row) || row.status === 'archived'}>
-                    封存
-                  </Button>
-                  <Button size="sm" variant="outline-secondary" onClick={() => onDuplicate(row)} disabled={isRowBusy(row)}>
-                    複製
-                  </Button>
-                  <Button size="sm" variant="outline-danger" onClick={() => onDeleteClick(row)} disabled={isRowBusy(row)}>
-                    刪除
-                  </Button>
-                </div>
+                <div className="d-flex flex-wrap gap-1">{renderRowActions(row, handlers, isRowBusy)}</div>
               </td>
             </tr>
           ))}

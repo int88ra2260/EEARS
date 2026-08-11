@@ -26,7 +26,7 @@ export default function ConfirmDialog({
         <Modal.Title>{title}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {description ? <p className="mb-0">{description}</p> : null}
+        {description ? <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{description}</p> : null}
       </Modal.Body>
       <Modal.Footer>
         <Button variant="secondary" onClick={onCancel}>

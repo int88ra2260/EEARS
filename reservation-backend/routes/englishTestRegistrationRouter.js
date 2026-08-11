@@ -6,6 +6,7 @@ const fs = require('fs');
 const multer = require('multer');
 const { EnglishTestRegistration, ClassMembership } = require('../models');
 const englishTestRegistrationService = require('../services/englishTestRegistrationService');
+const englishTestStudentIdCardRosterService = require('../services/englishTestStudentIdCardRosterService');
 const {
   hasB2ScoresFilled,
   inferStudentRequestedExemptionLabel,
@@ -157,12 +158,37 @@ const baseUploadDir = path.join(__dirname, '../uploads/english-test');
 const idPhotoDir = path.join(baseUploadDir, 'id-photos'); // 證件照資料夾
 const certificateDir = path.join(baseUploadDir, 'certificates'); // 成績證明資料夾（B2 證書）
 const disabilityCertDir = path.join(baseUploadDir, 'disability-certs'); // 障礙證明資料夾
+const studentRosterDir = path.join(baseUploadDir, 'student-roster'); // 學名單比對用 Excel 檔
 
 // 確保資料夾存在
-[baseUploadDir, idPhotoDir, certificateDir, disabilityCertDir].forEach(dir => {
+[baseUploadDir, idPhotoDir, certificateDir, disabilityCertDir, studentRosterDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
+});
+
+// 學名單比對 Excel 上傳（admin 使用）
+const rosterExcelStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, studentRosterDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `english-test-roster-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const rosterExcelUpload = multer({
+  storage: rosterExcelStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedExt = ['.xlsx', '.xls'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedExt.includes(ext)) return cb(null, true);
+    return cb(new Error('只允許上傳 Excel 檔案 (.xlsx, .xls)'), false);
+  },
 });
 
 const storage = multer.diskStorage({
@@ -963,6 +989,20 @@ router.post('/english-test/register',
         return res.status(400).json({ error: '缺少必要欄位：學號、姓名、身分證字號' });
       }
 
+      // 比對學號/身分證是否屬於同一位學生（由 admin 上傳學名單 Excel 決定）
+      const rosterMismatch = await englishTestStudentIdCardRosterService.checkStudentIdIdNumberMatch({
+        studentId: formData.studentId,
+        idNumber: formData.idNumber,
+      });
+      if (!rosterMismatch.matched) {
+        return res.status(409).json({
+          success: false,
+          code: rosterMismatch.code,
+          error: rosterMismatch.message,
+          message: rosterMismatch.message,
+        });
+      }
+
       // 有填寫 email 的首次報名須通過信箱驗證碼
       if (englishTestEmailVerificationService.requiresEmailVerification({
         submittedEmail: formData.email,
@@ -1288,18 +1328,50 @@ router.get('/english-test/registrations/metrics/pending-count', ...englishRegMet
   }
 });
 
-// API: 取得報名表單 Q21（從何得知培力英檢 / infoSource）統計
+async function queryRegistrationGroupStats(columnName) {
+  const { sequelize } = require('../models');
+  const allowed = new Set(['infoSource', 'department', 'grade']);
+  if (!allowed.has(columnName)) {
+    throw new Error(`不支援的統計欄位: ${columnName}`);
+  }
+  const rows = await sequelize.query(
+    `SELECT ${columnName} AS label, COUNT(*) AS count
+     FROM english_test_registrations
+     WHERE ${columnName} IS NOT NULL AND TRIM(${columnName}) != ''
+     GROUP BY ${columnName}
+     ORDER BY count DESC, label ASC`,
+    { type: QueryTypes.SELECT }
+  );
+  const data = (rows || []).map((r) => ({
+    label: r.label,
+    count: Number(r.count) || 0,
+  }));
+  const total = data.reduce((sum, r) => sum + r.count, 0);
+  return { data, total };
+}
+
+// API: 取得報名表單 Q21（從何得知培力英檢 / infoSource）統計（相容舊前端）
 router.get('/english-test/registrations/stats/info-source', ...englishRegViewAuth, async (req, res) => {
   try {
-    const { sequelize } = require('../models');
-    const rows = await sequelize.query(
-      `SELECT infoSource AS label, COUNT(*) AS count FROM english_test_registrations WHERE infoSource IS NOT NULL AND infoSource != '' GROUP BY infoSource ORDER BY count DESC`,
-      { type: QueryTypes.SELECT }
-    );
-    const total = (rows || []).reduce((sum, r) => sum + (r.count || 0), 0);
-    res.json({ data: rows || [], total });
+    const result = await queryRegistrationGroupStats('infoSource');
+    res.json(result);
   } catch (error) {
     logger.error('Q21 統計錯誤', error);
+    res.status(500).json({ error: '伺服器錯誤' });
+  }
+});
+
+// API: 數據分析（Q21 宣傳來源、系所、年級）
+router.get('/english-test/registrations/stats/analytics', ...englishRegViewAuth, async (req, res) => {
+  try {
+    const [infoSource, department, grade] = await Promise.all([
+      queryRegistrationGroupStats('infoSource'),
+      queryRegistrationGroupStats('department'),
+      queryRegistrationGroupStats('grade'),
+    ]);
+    res.json({ infoSource, department, grade });
+  } catch (error) {
+    logger.error('英檢數據分析統計錯誤', error);
     res.status(500).json({ error: '伺服器錯誤' });
   }
 });
@@ -1805,6 +1877,113 @@ router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res
   }
 });
 
+// API: 英檢學名單 Excel 上傳/覆蓋（admin）
+router.post(
+  '/english-test/admin/student-roster/upload',
+  ...englishRegFormManageAuth,
+  rosterExcelUpload.single('file'),
+  async (req, res) => {
+    let savedPath;
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          code: 'NO_FILE',
+          error: '尚未提供上傳檔案',
+          message: '尚未提供上傳檔案',
+        });
+      }
+
+      savedPath = file.path;
+      const buffer = fs.readFileSync(file.path);
+
+      // 覆蓋策略：DB 只保留最新 upload/entries，原始 Excel 檔不保留（以免堆疊檔案）
+      const result = await englishTestStudentIdCardRosterService.replaceLatestRosterFromUpload({
+        fileNameOriginal: file.originalname,
+        storedFileUrl: null,
+        buffer,
+      });
+
+      return res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      logger.error('學名單 Excel 上傳失敗', error);
+      return res.status(400).json({
+        success: false,
+        code: error.code || 'ROSTER_UPLOAD_FAILED',
+        error: error.message || '學名單解析/儲存失敗',
+        message: error.message || '學名單解析/儲存失敗',
+      });
+    } finally {
+      if (savedPath && fs.existsSync(savedPath)) {
+        try {
+          fs.unlinkSync(savedPath);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+);
+
+// API: 英檢學名單內容預覽（admin）
+router.get(
+  '/english-test/admin/student-roster',
+  ...englishRegFormManageAuth,
+  async (req, res) => {
+    try {
+      const { offset, limit } = req.query;
+      const data = await englishTestStudentIdCardRosterService.getLatestRosterPreview({
+        offset: offset ? Number(offset) : 0,
+        limit: limit ? Number(limit) : 30,
+      });
+
+      return res.json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      logger.error('取得學名單預覽失敗', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || '伺服器錯誤',
+        message: error.message || '伺服器錯誤',
+      });
+    }
+  }
+);
+
+// API: 下載英檢學名單 Excel 範例檔（admin）
+router.get(
+  '/english-test/admin/student-roster/sample-xlsx',
+  ...englishRegFormManageAuth,
+  async (req, res) => {
+    try {
+      const workbook = englishTestStudentIdCardRosterService.buildRosterSampleWorkbook();
+
+      const fileName = 'english-test-student-roster-sample.xlsx';
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      logger.error('下載學名單範例檔失敗', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || '伺服器錯誤',
+        message: error.message || '伺服器錯誤',
+      });
+    }
+  }
+);
+
 // API: 根據學號、姓名、身分證字號查詢報名資料（公開，用於檢視與修正）
 router.post(
   '/english-test/registrations/query',
@@ -1825,6 +2004,20 @@ router.post(
     const trimmedStudentId = studentId.trim();
     const trimmedName = name.trim();
     const trimmedIdNumber = idNumber.trim().toUpperCase();
+
+    // 比對學號/身分證是否屬於同一位學生（由 admin 上傳學名單 Excel 決定）
+    const rosterMismatch = await englishTestStudentIdCardRosterService.checkStudentIdIdNumberMatch({
+      studentId: trimmedStudentId,
+      idNumber: trimmedIdNumber,
+    });
+    if (!rosterMismatch.matched) {
+      return res.status(409).json({
+        success: false,
+        code: rosterMismatch.code,
+        error: rosterMismatch.message,
+        message: rosterMismatch.message,
+      });
+    }
 
     // 先根據學號查詢（學號是唯一索引，查詢最快）
     const registration = await EnglishTestRegistration.findOne({

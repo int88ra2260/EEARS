@@ -1570,11 +1570,10 @@ const getTransporterAndSender = (template) => {
   }
 };
 
-// 發送郵件的通用函數
+// 發送郵件的通用函數（套用後台覆寫）
 const sendEmail = async (template, data) => {
   const { transporter: selectedTransporter, sender } = getTransporterAndSender(template);
-  
-  // 如果郵件服務未配置，僅記錄日誌
+
   if (!selectedTransporter) {
     console.log(`📧 郵件功能未啟用，跳過發送: ${template}`);
     console.log(`   收件人: ${data.studentEmail || data.email}`);
@@ -1583,27 +1582,50 @@ const sendEmail = async (template, data) => {
     err.template = template;
     throw err;
   }
-  
+
   try {
-    const mailOptions = emailTemplates[template](data);
-    // 確保使用正確的發件人地址
+    // eslint-disable-next-line global-require
+    const { buildMailOptions } = require('../services/emailTemplateService');
+    const mailOptions = await buildMailOptions(template, data);
     mailOptions.from = sender;
     await selectedTransporter.sendMail(mailOptions);
     const recipient = mailOptions.to || data.studentEmail || data.email || '未知';
     console.log(`📧 Email sent successfully: ${template} to ${recipient} (from: ${sender})`);
+    return { ok: true, to: recipient, subject: mailOptions.subject };
   } catch (error) {
+    if (error && error.code === 'EMAIL_TEMPLATE_DISABLED') {
+      console.log(`📧 Email template disabled, skip: ${template}`);
+      return { skipped: true, reason: 'disabled' };
+    }
     console.error(`❌ Failed to send email: ${template}`, error);
     const recipient = data.studentEmail || data.email || '未知';
     console.error(`   收件人: ${recipient}`);
     console.error(`   發件人: ${sender}`);
     console.error(`   請檢查 Gmail 認證設定或網路連線`);
-    // 讓呼叫端可以針對暫時性錯誤（如 451/4.3.0）做重試或告警
     throw error;
   }
+};
+
+/** 後台測試寄信：直接送出已組好的 mailOptions */
+const sendRawMail = async (template, mailOptions) => {
+  const { transporter: selectedTransporter, sender } = getTransporterAndSender(template);
+  if (!selectedTransporter) {
+    const err = new Error('EMAIL_TRANSPORT_NOT_CONFIGURED');
+    err.template = template;
+    throw err;
+  }
+  const payload = { ...mailOptions, from: sender };
+  await selectedTransporter.sendMail(payload);
+  return { ok: true, to: payload.to, subject: payload.subject };
 };
 
 module.exports = {
   transporter,
   emailTemplates,
-  sendEmail
+  sendEmail,
+  sendRawMail,
+  getActivitySpecificContent,
+  getEventLocationForEmail,
+  BESTEP_STATUS_MAP,
+  BESTEP_EXAM_TYPE_MAP,
 };

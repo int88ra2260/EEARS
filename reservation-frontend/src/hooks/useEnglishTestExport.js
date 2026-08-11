@@ -1,25 +1,28 @@
 /**
  * 培力英檢匯出：Excel / 證件照。
+ * 匯出範圍由呼叫端傳入（與列表狀態篩選同步）。
  */
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { exportRegistrationsExcel, exportRegistrationPhotos, downloadBlob } from '../services/englishTestApi';
 
-export function useEnglishTestExport({ token, showToast }) {
-  const [exportStatusFilter, setExportStatusFilter] = useState('all');
+const STATUS_FILE_LABEL = {
+  pending: '待審核',
+  approved: '已通過',
+  revision: '請修正',
+  success: '報名成功',
+  failed: '報名失敗',
+};
 
-  const handleExport = useCallback(async () => {
+export function useEnglishTestExport({ token, showToast }) {
+  const handleExport = useCallback(async (statusFilter = 'all') => {
     try {
       const params = new URLSearchParams();
-      if (exportStatusFilter !== 'all') {
-        params.append('status', exportStatusFilter);
+      if (statusFilter && statusFilter !== 'all') {
+        params.append('status', statusFilter);
       }
 
-      let fileName = '培力英檢報名資料';
-      if (exportStatusFilter === 'pending') fileName = '培力英檢報名資料_待審核';
-      else if (exportStatusFilter === 'approved') fileName = '培力英檢報名資料_已通過';
-      else if (exportStatusFilter === 'revision') fileName = '培力英檢報名資料_請修正';
-      else if (exportStatusFilter === 'success') fileName = '培力英檢報名資料_報名成功';
-      else if (exportStatusFilter === 'failed') fileName = '培力英檢報名資料_報名失敗';
+      const statusLabel = STATUS_FILE_LABEL[statusFilter];
+      let fileName = statusLabel ? `培力英檢報名資料_${statusLabel}` : '培力英檢報名資料';
       fileName += `_${new Date().toISOString().split('T')[0]}.xlsx`;
 
       const blob = await exportRegistrationsExcel(token, params);
@@ -28,7 +31,7 @@ export function useEnglishTestExport({ token, showToast }) {
       console.error('匯出錯誤:', error);
       showToast(error.message || '匯出時發生錯誤', 'danger');
     }
-  }, [exportStatusFilter, token, showToast]);
+  }, [token, showToast]);
 
   const handleExportPhotos = useCallback(async (status = 'approved') => {
     try {
@@ -43,9 +46,7 @@ export function useEnglishTestExport({ token, showToast }) {
   }, [token, showToast]);
 
   return {
-    exportStatusFilter,
-    setExportStatusFilter,
     handleExport,
-    handleExportPhotos
+    handleExportPhotos,
   };
 }

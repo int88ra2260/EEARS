@@ -2,8 +2,8 @@
 
 /**
  * 培力英檢報名表單預設 schema（對應既有硬編碼欄位）。
- * system: true 的題目不可刪除、不可改 fieldKey；可改 label／options／required／helpText／visible。
- * system: false 的題目為自訂題，答案存入 registrations.extraAnswers。
+ * system: true = 預設範本題（可自由改文案／題型／刪除／隱藏，與 Google Forms 相同自由度）。
+ * system: false = 自訂題；若 fieldKey 不在報名主檔欄位，答案存 registrations.extraAnswers。
  */
 
 const opt = (value, label = value) => ({ value, label });
@@ -13,15 +13,15 @@ function buildDefaultEnglishTestFormSchema() {
     title: '培力英檢報名表單',
     version: 1,
     sections: [
-      { id: 'privacy', title: '個資使用同意書', order: 1 },
-      { id: 'verify', title: '身分驗證', order: 2 },
-      { id: 'eligibility', title: '英語能力與培力資格相關', order: 3 },
-      { id: 'contact', title: 'A. 基本聯絡資訊', order: 4 },
-      { id: 'academic', title: 'B. 身分與學籍資料', order: 5 },
-      { id: 'special', title: 'C. 特殊身分與協助需求', order: 6 },
-      { id: 'photo', title: 'D. 照片與同意事項', order: 7 },
-      { id: 'info', title: 'E. 資訊來源', order: 8 },
-      { id: 'custom', title: 'F. 其他題目', order: 9 },
+      { id: 'privacy', title: '個資使用同意書', order: 1, navLabel: '步驟 1' },
+      { id: 'verify', title: '身分驗證', order: 2, navLabel: '步驟 2' },
+      { id: 'eligibility', title: '英語能力與培力資格相關', order: 3, navLabel: '步驟 3' },
+      { id: 'contact', title: 'A. 基本聯絡資訊', order: 4, navLabel: '步驟 4 · A' },
+      { id: 'academic', title: 'B. 身分與學籍資料', order: 5, navLabel: '步驟 4 · B' },
+      { id: 'special', title: 'C. 特殊身分與協助需求', order: 6, navLabel: '步驟 4 · C' },
+      { id: 'photo', title: 'D. 照片與同意事項', order: 7, navLabel: '步驟 4 · D' },
+      { id: 'info', title: 'E. 資訊來源', order: 8, navLabel: '步驟 4 · E' },
+      { id: 'custom', title: 'F. 其他題目', order: 9, navLabel: '其他' },
     ],
     questions: [
       // —— privacy（步驟 1）——

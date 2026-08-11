@@ -38,14 +38,17 @@ export default function AnnouncementFilters({
         </Col>
         <Col md={2}>
           <Form.Label className="small mb-1">狀態</Form.Label>
-          <Form.Select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <Form.Select value={status} onChange={(e) => setStatus(e.target.value)} aria-describedby="announcement-status-filter-hint">
             <option value="all">全部</option>
             <option value="draft">草稿</option>
             <option value="scheduled">已排程</option>
             <option value="published">已發布</option>
-            <option value="unpublished">已下架</option>
-            <option value="archived">已封存</option>
+            <option value="unpublished">已下架（暫時隱藏）</option>
+            <option value="archived">已封存（長期歸檔）</option>
           </Form.Select>
+          <Form.Text id="announcement-status-filter-hint" className="text-muted">
+            下架＝暫時不顯示；封存＝不再當現行公告
+          </Form.Text>
         </Col>
         <Col md={2}>
           <Form.Label className="small mb-1">分類</Form.Label>

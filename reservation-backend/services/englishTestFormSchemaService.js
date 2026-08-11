@@ -122,6 +122,7 @@ function normalizeSections(rawSections, fallback) {
     id: String(s.id || `section_${i + 1}`).trim(),
     title: String(s.title || `區塊 ${i + 1}`).trim(),
     order: Number.isFinite(Number(s.order)) ? Number(s.order) : i + 1,
+    navLabel: s.navLabel != null ? String(s.navLabel).trim() : '',
   }));
 }
 
@@ -139,75 +140,53 @@ function parseSchemaJson(raw) {
   return buildDefaultEnglishTestFormSchema();
 }
 
-/** 檢查 raw schema 是否缺少預設系統階段／系統題（例如步驟 1／2）。 */
+/** 僅在完全沒有階段時回填（允許自由刪除／重排既有階段）。 */
 function schemaNeedsSystemMerge(raw) {
-  const defaults = buildDefaultEnglishTestFormSchema();
-  const sectionIds = new Set((raw?.sections || []).map((s) => s && s.id).filter(Boolean));
-  const fieldKeys = new Set((raw?.questions || []).map((q) => q && q.fieldKey).filter(Boolean));
-  for (const section of defaults.sections) {
-    if (!sectionIds.has(section.id)) return true;
-  }
-  const defaultSectionOrder = new Map(defaults.sections.map((s) => [s.id, s.order]));
-  for (const section of raw?.sections || []) {
-    if (!section?.id) continue;
-    if (
-      defaultSectionOrder.has(section.id) &&
-      Number(section.order) !== Number(defaultSectionOrder.get(section.id))
-    ) {
-      return true;
-    }
-  }
-  for (const q of defaults.questions) {
-    if (!q.system) continue;
-    if (!fieldKeys.has(q.fieldKey)) return true;
-  }
-  return false;
+  return !Array.isArray(raw?.sections) || raw.sections.length === 0;
+}
+
+/** 報名主檔／流程仍依賴的建議欄位（僅警告，不阻擋儲存）。 */
+function getSuggestedCoreFieldKeys() {
+  return [
+    'agreedToPrivacyPolicy',
+    'studentId',
+    'name',
+    'idNumber',
+    'email',
+    'examType',
+    'address',
+    'idPhoto',
+    'agreedToTerms',
+  ];
+}
+
+function collectSchemaWarnings(schema) {
+  const keys = new Set((schema?.questions || []).filter((q) => q.visible !== false).map((q) => q.fieldKey));
+  const missing = getSuggestedCoreFieldKeys().filter((k) => !keys.has(k));
+  if (missing.length === 0) return [];
+  return [
+    `以下建議欄位目前不在表單中（或已隱藏），可能影響報名／驗證流程：${missing.join(', ')}`,
+  ];
 }
 
 /**
- * 合併驗證：系統題不可刪除／不可改 fieldKey；自訂題不可冒充系統欄位名。
+ * 正規化 schema（Google Forms 自由度：可刪、可改 fieldKey／題型）。
+ * system 僅代表「來自預設範本」標記，不再當鎖定。
  */
 function validateAndNormalizeSchema(incoming, previous) {
-  const prev = mergeMissingSystemParts(previous || buildDefaultEnglishTestFormSchema());
-  // 先補齊缺漏系統階段／題，避免舊後台 payload 存檔時把步驟 1／2 蓋掉
-  const base = mergeMissingSystemParts(cloneSchema(incoming));
+  const prev = previous || buildDefaultEnglishTestFormSchema();
+  const base = cloneSchema(incoming || {});
 
-  const sections = normalizeSections(base.sections, prev.sections);
-  const questions = (Array.isArray(base.questions) ? base.questions : []).map(normalizeQuestion);
+  // 只補階段殼層（左側導覽），不回填已刪題目
+  const withSections = mergeMissingSystemParts({
+    ...base,
+    questions: Array.isArray(base.questions) ? base.questions : [],
+  });
 
-  const prevSystemById = new Map(
-    (prev.questions || []).filter((q) => q.system).map((q) => [q.id, q])
+  const sections = normalizeSections(withSections.sections, prev.sections);
+  const questions = (Array.isArray(withSections.questions) ? withSections.questions : []).map(
+    normalizeQuestion
   );
-  const nextById = new Map(questions.map((q) => [q.id, q]));
-
-  for (const [id, prevQ] of prevSystemById) {
-    const nextQ = nextById.get(id);
-    if (!nextQ) {
-      const err = new Error(`系統題不可刪除：${prevQ.label}（${prevQ.fieldKey}）`);
-      err.status = 400;
-      err.code = 'SYSTEM_QUESTION_REQUIRED';
-      throw err;
-    }
-    if (nextQ.fieldKey !== prevQ.fieldKey) {
-      const err = new Error(`系統題不可變更 fieldKey：${prevQ.fieldKey}`);
-      err.status = 400;
-      err.code = 'SYSTEM_FIELD_KEY_LOCKED';
-      throw err;
-    }
-    nextQ.system = true;
-  }
-
-  const reservedKeys = new Set(
-    (prev.questions || []).filter((q) => q.system).map((q) => q.fieldKey)
-  );
-  for (const q of questions) {
-    if (!q.system && reservedKeys.has(q.fieldKey)) {
-      const err = new Error(`自訂題不可使用系統欄位鍵：${q.fieldKey}`);
-      err.status = 400;
-      err.code = 'FIELD_KEY_RESERVED';
-      throw err;
-    }
-  }
 
   const fieldKeys = questions.map((q) => q.fieldKey);
   if (new Set(fieldKeys).size !== fieldKeys.length) {
@@ -230,16 +209,18 @@ function validateAndNormalizeSchema(incoming, previous) {
     return a.order - b.order;
   });
 
-  return {
-    title: String(base.title || prev.title || '培力英檢報名表單').trim(),
-    version: Number(base.version) || prev.version || 1,
+  const normalized = {
+    title: String(withSections.title || prev.title || '培力英檢報名表單').trim(),
+    version: Number(withSections.version) || prev.version || 1,
     sections: sections.sort((a, b) => a.order - b.order),
     questions,
     departmentOptions:
-      base.departmentOptions && typeof base.departmentOptions === 'object'
-        ? base.departmentOptions
+      withSections.departmentOptions && typeof withSections.departmentOptions === 'object'
+        ? withSections.departmentOptions
         : prev.departmentOptions || {},
   };
+  normalized.warnings = collectSchemaWarnings(normalized);
+  return normalized;
 }
 
 async function getPublishedRow() {
@@ -301,41 +282,16 @@ async function getPublishedSchema({ allowPersistMerge = true } = {}) {
 }
 
 /**
- * 將預設 schema 中缺漏的系統區塊／題目補進既有 schema（不覆寫已存在的題）。
- * 讓已部署環境自動出現步驟 1／2、確認勾選、證件照說明等，無需強制重設。
+ * 確保 schema 結構完整；不強制回填已刪階段／題目（Google Forms 自由度）。
+ * 僅當 sections 完全為空時套用預設階段清單。
  */
 function mergeMissingSystemParts(schema) {
   const defaults = buildDefaultEnglishTestFormSchema();
   const next = cloneSchema(schema || defaults);
 
-  if (!Array.isArray(next.sections)) next.sections = [];
   if (!Array.isArray(next.questions)) next.questions = [];
-
-  const sectionIds = new Set(next.sections.map((s) => s.id));
-  for (const section of defaults.sections) {
-    if (!sectionIds.has(section.id)) {
-      next.sections.push({ ...section });
-      sectionIds.add(section.id);
-    }
-  }
-  // 對齊系統階段順序（避免舊 DB 的 eligibility.order=1 排在步驟1前面）
-  const defaultSectionOrder = new Map(defaults.sections.map((s) => [s.id, s.order]));
-  for (const section of next.sections) {
-    if (defaultSectionOrder.has(section.id)) {
-      section.order = defaultSectionOrder.get(section.id);
-    }
-  }
-  next.sections.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-  const qIds = new Set(next.questions.map((q) => q.id));
-  const fieldKeys = new Set(next.questions.map((q) => q.fieldKey));
-  for (const q of defaults.questions) {
-    if (!q.system) continue;
-    if (qIds.has(q.id)) continue;
-    if (fieldKeys.has(q.fieldKey)) continue;
-    next.questions.push(cloneSchema(q));
-    qIds.add(q.id);
-    fieldKeys.add(q.fieldKey);
+  if (!Array.isArray(next.sections) || next.sections.length === 0) {
+    next.sections = cloneSchema(defaults.sections);
   }
 
   if (!next.departmentOptions || typeof next.departmentOptions !== 'object') {
@@ -352,6 +308,8 @@ function mergeMissingSystemParts(schema) {
 async function savePublishedSchema(schemaJson, { userId = null, changeSummary = null } = {}) {
   const current = await getPublishedSchema({ allowPersistMerge: false });
   const normalized = validateAndNormalizeSchema(schemaJson, current.schema);
+  const warnings = normalized.warnings || [];
+  delete normalized.warnings;
   normalized.version = (current.version || 1) + 1;
 
   const row = await EnglishTestFormSchema.create({
@@ -370,11 +328,27 @@ async function savePublishedSchema(schemaJson, { userId = null, changeSummary = 
     updatedBy: row.updatedBy,
     changeSummary: row.changeSummary,
     schema: normalized,
+    warnings,
   };
 }
 
+function getCoreRegistrationFieldKeys() {
+  return new Set(
+    buildDefaultEnglishTestFormSchema()
+      .questions.filter((q) => q.system && q.type !== 'content_block')
+      .map((q) => q.fieldKey)
+  );
+}
+
+/** 自訂／額外題：答案進 extraAnswers（非報名主檔欄位、非純圖文區塊）。 */
 function getCustomQuestions(schema) {
-  return (schema?.questions || []).filter((q) => !q.system && q.visible !== false);
+  const coreKeys = getCoreRegistrationFieldKeys();
+  return (schema?.questions || []).filter((q) => {
+    if (q.visible === false) return false;
+    if (q.type === 'content_block') return false;
+    if (coreKeys.has(q.fieldKey)) return false;
+    return true;
+  });
 }
 
 function getQuestionByFieldKey(schema, fieldKey) {
@@ -435,6 +409,9 @@ module.exports = {
   validateAndNormalizeSchema,
   getCustomQuestions,
   getQuestionByFieldKey,
+  getCoreRegistrationFieldKeys,
+  getSuggestedCoreFieldKeys,
+  collectSchemaWarnings,
   extractOptionsMap,
   mergeMissingSystemParts,
   schemaNeedsSystemMerge,

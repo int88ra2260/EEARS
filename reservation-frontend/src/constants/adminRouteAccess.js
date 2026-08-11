@@ -164,14 +164,19 @@ export const ADMIN_ROUTE_ACCESS = [
     denyStaffLevels: WEEKLY_REPORT_DENIED_STAFF_LEVELS,
     anyPermissions: [P.CAN_MANAGE_ANNOUNCEMENTS],
   },
-  { pattern: '/admin/site-content', label: '網站文案管理', anyPermissions: [P.CAN_MANAGE_SITE_CONTENT] },
-
-  { pattern: '/admin/page-content', label: '頁面內容管理', anyPermissions: [P.CAN_MANAGE_SITE_CONTENT] },
+  { pattern: '/admin/student-content', label: '學生端內容', anyPermissions: [P.CAN_MANAGE_SITE_CONTENT] },
+  { pattern: '/admin/site-content', label: '學生端內容', anyPermissions: [P.CAN_MANAGE_SITE_CONTENT] },
+  { pattern: '/admin/page-content', label: '學生端內容', anyPermissions: [P.CAN_MANAGE_SITE_CONTENT] },
 
   { pattern: '/admin/logs', label: 'Audit Logs', roles: ['admin'], denyStaffLevels: DEPUTY_DENIED_STAFF_LEVELS, anyPermissions: [P.CAN_VIEW_AUDIT_LOGS] },
   {
     pattern: '/admin/settings/system',
     label: '系統設定',
+    anyPermissions: [P.CAN_MANAGE_SETTINGS],
+  },
+  {
+    pattern: '/admin/settings/email-templates',
+    label: '郵件設定中心',
     anyPermissions: [P.CAN_MANAGE_SETTINGS],
   },
   {

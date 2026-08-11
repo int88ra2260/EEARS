@@ -241,7 +241,7 @@ const EnglishTestRegistration = sequelize.define('EnglishTestRegistration', {
   extraAnswers: {
     type: DataTypes.JSON,
     allowNull: true,
-    comment: '自訂題答案 { [fieldKey]: value }（對應 form schema 非 system 題）'
+    comment: '自訂／額外題答案 { [fieldKey]: value }（非報名主檔預設欄位）'
   },
   
   // 狀態欄位

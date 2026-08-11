@@ -99,7 +99,7 @@ export default function FormQuestionEditorModal({
 
     const next = {
       id: draft.id,
-      fieldKey: draft.system ? question.fieldKey : fieldKey,
+      fieldKey,
       sectionId: draft.sectionId,
       order: Number(draft.order) || 1,
       label,
@@ -141,7 +141,7 @@ export default function FormQuestionEditorModal({
           <div className="modal-header">
             <h5 className="modal-title">
               {readOnly ? '檢視題目' : isNew ? '新增題目' : '編輯題目'}
-              {draft.system ? '（系統題）' : ''}
+              {draft.system ? '（預設範本）' : ''}
             </h5>
             <button type="button" className="btn-close" aria-label="Close" onClick={onClose} />
           </div>
@@ -165,7 +165,7 @@ export default function FormQuestionEditorModal({
                 <select
                   className="form-select"
                   value={draft.type}
-                  disabled={readOnly || draft.system}
+                  disabled={readOnly}
                   onChange={(e) => patch({ type: e.target.value })}
                 >
                   {QUESTION_TYPES.map((t) => (
@@ -174,7 +174,6 @@ export default function FormQuestionEditorModal({
                     </option>
                   ))}
                 </select>
-                {draft.system ? <div className="form-text">系統題不可改題型</div> : null}
               </div>
 
               <div className="col-md-6">
@@ -207,9 +206,10 @@ export default function FormQuestionEditorModal({
                 <input
                   className="form-control"
                   value={draft.fieldKey}
-                  disabled={readOnly || draft.system}
+                  disabled={readOnly}
                   onChange={(e) => patch({ fieldKey: e.target.value })}
                 />
+                <div className="form-text">對應報名資料欄位；改動後請確認學生端與匯出仍正確。</div>
               </div>
 
               <div className="col-12">
@@ -332,11 +332,24 @@ export default function FormQuestionEditorModal({
                     顯示於學生表單
                   </label>
                 </div>
+                <div className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="q-preset"
+                    checked={Boolean(draft.system)}
+                    disabled={readOnly}
+                    onChange={(e) => patch({ system: e.target.checked })}
+                  />
+                  <label className="form-check-label" htmlFor="q-preset">
+                    預設範本標記（僅標籤，不限制編輯）
+                  </label>
+                </div>
               </div>
             </div>
           </div>
           <div className="modal-footer">
-            {!readOnly && onDelete && !draft.system && !isNew && (
+            {!readOnly && onDelete && !isNew && (
               <button
                 type="button"
                 className="btn btn-outline-danger me-auto"

@@ -6,6 +6,10 @@ const SITE_CONTENT_SECTIONS = Object.freeze({
     label: '首頁',
     prefixes: ['homePage.', 'home.notice', 'home.rule', 'home.usage'],
   },
+  english_test_registration: {
+    label: '英檢註冊比對訊息',
+    prefixes: ['englishTestRegistration.'],
+  },
   activities: {
     label: '活動介紹',
     prefixes: ['activitiesPage.', 'activities.', 'page.activitiesLead', 'page.activityCategoryLead'],

@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.use(
   authMiddleware,
-  requirePermission(P.CAN_MANAGE_SITE_CONTENT, '需要網站文案管理權限')
+  requirePermission(P.CAN_MANAGE_SITE_CONTENT, '需要學生端內容管理權限')
 );
 
 router.get('/sections', adminSiteContentController.listSections);

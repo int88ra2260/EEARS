@@ -39,6 +39,7 @@ export default function FormQuestionCard({
   onDelete,
   onHide,
   onRestore,
+  onDuplicate,
   onMoveUp,
   onMoveDown,
 }) {
@@ -70,7 +71,7 @@ export default function FormQuestionCard({
           </div>
           <div className="et-form-qcard__meta">
             <span className="et-form-qcard__type">{TYPE_LABELS[question.type] || question.type}</span>
-            {question.system ? <span className="et-form-chip et-form-chip--system">系統</span> : (
+            {question.system ? <span className="et-form-chip et-form-chip--system">預設</span> : (
               <span className="et-form-chip et-form-chip--custom">自訂</span>
             )}
             {hidden ? <span className="et-form-chip et-form-chip--hidden">已隱藏</span> : null}
@@ -96,6 +97,11 @@ export default function FormQuestionCard({
             <button type="button" className="btn btn-sm btn-outline-primary" onClick={onEdit}>
               編輯
             </button>
+            {onDuplicate ? (
+              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onDuplicate}>
+                複製
+              </button>
+            ) : null}
             {hidden ? (
               <button type="button" className="btn btn-sm btn-outline-success" onClick={onRestore}>
                 恢復顯示
@@ -105,19 +111,14 @@ export default function FormQuestionCard({
                 type="button"
                 className="btn btn-sm btn-outline-warning"
                 onClick={onHide}
-                title={question.system ? '系統題改為隱藏（等同從學生表單移除）' : '隱藏此題'}
+                title="隱藏此題（學生端不顯示）"
               >
                 隱藏
               </button>
             )}
-            {!question.system && (
-              <button type="button" className="btn btn-sm btn-outline-danger" onClick={onDelete}>
-                刪除
-              </button>
-            )}
-            {question.system && (
-              <span className="et-form-qcard__system-hint">系統題不可永久刪除，請用「隱藏」</span>
-            )}
+            <button type="button" className="btn btn-sm btn-outline-danger" onClick={onDelete}>
+              刪除
+            </button>
           </div>
         )}
 

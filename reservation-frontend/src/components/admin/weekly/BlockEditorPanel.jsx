@@ -8,16 +8,30 @@ import AnnouncementPicker from './AnnouncementPicker';
 
 function MediaUrlField({ label, value, onChange, token, kind }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const isImage = kind === 'image' || !kind;
   return (
     <>
       <Form.Group className="mb-2">
         <Form.Label>{label}</Form.Label>
         <div className="d-flex gap-2">
-          <Form.Control value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder="/uploads/weekly/..." />
+          <Form.Control
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={isImage ? '點右側從媒體庫選擇，或貼上圖片網址' : '/uploads/weekly/...'}
+          />
           <Button variant="outline-secondary" type="button" onClick={() => setPickerOpen(true)}>
-            媒體庫
+            {isImage ? '選擇圖片' : '選擇檔案'}
           </Button>
         </div>
+        {value && isImage ? (
+          <div className="mt-2" style={{ maxWidth: 180 }}>
+            <img
+              src={value}
+              alt=""
+              style={{ width: '100%', borderRadius: 8, border: '1px solid #eaeaea' }}
+            />
+          </div>
+        ) : null}
       </Form.Group>
       <WeeklyMediaPicker
         show={pickerOpen}

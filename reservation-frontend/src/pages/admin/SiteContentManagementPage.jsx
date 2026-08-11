@@ -812,7 +812,7 @@ function StaffListPanel({
   );
 }
 
-export default function SiteContentManagementPage() {
+export default function SiteContentManagementPage({ embedded = false } = {}) {
   const { token } = useOutletContext();
   const toast = useToast();
   const [activeSection, setActiveSection] = useState(TEXT_SECTIONS[0]?.id || 'home');
@@ -958,14 +958,16 @@ export default function SiteContentManagementPage() {
   };
 
   return (
-    <div className="scm-page admin-page">
-      <header className="scm-page__header">
-        <p className="scm-page__kicker">Site content</p>
-        <h1 className="scm-page__title">網站文案管理</h1>
-        <p className="scm-page__lead">
-          直接在學生端畫面上點擊文字即可修改；儲存後即時生效。FAQ 與師資名單仍使用列表編輯。
-        </p>
-      </header>
+    <div className={`scm-page${embedded ? ' scm-page--embedded' : ' admin-page'}`}>
+      {embedded ? null : (
+        <header className="scm-page__header">
+          <p className="scm-page__kicker">Site content</p>
+          <h1 className="scm-page__title">網站文案管理</h1>
+          <p className="scm-page__lead">
+            直接在學生端畫面上點擊文字即可修改；儲存後即時生效。FAQ 與師資名單仍使用列表編輯。
+          </p>
+        </header>
+      )}
 
       {error ? <div className="scm-alert" role="alert">{error}</div> : null}
 

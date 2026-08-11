@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.use(
   authMiddleware,
-  requirePermission(P.CAN_MANAGE_SITE_CONTENT, '需要網站文案管理權限'),
+  requirePermission(P.CAN_MANAGE_SITE_CONTENT, '需要學生端內容管理權限'),
 );
 
 // Learning resources
@@ -208,6 +208,129 @@ router.post('/page-content/scroll-world-test/reorder', async (req, res, next) =>
     return next(err);
   }
 });
+
+// Course guide
+router.get('/page-content/course-guide', async (req, res, next) => {
+  try {
+    const data = await pageContentService.listCourseGuide({ admin: true });
+    return res.json(data);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/page-content/course-guide/sections', async (req, res, next) => {
+  try {
+    const actorId = req.user?.id || null;
+    const created = await pageContentService.createCourseGuideSection(req.body || {}, actorId);
+    return res.status(201).json(created);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.put('/page-content/course-guide/sections/:id', async (req, res, next) => {
+  try {
+    const actorId = req.user?.id || null;
+    const updated = await pageContentService.updateCourseGuideSection(req.params.id, req.body || {}, actorId);
+    return res.json(updated);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.delete('/page-content/course-guide/sections/:id', async (req, res, next) => {
+  try {
+    await pageContentService.deleteCourseGuideSection(req.params.id);
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/page-content/course-guide/sections/reorder', async (req, res, next) => {
+  try {
+    const actorId = req.user?.id || null;
+    const { ids } = req.body || {};
+    const result = await pageContentService.reorderCourseGuideSections(ids, actorId);
+    return res.json(result);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/page-content/course-guide/topics', async (req, res, next) => {
+  try {
+    const actorId = req.user?.id || null;
+    const created = await pageContentService.createCourseGuideTopic(req.body || {}, actorId);
+    return res.status(201).json(created);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.put('/page-content/course-guide/topics/:id', async (req, res, next) => {
+  try {
+    const actorId = req.user?.id || null;
+    const updated = await pageContentService.updateCourseGuideTopic(req.params.id, req.body || {}, actorId);
+    return res.json(updated);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.delete('/page-content/course-guide/topics/:id', async (req, res, next) => {
+  try {
+    await pageContentService.deleteCourseGuideTopic(req.params.id);
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/page-content/course-guide/topics/reorder', async (req, res, next) => {
+  try {
+    const actorId = req.user?.id || null;
+    const { ids } = req.body || {};
+    const result = await pageContentService.reorderCourseGuideTopics(ids, actorId);
+    return res.json(result);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Course guide media — 相容舊路徑，實際走共用媒體庫（scope=course-guide）
+router.get('/page-content/course-guide/media', async (req, res, next) => {
+  try {
+    const mediaLibraryService = require('../services/mediaLibraryService');
+    const assets = await mediaLibraryService.listMediaAssets({ scope: 'course-guide' });
+    return res.json({
+      assets,
+      uploads: assets.filter((a) => a.source === 'upload'),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post(
+  '/page-content/course-guide/media/upload',
+  require('../middlewares/mediaLibraryUpload').mediaLibraryUpload.single('file'),
+  async (req, res, next) => {
+    try {
+      const mediaLibraryService = require('../services/mediaLibraryService');
+      const actorId = req.user?.id || null;
+      const asset = await mediaLibraryService.createMediaFromUpload(req.file, {
+        scope: 'course-guide',
+        label: req.body?.label || null,
+        actorId,
+      });
+      return res.status(201).json(asset);
+    } catch (err) {
+      return next(err);
+    }
+  },
+);
 
 module.exports = router;
 

@@ -18,6 +18,8 @@ const ClassTeacher = require('./ClassTeacher');
 const EnglishTestRegistration = require('./EnglishTestRegistration');
 const EnglishTestEmailVerification = require('./EnglishTestEmailVerification');
 const EnglishTestFormSchema = require('./EnglishTestFormSchema');
+const EnglishTestStudentIdCardRosterUpload = require('./EnglishTestStudentIdCardRosterUpload');
+const EnglishTestStudentIdCardRosterEntry = require('./EnglishTestStudentIdCardRosterEntry');
 const LearningPartnerTeam = require('./LearningPartnerTeam');
 const LearningPartnerTeamMember = require('./LearningPartnerTeamMember');
 const BestepAttendance = require('./BestepAttendance');
@@ -46,8 +48,12 @@ const LearningResourceGuide = require('./LearningResourceGuide');
 const RegulationsFormsGroup = require('./RegulationsFormsGroup');
 const RegulationsFormsItem = require('./RegulationsFormsItem');
 const ScrollWorldTestSegment = require('./ScrollWorldTestSegment');
+const CourseGuideSection = require('./CourseGuideSection');
+const CourseGuideTopic = require('./CourseGuideTopic');
+const MediaAsset = require('./MediaAsset');
 const AuditLog = require('./AuditLog');
 const EmailLog = require('./EmailLog');
+const EmailTemplateOverride = require('./EmailTemplateOverride');
 const SystemLog = require('./SystemLog');
 const Notification = require('./Notification');
 const RolePermission = require('./RolePermission');
@@ -296,6 +302,16 @@ Announcement.hasMany(AnnouncementRevision, {
 });
 AnnouncementRevision.belongsTo(Announcement, { foreignKey: 'announcementId' });
 
+CourseGuideSection.hasMany(CourseGuideTopic, {
+  foreignKey: 'sectionId',
+  as: 'topics',
+  onDelete: 'CASCADE',
+});
+CourseGuideTopic.belongsTo(CourseGuideSection, {
+  foreignKey: 'sectionId',
+  as: 'section',
+});
+
 module.exports = {
   sequelize,
   User,
@@ -315,6 +331,8 @@ module.exports = {
   EnglishTestRegistration,
   EnglishTestEmailVerification,
   EnglishTestFormSchema,
+  EnglishTestStudentIdCardRosterUpload,
+  EnglishTestStudentIdCardRosterEntry,
   LearningPartnerTeam,
   LearningPartnerTeamMember,
   BestepAttendance,
@@ -342,8 +360,12 @@ module.exports = {
   RegulationsFormsGroup,
   RegulationsFormsItem,
   ScrollWorldTestSegment,
+  CourseGuideSection,
+  CourseGuideTopic,
+  MediaAsset,
   AuditLog,
   EmailLog,
+  EmailTemplateOverride,
   SystemLog,
   Notification,
   RolePermission,

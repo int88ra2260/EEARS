@@ -41,6 +41,7 @@ export function buildFormOptionsFromMeta(meta, { mode = 'create' } = {}) {
       optionPairsByFieldKey: {},
       sectionsById: {},
       questions: [],
+      schemaStrict: false,
     };
   }
 
@@ -96,6 +97,8 @@ export function buildFormOptionsFromMeta(meta, { mode = 'create' } = {}) {
     optionPairsByFieldKey,
     sectionsById,
     questions: meta.questions || [],
+    /** 有載入 schema 題目時，學生端嚴格依 schema 決定顯示（刪題＝不顯示） */
+    schemaStrict: Array.isArray(meta.questions) && meta.questions.length > 0,
   };
 }
 
@@ -105,10 +108,14 @@ export function fieldLabel(formOptions, fieldKey, fallback) {
 }
 
 export function fieldVisible(formOptions, fieldKey) {
-  if (!formOptions?.visibleByFieldKey || formOptions.visibleByFieldKey[fieldKey] === undefined) {
+  const map = formOptions?.visibleByFieldKey;
+  if (!map) return true;
+  if (map[fieldKey] === undefined) {
+    // schema 已載入：未出現在題目清單 → 視為已刪除／不顯示
+    if (formOptions?.schemaStrict) return false;
     return true;
   }
-  return formOptions.visibleByFieldKey[fieldKey] !== false;
+  return map[fieldKey] !== false;
 }
 
 export function fieldRequired(formOptions, fieldKey, fallback = false) {

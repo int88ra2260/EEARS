@@ -5,6 +5,7 @@ import { EMI_ADMIN_STAFF, EMI_FACULTY } from '../data/emiCenterStaff';
 
 export const SITE_CONTENT_SECTIONS = [
   { id: 'home', label: '首頁' },
+  { id: 'english_test_registration', label: '英檢註冊比對訊息' },
   { id: 'activities', label: '活動介紹' },
   { id: 'about', label: '關於我們' },
   { id: 'contact', label: '聯絡我們' },
@@ -34,6 +35,9 @@ export const SITE_CONTENT_KEY_SUGGESTIONS = {
     { key: 'home.noticeSurveyBefore', label: '問卷提醒（前段）' },
     { key: 'home.ruleNoStamp', label: '不補蓋章規定' },
     { key: 'home.ruleNoWalkIn', label: '不開放現場候補' },
+  ],
+  english_test_registration: [
+    { key: 'englishTestRegistration.idCardMismatchMessage', label: '英檢：學號/身分證不匹配提示' },
   ],
   activities: [
     { key: 'activitiesPage.title', label: '頁面標題' },

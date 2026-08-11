@@ -76,18 +76,53 @@ class EmailQueue {
     while (job.retries <= job.maxRetries) {
       let mailMeta = { to: null, subject: null };
       try {
-        const fn = emailTemplates && emailTemplates[job.template];
-        if (typeof fn === 'function') {
-          const opts = fn(job.data) || {};
-          mailMeta.to = opts.to || job.data?.studentEmail || job.data?.email || null;
-          mailMeta.subject = opts.subject || null;
-        }
+        // eslint-disable-next-line global-require
+        const { buildMailOptions } = require('../services/emailTemplateService');
+        const opts = await buildMailOptions(job.template, job.data);
+        mailMeta.to = opts.to || job.data?.studentEmail || job.data?.email || null;
+        mailMeta.subject = opts.subject || null;
       } catch (e) {
+        if (e && e.code === 'EMAIL_TEMPLATE_DISABLED') {
+          logEmailAsync({
+            to: job.data?.studentEmail || job.data?.email || null,
+            subject: null,
+            template: job.template,
+            status: 'skipped',
+            errorMessage: 'EMAIL_TEMPLATE_DISABLED',
+            relatedEntityType: job.relatedEntityType,
+            relatedEntityId: job.relatedEntityId,
+            requestId: job.requestId,
+          });
+          return;
+        }
         // 發送端失敗時也要儘量記錄 meta（不影響重試）
+        try {
+          const fn = emailTemplates && emailTemplates[job.template];
+          if (typeof fn === 'function') {
+            const opts = fn(job.data) || {};
+            mailMeta.to = opts.to || job.data?.studentEmail || job.data?.email || null;
+            mailMeta.subject = opts.subject || null;
+          }
+        } catch (_) {
+          /* ignore */
+        }
       }
 
       try {
-        await sendEmail(job.template, job.data);
+        const result = await sendEmail(job.template, job.data);
+        if (result && result.skipped) {
+          logEmailAsync({
+            to: mailMeta.to,
+            subject: mailMeta.subject,
+            template: job.template,
+            status: 'skipped',
+            errorMessage: result.reason || 'skipped',
+            relatedEntityType: job.relatedEntityType,
+            relatedEntityId: job.relatedEntityId,
+            requestId: job.requestId,
+          });
+          return;
+        }
         logEmailAsync({
           to: mailMeta.to,
           subject: mailMeta.subject,
@@ -116,7 +151,6 @@ class EmailQueue {
         job.retries += 1;
 
         if (shouldRetry) {
-          // 延遲後重試
           await delay(this.retryDelay);
         } else {
           throw new Error(`Email failed after ${job.maxRetries} retries: ${error.message}`);

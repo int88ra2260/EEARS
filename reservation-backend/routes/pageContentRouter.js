@@ -31,5 +31,14 @@ router.get('/page-content/scroll-world-test', async (req, res, next) => {
   }
 });
 
+router.get('/page-content/course-guide', async (req, res, next) => {
+  try {
+    const data = await pageContentService.listCourseGuide({ admin: false });
+    return res.json(data);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 module.exports = router;
 

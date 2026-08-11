@@ -80,7 +80,25 @@ function buildResourceEffectRows(modelRunId, analytics) {
     modelVersion: analytics.version || LVA_VERSION,
     payload: row,
   }));
-  return [...descriptiveRows, ...matchedRows, ...weightedRows];
+  const aipwRows = (analytics.aipwEstimates?.byResource || []).map((row) => ({
+    modelRunId,
+    resourceType: row.resourceType,
+    resourceId: null,
+    skill: null,
+    estimateType: row.estimateType || 'aipw_doubly_robust_v2',
+    rawEffect: null,
+    adjustedEffect: null,
+    causalEffect: numberOrNull(row.estimatedEffect),
+    confidenceIntervalLow: numberOrNull(row.confidenceInterval?.low),
+    confidenceIntervalHigh: numberOrNull(row.confidenceInterval?.high),
+    sampleSize: Number(row.sampleSize || 0),
+    evidenceQuality: row.evidenceLevel || null,
+    causalClaimAllowed: row.causalClaimAllowed === true,
+    modelVersion: analytics.version || LVA_VERSION,
+    payload: row,
+  }));
+
+  return [...descriptiveRows, ...matchedRows, ...weightedRows, ...aipwRows];
 }
 
 function buildGrowthEpisodeRows(modelRunId, analytics) {

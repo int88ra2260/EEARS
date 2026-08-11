@@ -4,6 +4,7 @@ import { SITE_CONTENT_KEY_SUGGESTIONS } from '../constants/siteContentManifest';
 /** 與後端 siteContentManifest 前綴一致 */
 export const TEXT_SECTION_PREFIXES = {
   home: ['homePage.', 'home.notice', 'home.rule', 'home.usage'],
+  english_test_registration: ['englishTestRegistration.'],
   activities: ['activitiesPage.', 'activities.', 'page.activitiesLead', 'page.activityCategoryLead'],
   about: ['aboutPage.'],
   contact: ['homePage.contact'],

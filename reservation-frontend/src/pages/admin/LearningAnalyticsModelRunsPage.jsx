@@ -23,6 +23,43 @@ const SKILL_LABELS = {
   writing: '寫作',
 };
 
+function formatConfidenceIntervalLowHigh(low, high) {
+  const l = Number(low);
+  const h = Number(high);
+  if (!Number.isFinite(l) || !Number.isFinite(h)) return '—';
+  return `${l.toFixed(2)}~${h.toFixed(2)}`;
+}
+
+function formatMaybeNumber(value, digits = 3) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return n.toFixed(digits);
+}
+
+function formatBalanceDiagnosticsSummary(balanceDiagnostics) {
+  if (!balanceDiagnostics) return '—';
+
+  const b = balanceDiagnostics.balanceQuality;
+  const baselineSmd = formatMaybeNumber(balanceDiagnostics.baselineGse?.standardizedMeanDifference, 3);
+  const hoursSmd = formatMaybeNumber(balanceDiagnostics.resourceHoursBeforeExam?.standardizedMeanDifference, 3);
+
+  const ceFromExact = formatMaybeNumber(balanceDiagnostics.initialCefrBand?.exactMatchRate, 3);
+  const deptExact = formatMaybeNumber(balanceDiagnostics.department?.exactMatchRate, 3);
+  const evExact = formatMaybeNumber(balanceDiagnostics.evidenceQuality?.exactMatchRate, 3);
+  const skillExact = formatMaybeNumber(balanceDiagnostics.skill?.exactMatchRate, 3);
+
+  const parts = [];
+  parts.push(`品質:${b || '—'}`);
+  if (baselineSmd != null) parts.push(`基礎SMD:${baselineSmd}`);
+  if (hoursSmd != null) parts.push(`時數SMD:${hoursSmd}`);
+  if (ceFromExact != null) parts.push(`初始CEFR精確:${ceFromExact}`);
+  if (deptExact != null) parts.push(`部門精確:${deptExact}`);
+  if (evExact != null) parts.push(`證據精確:${evExact}`);
+  if (skillExact != null) parts.push(`技能精確:${skillExact}`);
+
+  return parts.join('；');
+}
+
 export default function LearningAnalyticsModelRunsPage() {
   const {
     meta,
@@ -232,7 +269,9 @@ export default function LearningAnalyticsModelRunsPage() {
                   <tr>
                     <th>資源</th>
                     <th>技能</th>
-                    <th className="text-end">修正效應</th>
+                    <th className="text-end">估計效應</th>
+                    <th className="text-end">95% 信賴區間</th>
+                    <th>平衡診斷（matching）</th>
                     <th className="text-end">樣本</th>
                   </tr>
                 </thead>
@@ -241,7 +280,13 @@ export default function LearningAnalyticsModelRunsPage() {
                     <tr key={row.id}>
                       <td>{row.resourceType}</td>
                       <td>{SKILL_LABELS[row.skill] || row.skill || '—'}</td>
-                      <td className="text-end">{row.adjustedEffect ?? row.rawEffect ?? '—'}</td>
+                      <td className="text-end">{row.causalEffect ?? row.adjustedEffect ?? row.rawEffect ?? '—'}</td>
+                      <td className="text-end">
+                        {formatConfidenceIntervalLowHigh(row.confidenceIntervalLow, row.confidenceIntervalHigh)}
+                      </td>
+                      <td>
+                        {formatBalanceDiagnosticsSummary(row.payload?.balanceDiagnostics)}
+                      </td>
                       <td className="text-end">{row.sampleSize ?? '—'}</td>
                     </tr>
                   ))}

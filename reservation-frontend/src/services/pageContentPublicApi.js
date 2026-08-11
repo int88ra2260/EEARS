@@ -24,3 +24,8 @@ export async function fetchScrollWorldTestPublic() {
   return parseJson(res);
 }
 
+export async function fetchCourseGuidePublic() {
+  const res = await fetchClient('/api/page-content/course-guide');
+  return parseJson(res);
+}
+

@@ -286,6 +286,8 @@ export default function SystemSettingsPage() {
 
           <Link to="/admin/english-test" className="btn btn-outline-primary btn-sm">英檢管理</Link>
 
+          <Link to="/admin/settings/email-templates" className="btn btn-outline-primary btn-sm">郵件設定中心</Link>
+
           <Link to="/admin/logs" className="btn btn-outline-secondary btn-sm">操作紀錄</Link>
 
         </div>

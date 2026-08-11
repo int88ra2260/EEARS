@@ -159,7 +159,7 @@ export const PERMISSION_FIELD_META = {
   [P.CAN_RECORD_VIOLATIONS]: { label: '登記違規', description: '登記違規紀錄。', systemOnly: false },
   [P.CAN_MANAGE_VIOLATIONS]: { label: '違規管理', description: '違規案件維護。', systemOnly: false },
   [P.CAN_MANAGE_ANNOUNCEMENTS]: { label: '公告管理', description: '後台公告維護。', systemOnly: false },
-  [P.CAN_MANAGE_SITE_CONTENT]: { label: '網站文案管理', description: '學生端靜態文案與 FAQ。', systemOnly: false },
+  [P.CAN_MANAGE_SITE_CONTENT]: { label: '學生端內容管理', description: '學生端文案、學習資源、法規表單與修課說明。', systemOnly: false },
   [P.CAN_MANAGE_SETTINGS]: {
     label: '系統設定',
     description: '系統參數與設定檔層級治理。',
@@ -218,8 +218,8 @@ export const PERMISSION_GROUPS = [
   },
   {
     id: 'announcements',
-    title: '公告與前台內容',
-    blurb: '後台公告與對外內容。',
+    title: '公告與學生端內容',
+    blurb: '公告、週報與學生端網站內容。',
     keys: [P.CAN_MANAGE_ANNOUNCEMENTS, P.CAN_MANAGE_SITE_CONTENT],
   },
   {

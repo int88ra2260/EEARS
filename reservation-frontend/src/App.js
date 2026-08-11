@@ -74,8 +74,8 @@ const TeacherImpactPage = lazy(() => import('./components/TeacherImpactPage'));
 const AnnouncementManagementPage = lazy(() => import('./pages/admin/AnnouncementManagementPage'));
 const AdminWeeklyReportPage = lazy(() => import('./pages/admin/AdminWeeklyReportPage'));
 const AdminWeeklyReportEditorPage = lazy(() => import('./pages/admin/AdminWeeklyReportEditorPage'));
-const SiteContentManagementPage = lazy(() => import('./pages/admin/SiteContentManagementPage'));
-const PageContentManagementPage = lazy(() => import('./pages/admin/PageContentManagementPage'));
+const StudentContentHubPage = lazy(() => import('./pages/admin/StudentContentHubPage'));
+const PageContentLegacyRedirect = lazy(() => import('./pages/admin/PageContentLegacyRedirect'));
 const AdminAuditLogsPage = lazy(() => import('./pages/admin/AdminAuditLogsPage'));
 const SurveyAdminModulePage = lazy(() => import('./pages/admin/SurveyAdminModulePage'));
 const SurveyAdminResponsesPage = lazy(() => import('./pages/admin/SurveyAdminResponsesPage'));
@@ -88,6 +88,7 @@ const AdminSurveyDataHealthPage = lazy(() => import('./pages/admin/AdminSurveyDa
 const AdminSurveyAnswerMappingPage = lazy(() => import('./pages/admin/AdminSurveyAnswerMappingPage'));
 const AdminDashboardProduct = lazy(() => import('./pages/admin/AdminDashboardProduct'));
 const SystemSettingsPage = lazy(() => import('./pages/admin/SystemSettingsPage'));
+const AdminEmailTemplatesPage = lazy(() => import('./pages/admin/AdminEmailTemplatesPage'));
 const InternalDiagnosticsPage = lazy(() => import('./pages/admin/InternalDiagnosticsPage'));
 const AdminEventDetailPage = lazy(() => import('./pages/admin/AdminEventDetailPage'));
 const AdminEtTaskTemplatesPage = lazy(() => import('./pages/admin/AdminEtTaskTemplatesPage'));
@@ -505,10 +506,12 @@ function AppContent() {
               <Route path="announcements" element={<AnnouncementManagementPage />} />
               <Route path="weekly-reports" element={<AdminWeeklyReportPage />} />
               <Route path="weekly-reports/:id/edit" element={<AdminWeeklyReportEditorPage />} />
-              <Route path="site-content" element={<SiteContentManagementPage />} />
-              <Route path="page-content" element={<PageContentManagementPage />} />
+              <Route path="student-content" element={<StudentContentHubPage />} />
+              <Route path="site-content" element={<Navigate to="/admin/student-content?area=copy" replace />} />
+              <Route path="page-content" element={<PageContentLegacyRedirect />} />
               <Route path="logs" element={<AdminAuditLogsPage />} />
               <Route path="settings/system" element={<SystemSettingsPage />} />
+              <Route path="settings/email-templates" element={<AdminEmailTemplatesPage />} />
               <Route path="diagnostics" element={<InternalDiagnosticsPage />} />
               <Route path="english-test" element={<EnglishTestManagement />} />
               {/* legacy route (redirect only)

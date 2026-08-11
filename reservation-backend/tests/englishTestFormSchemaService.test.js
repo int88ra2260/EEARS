@@ -4,13 +4,15 @@ const {
   validateAndNormalizeSchema,
   buildDefaultEnglishTestFormSchema,
   mergeMissingSystemParts,
+  getCustomQuestions,
+  schemaNeedsSystemMerge,
 } = require('../services/englishTestFormSchemaService');
 
 describe('englishTestFormSchemaService', () => {
-  test('default schema has system questions', () => {
+  test('default schema has preset questions and navLabel', () => {
     const schema = buildDefaultEnglishTestFormSchema();
     expect(schema.questions.length).toBeGreaterThan(10);
-    expect(schema.questions.every((q) => q.id && q.fieldKey && q.label)).toBe(true);
+    expect(schema.sections.every((s) => s.navLabel)).toBe(true);
     expect(schema.questions.filter((q) => q.system).length).toBeGreaterThan(5);
   });
 
@@ -21,55 +23,78 @@ describe('englishTestFormSchemaService', () => {
       expect.arrayContaining(['privacy', 'verify', 'eligibility', 'contact', 'photo'])
     );
     expect(schema.questions.some((q) => q.fieldKey === 'privacyDoc' && q.type === 'content_block')).toBe(true);
-    expect(schema.questions.some((q) => q.fieldKey === 'agreedToPrivacyPolicy' && q.type === 'checkbox_confirm')).toBe(true);
-    expect(schema.questions.some((q) => q.fieldKey === 'addressConfirmed' && q.type === 'checkbox_confirm')).toBe(true);
     expect(schema.questions.some((q) => q.fieldKey === 'idPhotoGuide' && q.type === 'content_block')).toBe(true);
-    const guide = schema.questions.find((q) => q.fieldKey === 'idPhotoGuide');
-    expect(guide.content.listItems.length).toBeGreaterThanOrEqual(8);
-    expect(guide.content.images.length).toBe(2);
   });
 
-  test('mergeMissingSystemParts backfills privacy/verify without overwriting edits', () => {
+  test('mergeMissingSystemParts does not re-add deleted sections', () => {
     const legacy = {
       title: '舊版',
       version: 1,
-      sections: [{ id: 'eligibility', title: '培力', order: 3 }],
-      questions: [
-        {
-          id: 'q_examType',
-          fieldKey: 'examType',
-          sectionId: 'eligibility',
-          order: 1,
-          label: '已改過的文案',
-          type: 'radio',
-          required: true,
-          system: true,
-          visible: true,
-          options: [{ value: 'BESTEP', label: 'BESTEP' }],
-          content: {},
-        },
-      ],
+      sections: [{ id: 'eligibility', title: '培力', order: 3, navLabel: '步驟 3' }],
+      questions: [],
       departmentOptions: {},
     };
     const merged = mergeMissingSystemParts(legacy);
+    expect(merged.sections.map((s) => s.id)).toEqual(['eligibility']);
+  });
+
+  test('mergeMissingSystemParts fills default sections only when empty', () => {
+    const empty = { title: 'x', sections: [], questions: [], departmentOptions: {} };
+    const merged = mergeMissingSystemParts(empty);
     expect(merged.sections.map((s) => s.id)).toEqual(
       expect.arrayContaining(['privacy', 'verify', 'eligibility'])
     );
-    expect(merged.questions.some((q) => q.fieldKey === 'privacyDoc')).toBe(true);
-    expect(merged.questions.some((q) => q.fieldKey === 'studentId')).toBe(true);
-    expect(merged.questions.find((q) => q.fieldKey === 'examType').label).toBe('已改過的文案');
   });
 
-  test('restores deleted system questions instead of allowing removal', () => {
+  test('allows deleting preset questions', () => {
     const base = buildDefaultEnglishTestFormSchema();
-    const withoutSystem = {
+    const withoutPreset = {
       ...base,
       questions: base.questions.filter((q) => !q.system),
     };
-    const normalized = validateAndNormalizeSchema(withoutSystem, base);
-    const systemCount = base.questions.filter((q) => q.system).length;
-    expect(normalized.questions.filter((q) => q.system).length).toBe(systemCount);
-    expect(normalized.questions.some((q) => q.fieldKey === 'privacyDoc')).toBe(true);
+    const normalized = validateAndNormalizeSchema(withoutPreset, base);
+    expect(normalized.questions.filter((q) => q.system).length).toBe(0);
+    expect(normalized.warnings?.length).toBeGreaterThan(0);
+  });
+
+  test('allows section CRUD fields (navLabel/title/order)', () => {
+    const base = buildDefaultEnglishTestFormSchema();
+    const next = {
+      ...base,
+      sections: [
+        ...base.sections.filter((s) => s.id !== 'custom'),
+        { id: 'block_g', title: 'G. 新區塊', order: 99, navLabel: '步驟 4 · G' },
+      ],
+    };
+    const normalized = validateAndNormalizeSchema(next, base);
+    expect(normalized.sections.some((s) => s.id === 'custom')).toBe(false);
+    expect(normalized.sections.find((s) => s.id === 'block_g').navLabel).toBe('步驟 4 · G');
+  });
+
+  test('validateAndNormalizeSchema keeps intentionally removed sections', () => {
+    const base = buildDefaultEnglishTestFormSchema();
+    const incomplete = {
+      ...base,
+      sections: base.sections.filter((s) => s.id !== 'privacy' && s.id !== 'verify'),
+      questions: base.questions.filter(
+        (q) => q.sectionId !== 'privacy' && q.sectionId !== 'verify'
+      ),
+    };
+    const normalized = validateAndNormalizeSchema(incomplete, incomplete);
+    expect(normalized.sections.some((s) => s.id === 'privacy')).toBe(false);
+    expect(normalized.sections.some((s) => s.id === 'verify')).toBe(false);
+  });
+
+  test('schemaNeedsSystemMerge only when sections empty', () => {
+    const base = buildDefaultEnglishTestFormSchema();
+    expect(schemaNeedsSystemMerge(base)).toBe(false);
+    expect(
+      schemaNeedsSystemMerge({
+        ...base,
+        sections: base.sections.filter((s) => s.id !== 'privacy'),
+      })
+    ).toBe(false);
+    expect(schemaNeedsSystemMerge({ ...base, sections: [] })).toBe(true);
   });
 
   test('allows adding custom question', () => {
@@ -87,64 +112,11 @@ describe('englishTestFormSchemaService', () => {
           type: 'textarea',
           required: false,
           system: false,
-          helpText: '',
-          visible: true,
           options: [],
         },
       ],
     };
     const normalized = validateAndNormalizeSchema(next, base);
-    expect(normalized.questions.some((q) => q.fieldKey === 'extra_note')).toBe(true);
-  });
-
-  test('rejects custom question using reserved system fieldKey', () => {
-    const base = buildDefaultEnglishTestFormSchema();
-    const next = {
-      ...base,
-      questions: [
-        ...base.questions,
-        {
-          id: 'q_custom_bad',
-          fieldKey: 'email',
-          sectionId: 'custom',
-          order: 99,
-          label: '假 email',
-          type: 'text',
-          required: false,
-          system: false,
-          options: [],
-        },
-      ],
-    };
-    expect(() => validateAndNormalizeSchema(next, base)).toThrow(/系統欄位鍵/);
-  });
-
-  test('validateAndNormalizeSchema backfills missing privacy/verify on save', () => {
-    const base = buildDefaultEnglishTestFormSchema();
-    const incomplete = {
-      ...base,
-      sections: base.sections.filter((s) => s.id !== 'privacy' && s.id !== 'verify'),
-      questions: base.questions.filter(
-        (q) => q.sectionId !== 'privacy' && q.sectionId !== 'verify'
-      ),
-    };
-    const normalized = validateAndNormalizeSchema(incomplete, incomplete);
-    expect(normalized.sections.map((s) => s.id)).toEqual(
-      expect.arrayContaining(['privacy', 'verify'])
-    );
-    expect(normalized.questions.some((q) => q.fieldKey === 'privacyDoc')).toBe(true);
-    expect(normalized.questions.some((q) => q.fieldKey === 'studentId')).toBe(true);
-  });
-
-  test('schemaNeedsSystemMerge detects missing privacy', () => {
-    const { schemaNeedsSystemMerge } = require('../services/englishTestFormSchemaService');
-    const base = buildDefaultEnglishTestFormSchema();
-    expect(schemaNeedsSystemMerge(base)).toBe(false);
-    expect(
-      schemaNeedsSystemMerge({
-        ...base,
-        sections: base.sections.filter((s) => s.id !== 'privacy'),
-      })
-    ).toBe(true);
+    expect(getCustomQuestions(normalized).some((q) => q.fieldKey === 'extra_note')).toBe(true);
   });
 });

@@ -35,14 +35,14 @@ export const STAFF_LEVEL_OPTIONS = [
 
 export const STAFF_LEVEL_SUMMARY = {
   event_lead: {
-    description: '負責活動預約、合規違規、護照、公告週報、網站文案；帳號管理僅限 ET Leader。',
+    description: '負責活動預約、合規違規、護照、公告週報、學生端內容；帳號管理僅限 ET Leader。',
     permissions: [
       '活動列表（完整）',
       '簽到參與統計',
       '合規與違規',
       '英語實踐歷程護照（含規則設定）',
       '公告與週報',
-      '網站文案',
+      '學生端內容',
       'ET Leader 帳號管理',
       '變更密碼',
     ],
@@ -52,22 +52,22 @@ export const STAFF_LEVEL_SUMMARY = {
     permissions: ['班級檢視', '班級管理', 'BESTEP 匯入', 'BESTEP 匯出', '名單作業'],
   },
   bestep_lead: {
-    description: '負責培力英檢、英語學習歷程中心、公告週報與網站文案；帳號區僅可自行變更密碼。',
+    description: '負責培力英檢、英語學習歷程中心、公告週報與學生端內容；帳號區僅可自行變更密碼。',
     permissions: [
       '英檢與培力（全部）',
       '英語學習歷程中心',
       '公告與週報',
-      '網站文案',
+      '學生端內容',
       '變更密碼',
     ],
   },
   deputy_manager: {
-    description: '跨活動預約、英檢培力、公告週報、網站文案與帳號治理（不含 admin／執行長）。',
+    description: '跨活動預約、英檢培力、公告週報、學生端內容與帳號治理（不含 admin／執行長）。',
     permissions: [
       '活動預約（全部）',
       '英檢與培力（全部）',
       '公告與週報',
-      '網站文案',
+      '學生端內容',
       '帳號管理（不含 admin／執行長）',
     ],
   },
