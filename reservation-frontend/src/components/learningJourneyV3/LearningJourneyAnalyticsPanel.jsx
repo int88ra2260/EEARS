@@ -63,8 +63,8 @@ export default function LearningJourneyAnalyticsPanel({ token, semesterId }) {
   return (
     <div>
       <p className="small text-muted mb-3 mb-md-2">
-        以下為全域分析快照的精簡摘要。學期 B2 KPI、Breakdown 與學生清單請見本頁其他區塊；
-        完整圖表、技能成長與進階模型請至
+        以下為全域分析快照的精簡摘要。學期 B2 程度、分項統計與學生清單請見本頁其他區塊；
+        完整圖表與技能成長請到
         {' '}
         <Link to="/admin/learning-analytics/overview">英語學習成效分析</Link>
         。
@@ -85,7 +85,7 @@ export default function LearningJourneyAnalyticsPanel({ token, semesterId }) {
               <KpiCard
                 label="納入分析學生"
                 value={totals.students ?? '—'}
-                hint="全域最新分析快照人數；下方 Breakdown 為學期名冊，兩者範圍不同。"
+                hint="全域最新分析快照人數；下方分項統計為學期名冊，兩者範圍不同。"
               />
             </div>
             <div className="col-6 col-md-3">

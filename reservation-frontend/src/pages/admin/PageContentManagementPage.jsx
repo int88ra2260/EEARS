@@ -208,7 +208,8 @@ export default function PageContentManagementPage({ embedded = false, forcedTab 
   const toast = useToast();
 
   const [activeTab, setActiveTab] = useState(forcedTab || 'learning');
-  const [showSplitPreview, setShowSplitPreview] = useState(true);
+  // 嵌入學生端內容中心時預設關閉預覽，避免側欄 + 編輯 + 預覽同時擠壓表單
+  const [showSplitPreview, setShowSplitPreview] = useState(() => !embedded);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
   const [learning, setLearning] = useState(null);
@@ -446,7 +447,7 @@ export default function PageContentManagementPage({ embedded = false, forcedTab 
       className={`page-content-admin${embedded ? '' : ' container-fluid py-4'}${showSplitPreview ? ' page-content-admin--split' : ''}${embedded ? ' page-content-admin--embedded' : ''}`}
     >
       {embedded ? (
-        <div className="d-flex flex-wrap gap-2 mb-3">
+        <div className="page-content-admin__embed-toolbar mb-3">
           <button
             type="button"
             className={`btn btn-sm ${showSplitPreview ? 'btn-dark' : 'btn-outline-dark'}`}
@@ -454,14 +455,15 @@ export default function PageContentManagementPage({ embedded = false, forcedTab 
           >
             {showSplitPreview ? '關閉預覽' : '開啟預覽'}
           </button>
-          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={openFrontPage}>
-            開前台頁 · {previewMeta.label}
-          </button>
           {showSplitPreview ? (
             <button type="button" className="btn btn-sm btn-outline-secondary" onClick={bumpPreview}>
               重新整理預覽
             </button>
-          ) : null}
+          ) : (
+            <span className="page-content-admin__embed-hint">
+              編輯時建議先關預覽；需要對照時再開。
+            </span>
+          )}
         </div>
       ) : (
         <>
@@ -537,7 +539,7 @@ export default function PageContentManagementPage({ embedded = false, forcedTab 
 
       <div className="page-content-admin__workspace">
         <div className="page-content-admin__editor">
-          <EditTips tips={previewMeta.tips} />
+          {!embedded ? <EditTips tips={previewMeta.tips} /> : null}
 
           {activeTab === 'learning' ? (
             <div>
@@ -1196,14 +1198,14 @@ function RegulationsFormsEditor({
   };
 
   return (
-    <div className="row g-4">
-      <div className="col-md-4">
+    <div className="page-content-admin__master-detail">
+      <div className="page-content-admin__master">
         <SectionCard
           title="群組"
-          subtitle="先建立群組，再把 PDF 掛進去。每個群組都可獨立排序與啟用。"
+          subtitle="先建立群組，再把 PDF 掛進去。"
           stats={[
-            { label: '群組數', value: groups.length },
-            { label: '啟用中', value: countActive(groups) },
+            { label: '群組', value: groups.length },
+            { label: '啟用', value: countActive(groups) },
           ]}
         >
 
@@ -1306,51 +1308,42 @@ function RegulationsFormsEditor({
         </SectionCard>
       </div>
 
-      <div className="col-md-8">
+      <div className="page-content-admin__detail">
         <SectionCard
           title="群組項目"
-          subtitle="上傳 PDF 後會拿到 fileUrl；建立項目時可直接檢查連結是否正確。"
+          subtitle="上傳 PDF 後會取得連結；新增前可先預覽確認。"
           stats={[
-            { label: '目前群組', value: activeGroup ? 1 : 0 },
-            { label: 'PDF 數', value: orderedItems.length },
+            { label: 'PDF', value: orderedItems.length },
           ]}
         >
           {activeGroup ? (
             <>
               <div className="page-content-admin__composer">
-              <div className="row g-3 align-items-end">
-                <div className="col-md-4">
-                  <Field label="項目標題（ZH）">
-                    <input className="form-control form-control-sm" value={itemDraft.titleZh} onChange={(e) => setItemDraft((d) => ({ ...d, titleZh: e.target.value }))} />
-                  </Field>
-                </div>
-                <div className="col-md-4">
-                  <Field label="項目標題（EN）">
-                    <input className="form-control form-control-sm" value={itemDraft.titleEn} onChange={(e) => setItemDraft((d) => ({ ...d, titleEn: e.target.value }))} />
-                  </Field>
-                </div>
-                <div className="col-md-4">
-                  <Field label="PDF 上傳">
-                    <input className="form-control form-control-sm" type="file" accept="application/pdf" onChange={(e) => setItemDraft((d) => ({ ...d, uploadFile: e.target.files?.[0] || null }))} />
-                  </Field>
-                  <button type="button" className="btn btn-outline-secondary btn-sm w-100 mb-2" onClick={handleUpload} disabled={saving || !itemDraft.uploadFile}>
+              <div className="page-content-admin__form-grid">
+                <Field label="項目標題（ZH）">
+                  <input className="form-control form-control-sm" value={itemDraft.titleZh} onChange={(e) => setItemDraft((d) => ({ ...d, titleZh: e.target.value }))} />
+                </Field>
+                <Field label="項目標題（EN）">
+                  <input className="form-control form-control-sm" value={itemDraft.titleEn} onChange={(e) => setItemDraft((d) => ({ ...d, titleEn: e.target.value }))} />
+                </Field>
+                <Field label="PDF 上傳">
+                  <input className="form-control form-control-sm" type="file" accept="application/pdf" onChange={(e) => setItemDraft((d) => ({ ...d, uploadFile: e.target.files?.[0] || null }))} />
+                  <button type="button" className="btn btn-outline-secondary btn-sm w-100 mt-2" onClick={handleUpload} disabled={saving || !itemDraft.uploadFile}>
                     上傳取得 fileUrl
                   </button>
-                  {itemDraft.uploadFile ? <div className="small text-muted">{itemDraft.uploadFile.name}</div> : null}
-                </div>
-                <div className="col-12">
-                  <Field label="fileUrl">
-                    <input className="form-control form-control-sm" value={itemDraft.fileUrl} onChange={(e) => setItemDraft((d) => ({ ...d, fileUrl: e.target.value }))} />
-                  </Field>
-                </div>
-                <div className="col-md-2 d-flex align-items-center gap-2">
-                  <span className="small text-muted">啟用</span>
-                  <StatusSwitch value={itemDraft.isActive} onChange={(v) => setItemDraft((d) => ({ ...d, isActive: v }))} />
-                </div>
-                <div className="col-md-4">
+                  {itemDraft.uploadFile ? <div className="small text-muted mt-1">{itemDraft.uploadFile.name}</div> : null}
+                </Field>
+                <Field label="fileUrl">
+                  <input className="form-control form-control-sm" value={itemDraft.fileUrl} onChange={(e) => setItemDraft((d) => ({ ...d, fileUrl: e.target.value }))} />
+                </Field>
+                <div className="page-content-admin__form-grid-actions">
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="small text-muted">啟用</span>
+                    <StatusSwitch value={itemDraft.isActive} onChange={(v) => setItemDraft((d) => ({ ...d, isActive: v }))} />
+                  </div>
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm w-100"
+                    className="btn btn-primary btn-sm"
                     disabled={saving || !itemDraft.fileUrl.trim()}
                     onClick={async () => {
                       await onCreateItem({
@@ -1768,14 +1761,14 @@ function CourseGuideEditor({
   };
 
   return (
-    <div className="row g-4">
-      <div className="col-md-4">
+    <div className="page-content-admin__master-detail">
+      <div className="page-content-admin__master">
         <SectionCard
           title="大章節"
-          subtitle="對應前台左側大摺疊，例如修課說明、抵免、認證、歷程檔案。"
+          subtitle="對應前台左側大摺疊（修課說明、抵免、認證等）。"
           stats={[
-            { label: '章節數', value: sections.length },
-            { label: '啟用中', value: countActive(sections) },
+            { label: '章節', value: sections.length },
+            { label: '啟用', value: countActive(sections) },
           ]}
         >
           <div className="mb-3">
@@ -1945,16 +1938,16 @@ function CourseGuideEditor({
         </SectionCard>
       </div>
 
-      <div className="col-md-8">
+      <div className="page-content-admin__detail">
         {!activeSection ? (
           <EmptyState title="請先選擇左側大章節" hint="點選或新增大章節後，即可新增學年度／細項與圖文。" />
         ) : (
           <SectionCard
             title={`細項 · ${activeSection.titleZh || '未命名'}`}
-            subtitle="每個細項對應前台一個可展開列（例如某個學年度）。用下方表單編輯圖文。"
+            subtitle="每個細項對應前台一個可展開列；用下方表單編輯圖文。"
             stats={[
-              { label: '細項數', value: orderedTopics.length },
-              { label: '啟用中', value: countActive(orderedTopics) },
+              { label: '細項', value: orderedTopics.length },
+              { label: '啟用', value: countActive(orderedTopics) },
             ]}
           >
             {formError ? (
@@ -1964,38 +1957,32 @@ function CourseGuideEditor({
             ) : null}
 
             <div className="page-content-admin__composer mb-3">
-              <div className="row g-2">
-                <div className="col-md-4">
-                  <Field label="細項標題（中文）">
-                    <input
-                      className="form-control form-control-sm"
-                      value={topicDraft.titleZh}
-                      onChange={(e) => setTopicDraft((d) => ({ ...d, titleZh: e.target.value }))}
-                      placeholder="例如：112-115 學年度入學生"
-                    />
-                  </Field>
-                </div>
-                <div className="col-md-4">
-                  <Field label="細項標題（英文）">
-                    <input
-                      className="form-control form-control-sm"
-                      value={topicDraft.titleEn}
-                      onChange={(e) => setTopicDraft((d) => ({ ...d, titleEn: e.target.value }))}
-                    />
-                  </Field>
-                </div>
-                <div className="col-md-2">
+              <div className="page-content-admin__form-grid">
+                <Field label="細項標題（中文）">
+                  <input
+                    className="form-control form-control-sm"
+                    value={topicDraft.titleZh}
+                    onChange={(e) => setTopicDraft((d) => ({ ...d, titleZh: e.target.value }))}
+                    placeholder="例如：112-115 學年度入學生"
+                  />
+                </Field>
+                <Field label="細項標題（英文）">
+                  <input
+                    className="form-control form-control-sm"
+                    value={topicDraft.titleEn}
+                    onChange={(e) => setTopicDraft((d) => ({ ...d, titleEn: e.target.value }))}
+                  />
+                </Field>
+                <div className="page-content-admin__form-grid-actions">
                   <Field label="預設展開">
                     <StatusSwitch
                       value={topicDraft.defaultOpen}
                       onChange={(v) => setTopicDraft((d) => ({ ...d, defaultOpen: v }))}
                     />
                   </Field>
-                </div>
-                <div className="col-md-2 d-flex align-items-end">
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm w-100"
+                    className="btn btn-primary btn-sm"
                     disabled={saving || !topicDraft.titleZh.trim()}
                     onClick={async () => {
                       setFormError('');
@@ -2013,7 +2000,7 @@ function CourseGuideEditor({
                     新增細項
                   </button>
                 </div>
-                <div className="col-12">
+                <div className="page-content-admin__form-grid-full">
                   <details>
                     <summary className="small text-muted mb-2" style={{ cursor: 'pointer' }}>
                       進階：自訂識別碼
@@ -2027,7 +2014,7 @@ function CourseGuideEditor({
                     </Field>
                   </details>
                 </div>
-                <div className="col-12">
+                <div className="page-content-admin__form-grid-full">
                   <div className="small fw-semibold mb-2">細項內容（可先空白，之後再編）</div>
                   <CourseGuideBlocksEditor
                     value={topicDraft.blocks}

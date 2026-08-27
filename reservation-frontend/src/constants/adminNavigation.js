@@ -8,6 +8,7 @@
  */
 
 import { P } from './permissions';
+import { getAdminNavSearchTerms } from './adminNavSearchGlossary';
 import { canAccessAdminRoute } from './adminRouteAccess';
 import { isDeputyManagerProfile, isEventLeadProfile, isEtManagerProfile, isJtManagerProfile, isOfficeStaffOpsDenied, canAccessWeeklyReports } from '../utils/accessControl';
 
@@ -109,11 +110,76 @@ export function isNavItemVisible(visibility, c) {
 }
 
 /**
- * Worker：舊版僅顯示總覽，側欄只保留「營運總覽」。
+ * Worker：側欄只保留「營運總覽」與「變更密碼」（日常簽到／違規由 dashboard 快捷連結進入）。
  * @param {AdminNavContext} c
  */
 export function isWorkerRestrictedMenu(c) {
   return c.actualUserRole === 'worker';
+}
+
+/** Worker 側欄允許的 leaf id（測試可引用） */
+export const WORKER_NAV_LEAF_IDS = new Set(['system-dashboard', 'account-reset']);
+
+/**
+ * 依角色決定側欄預設展開的 section id（P1：避免首次進入全部收合）。
+ * @param {AdminNavContext} c
+ * @param {AdminNavSection[]} visibleSections
+ * @returns {Set<string>}
+ */
+export function getDefaultExpandedSectionIds(c, visibleSections) {
+  const ids = new Set();
+  if (isWorkerRestrictedMenu(c)) {
+    ids.add('system');
+    ids.add('accounts');
+    return ids;
+  }
+
+  const role = c?.actualUserRole;
+  const teacherLevel = c?.accessProfile?.teacherLevel;
+
+  if (role === 'leader') {
+    ids.add('events');
+  } else if (role === 'teacher' && teacherLevel === 'regular') {
+    ids.add('classes');
+  } else if (role === 'office_staff') {
+    ids.add('events');
+  } else {
+    for (const sectionId of ['events', 'english', 'surveys', 'learning-journey']) {
+      if (visibleSections.some((section) => section.id === sectionId)) {
+        ids.add(sectionId);
+      }
+    }
+  }
+
+  return ids;
+}
+
+/**
+ * 依角色回傳有權限的後台 home（AccessDenied CTA、登入落地對照用）。
+ * @param {{ role?: string, teacherLevel?: string } | null | undefined} accessProfile
+ */
+export function getAdminRoleHomePath(accessProfile) {
+  const role = accessProfile?.role;
+  if (!role) return '/login';
+  if (role === 'leader') return '/admin/et-grouping/my-sessions';
+  if (role === 'teacher' && accessProfile.teacherLevel === 'regular') {
+    return '/admin/classes';
+  }
+  if (role === 'office_staff') return '/admin/operations';
+  return '/admin/dashboard';
+}
+
+/**
+ * @param {{ role?: string, teacherLevel?: string } | null | undefined} accessProfile
+ */
+export function getAdminRoleHomeLabel(accessProfile) {
+  const role = accessProfile?.role;
+  if (role === 'leader') return '返回我的帶班場次';
+  if (role === 'teacher' && accessProfile?.teacherLevel === 'regular') {
+    return '返回班級概況';
+  }
+  if (role === 'office_staff') return '返回活動列表';
+  return '返回後台首頁';
 }
 
 export function canShowAdminNavItem(item, c) {
@@ -124,8 +190,8 @@ export function canShowAdminNavItem(item, c) {
 }
 
 /**
- * @typedef {{ id: string, label: string, path: string, matchPrefixes: string[], visibility: string, breadcrumbLabel?: string, pageTitle?: string, hiddenFromNav?: boolean }} AdminNavLeaf
- * @typedef {{ id: string, label: string, visibility: string, expandable?: boolean, children?: AdminNavLeaf[], path?: string, matchPrefixes?: string[], pageTitle?: string, breadcrumbLabel?: string, hiddenFromNav?: boolean }} AdminNavSection
+ * @typedef {{ id: string, label: string, path: string, matchPrefixes: string[], visibility: string, breadcrumbLabel?: string, pageTitle?: string, hiddenFromNav?: boolean, searchTerms?: string[], groupLabel?: string }} AdminNavLeaf
+ * @typedef {{ id: string, label: string, visibility: string, expandable?: boolean, children?: AdminNavLeaf[], path?: string, matchPrefixes?: string[], pageTitle?: string, breadcrumbLabel?: string, hiddenFromNav?: boolean, hint?: string, searchTerms?: string[] }} AdminNavSection
  */
 
 /** @type {AdminNavSection[]} */
@@ -134,6 +200,7 @@ export const ADMIN_NAV_SECTIONS = [
     id: 'events',
     label: '活動與預約',
     expandable: true,
+    hint: '日常簽到與違規請從活動列表進入明細分頁',
     children: [
       {
         id: 'events-list',
@@ -161,6 +228,7 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'perm:can_manage_et_grouping',
         pageTitle: 'ET 分組設定',
         breadcrumbLabel: 'ET 分組設定',
+        groupLabel: 'ET 分組',
       },
       {
         id: 'et-task-templates',
@@ -303,6 +371,7 @@ export const ADMIN_NAV_SECTIONS = [
     label: '問卷與回饋',
     visibility: 'surveyGroup',
     expandable: true,
+    hint: '建議流程：問卷中心建立 → 啟用規則 → 資料品質維運',
     children: [
       {
         id: 'survey-center',
@@ -450,21 +519,21 @@ export const ADMIN_NAV_SECTIONS = [
       },
       {
         id: 'learning-analytics-insights',
-        label: '決策支援',
+        label: '進階分析',
         path: '/admin/learning-analytics/insights',
         matchPrefixes: ['/admin/learning-analytics/insights'],
         visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '決策支援分析',
-        breadcrumbLabel: '決策支援',
+        pageTitle: '進階分析',
+        breadcrumbLabel: '進階分析',
       },
       {
         id: 'learning-analytics-model-runs',
-        label: '模型紀錄',
+        label: '分析紀錄',
         path: '/admin/learning-analytics/model-runs',
         matchPrefixes: ['/admin/learning-analytics/model-runs'],
         visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '模型執行紀錄',
-        breadcrumbLabel: '模型紀錄',
+        pageTitle: '分析紀錄',
+        breadcrumbLabel: '分析紀錄',
       },
       {
         id: 'learning-analytics-settings',
@@ -485,13 +554,14 @@ export const ADMIN_NAV_SECTIONS = [
     children: [
       {
         id: 'analytics-students',
-        // Legacy 學號搜尋入口；老師請用「英語學習歷程中心」Student Table（同 V3 資料源）
+        // 舊學號搜尋入口（已自側欄隱藏）；正式查詢請用「英語學習歷程中心」學生清單
         label: '學生學習歷程查詢',
         path: '/admin/analytics/students',
         matchPrefixes: ['/admin/analytics/students', '/admin/analytics/student/'],
         visibility: 'perm:can_view_english_test_tracking',
         pageTitle: '學生學習歷程查詢',
         breadcrumbLabel: '學生學習歷程查詢',
+        hiddenFromNav: true,
       },
       {
         id: 'analytics-overview',
@@ -737,6 +807,7 @@ export function getAdminPageMeta(pathname, ctx) {
         groupLabel: ev.label,
         pageTitle: '活動明細',
         breadcrumbLeaf: '活動明細',
+        breadcrumbParent: { label: '活動列表', to: '/admin/operations' },
         sectionId: 'events',
         childId: 'event-detail',
       };
@@ -856,8 +927,18 @@ export function getAdminPageMeta(pathname, ctx) {
   let breadcrumbLeaf = best.leaf.breadcrumbLabel || best.leaf.label;
   let pageTitle = best.leaf.pageTitle || best.leaf.label;
   if (pathname.startsWith('/admin/analytics/student/')) {
-    breadcrumbLeaf = '學生學習歷程查詢';
-    pageTitle = '學生學習歷程查詢';
+    const english = filtered.find((s) => s.id === 'english');
+    if (english) {
+      return {
+        groupLabel: english.label,
+        pageTitle: '學生學習歷程',
+        breadcrumbLeaf: '學生學習歷程',
+        sectionId: 'english',
+        childId: 'learning-journey',
+      };
+    }
+    breadcrumbLeaf = '學生學習歷程';
+    pageTitle = '學生學習歷程';
   }
 
   if (pathname === '/admin' || pathname === '/admin/dashboard') {
@@ -890,6 +971,20 @@ export function getAdminPageMeta(pathname, ctx) {
  * @returns {AdminNavSection[]}
  */
 export function filterVisibleNav(sections, c) {
+  if (isWorkerRestrictedMenu(c)) {
+    return sections
+      .map((section) => {
+        if (!section.children?.length) return null;
+        if (section.id !== 'system' && section.id !== 'accounts') return null;
+        const children = section.children.filter(
+          (ch) => WORKER_NAV_LEAF_IDS.has(ch.id) && canShowAdminNavItem(ch, c)
+        );
+        if (children.length === 0) return null;
+        return { ...section, children };
+      })
+      .filter(Boolean);
+  }
+
   return sections
     .map((section) => {
       if (section.children?.length) {
@@ -910,18 +1005,85 @@ export function filterVisibleNav(sections, c) {
     .filter(Boolean);
 }
 
+function normalizeSearchText(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function buildNavSearchBlob(item, extra = []) {
+  return [
+    item?.label,
+    item?.pageTitle,
+    item?.breadcrumbLabel,
+    item?.hint,
+    ...(item?.searchTerms || []),
+    ...getAdminNavSearchTerms(item?.id),
+    ...extra,
+  ]
+    .map(normalizeSearchText)
+    .filter(Boolean)
+    .join(' ');
+}
+
+/**
+ * 側欄搜尋：依關鍵字過濾可見區段／子項（大小寫不敏感）。
+ * @param {AdminNavSection[]} sections
+ * @param {string} query
+ * @returns {AdminNavSection[]}
+ */
+export function filterAdminNavByQuery(sections, query) {
+  const q = normalizeSearchText(query);
+  if (!q) return sections;
+  return sections
+    .map((section) => {
+      const sectionMatch = buildNavSearchBlob(section).includes(q);
+      if (section.children?.length) {
+        const children = sectionMatch
+          ? section.children
+          : section.children.filter((leaf) =>
+              buildNavSearchBlob(leaf, [section.label, section.hint]).includes(q)
+            );
+        if (children.length === 0) return null;
+        return { ...section, children };
+      }
+      if (sectionMatch) return section;
+      return null;
+    })
+    .filter(Boolean);
+}
+
 /**
  * @param {string} pathname
  * @param {AdminNavContext} ctx
+ * @param {{ leafOverride?: string }} [options]
  * @returns {{ label: string, to?: string }[]}
  */
-export function getAdminBreadcrumbs(pathname, ctx) {
+export function getAdminBreadcrumbs(pathname, ctx, options = {}) {
+  const { leafOverride } = options;
   const meta = getAdminPageMeta(pathname, ctx);
-  const trail = [{ label: '後台', to: '/admin' }];
+  const filtered = filterVisibleNav(ADMIN_NAV_SECTIONS, ctx);
+  const section = filtered.find((s) => s.id === meta.sectionId);
+  const groupPath = section?.children?.[0]?.path || section?.path;
+
+  const trail = [{
+    label: '後台',
+    to: (() => {
+      const homePath = getAdminRoleHomePath(ctx?.accessProfile);
+      return !homePath || homePath === '/login' ? '/admin' : homePath;
+    })(),
+  }];
   if (meta.groupLabel && meta.groupLabel !== '後台') {
-    trail.push({ label: meta.groupLabel });
+    trail.push({
+      label: meta.groupLabel,
+      to: groupPath || undefined,
+    });
   }
-  trail.push({ label: meta.breadcrumbLeaf || meta.pageTitle });
+  if (meta.breadcrumbParent) {
+    trail.push({
+      label: meta.breadcrumbParent.label,
+      to: meta.breadcrumbParent.to,
+    });
+  }
+  trail.push({ label: leafOverride || meta.breadcrumbLeaf || meta.pageTitle });
   return trail;
 }
 

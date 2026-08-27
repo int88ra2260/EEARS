@@ -18,17 +18,17 @@ export default function B2KpiSection({ loading, report, error }) {
     return (
       <div className="alert alert-light d-flex align-items-center gap-2 mb-0">
         <span className="spinner-border spinner-border-sm" aria-hidden="true" />
-        <span>正在載入 B2 KPI...</span>
+        <span>正在載入 B2 程度統計…</span>
       </div>
     );
   }
 
   if (error) {
-    return <div className="alert alert-danger mb-0">B2 KPI 載入失敗：{error}</div>;
+    return <div className="alert alert-danger mb-0">B2 程度統計載入失敗：{error}</div>;
   }
 
   if (!report || !report.skills) {
-    return <div className="alert alert-secondary mb-0">尚無 B2 KPI 資料。</div>;
+    return <div className="alert alert-secondary mb-0">尚無 B2 程度統計資料。</div>;
   }
 
   return (

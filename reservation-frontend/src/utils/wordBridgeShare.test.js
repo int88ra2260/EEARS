@@ -28,7 +28,7 @@ describe('wordBridgeShare', () => {
       origin: 'https://example.com',
     });
 
-    expect(payload.url).toBe('https://example.com/activities/word-bridge');
+    expect(payload.url).toBe('https://example.com/practice/word-bridge');
     expect(payload.text).toContain('A2');
     expect(payload.text).toContain('國立中山大學全英語卓越教學中心');
     expect(payload.text).toContain('3 分 42 秒');

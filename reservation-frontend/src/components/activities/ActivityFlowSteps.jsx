@@ -66,7 +66,7 @@ export default function ActivityFlowSteps() {
               <ContentText k={step.key} as="p" className="activity-flow-steps__label" />
               {step.hasToolLinks ? (
                 <div className="activity-flow-steps__tool-links">
-                  <Link to="/activities/word-bridge" className="activity-flow-steps__link">
+                  <Link to="/practice/word-bridge" className="activity-flow-steps__link">
                     <ContentText k="activitiesPage.wordBridgeToolCta" />
                   </Link>
                   <button

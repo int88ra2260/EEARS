@@ -1,10 +1,11 @@
 // src/components/ViolationManagement.js
 // 違規管理頁面
 import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { safeAPICall, showErrorMessage } from '../utils/errorHandler';
+import { safeAPICall } from '../utils/errorHandler';
 import useConfirm from './ui/useConfirm';
+import useToast from './ui/useToast';
 import { P } from '../constants/permissions';
 import { hasAnyPermission } from '../utils/accessControl';
 
@@ -52,6 +53,7 @@ function getSemesterOptions() {
 function ViolationManagement() {
   const { token, userRole, accessProfile } = useOutletContext();
   const { confirm } = useConfirm();
+  const toast = useToast();
   
   // ===== 違規管理 =====
   const [blackListRecords, setBlackListRecords] = useState([]);
@@ -130,7 +132,7 @@ function ViolationManagement() {
   // 登記違規
   const handleRecordViolation = async () => {
     if (!violationStudentId.trim() || !violationName.trim() || !violationReason.trim()) {
-      showErrorMessage('請填寫所有必填欄位');
+      toast.warning('請填寫所有必填欄位');
       return;
     }
 
@@ -162,16 +164,16 @@ function ViolationManagement() {
       setViolationName('');
       setViolationReason('');
       fetchBlacklistRecords(selectedViolationSemester);
-      showErrorMessage('違規登記成功！');
+      toast.success('違規登記成功');
     } else {
-      showErrorMessage(result.error || '違規登記失敗');
+      toast.error(result.error || '違規登記失敗');
     }
   };
 
   // 刪除違規紀錄
   const handleDeleteViolation = async (violationId) => {
     if (!canManageBlacklist) {
-      showErrorMessage('您沒有刪除違規紀錄的權限');
+      toast.error('您沒有刪除違規紀錄的權限');
       return;
     }
     const ok = await confirm({
@@ -204,9 +206,9 @@ function ViolationManagement() {
 
     if (result.success) {
       fetchBlacklistRecords(selectedViolationSemester);
-      showErrorMessage('違規紀錄已刪除！');
+      toast.success('違規紀錄已刪除');
     } else {
-      showErrorMessage(result.error || '刪除失敗');
+      toast.error(result.error || '刪除失敗');
     }
   };
 
@@ -314,11 +316,12 @@ function ViolationManagement() {
       )}
 
       {/* 搜尋和排序控制區域 */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <div className="d-flex align-items-center gap-3">
+      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div className="d-flex align-items-center flex-wrap gap-3">
           <div className="d-flex align-items-center gap-2">
-            <label className="form-label mb-0">搜尋：</label>
+            <label className="form-label mb-0" htmlFor="violation-search">搜尋：</label>
             <input
+              id="violation-search"
               type="text"
               className="form-control"
               placeholder="輸入學號或姓名"
@@ -327,9 +330,9 @@ function ViolationManagement() {
               style={{ minWidth: '200px' }}
             />
           </div>
-          <div className="d-flex align-items-center gap-2">
-            <label className="form-label mb-0">排序：</label>
-            <div className="btn-group" role="group">
+          <div className="d-flex align-items-center flex-wrap gap-2">
+            <span className="form-label mb-0">排序：</span>
+            <div className="btn-group flex-wrap" role="group">
               <button
                 type="button"
                 className={`btn btn-sm ${sortField === 'eventDate' ? 'btn-primary' : 'btn-outline-primary'}`}
@@ -398,59 +401,67 @@ function ViolationManagement() {
       {/* 黑名單紀錄表格 */}
       {blacklistLoading ? (
         <p>載入中...</p>
+      ) : !Array.isArray(blackListRecords) || blackListRecords.length === 0 ? (
+        <div className="alert alert-light border" role="status">
+          <div className="fw-semibold mb-1">尚無違規紀錄</div>
+          <p className="small text-muted mb-3">
+            活動結束後可從活動明細的「違規與未到處理」分頁登記未到學生，或於上方表單直接輸入學號登記。
+          </p>
+          <Link to="/admin/operations" className="btn btn-outline-primary btn-sm">
+            前往活動列表
+          </Link>
+        </div>
       ) : (
-        <table className="table table-bordered">
-          <thead>
-            <tr>
-              <th>學號</th>
-              <th>姓名</th>
-              <th>活動類型</th>
-              <th>活動日期</th>
-              <th>次數</th>
-              <th>黑名單</th>
-              <th>解鎖時間</th>
-              <th>原因</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!Array.isArray(blackListRecords) || blackListRecords.length === 0 ? (
+        <div className="table-responsive">
+          <table className="table table-bordered">
+            <thead>
               <tr>
-                <td colSpan="9" className="text-center">無紀錄</td>
+                <th>學號</th>
+                <th>姓名</th>
+                <th>活動類型</th>
+                <th>活動日期</th>
+                <th>次數</th>
+                <th>黑名單</th>
+                <th>解鎖時間</th>
+                <th>原因</th>
+                <th>操作</th>
               </tr>
-            ) : getSortedAndFilteredRecords().length === 0 ? (
-              <tr>
-                <td colSpan="9" className="text-center">沒有符合搜尋條件的紀錄</td>
-              </tr>
-            ) : (
-              getSortedAndFilteredRecords().map(r => (
-                <tr key={r.id}>
-                  <td>{r.User?.studentId || '—'}</td>
-                  <td>{r.User?.name || '—'}</td>
-                  <td>{r.eventType || '—'}</td>
-                  <td>{r.eventDate || '—'}</td>
-                  <td>{r.User?.violationCount || 0}</td>
-                  <td>{r.User?.isBlacklisted ? '是' : '否'}</td>
-                  <td>{r.User?.blacklistUntil ? dayjs(r.User.blacklistUntil).format('YYYY/MM/DD HH:mm') : '—'}</td>
-                  <td>{r.reason || '—'}</td>
-                  <td>
-                    {canManageBlacklist ? (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => handleDeleteViolation(r.id)}
-                      >
-                        刪除
-                      </button>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
+            </thead>
+            <tbody>
+              {getSortedAndFilteredRecords().length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="text-center">沒有符合搜尋條件的紀錄</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                getSortedAndFilteredRecords().map((r) => (
+                  <tr key={r.id}>
+                    <td>{r.User?.studentId || '—'}</td>
+                    <td>{r.User?.name || '—'}</td>
+                    <td>{r.eventType || '—'}</td>
+                    <td>{r.eventDate || '—'}</td>
+                    <td>{r.User?.violationCount || 0}</td>
+                    <td>{r.User?.isBlacklisted ? '是' : '否'}</td>
+                    <td>{r.User?.blacklistUntil ? dayjs(r.User.blacklistUntil).format('YYYY/MM/DD HH:mm') : '—'}</td>
+                    <td>{r.reason || '—'}</td>
+                    <td>
+                      {canManageBlacklist ? (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => handleDeleteViolation(r.id)}
+                        >
+                          刪除
+                        </button>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );

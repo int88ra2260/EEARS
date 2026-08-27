@@ -47,6 +47,39 @@
   outline-offset: 2px;
 }
 
+@media (max-width: 767px) {
+  .event-type-filter {
+    position: relative;
+  }
+
+  .event-type-filter::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 28px;
+    height: 100%;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(251, 250, 247, 0.95));
+  }
+
+  .event-type-filter__segmented {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    scrollbar-width: thin;
+  }
+
+  .event-type-filter__btn {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 576px) {
   .event-type-filter__segmented {
     flex-wrap: nowrap;
@@ -58,7 +91,7 @@
   }
 
   .event-type-filter__btn {
-    padding: 6px 10px;
+    padding: 10px 12px;
     font-size: 0.875rem;
   }
 }

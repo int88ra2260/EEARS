@@ -64,8 +64,7 @@
 .la-metric-label {
   font-size: 0.8rem;
   color: var(--la-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .la-metric-value {
@@ -112,6 +111,40 @@
   color: var(--la-muted);
   line-height: 1.45;
   max-width: 48rem;
+}
+
+.la-fold {
+  margin-top: 0.5rem;
+}
+
+.la-fold-toggle {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--la-muted);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.la-fold-toggle:hover,
+.la-fold-toggle:focus {
+  color: var(--la-accent);
+  outline: none;
+}
+
+.la-fold-body {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--la-muted);
+  line-height: 1.5;
+  max-width: 42rem;
+}
+
+.la-data-ready {
+  font-size: 0.85rem;
+  color: var(--la-muted);
+  margin-bottom: 1rem;
 }
 
 .la-overview-guide {

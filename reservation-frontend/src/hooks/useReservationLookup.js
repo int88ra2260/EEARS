@@ -4,7 +4,8 @@
  */
 import { useEffect, useState, useCallback } from 'react';
 import dayjs from 'dayjs';
-import { validateReservationData } from '../utils/validators';
+import { validateReservationFields } from '../utils/validators';
+import { loadReservationIdentity, saveReservationIdentity } from '../utils/studentIdentityStorage';
 import { RESERVATION_CUTOFF_HOURS } from '../constants/reservationRules';
 import { searchReservations, cancelReservation } from '../services/reservationService';
 import useConfirm from '../components/ui/useConfirm';
@@ -28,12 +29,13 @@ export function canCancelReservation(record) {
 
 export default function useReservationLookup({ showToast } = {}) {
   const { confirm } = useConfirm();
-  const [studentId, setStudentId] = useState('');
-  const [studentName, setStudentName] = useState('');
-  const [studentEmail, setStudentEmail] = useState('');
+  const [studentId, setStudentId] = useState(() => loadReservationIdentity()?.studentId || '');
+  const [studentName, setStudentName] = useState(() => loadReservationIdentity()?.studentName || '');
+  const [studentEmail, setStudentEmail] = useState(() => loadReservationIdentity()?.studentEmail || '');
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState({});
+  const [searchError, setSearchError] = useState('');
   const [cancelingReservationId, setCancelingReservationId] = useState(null);
   const [cancellationCode, setCancellationCode] = useState('');
   const [cancelError, setCancelError] = useState('');
@@ -45,13 +47,20 @@ export default function useReservationLookup({ showToast } = {}) {
   }, [cancellationCode, cancelingReservationId]);
 
   const search = useCallback(async () => {
-    const validationResult = validateReservationData({ studentId, studentName, studentEmail });
+    const trimmed = {
+      studentId: String(studentId || '').trim(),
+      studentName: String(studentName || '').trim(),
+      studentEmail: String(studentEmail || '').trim(),
+    };
+    const validationResult = validateReservationFields(trimmed);
     if (!validationResult.isValid) {
-      setError(validationResult.errors.join(', '));
-      return;
+      setValidationErrors(validationResult.fieldErrors);
+      setSearchError('');
+      return { ok: false, reason: 'validation' };
     }
+    setValidationErrors({});
     setLoading(true);
-    setError('');
+    setSearchError('');
     try {
       const fault = getReliabilityFault();
       const devRid = makeDevRequestId('DEV');
@@ -65,13 +74,16 @@ export default function useReservationLookup({ showToast } = {}) {
         throw createSimulatedTimeoutError({ requestId: devRid, message: 'test timeout' });
       }
 
-      const list = await searchReservations({ studentId, studentName, studentEmail });
+      const list = await searchReservations(trimmed);
       setRecords(list);
+      saveReservationIdentity(trimmed);
+      return { ok: true };
     } catch (err) {
       console.error('useReservationLookup search error:', err);
       const errMsg = handleAPIError(err);
-      setError(errMsg?.display || errMsg?.zh || err.message || '查詢失敗，請稍後再試');
+      setSearchError(errMsg?.display || errMsg?.zh || err.message || '查詢失敗，請稍後再試');
       setRecords([]);
+      return { ok: false, reason: 'api' };
     } finally {
       setLoading(false);
     }
@@ -173,8 +185,8 @@ export default function useReservationLookup({ showToast } = {}) {
     form: { studentId, setStudentId, studentName, setStudentName, studentEmail, setStudentEmail },
     records,
     loading,
-    error,
-    setError,
+    validationErrors,
+    searchError,
     cancelingReservationId,
     cancellationCode,
     setCancellationCode,

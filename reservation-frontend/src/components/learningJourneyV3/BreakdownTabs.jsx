@@ -3,7 +3,7 @@ import React from 'react';
 const TAB_ITEMS = [
   { key: 'grade', label: '年級' },
   { key: 'department', label: '系所' },
-  { key: 'cohort', label: 'Cohort' },
+  { key: 'cohort', label: '入學屆別' },
 ];
 
 export default function BreakdownTabs({ activeTab, onChange }) {

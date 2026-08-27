@@ -39,6 +39,9 @@ export default function HomeFooter() {
         <nav className="home-footer-links" aria-label="Footer navigation">
           <Link to="/"><ContentText k="homePage.footerHome" /></Link>
           <Link to="/announcements"><ContentText k="homePage.footerAnnouncements" /></Link>
+          <Link to="/events"><ContentText k="homePage.footerEvents" /></Link>
+          <Link to="/my-reservations"><ContentText k="homePage.footerMyReservations" /></Link>
+          <Link to="/student/progress"><ContentText k="homePage.footerProgress" /></Link>
           <Link to="/activities"><ContentText k="homePage.footerActivities" /></Link>
           <Link to="/learning-resources"><ContentText k="homePage.footerLearningResources" /></Link>
           <Link to="/regulations-forms"><ContentText k="homePage.footerRegulationsForms" /></Link>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { LANG_ZH, LANG_EN } from '../context/LanguageContext';
 import { useSiteContentPreview } from '../context/SiteContentPreviewShell';
@@ -7,8 +7,15 @@ import useMediaQuery from '../hooks/useMediaQuery';
 import { fetchEnglishTestRegistrationEnabledPublic } from '../services/settingsAdminApi';
 import './Header.css';
 
-/** 主選單（資訊導覽） */
-const PRIMARY_NAV = [
+/** 任務導覽：學生最常用的動作 */
+const TASK_NAV = [
+  { action: 'events', path: '/events', labelKey: 'nav.eventsBooking' },
+  { action: 'my-reservations', path: '/my-reservations', labelKey: 'nav.myReservations' },
+  { action: 'progress', path: '/student/progress', labelKey: 'nav.myProgress' },
+];
+
+/** 探索導覽：資訊瀏覽 */
+const EXPLORE_NAV = [
   { action: 'announcements', path: '/announcements', labelKey: 'nav.announcements' },
   { action: 'activities', path: '/activities', labelKey: 'nav.activitiesIntro' },
   { action: 'learning-resources', path: '/learning-resources', labelKey: 'nav.learningResources' },
@@ -17,7 +24,6 @@ const PRIMARY_NAV = [
 ];
 
 export default function Header() {
-  const navigate = useNavigate();
   const location = useLocation();
   const preview = useSiteContentPreview();
   const { t, lang, setLang } = useLanguage();
@@ -50,20 +56,6 @@ export default function Header() {
     };
   }, []);
 
-  const handleNavClick = (action) => {
-    setMenuOpen(false);
-    if (preview?.isPreview) return;
-
-    const item = PRIMARY_NAV.find((nav) => nav.action === action);
-    if (item) {
-      navigate(item.path);
-      return;
-    }
-    if (action === 'english-test') {
-      navigate('/register/english-test');
-    }
-  };
-
   const toggleLang = () => {
     setLang(lang === LANG_ZH ? LANG_EN : LANG_ZH);
   };
@@ -89,39 +81,51 @@ export default function Header() {
     </button>
   );
 
-  const primaryLinks = (mobile) =>
-    PRIMARY_NAV.map((item) => (
-      <button
-        key={item.action}
-        type="button"
-        className={`${mobile ? 'nav-link-mobile' : 'nav-link'}${isActive(item.path) ? (mobile ? ' nav-link-mobile--active' : ' nav-link--active') : ''}`}
-        onClick={() => handleNavClick(item.action)}
-      >
-        {t(item.labelKey)}
-      </button>
-    ));
+  const navClass = (mobile, path) =>
+    `${mobile ? 'nav-link-mobile' : 'nav-link'}${isActive(path) ? (mobile ? ' nav-link-mobile--active' : ' nav-link--active') : ''}`;
 
-  const englishTestButton = (mobile) => {
-    if (!showEnglishTest) return null;
-    if (mobile) {
+  const renderLinks = (items, mobile) =>
+    items.map((item) => {
+      const className = navClass(mobile, item.path);
+      if (preview?.isPreview) {
+        return (
+          <span key={item.action} className={className} aria-disabled="true">
+            {t(item.labelKey)}
+          </span>
+        );
+      }
       return (
-        <button
-          type="button"
-          className={`nav-link-mobile${isActive('/register/english-test') ? ' nav-link-mobile--active' : ''}`}
-          onClick={() => handleNavClick('english-test')}
+        <Link
+          key={item.action}
+          to={item.path}
+          className={className}
+          onClick={() => setMenuOpen(false)}
         >
+          {t(item.labelKey)}
+        </Link>
+      );
+    });
+
+  const englishTestLink = (mobile) => {
+    if (!showEnglishTest) return null;
+    const className = mobile
+      ? `nav-link-mobile${isActive('/register/english-test') ? ' nav-link-mobile--active' : ''}`
+      : `nav-link nav-link--service${isActive('/register/english-test') ? ' nav-link--active' : ''}`;
+    if (preview?.isPreview) {
+      return (
+        <span className={className} aria-disabled="true">
           {t('nav.englishTest')}
-        </button>
+        </span>
       );
     }
     return (
-      <button
-        type="button"
-        className={`nav-link nav-link--service${isActive('/register/english-test') ? ' nav-link--active' : ''}`}
-        onClick={() => handleNavClick('english-test')}
+      <Link
+        to="/register/english-test"
+        className={className}
+        onClick={() => setMenuOpen(false)}
       >
         {t('nav.englishTest')}
-      </button>
+      </Link>
     );
   };
 
@@ -141,22 +145,13 @@ export default function Header() {
         {isMobile ? (
           <>
             <div className="header-actions-mobile">
-              {showEnglishTest && (
-                <button
-                  type="button"
-                  className="btn-english-test-mobile"
-                  onClick={() => handleNavClick('english-test')}
-                >
-                  {t('nav.englishTest')}
-                </button>
-              )}
               {langToggle}
               <button
                 type="button"
                 className="hamburger"
                 onClick={() => setMenuOpen(!menuOpen)}
                 aria-expanded={menuOpen}
-                aria-label="Menu"
+                aria-label={menuOpen ? t('a11y.closeMenu') : t('a11y.openMenu')}
               >
                 <span />
                 <span />
@@ -168,23 +163,32 @@ export default function Header() {
                 <button
                   type="button"
                   className="header-drawer-backdrop"
-                  aria-label="關閉選單"
+                  aria-label={t('a11y.closeMenu')}
                   onClick={() => setMenuOpen(false)}
                 />
-                <nav className="header-nav-mobile" aria-label="Main navigation">
-                  {primaryLinks(true)}
-                  {englishTestButton(true)}
+                <nav className="header-nav-mobile" aria-label={t('a11y.mainNavigation')}>
+                  <div className="nav-group-mobile nav-group-mobile--task" role="group" aria-label={t('nav.groupTask')}>
+                    {renderLinks(TASK_NAV, true)}
+                  </div>
+                  <hr className="nav-divider-mobile" />
+                  <div className="nav-group-mobile nav-group-mobile--explore" role="group" aria-label={t('nav.groupExplore')}>
+                    {renderLinks(EXPLORE_NAV, true)}
+                    {englishTestLink(true)}
+                  </div>
                 </nav>
               </>
             )}
           </>
         ) : (
-          <nav className="header-nav" aria-label="Main navigation">
+          <nav className="header-nav" aria-label={t('a11y.mainNavigation')}>
             <div className="header-nav-group header-nav-group--primary">
-              {primaryLinks(false)}
+              {renderLinks(TASK_NAV, false)}
+            </div>
+            <div className="header-nav-group header-nav-group--explore">
+              {renderLinks(EXPLORE_NAV, false)}
             </div>
             <div className="header-nav-group header-nav-group--services">
-              {englishTestButton(false)}
+              {englishTestLink(false)}
               {langToggle}
             </div>
           </nav>

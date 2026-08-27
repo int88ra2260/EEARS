@@ -17,18 +17,20 @@ import { MINI_GAME_IDS } from './learningContentTypes';
 export const MINI_GAMES_CATALOG = [
   {
     id: MINI_GAME_IDS.WORD_BRIDGE,
-    path: '/activities/word-bridge',
+    path: '/practice/word-bridge',
     titleKey: 'wordBridge.title',
     introKey: 'miniGames.wordBridgeIntro',
+    timeKey: 'miniGames.wordBridgeTime',
     tag: 'Vocabulary',
     tone: 'blue',
     available: true,
   },
   {
     id: MINI_GAME_IDS.LISTENING_LADDER,
-    path: '/activities/games/listening-ladder',
+    path: '/practice/listening-ladder',
     titleKey: 'listeningLadder.title',
     introKey: 'miniGames.listeningLadderIntro',
+    timeKey: 'miniGames.listeningLadderTime',
     tag: 'Listening',
     tone: 'green',
     available: true,

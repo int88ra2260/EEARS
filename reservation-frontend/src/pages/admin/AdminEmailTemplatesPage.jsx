@@ -190,7 +190,6 @@ export default function AdminEmailTemplatesPage() {
     <div className="container-fluid px-2 px-md-3 py-3">
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
-          <h4 className="mb-1">郵件設定中心</h4>
           <p className="text-muted small mb-0">
             開啟任一封信會自動帶入目前文案；動態內容以{' '}
             <code>{'{{變數名}}'}</code> 表示（不會出現範例姓名）。預覽／測試寄信才會代入範例資料。

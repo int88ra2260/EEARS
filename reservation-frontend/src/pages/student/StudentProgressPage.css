@@ -1,0 +1,82 @@
+.student-progress-page {
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+.student-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.student-progress-card__stat {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0.35rem 0 0;
+  color: var(--pub-text, #3d2e24);
+}
+
+.student-progress-card--wide {
+  grid-column: 1 / -1;
+}
+
+.attendance-summary {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.2rem;
+  font-size: 0.9rem;
+  color: var(--pub-text-secondary, #6b5e54);
+}
+
+.progress-bar-wrapper {
+  height: 8px;
+  background: var(--color-border-soft, #e8e0d8);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--color-primary, #d4564a);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.cert-path {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.cert-path__step {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: var(--color-bg-secondary, #f7f3ee);
+}
+
+.cert-path__step--done {
+  background: #d4edda;
+  color: #155724;
+}
+
+.cert-path__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border-soft, #ccc);
+  flex-shrink: 0;
+}
+
+.cert-path__step--done .cert-path__dot {
+  background: #28a745;
+}

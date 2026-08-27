@@ -9,9 +9,13 @@ export default function EventCalendarInsights({
   bookableCount = 0,
   totalCount = 0,
   hasNextBookable = false,
+  hasNextEvent = false,
   onJumpNext,
   t,
 }) {
+  const jumpLabel = hasNextBookable ? t('page.calendarJumpNext') : t('page.calendarJumpNearest');
+  const showJump = totalCount > 0 && hasNextEvent;
+
   return (
     <div className="event-calendar-insights" aria-label={t('page.calendarInsightsAria')}>
       <div className="event-calendar-insights__summary">
@@ -23,14 +27,19 @@ export default function EventCalendarInsights({
             {formatMessage(t('page.calendarSummaryTotal'), { count: totalCount })}
           </span>
         ) : null}
-        {hasNextBookable ? (
+        {showJump ? (
           <button
             type="button"
             className="btn btn-link btn-sm event-calendar-insights__jump p-0"
             onClick={onJumpNext}
           >
-            {t('page.calendarJumpNext')}
+            {jumpLabel}
           </button>
+        ) : null}
+        {totalCount > 0 && bookableCount === 0 ? (
+          <span className="event-calendar-insights__stat text-muted small">
+            {t('page.calendarNoBookableHint')}
+          </span>
         ) : null}
       </div>
       <div className="event-calendar-legend" role="list" aria-label={t('page.calendarLegendTitle')}>

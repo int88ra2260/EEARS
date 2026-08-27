@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import {
   getLearningJourneyV3StudentProfile,
   getLearningJourneyV3StudentTrends
@@ -82,6 +82,7 @@ function getFriendlyLoadError(err) {
 }
 
 export default function LearningJourneyStudentProfilePage() {
+  const { setAdminPageMeta } = useOutletContext() || {};
   const token = localStorage.getItem('token') || '';
   const { studentId } = useParams();
   const [searchParams] = useSearchParams();
@@ -146,6 +147,16 @@ export default function LearningJourneyStudentProfilePage() {
       .finally(() => setLoading(false));
   }, [token, studentId, semesterId]);
 
+  useEffect(() => {
+    if (!setAdminPageMeta) return undefined;
+    const name = data?.student?.studentName || data?.studentName;
+    setAdminPageMeta({
+      pageTitle: name ? `${name} 的學習歷程` : '學生學習歷程',
+      breadcrumbLeaf: name || studentId || '學生學習歷程',
+    });
+    return () => setAdminPageMeta(null);
+  }, [setAdminPageMeta, data, studentId]);
+
   const warningBySection = (section) =>
     (Array.isArray(data?.warnings) ? data.warnings : []).find((w) => w?.section === section)?.message || '';
   const allWarnings = [
@@ -168,8 +179,7 @@ export default function LearningJourneyStudentProfilePage() {
 
   return (
     <div className="container-fluid py-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="mb-0">Learning Journey V3 學生學習歷程</h4>
+      <div className="d-flex justify-content-end align-items-center mb-3">
         <Link className="btn btn-outline-primary btn-sm" to={returnTo}>
           返回學習歷程總覽
         </Link>

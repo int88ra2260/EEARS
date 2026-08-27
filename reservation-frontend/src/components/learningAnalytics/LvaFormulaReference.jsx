@@ -2,58 +2,35 @@ import React from 'react';
 
 const FORMULA_BLOCKS = [
   {
-    title: '1. GSE 能力量尺與實際成長',
+    title: '1. 能力分數與實際進步',
     lines: [
-      'GSE = 依英檢成績或 CEFR 查表換算（Pearson GSE 對照）',
-      '實際成長 actualGseGrowth = 後測 GSE − 前測 GSE',
-      'monthsBetweenTests = (後測日 − 前測日) ÷ 30.4375（需 previousExamEventId）',
+      '不同英檢先換成同一把能力尺，才能互相比較。',
+      '實際進步 = 後測分數 − 前測分數',
+      '間隔月數由兩次考試日期推算',
     ],
   },
   {
-    title: '2. 修正成長 v2（OLS value-added，預設）',
+    title: '2. 校正後進步（目前預設）',
     lines: [
-      'ŷ = OLS 預測(actualGseGrowth | baselineGse, monthsBetweenTests, quality, CEFR band, skill)',
-      'adjustedGseGrowth = actualGseGrowth − ŷ',
-      '樣本 < 8 時回退舊版分組加權平均（見 adjustedGrowthLegacy）',
+      '用回歸估計「以這位學生的背景，預期會進步多少」',
+      '校正後進步 = 實際進步 − 預期進步',
+      '樣本太少時改用舊版分組平均',
     ],
   },
   {
-    title: '2b. 修正成長 Legacy（對照用）',
+    title: '3. 背景相近學生比較',
     lines: [
-      'expectedGseGrowth = Σ(權重ᵢ × 該分組平均成長) ÷ Σ(權重ᵢ)',
-      'adjustedGseGrowth = actualGseGrowth − expectedGseGrowth',
+      '找程度、系所相近但沒參加的學生當對照',
+      '對照要多接近，可由系統依資料自動調整',
+      '效果 ≈ 有參加者的校正後進步 − 對照組',
     ],
   },
   {
-    title: '3. 傾向分數 v2（Logistic PS，預設）',
+    title: '4. 依背景加權、綜合校正',
     lines: [
-      'P(T=1|X) = logistic(β₀ + β₁X₁ + …)',
-      'X 含 baselineGse、quality、resourceHours、monthsBetweenTests、skill、CEFR band',
-      '樣本不足時回退啟發式 propensity-like score（見 legacy 欄位）',
-    ],
-  },
-  {
-    title: '4. 背景相近配對 v2',
-    lines: [
-      '距離 = |logit(P_處理) − logit(P_對照)|',
-      'caliper = 0.2 × SD(logit PS)（Austin 2011）',
-      '篩選區 matching_caliper 覆寫時改用 legacy 固定 caliper 路徑',
-      '效應 ≈ 處理組 adjustedGseGrowth 平均 − 配對對照組平均',
-    ],
-  },
-  {
-    title: '5. IPW 與 AIPW（輔助估計）',
-    lines: [
-      'IPW v2：stabilized IPW on logistic PS',
-      'AIPW v2：doubly robust = IPW 殘差修正 + outcome regression',
-      '請與 matching 交叉比對；均非因果證明',
-    ],
-  },
-  {
-    title: '6. 資源技能曝光（與技能向量連動）',
-    lines: [
-      '某技能曝光 += 活動／課程時數 × 該資源在該技能的權重',
-      '權重來自「資源技能向量」設定（0–1 相對面向，非因果係數）',
+      '依背景加權：依「誰比較可能參加」調整權重後再比進步',
+      '綜合校正：同時校正「誰會參加」與「預期會進步多少」',
+      '三種算法方向一致時較可信；都不是保證參加就進步',
     ],
   },
 ];
@@ -61,9 +38,9 @@ const FORMULA_BLOCKS = [
 export default function LvaFormulaReference() {
   return (
     <div className="la-lva-formulas mb-3">
-      <div className="fw-semibold small mb-2">計算公式說明（v2 預設；legacy 供對照）</div>
+      <div className="fw-semibold small mb-2">計算方式（給需要對照的人）</div>
       <p className="small text-muted mb-2">
-        下列為目前 LVA 估計流程。調整參數會改變權重或門檻，但不改變「仍為觀察估計、不可單獨宣稱因果」的定位。
+        改參數會改變門檻或權重，但不會變成「保證有效」。
       </p>
       <div className="la-lva-formulas__grid">
         {FORMULA_BLOCKS.map((block) => (

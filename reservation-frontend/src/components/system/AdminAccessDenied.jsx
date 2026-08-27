@@ -1,7 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { getAdminRoleHomeLabel, getAdminRoleHomePath } from '../../constants/adminNavigation';
 
-export default function AdminAccessDenied({ route, rule, missingRule = false }) {
+export default function AdminAccessDenied({
+  route,
+  rule,
+  missingRule = false,
+  accessProfile = null,
+}) {
+  const homePath = getAdminRoleHomePath(accessProfile);
+  const homeLabel = getAdminRoleHomeLabel(accessProfile);
+
   return (
     <div className="container-fluid py-4">
       <div className="alert alert-warning border-warning-subtle shadow-sm" role="alert">
@@ -14,8 +23,8 @@ export default function AdminAccessDenied({ route, rule, missingRule = false }) 
         {rule?.label ? <div className="small text-muted">頁面名稱：{rule.label}</div> : null}
         {route ? <div className="small text-muted">目前路徑：{route}</div> : null}
         <div className="mt-3">
-          <Link className="btn btn-primary btn-sm" to="/admin/dashboard">
-            返回後台首頁
+          <Link className="btn btn-primary btn-sm" to={homePath}>
+            {homeLabel}
           </Link>
         </div>
       </div>

@@ -17,7 +17,8 @@
 }
 
 .learning-resources-page .activities-practice + .activities-practice,
-.learning-resources-page .activities-practice + .activities-guides {
+.learning-resources-page .activities-practice + .activities-guides,
+.learning-resources-page .activities-guides + .activities-practice {
   margin-top: 1.5rem;
 }
 

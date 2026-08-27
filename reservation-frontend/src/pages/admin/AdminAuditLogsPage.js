@@ -523,7 +523,7 @@ export default function AdminAuditLogsPage() {
                 </tbody>
               </Table>
 
-              <h5 className="mt-3 mb-2">Audit Logs（稽核）</h5>
+              <h5 className="mt-3 mb-2">操作紀錄（稽核）</h5>
               <Table striped bordered size="sm" responsive>
                 <thead>
                   <tr>

@@ -265,7 +265,6 @@ export default function ImportRunHistoryPage() {
     <div className="container-fluid py-3 import-run-history-page">
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
-          <h1 className="import-run-history-page__title mb-1">匯入紀錄中心</h1>
           <p className="text-muted small mb-0">
             <Link to="/admin/import-center">← 返回資料匯入中心</Link>
           </p>

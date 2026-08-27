@@ -3,6 +3,7 @@ import { Button, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { Link, useOutletContext } from 'react-router-dom';
 import useToast from '../../components/ui/useToast';
 import { KPI_STATUS, useAdminDashboardProduct } from '../../hooks/useAdminDashboardProduct';
+import { buildDashboardTodoItems } from '../../utils/adminDashboardTodos';
 
 function latencyCategory(latencyMs) {
   const n = Number(latencyMs);
@@ -121,6 +122,7 @@ export default function AdminDashboardProduct() {
   const toast = useToast();
   const {
     recentEvents,
+    todayEventCount,
     healthState,
     loadHealth,
     kpiTodayReservations,
@@ -130,10 +132,18 @@ export default function AdminDashboardProduct() {
     eventsSectionStatus,
     violationsSectionStatus,
     kpiAllEmpty,
+    violations,
     recentViolations,
     handleCardRefresh,
     fetchViolationsSection,
   } = useAdminDashboardProduct({ token, userRole, toast });
+
+  const todoItems = buildDashboardTodoItems({
+    todayEventCount,
+    kpiEnglishPending,
+    kpiAnnouncementDraft,
+    violationCount: Array.isArray(violations) ? violations.length : 0,
+  });
 
   return (
     <div>
@@ -218,6 +228,31 @@ export default function AdminDashboardProduct() {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="card shadow-sm mb-4">
+        <div className="card-body">
+          <div className="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2">
+            <div>
+              <div className="fw-semibold">今日待辦</div>
+              <div className="small text-muted mt-1">依目前資料彙整，先處理這些項目</div>
+            </div>
+          </div>
+          {todoItems.length === 0 ? (
+            <div className="text-muted small mb-0">目前沒有待辦事項。</div>
+          ) : (
+            <ul className="list-unstyled mb-0 d-flex flex-column gap-2">
+              {todoItems.map((item) => (
+                <li key={item.id} className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                  <span>{item.label}</span>
+                  <Link to={item.to} className="btn btn-outline-primary btn-sm">
+                    {item.action}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -309,7 +344,7 @@ export default function AdminDashboardProduct() {
           <QuickLinkCard to="/admin/announcements" title="公告管理" desc="公告建立、發布、置頂" />
         </div>
         <div className="col-12 col-md-6 col-xl-3">
-          <QuickLinkCard to="/admin/surveys" title="問卷管理" desc="問卷統計與匯出" />
+          <QuickLinkCard to="/admin/survey-center" title="問卷中心" desc="問卷建立、規則與作答管理" />
         </div>
         <div className="col-12 col-md-6 col-xl-3">
           <QuickLinkCard to="/admin/english-test" title="英檢管理" desc="英檢報名審核與狀態管理" />
@@ -356,7 +391,11 @@ export default function AdminDashboardProduct() {
                 <ul className="list-group list-group-flush">
                   {recentEvents.map((e) => (
                     <li key={e.id} className="list-group-item px-0">
-                      <div className="fw-semibold">{e.name}</div>
+                      <div className="fw-semibold">
+                        <Link to={`/admin/operations/${e.id}`} className="text-decoration-none">
+                          {e.name}
+                        </Link>
+                      </div>
                       <div className="small text-muted">
                         {e.date} {e.startTime} - {e.endTime}
                       </div>
@@ -370,7 +409,10 @@ export default function AdminDashboardProduct() {
 
         <div className="col-12 col-lg-6">
           <div className="card shadow-sm h-100">
-            <div className="card-header">待處理提醒</div>
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <span>待處理提醒</span>
+              <Link to="/admin/violations" className="small">違規管理</Link>
+            </div>
             <div className="card-body">
               <div className="text-muted small mb-2">顯示範圍：依學期的違規相關提醒（最近 5 筆）</div>
               {violationsSectionStatus === KPI_STATUS.LOADING ? (

@@ -38,8 +38,7 @@ export default function StudentContentHubPage() {
     <div className="sch-hub admin-page">
       <header className="sch-hub__header">
         <div className="sch-hub__header-copy">
-          <p className="sch-hub__kicker">Student-facing content</p>
-          <h1 className="sch-hub__title">學生端內容</h1>
+          <p className="sch-hub__kicker">學生在網站上看到的內容</p>
           <p className="sch-hub__lead">
             這裡修改學生在網站上看得到的文字、連結、PDF、修課說明與圖片。存檔後前台會更新；不確定時可先開預覽確認。
           </p>

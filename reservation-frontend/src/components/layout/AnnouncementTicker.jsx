@@ -26,6 +26,25 @@ function tickerText(item) {
   return `${title}${summary}`;
 }
 
+function isTestAnnouncement(item) {
+  const slug = String(item.slug || '').trim().toUpperCase();
+  const title = String(item.title || '').trim().toUpperCase();
+  if (slug === 'TEST' || slug.startsWith('TEST-')) return true;
+  if (title === 'TEST' || title.startsWith('TEST ')) return true;
+  return false;
+}
+
+function sanitizeTickerItems(items) {
+  const seen = new Set();
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    if (isTestAnnouncement(item)) return false;
+    const key = String(item.title || '').trim().toLowerCase() || String(item.id || item.slug || '');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function TickerItems({ items, hidden = false }) {
   return (
     <div className="announcement-ticker__group" aria-hidden={hidden ? 'true' : undefined}>
@@ -47,7 +66,9 @@ function TickerItems({ items, hidden = false }) {
 
 export default function AnnouncementTicker() {
   const location = useLocation();
-  const { items, loading, error } = useAnnouncements({ limit: 5, sliceMax: 5 });
+  const { items: rawItems, loading, error } = useAnnouncements({ limit: 5, sliceMax: 5 });
+
+  const items = sanitizeTickerItems(rawItems);
 
   if (!shouldShowTicker(location.pathname)) return null;
   if (error) return null;

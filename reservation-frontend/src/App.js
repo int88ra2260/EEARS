@@ -46,9 +46,8 @@ import { buildAccessProfile } from './utils/accessControl';
 import { getAdminRouteDeniedReason } from './constants/adminRouteAccess';
 import AdminAccessDenied from './components/system/AdminAccessDenied';
 import ToastProvider from './components/ui/ToastProvider';
-import WeeklyHomeModal from './components/modals/WeeklyHomeModal';
+import WeeklyHomeBanner from './components/layout/WeeklyHomeBanner';
 import { fetchCurrentWeeklyReport } from './services/weeklyReportApi';
-import { HOME_SW_DISMISSED_KEY } from './pages/HomePage';
 
 const AdminHome = lazy(() => import('./components/AdminHome'));
 const ClassOverview = lazy(() => import('./components/ClassOverview'));
@@ -64,7 +63,6 @@ const LearningPartnerRegistrationPage = lazy(() => import('./components/Learning
 const LearningPartnerStatusPage = lazy(() => import('./components/LearningPartnerStatusPage'));
 const LearningPartnerApprovePage = lazy(() => import('./components/LearningPartnerApprovePage'));
 const ClassBestepOverview = lazy(() => import('./components/ClassBestepOverview'));
-const StudentLearningProfileSearchPage = lazy(() => import('./components/StudentLearningProfileSearchPage'));
 const TeacherDashboardPage = lazy(() => import('./components/TeacherDashboardPage'));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 const RiskDetectionPage = lazy(() => import('./components/RiskDetectionPage'));
@@ -87,6 +85,7 @@ const AdminSurveyAnalyticsPage = lazy(() => import('./pages/admin/AdminSurveyAna
 const AdminSurveyDataHealthPage = lazy(() => import('./pages/admin/AdminSurveyDataHealthPage'));
 const AdminSurveyAnswerMappingPage = lazy(() => import('./pages/admin/AdminSurveyAnswerMappingPage'));
 const AdminDashboardProduct = lazy(() => import('./pages/admin/AdminDashboardProduct'));
+const AdminRoleIndex = lazy(() => import('./components/admin/AdminRoleIndex'));
 const SystemSettingsPage = lazy(() => import('./pages/admin/SystemSettingsPage'));
 const AdminEmailTemplatesPage = lazy(() => import('./pages/admin/AdminEmailTemplatesPage'));
 const InternalDiagnosticsPage = lazy(() => import('./pages/admin/InternalDiagnosticsPage'));
@@ -102,6 +101,7 @@ const LearningJourneyDashboardPage = lazy(() => import('./pages/admin/LearningJo
 const LearningJourneyImportHubPage = lazy(() => import('./pages/admin/LearningJourneyImportHubPage'));
 const AdminEwlSyncPage = lazy(() => import('./pages/admin/AdminEwlSyncPage'));
 const EnglishLearningPassportPage = lazy(() => import('./pages/student/EnglishLearningPassportPage'));
+const StudentProgressPage = lazy(() => import('./pages/student/StudentProgressPage'));
 const EnglishLearningPassportSubmissionPage = lazy(() => import('./pages/student/EnglishLearningPassportSubmissionPage'));
 const EnglishLearningPassportCertificationPage = lazy(() => import('./pages/student/EnglishLearningPassportCertificationPage'));
 const EnglishLearningPassportsAdminPage = lazy(() => import('./pages/admin/EnglishLearningPassportsAdminPage'));
@@ -126,6 +126,11 @@ function LazyPublicRoute({ children }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>;
 }
 
+/** 舊版後台 URL → 現行入口，並附帶一次性 migrated 提示 */
+function AdminLegacyRedirect({ to, fromLabel }) {
+  return <Navigate to={to} replace state={{ adminMigratedFrom: fromLabel }} />;
+}
+
 /** 舊版班級明細 URL → Phase 1 新 path（納入 AdminLayout） */
 function LegacyClassDetailRedirect({ token }) {
   const { classId } = useParams();
@@ -142,12 +147,24 @@ function LegacyClassDetailRedirect({ token }) {
       />
     );
   }
-  return <Navigate to={`/admin/classes/${classId}`} replace />;
+  return (
+    <Navigate
+      to={`/admin/classes/${classId}`}
+      replace
+      state={{ adminMigratedFrom: '舊版班級明細網址' }}
+    />
+  );
 }
 
 function LegacyEnglishTestStudentRedirect() {
   const { studentId } = useParams();
-  return <Navigate to={`/admin/learning-journey/students/${studentId}`} replace />;
+  return (
+    <Navigate
+      to={`/admin/learning-journey/students/${studentId}`}
+      replace
+      state={{ adminMigratedFrom: '舊版英檢學生頁' }}
+    />
+  );
 }
 
 function AnalyticsStudentProfileRedirect() {
@@ -158,7 +175,13 @@ function AnalyticsStudentProfileRedirect() {
   const semesterId = source.get('semesterId') || source.get('semester') || source.get('toSemester') || source.get('fromSemester');
   if (semesterId) target.set('semesterId', semesterId);
   const query = target.toString() ? `?${target.toString()}` : '';
-  return <Navigate to={`/admin/learning-journey/students/${encodeURIComponent(studentId)}${query}`} replace />;
+  return (
+    <Navigate
+      to={`/admin/learning-journey/students/${encodeURIComponent(studentId)}${query}`}
+      replace
+      state={{ adminMigratedFrom: '舊版學生學習歷程查詢' }}
+    />
+  );
 }
 
 function LegacyArchiveNotice({ title, replacementPath, replacementLabel, note }) {
@@ -219,7 +242,15 @@ function AppContent() {
         const data = await fetchCurrentWeeklyReport();
         if (cancelled || !data) return;
         setWeeklyIssue(data);
-        setWeeklyModalOpen(true);
+        const dismissKey = data.issueKey || data.slug;
+        let dismissed = false;
+        try {
+          dismissed = Boolean(dismissKey)
+            && sessionStorage.getItem('eears-weekly-banner-dismissed') === String(dismissKey);
+        } catch {
+          dismissed = false;
+        }
+        setWeeklyModalOpen(!dismissed);
       } catch {
         if (!cancelled) {
           setWeeklyIssue(null);
@@ -297,14 +328,6 @@ function AppContent() {
     location.pathname === '/login' ||
     location.pathname === '/forbidden';
   const isScrollWorldPage = location.pathname === '/scrollworldtest';
-  const [homeSwDismissed, setHomeSwDismissed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return sessionStorage.getItem(HOME_SW_DISMISSED_KEY) === '1';
-    } catch (_) {
-      return false;
-    }
-  });
   const [isDesktopHome, setIsDesktopHome] = useState(() => {
     if (typeof window === 'undefined') return true;
     return window.matchMedia('(min-width: 861px)').matches;
@@ -322,16 +345,8 @@ function AppContent() {
     };
   }, []);
 
-  useEffect(() => {
-    const onClosed = () => setHomeSwDismissed(true);
-    window.addEventListener('eears-sw-overlay-closed', onClosed);
-    return () => window.removeEventListener('eears-sw-overlay-closed', onClosed);
-  }, []);
-
-  // 桌面沉浸式蓋層開啟時先不跳週報；關閉後／手機才顯示
-  const allowWeeklyModal = !isDesktopHome || homeSwDismissed;
-  const showWeekly =
-    showWeeklyHomeModal && allowWeeklyModal;
+  // 週報僅在手機首頁顯示；桌面／平板保留沉浸式首頁、不顯示週報
+  const showWeekly = showWeeklyHomeModal && !isDesktopHome;
 
   const publicShellBackground = isScrollWorldPage
     ? { background: '#f5ede0' }
@@ -385,13 +400,24 @@ function AppContent() {
           } : publicShellBackground),
         }}
       >
-        <WeeklyHomeModal
-          show={Boolean(showWeekly)}
-          weekly={weeklyIssue}
-          onClose={() => setWeeklyModalOpen(false)}
-        />
-
-        <PublicLayout>
+        <PublicLayout
+          homeBanner={
+            showWeekly ? (
+              <WeeklyHomeBanner
+                weekly={weeklyIssue}
+                onDismiss={() => {
+                  try {
+                    const key = weeklyIssue?.issueKey || weeklyIssue?.slug;
+                    if (key) sessionStorage.setItem('eears-weekly-banner-dismissed', String(key));
+                  } catch {
+                    // ignore storage errors
+                  }
+                  setWeeklyModalOpen(false);
+                }}
+              />
+            ) : null
+          }
+        >
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/hometest" element={<HomeImmersiveTestPage />} />
@@ -400,8 +426,11 @@ function AppContent() {
             <Route path="/weekly" element={<WeeklyPage />} />
             <Route path="/weekly/:issueKey" element={<WeeklyPage />} />
             <Route path="/activities" element={<ActivitiesPage />} />
-            <Route path="/activities/word-bridge" element={<WordBridgePage />} />
-            <Route path="/activities/games/listening-ladder" element={<ListeningLadderPage />} />
+            <Route path="/practice/word-bridge" element={<WordBridgePage />} />
+            <Route path="/practice/listening-ladder" element={<ListeningLadderPage />} />
+            {/* Legacy redirects */}
+            <Route path="/activities/word-bridge" element={<Navigate to="/practice/word-bridge" replace />} />
+            <Route path="/activities/games/listening-ladder" element={<Navigate to="/practice/listening-ladder" replace />} />
             <Route path="/guides/activity-phrasebook" element={<ActivityPhrasebookPage />} />
             <Route path="/guides/activity-phrasebook/:activityType" element={<ActivityPhrasebookPage />} />
             <Route path="/activities/:slug" element={<ActivityDetailPage />} />
@@ -459,15 +488,15 @@ function AppContent() {
                 )
               }
             >
-              <Route index element={<AdminDashboardProduct />} />
+              <Route index element={<AdminRoleIndex />} />
               <Route path="dashboard" element={<AdminDashboardProduct />} />
               {/* Phase 1：IA 別名，導向既有頁面 */}
-              <Route path="events" element={<Navigate to="/admin/operations" replace />} />
-              <Route path="surveys/settings" element={<Navigate to="/admin/survey-rules" replace />} />
-              <Route path="accounts" element={<Navigate to="/admin/account" replace />} />
-              <Route path="system/settings" element={<Navigate to="/admin/settings/system" replace />} />
-              <Route path="english-tests/tracking" element={<Navigate to="/admin/learning-journey" replace />} />
-              <Route path="english-tests" element={<Navigate to="/admin/english-test" replace />} />
+              <Route path="events" element={<AdminLegacyRedirect to="/admin/operations" fromLabel="舊版 /admin/events" />} />
+              <Route path="surveys/settings" element={<AdminLegacyRedirect to="/admin/survey-rules" fromLabel="問卷設定（舊網址）" />} />
+              <Route path="accounts" element={<AdminLegacyRedirect to="/admin/account" fromLabel="帳號管理（舊網址）" />} />
+              <Route path="system/settings" element={<AdminLegacyRedirect to="/admin/settings/system" fromLabel="系統設定（舊網址）" />} />
+              <Route path="english-tests/tracking" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="英檢追蹤（舊網址）" />} />
+              <Route path="english-tests" element={<AdminLegacyRedirect to="/admin/english-test" fromLabel="英檢管理（舊網址）" />} />
               <Route path="operations/participation" element={<AdminEventParticipationStatsPage />} />
               <Route path="operations/:eventId" element={<AdminEventDetailPage />} />
               <Route path="et-grouping/settings" element={<AdminEtGroupingSettingsPage />} />
@@ -480,7 +509,7 @@ function AppContent() {
               <Route path="classes/:classId" element={<ClassDetail />} />
               <Route path="classes" element={<ClassOverview />} />
             <Route path="teachers/dashboard" element={<TeacherDashboardPage />} />
-              <Route path="bestep/import" element={<Navigate to="/admin/english-test/import" replace />} />
+              <Route path="bestep/import" element={<AdminLegacyRedirect to="/admin/english-test/import" fromLabel="BESTEP 匯入（舊網址）" />} />
               <Route path="violations" element={<ViolationManagement />} />
               <Route path="survey-module/:surveyId/responses" element={<SurveyAdminResponsesPage />} />
               <Route path="survey-module/:surveyId/stats" element={<SurveyAdminStatsPage />} />
@@ -502,12 +531,12 @@ function AppContent() {
                   />
                 )}
               />
-              <Route path="survey-settings" element={<Navigate to="/admin/survey-rules" replace />} />
+              <Route path="survey-settings" element={<AdminLegacyRedirect to="/admin/survey-rules" fromLabel="問卷設定（舊網址）" />} />
               <Route path="announcements" element={<AnnouncementManagementPage />} />
               <Route path="weekly-reports" element={<AdminWeeklyReportPage />} />
               <Route path="weekly-reports/:id/edit" element={<AdminWeeklyReportEditorPage />} />
               <Route path="student-content" element={<StudentContentHubPage />} />
-              <Route path="site-content" element={<Navigate to="/admin/student-content?area=copy" replace />} />
+              <Route path="site-content" element={<AdminLegacyRedirect to="/admin/student-content?area=copy" fromLabel="網站內容（舊網址）" />} />
               <Route path="page-content" element={<PageContentLegacyRedirect />} />
               <Route path="logs" element={<AdminAuditLogsPage />} />
               <Route path="settings/system" element={<SystemSettingsPage />} />
@@ -517,21 +546,21 @@ function AppContent() {
               {/* legacy route (redirect only)
                   kept for backward compatibility
                   DO NOT use for new features */}
-              <Route path="english-test-tracking" element={<Navigate to="/admin/learning-journey" replace />} />
-              <Route path="english-test-tracking-v2" element={<Navigate to="/admin/learning-journey" replace />} />
-              <Route path="learning-journey-center" element={<Navigate to="/admin/learning-journey" replace />} />
+              <Route path="english-test-tracking" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="英檢追蹤（舊網址）" />} />
+              <Route path="english-test-tracking-v2" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="英檢追蹤 v2（舊網址）" />} />
+              <Route path="learning-journey-center" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="學習歷程中心（舊網址）" />} />
               {/* legacy route (redirect only)
                   kept for backward compatibility
                   DO NOT use for new features */}
-              <Route path="english-test-v2" element={<Navigate to="/admin/learning-journey" replace />} />
-              <Route path="english-test-v2/students" element={<Navigate to="/admin/learning-journey" replace />} />
+              <Route path="english-test-v2" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="英檢 v2（舊網址）" />} />
+              <Route path="english-test-v2/students" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="英檢 v2 學生列表（舊網址）" />} />
               <Route path="english-test-v2/students/:studentId" element={<LegacyEnglishTestStudentRedirect />} />
-              <Route path="english-test-tracking/students" element={<Navigate to="/admin/learning-journey" replace />} />
+              <Route path="english-test-tracking/students" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="英檢追蹤學生列表（舊網址）" />} />
               <Route path="english-test-tracking/students/:studentId" element={<LegacyEnglishTestStudentRedirect />} />
               <Route path="english-test-tracking/student-timeline/:studentId" element={<LegacyEnglishTestStudentRedirect />} />
-              <Route path="english-test-tracking/*" element={<Navigate to="/admin/learning-journey" replace />} />
-              <Route path="english-test-v2/*" element={<Navigate to="/admin/learning-journey" replace />} />
-              <Route path="learning-journey-center/*" element={<Navigate to="/admin/learning-journey" replace />} />
+              <Route path="english-test-tracking/*" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="英檢追蹤（舊網址）" />} />
+              <Route path="english-test-v2/*" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="英檢 v2（舊網址）" />} />
+              <Route path="learning-journey-center/*" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="學習歷程中心（舊網址）" />} />
               <Route path="english-test/import" element={<EnglishTestImportHubPage />} />
               <Route path="import-center" element={<ImportCenterPage />} />
               <Route path="import-center/runs" element={<ImportRunHistoryPage />} />
@@ -557,7 +586,7 @@ function AppContent() {
               <Route path="english-learning-passports" element={<EnglishLearningPassportsAdminPage />} />
               <Route path="english-learning-passports/:id" element={<EnglishLearningPassportDetailPage />} />
               <Route path="analytics/student/:studentId" element={<AnalyticsStudentProfileRedirect />} />
-              <Route path="analytics/students" element={<StudentLearningProfileSearchPage />} />
+              <Route path="analytics/students" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="學生學習歷程查詢（舊網址）" />} />
             <Route path="analytics/overview" element={<AdminAnalyticsPage />} />
             <Route path="analytics/risk" element={<RiskDetectionPage />} />
               <Route path="analytics/trends" element={<TrendDashboardPage />} />
@@ -572,6 +601,7 @@ function AppContent() {
             <Route path="/register/english-test/group" element={<LazyPublicRoute><LearningPartnerRegistrationPage /></LazyPublicRoute>} />
             <Route path="/register/english-test/group/status/:teamId" element={<LazyPublicRoute><LearningPartnerStatusPage /></LazyPublicRoute>} />
             <Route path="/register/english-test/group/approve" element={<LazyPublicRoute><LearningPartnerApprovePage /></LazyPublicRoute>} />
+            <Route path="/student/progress" element={<LazyPublicRoute><StudentProgressPage /></LazyPublicRoute>} />
             <Route path="/student/english-learning-passport" element={<LazyPublicRoute><EnglishLearningPassportPage /></LazyPublicRoute>} />
             <Route path="/student/english-learning-passport/submissions/:id" element={<LazyPublicRoute><EnglishLearningPassportSubmissionPage /></LazyPublicRoute>} />
             <Route path="/student/english-learning-passport/certification" element={<LazyPublicRoute><EnglishLearningPassportCertificationPage /></LazyPublicRoute>} />

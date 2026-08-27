@@ -29,7 +29,6 @@ export default function AdminEwlSyncPage() {
     <main className="lj-import-page">
       <header className="lj-import-page__header lj-import-reveal">
         <p className="lj-import-page__kicker">英語學習歷程 · 外部資料</p>
-        <h1 className="lj-import-page__title">英文寫作工坊（EWL）同步</h1>
         <p className="lj-import-page__lede">
           從 EWL 系統讀取預約與簽到，寫入學習歷程活動參與，讓個人歷程、分析報表與行政總覽涵蓋寫作工坊資料。
         </p>

@@ -42,10 +42,10 @@ export default function LearningAnalyticsModelRunPanel({ token, apiParams, disab
     try {
       const filters = { ...(apiParams?.() || {}) };
       const data = await createLearningAnalyticsModelRun(token, { filters });
-      setMessage(`已固化 Model Run #${data?.modelRun?.id || '—'}。`);
+      setMessage(`已儲存分析紀錄 #${data?.modelRun?.id || '—'}。`);
       await loadRuns();
     } catch (err) {
-      setError(err.message || '固化 Model Run 失敗');
+      setError(err.message || '儲存失敗');
     } finally {
       setSaving(false);
     }
@@ -57,11 +57,11 @@ export default function LearningAnalyticsModelRunPanel({ token, apiParams, disab
     <div className="la-panel mt-3">
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
         <div>
-          <div className="la-panel-title mb-1">Model Run 固化</div>
+          <div className="la-panel-title mb-1">儲存這次分析結果</div>
           <p className="small text-muted mb-0">
-            將目前篩選條件下的分析估計寫入模組紀錄，供後續比對與稽核。
+            把目前篩選下的數字存下來，方便之後對照。
             {' '}
-            <Link to="/admin/learning-analytics/model-runs">查看完整紀錄</Link>
+            <Link to="/admin/learning-analytics/model-runs">查看紀錄</Link>
           </p>
         </div>
         <Button
@@ -70,33 +70,29 @@ export default function LearningAnalyticsModelRunPanel({ token, apiParams, disab
           onClick={persistModelRun}
           disabled={saving || disabled || !canRun}
         >
-          {saving ? '固化中…' : '固化 Model Run'}
+          {saving ? '儲存中…' : '儲存紀錄'}
         </Button>
       </div>
       {!canRun ? (
         <Alert variant="light" className="small border py-2 mb-2">
-          您沒有模型執行權限；可檢視
+          您沒有儲存權限；仍可
           {' '}
-          <Link to="/admin/learning-analytics/model-runs">歷史紀錄</Link>
+          <Link to="/admin/learning-analytics/model-runs">查看歷史紀錄</Link>
           。
         </Alert>
       ) : null}
       {error ? <Alert variant="danger" className="py-2 small">{error}</Alert> : null}
       {message ? <Alert variant="success" className="py-2 small">{message}</Alert> : null}
       <div className="small text-muted">
-        最近紀錄：
+        最近一次：
         {latestRun ? (
           <>
             {' '}
             #{latestRun.id}
-            {' · '}
-            {latestRun.modelVersion || latestRun.model_version || '—'}
-            {' · '}
-            {latestRun.snapshotVersion || latestRun.snapshot_version || '—'}
             {latestRun.created_at ? ` · ${new Date(latestRun.created_at).toLocaleString('zh-TW')}` : ''}
           </>
         ) : (
-          ' 尚無固化紀錄'
+          ' 尚無紀錄'
         )}
       </div>
     </div>

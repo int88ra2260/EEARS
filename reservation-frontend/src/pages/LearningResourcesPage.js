@@ -14,26 +14,31 @@ const LEARNING_SITES = [
     id: 'live-abc',
     title: 'Live ABC',
     href: 'https://lpc.liveabc.com/flhs/login/login.php',
+    introKey: 'learningResourcesPage.sitesLiveAbc',
   },
   {
     id: 'easytest',
     title: 'EasyTest',
     href: 'https://easytest.nsysu.edu.tw/',
+    introKey: 'learningResourcesPage.sitesEasyTest',
   },
   {
     id: 'walking-library',
     title: 'WalkingLibrary',
     href: 'https://nsysu.primo.exlibrisgroup.com/view/action/uresolver.do?operation=resolveService&package_service_id=6285981510007977&institutionId=7977&customerId=7975&VE=true',
+    introKey: 'learningResourcesPage.sitesWalkingLibrary',
   },
   {
     id: 'cool-english',
     title: 'Cool English',
     href: 'https://www.coolenglish.edu.tw/',
+    introKey: 'learningResourcesPage.sitesCoolEnglish',
   },
   {
     id: 'teemi',
     title: '英語文說寫能力檢測平台 (TEEMI)',
     href: 'https://teemi.tw/',
+    introKey: 'learningResourcesPage.sitesTeemi',
   },
 ];
 
@@ -46,7 +51,7 @@ const FALLBACK_SITES = LEARNING_SITES.map((s, idx) => ({
   tag: null,
   href: s.href,
   titleKey: null,
-  introKey: 'learningResourcesPage.sitesCardLead',
+  introKey: s.introKey || 'learningResourcesPage.sitesCardLead',
   tagKey: 'learningResourcesPage.sitesTag',
   sortOrder: idx,
   isActive: true,
@@ -116,61 +121,10 @@ export default function LearningResourcesPage() {
       <PageHeader
         variant="editorial"
         breadcrumbs={breadcrumbs}
-        eyebrow={<ContentText k="learningResourcesPage.sitesKicker" />}
+        eyebrow={<ContentText k="miniGames.practiceKicker" />}
         title={<ContentText k="learningResourcesPage.title" />}
         lead={<ContentText k="learningResourcesPage.lead" />}
       />
-
-      <section className="activities-practice" aria-labelledby="learning-resources-sites-title">
-        <div className="activities-section-heading">
-          <ContentText k="learningResourcesPage.sitesKicker" as="p" className="activities-eyebrow" />
-          <ContentText k="learningResourcesPage.sitesTitle" as="h2" id="learning-resources-sites-title" />
-          <ContentText k="learningResourcesPage.sitesLead" as="p" />
-        </div>
-        <div className="activities-practice-grid">
-          {sites.map((site) => {
-            const title = lang === 'zh' ? (site?.titleZh || site?.titleEn || '') : (site?.titleEn || site?.titleZh || '');
-            const intro =
-              lang === 'zh'
-                ? site?.introZh || (site?.introKey ? t(site.introKey) : t('learningResourcesPage.sitesCardLead'))
-                : site?.introEn || (site?.introKey ? t(site.introKey) : t('learningResourcesPage.sitesCardLead'));
-            const tagText = site?.tag || (site?.tagKey ? t(site.tagKey) : t('learningResourcesPage.sitesTag'));
-            const isInternal = typeof site.href === 'string' && site.href.startsWith('/');
-            if (isInternal) {
-              return (
-                <Link
-                  key={site.id}
-                  to={site.href}
-                  className="activities-practice-card learning-resources-page__site-card"
-                >
-                  <span className="activities-practice-card__tag">{tagText}</span>
-                  <h3 className="activities-practice-card__title">{title}</h3>
-                  <p className="activities-practice-card__intro">{intro}</p>
-                  <span className="activities-practice-card__cta">
-                    <ContentText k="learningResourcesPage.openWebsite" /> →
-                  </span>
-                </Link>
-              );
-            }
-            return (
-              <a
-                key={site.id}
-                href={site.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="activities-practice-card learning-resources-page__site-card"
-              >
-                <span className="activities-practice-card__tag">{tagText}</span>
-                <h3 className="activities-practice-card__title">{title}</h3>
-                <p className="activities-practice-card__intro">{intro}</p>
-                <span className="activities-practice-card__cta">
-                  <ContentText k="learningResourcesPage.openWebsite" /> →
-                </span>
-              </a>
-            );
-          })}
-        </div>
-      </section>
 
       <section className="activities-practice" aria-labelledby="learning-resources-practice-title">
         <div className="activities-section-heading">
@@ -251,6 +205,58 @@ export default function LearningResourcesPage() {
               </Link>
             ),
           )}
+        </div>
+      </section>
+
+      <section className="activities-practice" aria-labelledby="learning-resources-sites-title">
+        <div className="activities-section-heading">
+          <ContentText k="learningResourcesPage.sitesKicker" as="p" className="activities-eyebrow" />
+          <ContentText k="learningResourcesPage.sitesTitle" as="h2" id="learning-resources-sites-title" />
+          <ContentText k="learningResourcesPage.sitesLead" as="p" />
+        </div>
+        <div className="activities-practice-grid">
+          {sites.map((site) => {
+            const fallback = FALLBACK_SITES.find((s) => s.id === site.id);
+            const title = lang === 'zh' ? (site?.titleZh || site?.titleEn || '') : (site?.titleEn || site?.titleZh || '');
+            const intro =
+              lang === 'zh'
+                ? site?.introZh || (site?.introKey ? t(site.introKey) : fallback?.introKey ? t(fallback.introKey) : t('learningResourcesPage.sitesCardLead'))
+                : site?.introEn || (site?.introKey ? t(site.introKey) : fallback?.introKey ? t(fallback.introKey) : t('learningResourcesPage.sitesCardLead'));
+            const tagText = site?.tag || (site?.tagKey ? t(site.tagKey) : t('learningResourcesPage.sitesTag'));
+            const isInternal = typeof site.href === 'string' && site.href.startsWith('/');
+            if (isInternal) {
+              return (
+                <Link
+                  key={site.id}
+                  to={site.href}
+                  className="activities-practice-card learning-resources-page__site-card"
+                >
+                  <span className="activities-practice-card__tag">{tagText}</span>
+                  <h3 className="activities-practice-card__title">{title}</h3>
+                  <p className="activities-practice-card__intro">{intro}</p>
+                  <span className="activities-practice-card__cta">
+                    <ContentText k="learningResourcesPage.openWebsite" /> →
+                  </span>
+                </Link>
+              );
+            }
+            return (
+              <a
+                key={site.id}
+                href={site.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="activities-practice-card learning-resources-page__site-card"
+              >
+                <span className="activities-practice-card__tag">{tagText}</span>
+                <h3 className="activities-practice-card__title">{title}</h3>
+                <p className="activities-practice-card__intro">{intro}</p>
+                <span className="activities-practice-card__cta">
+                  <ContentText k="learningResourcesPage.openWebsite" /> →
+                </span>
+              </a>
+            );
+          })}
         </div>
       </section>
     </div>

@@ -5,17 +5,17 @@ export default function BreakdownTable({ loading, error, rows }) {
     return (
       <div className="alert alert-light d-flex align-items-center gap-2 mb-0">
         <span className="spinner-border spinner-border-sm" aria-hidden="true" />
-        <span>正在載入 Breakdown...</span>
+        <span>正在載入分項統計…</span>
       </div>
     );
   }
 
   if (error) {
-    return <div className="alert alert-danger mb-0">Breakdown 載入失敗：{error}</div>;
+    return <div className="alert alert-danger mb-0">分項統計載入失敗：{error}</div>;
   }
 
   if (!Array.isArray(rows) || rows.length === 0) {
-    return <div className="alert alert-secondary mb-0">目前沒有 breakdown 資料。</div>;
+    return <div className="alert alert-secondary mb-0">目前沒有分項統計資料。</div>;
   }
 
   return (

@@ -9,8 +9,8 @@ import CohortGrowthBoxplot from '../../components/learningAnalytics/charts/Cohor
 import ParticipationGrowthScatter from '../../components/learningAnalytics/charts/ParticipationGrowthScatter';
 import ResourceSkillHeatmap from '../../components/learningAnalytics/charts/ResourceSkillHeatmap';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
-import GrowthMetricsExplainer from '../../components/learningAnalytics/GrowthMetricsExplainer';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
+import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
 import MetricCard from '../../components/learningAnalytics/MetricCard';
 import { getLearningAnalyticsInsights } from '../../services/learningAnalyticsService';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
@@ -56,14 +56,6 @@ export default function LearningAnalyticsInsightsPage() {
   return (
     <div>
       <LearningAnalyticsDataHealth meta={meta} error={metaError} />
-      <div className="la-disclaimer mb-3">
-        Phase 5 決策支援：圖表與 outlook 皆為觀察資料估計，不得解讀為因果證明或認證保證。
-        Model Run 固化請至
-        {' '}
-        <Link to="/admin/learning-analytics/model-runs">模型執行紀錄</Link>
-        。
-      </div>
-
       <LearningAnalyticsFilters
         filters={filters}
         onChange={setFilters}
@@ -72,10 +64,10 @@ export default function LearningAnalyticsInsightsPage() {
         loading={loading || !ready}
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
-        filterTitle="決策支援篩選"
+        filterTitle="篩選條件"
+        submitLabel="套用篩選"
       />
       <LearningAnalyticsActiveFilters filters={appliedFilters} />
-      <GrowthMetricsExplainer compact className="mt-3" />
 
       {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
       {loading ? (
@@ -88,30 +80,31 @@ export default function LearningAnalyticsInsightsPage() {
             <Row className="g-3 mt-1 la-bento-row la-bento-reveal">
               <Col xs={6} md={3}>
                 <MetricCard
-                  label="尚未 B2+"
+                  label="尚未達 B2+"
                   value={outlook.notB2plusStudents}
-                  hint="納入分析且未達 B2+"
+                  tooltip="目前篩選中，還沒達到 B2 以上的學生人數。"
                 />
               </Col>
               <Col xs={6} md={3}>
                 <MetricCard
-                  label="Outlook 較佳"
+                  label="通過機會較高"
                   value={outlook.buckets?.high ?? 0}
-                  hint="估計通過機率 ≥65%"
+                  hint="估計 ≥65%"
+                  tooltip="依起始程度與資源效果校正後的通過機會。僅供優先關注，不是認證保證。"
                 />
               </Col>
               <Col xs={6} md={3}>
                 <MetricCard
-                  label="需持續努力"
+                  label="再加強可期"
                   value={outlook.buckets?.medium ?? 0}
                   hint="40%–65%"
                 />
               </Col>
               <Col xs={6} md={3}>
                 <MetricCard
-                  label="建議加強"
+                  label="建議優先投入"
                   value={outlook.buckets?.low ?? 0}
-                  hint="&lt;40%"
+                  hint="低於 40%"
                 />
               </Col>
             </Row>
@@ -120,17 +113,19 @@ export default function LearningAnalyticsInsightsPage() {
           <Row className="g-3 mt-1 la-bento-row la-bento-reveal">
             <Col lg={7}>
               <div className="la-panel la-bento-card">
-                <div className="la-panel-title">資源時數 × 修正後成長</div>
-                <p className="small text-muted la-panel-lead">
-                  每點為一筆前後測成長區間；觀察參與量與進步的共變，非因果。
-                  縱軸為 GSE 能力量尺變化。
-                </p>
+                <LearningAnalyticsPanelHeader
+                  title="參與時數與進步"
+                  lead="橫軸是考前累積時數，縱軸是校正後進步。點愈右上，參與多且進步也多。"
+                />
                 <ParticipationGrowthScatter points={data.participationVsGrowth} />
               </div>
             </Col>
             <Col lg={5}>
               <div className="la-panel la-bento-card">
-                <div className="la-panel-title">跨學期 B2+ 認證率</div>
+                <LearningAnalyticsPanelHeader
+                  title="各學期 B2+ 通過率"
+                  lead="跨學期名冊的 B2 以上比例。"
+                />
                 <CertificationTrendChart points={data.certificationTrend} />
               </div>
             </Col>
@@ -139,14 +134,19 @@ export default function LearningAnalyticsInsightsPage() {
           <Row className="g-3 mt-1 la-bento-row la-bento-reveal">
             <Col lg={6}>
               <div className="la-panel la-bento-card">
-                <div className="la-panel-title">系所成長分布（箱型近似）</div>
+                <LearningAnalyticsPanelHeader
+                  title="系所進步分布"
+                  lead="箱子愈高代表該系所學生進步幅度愈大。"
+                />
                 <CohortGrowthBoxplot rows={data.cohortGrowthBoxplot} />
               </div>
             </Col>
             <Col lg={6}>
               <div className="la-panel la-bento-card">
-                <div className="la-panel-title">資源 × 技能成長熱圖</div>
-                <p className="small text-muted la-panel-lead">主影響技能上的描述性平均成長（GSE）。</p>
+                <LearningAnalyticsPanelHeader
+                  title="資源對應技能"
+                  lead="該資源主要訓練技能上的平均進步。顏色愈深進步愈多。"
+                />
                 <ResourceSkillHeatmap rows={data.resourceSkillHeatmap} />
               </div>
             </Col>
@@ -154,14 +154,17 @@ export default function LearningAnalyticsInsightsPage() {
 
           {outlook?.topProspects?.length ? (
             <div className="la-panel mt-3">
-              <div className="la-panel-title">Outlook 較佳學生（前 10，供行政追蹤）</div>
+              <LearningAnalyticsPanelHeader
+                title="通過機會較高的學生（前 10）"
+                lead="可優先追蹤輔導。機會是估計值，不是保證會通過。"
+              />
               <div className="table-responsive">
                 <table className="table table-sm align-middle mb-0">
                   <thead>
                     <tr>
                       <th>學號</th>
                       <th>系所</th>
-                      <th className="text-end">估計通過機率</th>
+                      <th className="text-end">估計通過機會</th>
                       <th />
                     </tr>
                   </thead>
@@ -181,7 +184,6 @@ export default function LearningAnalyticsInsightsPage() {
                   </tbody>
                 </table>
               </div>
-              <p className="small text-muted mb-0 mt-2">{outlook.disclaimer}</p>
             </div>
           ) : null}
         </>

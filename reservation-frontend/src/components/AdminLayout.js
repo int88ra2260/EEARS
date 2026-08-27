@@ -21,7 +21,7 @@ function getRoleDisplayText(role, username) {
     worker: '工作人員',
     teacher: '老師',
     office_staff: '行政職員',
-    leader: 'ET Leader',
+    leader: '英語桌帶班',
   };
 
   if (role === 'teacher' || role === 'office_staff' || role === 'leader') {
@@ -45,6 +45,7 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
   const [tokenExpired, setTokenExpired] = useState(false);
   const [showTokenWarning, setShowTokenWarning] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pageMetaOverride, setPageMetaOverride] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
@@ -63,10 +64,26 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
     [accessProfile]
   );
 
-  const pageTitle = useMemo(
-    () => getAdminPageTitle(location.pathname, navContext),
-    [location.pathname, navContext]
-  );
+  const pageTitle = useMemo(() => {
+    if (pageMetaOverride?.pageTitle) return pageMetaOverride.pageTitle;
+    return getAdminPageTitle(location.pathname, navContext);
+  }, [location.pathname, navContext, pageMetaOverride]);
+
+  const breadcrumbLeafOverride = pageMetaOverride?.breadcrumbLeaf;
+
+  useEffect(() => {
+    setPageMetaOverride(null);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const from = location.state?.adminMigratedFrom;
+    if (!from) return;
+    toast.info(`此頁面網址已更新。您已從「${from}」導向至現行入口。`, { duration: 8000 });
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: null }
+    );
+  }, [location.key, location.pathname, location.search, location.hash, location.state, navigate, toast]);
 
   const routeDenied = useMemo(
     () => getAdminRouteDeniedReason(accessProfile, location.pathname),
@@ -203,7 +220,11 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
 
         <div className="admin-page-header">
           <h2 className="admin-page-header__title">{pageTitle}</h2>
-          <AdminBreadcrumbs pathname={location.pathname} navContext={navContext} />
+          <AdminBreadcrumbs
+            pathname={location.pathname}
+            navContext={navContext}
+            leafOverride={breadcrumbLeafOverride}
+          />
         </div>
 
         <div className="admin-layout__content">
@@ -212,6 +233,7 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
               route={routeDenied.route}
               rule={routeDenied.rule}
               missingRule={routeDenied.code === 'missing_rule'}
+              accessProfile={accessProfile}
             />
           ) : (
             <Suspense fallback={<RouteLoading />}>
@@ -225,6 +247,7 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
                   setMustResetPassword,
                   accessProfile,
                   navContext,
+                  setAdminPageMeta: setPageMetaOverride,
                 }}
               />
             </Suspense>

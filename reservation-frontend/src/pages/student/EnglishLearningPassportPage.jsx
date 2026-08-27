@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button, Card, Col, Form, ProgressBar, Row, Spinner, Alert } from 'react-bootstrap';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ElpStatusBadge from '../../components/englishLearningPassport/ElpStatusBadge';
+import { validateReservationFields } from '../../utils/validators';
 import {
   fetchElpDashboard,
   applyElpPassport,
@@ -61,6 +62,7 @@ export default function EnglishLearningPassportPage() {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [applying, setApplying] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const loadSeqRef = useRef(0);
@@ -103,10 +105,14 @@ export default function EnglishLearningPassportPage() {
       studentName: form.studentName.trim(),
       studentEmail: form.studentEmail.trim(),
     };
-    if (!s.studentId || !s.studentName || !s.studentEmail) {
-      setError('請填寫學號、姓名與 Email');
+    const { isValid, fieldErrors: nextFieldErrors } = validateReservationFields(s);
+    if (!isValid) {
+      setFieldErrors(nextFieldErrors);
+      setError('');
       return;
     }
+    setFieldErrors({});
+    setError('');
     saveElpStudent(s);
     setStudent(s);
   };
@@ -185,7 +191,7 @@ export default function EnglishLearningPassportPage() {
           <Card.Body>
             <h2 className="h5 mb-3">身分驗證</h2>
             {error && <Alert variant="danger">{error}</Alert>}
-            <Form onSubmit={handleIdentify}>
+            <Form onSubmit={handleIdentify} noValidate>
               <Row className="g-3">
                 <Col md={4}>
                   <Form.Group>
@@ -193,8 +199,12 @@ export default function EnglishLearningPassportPage() {
                     <Form.Control
                       value={form.studentId}
                       onChange={(e) => setForm({ ...form, studentId: e.target.value })}
-                      required
+                      isInvalid={!!fieldErrors.studentId}
+                      aria-describedby={fieldErrors.studentId ? 'elp-student-id-error' : undefined}
                     />
+                    <Form.Control.Feedback type="invalid" id="elp-student-id-error">
+                      {fieldErrors.studentId}
+                    </Form.Control.Feedback>
                   </Form.Group>
                 </Col>
                 <Col md={4}>
@@ -203,8 +213,12 @@ export default function EnglishLearningPassportPage() {
                     <Form.Control
                       value={form.studentName}
                       onChange={(e) => setForm({ ...form, studentName: e.target.value })}
-                      required
+                      isInvalid={!!fieldErrors.studentName}
+                      aria-describedby={fieldErrors.studentName ? 'elp-student-name-error' : undefined}
                     />
+                    <Form.Control.Feedback type="invalid" id="elp-student-name-error">
+                      {fieldErrors.studentName}
+                    </Form.Control.Feedback>
                   </Form.Group>
                 </Col>
                 <Col md={4}>
@@ -214,8 +228,12 @@ export default function EnglishLearningPassportPage() {
                       type="email"
                       value={form.studentEmail}
                       onChange={(e) => setForm({ ...form, studentEmail: e.target.value })}
-                      required
+                      isInvalid={!!fieldErrors.studentEmail}
+                      aria-describedby={fieldErrors.studentEmail ? 'elp-student-email-error' : undefined}
                     />
+                    <Form.Control.Feedback type="invalid" id="elp-student-email-error">
+                      {fieldErrors.studentEmail}
+                    </Form.Control.Feedback>
                   </Form.Group>
                 </Col>
               </Row>
@@ -298,16 +316,33 @@ export default function EnglishLearningPassportPage() {
       {!loading && !passport && (
         <Card>
           <Card.Body className="text-center py-4">
-            <p className="mb-3">您尚未申請英語實踐歷程護照。</p>
-            <Button variant="primary" onClick={handleApply} disabled={applying}>
-              {applying ? '申請中…' : '申請護照'}
-            </Button>
+            <p className="mb-3">您尚未申請英語實踐歷程護照。這是畢業認證點數作業，不是活動預約紀錄。</p>
+            <div className="d-flex flex-wrap justify-content-center gap-2">
+              <Button variant="primary" onClick={handleApply} disabled={applying}>
+                {applying ? '申請中…' : '申請護照'}
+              </Button>
+              <Link to="/student/progress" className="btn btn-outline-primary">
+                查看我的英語進度
+              </Link>
+              <Link to="/course-guide" className="btn btn-outline-secondary">
+                修課與認證說明
+              </Link>
+              <Link to="/events" className="btn btn-outline-secondary">
+                先去預約場次
+              </Link>
+            </div>
           </Card.Body>
         </Card>
       )}
 
       {!loading && passport?.status === 'pending' && (
-        <Alert variant="warning">護照申請審核中，核准後即可開始累積點數。</Alert>
+        <Alert variant="warning">
+          護照申請審核中，核准後即可開始累積點數。等待期間仍可預約活動或先做 5 分鐘練習。
+          <div className="mt-2 d-flex flex-wrap gap-2">
+            <Link to="/events" className="btn btn-sm btn-outline-primary">查看本週場次</Link>
+            <Link to="/learning-resources" className="btn btn-sm btn-outline-secondary">現在就練</Link>
+          </div>
+        </Alert>
       )}
 
       {!loading && passport?.status === 'rejected' && (

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { P } from '../../constants/permissions';
 import { buildAccessProfile, hasAnyPermission } from '../../utils/accessControl';
 import { getCurrentSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
@@ -77,6 +77,7 @@ function studentQueryFromSearch(searchText, fallbackSemesterId) {
 }
 
 export default function LearningJourneyDashboardPage() {
+  const { setAdminPageMeta } = useOutletContext() || {};
   const token = localStorage.getItem('token') || '';
   const [searchParams, setSearchParams] = useSearchParams();
   const searchText = searchParams.toString();
@@ -90,6 +91,15 @@ export default function LearningJourneyDashboardPage() {
     P.CAN_MANAGE_ENGLISH_TEST_TRACKING
   ]);
   const teacherView = accessProfile.isTeacher && !accessProfile.isExecutive;
+
+  useEffect(() => {
+    if (!setAdminPageMeta) return undefined;
+    setAdminPageMeta({
+      pageTitle: teacherView ? '我的授課學生學習歷程' : '全校學習歷程總覽',
+    });
+    return () => setAdminPageMeta(null);
+  }, [setAdminPageMeta, teacherView]);
+
   const [semesterId, setSemesterId] = useState(() => querySemester || DEFAULT_SEMESTER);
   const [activeBreakdown, setActiveBreakdown] = useState('grade');
   const initialSemesterSynced = useRef(false);
@@ -286,7 +296,7 @@ export default function LearningJourneyDashboardPage() {
       .then((data) => setBreakdownRows(Array.isArray(data) ? data : []))
       .catch((err) => {
         setBreakdownRows([]);
-        setBreakdownError(err.message || '讀取 Breakdown 失敗');
+        setBreakdownError(err.message || '讀取分項統計失敗');
       })
       .finally(() => setBreakdownLoading(false));
   }, [token, semesterId, activeBreakdown]);
@@ -302,15 +312,14 @@ export default function LearningJourneyDashboardPage() {
   return (
     <div className="container-fluid py-3">
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div>
-          <h4 className="mb-1">{teacherView ? '我的授課學生學習歷程' : '全校學習歷程總覽'}</h4>
-          <p className="text-muted mb-0">使用 V3 API 顯示學期 B2 指標、breakdown 與學生清單。</p>
-        </div>
+        <p className="text-muted mb-0">
+          依學期查看 CEFR B2 以上人數、分項統計與學生清單。請用下方「學生清單」以學號或姓名搜尋。
+        </p>
       </div>
 
       <div className="card mb-3">
         <div className="card-header fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
-          <span>B2 KPI（四技能）</span>
+          <span title="Common European Framework of Reference：B2 以上人數">B2 程度（四技能）</span>
           <div className="d-flex align-items-center gap-2">
             <label htmlFor="lj-dashboard-semester" className="small text-muted mb-0">學期</label>
             <select
@@ -339,7 +348,7 @@ export default function LearningJourneyDashboardPage() {
       </div>
 
       <div className="card mb-3">
-        <div className="card-header fw-semibold">Breakdown</div>
+        <div className="card-header fw-semibold">分項統計</div>
         <div className="card-body">
           <BreakdownTabs activeTab={activeBreakdown} onChange={setActiveBreakdown} />
           <div className="mt-3">
@@ -353,7 +362,7 @@ export default function LearningJourneyDashboardPage() {
       </div>
 
       <div className="card">
-        <div className="card-header fw-semibold">Student Table</div>
+        <div className="card-header fw-semibold">學生清單</div>
         <div className="card-body">
           <StudentFilters
             value={studentFilters}

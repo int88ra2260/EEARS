@@ -1,7 +1,8 @@
 // ===== LoginPage.js（後台登入） =====
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { login as loginApi } from '../services/authApi';
+import { getAdminRoleHomePath } from '../constants/adminNavigation';
 
 function LoginPage({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
@@ -29,13 +30,7 @@ function LoginPage({ onLoginSuccess }) {
         }
         onLoginSuccess(data.token, data.role, username, teacherName, data.mustResetPassword);
         const teacherLevel = data.teacherLevel || data.teacher?.teacherLevel || 'regular';
-        if (data.role === 'teacher' && teacherLevel !== 'executive') {
-          navigate('/admin/classes');
-        } else if (data.role === 'office_staff') {
-          navigate('/admin/operations');
-        } else {
-          navigate('/admin');
-        }
+        navigate(getAdminRoleHomePath({ role: data.role, teacherLevel }));
       } else if (data.code === 'LOGIN_COOLDOWN') {
         const minutes = data.retryAfterSeconds
           ? Math.max(1, Math.ceil(Number(data.retryAfterSeconds) / 60))
@@ -66,6 +61,16 @@ function LoginPage({ onLoginSuccess }) {
           <button className="btn btn-primary w-100" type="submit">登入</button>
         </form>
         {error && <p className="text-danger mt-3">{error}</p>}
+        <p className="text-muted small mt-3 mb-0 text-center">
+          學生不需登入，請
+          {' '}
+          <Link to="/">返回首頁</Link>
+          {' '}
+          或
+          {' '}
+          <Link to="/events">預約場次</Link>
+          。
+        </p>
       </div>
     </div>
   );

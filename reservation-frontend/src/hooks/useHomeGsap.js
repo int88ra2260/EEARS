@@ -18,6 +18,8 @@ const SECTION_HEADER_SELECTORS = [
 
   '.home-section__header--split > div > *',
 
+  '.home-practice-now__header > *',
+
   '.home-contact-grid__copy > *',
 
 ].join(', ');
@@ -31,6 +33,8 @@ const SECTION_ITEM_SELECTORS = [
   '.home-steps-rail__item',
 
   '.home-announce-card-link',
+
+  '.home-practice-now__card',
 
   '.home-faq__item',
 

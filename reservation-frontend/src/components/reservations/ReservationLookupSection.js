@@ -6,6 +6,10 @@ import React from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import './ReservationLookupSection.css';
 
+function fieldClass(hasError) {
+  return hasError ? 'form-control is-invalid' : 'form-control';
+}
+
 export default function ReservationLookupSection({
   studentId,
   studentName,
@@ -15,7 +19,8 @@ export default function ReservationLookupSection({
   onStudentEmailChange,
   onSearch,
   loading,
-  error,
+  validationErrors = {},
+  searchError,
   searchButtonLabel,
   showHint,
 }) {
@@ -37,11 +42,19 @@ export default function ReservationLookupSection({
           <input
             id="reservation-student-id"
             type="text"
-            className="form-control"
+            className={fieldClass(validationErrors.studentId)}
             value={studentId}
             onChange={(e) => onStudentIdChange(e.target.value)}
             disabled={loading}
+            aria-invalid={validationErrors.studentId ? 'true' : undefined}
+            aria-describedby={validationErrors.studentId ? 'reservation-student-id-error' : undefined}
+            autoComplete="username"
           />
+          {validationErrors.studentId ? (
+            <div id="reservation-student-id-error" className="invalid-feedback d-block">
+              {validationErrors.studentId}
+            </div>
+          ) : null}
         </div>
         <div className="mb-3">
           <label htmlFor="reservation-name" className="form-label">
@@ -50,11 +63,19 @@ export default function ReservationLookupSection({
           <input
             id="reservation-name"
             type="text"
-            className="form-control"
+            className={fieldClass(validationErrors.studentName)}
             value={studentName}
             onChange={(e) => onStudentNameChange(e.target.value)}
             disabled={loading}
+            aria-invalid={validationErrors.studentName ? 'true' : undefined}
+            aria-describedby={validationErrors.studentName ? 'reservation-name-error' : undefined}
+            autoComplete="name"
           />
+          {validationErrors.studentName ? (
+            <div id="reservation-name-error" className="invalid-feedback d-block">
+              {validationErrors.studentName}
+            </div>
+          ) : null}
         </div>
         <div className="mb-3">
           <label htmlFor="reservation-email" className="form-label">
@@ -63,18 +84,27 @@ export default function ReservationLookupSection({
           <input
             id="reservation-email"
             type="email"
-            className="form-control"
+            className={fieldClass(validationErrors.studentEmail)}
             value={studentEmail}
             onChange={(e) => onStudentEmailChange(e.target.value)}
             disabled={loading}
+            aria-invalid={validationErrors.studentEmail ? 'true' : undefined}
+            aria-describedby={validationErrors.studentEmail ? 'reservation-email-error' : undefined}
+            autoComplete="email"
+            inputMode="email"
           />
+          {validationErrors.studentEmail ? (
+            <div id="reservation-email-error" className="invalid-feedback d-block">
+              {validationErrors.studentEmail}
+            </div>
+          ) : null}
         </div>
-        {error && (
+        {searchError ? (
           <div className="alert alert-danger" role="alert">
-            {error}
+            {searchError}
           </div>
-        )}
-        {error && !loading && (
+        ) : null}
+        {searchError && !loading ? (
           <div className="mt-2 d-flex gap-2 flex-wrap">
             <button
               type="button"
@@ -84,7 +114,7 @@ export default function ReservationLookupSection({
               重新嘗試
             </button>
           </div>
-        )}
+        ) : null}
         <button
           type="button"
           className="btn btn-primary reservation-lookup-submit"

@@ -15,13 +15,11 @@ import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
-
-const SKILL_LABELS = {
-  listening: '聽力',
-  reading: '閱讀',
-  speaking: '口說',
-  writing: '寫作',
-};
+import {
+  BALANCE_QUALITY_LABELS,
+  SKILL_LABELS,
+  labelEstimateType,
+} from '../../components/learningAnalytics/learningAnalyticsCopy';
 
 function formatConfidenceIntervalLowHigh(low, high) {
   const l = Number(low);
@@ -48,14 +46,14 @@ function formatBalanceDiagnosticsSummary(balanceDiagnostics) {
   const evExact = formatMaybeNumber(balanceDiagnostics.evidenceQuality?.exactMatchRate, 3);
   const skillExact = formatMaybeNumber(balanceDiagnostics.skill?.exactMatchRate, 3);
 
-  const parts = [];
-  parts.push(`品質:${b || '—'}`);
-  if (baselineSmd != null) parts.push(`基礎SMD:${baselineSmd}`);
-  if (hoursSmd != null) parts.push(`時數SMD:${hoursSmd}`);
-  if (ceFromExact != null) parts.push(`初始CEFR精確:${ceFromExact}`);
-  if (deptExact != null) parts.push(`部門精確:${deptExact}`);
-  if (evExact != null) parts.push(`證據精確:${evExact}`);
-  if (skillExact != null) parts.push(`技能精確:${skillExact}`);
+  const quality = BALANCE_QUALITY_LABELS[b] || b || '—';
+  const parts = [`配對：${quality}`];
+  if (baselineSmd != null) parts.push(`起始程度差 ${baselineSmd}`);
+  if (hoursSmd != null) parts.push(`時數差 ${hoursSmd}`);
+  if (ceFromExact != null) parts.push(`程度相符 ${ceFromExact}`);
+  if (deptExact != null) parts.push(`系所相符 ${deptExact}`);
+  if (evExact != null) parts.push(`資料相符 ${evExact}`);
+  if (skillExact != null) parts.push(`技能相符 ${skillExact}`);
 
   return parts.join('；');
 }
@@ -110,7 +108,7 @@ export default function LearningAnalyticsModelRunsPage() {
     setError('');
     try {
       const data = await createLearningAnalyticsModelRun(token, { filters: apiParams() });
-      setMessage(`已固化 Model Run #${data?.modelRun?.id || '—'}`);
+      setMessage(`已儲存分析紀錄 #${data?.modelRun?.id || '—'}`);
       await loadRuns();
     } catch (e) {
       setError(e.message || '固化失敗');
@@ -135,9 +133,6 @@ export default function LearningAnalyticsModelRunsPage() {
   return (
     <div>
       <LearningAnalyticsDataHealth meta={meta} error={metaError} />
-      <p className="small text-muted">
-        將目前篩選下的分析估計寫入資料庫，供稽核與跨批次比對。需「執行學習成效分析模型」權限。
-      </p>
 
       <LearningAnalyticsFilters
         filters={filters}
@@ -147,7 +142,7 @@ export default function LearningAnalyticsModelRunsPage() {
         loading={loading || saving || !ready}
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
-        filterTitle="固化時套用的篩選"
+        filterTitle="這次要存的篩選"
         submitLabel="套用篩選"
         showAdvanced
       />
@@ -155,19 +150,19 @@ export default function LearningAnalyticsModelRunsPage() {
 
       <div className="la-panel mt-3 mb-3">
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
-          <div className="la-panel-title mb-0">執行新 Model Run</div>
+          <div className="la-panel-title mb-0">儲存目前結果</div>
           <Button
             size="sm"
             variant="dark"
             onClick={handlePersist}
             disabled={!canRun || saving || !ready}
           >
-            {saving ? '固化中…' : '固化目前篩選結果'}
+            {saving ? '儲存中…' : '儲存紀錄'}
           </Button>
         </div>
         {!canRun ? (
           <Alert variant="light" className="small border mt-2 mb-0 py-2">
-            您沒有模型執行權限；可檢視歷史紀錄。
+            您沒有儲存權限；仍可查看歷史紀錄。
           </Alert>
         ) : null}
       </div>
@@ -184,7 +179,7 @@ export default function LearningAnalyticsModelRunsPage() {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>快照版本</th>
+                <th>資料版本</th>
                 <th>學期</th>
                 <th className="text-end">納入學生</th>
                 <th>建立時間</th>
@@ -210,7 +205,7 @@ export default function LearningAnalyticsModelRunsPage() {
               ))}
             </tbody>
           </Table>
-          {!runs.length ? <p className="small text-muted mb-0 mt-2">尚無固化紀錄。</p> : null}
+          {!runs.length ? <p className="small text-muted mb-0 mt-2">尚無紀錄。</p> : null}
         </div>
       )}
 
@@ -223,7 +218,7 @@ export default function LearningAnalyticsModelRunsPage() {
           <div className="la-panel mt-3">
             <div className="d-flex flex-wrap justify-content-between align-items-start gap-2">
               <div>
-                <div className="la-panel-title mb-1">Run #{selected.modelRun?.id} 摘要</div>
+                <div className="la-panel-title mb-1">紀錄 #{selected.modelRun?.id}</div>
                 <div className="small text-muted">
                   {selected.modelRun?.modelName || '學習成效估計'}
                   {' · '}
@@ -248,13 +243,13 @@ export default function LearningAnalyticsModelRunsPage() {
               </Col>
               <Col md={4}>
                 <div className="la-outlook-card h-100">
-                  <div className="small text-muted">資源效應列</div>
+                  <div className="small text-muted">資源效果</div>
                   <div className="fw-semibold mt-1">{selected.resourceEffects?.length || 0} 筆</div>
                 </div>
               </Col>
               <Col md={4}>
                 <div className="la-outlook-card h-100">
-                  <div className="small text-muted">成長區間列</div>
+                  <div className="small text-muted">進步明細</div>
                   <div className="fw-semibold mt-1">{selected.growthEpisodes?.length || 0} 筆</div>
                 </div>
               </Col>
@@ -263,22 +258,24 @@ export default function LearningAnalyticsModelRunsPage() {
 
           {selected.resourceEffects?.length ? (
             <div className="la-panel mt-3">
-              <div className="la-panel-title">資源效應預覽（前 12 筆）</div>
+              <div className="la-panel-title">資源效果（前 12 筆）</div>
               <Table responsive size="sm" className="mb-0 align-middle">
                 <thead>
                   <tr>
                     <th>資源</th>
+                    <th>算法</th>
                     <th>技能</th>
-                    <th className="text-end">估計效應</th>
-                    <th className="text-end">95% 信賴區間</th>
-                    <th>平衡診斷（matching）</th>
-                    <th className="text-end">樣本</th>
+                    <th className="text-end">估計效果</th>
+                    <th className="text-end">可能範圍</th>
+                    <th>對照是否公平</th>
+                    <th className="text-end">人數</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selected.resourceEffects.slice(0, 12).map((row) => (
                     <tr key={row.id}>
                       <td>{row.resourceType}</td>
+                      <td>{labelEstimateType(row.estimateType)}</td>
                       <td>{SKILL_LABELS[row.skill] || row.skill || '—'}</td>
                       <td className="text-end">{row.causalEffect ?? row.adjustedEffect ?? row.rawEffect ?? '—'}</td>
                       <td className="text-end">
@@ -293,7 +290,7 @@ export default function LearningAnalyticsModelRunsPage() {
                 </tbody>
               </Table>
               <p className="small text-muted mb-0 mt-2">
-                效應為觀察估計；causalClaimAllowed 為 false 時不得解讀為因果。
+                用來比較趨勢，不是保證參加就進步。「可能範圍」愈窄、對照愈接近，數字愈穩。
               </p>
             </div>
           ) : null}

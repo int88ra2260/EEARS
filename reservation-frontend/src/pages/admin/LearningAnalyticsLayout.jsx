@@ -11,8 +11,8 @@ const TABS = [
   { to: '/admin/learning-analytics/skills', label: '技能成長' },
   { to: '/admin/learning-analytics/students', label: '學習軌跡' },
   { to: '/admin/learning-analytics/raw-data', label: '原始資料' },
-  { to: '/admin/learning-analytics/insights', label: '決策支援' },
-  { to: '/admin/learning-analytics/model-runs', label: '模型紀錄' },
+  { to: '/admin/learning-analytics/insights', label: '進階分析' },
+  { to: '/admin/learning-analytics/model-runs', label: '分析紀錄' },
   { to: '/admin/learning-analytics/settings', label: '模組設定', manageOnly: true },
 ];
 
@@ -27,9 +27,8 @@ export default function LearningAnalyticsLayout() {
   return (
     <div className="learning-analytics-shell">
       <header className="la-page-header">
-        <h1 className="la-page-title">英語學習成效分析</h1>
         <p className="la-page-subtitle mb-0">
-          整合學習歷程、英檢成績與活動參與，協助評估中心課程與活動與學生英語能力進步的關聯（觀察資料，非因果宣稱）。
+          看程度分布、進步幅度，以及課程／活動與進步的關聯。數字用來比較趨勢，不是保證參加就進步。
         </p>
       </header>
       <nav className="la-subnav" aria-label="學習成效分析子頁">

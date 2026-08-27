@@ -8,6 +8,7 @@ import {
   updateLearningAnalyticsLvaConfig,
 } from '../../services/learningAnalyticsService';
 import LvaFormulaReference from './LvaFormulaReference';
+import LaFold from './LaFold';
 
 function cloneGroups(groups = []) {
   return groups.map((group) => ({
@@ -61,7 +62,7 @@ export default function LvaConfigEditor({ token, lvaConfig, onSaved, embedded = 
         value: field.type === 'integer' ? parseInt(field.value, 10) : Number(field.value),
       })));
       const data = await updateLearningAnalyticsLvaConfig(token, params);
-      setMessage('LVA 演算法參數已儲存；後續分析將採用新設定。');
+      setMessage('估計參數已儲存。');
       onSaved?.(data?.lvaConfig || data);
     } catch (e) {
       setError(e.message || '儲存失敗');
@@ -77,7 +78,7 @@ export default function LvaConfigEditor({ token, lvaConfig, onSaved, embedded = 
     setError('');
     try {
       const data = await resetLearningAnalyticsLvaConfig(token);
-      setMessage('已還原 LVA 演算法為預設值。');
+      setMessage('已還原為預設值。');
       onSaved?.(data?.lvaConfig || data);
     } catch (e) {
       setError(e.message || '還原失敗');
@@ -92,14 +93,14 @@ export default function LvaConfigEditor({ token, lvaConfig, onSaved, embedded = 
     <div className={`d-flex flex-wrap justify-content-between align-items-start gap-2 ${embedded ? 'mb-3' : 'mb-2'}`}>
       {!embedded ? (
         <div>
-          <div className="la-panel-title mb-1">LVA 學習成效估計演算法</div>
+          <div className="la-panel-title mb-1">估計參數</div>
           <p className="small text-muted la-panel-lead mb-0">
-            控制修正成長、背景相近比對與加權估計的計算方式。此為觀察資料估計，不代表因果證明。
+            調整校正後進步、背景相近比較與加權比較的門檻。
           </p>
         </div>
       ) : (
         <div className="small text-muted">
-          此為觀察資料估計，不代表因果證明。
+          此為觀察結果，不是保證參加就進步。
         </div>
       )}
       <div className="d-flex flex-wrap gap-2">
@@ -120,7 +121,9 @@ export default function LvaConfigEditor({ token, lvaConfig, onSaved, embedded = 
 
   const body = (
     <>
-      <LvaFormulaReference />
+      <LaFold label="計算方式說明" className="mb-3">
+        <LvaFormulaReference />
+      </LaFold>
 
       {hasCustom ? (
         <Alert variant="info" className="py-2 small">

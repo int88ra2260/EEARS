@@ -138,10 +138,10 @@ export const ADMIN_ROUTE_ACCESS = [
     label: '問卷分析',
     anyPermissions: [P.CAN_VIEW_SURVEY_ANALYTICS],
   },
-  { pattern: '/admin/survey-health', label: 'Survey Data Health', anyPermissions: [P.CAN_VIEW_SURVEY_HEALTH] },
+  { pattern: '/admin/survey-health', label: '問卷資料品質', anyPermissions: [P.CAN_VIEW_SURVEY_HEALTH] },
   {
     pattern: '/admin/survey-answer-mappings',
-    label: 'Survey Answer Mapping',
+    label: '問卷答案對照',
     anyPermissions: [P.CAN_MANAGE_SURVEY_ANSWER_MAPPING],
   },
   { pattern: '/admin/surveys', label: 'Legacy 問卷管理', anyPermissions: [P.CAN_VIEW_SURVEYS, P.CAN_EXPORT_SURVEYS] },
@@ -168,7 +168,7 @@ export const ADMIN_ROUTE_ACCESS = [
   { pattern: '/admin/site-content', label: '學生端內容', anyPermissions: [P.CAN_MANAGE_SITE_CONTENT] },
   { pattern: '/admin/page-content', label: '學生端內容', anyPermissions: [P.CAN_MANAGE_SITE_CONTENT] },
 
-  { pattern: '/admin/logs', label: 'Audit Logs', roles: ['admin'], denyStaffLevels: DEPUTY_DENIED_STAFF_LEVELS, anyPermissions: [P.CAN_VIEW_AUDIT_LOGS] },
+  { pattern: '/admin/logs', label: '操作紀錄', roles: ['admin'], denyStaffLevels: DEPUTY_DENIED_STAFF_LEVELS, anyPermissions: [P.CAN_VIEW_AUDIT_LOGS] },
   {
     pattern: '/admin/settings/system',
     label: '系統設定',
@@ -186,7 +186,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/diagnostics',
-    label: 'Internal Diagnostics',
+    label: '系統診斷',
     roles: ['admin'],
     denyStaffLevels: DEPUTY_DENIED_STAFF_LEVELS,
     anyPermissions: [P.CAN_VIEW_INTERNAL_DIAGNOSTICS],
@@ -401,13 +401,13 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/learning-analytics/insights',
-    label: '決策支援分析',
+    label: '進階分析',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
     pattern: '/admin/learning-analytics/model-runs',
-    label: '模型執行紀錄',
+    label: '分析紀錄',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },

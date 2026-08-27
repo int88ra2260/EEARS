@@ -14,6 +14,11 @@ export default function WaitlistSuccessView({ event, studentEmail, position, onC
   const emailLabel = studentEmail || '您填寫的 Email';
   const posLabel = position != null ? String(position) : '—';
 
+  const handleMyReservations = () => {
+    if (typeof onClose === 'function') onClose();
+    navigate('/my-reservations');
+  };
+
   const handleBackToActivities = () => {
     if (typeof onClose === 'function') onClose();
     navigate('/events');
@@ -64,8 +69,11 @@ export default function WaitlistSuccessView({ event, studentEmail, position, onC
       </div>
 
       <div className="mt-3 d-flex flex-column flex-sm-row gap-2">
-        <Button variant="primary" onClick={handleBackToActivities}>
-          返回活動列表
+        <Button variant="primary" onClick={handleMyReservations}>
+          查看我的預約
+        </Button>
+        <Button variant="outline-primary" onClick={handleBackToActivities}>
+          再看其他場次
         </Button>
         <Button variant="outline-secondary" onClick={onClose}>
           關閉

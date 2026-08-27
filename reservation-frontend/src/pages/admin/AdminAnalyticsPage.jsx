@@ -389,8 +389,7 @@ export default function AdminAnalyticsPage() {
 
   return (
     <div className="container-fluid px-2 px-md-3">
-      <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-        <h1 className="h5 mb-0 text-primary">行政總覽</h1>
+      <div className="d-flex flex-wrap justify-content-end align-items-start gap-2 mb-2">
         <div className="d-flex flex-wrap align-items-center gap-2">
           <Form.Group className="mb-0">
             <Form.Label className="small text-muted me-2 mb-0">學期</Form.Label>

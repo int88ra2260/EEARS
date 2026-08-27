@@ -49,11 +49,8 @@ export default function AdminEventParticipationStatsPage() {
   return (
     <div>
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div>
-          <h4 className="mb-1">簽到參與統計</h4>
-          <div className="text-muted small">
+        <div className="text-muted small">
             依活動日期歸屬學期；僅統計預約狀態為「已簽到」的紀錄。參與人數為不重複學號，人次為已簽到筆數（同一學生參加多場活動會計入多次）。
-          </div>
         </div>
         <Link to="/admin/operations" className="btn btn-outline-secondary btn-sm">
           返回活動列表

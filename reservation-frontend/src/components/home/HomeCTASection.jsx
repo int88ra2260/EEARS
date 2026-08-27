@@ -12,7 +12,7 @@ const CTA_ITEMS = [
   {
     icon: 'clipboard',
     title: '本學期問卷',
-    desc: '填寫學期問卷已開放預約',
+    desc: '查看本學期是否有需填問卷',
     link: '/survey/choice',
   },
   {

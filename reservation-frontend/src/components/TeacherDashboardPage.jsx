@@ -95,8 +95,8 @@ export default function TeacherDashboardPage() {
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </Form.Select>
-          <Button variant="outline-secondary" size="sm" onClick={() => navigate('/admin/analytics/students')}>
-            前往學生學習歷程查詢
+          <Button variant="outline-secondary" size="sm" onClick={() => navigate('/admin/learning-journey')}>
+            前往英語學習歷程中心
           </Button>
           <Button variant="outline-secondary" size="sm" onClick={() => navigate('/admin/analytics/overview')}>
             返回分析與報表

@@ -2,8 +2,10 @@
 // 活動報表區塊：篩選、表格與操作鈕。由 AdminHome 傳入資料與 handlers.
 
 import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Spinner } from 'react-bootstrap';
 import { getSemesterOptions } from '../../../utils/adminReportUtils';
+import { eventDetailPath, getEventRowStatusBadges } from '../../../utils/eventListStatus';
 import ErrorAlert from '../shared/ErrorAlert';
 import '../../../styles/admin-operations.css';
 
@@ -64,7 +66,6 @@ export default function EventReportTable({
   onClearFilterDate,
   onExportAll,
   onExport,
-  onEventDetail,
   onEditEvent,
   onDeleteEvent,
   isEventToday,
@@ -86,31 +87,19 @@ export default function EventReportTable({
   }, [summary, isEventToday]);
 
   const renderActions = (evt) => {
+    const detailPath = eventDetailPath(evt.eventId);
+    const checkinPath = eventDetailPath(evt.eventId, 'checkin');
+    const violationPath = eventDetailPath(evt.eventId, 'violations');
+    const isToday = isEventToday(evt.date);
+
     if (isWorker) {
       return (
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-success"
-          onClick={() => onEventDetail(evt.eventId)}
-        >
-          活動明細
-        </button>
+        <Link to={checkinPath} className="btn btn-sm btn-outline-success">
+          簽到／管理
+        </Link>
       );
     }
-    if (isTeacher) {
-      return (
-        <>
-          {canExportReservations && (
-            <button type="button" className="btn btn-sm btn-outline-info" onClick={() => onExport(evt.eventId)}>
-              匯出
-            </button>
-          )}
-          <button type="button" className="btn btn-sm btn-outline-success" onClick={() => onEventDetail(evt.eventId)}>
-            活動明細
-          </button>
-        </>
-      );
-    }
+
     return (
       <>
         {canExportReservations && (
@@ -118,15 +107,27 @@ export default function EventReportTable({
             匯出
           </button>
         )}
-        <button type="button" className="btn btn-sm btn-outline-success" onClick={() => onEventDetail(evt.eventId)}>
-          活動明細
-        </button>
-        <button type="button" className="btn btn-sm btn-outline-warning" onClick={() => onEditEvent(evt)}>
-          修改
-        </button>
-        <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => onDeleteEvent(evt.eventId, evt.name)}>
-          刪除
-        </button>
+        <Link to={detailPath} className="btn btn-sm btn-outline-success">
+          明細
+        </Link>
+        {isToday ? (
+          <Link to={checkinPath} className="btn btn-sm btn-success">
+            簽到
+          </Link>
+        ) : null}
+        <Link to={violationPath} className="btn btn-sm btn-outline-danger">
+          違規
+        </Link>
+        {!isTeacher ? (
+          <>
+            <button type="button" className="btn btn-sm btn-outline-warning" onClick={() => onEditEvent(evt)}>
+              修改
+            </button>
+            <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => onDeleteEvent(evt.eventId, evt.name)}>
+              刪除
+            </button>
+          </>
+        ) : null}
       </>
     );
   };
@@ -150,6 +151,11 @@ export default function EventReportTable({
           <span className="admin-operations__stat-label">總剩餘名額</span>
           <span className="admin-operations__stat-value">{stats.totalSpots}</span>
         </div>
+      </div>
+
+      <div className="alert alert-light border mb-3 small" role="note">
+        <strong>營運流程：</strong>
+        由本頁「明細」進入後，可於同一頁切換「簽到管理」「違規與未到處理」。今日場次可直接按「簽到」。
       </div>
 
       <div className="admin-operations__filters">
@@ -277,6 +283,7 @@ export default function EventReportTable({
                 <th>日期</th>
                 <th>時間</th>
                 <th>活動地點</th>
+                <th>狀態</th>
                 <th>預約人數</th>
                 <th>剩餘名額</th>
                 <th>操作</th>
@@ -285,6 +292,7 @@ export default function EventReportTable({
             <tbody>
               {summary.map((evt) => {
                 const isToday = isEventToday(evt.date);
+                const statusBadges = getEventRowStatusBadges(evt, isToday);
                 return (
                   <tr key={evt.eventId} className={isToday ? 'is-today' : ''}>
                     <td>{evt.name}</td>
@@ -292,6 +300,13 @@ export default function EventReportTable({
                     <td>{evt.date}</td>
                     <td>{evt.startTime} – {evt.endTime}</td>
                     <td>{evt.location || '地點待公告'}</td>
+                    <td>
+                      {statusBadges.length === 0 ? '—' : statusBadges.map((badge) => (
+                        <span key={badge.label} className={`badge ${badge.className} me-1`}>
+                          {badge.label}
+                        </span>
+                      ))}
+                    </td>
                     <td>{evt.reservedCount}</td>
                     <td>{evt.availableSpots}</td>
                     <td>

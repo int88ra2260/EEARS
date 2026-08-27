@@ -46,7 +46,7 @@ export default function ParticipationGrowthScatter({ points = [] }) {
             dataKey="y"
             name="修正後成長"
             tick={{ fontSize: 11, fill: '#787774' }}
-            label={{ value: '修正後 GSE 成長', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#787774' }}
+            label={{ value: '校正後進步', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#787774' }}
           />
           <ZAxis range={[40, 120]} />
           <Tooltip

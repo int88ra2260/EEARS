@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getReliabilityFault, makeDevRequestId } from '../utils/reliabilityFaults';
 import { buildAccessProfile, hasPermission } from '../utils/accessControl';
 import { P } from '../constants/permissions';
+import { countTodayEvents } from '../utils/adminDashboardTodos';
 import {
   fetchBlacklistBySemester,
   fetchDashboardEvents,
@@ -85,6 +86,7 @@ export function useAdminDashboardProduct({ token, userRole, toast }) {
   );
 
   const [recentEvents, setRecentEvents] = useState([]);
+  const [todayEventCount, setTodayEventCount] = useState(0);
   const [violations, setViolations] = useState([]);
   const [healthState, setHealthState] = useState({
     status: KPI_STATUS.LOADING,
@@ -133,6 +135,7 @@ export function useAdminDashboardProduct({ token, userRole, toast }) {
       const list = await fetchDashboardEvents(token, userRole);
       const filtered = list.filter((evt) => withinNextDays(evt.date, 7));
       setRecentEvents(filtered.slice(0, 5));
+      setTodayEventCount(countTodayEvents(list));
       const count = filtered.length;
       setKpiRecentEvents({
         status: count === 0 ? KPI_STATUS.EMPTY : KPI_STATUS.SUCCESS,
@@ -144,6 +147,7 @@ export function useAdminDashboardProduct({ token, userRole, toast }) {
       setEventsSectionStatus(count === 0 ? KPI_STATUS.EMPTY : KPI_STATUS.SUCCESS);
     } catch (e) {
       setRecentEvents([]);
+      setTodayEventCount(0);
       setKpiRecentEvents(kpiErrorState(e));
       setEventsSectionStatus(KPI_STATUS.ERROR);
     }
@@ -294,6 +298,7 @@ export function useAdminDashboardProduct({ token, userRole, toast }) {
 
   return {
     recentEvents,
+    todayEventCount,
     violations,
     healthState,
     loadHealth,

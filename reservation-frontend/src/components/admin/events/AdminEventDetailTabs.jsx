@@ -79,6 +79,9 @@ export default function AdminEventDetailTabs({
 
   return (
     <>
+      <p className="text-muted small mb-2">
+        建議流程：確認「預約名單」→ 現場「簽到管理」→ 活動後「違規與未到處理」。
+      </p>
       <Tabs
         activeKey={tabKey}
         onSelect={(k) => setTabKey(k || 'reservations')}

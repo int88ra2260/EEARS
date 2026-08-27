@@ -2,8 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { getAdminBreadcrumbs } from '../../constants/adminNavigation';
 
-export default function AdminBreadcrumbs({ pathname, navContext }) {
-  const items = getAdminBreadcrumbs(pathname, navContext);
+export default function AdminBreadcrumbs({ pathname, navContext, leafOverride }) {
+  const items = getAdminBreadcrumbs(pathname, navContext, { leafOverride });
   const last = items.length - 1;
 
   return (

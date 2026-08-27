@@ -97,10 +97,16 @@ export default function ListeningLadderResultSummary({
         <button type="button" className="btn btn-primary" onClick={onPlayAgain}>
           {t('listeningLadder.playAgain')}
         </button>
+        <Link to="/practice/word-bridge" className="btn btn-outline-primary">
+          {t('listeningLadder.wordBridgeCta')}
+        </Link>
+        <Link to="/events" className="btn btn-outline-primary">
+          {t('listeningLadder.bookSessionCta')}
+        </Link>
         <Link to="/guides/activity-phrasebook" className="btn btn-outline-secondary">
           {t('listeningLadder.phrasebookCta')}
         </Link>
-        <Link to="/activities" className="btn btn-link">
+        <Link to="/learning-resources" className="btn btn-link">
           {t('listeningLadder.backToActivities')}
         </Link>
       </div>

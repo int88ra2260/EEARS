@@ -35,7 +35,7 @@ export function buildWordBridgeSharePayload({ result, lang, t, origin = '' }) {
   const duration = formatGameDuration(result.stats.durationMs, lang);
   const mistakes = result.stats.totalMistakes ?? 0;
   const max = result.stats.maxMistakes ?? MAX_MISTAKES;
-  const url = `${origin.replace(/\/$/, '')}/activities/word-bridge`;
+  const url = `${origin.replace(/\/$/, '')}/practice/word-bridge`;
 
   const text = fillTemplate(t('wordBridge.shareText'), {
     level: result.estimatedLevel,

@@ -24,8 +24,8 @@ import MetricCard from '../../components/learningAnalytics/MetricCard';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 import LearningAnalyticsOverviewGuide from '../../components/learningAnalytics/LearningAnalyticsOverviewGuide';
-import GrowthMetricsExplainer from '../../components/learningAnalytics/GrowthMetricsExplainer';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
+import LaFold from '../../components/learningAnalytics/LaFold';
 import EvidenceQualityBadge from '../../components/learningAnalytics/EvidenceQualityBadge';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 
@@ -130,9 +130,8 @@ export default function LearningAnalyticsOverviewPage() {
 
   return (
     <div>
-      <LearningAnalyticsDataHealth meta={meta} error={metaError} userFriendly />
+      <LearningAnalyticsDataHealth meta={meta} error={metaError} />
       <LearningAnalyticsOverviewGuide />
-      <GrowthMetricsExplainer compact />
       {(semesterFromUrl || filters.semester) ? (
         <Alert variant="light" className="small py-2 mb-3 border">
           您是從學習歷程儀表板進入？
@@ -153,7 +152,6 @@ export default function LearningAnalyticsOverviewPage() {
         filterTitle="篩選條件"
         submitLabel="套用篩選"
         showAdvanced={false}
-        intro="選擇想觀察的學生群體（例如特定 cohort、系所或起始英語能力）。「起始英語能力」主要依學測英文成績推估；「英語資源參與量」指考前累積的課程與活動時數。"
       />
       <LearningAnalyticsActiveFilters filters={appliedFilters} />
 
@@ -186,22 +184,9 @@ export default function LearningAnalyticsOverviewPage() {
         </Alert>
       ) : null}
 
-      {!loading && data?.hasData && (filters.semester || semesterFromUrl) ? (
-        <Alert variant="info" className="mt-3 small mb-0">
-          學期
-          <strong className="mx-1">{filters.semester || semesterFromUrl}</strong>
-          {data.certification?.skills
-            ? '：下方額外顯示該學期名冊學生，在四項技能上達 B2 以上的認證通過率（與上方全域指標分開計算）。'
-            : (data.certification?.note || '：此學期名冊資料不足，僅顯示不依學期切分的整體指標。')}
-        </Alert>
-      ) : null}
-
       {!loading && data?.hasData ? (
         <>
-          <p className="small text-muted mt-3 mb-2">
-            以下摘要依<strong>已套用</strong>的篩選條件計算；指標旁的 ⓘ 可查看定義。
-          </p>
-          <Row className="g-3">
+          <Row className="g-3 mt-1">
             <Col md={3} sm={6}>
               <MetricCard
                 label="納入分析的學生"
@@ -229,8 +214,8 @@ export default function LearningAnalyticsOverviewPage() {
               <MetricCard
                 label="平均能力成長（校正後）"
                 value={headline.averageAdjustedGseGrowth ?? '—'}
-                hint="GSE 能力量尺，愈高代表進步愈多"
-                tooltip="在控制起始英語能力與資料完整度後，估計的平均進步幅度。用於群體比較，不代表單一課程的因果效果。"
+                hint="愈高代表進步愈多"
+                tooltip="扣掉起始程度差異後的平均進步。用來比較群體，不代表某一門課的直接效果。"
               />
             </Col>
           </Row>
@@ -284,8 +269,8 @@ export default function LearningAnalyticsOverviewPage() {
               <div className="la-panel">
                 <LearningAnalyticsPanelHeader
                   title="各技能平均成長"
-                  lead="聽、說、讀、寫等技能的平均進步幅度（已校正起始能力）；雷達圖愈外圈代表該技能平均成長愈多。"
-                  tooltip="僅含可計算前後測的樣本；觀察趨勢用，不宜解讀為某一課程的直接成效。"
+                  lead="愈外圈代表該技能平均進步愈多（已校正起始程度）。"
+                  tooltip="僅含有前後測的學生。用來看趨勢，不宜當成某一門課的直接成效。"
                 />
                 <div style={{ width: '100%', height: 280 }}>
                   <ResponsiveContainer>
@@ -308,8 +293,8 @@ export default function LearningAnalyticsOverviewPage() {
               <div className="la-panel">
                 <LearningAnalyticsPanelHeader
                   title="英語中心資源參與"
-                  lead="在目前群體中，各類課程或活動的累積有效參與時數（僅顯示參與量前 8 名）。"
-                  tooltip="時數由學習歷程事件彙總，未修完或進行中的課程可能不計入。"
+                  lead="各類課程／活動的累積時數（前 8 名）。"
+                  tooltip="未修完或進行中的課程可能不計入。"
                 />
                 <div style={{ width: '100%', height: 300 }}>
                   <ResponsiveContainer>
@@ -327,8 +312,8 @@ export default function LearningAnalyticsOverviewPage() {
             <Col lg={5}>
               <div className="la-panel">
                 <LearningAnalyticsPanelHeader
-                  title="資源與成長的關聯（描述性）"
-                  lead="參與某類資源的學生，平均英檢成長分數排名。僅供發現「可能值得進一步了解」的資源，不能解讀為保證有效。"
+                  title="資源與進步"
+                  lead="有參與者的平均進步排名。數字高不代表該資源保證有效。"
                 />
                 <div className="table-responsive">
                   <table className="table table-sm align-middle mb-0">
@@ -364,8 +349,8 @@ export default function LearningAnalyticsOverviewPage() {
             <Col md={6}>
               <div className="la-panel">
                 <LearningAnalyticsPanelHeader
-                  title="資料完整度分布"
-                  lead="每位學生的英檢與參與紀錄是否足夠支撐分析；完整度較低者仍會顯示，但解讀時宜保守。"
+                  title="資料完整度"
+                  lead="英檢與參與紀錄夠不夠。完整度低的學生仍會列入，解讀宜保守。"
                 />
                 <ul className="list-unstyled mb-0">
                   {(data.evidenceQuality || []).map((row) => (
@@ -383,31 +368,29 @@ export default function LearningAnalyticsOverviewPage() {
               </div>
             </Col>
             <Col md={6}>
-              <div className="la-disclaimer">
-                <strong>閱讀提醒</strong>
-                <ul className="mb-0 mt-2 ps-3 small">
-                  {(data.disclaimers || []).map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                  <li>本頁為觀察統計，不能單獨作為「某課程讓學生進步」的因果證據。</li>
-                  <li>若數字與預期不符，請先確認是否已執行學習歷程重建，並檢查篩選條件是否過窄。</li>
-                </ul>
-                {data.snapshotVersion ? (
-                  <div className="small mt-2 text-muted">
-                    本次圖表使用的資料批次：{data.snapshotVersion}
-                  </div>
-                ) : null}
+              <div className="la-panel h-100">
+                <div className="la-panel-title">閱讀時請記得</div>
+                <p className="small text-muted mb-2">數字用來比較趨勢，不是「參加就一定進步」。</p>
+                <LaFold label="更多提醒">
+                  <ul className="mb-0 ps-3">
+                    {(data.disclaimers || []).map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                    <li>數字與預期不符時，先確認是否已重建資料、篩選是否過窄。</li>
+                  </ul>
+                  {data.snapshotVersion ? (
+                    <div className="mt-2">資料版本：{data.snapshotVersion}</div>
+                  ) : null}
+                </LaFold>
               </div>
             </Col>
           </Row>
 
           <div className="d-flex flex-wrap gap-3 mt-3 pt-2 border-top small">
-            <span className="text-muted">延伸功能：</span>
-            <Link to="/admin/learning-analytics/cohorts">依 cohort／系所分組比較</Link>
-            <Link to="/admin/learning-analytics/insights">決策支援圖表與 outlook</Link>
-            <Link to="/admin/learning-analytics/skills">查單一學生技能成長</Link>
-            <Link to="/admin/learning-analytics/model-runs">模型執行紀錄</Link>
-            <Link to="/admin/learning-analytics/raw-data">匯出 Excel 原始資料</Link>
+            <Link to="/admin/learning-analytics/cohorts">群體比較</Link>
+            <Link to="/admin/learning-analytics/insights">進階分析</Link>
+            <Link to="/admin/learning-analytics/skills">技能成長</Link>
+            <Link to="/admin/learning-analytics/raw-data">匯出資料</Link>
           </div>
         </>
       ) : null}

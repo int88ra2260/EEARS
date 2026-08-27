@@ -19,8 +19,7 @@
 }
 
 .page-content-admin__hero-copy,
-.page-content-admin__hero-note,
-.page-content-admin__section-card {
+.page-content-admin__hero-note {
   padding: 20px;
 }
 
@@ -95,14 +94,20 @@
 .page-content-admin__section-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  padding: 16px;
+}
+
+.page-content-admin--embedded .page-content-admin__section-card {
+  padding: 14px;
 }
 
 .page-content-admin__section-head {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .page-content-admin__section-title {
@@ -113,38 +118,44 @@
 
 .page-content-admin__section-subtitle {
   color: #6b7280;
-  font-size: 0.92rem;
-  max-width: 56rem;
+  font-size: 0.875rem;
+  max-width: 42rem;
+  line-height: 1.45;
 }
 
 .page-content-admin__stats {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .page-content-admin__stat {
-  min-width: 88px;
-  padding: 10px 12px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 10px;
   background: #fafaf9;
   border: 1px solid #e7e5e4;
-  border-radius: 10px;
+  border-radius: 999px;
 }
 
 .page-content-admin__stat-value {
   font-weight: 700;
+  font-size: 0.875rem;
   line-height: 1.2;
 }
 
 .page-content-admin__stat-label,
 .page-content-admin__field-label {
   color: #6b7280;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .page-content-admin__field-label {
   margin-bottom: 6px;
   font-weight: 600;
+  font-size: 0.78rem;
 }
 
 .page-content-admin__composer {
@@ -152,6 +163,31 @@
   background: #fafaf9;
   border: 1px solid #ece8e1;
   border-radius: 10px;
+}
+
+.page-content-admin__form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: end;
+}
+
+.page-content-admin__form-grid-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  grid-column: 1 / -1;
+}
+
+.page-content-admin__form-grid-full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 700px) {
+  .page-content-admin__form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .page-content-admin__table-wrap {
@@ -162,7 +198,7 @@
 
 .page-content-admin__table {
   margin-bottom: 0;
-  min-width: 920px;
+  min-width: 720px;
 }
 
 .page-content-admin__table thead th {
@@ -244,11 +280,40 @@
 }
 
 .page-content-admin--split .page-content-admin__workspace {
-  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.65fr);
 }
 
 .page-content-admin__editor {
   min-width: 0;
+}
+
+.page-content-admin__embed-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.page-content-admin__embed-hint {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.page-content-admin__master-detail {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.page-content-admin__master,
+.page-content-admin__detail {
+  min-width: 0;
+}
+
+/* 開啟預覽時改為單欄，避免側欄+左右編輯+預覽四欄擠壓 */
+.page-content-admin--split .page-content-admin__master-detail {
+  grid-template-columns: 1fr;
 }
 
 .page-content-admin__preview-pane {
@@ -307,7 +372,7 @@
   background: #fff;
 }
 
-@media (max-width: 1199px) {
+@media (max-width: 1399px) {
   .page-content-admin--split .page-content-admin__workspace {
     grid-template-columns: 1fr;
   }
@@ -315,12 +380,18 @@
   .page-content-admin__preview-pane {
     position: static;
     max-height: none;
-    min-height: 520px;
+    min-height: 480px;
   }
 
   .page-content-admin__preview-frame {
-    min-height: 480px;
-    height: 70vh;
+    min-height: 420px;
+    height: 60vh;
+  }
+}
+
+@media (max-width: 1100px) {
+  .page-content-admin__master-detail {
+    grid-template-columns: 1fr;
   }
 }
 

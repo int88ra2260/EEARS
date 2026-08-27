@@ -11,7 +11,7 @@ import {
   fetchElpRules,
   deleteElpSubmission,
 } from '../../services/englishLearningPassportApi';
-import { RULE_FORM_FIELDS, buildSubmissionPayload } from '../../constants/elpFormConfig';
+import { RULE_FORM_FIELDS, buildSubmissionPayload, validateRuleForm } from '../../constants/elpFormConfig';
 import '../../components/englishLearningPassport/elp.css';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -45,6 +45,7 @@ export default function EnglishLearningPassportSubmissionPage() {
   const [error, setError] = useState('');
   const [submissionId, setSubmissionId] = useState(isNew ? null : id);
   const [submissionStatus, setSubmissionStatus] = useState(null);
+  const [hasExistingAttachments, setHasExistingAttachments] = useState(false);
   const loadSeqRef = useRef(0);
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export default function EnglishLearningPassportSubmissionPage() {
           setForm(applySubmissionToForm(sub));
           setSubmissionId(sub.id);
           setSubmissionStatus(sub.status);
+          setHasExistingAttachments(Array.isArray(sub.attachments) && sub.attachments.length > 0);
         })
         .catch((e) => {
           if (cancelled || seq !== loadSeqRef.current) return;
@@ -107,8 +109,18 @@ export default function EnglishLearningPassportSubmissionPage() {
   };
 
   const handleSave = async (andSubmit = false) => {
-    setSaving(true);
     setError('');
+    if (andSubmit) {
+      const validationError = validateRuleForm(ruleCode, form, files, { hasExistingAttachments });
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+    } else if (!ruleCode) {
+      setError('請選擇項目類型');
+      return;
+    }
+    setSaving(true);
     try {
       const payload = buildSubmissionPayload(ruleCode, form);
       let sub;

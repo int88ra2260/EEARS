@@ -32,17 +32,17 @@ export function getEmptyReasonText(reason, fallbackText = EMPTY_REASON_TEXT[EMPT
 
 export function getSourceBadge(sourceMeta) {
   if (!sourceMeta || !sourceMeta.source) {
-    return { label: 'Unknown', className: 'text-bg-secondary' };
+    return { label: '未知來源', className: 'text-bg-secondary' };
   }
   if (sourceMeta.fallbackUsed) {
-    return { label: 'Fallback', className: 'text-bg-warning' };
+    return { label: '備援資料', className: 'text-bg-warning' };
   }
   const source = String(sourceMeta.source || '').toLowerCase();
   if (source.includes('english_test_registrations')) {
-    return { label: 'Legacy', className: 'text-bg-secondary' };
+    return { label: '舊英檢資料', className: 'text-bg-secondary' };
   }
   if (source.includes('legacy') && source.includes('+')) {
-    return { label: 'Mixed', className: 'text-bg-info' };
+    return { label: '混合來源', className: 'text-bg-info' };
   }
-  return { label: 'Canonical', className: 'text-bg-success' };
+  return { label: '正式資料', className: 'text-bg-success' };
 }

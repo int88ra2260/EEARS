@@ -20,6 +20,7 @@ import LvaMethodComparison from '../../components/learningAnalytics/LvaMethodCom
 import ResourceSkillProfileEditor from '../../components/learningAnalytics/ResourceSkillProfileEditor';
 
 import { LA_TERM_HELP } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import LaFold from '../../components/learningAnalytics/LaFold';
 
 import { getLearningAnalyticsSettings, postPruneAnalyticsSnapshots } from '../../services/learningAnalyticsService';
 
@@ -157,9 +158,7 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
       <p className="small text-muted">
 
-        在此校準分析用對照與篩選選項。變更後，各分析頁面的圖表與建議會採用新設定。
-
-        資料重建請至
+        調整下拉選項、估計參數與資源技能權重。重建資料請到
 
         {' '}
 
@@ -186,23 +185,17 @@ export default function LearningAnalyticsSettingsPage({ token }) {
         <>
 
           <div className="la-panel mb-3">
-
             <div className="la-panel-title">閱讀提醒</div>
-
-            <ul className="small mb-0">
-
-              <li>{data.policies?.estimateDisclaimer}</li>
-
-              <li>{data.policies?.exposureWindowRule}</li>
-
-              <li>{data.policies?.gseNote || LA_TERM_HELP.gse}</li>
-
-              <li>{data.policies?.lvaNote}</li>
-
-              <li>{data.policies?.filterReferenceNote}</li>
-
-            </ul>
-
+            <p className="small text-muted mb-2">數字用來比較趨勢，不是「參加就一定進步」。</p>
+            <LaFold label="完整原則">
+              <ul className="small mb-0">
+                <li>{data.policies?.estimateDisclaimer}</li>
+                <li>{data.policies?.exposureWindowRule}</li>
+                <li>{data.policies?.gseNote || LA_TERM_HELP.gse}</li>
+                <li>{data.policies?.lvaNote}</li>
+                <li>{data.policies?.filterReferenceNote}</li>
+              </ul>
+            </LaFold>
           </div>
 
 
@@ -243,9 +236,9 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
           <LearningAnalyticsSettingsSection
 
-            title="估計方法新舊對照"
+            title="目前用哪種算法"
 
-            lead="v2 為目前預設；legacy 欄位仍由 API 回傳供比對。所有方法 causalClaimAllowed 均為 false。"
+            lead="右側是目前預設。數字用來比較趨勢，不是保證參加就進步。"
 
           >
 
@@ -257,9 +250,9 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
           <LearningAnalyticsSettingsSection
 
-            title="LVA 學習成效估計演算法"
+            title="估計參數"
 
-            lead="控制修正成長、背景相近比對與加權估計；展開後請先閱讀公式說明再調整參數。"
+            lead="調整校正後進步、背景相近比較與加權比較的門檻。展開後再改參數。"
 
             badge={lvaCustomBadge}
 
@@ -283,9 +276,9 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
           <LearningAnalyticsSettingsSection
 
-            title="CEFR → GSE 能力量尺對照"
+            title="英檢換算表"
 
-            lead="Pearson GSE 對齊 CEFR；用於跨英檢比較與前後測分析。此區塊為唯讀參考。"
+            lead="把不同英檢換成同一把能力尺，才能比進步。此表唯讀。"
 
           >
 
@@ -297,9 +290,9 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
           <LearningAnalyticsSettingsSection
 
-            title="資源技能向量"
+            title="各資源主要練什麼"
 
-            lead="各資源對聽說讀寫等面向的相對權重，用於曝光計算與建議。"
+            lead="各課程／活動對聽說讀寫的相對權重，用在曝光與建議。"
 
             badge={skillCustomBadge}
 
@@ -322,30 +315,13 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
 
           <div className="la-panel mb-3">
-
-            <div className="la-panel-title">維運指令</div>
-
-            <ul className="small mb-0">
-
-              <li>重建分析快照：<code>{data.maintenance?.rebuildCommand}</code></li>
-
-              <li>清理舊 snapshot（dry-run）：<code>{data.maintenance?.pruneSnapshotsDryRun}</code></li>
-
-              <li>清理舊 snapshot（執行）：<code>{data.maintenance?.pruneSnapshotsApply}</code></li>
-
-            </ul>
-
-          </div>
-
-          <div className="la-panel mb-3">
-            <div className="la-panel-title">快照清理操作（dry-run / apply）</div>
+            <div className="la-panel-title">清理舊資料版本</div>
             <p className="small text-muted mb-2">
-              可直接在前端觸發 <code>/api/admin/learning-analytics/snapshots/prune</code>，
-              先 dry-run 確認會刪除哪些版本，再執行 apply。
+              先「預覽」看會刪哪些版本，確認後再「執行刪除」。
             </p>
 
             <Form.Group className="mb-3" style={{ maxWidth: 360 }}>
-              <Form.Label className="small text-muted mb-1">keepGlobalCount（保留最新全域快照數）</Form.Label>
+              <Form.Label className="small text-muted mb-1">要保留幾個最新版本</Form.Label>
               <Form.Control
                 type="number"
                 min={1}
@@ -362,19 +338,19 @@ export default function LearningAnalyticsSettingsPage({ token }) {
                 onClick={() => runPrune({ dryRun: true })}
                 disabled={pruning}
               >
-                {pruning ? '執行中…' : 'dry-run'}
+                {pruning ? '執行中…' : '預覽'}
               </Button>
               <Button
                 variant="danger"
                 size="sm"
                 onClick={() => {
-                  const ok = window.confirm('確定要執行 snapshot prune（apply）並刪除舊版本資料？');
+                  const ok = window.confirm('確定刪除舊資料版本？此動作無法還原。');
                   if (!ok) return;
                   runPrune({ dryRun: false });
                 }}
                 disabled={pruning}
               >
-                {pruning ? '執行中…' : 'apply'}
+                {pruning ? '執行中…' : '執行刪除'}
               </Button>
             </div>
 
@@ -388,6 +364,14 @@ export default function LearningAnalyticsSettingsPage({ token }) {
                 {pruneResultMessage}
               </Alert>
             ) : null}
+
+            <LaFold label="伺服器指令" className="mt-3">
+              <ul className="small mb-0">
+                <li>重建：<code>{data.maintenance?.rebuildCommand}</code></li>
+                <li>預覽清理：<code>{data.maintenance?.pruneSnapshotsDryRun}</code></li>
+                <li>執行清理：<code>{data.maintenance?.pruneSnapshotsApply}</code></li>
+              </ul>
+            </LaFold>
           </div>
 
         </>

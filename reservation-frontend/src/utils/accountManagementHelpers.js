@@ -12,7 +12,7 @@ const ROLE_LABELS = {
   admin: '系統管理員',
   teacher: '老師',
   office_staff: '行政職員',
-  leader: 'ET Leader',
+  leader: '英語桌帶班',
   worker: '工讀生',
 };
 

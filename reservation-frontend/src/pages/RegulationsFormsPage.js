@@ -82,12 +82,100 @@ const REGULATION_SECTIONS = [
 ];
 
 /**
+ * 從學號推測入學年（民國年）：B113xxx → 113, D112xxx → 112
+ * 回傳 null 表示無法辨識。
+ */
+function guessEnrollmentYear(studentId) {
+  if (!studentId) return null;
+  const m = String(studentId).match(/^[A-Za-z](\d{3})/);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * 解析標題裡的入學年適用範圍。
+ * 回傳：
+ * - null：標題沒有學年度條件（例如獎勵申請表、總覽）→ 入學年篩選時仍顯示
+ * - { min, max }：含邊界的適用區間
+ */
+function parseYearScopeFromTitle(title) {
+  const text = String(title || '');
+  if (!text) return null;
+
+  // 110-112 / 100-110
+  const range = text.match(/(\d{3})\s*[-–~至到]\s*(\d{3})/);
+  if (range) {
+    return { min: Number(range[1]), max: Number(range[2]) };
+  }
+
+  // 109 學年以前 / 之前
+  const before = text.match(/(\d{3})\s*學年(?:度)?\s*(?:以前|之前)/);
+  if (before) {
+    return { min: 0, max: Number(before[1]) };
+  }
+
+  // 113 學年度起 / 以後 / 之後
+  const from = text.match(/(\d{3})\s*學年(?:度)?\s*(?:起|以後|之後)/);
+  if (from) {
+    return { min: Number(from[1]), max: 999 };
+  }
+
+  // 112 學年度入學生適用 / 112 學年度
+  const exact = text.match(/(\d{3})\s*學年(?:度)?/);
+  if (exact) {
+    const year = Number(exact[1]);
+    return { min: year, max: year };
+  }
+
+  return null;
+}
+
+function itemMatchesEnrollmentYear(item, year) {
+  if (!year) return true;
+  const title = item.title?.zh || item.title?.en || '';
+  const scope = parseYearScopeFromTitle(title);
+  // 沒有學年度條件的檔案（獎勵表、總覽等）一律保留
+  if (!scope) return true;
+  return year >= scope.min && year <= scope.max;
+}
+
+function filterSectionsByEnrollmentYear(allSections, year) {
+  if (!year) return allSections;
+  return allSections
+    .map((section) => ({
+      ...section,
+      items: (section.items || []).filter((item) => itemMatchesEnrollmentYear(item, year)),
+    }))
+    .filter((section) => section.items.length > 0);
+}
+
+/**
  * 法規表單（Header 新頁）
  */
 export default function RegulationsFormsPage() {
   const { t, lang } = useLanguage();
+  const [enrollYearInput, setEnrollYearInput] = useState(() => {
+    try {
+      const sid = sessionStorage.getItem('eears-student-id') || '';
+      const year = guessEnrollmentYear(sid);
+      return year ? String(year) : '';
+    } catch {
+      return '';
+    }
+  });
   const [openSections, setOpenSections] = useState(() => new Set());
   const [sections, setSections] = useState(() => REGULATION_SECTIONS);
+
+  const enrollYear = useMemo(() => {
+    if (!/^\d{3}$/.test(enrollYearInput)) return null;
+    const year = Number(enrollYearInput);
+    if (year < 100 || year > 120) return null;
+    return year;
+  }, [enrollYearInput]);
+
+  const visibleSections = useMemo(
+    () => filterSectionsByEnrollmentYear(sections, enrollYear),
+    [sections, enrollYear],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -114,9 +202,14 @@ export default function RegulationsFormsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!enrollYear) return;
+    setOpenSections(new Set(visibleSections.map((section) => section.id)));
+  }, [enrollYear, visibleSections]);
+
   const totalFileCount = useMemo(
-    () => sections.reduce((sum, section) => sum + (section.items ? section.items.length : 0), 0),
-    [sections],
+    () => visibleSections.reduce((sum, section) => sum + (section.items ? section.items.length : 0), 0),
+    [visibleSections],
   );
 
   const breadcrumbs = useMemo(() => [
@@ -124,7 +217,7 @@ export default function RegulationsFormsPage() {
     { label: t('nav.regulationsForms') },
   ], [t]);
 
-  const allExpanded = sections.length > 0 && openSections.size === sections.length;
+  const allExpanded = visibleSections.length > 0 && openSections.size === visibleSections.length;
 
   const toggleSection = (sectionId) => {
     setOpenSections((prev) => {
@@ -139,7 +232,7 @@ export default function RegulationsFormsPage() {
   };
 
   const expandAll = () => {
-    setOpenSections(new Set(sections.map((section) => section.id)));
+    setOpenSections(new Set(visibleSections.map((section) => section.id)));
   };
 
   const collapseAll = () => {
@@ -154,6 +247,36 @@ export default function RegulationsFormsPage() {
         lead={<ContentText k="regulationsFormsPage.lead" />}
       />
 
+      <div className="regulations-forms-enroll-hint">
+        <label htmlFor="enroll-year-input" className="regulations-forms-enroll-hint__label">
+          {t('regulationsFormsPage.enrollYearLabel')}
+        </label>
+        <input
+          id="enroll-year-input"
+          type="text"
+          inputMode="numeric"
+          maxLength={3}
+          placeholder={t('regulationsFormsPage.enrollYearPlaceholder')}
+          value={enrollYearInput}
+          onChange={(e) => {
+            const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+            setEnrollYearInput(val);
+            if (val === '') setOpenSections(new Set());
+          }}
+          className="regulations-forms-enroll-hint__input"
+          aria-describedby="enroll-year-hint"
+        />
+        {enrollYear ? (
+          <span id="enroll-year-hint" className="regulations-forms-enroll-hint__tag">
+            {t('regulationsFormsPage.enrollYearTag', { year: enrollYear })}
+          </span>
+        ) : (
+          <span id="enroll-year-hint" className="regulations-forms-enroll-hint__hint">
+            {t('regulationsFormsPage.enrollYearHint')}
+          </span>
+        )}
+      </div>
+
       <div className="regulations-forms-toolbar">
         <p className="regulations-forms-note">
           <span className="regulations-forms-note__icon" aria-hidden="true">PDF</span>
@@ -162,7 +285,7 @@ export default function RegulationsFormsPage() {
         <div className="regulations-forms-toolbar__actions">
           <p className="regulations-forms-summary">
             {t('regulationsFormsPage.statsSummary', {
-              sections: sections.length,
+              sections: visibleSections.length,
               files: totalFileCount,
             })}
           </p>
@@ -188,7 +311,7 @@ export default function RegulationsFormsPage() {
       </div>
 
       <div className="regulations-forms-accordion">
-        {sections.map((section, index) => {
+        {visibleSections.map((section, index) => {
           const isOpen = openSections.has(section.id);
           const panelId = `regulations-panel-${section.id}`;
           const triggerId = `regulations-trigger-${section.id}`;
@@ -230,7 +353,7 @@ export default function RegulationsFormsPage() {
                   <div className="regulations-forms-grid">
                     {section.items.map((item) => (
                       <a
-                        key={`${section.id}-${item.href}`}
+                        key={`${section.id}-${item.href || item.id}`}
                         href={item.href}
                         target="_blank"
                         rel="noopener noreferrer"

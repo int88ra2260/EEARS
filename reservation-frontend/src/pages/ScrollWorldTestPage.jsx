@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
 import DioramaScene from '../components/scrollWorld/DioramaScene';
 import useScrollWorldGsap from '../hooks/useScrollWorldGsap';
-import { useLanguage } from '../context/LanguageContext';
 import {
   SCROLL_WORLD_CONNECTORS,
   SCROLL_WORLD_SECTIONS,
@@ -52,8 +52,8 @@ function renderCommaBreaks(text) {
 }
 
 export default function ScrollWorldTestPage({ onClose = null }) {
+  const { t, lang } = useLanguage();
   const videoRefs = useRef({});
-  const { lang } = useLanguage();
   const [dbSegments, setDbSegments] = useState(null);
 
   useEffect(() => {
@@ -142,10 +142,10 @@ export default function ScrollWorldTestPage({ onClose = null }) {
           type="button"
           className="swt-close"
           onClick={onClose}
-          aria-label="關閉並進入一般首頁"
+          aria-label={t('page.homeOverlayClose')}
         >
           <span aria-hidden="true">×</span>
-          <span className="swt-close__label">關閉</span>
+          <span className="swt-close__label">{t('page.homeOverlayClose')}</span>
         </button>
       ) : null}
 

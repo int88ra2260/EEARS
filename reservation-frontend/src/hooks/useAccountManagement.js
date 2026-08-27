@@ -265,7 +265,7 @@ export function useAccountManagement({ token, userRole, accessProfile: ctxProfil
     async (event) => {
       event.preventDefault();
       if (actorIsEventLeadAccountManager && createForm.role !== 'leader') {
-        setError('僅可建立 ET Leader（學生桌長）帳號。');
+        setError('僅可建立英語桌帶班（ET Leader）帳號。');
         return;
       }
       setSaving(true);

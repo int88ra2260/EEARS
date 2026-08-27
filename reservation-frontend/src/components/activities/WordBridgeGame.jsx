@@ -482,6 +482,9 @@ function ResultsPanel({ t, lang, result, mistakeLog, onPlayAgain }) {
         <button type="button" className="btn btn-outline-secondary" onClick={onPlayAgain}>
           {t('wordBridge.playAgain')}
         </button>
+        <Link to="/practice/listening-ladder" className="btn btn-outline-secondary">
+          {t('listeningLadder.title')}
+        </Link>
         <Link to="/events" className="btn btn-primary">
           {t('wordBridge.goCalendar')}
         </Link>

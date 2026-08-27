@@ -55,6 +55,10 @@
   color: rgba(255, 255, 255, 0.86);
   text-decoration: none;
   font-size: 0.875rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.2rem;
 }
 
 .home-footer-links a:hover,

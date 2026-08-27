@@ -78,8 +78,7 @@ export default function AdminEtGroupingReportsPage() {
 
   return (
     <div className="admin-et-reports-page">
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-        <h4 className="mb-0">ET 場次報表彙總</h4>
+      <div className="d-flex flex-wrap align-items-center justify-content-end gap-2 mb-3">
         <Button
           variant="outline-primary"
           size="sm"

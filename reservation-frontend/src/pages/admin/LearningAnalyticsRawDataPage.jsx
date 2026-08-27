@@ -124,13 +124,9 @@ export default function LearningAnalyticsRawDataPage() {
 
   return (
     <div>
-      <LearningAnalyticsDataHealth meta={meta} error={metaError} userFriendly />
+      <LearningAnalyticsDataHealth meta={meta} error={metaError} />
 
-      <Alert variant="light" className="border small mb-3">
-        <strong>本頁用途：</strong>
-        依篩選條件預覽或匯出學習成效分析的底層摘要資料，供校內報表、稽核或進一步統計使用。
-        預覽一次最多顯示 100 筆；完整資料請匯出 XLSX（含「匯出說明」工作表）或 CSV。
-      </Alert>
+      <p className="small text-muted mb-3">預覽或匯出底層摘要。預覽最多 100 筆，完整資料請匯出。</p>
 
       <LearningAnalyticsFilters
         filters={filters}

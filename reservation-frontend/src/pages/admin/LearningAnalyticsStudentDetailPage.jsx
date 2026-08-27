@@ -34,7 +34,6 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
   const {
     meta,
     metaError,
-    filters,
     ready,
     apiParams,
     token,
@@ -178,17 +177,16 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
 
           {(focus === 'skills' || studentEpisodes.length > 0) ? (
             <div className="la-panel mb-3">
-              <div className="la-panel-title">技能成長 Episodes</div>
+              <div className="la-panel-title">前後測進步明細</div>
               <p className="small text-muted">
-                快照：{skills?.snapshotVersion || filters.snapshotVersion || '—'}
-                ；僅含後測前的資源曝光。
+                時數只算考試前的課程／活動。
               </p>
               <GrowthEpisodeTable episodes={studentEpisodes} />
             </div>
           ) : null}
 
           <div className="la-panel">
-            <div className="la-panel-title">分析時間線</div>
+            <div className="la-panel-title">時間線</div>
             <p className="small text-muted mb-2">
               快照：{journey.meta?.snapshotVersion || '—'}
               {journey.meta?.derivedAt ? ` · 衍生於 ${String(journey.meta.derivedAt).slice(0, 10)}` : ''}

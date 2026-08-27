@@ -4,6 +4,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import { bootstrapBgToStatusVariant } from '../../utils/statusBadgeUtils';
 import { Link, useOutletContext } from 'react-router-dom';
 import ImportTaskCard from '../../components/admin/import/ImportTaskCard';
+import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
 import { getImportCenterSections } from '../../constants/importCenterCards';
 import {
   IMPORT_STATUS_BADGE,
@@ -76,7 +77,6 @@ export default function ImportCenterPage() {
       <header className="import-center-page__header import-center-reveal">
         <p className="import-center-page__kicker">管理後台 · 資料維運</p>
         <div className="import-center-page__title-row">
-          <h1 className="import-center-page__title">資料匯入中心</h1>
           <StatusLegend />
         </div>
         <p className="import-center-page__lede">
@@ -114,6 +114,17 @@ export default function ImportCenterPage() {
           查看匯入紀錄
         </Button>
       </aside>
+
+      {sections.every((section) =>
+        section.cards.every((card) => !canAccessAdminRoute(accessProfile, card.routeAccess))
+      ) ? (
+        <div className="alert alert-info mt-3" role="status">
+          <strong>目前無可操作的匯入項目。</strong>
+          <p className="mb-0 mt-1 small">
+            您的權限尚未涵蓋任何匯入功能。如需使用，請聯絡系統管理員調整您的帳號角色。
+          </p>
+        </div>
+      ) : null}
 
       {sections.map((section, sectionIndex) => (
         <section

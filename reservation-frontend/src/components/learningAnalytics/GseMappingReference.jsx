@@ -171,10 +171,10 @@ export default function GseMappingReference({ gseMapping, embedded = false }) {
     return (
       <div>
         <p className="small text-muted la-panel-lead mb-2">
-          Pearson GSE 對齊 CEFR 的能力量尺；用於跨英檢比較與前後測分析。此對照為系統唯讀參考，不可在此頁編輯。
+          把不同英檢換成同一把能力尺，才能比進步。此表唯讀。
         </p>
         {meta}
-        <div className="fw-semibold small mb-2">CEFR → GSE 能力帶</div>
+        <div className="fw-semibold small mb-2">程度對照（能力分數）</div>
         {cefrTable}
         {examSection}
         {refsSection}
@@ -184,12 +184,12 @@ export default function GseMappingReference({ gseMapping, embedded = false }) {
 
   return (
     <div className="la-panel mb-3">
-      <div className="la-panel-title mb-1">CEFR → GSE 能力量尺對照</div>
+      <div className="la-panel-title mb-1">英檢換算表</div>
       <p className="small text-muted la-panel-lead mb-2">
-        Pearson GSE 對齊 CEFR 的能力量尺；用於跨英檢比較與前後測分析。此對照為系統唯讀參考，不可在此頁編輯。
+        把不同英檢換成同一把能力尺，才能比進步。此表唯讀。
       </p>
       {meta}
-      <div className="fw-semibold small mb-2">CEFR → GSE 能力帶</div>
+      <div className="fw-semibold small mb-2">程度對照（能力分數）</div>
       {cefrTable}
       {examSection}
       {refsSection}

@@ -9,7 +9,7 @@ import { EVENT_DETAIL_COPY } from '../../constants/adminEventDetailCopy';
 export default function AdminEventDetailPage() {
   const { eventId } = useParams();
   const [searchParams] = useSearchParams();
-  const { token, userRole, accessProfile } = useOutletContext();
+  const { token, userRole, accessProfile, setAdminPageMeta } = useOutletContext();
   const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'reservations');
 
   useEffect(() => {
@@ -17,6 +17,17 @@ export default function AdminEventDetailPage() {
     if (tab) setActiveTab(tab);
   }, [searchParams]);
   const ws = useAdminEventWorkspace({ token, userRole, accessProfile, eventId, activeTab });
+
+  useEffect(() => {
+    if (!setAdminPageMeta) return undefined;
+    if (ws.currentEventName) {
+      setAdminPageMeta({
+        pageTitle: ws.currentEventName,
+        breadcrumbLeaf: ws.currentEventName,
+      });
+    }
+    return () => setAdminPageMeta(null);
+  }, [setAdminPageMeta, ws.currentEventName]);
 
   if (ws.detailLoading) {
     return (

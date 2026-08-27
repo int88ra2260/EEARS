@@ -65,11 +65,8 @@ export default forwardRef(function EventCalendarSection({
       const api = calendarRef.current?.getApi?.();
       if (!api || !dateStr) return;
       api.gotoDate(dateStr);
-      if (isMobile) {
-        api.changeView('listWeek');
-      }
     },
-  }), [isMobile]);
+  }), []);
 
   const calendarEvents = events.map((evt) => ({
     id: evt.id,
@@ -268,7 +265,7 @@ export default forwardRef(function EventCalendarSection({
         ref={calendarRef}
         key={isMobile ? 'mobile-list' : 'desktop-month'}
         plugins={[dayGridPlugin, listPlugin]}
-        initialView={isMobile ? 'listWeek' : 'dayGridMonth'}
+        initialView="dayGridMonth"
         events={calendarEvents}
         eventContent={renderEventContent}
         eventClick={handleClick}
@@ -278,7 +275,7 @@ export default forwardRef(function EventCalendarSection({
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
-          right: isMobile ? 'listWeek' : 'dayGridMonth,listWeek',
+          right: 'dayGridMonth,listWeek',
         }}
         views={{
           dayGridMonth: {
@@ -296,6 +293,7 @@ export default forwardRef(function EventCalendarSection({
         eventClassNames={resolveEventClassNames}
         dayHeaderClassNames="calendar-day-header"
         dayCellClassNames="calendar-day-cell"
+        noEventsText={t('page.calendarListNoEventsInRange')}
       />
       </div>
 

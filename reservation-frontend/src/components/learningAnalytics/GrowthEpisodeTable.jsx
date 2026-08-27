@@ -13,7 +13,7 @@ export default function GrowthEpisodeTable({ episodes = [] }) {
   if (!episodes.length) {
     return (
       <p className="small text-muted mb-0">
-        目前無可顯示的前後測成長樣本；請確認快照已重建且含重測紀錄。
+        目前沒有前後測進步明細。請確認資料已重建，且學生有兩次以上英檢成績。
       </p>
     );
   }
@@ -27,10 +27,10 @@ export default function GrowthEpisodeTable({ episodes = [] }) {
             <th>技能</th>
             <th>工具</th>
             <th>後測日期</th>
-            <th className="text-end">原始成長</th>
-            <th className="text-end">修正成長</th>
-            <th className="text-end">考前曝光(h)</th>
-            <th>可信度</th>
+            <th className="text-end">實際進步</th>
+            <th className="text-end">校正後進步</th>
+            <th className="text-end">考前時數</th>
+            <th>資料</th>
             <th />
           </tr>
         </thead>

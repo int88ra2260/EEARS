@@ -44,7 +44,7 @@ export const FILTER_LABELS = Object.freeze({
   instrument: '英檢工具',
   skill: '技能',
   evidence_quality: '資料完整度',
-  matching_caliper: '背景相近比對容許值',
+  matching_caliper: '對照要多接近',
 });
 
 /** 篩選欄位說明（以標籤旁驚嘆號提示顯示） */
@@ -60,14 +60,14 @@ export const FILTER_FIELD_HINTS = Object.freeze({
   instrument: '篩選特定英檢工具之成績紀錄。',
   skill: '篩選特定技能維度（聽說讀寫等）之成長或成績。',
   evidence_quality: '依學生資料完整度（基線、英檢筆數等）篩選。',
-  matching_caliper: '進階背景相近比對用；留空則採模組設定中的預設容許值。',
+  matching_caliper: '數字愈小，對照學生的背景要愈接近。多半可留空用預設。',
 });
 
 /** 使用者可讀的指標說明 */
 export const LA_TERM_HELP = Object.freeze({
-  gse: 'GSE（Global Scale of English）：Pearson 對齊 CEFR 的能力量尺，用來觀察前後測變化；不等於官方認證分數。',
-  adjustedGrowth: '修正後成長：扣除基線與時間等因素後的觀察估計，非因果證明。',
-  modelRun: '模型執行紀錄：將目前篩選下的分析結果寫入資料庫，供日後比對與稽核。',
+  gse: '能力分數：把不同英檢換成同一把尺，才能比進步。不是官方認證分數。',
+  adjustedGrowth: '校正後進步：扣掉起始程度差異後的進步，較適合作群體比較。',
+  modelRun: '分析紀錄：把目前篩選下的結果存下來，方便之後對照。',
 });
 
 export const EXPOSURE_LEVEL_OPTIONS = [

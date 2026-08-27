@@ -169,8 +169,7 @@ export default function EnglishLearningPassportsAdminPage() {
 
   return (
     <div className="container-fluid py-3">
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <h1 className="h4 mb-0">英語實踐歷程護照管理</h1>
+      <div className="d-flex flex-wrap justify-content-end align-items-center mb-3 gap-2">
         {canExport && (
           <Button variant="outline-success" size="sm" onClick={handleExport}>匯出 Excel</Button>
         )}

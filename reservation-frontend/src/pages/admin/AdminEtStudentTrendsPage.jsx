@@ -73,8 +73,7 @@ export default function AdminEtStudentTrendsPage() {
 
   return (
     <div className="admin-et-student-trends-page">
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-        <h4 className="mb-0">ET 學生學期趨勢</h4>
+      <div className="d-flex flex-wrap align-items-center justify-content-end gap-2 mb-3">
         <Button as={Link} to="/admin/et-grouping/reports" variant="outline-secondary" size="sm">
           返回場次報表
         </Button>

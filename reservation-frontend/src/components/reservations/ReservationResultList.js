@@ -2,6 +2,7 @@
  * 預約查詢結果列表：多筆 ReservationResultCard + 空狀態
  */
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import ReservationResultCard from './ReservationResultCard';
 import SkeletonCard from '../ui/SkeletonCard';
@@ -13,7 +14,7 @@ export default function ReservationResultList({
   cancelingReservationId,
   cancelLoading,
   cancelError,
-  error,
+  searchError,
   cancellationCode,
   onCancellationCodeChange,
   onStartCancel,
@@ -55,10 +56,12 @@ export default function ReservationResultList({
     return (
       <section className="reservation-result-list reservation-result-list--empty" aria-live="polite">
         <EmptyState
-          icon={error ? '⚠️' : '📭'}
-          title={error ? '查詢失敗' : t('page.reservationNoRecords')}
+          icon={searchError ? '⚠️' : '📭'}
+          title={searchError ? '無法取得預約紀錄' : t('page.reservationNoRecords')}
           description={
-            error ? error : (
+            searchError ? (
+              '請確認網路連線後再試一次，或核對學號、姓名與 Email 是否與報名時一致。'
+            ) : (
               <div>
                 <div className="mb-2">目前尚未找到符合的預約紀錄，你可以先核對以下資訊：</div>
                 <ul className="text-start mb-0" style={{ paddingLeft: '1.25rem' }}>
@@ -71,7 +74,7 @@ export default function ReservationResultList({
             )
           }
           actions={
-            error ? (
+            <>
               <button
                 type="button"
                 className="btn btn-outline-primary btn-sm"
@@ -79,23 +82,20 @@ export default function ReservationResultList({
               >
                 重新查詢
               </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-outline-primary btn-sm"
-                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                >
-                  重新查詢
-                </button>
-                <a className="btn btn-outline-secondary btn-sm" href="/contact">
-                  聯絡我們
-                </a>
-                <a className="btn btn-outline-secondary btn-sm" href="mailto:emicenter@mail.nsysu.edu.tw">
-                  直接寄信
-                </a>
-              </>
-            )
+              <Link className="btn btn-primary btn-sm" to="/events">
+                查看本週場次
+              </Link>
+              {!searchError ? (
+                <>
+                  <a className="btn btn-outline-secondary btn-sm" href="/contact">
+                    聯絡我們
+                  </a>
+                  <a className="btn btn-outline-secondary btn-sm" href="mailto:emicenter@mail.nsysu.edu.tw">
+                    直接寄信
+                  </a>
+                </>
+              ) : null}
+            </>
           }
         />
       </section>
@@ -122,6 +122,15 @@ export default function ReservationResultList({
             onConfirmCancel={onConfirmCancel}
           />
         ))}
+      </div>
+      <p className="reservation-result-list-next mt-3 mb-2">{t('page.reservationResultNextHint')}</p>
+      <div className="d-flex flex-wrap gap-2">
+        <Link className="btn btn-primary btn-sm" to="/events">
+          {t('page.reservationResultBookAnother')}
+        </Link>
+        <Link className="btn btn-outline-secondary btn-sm" to="/student/progress">
+          {t('page.reservationResultProgress')}
+        </Link>
       </div>
     </section>
   );

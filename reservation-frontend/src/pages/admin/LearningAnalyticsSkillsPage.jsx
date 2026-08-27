@@ -47,6 +47,7 @@ import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 
 import MetricCard from '../../components/learningAnalytics/MetricCard';
+import GrowthMetricsExplainer from '../../components/learningAnalytics/GrowthMetricsExplainer';
 
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 
@@ -247,11 +248,11 @@ export default function LearningAnalyticsSkillsPage() {
 
               <MetricCard
 
-                label="重測樣本數"
+                label="有前後測人數"
 
                 value={growth?.summary?.retestCount ?? data.growthEpisodes?.retestRows ?? 0}
 
-                hint="具前後測分數的成長區間"
+                hint="才能計算個人進步"
 
               />
 
@@ -261,30 +262,21 @@ export default function LearningAnalyticsSkillsPage() {
 
               <MetricCard
 
-                label="列表樣本"
+                label="明細筆數"
 
                 value={growth?.episodes?.length ?? 0}
 
-                hint="可追溯 episode（最多 100 筆）"
+                hint="最多顯示 100 筆"
 
               />
 
             </Col>
 
             <Col sm={6} lg={6}>
-
-              <div className="la-panel h-100 d-flex align-items-center">
-
-                <p className="small text-muted mb-0">
-
-                  {growth?.summary?.timeWindowRule
-
-                    || '僅納入後測日期之前的課程與活動曝光；考後活動不計入該次成長解釋。'}
-
-                </p>
-
+              <div className="la-panel h-100 d-flex flex-column justify-content-center">
+                <p className="small text-muted mb-2">時數只算考試前的課程／活動，考後不計入該次進步。</p>
+                <GrowthMetricsExplainer />
               </div>
-
             </Col>
 
           </Row>
@@ -297,7 +289,7 @@ export default function LearningAnalyticsSkillsPage() {
 
               <div className="la-panel">
 
-                <div className="la-panel-title">分技能成長（原始 vs 修正）</div>
+                <div className="la-panel-title">各技能進步</div>
 
                 <div style={{ width: '100%', height: 320 }}>
 
@@ -315,9 +307,9 @@ export default function LearningAnalyticsSkillsPage() {
 
                       <Legend />
 
-                      <Bar dataKey="raw" name="原始成長" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="raw" name="實際進步" fill="#94a3b8" radius={[4, 4, 0, 0]} />
 
-                      <Bar dataKey="adjusted" name="修正成長（GSE）" fill="#2c5282" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="adjusted" name="校正後進步" fill="#2c5282" radius={[4, 4, 0, 0]} />
 
                     </BarChart>
 
@@ -333,7 +325,7 @@ export default function LearningAnalyticsSkillsPage() {
 
               <div className="la-panel">
 
-                <div className="la-panel-title">成長學生比例</div>
+                <div className="la-panel-title">有進步的學生比例</div>
 
                 <ul className="list-unstyled small mb-0">
 
@@ -371,9 +363,9 @@ export default function LearningAnalyticsSkillsPage() {
 
                         <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={{ fontSize: 10 }} />
 
-                        <Radar name="原始" dataKey="raw" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.25} />
+                        <Radar name="實際" dataKey="raw" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.25} />
 
-                        <Radar name="修正" dataKey="adjusted" stroke="#2c5282" fill="#2c5282" fillOpacity={0.2} />
+                        <Radar name="校正後" dataKey="adjusted" stroke="#2c5282" fill="#2c5282" fillOpacity={0.2} />
 
                         <Legend />
 
@@ -399,11 +391,11 @@ export default function LearningAnalyticsSkillsPage() {
 
               <div className="la-panel">
 
-                <div className="la-panel-title">Growth Episodes（可追溯樣本）</div>
+                <div className="la-panel-title">前後測進步明細</div>
 
                 <p className="small text-muted">
 
-                  曝光時數僅含後測日前資源；點選「軌跡」可查看學生完整時間線。
+                  時數只算考試前的課程／活動。點「軌跡」看該生時間線。
 
                 </p>
 

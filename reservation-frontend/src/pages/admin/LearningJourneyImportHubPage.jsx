@@ -34,7 +34,6 @@ export default function LearningJourneyImportHubPage() {
     <main className="lj-import-page">
       <header className="lj-import-page__header lj-import-reveal">
         <p className="lj-import-page__kicker">英語學習歷程 · 資料匯入</p>
-        <h1 className="lj-import-page__title">學習歷程資料匯入</h1>
         <p className="lj-import-page__lede">
           上傳名冊、英檢成績、教務處修課名單與學測 baseline Excel。寫入後會觸發學習歷程統計重算。
         </p>

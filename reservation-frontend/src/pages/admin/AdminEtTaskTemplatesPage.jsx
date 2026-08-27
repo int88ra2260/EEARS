@@ -104,7 +104,6 @@ export default function AdminEtTaskTemplatesPage() {
     <div>
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
-          <h1 className="h4 mb-1">ET 任務模板</h1>
           <p className="text-muted mb-0 small">
             {template?.name || '預設模板'} — Leader 場後勾選時依能力帶別顯示適用任務。
           </p>

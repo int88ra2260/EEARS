@@ -1,0 +1,280 @@
+/**
+ * 後台全域搜尋詞庫（業務詞 → 導覽入口 id）
+ *
+ * 用途：側欄搜尋除了比對顯示標籤，也比對此處別名、頁內文案與常見 SOP 用語。
+ * 維護原則：
+ * - key 必須是 `ADMIN_NAV_SECTIONS` 的 section.id 或 leaf.id
+ * - 寫「使用者可能打的詞」，不要重複已經出現在 label / pageTitle 的字（可重複也無害）
+ * - 專有名詞可同時放中文與常見英文縮寫（ET、LJ、BESTEP、gate）
+ * - 不要把太泛用的詞放到 section 層（例如「設定」），以免一次展開整區
+ *
+ * @type {Record<string, string[]>}
+ */
+export const ADMIN_NAV_SEARCH_GLOSSARY = {
+  events: ['活動營運', '場次', '預約', '候補'],
+  'events-list': [
+    '新增活動',
+    '修改活動',
+    '刪除活動',
+    '活動明細',
+    '簽到',
+    '刷卡',
+    'check-in',
+    '預約名單',
+    '候補',
+    'waitlist',
+    '匯出名單',
+    'English Table',
+    'English Club',
+    'Job Talk',
+    '場次管理',
+  ],
+  'events-participation-checkins': [
+    '簽到率',
+    '出席',
+    '未到',
+    'no-show',
+    '參與率',
+    'check-in',
+  ],
+  'et-grouping-settings': [
+    '英語桌',
+    'English Table',
+    '分組',
+    '指派',
+    'Leader',
+    '帶班',
+    'grouping',
+  ],
+  'et-task-templates': ['任務勾選', '模板', 'task', '英語桌任務'],
+  'et-grouping-reports': ['場次彙總', '英語桌報表', 'ET 報表'],
+  'et-student-trends': ['學期趨勢', '英語桌學生', 'ET 趨勢'],
+  'et-leader-sessions': [
+    '帶班',
+    '我的場次',
+    'Leader',
+    '任務勾選',
+    '英語桌帶班',
+  ],
+  'events-compliance': [
+    '違規',
+    '黑名單',
+    'blacklist',
+    '未到',
+    '缺席',
+    'no-show',
+    '登記違規',
+    '解封',
+    '違規管理',
+  ],
+
+  classes: [
+    '班級概況',
+    '名冊',
+    'roster',
+    'BESTEP 班級',
+    '修課名單',
+    '我的班級',
+  ],
+
+  english: ['英檢', '培力', 'BESTEP', '學習歷程', '護照'],
+  'english-learning-passport': [
+    'ELP',
+    '護照',
+    '審核提交',
+    '實踐歷程',
+    '英語實踐',
+    'submission',
+  ],
+  'english-registration': [
+    '培力英檢',
+    'BESTEP',
+    '報名審核',
+    '待審',
+    '個人報名',
+    '團體報名',
+    '錄取',
+    '英檢管理',
+  ],
+  'learning-journey': [
+    'LJ',
+    'LJ V3',
+    '學習歷程',
+    '學號',
+    '查學生',
+    'B2',
+    'CEFR',
+    '學生清單',
+    'Student Table',
+    '分項統計',
+    'Breakdown',
+    '四技能',
+    'canonical',
+  ],
+  'learning-journey-import': [
+    '名冊匯入',
+    '英檢成績匯入',
+    'Excel',
+    '上傳',
+    'LJ 匯入',
+  ],
+  'learning-journey-ewl-sync': [
+    '寫作工坊',
+    'EWL',
+    '同步',
+    'Consultation',
+  ],
+  'learning-journey-operations': [
+    'projection',
+    '重建',
+    '資料新鮮度',
+    'operation run',
+  ],
+  'bestep-import': ['BESTEP', '培力英檢匯入', 'LR', 'SW', '出席匯入'],
+
+  surveys: ['問卷', '回饋', 'gate', '作答'],
+  'survey-center': [
+    '建立問卷',
+    '發布',
+    '題目',
+    '草稿',
+    '作答紀錄',
+    '統計',
+    'survey',
+    '匯出問卷',
+  ],
+  'survey-rules-new': [
+    'gate',
+    '問卷 gate',
+    '啟用',
+    '必填',
+    'ET',
+    'EC',
+    '學期規則',
+    '何時要填',
+    '活動類型',
+  ],
+  'survey-health': [
+    '資料品質',
+    '修復',
+    'gap',
+    '缺學期',
+    '維運',
+    '問題清單',
+  ],
+  'survey-answer-mappings': [
+    '對照',
+    'mapping',
+    '題目代碼',
+    '核准',
+    '舊代碼',
+  ],
+  'survey-manage': ['舊版問卷', 'Excel 統計', 'legacy'],
+  'survey-product': ['問卷模組', 'survey-module'],
+
+  'import-center': ['匯入', '上傳', '同步', 'Excel'],
+  'import-center-home': [
+    '上傳',
+    '匯入',
+    '同步',
+    'Excel',
+    '範本',
+    '名冊',
+    'BESTEP',
+    '刷卡簽到',
+    'EWL',
+    '修課名單',
+  ],
+  'import-center-runs': [
+    '匯入紀錄',
+    '回滾',
+    '批次',
+    'import run',
+    '稽核摘要',
+    '刪除批次',
+  ],
+
+  'learning-analytics': ['LA', '成效', '分析', '模型'],
+  'learning-analytics-overview': ['KPI', '總覽', '趨勢比較', '中心成效'],
+  'learning-analytics-cohorts': ['入學屆別', 'cohort', '群體'],
+  'learning-analytics-resources': ['課程效益', '活動效益', '資源'],
+  'learning-analytics-skills': ['四技能', 'GSE', '技能成長'],
+  'learning-analytics-students': ['學習軌跡', '學生歷程', '個人分析'],
+  'learning-analytics-raw': ['raw data', '原始資料', '明細資料'],
+  'learning-analytics-insights': ['insights', '進階', '決策支援'],
+  'learning-analytics-model-runs': ['模型', 'model run', '分析批次'],
+  'learning-analytics-settings': ['LVA', '公式', '模組設定'],
+
+  analytics: ['報表', '分析', 'KPI'],
+  'analytics-students': ['學號搜尋', '舊查詢', '學生查詢'],
+  'analytics-overview': ['行政 KPI', '總覽報表'],
+  'analytics-risk': ['高風險', '預警', '未達標'],
+  'analytics-trends': ['趨勢圖', '學期比較'],
+  'analytics-reports': ['下載', 'Excel', '匯出報表', '報表'],
+  'analytics-teacher-dash': ['教學儀表板', '我的教學', '老師儀表板'],
+  'analytics-teacher-impact': ['教學趨勢', '活動負責人', '綜合趨勢'],
+
+  announcements: ['草稿', '發布', '跑馬燈', 'ticker', '公告'],
+  'weekly-reports': ['週報', 'Weekly Studio', 'blocks', '本週'],
+  'student-content': [
+    '首頁',
+    '關於我們',
+    '法規',
+    '學習資源',
+    '頁面內容',
+    '學生看到的',
+  ],
+
+  accounts: ['帳號', '權限', '角色'],
+  'account-list': [
+    '帳號',
+    '權限',
+    'RBAC',
+    '角色',
+    '工讀生',
+    'Leader',
+    '覆寫權限',
+  ],
+  'account-reset': ['密碼', '重設密碼', 'mustResetPassword'],
+
+  system: ['維運', '稽核'],
+  'system-dashboard': ['KPI', '今日待辦', '健康', '營運', 'dashboard'],
+  'system-settings': [
+    '開關',
+    '功能開關',
+    '系統開關',
+    '英檢個人報名開關',
+    '英檢報名開關',
+    '個人報名',
+    '團體報名',
+    'Learning Partner',
+    '學習有伴',
+    '報名按鈕',
+    'feature flag',
+  ],
+  'system-email-templates': [
+    '郵件',
+    'email',
+    '通知信',
+    '模板',
+    '寄信',
+  ],
+  'system-logs': [
+    'audit',
+    'log',
+    '稽核',
+    'requestId',
+    '操作紀錄',
+    '日誌',
+  ],
+  'system-diagnostics': ['診斷', 'ping', '健康檢查', 'API 診斷'],
+};
+
+/**
+ * @param {string} navId
+ * @returns {string[]}
+ */
+export function getAdminNavSearchTerms(navId) {
+  const terms = ADMIN_NAV_SEARCH_GLOSSARY[navId];
+  return Array.isArray(terms) ? terms : [];
+}

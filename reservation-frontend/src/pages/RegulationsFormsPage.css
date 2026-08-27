@@ -20,6 +20,42 @@
   color: var(--rf-ink-soft);
 }
 
+.regulations-forms-enroll-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.regulations-forms-enroll-hint__label {
+  color: var(--rf-ink-soft);
+}
+
+.regulations-forms-enroll-hint__input {
+  width: 5rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--rf-border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.regulations-forms-enroll-hint__tag {
+  padding: 0.2rem 0.6rem;
+  background: var(--rf-primary-light);
+  color: var(--rf-primary);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.regulations-forms-enroll-hint__hint {
+  color: var(--rf-muted);
+  font-size: 0.8rem;
+}
+
 .regulations-forms-page .page-header {
   margin-bottom: 1.75rem;
 }

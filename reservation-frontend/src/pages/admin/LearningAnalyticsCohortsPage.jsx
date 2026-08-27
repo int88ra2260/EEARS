@@ -5,13 +5,11 @@ import Alert from 'react-bootstrap/Alert';
 import Form from 'react-bootstrap/Form';
 
 import Spinner from 'react-bootstrap/Spinner';
-import { Link } from 'react-router-dom';
 import { getLearningAnalyticsCohorts } from '../../services/learningAnalyticsService';
 
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
-import GrowthMetricsExplainer from '../../components/learningAnalytics/GrowthMetricsExplainer';
 
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 
@@ -23,9 +21,9 @@ const GROUP_OPTIONS = [
 
   { value: 'college', label: '學院' },
 
-  { value: 'cohort', label: '入學 cohort' },
+  { value: 'cohort', label: '入學年度' },
 
-  { value: 'exposure_level', label: '資源曝光等級' },
+  { value: 'exposure_level', label: '資源參與量' },
 
   { value: 'baseline_level', label: '起始能力' },
 
@@ -169,7 +167,6 @@ export default function LearningAnalyticsCohortsPage() {
       />
 
       <LearningAnalyticsActiveFilters filters={appliedFilters} />
-      <GrowthMetricsExplainer compact className="mt-3" />
 
       <Form.Group className="mt-3" style={{ maxWidth: 280 }}>
 
@@ -207,26 +204,6 @@ export default function LearningAnalyticsCohortsPage() {
 
             <div className="la-panel-title">群體比較（{data.totalStudents} 人）</div>
 
-            <p className="small text-muted mb-2">{data.note}</p>
-
-            <p className="small text-muted">
-
-              成長區間樣本數：{data.totalGrowthEpisodes ?? 0}（僅含有前後測、可計算 GSE 增益者）
-
-            </p>
-
-            <p className="small mb-2">
-
-              散點圖、熱圖與認證趨勢請至
-
-              {' '}
-
-              <Link to="/admin/learning-analytics/insights">決策支援</Link>
-
-              。
-
-            </p>
-
             <div className="table-responsive">
 
               <table className="table table-sm align-middle">
@@ -245,9 +222,9 @@ export default function LearningAnalyticsCohortsPage() {
 
                     <th className="text-end">平均資源時數</th>
 
-                    <th className="text-end" title="GSE 原始增益平均">平均成長</th>
+                    <th className="text-end" title="後測減前測的平均進步">實際進步</th>
 
-                    <th className="text-end" title="控制起始能力、系所與資料完整度後的估計">修正後成長</th>
+                    <th className="text-end" title="扣掉起始程度差異後的進步">校正後進步</th>
 
                   </tr>
 
@@ -291,11 +268,11 @@ export default function LearningAnalyticsCohortsPage() {
 
             <div className="la-panel mt-3">
 
-              <div className="la-panel-title">參與組 vs 低／無參與（描述性）</div>
+              <div className="la-panel-title">有參與 vs 較少參與</div>
 
               <p className="small text-muted">
 
-                比較「考前資源時數 ≥10 小時」與「低／無參與」學生的平均成長；此為觀察比較，不代表參與「造成」進步。
+                比較考前時數 ≥10 小時與較少參與者的平均進步。用來對照，不是「參加造成進步」。
 
               </p>
 
@@ -313,9 +290,9 @@ export default function LearningAnalyticsCohortsPage() {
 
                       <th className="text-end">成長樣本數</th>
 
-                      <th className="text-end">平均成長</th>
+                      <th className="text-end">實際進步</th>
 
-                      <th className="text-end">修正後成長</th>
+                      <th className="text-end">校正後進步</th>
 
                     </tr>
 
@@ -357,7 +334,7 @@ export default function LearningAnalyticsCohortsPage() {
 
             <div className="la-panel mt-3">
 
-              <div className="la-panel-title">分技能成長摘要（全體）</div>
+              <div className="la-panel-title">各技能進步</div>
 
               <div className="table-responsive">
 
@@ -371,9 +348,9 @@ export default function LearningAnalyticsCohortsPage() {
 
                       <th className="text-end">樣本數</th>
 
-                      <th className="text-end">平均成長</th>
+                      <th className="text-end">實際進步</th>
 
-                      <th className="text-end">修正後成長</th>
+                      <th className="text-end">校正後進步</th>
 
                     </tr>
 

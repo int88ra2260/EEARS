@@ -1,5 +1,7 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import useMediaQuery from '../../../hooks/useMediaQuery';
+import { useLanguage } from '../../../context/LanguageContext';
 import { useEnglishTestFormSchemaPublic } from '../../../hooks/useEnglishTestFormSchemaPublic';
 import { fieldLabel, fieldRequired, fieldVisible } from '../../../utils/englishTestFormSchemaMeta';
 import SchemaContentBlock from './SchemaContentBlock';
@@ -9,6 +11,7 @@ export default function RegistrationPrivacyStep({
   onAgreedChange,
   onNext,
 }) {
+  const { t } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const isSmallMobile = useMediaQuery('(max-width: 576px)');
   const { schema } = useEnglishTestFormSchemaPublic();
@@ -53,6 +56,17 @@ export default function RegistrationPrivacyStep({
 
   return (
     <div>
+      <div className="alert alert-info mb-4" role="note">
+        <p className="mb-2">{t('page.englishTestNotGraduation')}</p>
+        <div className="d-flex flex-wrap gap-2">
+          <Link to="/student/progress" className="btn btn-sm btn-outline-primary">
+            {t('page.englishTestProgressLink')}
+          </Link>
+          <Link to="/course-guide" className="btn btn-sm btn-outline-secondary">
+            {t('page.englishTestCourseGuideLink')}
+          </Link>
+        </div>
+      </div>
       <div className="mb-4">
         <h4
           className="mb-3"
@@ -102,7 +116,12 @@ export default function RegistrationPrivacyStep({
         </div>
       )}
 
-      <div className="d-flex justify-content-end">
+      <div className="d-flex flex-column align-items-end gap-2">
+        {agreeRequired && !agreedToPrivacyPolicy ? (
+          <p className="text-muted small mb-0" role="status">
+            {t('page.englishTestPrivacyNextHint')}
+          </p>
+        ) : null}
         <button
           type="button"
           className="btn btn-primary-custom"

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PageHeader from '../components/layout/PageHeader';
 import CourseGuideBlocks from '../components/courseGuide/CourseGuideBlocks';
 import {
@@ -19,7 +20,7 @@ function pickLocalized(obj, lang, zhKey, enKey) {
  * 修課說明 — 資料驅動（API + 靜態 fallback，後台可 CRUD）
  */
 export default function CourseGuidePage() {
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const [payload, setPayload] = useState(COURSE_GUIDE_DEFAULT);
   const [openSections, setOpenSections] = useState(() => new Set());
 
@@ -92,6 +93,25 @@ export default function CourseGuidePage() {
         title={pickLocalized(payload, lang, 'pageTitleZh', 'pageTitleEn')}
         lead={pickLocalized(payload, lang, 'pageLeadZh', 'pageLeadEn')}
       />
+
+      <section className="course-guide-status" aria-labelledby="course-guide-status-title">
+        <h2 id="course-guide-status-title" className="course-guide-status__title">
+          {t('page.courseGuideStatusTitle')}
+        </h2>
+        <p className="course-guide-status__lead">{t('page.courseGuideStatusLead')}</p>
+        <div className="course-guide-status__actions">
+          <Link to="/student/progress" className="btn btn-primary btn-sm">
+            {t('page.courseGuideStatusCtaProgress')}
+          </Link>
+          <Link to="/student/english-learning-passport" className="btn btn-outline-primary btn-sm">
+            {t('page.courseGuideStatusCtaPassport')}
+          </Link>
+          <Link to="/register/english-test" className="btn btn-outline-secondary btn-sm">
+            {t('page.courseGuideStatusCtaBestepNote')}
+            <span className="course-guide-status__hint">{t('page.courseGuideStatusBestepHint')}</span>
+          </Link>
+        </div>
+      </section>
 
       <section className="course-guide-standard" aria-labelledby="course-guide-standard-title">
         <h2 id="course-guide-standard-title" className="course-guide-standard__title">

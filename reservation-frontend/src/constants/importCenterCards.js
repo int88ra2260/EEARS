@@ -86,7 +86,7 @@ export const IMPORT_CENTER_CARDS = [
     statusTier: IMPORT_STATUS_TIER.ENABLED,
     description:
       '匯入外部英檢成績（多種測驗類型、四技能分數與 CEFR），寫入 Learning Journey V3，供最佳技能與達標統計。',
-    impactModules: ['英語學習歷程中心', '分析報表', '學生學習歷程查詢'],
+    impactModules: ['英語學習歷程中心', '分析報表'],
     riskHint: '可選 replace 模式覆蓋衝突資料；匯入後會觸發最佳技能重算，建議由管理員操作。',
     routeAccess: '/admin/learning-journey/import',
     importPath: '/admin/learning-journey/import',

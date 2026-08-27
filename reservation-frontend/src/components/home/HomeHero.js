@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ContentText from '../siteContent/ContentText';
+import { fetchEnabledSurveys } from '../../services/surveyPublicApi';
 import { ShimmerButton } from './MagicHeroEffects';
 import './home.css';
 
@@ -14,20 +15,37 @@ const HERO_QUICK_LINKS = [
     to: '/survey/choice',
     titleKey: 'homePage.quickSurvey',
     descKey: 'homePage.quickSurveyDesc',
+    idleDescKey: 'homePage.quickSurveyDescIdle',
+  },
+  {
+    to: '/learning-resources',
+    titleKey: 'homePage.quickPractice',
+    descKey: 'homePage.quickPracticeDesc',
   },
   {
     to: '/student/english-learning-passport',
     titleKey: 'homePage.quickPassport',
     descKey: 'homePage.quickPassportDesc',
   },
-  {
-    to: '/rules',
-    titleKey: 'homePage.quickRules',
-    descKey: 'homePage.quickRulesDesc',
-  },
 ];
 
 export default function HomeHero() {
+  const [surveyCount, setSurveyCount] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchEnabledSurveys()
+      .then((list) => {
+        if (!cancelled) setSurveyCount(Array.isArray(list) ? list.length : 0);
+      })
+      .catch(() => {
+        if (!cancelled) setSurveyCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <section className="home-hero home-hero--desk" aria-labelledby="home-hero-title">
       <div className="home-shell home-hero__inner">
@@ -63,16 +81,21 @@ export default function HomeHero() {
               <ContentText k="homePage.quickPanelTitle" as="h2" id="home-quick-title" />
             </div>
             <div className="home-hero-panel__grid" role="list">
-              {HERO_QUICK_LINKS.map((item) => (
-                <div key={item.to} role="listitem">
-                  <Link to={item.to} className="home-hero-quick-card">
-                    <div className="home-hero-quick-card__top">
-                      <ContentText k={item.titleKey} as="span" className="home-hero-quick-card__title" />
-                    </div>
-                    <ContentText k={item.descKey} as="span" className="home-hero-quick-card__desc" />
-                  </Link>
-                </div>
-              ))}
+              {HERO_QUICK_LINKS.map((item) => {
+                const descKey = item.idleDescKey && surveyCount === 0
+                  ? item.idleDescKey
+                  : item.descKey;
+                return (
+                  <div key={item.to} role="listitem">
+                    <Link to={item.to} className="home-hero-quick-card">
+                      <div className="home-hero-quick-card__top">
+                        <ContentText k={item.titleKey} as="span" className="home-hero-quick-card__title" />
+                      </div>
+                      <ContentText k={descKey} as="span" className="home-hero-quick-card__desc" />
+                    </Link>
+                  </div>
+                );
+              })}
             </div>
           </aside>
         </div>

@@ -14,7 +14,7 @@ export const ROLE_OPTIONS = [
   { value: 'admin', label: '系統管理員' },
   { value: 'teacher', label: '老師' },
   { value: 'office_staff', label: '行政職員' },
-  { value: 'leader', label: 'ET Leader（學生桌長）' },
+  { value: 'leader', label: '英語桌帶班（ET Leader）' },
   { value: 'worker', label: '工讀生' },
 ];
 

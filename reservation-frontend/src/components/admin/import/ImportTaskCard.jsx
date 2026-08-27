@@ -76,6 +76,13 @@ export default function ImportTaskCard({ card, accessProfile }) {
         ) : null}
 
         <Card.Text className="import-center-card__desc">{card.description}</Card.Text>
+        {card.importPath ? (
+          <p className="import-center-card__next small text-muted mb-2">
+            {statusTier === 'export_only'
+              ? `下一步：前往「${card.title}」頁下載或匯出`
+              : `下一步：前往「${card.title}」頁上傳`}
+          </p>
+        ) : null}
 
         <div className="import-center-card__impact" aria-label="影響模組">
           <span className="import-center-card__impact-label">影響模組</span>

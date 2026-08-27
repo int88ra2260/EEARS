@@ -24,7 +24,8 @@ export default function MyReservationsPage() {
     form,
     records,
     loading,
-    error,
+    validationErrors,
+    searchError,
     cancelingReservationId,
     cancellationCode,
     setCancellationCode,
@@ -36,9 +37,11 @@ export default function MyReservationsPage() {
     cancelLoading,
   } = useReservationLookup({ showToast });
 
-  const handleSearch = useCallback(() => {
-    search();
-    setHasSearched(true);
+  const handleSearch = useCallback(async () => {
+    const result = await search();
+    if (result?.reason !== 'validation') {
+      setHasSearched(true);
+    }
   }, [search]);
 
   const breadcrumbs = [
@@ -64,7 +67,8 @@ export default function MyReservationsPage() {
         onStudentEmailChange={form.setStudentEmail}
         onSearch={handleSearch}
         loading={loading}
-        error={error}
+        validationErrors={validationErrors}
+        searchError={searchError}
         showHint={true}
       />
       </div>
@@ -75,7 +79,7 @@ export default function MyReservationsPage() {
         cancelingReservationId={cancelingReservationId}
         cancelLoading={cancelLoading}
         cancelError={cancelError}
-        error={error}
+        searchError={searchError}
         cancellationCode={cancellationCode}
         onCancellationCodeChange={setCancellationCode}
         onStartCancel={startCancel}

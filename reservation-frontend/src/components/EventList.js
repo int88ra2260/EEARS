@@ -1,7 +1,7 @@
 // src/components/EventList.js
 // 漸進式模組化：日曆、活動介紹、規則／通知已拆至 components/events/，此檔為 orchestration container
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { useSearchParams, Link, useLocation } from 'react-router-dom';
 import EventDetail from './EventDetail';
 import {
   getEventBookingState,
@@ -9,7 +9,6 @@ import {
   canWaitlistFromState,
 } from '../utils/eventBookingState';
 import { bookingStateToReasonCode } from './events/EventDeadlineHint';
-import ReservationSearchModal from './ReservationSearchModal';
 import { safeAPICall } from '../utils/errorHandler';
 import { useLanguage } from '../context/LanguageContext';
 import { fetchEvents } from '../services/eventService';
@@ -54,7 +53,6 @@ function getInitialEventFilter(initialTabProp) {
 function EventList({ initialTab: initialTabProp }) {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const { t } = useLanguage();
   const toast = useToast();
 
@@ -119,7 +117,7 @@ function EventList({ initialTab: initialTabProp }) {
 
   const filterOptions = useMemo(() => {
     return [
-      { value: 'all', labelKey: 'nav.activities', tabId: null },
+      { value: 'all', labelKey: 'page.eventTypeFilterAll', tabId: null },
       { value: 'English Table', labelKey: 'activities.englishTable', tabId: 'english-table' },
       { value: 'English Club', labelKey: 'activities.englishClub', tabId: 'english-club' },
       { value: 'Job Talk', labelKey: 'activities.jobTalk', tabId: 'job-talk' },
@@ -297,16 +295,18 @@ function EventList({ initialTab: initialTabProp }) {
       bookableCount,
       totalCount: filteredEvents.length,
       nextBookable,
+      nextEvent: sorted.length > 0 ? sorted[0] : null,
     };
   }, [filteredEvents, canReserveAndReason, canWaitlistAndReason]);
 
   const handleJumpToNextBookable = useCallback(() => {
-    const { nextBookable } = calendarBookingMeta;
-    if (!nextBookable) {
+    const { nextBookable, nextEvent } = calendarBookingMeta;
+    const target = nextBookable || nextEvent;
+    if (!target) {
       toast.info(t('page.calendarJumpNone'));
       return;
     }
-    calendarSectionRef.current?.gotoDate(nextBookable.date);
+    calendarSectionRef.current?.gotoDate(target.date);
   }, [calendarBookingMeta, t, toast]);
 
   const filterBtnRefs = useRef([]);
@@ -418,6 +418,19 @@ function EventList({ initialTab: initialTabProp }) {
             icon="📅"
             title={t('activities.noEventsTitle')}
             description={t('activities.noEventsDesc')}
+            actions={
+              <>
+                <Link to="/activities" className="btn btn-primary btn-sm">
+                  {t('activities.noEventsCtaActivities')}
+                </Link>
+                <Link to="/my-reservations" className="btn btn-outline-primary btn-sm">
+                  {t('activities.noEventsCtaReservations')}
+                </Link>
+                <Link to="/learning-resources" className="btn btn-outline-secondary btn-sm">
+                  {t('activities.noEventsCtaPractice')}
+                </Link>
+              </>
+            }
           />
         </div>
       )}
@@ -446,6 +459,7 @@ function EventList({ initialTab: initialTabProp }) {
           bookableCount={calendarBookingMeta.bookableCount}
           totalCount={calendarBookingMeta.totalCount}
           hasNextBookable={Boolean(calendarBookingMeta.nextBookable)}
+          hasNextEvent={Boolean(calendarBookingMeta.nextEvent)}
           onJumpNext={handleJumpToNextBookable}
           t={t}
         />
@@ -469,7 +483,14 @@ function EventList({ initialTab: initialTabProp }) {
         />
       )}
 
-      {/* 移除errorMsg modal，改用系統提示 */}
+      {isEventsRoute ? (
+        <div className="event-list-sticky-bar">
+          <p className="event-list-sticky-bar__hint">{t('page.eventsStickyHint')}</p>
+          <Link to="/my-reservations" className="btn btn-primary event-list-sticky-bar__cta">
+            {t('page.eventsStickyMyReservations')}
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }

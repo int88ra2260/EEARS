@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { getEventLocationDisplay } from '../../utils/eventLocation';
 import { calculateReservationTime } from '../../utils/reservationTime';
 import { formatBookingCode } from '../../utils/bookingCode';
+import { eventTypeFilterToQueryParam } from '../../utils/eventTypeQuery';
 
 export default function BookingSuccessView({
   event,
@@ -20,6 +21,10 @@ export default function BookingSuccessView({
   const eventDate = safeEvent.date || '（未提供日期）';
   const eventStart = safeEvent.startTime || '--:--';
   const eventEnd = safeEvent.endTime || '--:--';
+  const typeSlug = eventTypeFilterToQueryParam(safeEvent.eventType || 'all');
+  const phrasebookPath = typeSlug && typeSlug !== 'all'
+    ? `/guides/activity-phrasebook/${typeSlug}`
+    : '/guides/activity-phrasebook';
 
   let openStartLabel = '';
   let openEndLabel = '';
@@ -37,14 +42,23 @@ export default function BookingSuccessView({
   const successAtLabel = successAt ? new Date(successAt).toLocaleString('zh-TW') : new Date().toLocaleString('zh-TW');
 
   const handleMyReservations = () => {
-    // 讓使用者自行決定離開 modal
     if (typeof onClose === 'function') onClose();
     navigate('/my-reservations');
   };
 
-  const handleBackToActivities = () => {
+  const handleBookAnother = () => {
     if (typeof onClose === 'function') onClose();
     navigate('/events');
+  };
+
+  const handleProgress = () => {
+    if (typeof onClose === 'function') onClose();
+    navigate('/student/progress');
+  };
+
+  const handlePhrasebook = () => {
+    if (typeof onClose === 'function') onClose();
+    navigate(phrasebookPath);
   };
 
   return (
@@ -90,6 +104,9 @@ export default function BookingSuccessView({
           <div className="mt-2">
             預約資訊將寄送至 <strong>{emailLabel}</strong>。
           </div>
+          <div className="mt-2">
+            若無法參加，請在<strong>活動開始前至少 2 小時</strong>取消，否則可能記違規。
+          </div>
           <div className="mt-2 text-muted">
             若稍後未收到通知，請先確認垃圾信匣，或前往「我的預約」查詢與取消。
           </div>
@@ -97,14 +114,27 @@ export default function BookingSuccessView({
             請保留此預約編號，可作為預約成功的查詢依據。
           </div>
         </div>
+
+        <div className="alert alert-light border mt-3 mb-0">
+          <strong>活動前語言支援：</strong>
+          <div className="mt-1">
+            出發前可先看應答指南與常用句，暖身後再參加會更有把握。
+          </div>
+        </div>
       </div>
 
-      <div className="mt-3 d-flex flex-column flex-sm-row gap-2">
+      <div className="mt-3 d-flex flex-column flex-sm-row flex-wrap gap-2">
         <Button variant="primary" onClick={handleMyReservations}>
           查看我的預約
         </Button>
-        <Button variant="outline-secondary" onClick={handleBackToActivities}>
-          返回活動列表
+        <Button variant="outline-primary" onClick={handlePhrasebook}>
+          活動前語言支援
+        </Button>
+        <Button variant="outline-primary" onClick={handleBookAnother}>
+          再預約一場
+        </Button>
+        <Button variant="outline-secondary" onClick={handleProgress}>
+          查看我的英語進度
         </Button>
       </div>
     </div>

@@ -96,3 +96,30 @@ export function buildSubmissionPayload(ruleCode, form) {
 
   return { ruleCode, activityDate, title, description, metadataJson };
 }
+
+function isBlank(value) {
+  return value === undefined || value === null || String(value).trim() === '';
+}
+
+/**
+ * 送出前檢查必填欄位。草稿可不檢查附件。
+ * @returns {string} 錯誤訊息；通過則為空字串
+ */
+export function validateRuleForm(ruleCode, form = {}, files = {}, options = {}) {
+  if (!ruleCode) return '請選擇項目類型';
+  const fields = RULE_FORM_FIELDS[ruleCode] || [];
+  const hasExistingAttachments = Boolean(options.hasExistingAttachments);
+
+  for (const field of fields) {
+    if (!field.required) continue;
+    if (field.type === 'file') {
+      if (files[field.key] || hasExistingAttachments) continue;
+      return `請上傳「${field.label}」`;
+    }
+    const value = form[field.key];
+    if (isBlank(value)) {
+      return `請填寫「${field.label}」`;
+    }
+  }
+  return '';
+}

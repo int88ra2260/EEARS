@@ -23,7 +23,11 @@ export default function AnnouncementPreview() {
   const sortedItems = useMemo(() => sortAnnouncements(items), [items]);
 
   return (
-    <section id="announcements" className="home-section home-section--flat" aria-labelledby="announcements-title">
+    <section
+      id="announcements"
+      className="home-section home-section--announcements"
+      aria-labelledby="announcements-title"
+    >
       <div className="home-shell home-reveal">
         <header className="home-section__header home-section__header--split">
           <div>
@@ -36,7 +40,7 @@ export default function AnnouncementPreview() {
             />
             <ContentText k="homePage.announcementsLead" as="p" className="home-section__lead" />
           </div>
-          <Link to="/announcements" className="home-btn home-btn--ghost home-section__header-action">
+          <Link to="/announcements" className="home-btn home-btn--outline home-section__header-action">
             <ContentText k="homePage.viewAllAnnouncements" />
           </Link>
         </header>

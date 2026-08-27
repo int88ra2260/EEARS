@@ -23,7 +23,8 @@ function ReservationSearchModal({ show, onClose }) {
     form,
     records,
     loading,
-    error,
+    validationErrors,
+    searchError,
     cancelingReservationId,
     cancellationCode,
     setCancellationCode,
@@ -35,9 +36,11 @@ function ReservationSearchModal({ show, onClose }) {
     cancelLoading,
   } = useReservationLookup({ showToast });
 
-  const handleSearch = () => {
-    search();
-    setHasSearched(true);
+  const handleSearch = async () => {
+    const result = await search();
+    if (result?.reason !== 'validation') {
+      setHasSearched(true);
+    }
   };
 
   if (!show) return null;
@@ -61,7 +64,8 @@ function ReservationSearchModal({ show, onClose }) {
                 onStudentEmailChange={form.setStudentEmail}
                 onSearch={handleSearch}
                 loading={loading}
-                error={error}
+                validationErrors={validationErrors}
+                searchError={searchError}
                 showHint={false}
               />
               <ReservationResultList
@@ -70,7 +74,7 @@ function ReservationSearchModal({ show, onClose }) {
                 cancelingReservationId={cancelingReservationId}
                 cancelLoading={cancelLoading}
                 cancelError={cancelError}
-                error={error}
+                searchError={searchError}
                 cancellationCode={cancellationCode}
                 onCancellationCodeChange={setCancellationCode}
                 onStartCancel={startCancel}
