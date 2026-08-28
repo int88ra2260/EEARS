@@ -84,6 +84,7 @@ const MigrationCheckpoint = require('./MigrationCheckpoint');
 const MigrationQuarantine = require('./MigrationQuarantine');
 const LearningJourneyImportHistory = require('./LearningJourneyImportHistory');
 const LearningJourneyOperationRun = require('./LearningJourneyOperationRun');
+const LearningTraceEvent = require('./LearningTraceEvent');
 const LjStudentEvent = require('./LjStudentEvent');
 const LjAnalyticStudent = require('./LjAnalyticStudent');
 const LjAnalyticExam = require('./LjAnalyticExam');
@@ -396,6 +397,7 @@ module.exports = {
   MigrationQuarantine,
   LearningJourneyImportHistory,
   LearningJourneyOperationRun,
+  LearningTraceEvent,
   LjStudentEvent,
   LjAnalyticStudent,
   LjAnalyticExam,

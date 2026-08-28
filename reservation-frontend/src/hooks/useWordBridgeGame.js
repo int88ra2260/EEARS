@@ -16,6 +16,13 @@ const PHASE = {
   RESULTS: 'results',
 };
 
+function createTraceId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `wb_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
+  }
+  return `wb_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function useWordBridgeGame() {
   const [phase, setPhase] = useState(PHASE.INTRO);
   const [currentLevel, setCurrentLevel] = useState('A1');
@@ -30,6 +37,7 @@ export default function useWordBridgeGame() {
   const [levelNotice, setLevelNotice] = useState(null);
   const [mistakeLog, setMistakeLog] = useState([]);
   const [swapUsed, setSwapUsed] = useState(false);
+  const [activeTraceId, setActiveTraceId] = useState('');
 
   const usedQuartetIdsRef = useRef([]);
   const roundIdRef = useRef('');
@@ -37,6 +45,8 @@ export default function useWordBridgeGame() {
   const endingRef = useRef(false);
   const timeoutHandledRef = useRef(false);
   const gameStartedAtRef = useRef(null);
+  const traceIdRef = useRef('');
+  const startLevelRef = useRef('A1');
   const tilesRef = useRef(tiles);
   const solvedGroupsRef = useRef(solvedGroups);
   const mistakeLogRef = useRef(mistakeLog);
@@ -71,6 +81,8 @@ export default function useWordBridgeGame() {
     if (endingRef.current) return;
     endingRef.current = true;
     setGameSummary({
+      traceId: traceIdRef.current,
+      startLevel: startLevelRef.current,
       endReason,
       failLevel: currentLevel,
       passedLevels,
@@ -119,6 +131,7 @@ export default function useWordBridgeGame() {
 
   const startGame = useCallback((startLevel = 'A1') => {
     const level = CEFR_LEVELS.includes(startLevel) ? startLevel : 'A1';
+    startLevelRef.current = level;
     usedQuartetIdsRef.current = [];
     endingRef.current = false;
     advancingRef.current = false;
@@ -129,6 +142,8 @@ export default function useWordBridgeGame() {
     setGameSummary(null);
     setLevelNotice(null);
     setSwapUsed(false);
+    traceIdRef.current = createTraceId();
+    setActiveTraceId(traceIdRef.current);
     gameStartedAtRef.current = Date.now();
     loadRoundAtLevel(level);
     setPhase(PHASE.PLAYING);
@@ -282,6 +297,7 @@ export default function useWordBridgeGame() {
     setSecondsLeft(getRoundSecondsForLevel('A1'));
     setLevelNotice(null);
     setSwapUsed(false);
+    setActiveTraceId('');
     gameStartedAtRef.current = null;
   }, []);
 
@@ -306,6 +322,7 @@ export default function useWordBridgeGame() {
     result,
     mistakeLog,
     swapAvailable: !swapUsed,
+    activeTraceId,
     levels: CEFR_LEVELS,
     gameSummary: phase === PHASE.RESULTS ? gameSummary : null,
     startGame,

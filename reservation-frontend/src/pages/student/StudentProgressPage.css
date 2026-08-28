@@ -80,3 +80,43 @@
 .cert-path__step--done .cert-path__dot {
   background: #28a745;
 }
+
+.student-journey-panel {
+  display: contents;
+}
+
+.student-journey-badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.student-journey-badge {
+  border: 1px solid var(--color-border-soft, #e8e0d8);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fff;
+  opacity: 0.72;
+}
+
+.student-journey-badge.is-earned {
+  opacity: 1;
+  border-color: #b7dfc5;
+  background: #f6fff8;
+}
+
+.student-journey-badge__title {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.student-journey-badge__desc {
+  font-size: 0.82rem;
+  color: var(--pub-text-secondary, #6b5e54);
+  margin-top: 0.25rem;
+}
+
+.student-journey-feedback {
+  border-left: 3px solid var(--color-primary, #4f7cac);
+  padding-left: 0.85rem;
+}

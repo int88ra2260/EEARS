@@ -17,6 +17,12 @@ import {
 } from '../../utils/wordBridgeRecommendations';
 import { CEFR_LEVELS } from '../../data/wordBridgePuzzles';
 import { saveWordBridgeSummary } from '../../services/wordBridgeSessionStore';
+import { buildMiniGameCompletePayload, buildMiniGameStartPayload } from '../../utils/learningEventPayload';
+import { submitLearningTrace } from '../../services/learningTraceApi';
+import {
+  buildActivityFunnelPayload,
+  createRecommendationBatchId,
+} from '../../utils/learningFunnelPayload';
 import './WordBridgeGame.css';
 
 const ACTIVITY_META = {
@@ -360,7 +366,28 @@ function MistakeWordsModal({ t, rows, matchPool, canMatch, onClose }) {
   );
 }
 
-function ActivityRecommendationCards({ activities, t }) {
+function ActivityRecommendationCards({ activities, t, batchId, estimatedLevel }) {
+  React.useEffect(() => {
+    if (!batchId || !activities?.length) return;
+    activities.forEach((activityKey) => {
+      submitLearningTrace(buildActivityFunnelPayload({
+        eventType: 'funnel_impression',
+        activityKey,
+        batchId,
+        estimatedLevel,
+      }));
+    });
+  }, [activities, batchId, estimatedLevel]);
+
+  const trackClick = (activityKey, eventType = 'funnel_click') => {
+    submitLearningTrace(buildActivityFunnelPayload({
+      eventType,
+      activityKey,
+      batchId,
+      estimatedLevel,
+    }));
+  };
+
   return (
     <div className="word-bridge-recommendations">
       {activities.map((activityKey) => {
@@ -385,11 +412,16 @@ function ActivityRecommendationCards({ activities, t }) {
                 className="word-bridge-rec__link"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackClick(activityKey, 'funnel_click')}
               >
                 {t('wordBridge.visitExternalSite')}
               </a>
             ) : (
-              <Link to={getEventsCalendarPath(meta.slug)} className="word-bridge-rec__link">
+              <Link
+                to={getEventsCalendarPath(meta.slug)}
+                className="word-bridge-rec__link"
+                onClick={() => trackClick(activityKey, 'funnel_book_attempt')}
+              >
                 {t('wordBridge.bookActivity')}
               </Link>
             )}
@@ -402,6 +434,7 @@ function ActivityRecommendationCards({ activities, t }) {
 
 function ResultsPanel({ t, lang, result, mistakeLog, onPlayAgain }) {
   const confidenceKey = `wordBridge.confidence.${result.confidence}`;
+  const recommendationBatchId = React.useMemo(() => createRecommendationBatchId(), []);
   const [showMistakeWords, setShowMistakeWords] = useState(false);
   const [shareNotice, setShareNotice] = useState('');
   const mistakeWordRows = useMemo(() => buildMistakeWordRows(mistakeLog), [mistakeLog]);
@@ -461,7 +494,12 @@ function ResultsPanel({ t, lang, result, mistakeLog, onPlayAgain }) {
         <h4 id="wb-results-level-title" className="word-bridge-results-section__title">
           {t('wordBridge.resultsLevelSection')}
         </h4>
-        <ActivityRecommendationCards activities={result.activities} t={t} />
+        <ActivityRecommendationCards
+          activities={result.activities}
+          t={t}
+          batchId={recommendationBatchId}
+          estimatedLevel={result.estimatedLevel}
+        />
       </section>
 
       <p className="word-bridge-results-style-hint">{t('wordBridge.resultsStyleHint')}</p>
@@ -510,15 +548,32 @@ export default function WordBridgeGame({ onPhaseChange }) {
   const game = useWordBridgeGame();
   const [selectedLevel, setSelectedLevel] = useState('A1');
 
+  const startTraceSentRef = React.useRef(false);
+
   useEffect(() => {
     onPhaseChange?.(game.phase);
+    if (game.phase !== 'playing') {
+      startTraceSentRef.current = false;
+    }
   }, [game.phase, onPhaseChange]);
 
   useEffect(() => {
-    if (game.phase === 'results' && game.gameSummary) {
-      saveWordBridgeSummary(game.gameSummary);
+    if (game.phase !== 'playing' || !game.activeTraceId || startTraceSentRef.current) return;
+    startTraceSentRef.current = true;
+    submitLearningTrace(buildMiniGameStartPayload('word_bridge', {
+      traceId: game.activeTraceId,
+      startLevel: selectedLevel,
+    }));
+  }, [game.phase, game.activeTraceId, selectedLevel]);
+
+  useEffect(() => {
+    if (game.phase !== 'results' || !game.gameSummary || !game.result) return;
+    saveWordBridgeSummary(game.gameSummary);
+    const payload = buildMiniGameCompletePayload('word_bridge', game.result, game.gameSummary);
+    if (payload.traceId) {
+      submitLearningTrace(payload);
     }
-  }, [game.phase, game.gameSummary]);
+  }, [game.phase, game.gameSummary, game.result]);
 
   useEffect(() => {
     if (game.phase !== 'playing' && game.phase !== 'results') return;

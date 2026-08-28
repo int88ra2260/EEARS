@@ -64,6 +64,7 @@ const learningJourneyV3Router = require('./routes/learningJourneyV3Router');
 const learningAnalyticsRouter = require('./routes/learningAnalyticsRouter');
 const learningPartnerRouter = require('./routes/learningPartnerRouter');
 const etGroupingRouter = require('./routes/etGroupingRouter');
+const learningTraceRouter = require('./routes/learningTraceRouter');
 
 const { errorHandler } = require('./middlewares/errorHandler');
 const { requestLogger } = require('./middlewares/requestLogger');
@@ -130,6 +131,7 @@ app.use('/api/admin/learning-journey', learningJourneyRouter);
 app.use('/api/v3/learning-journey', learningJourneyRouter);
 app.use('/api/admin/learning-journey-v3', learningJourneyV3Router);
 app.use('/api/admin/learning-analytics', learningAnalyticsRouter);
+app.use('/api', learningTraceRouter);
 app.use('/api/admin/et-grouping', etGroupingRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api', analyticsRouter);

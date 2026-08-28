@@ -7,6 +7,9 @@ import PageHeader from '../../components/layout/PageHeader';
 import ReservationLookupSection from '../../components/reservations/ReservationLookupSection';
 import useReservationLookup from '../../hooks/useReservationLookup';
 import { fetchElpDashboard } from '../../services/englishLearningPassportApi';
+import { fetchStudentLearningJourneyDashboard } from '../../services/learningTraceApi';
+import { setVoluntaryStudentId } from '../../utils/learningStudentLink';
+import StudentLearningJourneyPanel from '../../components/student/StudentLearningJourneyPanel';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatMessage } from '../../utils/formatMessage';
 import '../../styles/public-ui.css';
@@ -18,6 +21,9 @@ export default function StudentProgressPage() {
   const [elpLoading, setElpLoading] = useState(false);
   const [elpPoints, setElpPoints] = useState(null);
   const [elpError, setElpError] = useState('');
+  const [journeyLoading, setJourneyLoading] = useState(false);
+  const [journeyData, setJourneyData] = useState(null);
+  const [journeyError, setJourneyError] = useState('');
 
   const {
     form,
@@ -35,6 +41,8 @@ export default function StudentProgressPage() {
     setHasSearched(true);
     setElpPoints(null);
     setElpError('');
+    setJourneyData(null);
+    setJourneyError('');
 
     const identity = {
       studentId: form.studentId.trim(),
@@ -42,7 +50,9 @@ export default function StudentProgressPage() {
       studentEmail: form.studentEmail.trim(),
     };
 
+    setVoluntaryStudentId(identity.studentId);
     setElpLoading(true);
+    setJourneyLoading(true);
     try {
       const data = await fetchElpDashboard(identity);
       setElpPoints(data?.passport?.totalApprovedPoints ?? 0);
@@ -55,6 +65,16 @@ export default function StudentProgressPage() {
       }
     } finally {
       setElpLoading(false);
+    }
+
+    try {
+      const journey = await fetchStudentLearningJourneyDashboard(identity);
+      setJourneyData(journey);
+    } catch (e) {
+      setJourneyData(null);
+      setJourneyError(e.message || '學習歷程載入失敗');
+    } finally {
+      setJourneyLoading(false);
     }
   }, [search, form.studentId, form.studentName, form.studentEmail]);
 
@@ -80,7 +100,7 @@ export default function StudentProgressPage() {
           onStudentNameChange={form.setStudentName}
           onStudentEmailChange={form.setStudentEmail}
           onSearch={handleSearch}
-          loading={loading || elpLoading}
+          loading={loading || elpLoading || journeyLoading}
           validationErrors={validationErrors}
           searchError={searchError}
           searchButtonLabel={t('page.reservationSearch')}
@@ -88,7 +108,8 @@ export default function StudentProgressPage() {
         />
       </div>
 
-      {hasSearched && !loading && !elpLoading && !searchError ? (
+      {hasSearched && !loading && !elpLoading && !journeyLoading && !searchError ? (
+        <>
         <div className="student-progress-grid">
           <section className="student-progress-card public-card">
             <h2 className="h5">{t('page.studentProgressReservations')}</h2>
@@ -156,6 +177,18 @@ export default function StudentProgressPage() {
             </Link>
           </section>
         </div>
+
+        {journeyError ? (
+          <div className="public-card mt-3">
+            <p className="text-muted small mb-0">{journeyError}</p>
+          </div>
+        ) : null}
+        {journeyData ? (
+          <div className="student-progress-grid mt-3">
+            <StudentLearningJourneyPanel data={journeyData} />
+          </div>
+        ) : null}
+        </>
       ) : null}
     </div>
   );

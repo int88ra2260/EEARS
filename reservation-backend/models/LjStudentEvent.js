@@ -7,7 +7,7 @@ const LjStudentEvent = sequelize.define('LjStudentEvent', {
   id: { type: DataTypes.BIGINT.UNSIGNED, autoIncrement: true, primaryKey: true },
   studentId: { type: DataTypes.STRING(20), allowNull: false, field: 'student_id' },
   eventType: {
-    type: DataTypes.ENUM('baseline_score', 'exam_event', 'course_event', 'activity_event'),
+    type: DataTypes.ENUM('baseline_score', 'exam_event', 'course_event', 'activity_event', 'micro_learning_event'),
     allowNull: false,
     field: 'event_type',
   },

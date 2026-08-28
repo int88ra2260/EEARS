@@ -24,6 +24,8 @@ import MetricCard from '../../components/learningAnalytics/MetricCard';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 import LearningAnalyticsOverviewGuide from '../../components/learningAnalytics/LearningAnalyticsOverviewGuide';
+import MicroLearningEngagementPanel from '../../components/learningAnalytics/MicroLearningEngagementPanel';
+import LearningTraceInsightsPanel from '../../components/learningAnalytics/LearningTraceInsightsPanel';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
 import LaFold from '../../components/learningAnalytics/LaFold';
 import EvidenceQualityBadge from '../../components/learningAnalytics/EvidenceQualityBadge';
@@ -385,6 +387,9 @@ export default function LearningAnalyticsOverviewPage() {
               </div>
             </Col>
           </Row>
+
+          <MicroLearningEngagementPanel token={token} ready={ready} />
+          <LearningTraceInsightsPanel token={token} ready={ready} />
 
           <div className="d-flex flex-wrap gap-3 mt-3 pt-2 border-top small">
             <Link to="/admin/learning-analytics/cohorts">群體比較</Link>
