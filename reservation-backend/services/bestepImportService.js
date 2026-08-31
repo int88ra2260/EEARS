@@ -10,6 +10,7 @@ const {
   sequelize
 } = require('../models');
 const { Op } = require('sequelize');
+const { findRegistrationForSemester } = require('./englishTestRegistrationService');
 
 // CEFR 等級列表
 const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
@@ -364,16 +365,10 @@ async function importAttendanceData(filePath, semester, examType, examDate) {
 
         const cleanStudentId = String(studentId).trim().toUpperCase();
 
-        // 驗證學號是否存在於報名記錄中（且 status='success'）
-        const registration = await EnglishTestRegistration.findOne({
-          where: {
-            studentId: cleanStudentId,
-            status: 'success'
-          },
-          transaction
-        });
+        // 驗證學號是否存在於本學期報名記錄中（且 status='success'）
+        const { registration } = await findRegistrationForSemester(cleanStudentId, semester, { transaction });
 
-        if (!registration) {
+        if (!registration || registration.status !== 'success') {
           errors.push({
             row: rowNum,
             studentId: cleanStudentId,
@@ -496,16 +491,10 @@ async function importScoreData(filePath, semester) {
 
         const cleanStudentId = String(studentId).trim().toUpperCase();
 
-        // 驗證學號是否存在於報名記錄中（且 status='success'）
-        const registration = await EnglishTestRegistration.findOne({
-          where: {
-            studentId: cleanStudentId,
-            status: 'success'
-          },
-          transaction
-        });
+        // 驗證學號是否存在於本學期報名記錄中（且 status='success'）
+        const { registration } = await findRegistrationForSemester(cleanStudentId, semester, { transaction });
 
-        if (!registration) {
+        if (!registration || registration.status !== 'success') {
           errors.push({
             row: rowNum,
             studentId: cleanStudentId,

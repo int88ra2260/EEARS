@@ -23,7 +23,11 @@ export default function AlertDialog({
         <Modal.Title>{title}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {description ? <p className="mb-0">{description}</p> : null}
+        {description ? (
+          <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>
+            {description}
+          </p>
+        ) : null}
       </Modal.Body>
       <Modal.Footer>
         <Button ref={btnRef} variant={variant} onClick={onConfirm}>

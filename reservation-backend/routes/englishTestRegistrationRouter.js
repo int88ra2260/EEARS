@@ -389,6 +389,16 @@ router.put('/english-test/registrations/update',
         });
       }
 
+      try {
+        englishTestRegistrationService.assertStudentMayEditRegistration(registration);
+      } catch (semErr) {
+        return res.status(semErr.status || 403).json({
+          success: false,
+          code: semErr.code || 'REGISTRATION_SEMESTER_MISMATCH',
+          error: semErr.message,
+        });
+      }
+
       // email 變更時須重新通過信箱驗證；未變更則免驗
       if (englishTestEmailVerificationService.requiresEmailVerification({
         submittedEmail: formData.email,
@@ -652,6 +662,11 @@ router.put('/english-test/registrations/update',
       const wasRevision = registration.status === 'revision';
       if (wasRevision) {
         updateData.status = 'pending';
+      }
+
+      const { getActiveRegistrationSemester } = require('../utils/englishTestRegistrationSemester');
+      if (englishTestRegistrationService.isBlankSemester(registration.semester)) {
+        updateData.semester = getActiveRegistrationSemester();
       }
 
       await registration.update(updateData);
@@ -1152,11 +1167,11 @@ router.post('/english-test/register',
           extraAnswers: parseExtraAnswersField(formData.extraAnswers),
           // 如果 examType 為 'NON'，status 設為 'revision'（不報名），否則為 'pending'（審核中）
           status: (formData.examType === 'NON') ? 'revision' : 'pending',
-          // 根據報名時間自動判斷學期
+          // 根據報名時間自動判斷學期（空窗期 fallback 至 getCurrentSemester）
           semester: (() => {
             try {
-              const { getSemesterByDate } = require('../scripts/populate-semester-for-registrations');
-              return getSemesterByDate(new Date());
+              const { getActiveRegistrationSemester } = require('../utils/englishTestRegistrationSemester');
+              return getActiveRegistrationSemester(new Date());
             } catch (error) {
               console.warn('無法判斷學期，將設為 null:', error);
               return null;
@@ -1256,9 +1271,9 @@ router.post('/english-test/register',
         logger.error('唯一約束錯誤（可能重複報名）', error);
         // 檢查是哪個欄位違反唯一約束
         const field = error.errors && error.errors[0] ? error.errors[0].path : 'unknown';
-        if (field === 'studentId') {
+        if (field === 'studentId' || field === 'semester') {
           return res.status(409).json({ 
-            error: '您已經報名過了',
+            error: '您本學期已經報名過了',
             code: 'DUPLICATE_REGISTRATION'
           });
         }
@@ -1990,17 +2005,16 @@ router.post(
   publicEnglishTestLookupRateLimit,
   requireCaptchaIfEnabled,
   normalizePublicLookupInput,
-  requireLookupMinimumFields({ requireStudentId: true, requireName: true, requireEmail: true }),
+  requireLookupMinimumFields({ requireStudentId: true, requireName: true }),
   async (req, res) => {
   try {
-    const { studentId, name, idNumber, email } = req.body;
+    const { studentId, name, idNumber } = req.body;
 
-    // 驗證必要欄位
-    if (!studentId || !name || !idNumber || !email) {
+    // 驗證必要欄位（公開查詢僅需學號／姓名／身分證，與前端身分驗證步驟一致）
+    if (!studentId || !name || !idNumber) {
       return res.status(400).json({ success: false, message: 'Invalid query.' });
     }
 
-    // 查詢報名資料：必須三個欄位都匹配才能查詢（安全考量：包含地址等私人資訊）
     const trimmedStudentId = studentId.trim();
     const trimmedName = name.trim();
     const trimmedIdNumber = idNumber.trim().toUpperCase();
@@ -2019,48 +2033,35 @@ router.post(
       });
     }
 
-    // 先根據學號查詢（學號是唯一索引，查詢最快）
-    const registration = await EnglishTestRegistration.findOne({
-      where: { studentId: trimmedStudentId }
+    const lookup = await englishTestRegistrationService.queryPublicRegistration({
+      studentId: trimmedStudentId,
+      name: trimmedName,
+      idNumber: trimmedIdNumber,
     });
 
-    if (!registration) {
+    if (!lookup.found) {
       publicLookupAudit(req, {
         action: 'english_test_registration_query_public',
         entityType: 'EnglishTestRegistration',
         entityId: trimmedStudentId,
         found: false,
-        payload: { studentId: trimmedStudentId, name: trimmedName, email },
+        payload: { studentId: trimmedStudentId, name: trimmedName, semester: lookup.semester },
       });
-      return genericLookupResponse(res, { found: false, message: 'Request processed.' });
-    }
-
-    // 驗證三個欄位都必須正確（安全檢查：保護包含地址等私人資訊）
-    const idNumberMatch = registration.idNumber.toUpperCase() === trimmedIdNumber;
-    const nameMatch = registration.name.trim() === trimmedName;
-    const studentIdMatch = registration.studentId.trim() === trimmedStudentId;
-
-    // 檢查哪些欄位不匹配，提供明確的錯誤訊息
-    if (!idNumberMatch || !nameMatch || !studentIdMatch) {
-      publicLookupAudit(req, {
-        action: 'english_test_registration_query_public',
-        entityType: 'EnglishTestRegistration',
-        entityId: trimmedStudentId,
+      return genericLookupResponse(res, {
         found: false,
-        payload: { studentId: trimmedStudentId, name: trimmedName, email },
+        message: 'Request processed.',
+        data: { semester: lookup.semester },
       });
-      return genericLookupResponse(res, { found: false, message: 'Request processed.' });
     }
 
-    // 檢查是否可以編輯（已通過、報名成功、報名失敗都只能檢視不能修正）
-    const canEdit = !['approved', 'success', 'failed'].includes(registration.status);
-    
+    const { registration, canEdit, statusMessage, semester, legacySemesterInferred } = lookup;
+
     publicLookupAudit(req, {
       action: 'english_test_registration_query_public',
       entityType: 'EnglishTestRegistration',
       entityId: registration.id,
       found: true,
-      payload: { studentId: trimmedStudentId, name: trimmedName, email },
+      payload: { studentId: trimmedStudentId, name: trimmedName, semester },
     });
     return genericLookupResponse(res, {
       found: true,
@@ -2068,11 +2069,10 @@ router.post(
       data: {
         registration,
         canEdit,
-        statusMessage: canEdit ? null : (
-          registration.status === 'approved' || registration.status === 'success'
-            ? '你的基本資料已經通過審查，是否報名成功仍以信件通知為準，若是想要修改報考項目或是補照片請聯繫全英語卓越教學中心'
-            : '此報名已失敗，無法進行修改。如有疑問請聯繫全英語卓越教學中心'
-        )
+        statusMessage,
+        semester,
+        isCurrentSemester: true,
+        legacySemesterInferred: Boolean(legacySemesterInferred),
       }
     });
   } catch (error) {

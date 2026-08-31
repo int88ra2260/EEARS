@@ -1,6 +1,8 @@
 // components/EnglishTestViewEditModal.js
 import React, { useState, useCallback } from 'react';
 import { updateEnglishTestRegistration } from '../services/englishTestPublicApi';
+import useToast from './ui/useToast';
+import useAlert from './ui/useAlert';
 import { useEnglishTestFormFields } from '../hooks/useEnglishTestFormFields';
 import {
   getErrorStyle,
@@ -9,6 +11,7 @@ import {
   buildUpdateFormData,
 } from '../utils/englishTestFormHelpers';
 import { validateEnglishTestEditForm } from '../utils/englishTestFormValidation';
+import { formatEnglishTestSemesterLabel } from '../utils/englishTestSemesterDisplay';
 import EnglishTestRegistrationFormBody from './english-test/registration/EnglishTestRegistrationFormBody';
 import EnglishTestExtraQuestions, {
   validateExtraAnswers,
@@ -57,8 +60,21 @@ function buildInitialFormData(registration) {
   };
 }
 
-export default function EnglishTestViewEditModal({ registration, basicInfo: _basicInfo, onClose, onUpdateSuccess }) {
-  const cannotEdit = ['approved', 'success', 'failed'].includes(registration.status);
+export default function EnglishTestViewEditModal({
+  registration,
+  basicInfo: _basicInfo,
+  semester,
+  statusMessage: statusMessageFromApi,
+  canEditFromApi,
+  legacySemesterInferred = false,
+  onClose,
+  onUpdateSuccess,
+}) {
+  const toast = useToast();
+  const { alert } = useAlert();
+  const cannotEdit = canEditFromApi === false
+    || ['approved', 'success', 'failed'].includes(registration.status);
+  const displaySemester = formatEnglishTestSemesterLabel(semester || registration.semester) || null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailVerificationToken, setEmailVerificationToken] = useState(null);
   const [verifiedEmail, setVerifiedEmail] = useState(null);
@@ -92,6 +108,7 @@ export default function EnglishTestViewEditModal({ registration, basicInfo: _bas
   }, []);
 
   const getStatusMessage = () => {
+    if (statusMessageFromApi) return statusMessageFromApi;
     switch (registration.status) {
       case 'approved':
       case 'success':
@@ -112,7 +129,11 @@ export default function EnglishTestViewEditModal({ registration, basicInfo: _bas
         success: '報名已成功無法進行修改',
         failed: '報名已失敗無法進行修改',
       };
-      alert(statusMessages[registration.status] || '此狀態無法進行修改');
+      void alert({
+        title: '無法修改',
+        description: statusMessages[registration.status] || '此狀態無法進行修改',
+        variant: 'warning',
+      });
       return;
     }
 
@@ -136,7 +157,7 @@ export default function EnglishTestViewEditModal({ registration, basicInfo: _bas
     if (!validationResult.isValid || nextErrors.emailVerification || hasExtraErrors) {
       scrollToFirstError(getFieldRef, validationResult.firstErrorField || Object.keys(nextErrors)[0] || 'email');
       const errorCount = Object.keys(nextErrors).length;
-      alert(`請修正表單錯誤後再提交\n\n發現 ${errorCount} 個必填欄位未填寫，已自動跳轉至第一個錯誤欄位`);
+      toast.warning(`請修正表單錯誤後再提交（共 ${errorCount} 個欄位），已跳至第一個錯誤位置`);
       return;
     }
 
@@ -153,11 +174,11 @@ export default function EnglishTestViewEditModal({ registration, basicInfo: _bas
         onUpdateSuccess();
       } else {
         console.error('更新失敗:', data);
-        alert(data.error || data.message || '更新失敗，請稍後再試');
+        toast.error(data.error || data.message || '更新失敗，請稍後再試');
       }
     } catch (error) {
       console.error('更新報名資料錯誤:', error);
-      alert('更新失敗，請稍後再試');
+      toast.error('更新失敗，請稍後再試');
     } finally {
       setIsSubmitting(false);
     }
@@ -176,10 +197,27 @@ export default function EnglishTestViewEditModal({ registration, basicInfo: _bas
       <div className="modal-dialog modal-xl modal-dialog-scrollable">
         <div className="modal-content">
           <div className="modal-header">
-            <h5 className="modal-title">檢視與修正報名資料 - {registration.name}</h5>
+            <h5 className="modal-title">
+              檢視與修正報名資料 - {registration.name}
+              {displaySemester ? (
+                <span className="badge bg-primary ms-2" style={{ fontSize: '0.75rem', verticalAlign: 'middle' }}>
+                  {displaySemester}
+                </span>
+              ) : null}
+            </h5>
             <button type="button" className="btn-close" onClick={onClose} />
           </div>
           <div className="modal-body">
+            {displaySemester ? (
+              <p className="text-muted small mb-3">
+                您正在檢視 <strong>{displaySemester}</strong> 的培力英檢報名資料。
+              </p>
+            ) : null}
+            {legacySemesterInferred ? (
+              <div className="alert alert-warning py-2 small mb-3" role="status">
+                此筆資料的學期欄位尚未更新，系統已依報名時間判定為 <strong>{displaySemester}</strong>。
+              </div>
+            ) : null}
             {cannotEdit && (
               <div className="alert alert-info d-flex align-items-center mb-4" role="alert">
                 <i className="fas fa-info-circle me-2" style={{ fontSize: '1.5rem' }} />

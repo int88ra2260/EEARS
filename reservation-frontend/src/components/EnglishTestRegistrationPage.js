@@ -3,6 +3,7 @@
 import React from 'react';
 import useEnglishTestRegistrationPage from '../hooks/useEnglishTestRegistrationPage';
 import RegistrationPageLayout from './english-test/registration/RegistrationPageLayout';
+import RegistrationAnnouncementStep from './english-test/registration/RegistrationAnnouncementStep';
 import RegistrationPrivacyStep from './english-test/registration/RegistrationPrivacyStep';
 import RegistrationVerifyStep from './english-test/registration/RegistrationVerifyStep';
 import EnglishTestStep3Form from './EnglishTestStep3Form';
@@ -12,6 +13,8 @@ import EnglishTestViewEditModal from './EnglishTestViewEditModal';
 export default function EnglishTestRegistrationPage() {
   const {
     englishTestStep,
+    agreedToAnnouncement,
+    setAgreedToAnnouncement,
     agreedToPrivacyPolicy,
     setAgreedToPrivacyPolicy,
     englishTestForm,
@@ -20,6 +23,7 @@ export default function EnglishTestRegistrationPage() {
     isLoadingStudent,
     showViewEditModal,
     existingRegistration,
+    viewEditMeta,
     isLoadingRegistration,
     step3Data,
     registrationTab,
@@ -27,6 +31,7 @@ export default function EnglishTestRegistrationPage() {
     registrationEnabled,
     isCheckingRegistrationStatus,
     handleCloseEnglishTestModal,
+    handleAnnouncementNext,
     handlePrivacyPolicyNext,
     handleViewEdit,
     handleEnglishTestFormChange,
@@ -47,6 +52,14 @@ export default function EnglishTestRegistrationPage() {
       onClose={handleCloseEnglishTestModal}
     >
       {englishTestStep === 0 && (
+        <RegistrationAnnouncementStep
+          agreedToAnnouncement={agreedToAnnouncement}
+          onAgreedChange={setAgreedToAnnouncement}
+          onNext={handleAnnouncementNext}
+        />
+      )}
+
+      {englishTestStep === 1 && (
         <RegistrationPrivacyStep
           agreedToPrivacyPolicy={agreedToPrivacyPolicy}
           onAgreedChange={setAgreedToPrivacyPolicy}
@@ -54,7 +67,7 @@ export default function EnglishTestRegistrationPage() {
         />
       )}
 
-      {englishTestStep === 1 && (
+      {englishTestStep === 2 && (
         <RegistrationVerifyStep
           registrationTab={registrationTab}
           onRegistrationTabChange={setRegistrationTab}
@@ -76,12 +89,16 @@ export default function EnglishTestRegistrationPage() {
         <EnglishTestViewEditModal
           registration={existingRegistration}
           basicInfo={englishTestForm}
+          semester={viewEditMeta.semester}
+          statusMessage={viewEditMeta.statusMessage}
+          canEditFromApi={viewEditMeta.canEdit}
+          legacySemesterInferred={viewEditMeta.legacySemesterInferred}
           onClose={handleCloseViewEditModal}
           onUpdateSuccess={handleViewEditUpdateSuccess}
         />
       )}
 
-      {registrationEnabled && englishTestStep === 2 && (
+      {registrationEnabled && englishTestStep === 3 && (
         <EnglishTestStep3Form
           basicInfo={englishTestForm}
           initialData={studentData}
@@ -91,7 +108,7 @@ export default function EnglishTestRegistrationPage() {
         />
       )}
 
-      {registrationEnabled && englishTestStep === 3 && (
+      {registrationEnabled && englishTestStep === 4 && (
         <EnglishTestDetailForm
           initialData={studentData}
           basicInfo={englishTestForm}

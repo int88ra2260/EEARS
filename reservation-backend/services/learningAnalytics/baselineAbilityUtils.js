@@ -2,7 +2,7 @@
 
 const { normalizeCefr } = require('../learningJourney/utils/cefr');
 
-/** 學測英文總分（0–20）→ CEFR 分層（內部分析用，非認證對照） */
+/** 學測英文級分（實務上多為 1–15；規則上限 20）→ CEFR 分層（內部分析用，非認證對照） */
 const GSAT_OVERALL_RULES = Object.freeze([
   { min: 18, cefr: 'C1' },
   { min: 15, cefr: 'B2' },

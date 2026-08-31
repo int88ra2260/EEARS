@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useToast from '../components/ui/useToast';
 import useAlert from '../components/ui/useAlert';
+import useConfirm from '../components/ui/useConfirm';
 import {
   fetchRegistrationEnabled,
   queryEnglishTestRegistration,
@@ -13,13 +14,35 @@ import {
   validateIdNumber,
   validateEnglishTestBasicForm,
 } from '../utils/englishTestRegistrationValidation';
+import { extractEnglishTestQueryResult } from '../utils/englishTestQueryResponse';
+import { formatEnglishTestSemesterLabel } from '../utils/englishTestSemesterDisplay';
+import {
+  clearEnglishTestRegistrationDraft,
+  getEnglishTestLeaveConfirmDescription,
+  hasEnglishTestRegistrationProgress,
+  loadEnglishTestRegistrationDraft,
+  saveEnglishTestRegistrationDraft,
+  stripStep3DataForDraft,
+} from '../utils/englishTestRegistrationDraft';
+
+import {
+  ENGLISH_TEST_ANNOUNCEMENT_ACK_KEY,
+} from '../constants/englishTestRegistrationAnnouncement';
 
 export default function useEnglishTestRegistrationPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const { alert } = useAlert();
+  const { confirm } = useConfirm();
 
   const [englishTestStep, setEnglishTestStep] = useState(0);
+  const [agreedToAnnouncement, setAgreedToAnnouncement] = useState(() => {
+    try {
+      return sessionStorage.getItem(ENGLISH_TEST_ANNOUNCEMENT_ACK_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [agreedToPrivacyPolicy, setAgreedToPrivacyPolicy] = useState(false);
   const [englishTestForm, setEnglishTestForm] = useState({
     studentId: '',
@@ -35,11 +58,25 @@ export default function useEnglishTestRegistrationPage() {
   const [isLoadingStudent, setIsLoadingStudent] = useState(false);
   const [showViewEditModal, setShowViewEditModal] = useState(false);
   const [existingRegistration, setExistingRegistration] = useState(null);
+  const [viewEditMeta, setViewEditMeta] = useState({
+    semester: null,
+    statusMessage: null,
+    canEdit: true,
+    legacySemesterInferred: false,
+  });
   const [isLoadingRegistration, setIsLoadingRegistration] = useState(false);
   const [step3Data, setStep3Data] = useState(null);
   const [registrationTab, setRegistrationTab] = useState('individual');
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [isCheckingRegistrationStatus, setIsCheckingRegistrationStatus] = useState(true);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  const getProgressSnapshot = useCallback(() => ({
+    englishTestStep,
+    agreedToPrivacyPolicy,
+    step3Data,
+    englishTestForm,
+  }), [englishTestStep, agreedToPrivacyPolicy, step3Data, englishTestForm]);
 
   useEffect(() => {
     const loadRegistrationStatus = async () => {
@@ -56,16 +93,103 @@ export default function useEnglishTestRegistrationPage() {
     loadRegistrationStatus();
   }, []);
 
-  const handleCloseEnglishTestModal = useCallback(() => {
+  useEffect(() => {
+    if (isCheckingRegistrationStatus || draftRestored) return;
+
+    const draft = loadEnglishTestRegistrationDraft();
+    if (!draft) {
+      setDraftRestored(true);
+      return;
+    }
+
+    const draftProgress = hasEnglishTestRegistrationProgress({
+      englishTestStep: draft.englishTestStep ?? 0,
+      agreedToPrivacyPolicy: Boolean(draft.agreedToPrivacyPolicy),
+      step3Data: draft.step3Data ?? null,
+      englishTestForm: draft.englishTestForm ?? {},
+    });
+
+    if (!draftProgress) {
+      clearEnglishTestRegistrationDraft();
+      setDraftRestored(true);
+      return;
+    }
+
+    if (typeof draft.englishTestStep === 'number') {
+      setEnglishTestStep(draft.englishTestStep);
+    }
+    if (draft.agreedToPrivacyPolicy) {
+      setAgreedToPrivacyPolicy(true);
+    }
+    if (draft.englishTestForm && typeof draft.englishTestForm === 'object') {
+      setEnglishTestForm((prev) => ({ ...prev, ...draft.englishTestForm }));
+    }
+    if (draft.step3Data) {
+      setStep3Data(draft.step3Data);
+    }
+
+    toast.info('已恢復上次未完成的報名進度');
+    setDraftRestored(true);
+  }, [draftRestored, isCheckingRegistrationStatus, toast]);
+
+  useEffect(() => {
+    if (!draftRestored || isCheckingRegistrationStatus) return;
+
+    const snapshot = getProgressSnapshot();
+    if (!hasEnglishTestRegistrationProgress(snapshot)) {
+      clearEnglishTestRegistrationDraft();
+      return;
+    }
+
+    saveEnglishTestRegistrationDraft({
+      englishTestStep: snapshot.englishTestStep,
+      agreedToPrivacyPolicy: snapshot.agreedToPrivacyPolicy,
+      englishTestForm: snapshot.englishTestForm,
+      step3Data: stripStep3DataForDraft(snapshot.step3Data),
+      savedAt: new Date().toISOString(),
+    });
+  }, [draftRestored, getProgressSnapshot, isCheckingRegistrationStatus]);
+
+  const handleCloseEnglishTestModal = useCallback(async (options = {}) => {
+    const skipConfirm = options?.skipConfirm === true;
+    const snapshot = getProgressSnapshot();
+
+    if (!skipConfirm && hasEnglishTestRegistrationProgress(snapshot)) {
+      const ok = await confirm({
+        title: '離開報名流程？',
+        description: getEnglishTestLeaveConfirmDescription(snapshot),
+        confirmText: '離開',
+        cancelText: '繼續填寫',
+        variant: 'warning',
+      });
+      if (!ok) return;
+      clearEnglishTestRegistrationDraft();
+    } else if (skipConfirm) {
+      clearEnglishTestRegistrationDraft();
+    }
+
     navigate('/');
-  }, [navigate]);
+  }, [confirm, getProgressSnapshot, navigate]);
+
+  const handleAnnouncementNext = useCallback(() => {
+    if (!agreedToAnnouncement) {
+      toast.warning('請先勾選已閱讀報名須知後才能繼續');
+      return;
+    }
+    try {
+      sessionStorage.setItem(ENGLISH_TEST_ANNOUNCEMENT_ACK_KEY, '1');
+    } catch {
+      // ignore private browsing
+    }
+    setEnglishTestStep(1);
+  }, [agreedToAnnouncement, toast]);
 
   const handlePrivacyPolicyNext = useCallback(() => {
     if (!agreedToPrivacyPolicy) {
       toast.warning('請先勾選同意個資使用同意書後才能繼續');
       return;
     }
-    setEnglishTestStep(1);
+    setEnglishTestStep(2);
   }, [agreedToPrivacyPolicy, toast]);
 
   const handleViewEdit = useCallback(async () => {
@@ -98,11 +222,23 @@ export default function useEnglishTestRegistrationPage() {
         return;
       }
 
-      if (ok && data.found) {
-        setExistingRegistration(data.registration);
+      const lookup = extractEnglishTestQueryResult(data);
+
+      if (ok && lookup.found && lookup.registration) {
+        setExistingRegistration(lookup.registration);
+        setViewEditMeta({
+          semester: lookup.semester,
+          statusMessage: lookup.statusMessage,
+          canEdit: lookup.canEdit,
+          legacySemesterInferred: lookup.legacySemesterInferred,
+        });
         setShowViewEditModal(true);
+      } else if (ok && lookup.found && !lookup.registration) {
+        toast.warning('查詢成功但無法載入報名資料，請稍後再試或聯繫全英中心');
       } else {
-        const errorMsg = data.error || '找不到報名資料';
+        const semesterLabel = formatEnglishTestSemesterLabel(lookup.semester);
+        const semesterHint = semesterLabel ? `（${semesterLabel}）` : '';
+        const errorMsg = data.error || `找不到本學期培力英檢報名資料${semesterHint}`;
         if (data.mismatchedFields && Array.isArray(data.mismatchedFields)) {
           await alert({
             title: '找不到報名資料',
@@ -110,7 +246,11 @@ export default function useEnglishTestRegistrationPage() {
             variant: 'warning',
           });
         } else {
-          toast.warning(errorMsg);
+          await alert({
+            title: '找不到報名資料',
+            description: `${errorMsg}\n\n若您尚未報名，請按「下一步 →」開始填寫新報名資料。`,
+            variant: 'info',
+          });
         }
       }
     } catch (error) {
@@ -182,10 +322,11 @@ export default function useEnglishTestRegistrationPage() {
       });
 
       if (checkStatus === 404) {
-        console.warn('查詢 API 不存在 (404)，跳過檢查直接進入下一步');
-        setStudentData(null);
-        setEnglishTestStep(2);
-        setIsLoadingStudent(false);
+        await alert({
+          title: '無法確認報名狀態',
+          description: '系統暫時無法確認您是否已報名，請稍後再試。若問題持續，請聯繫全英語卓越教學中心。',
+          variant: 'warning',
+        });
         return;
       }
 
@@ -203,16 +344,22 @@ export default function useEnglishTestRegistrationPage() {
       }
 
       if (!registrationCheckData || typeof registrationCheckData !== 'object') {
-        setStudentData(null);
-        setEnglishTestStep(2);
-        setIsLoadingStudent(false);
+        await alert({
+          title: '無法確認報名狀態',
+          description: '系統回應異常，無法確認您是否已報名。請稍後再試，或使用「檢視與修正」查詢。',
+          variant: 'warning',
+        });
         return;
       }
 
-      if (checkOk && registrationCheckData.found) {
+      const lookup = extractEnglishTestQueryResult(registrationCheckData);
+
+      if (checkOk && lookup.found) {
+        const semesterLabel = formatEnglishTestSemesterLabel(lookup.semester);
+        const semesterHint = semesterLabel ? `（${semesterLabel}）` : '';
         await alert({
           title: '不可重複報名',
-          description: '您已經報名過培力英檢，無法重複報名。\n請使用「檢視與修正」功能來修改您的報名資料。',
+          description: `您本學期${semesterHint}已經報名過培力英檢，無法重複報名。\n請使用「檢視與修正」功能來修改您的報名資料。`,
           variant: 'info',
         });
         setIsLoadingStudent(false);
@@ -220,12 +367,14 @@ export default function useEnglishTestRegistrationPage() {
       }
 
       setStudentData(null);
-      setEnglishTestStep(2);
+      setEnglishTestStep(3);
     } catch (error) {
       console.error('檢查報名狀態錯誤:', error);
-      console.warn('查詢報名狀態失敗，允許繼續報名流程');
-      setStudentData(null);
-      setEnglishTestStep(2);
+      await alert({
+        title: '無法確認報名狀態',
+        description: '連線或系統發生錯誤，無法確認您是否已報名。請稍後再試。',
+        variant: 'warning',
+      });
     } finally {
       setIsLoadingStudent(false);
     }
@@ -238,21 +387,23 @@ export default function useEnglishTestRegistrationPage() {
   const handleCloseViewEditModal = useCallback(() => {
     setShowViewEditModal(false);
     setExistingRegistration(null);
+    setViewEditMeta({ semester: null, statusMessage: null, canEdit: true, legacySemesterInferred: false });
   }, []);
 
   const handleViewEditUpdateSuccess = useCallback(() => {
     setShowViewEditModal(false);
     setExistingRegistration(null);
+    setViewEditMeta({ semester: null, statusMessage: null, canEdit: true, legacySemesterInferred: false });
     toast.success('報名資料已更新成功！');
   }, [toast]);
 
   const handleStep3Next = useCallback((step3FormData) => {
     setStep3Data(step3FormData);
-    setEnglishTestStep(3);
+    setEnglishTestStep(4);
   }, []);
 
   const handleStep4Back = useCallback(() => {
-    setEnglishTestStep(2);
+    setEnglishTestStep(3);
   }, []);
 
   const handleSubmitNonExam = useCallback(async (nonExamData) => {
@@ -315,6 +466,7 @@ export default function useEnglishTestRegistrationPage() {
       const { ok, status, data } = await registerEnglishTest(submitData);
 
       if (ok) {
+        clearEnglishTestRegistrationDraft();
         const successUrl = '/english-test-success.html';
         setTimeout(() => {
           const newWindow = window.open(successUrl, '_blank');
@@ -322,7 +474,7 @@ export default function useEnglishTestRegistrationPage() {
             toast.success('報名成功！若未自動開啟成功頁，請確認瀏覽器是否阻擋新分頁。');
           }
         }, 100);
-        handleCloseEnglishTestModal();
+        handleCloseEnglishTestModal({ skipConfirm: true });
       } else {
         if (
           status === 409 &&
@@ -344,12 +496,26 @@ export default function useEnglishTestRegistrationPage() {
     }
   }, [englishTestForm, toast, alert, handleCloseEnglishTestModal]);
 
-  const handleNavigateToGroupRegistration = useCallback(() => {
+  const handleNavigateToGroupRegistration = useCallback(async () => {
+    const snapshot = getProgressSnapshot();
+    if (hasEnglishTestRegistrationProgress(snapshot)) {
+      const ok = await confirm({
+        title: '前往團體報名？',
+        description: `${getEnglishTestLeaveConfirmDescription(snapshot)}\n\n確定要前往團體報名嗎？`,
+        confirmText: '前往團體報名',
+        cancelText: '留在此頁',
+        variant: 'warning',
+      });
+      if (!ok) return;
+      clearEnglishTestRegistrationDraft();
+    }
     navigate('/register/english-test/group');
-  }, [navigate]);
+  }, [confirm, getProgressSnapshot, navigate]);
 
   return {
     englishTestStep,
+    agreedToAnnouncement,
+    setAgreedToAnnouncement,
     agreedToPrivacyPolicy,
     setAgreedToPrivacyPolicy,
     englishTestForm,
@@ -358,6 +524,7 @@ export default function useEnglishTestRegistrationPage() {
     isLoadingStudent,
     showViewEditModal,
     existingRegistration,
+    viewEditMeta,
     isLoadingRegistration,
     step3Data,
     registrationTab,
@@ -365,6 +532,7 @@ export default function useEnglishTestRegistrationPage() {
     registrationEnabled,
     isCheckingRegistrationStatus,
     handleCloseEnglishTestModal,
+    handleAnnouncementNext,
     handlePrivacyPolicyNext,
     handleViewEdit,
     handleEnglishTestFormChange,

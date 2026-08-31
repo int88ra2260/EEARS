@@ -20,6 +20,8 @@ const learningPartnerAdminAuth = [
 const { sendEmail } = require('../config/email');
 const emailQueue = require('../utils/emailQueue');
 const { isGroupRegistrationEnabled } = require('../services/registrationSettingsService');
+const { getActiveRegistrationSemester } = require('../utils/englishTestRegistrationSemester');
+const englishTestRegistrationService = require('../services/englishTestRegistrationService');
 
 // 輔助函數：取得設定值
 async function getSetting(key, defaultValue) {
@@ -236,18 +238,19 @@ router.post('/learning-partner/teams', async (req, res) => {
         });
       }
 
-      // 查詢個人報名記錄
-      const registration = await EnglishTestRegistration.findOne({
-        where: {
-          studentId: member.studentId,
-          name: member.name,
-          status: 'success'
-        },
-        transaction,
-        lock: transaction ? Sequelize.Transaction.LOCK.UPDATE : undefined
-      });
+      // 查詢本學期個人報名記錄（含 semester 為 null 的舊資料推斷）
+      const activeSemester = getActiveRegistrationSemester();
+      const { registration } = await englishTestRegistrationService.findRegistrationForSemester(
+        member.studentId,
+        activeSemester,
+        { transaction }
+      );
 
-      if (!registration) {
+      const nameMatches = registration
+        && registration.name.trim() === String(member.name || '').trim();
+      const isSuccessful = registration && registration.status === 'success';
+
+      if (!registration || !nameMatches || !isSuccessful) {
         ineligibleMembers.push({
           studentId: member.studentId,
           name: member.name,

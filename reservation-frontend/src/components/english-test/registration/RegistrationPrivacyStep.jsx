@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import useMediaQuery from '../../../hooks/useMediaQuery';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useEnglishTestFormSchemaPublic } from '../../../hooks/useEnglishTestFormSchemaPublic';
@@ -56,26 +55,8 @@ export default function RegistrationPrivacyStep({
 
   return (
     <div>
-      <div className="alert alert-info mb-4" role="note">
-        <p className="mb-2">{t('page.englishTestNotGraduation')}</p>
-        <div className="d-flex flex-wrap gap-2">
-          <Link to="/student/progress" className="btn btn-sm btn-outline-primary">
-            {t('page.englishTestProgressLink')}
-          </Link>
-          <Link to="/course-guide" className="btn btn-sm btn-outline-secondary">
-            {t('page.englishTestCourseGuideLink')}
-          </Link>
-        </div>
-      </div>
       <div className="mb-4">
-        <h4
-          className="mb-3"
-          style={{
-            color: '#FF6B6B',
-            fontWeight: 'bold',
-            fontSize: isSmallMobile ? '1.1rem' : isMobile ? '1.25rem' : '1.5rem',
-          }}
-        >
+        <h4 className="public-registration__step-title mb-3">
           {title}
         </h4>
         {showDoc && (
@@ -117,16 +98,12 @@ export default function RegistrationPrivacyStep({
       )}
 
       <div className="d-flex flex-column align-items-end gap-2">
-        {agreeRequired && !agreedToPrivacyPolicy ? (
-          <p className="text-muted small mb-0" role="status">
-            {t('page.englishTestPrivacyNextHint')}
-          </p>
-        ) : null}
         <button
           type="button"
           className="btn btn-primary-custom"
           onClick={onNext}
           disabled={agreeRequired && !agreedToPrivacyPolicy}
+          aria-describedby={agreeRequired && !agreedToPrivacyPolicy ? 'privacyNextHint' : undefined}
           style={{
             padding: isSmallMobile ? '0.625rem 1.5rem' : '0.75rem 2rem',
             fontSize: isSmallMobile ? '0.9375rem' : '1rem',
@@ -135,8 +112,13 @@ export default function RegistrationPrivacyStep({
             minWidth: isSmallMobile ? '100px' : '120px',
           }}
         >
-          下一步 →
+          {t('page.englishTestAnnouncementNext')}
         </button>
+        {agreeRequired && !agreedToPrivacyPolicy ? (
+          <p id="privacyNextHint" className="public-registration__next-hint mb-0" role="status">
+            {t('page.englishTestPrivacyNextHint')}
+          </p>
+        ) : null}
       </div>
     </div>
   );

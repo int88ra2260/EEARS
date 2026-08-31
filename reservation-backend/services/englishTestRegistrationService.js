@@ -1,6 +1,10 @@
 // services/englishTestRegistrationService.js
+const { Op } = require('sequelize');
 const { EnglishTestRegistration } = require('../models');
-
+const {
+  getActiveRegistrationSemester,
+  getSemesterByDate,
+} = require('../utils/englishTestRegistrationSemester');
 const REVIEW_FIELDS = [
   // 抵免審核相關欄位：一般學生不得覆蓋，僅管理端（且 payload 明確帶入）可以更新
   'exemption_review_status',
@@ -12,6 +16,8 @@ const REVIEW_FIELDS = [
 
 const STUDENT_BLOCKED_FIELDS = new Set(REVIEW_FIELDS);
 
+const NON_EDITABLE_STUDENT_STATUSES = Object.freeze(['approved', 'success', 'failed']);
+
 function buildStudentFriendlyError({ code, message, status }) {
   const err = new Error(message);
   err.code = code;
@@ -20,17 +26,160 @@ function buildStudentFriendlyError({ code, message, status }) {
 }
 
 function computeSubmissionStatus(examType) {
-  // 如果 examType 為 'NON'，status 設為 'revision'（不報名），否則為 'pending'（審核中）
+  // 如果 examType 为 'NON'，status 設為 'revision'（不報名），否則為 'pending'（審核中）
   return examType === 'NON' ? 'revision' : 'pending';
 }
 
-async function findExistingRegistration(studentId, semester, { transaction } = {}) {
-  if (!studentId) return null;
-  if (!semester) return null;
-  return EnglishTestRegistration.findOne({
+function isBlankSemester(value) {
+  const normalized = String(value ?? '').trim();
+  return !normalized || normalized === 'null';
+}
+
+/**
+ * 推斷報名紀錄所屬學期（優先 DB 欄位，其次 createdAt 區間，最後 fallback 目前學期）。
+ */
+function inferRegistrationSemester(registration, { atDate = new Date() } = {}) {
+  if (!registration) return null;
+  if (!isBlankSemester(registration.semester)) {
+    return String(registration.semester).trim();
+  }
+  const fromCreated = getSemesterByDate(registration.createdAt || registration.updatedAt);
+  if (fromCreated) return fromCreated;
+  return getActiveRegistrationSemester(atDate);
+}
+
+function registrationBelongsToSemester(registration, semester, { atDate = new Date() } = {}) {
+  if (!registration || !semester) return false;
+  return inferRegistrationSemester(registration, { atDate }) === semester;
+}
+
+/**
+ * 依學號 + 學期查詢；支援 semester 為 null 的舊資料（依 createdAt 推斷）。
+ */
+async function findRegistrationForSemester(studentId, semester, { transaction } = {}) {
+  if (!studentId || !semester) {
+    return { registration: null, legacySemesterInferred: false };
+  }
+
+  const direct = await EnglishTestRegistration.findOne({
     where: { studentId, semester },
-    transaction
+    transaction,
   });
+  if (direct) {
+    return { registration: direct, legacySemesterInferred: false };
+  }
+
+  const legacyCandidates = await EnglishTestRegistration.findAll({
+    where: {
+      studentId,
+      [Op.or]: [{ semester: null }, { semester: '' }, { semester: 'null' }],
+    },
+    transaction,
+    order: [['id', 'DESC']],
+  });
+
+  for (const candidate of legacyCandidates) {
+    if (inferRegistrationSemester(candidate) === semester) {
+      return { registration: candidate, legacySemesterInferred: true };
+    }
+  }
+
+  return { registration: null, legacySemesterInferred: false };
+}
+
+async function findExistingRegistration(studentId, semester, { transaction } = {}) {
+  const { registration } = await findRegistrationForSemester(studentId, semester, { transaction });
+  return registration;
+}
+
+function assertStudentMayEditRegistration(registration, { atDate = new Date() } = {}) {
+  const activeSemester = getActiveRegistrationSemester(atDate);
+  if (!registrationBelongsToSemester(registration, activeSemester, { atDate })) {
+    throw buildStudentFriendlyError({
+      code: 'REGISTRATION_SEMESTER_MISMATCH',
+      status: 403,
+      message: `此報名紀錄不屬於目前學期（${activeSemester}），無法修改。請使用「檢視與修正」查詢本學期資料。`,
+    });
+  }
+}
+
+function studentCanEditRegistration(registration) {
+  if (!registration) return false;
+  return !NON_EDITABLE_STUDENT_STATUSES.includes(registration.status);
+}
+
+function buildStudentStatusMessage(registration) {
+  if (!registration || studentCanEditRegistration(registration)) return null;
+  if (registration.status === 'approved' || registration.status === 'success') {
+    return '你的基本資料已經通過審查，是否報名成功仍以信件通知為準，若是想要修改報考項目或是補照片請聯繫全英語卓越教學中心';
+  }
+  return '此報名已失敗，無法進行修改。如有疑問請聯繫全英語卓越教學中心';
+}
+
+function normalizePublicLookupFields({ studentId, name, idNumber }) {
+  return {
+    studentId: String(studentId || '').trim(),
+    name: String(name || '').trim(),
+    idNumber: String(idNumber || '').trim().toUpperCase(),
+  };
+}
+
+function registrationMatchesIdentity(registration, { studentId, name, idNumber }) {
+  if (!registration) return false;
+  const normalizedId = String(idNumber || '').trim().toUpperCase();
+  return (
+    registration.idNumber.toUpperCase() === normalizedId
+    && registration.name.trim() === String(name || '').trim()
+    && registration.studentId.trim() === String(studentId || '').trim()
+  );
+}
+
+/**
+ * 公開「檢視與修正」查詢：僅回傳指定學期（預設目前有效學期）的報名紀錄。
+ */
+async function queryPublicRegistration(
+  { studentId, name, idNumber },
+  { atDate = new Date(), semester: semesterOverride } = {}
+) {
+  const normalized = normalizePublicLookupFields({ studentId, name, idNumber });
+  const semester = semesterOverride || getActiveRegistrationSemester(atDate);
+
+  const { registration, legacySemesterInferred } = await findRegistrationForSemester(
+    normalized.studentId,
+    semester
+  );
+
+  if (!registration) {
+    return {
+      found: false,
+      semester,
+      registration: null,
+      canEdit: false,
+      statusMessage: null,
+      legacySemesterInferred: false,
+    };
+  }
+
+  if (!registrationMatchesIdentity(registration, normalized)) {
+    return {
+      found: false,
+      semester,
+      registration: null,
+      canEdit: false,
+      statusMessage: null,
+      legacySemesterInferred: false,
+    };
+  }
+
+  const canEdit = studentCanEditRegistration(registration);
+  return {
+    found: true,
+    semester,
+    registration,
+    canEdit,
+    statusMessage: canEdit ? null : buildStudentStatusMessage(registration),
+    legacySemesterInferred,
+  };
 }
 
 /**
@@ -113,11 +262,12 @@ async function createOrUpdateRegistration(payload, { transaction, actor = 'stude
       }
     }
 
-    // 避免覆蓋 semester（unique key 使用語意一致的 semester）
+    // 避免覆蓋 semester（unique key 使用語意一致的 semester）；順便 backfill 舊資料 null semester
     updateData.semester = semester;
 
+    const legacySemesterBackfilled = isBlankSemester(existing.semester);
     await existing.update(updateData, { transaction });
-    return { registration: existing, action: 'updated' };
+    return { registration: existing, action: 'updated', legacySemesterBackfilled };
   }
 
   // 不存在：create
@@ -153,6 +303,15 @@ async function createOrUpdateRegistration(payload, { transaction, actor = 'stude
 
 module.exports = {
   findExistingRegistration,
-  createOrUpdateRegistration
+  findRegistrationForSemester,
+  createOrUpdateRegistration,
+  queryPublicRegistration,
+  studentCanEditRegistration,
+  buildStudentStatusMessage,
+  registrationMatchesIdentity,
+  normalizePublicLookupFields,
+  inferRegistrationSemester,
+  registrationBelongsToSemester,
+  assertStudentMayEditRegistration,
+  isBlankSemester,
 };
-

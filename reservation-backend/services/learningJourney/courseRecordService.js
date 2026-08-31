@@ -425,9 +425,11 @@ async function applyCourseImportBulk(uniqueValidRows, summary, meta, transaction
   }
 
   if (coursesToCreate.length) {
-    await Course.bulkCreate(coursesToCreate, { transaction });
-    summary.createdCourses += coursesToCreate.length;
-    ({ coursesByKey, enrollmentsByKey, studentsById } = await getExistingContext(uniqueValidRows));
+    const createdCourses = await Course.bulkCreate(coursesToCreate, { transaction });
+    summary.createdCourses += createdCourses.length;
+    for (const course of createdCourses) {
+      coursesByKey.set(`${course.semesterId}::${course.courseCode}`, course);
+    }
   }
 
   const enrollmentRecords = [];

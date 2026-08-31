@@ -130,7 +130,7 @@ export function useEnglishTestStep3Form({ onNext, onClose, onSubmitNonExam, toas
     if (!validationResult.isValid) {
       scrollToFirstError(getFieldRef, validationResult.firstErrorField);
 
-      const errorCount = Object.keys(errors).length;
+      const errorCount = Object.keys(validationResult.errors).length;
       toast.warning(`請修正表單錯誤後再提交（共 ${errorCount} 個欄位）`);
       return;
     }

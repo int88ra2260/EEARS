@@ -67,6 +67,7 @@ async function importBaseline(file, options = {}) {
       enrollmentYear: parseEnrollmentYear(row[2]),
       gsatScore: parseScore(row[3]),
       testYear: parseEnrollmentYear(row[4]),
+      englishPlacementLabel: normName(row[5] || ''),
       _line: i + 1,
     });
   }
@@ -135,9 +136,20 @@ async function importBaseline(file, options = {}) {
         cefrLevel: inferGsatOverallCefr(r.gsatScore),
         hours: null,
         title: '入學基準（學測英文）',
-        subtitle: `學測 ${r.gsatScore}`,
+        subtitle: r.englishPlacementLabel
+          ? `學測 ${r.gsatScore} · ${r.englishPlacementLabel}`
+          : `學測 ${r.gsatScore}`,
         ruleVersion: RULE_VERSION,
-        rawPayload: { batchId, testYear: r.testYear, enrollmentYear: r.enrollmentYear, line: r._line },
+        rawPayload: {
+          batchId,
+          testYear: r.testYear,
+          enrollmentYear: r.enrollmentYear,
+          englishPlacementLabel: r.englishPlacementLabel || null,
+          remark: r.englishPlacementLabel
+            ? `英文分級：${r.englishPlacementLabel}`
+            : null,
+          line: r._line,
+        },
       };
 
       const existingEvent = await LjStudentEvent.findOne({

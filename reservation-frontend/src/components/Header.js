@@ -109,8 +109,8 @@ export default function Header() {
   const englishTestLink = (mobile) => {
     if (!showEnglishTest) return null;
     const className = mobile
-      ? `nav-link-mobile${isActive('/register/english-test') ? ' nav-link-mobile--active' : ''}`
-      : `nav-link nav-link--service${isActive('/register/english-test') ? ' nav-link--active' : ''}`;
+      ? `nav-link-mobile nav-link-mobile--service${isActive('/register/english-test') ? ' nav-link-mobile--active' : ''}`
+      : `nav-link nav-link--service nav-link--service-muted${isActive('/register/english-test') ? ' nav-link--active' : ''}`;
     if (preview?.isPreview) {
       return (
         <span className={className} aria-disabled="true">
@@ -186,9 +186,9 @@ export default function Header() {
             </div>
             <div className="header-nav-group header-nav-group--explore">
               {renderLinks(EXPLORE_NAV, false)}
+              {englishTestLink(false)}
             </div>
             <div className="header-nav-group header-nav-group--services">
-              {englishTestLink(false)}
               {langToggle}
             </div>
           </nav>

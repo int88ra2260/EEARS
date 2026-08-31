@@ -1,12 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 /**
  * 渲染 content_block（證件照規範、個資同意書圖文等）。
  */
-export default function SchemaContentBlock({ question, compact = false }) {
+export default function SchemaContentBlock({ question, compact = false, collapsibleListFrom = 0 }) {
+  const [listExpanded, setListExpanded] = useState(false);
+
   if (!question || question.visible === false) return null;
   const content = question.content || {};
   const listItems = Array.isArray(content.listItems) ? content.listItems : [];
+  const shouldCollapseList = compact && collapsibleListFrom > 0 && listItems.length > collapsibleListFrom;
+  const visibleListItems = shouldCollapseList && !listExpanded
+    ? listItems.slice(0, collapsibleListFrom)
+    : listItems;
+  const hiddenListCount = shouldCollapseList ? listItems.length - collapsibleListFrom : 0;
   const images = Array.isArray(content.images) ? content.images : [];
   const hasMainImage = Boolean(content.imageUrl);
 
@@ -65,12 +72,32 @@ export default function SchemaContentBlock({ question, compact = false }) {
             </div>
           ) : null}
 
-          {listItems.length > 0 ? (
+          {visibleListItems.length > 0 ? (
             <ol style={{ marginTop: '0.5rem', marginBottom: 0, paddingLeft: '1.5rem' }}>
-              {listItems.map((item) => (
+              {visibleListItems.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ol>
+          ) : null}
+
+          {shouldCollapseList && !listExpanded ? (
+            <button
+              type="button"
+              className="btn btn-link btn-sm px-0 mt-2"
+              onClick={() => setListExpanded(true)}
+            >
+              展開其餘 {hiddenListCount} 項重點
+            </button>
+          ) : null}
+
+          {shouldCollapseList && listExpanded ? (
+            <button
+              type="button"
+              className="btn btn-link btn-sm px-0 mt-2"
+              onClick={() => setListExpanded(false)}
+            >
+              收合摘要
+            </button>
           ) : null}
         </div>
       )}

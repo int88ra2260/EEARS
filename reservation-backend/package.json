@@ -46,7 +46,9 @@
     "logs:cleanup:dry": "node scripts/cleanup-logs.js --dry-run",
     "logs:cleanup:apply": "node scripts/cleanup-logs.js --apply",
     "security:check": "node scripts/security-check.js",
-    "weekly:import-draft": "node scripts/import-weekly-draft.js"
+    "weekly:import-draft": "node scripts/import-weekly-draft.js",
+    "english-test:check-semester-null": "node scripts/check-english-test-registration-semester-null.js",
+    "english-test:populate-semester": "node scripts/populate-semester-for-registrations.js"
   },
   "keywords": [],
   "author": "",

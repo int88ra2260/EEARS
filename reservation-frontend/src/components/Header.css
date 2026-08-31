@@ -68,8 +68,25 @@
 
 .header-nav-group--services {
   gap: 0.35rem;
-  padding-left: 0.65rem;
-  border-left: 1px solid rgba(61, 46, 36, 0.12);
+  padding-left: 0;
+  border-left: none;
+}
+
+.nav-link--service-muted {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  opacity: 0.92;
+}
+
+.nav-link--service-muted:hover {
+  opacity: 1;
+}
+
+.nav-link-mobile--service {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
 }
 
 .nav-group-mobile {

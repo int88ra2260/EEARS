@@ -2,6 +2,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { registerEnglishTest } from '../services/englishTestPublicApi';
 import { useEnglishTestFormFields } from '../hooks/useEnglishTestFormFields';
+import useToast from './ui/useToast';
+import useAlert from './ui/useAlert';
 import {
   getErrorStyle,
   ERROR_PULSE_STYLE,
@@ -69,6 +71,8 @@ function buildInitialFormData(initialData, basicInfo, step3Data) {
 }
 
 export default function EnglishTestDetailForm({ initialData, basicInfo, step3Data, onBack, onClose }) {
+  const toast = useToast();
+  const { alert } = useAlert();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailVerificationToken, setEmailVerificationToken] = useState(null);
   const [verifiedEmail, setVerifiedEmail] = useState(null);
@@ -132,7 +136,7 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
     if (!validationResult.isValid || nextErrors.emailVerification || hasExtraErrors) {
       scrollToFirstError(getFieldRef, validationResult.firstErrorField || Object.keys(nextErrors)[0] || 'email');
       const errorCount = Object.keys(nextErrors).length;
-      alert(`請修正表單錯誤後再提交\n\n發現 ${errorCount} 個必填欄位未填寫，已自動跳轉至第一個錯誤欄位`);
+      toast.warning(`請修正表單錯誤後再提交（共 ${errorCount} 個欄位），已跳至第一個錯誤位置`);
       return;
     }
 
@@ -150,17 +154,26 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
         setTimeout(() => {
           const newWindow = window.open(successUrl, '_blank');
           if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-            alert('報名成功！請查看瀏覽器是否阻止了新分頁開啟。\n\n謝謝您的回覆。報名完成後，若資料正常送出，您應該會在報名填寫的email收到通知。如有其他疑問，歡迎寄信聯絡我們（emicenter@mail.nsysu.edu.tw），謝謝。\n\n如果沒有收到通知，請先確認有無誤分到垃圾信件匣。若還是沒有，可能沒有正確送出報名資料，請協助重新再報一次名。\n\n主辦單位將於考前一至二週以email及手機簡訊另行通知您考試的日期及試場，請確認您報名時留的是常收信的email。如有任何疑問，請洽全英語卓越教學中心（建議優先寄信到emicenter@mail.nsysu.edu.tw），謝謝。');
+            void alert({
+              title: '報名成功',
+              description:
+                '若未自動開啟成功頁，請確認瀏覽器是否阻擋新分頁。\n\n'
+                + '報名完成後，您應會在填寫的 Email 收到通知；若未收到請先查看垃圾信件匣。\n\n'
+                + '考前一至二週將以 Email 及簡訊通知考試日期與試場。如有疑問請洽 emicenter@mail.nsysu.edu.tw。',
+              variant: 'success',
+            });
+          } else {
+            toast.success('報名已成功送出！');
           }
         }, 100);
-        onClose();
+        onClose({ skipConfirm: true });
       } else {
         console.error('提交失敗:', data);
-        alert(data.error || data.message || '提交失敗，請稍後再試');
+        toast.error(data.error || data.message || '提交失敗，請稍後再試');
       }
     } catch (error) {
       console.error('提交報名資料錯誤:', error);
-      alert('提交失敗，請稍後再試');
+      toast.error('提交失敗，請稍後再試');
     } finally {
       setIsSubmitting(false);
     }
@@ -206,7 +219,7 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
           <button
             type="button"
             className="btn btn-secondary me-2"
-            onClick={onClose}
+            onClick={() => { void onClose(); }}
             style={{ padding: '0.625rem 1.5rem', fontSize: '1rem', fontWeight: 'bold' }}
           >
             取消

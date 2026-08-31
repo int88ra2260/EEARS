@@ -4,39 +4,7 @@
 const { sequelize, EnglishTestRegistration } = require('../models');
 const { Op } = require('sequelize');
 
-// 學期日期範圍配置
-const SEMESTER_RANGES = {
-  '113-2': { start: '2025-02-01', end: '2025-07-31' },
-  '114-1': { start: '2025-08-01', end: '2026-01-31' },
-  '114-2': { start: '2026-02-01', end: '2026-07-31' },
-  '115-1': { start: '2026-09-01', end: '2027-01-31' },
-  '115-2': { start: '2027-02-01', end: '2027-07-31' }
-};
-
-/**
- * 根據日期判斷學期
- * @param {Date} date - 日期
- * @returns {string|null} 學期代碼
- */
-function getSemesterByDate(date) {
-  if (!date) return null;
-  
-  const dateObj = new Date(date);
-  const year = dateObj.getFullYear();
-  const month = dateObj.getMonth() + 1; // getMonth() 返回 0-11
-  
-  // 依序檢查每個學期
-  for (const [semester, range] of Object.entries(SEMESTER_RANGES)) {
-    const startDate = new Date(range.start);
-    const endDate = new Date(range.end);
-    
-    if (dateObj >= startDate && dateObj <= endDate) {
-      return semester;
-    }
-  }
-  
-  return null;
-}
+const { getSemesterByDate, getActiveRegistrationSemester, SEMESTER_RANGES } = require('../utils/englishTestRegistrationSemester');
 
 async function populateSemester() {
   const transaction = await sequelize.transaction();
@@ -110,4 +78,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { populateSemester, getSemesterByDate };
+module.exports = { populateSemester, getSemesterByDate, getActiveRegistrationSemester, SEMESTER_RANGES };

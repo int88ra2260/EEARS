@@ -42,12 +42,12 @@ export default function RegistrationVerifyStep({
             type="button"
             onClick={() => onRegistrationTabChange('individual')}
             style={{
-              color: registrationTab === 'individual' ? '#FF6B6B' : '#6c757d',
+              color: registrationTab === 'individual' ? '#2a5d9f' : '#6c757d',
               fontWeight: registrationTab === 'individual' ? 'bold' : 'normal',
               padding: '0.75rem 1.5rem',
               backgroundColor: 'transparent',
               border: 'none',
-              borderBottom: registrationTab === 'individual' ? '2px solid #FF6B6B' : '2px solid transparent',
+              borderBottom: registrationTab === 'individual' ? '2px solid #2a5d9f' : '2px solid transparent',
               marginBottom: '-2px',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
@@ -72,8 +72,8 @@ export default function RegistrationVerifyStep({
               transition: 'all 0.3s ease',
             }}
             onMouseEnter={(e) => {
-              e.target.style.color = '#FF6B6B';
-              e.target.style.borderBottomColor = '#FF6B6B';
+              e.target.style.color = '#2a5d9f';
+              e.target.style.borderBottomColor = '#2a5d9f';
             }}
             onMouseLeave={(e) => {
               e.target.style.color = '#6c757d';
@@ -243,7 +243,7 @@ export default function RegistrationVerifyStep({
                   e.target.style.boxShadow = 'none';
                 }}
               >
-                {isLoadingRegistration ? '查詢中...' : '🔍 檢視與修正'}
+                {isLoadingRegistration ? '查詢中...' : '檢視與修正'}
               </button>
 
               <div
