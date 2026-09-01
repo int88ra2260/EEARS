@@ -22,6 +22,7 @@ const {
 } = require('./syncService');
 const { loadStudentCourseRecords } = require('./courseRecordService');
 const { isEventDateInSemester } = require('./utils/semesterEventFilter');
+const { ensureStudentAnalyticsReady } = require('./analytics/studentAnalyticsSyncService');
 
 const B2_RANK = 4;
 const EMPTY_SKILLS = { listening: null, reading: null, speaking: null, writing: null };
@@ -783,6 +784,16 @@ async function getStudentProfile(studentId, opts = {}) {
     }
   } catch (_) {
     warnings.push(buildWarning('activityAbilityMapping', 'ACTIVITY_MAPPING_SOURCE_UNAVAILABLE', 'Activity mapping source unavailable'));
+  }
+
+  try {
+    await ensureStudentAnalyticsReady(sid);
+  } catch (_) {
+    warnings.push(buildWarning(
+      'timeline',
+      'STUDENT_ANALYTICS_SYNC_FAILED',
+      '學習歷程事件同步失敗；若時間軸空白，請至學習歷程維運執行分析重建。'
+    ));
   }
 
   let courseRecords = [];

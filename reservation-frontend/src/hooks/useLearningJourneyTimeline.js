@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getLearningJourneyV3StudentTimeline } from '../services/learningJourneyV3Api';
 
-export default function useLearningJourneyTimeline(token, studentId) {
+export default function useLearningJourneyTimeline(token, studentId, options = {}) {
+  const semesterId = String(options.semesterId || '').trim();
+  const includeExcludedCourses = options.includeExcludedCourses !== false;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -12,7 +14,10 @@ export default function useLearningJourneyTimeline(token, studentId) {
     setLoading(true);
     setError('');
     try {
-      const result = await getLearningJourneyV3StudentTimeline(token, sid);
+      const result = await getLearningJourneyV3StudentTimeline(token, sid, {
+        includeExcludedCourses: includeExcludedCourses ? 'true' : 'false',
+        semesterId: semesterId || undefined,
+      });
       setData(result);
     } catch (err) {
       setError(err?.message || '時間軸載入失敗');
@@ -20,7 +25,7 @@ export default function useLearningJourneyTimeline(token, studentId) {
     } finally {
       setLoading(false);
     }
-  }, [token, studentId]);
+  }, [token, studentId, semesterId, includeExcludedCourses]);
 
   useEffect(() => {
     load();

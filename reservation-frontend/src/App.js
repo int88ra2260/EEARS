@@ -19,6 +19,8 @@ import EventsPage from './pages/EventsPage';
 import ActivitiesPage from './pages/ActivitiesPage';
 import WordBridgePage from './pages/WordBridgePage';
 import ListeningLadderPage from './pages/ListeningLadderPage';
+import VocabularyDepthPage from './pages/VocabularyDepthPage';
+import VocabularySizePage from './pages/VocabularySizePage';
 import ActivityPhrasebookPage from './pages/ActivityPhrasebookPage';
 import WeeklyPage from './pages/WeeklyPage';
 import WeeklyPreviewPage from './pages/WeeklyPreviewPage';
@@ -428,9 +430,13 @@ function AppContent() {
             <Route path="/activities" element={<ActivitiesPage />} />
             <Route path="/practice/word-bridge" element={<WordBridgePage />} />
             <Route path="/practice/listening-ladder" element={<ListeningLadderPage />} />
+            <Route path="/practice/vocabulary-depth" element={<VocabularyDepthPage />} />
+            <Route path="/practice/vocabulary-size" element={<VocabularySizePage />} />
             {/* Legacy redirects */}
             <Route path="/activities/word-bridge" element={<Navigate to="/practice/word-bridge" replace />} />
             <Route path="/activities/games/listening-ladder" element={<Navigate to="/practice/listening-ladder" replace />} />
+            <Route path="/activities/games/vocabulary-depth" element={<Navigate to="/practice/vocabulary-depth" replace />} />
+            <Route path="/activities/games/vocabulary-size" element={<Navigate to="/practice/vocabulary-size" replace />} />
             <Route path="/guides/activity-phrasebook" element={<ActivityPhrasebookPage />} />
             <Route path="/guides/activity-phrasebook/:activityType" element={<ActivityPhrasebookPage />} />
             <Route path="/activities/:slug" element={<ActivityDetailPage />} />

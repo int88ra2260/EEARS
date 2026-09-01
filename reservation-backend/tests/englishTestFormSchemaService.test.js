@@ -4,6 +4,8 @@ const {
   validateAndNormalizeSchema,
   buildDefaultEnglishTestFormSchema,
   mergeMissingSystemParts,
+  mergeMissingAnnouncementParts,
+  schemaNeedsAnnouncementMerge,
   getCustomQuestions,
   schemaNeedsSystemMerge,
 } = require('../services/englishTestFormSchemaService');
@@ -16,17 +18,34 @@ describe('englishTestFormSchemaService', () => {
     expect(schema.questions.filter((q) => q.system).length).toBeGreaterThan(5);
   });
 
-  test('default schema includes step 1/2 and photo/address confirm types', () => {
+  test('default schema includes step 0 announcement and step 1/2', () => {
     const schema = buildDefaultEnglishTestFormSchema();
     const sectionIds = schema.sections.map((s) => s.id);
     expect(sectionIds).toEqual(
-      expect.arrayContaining(['privacy', 'verify', 'eligibility', 'contact', 'photo'])
+      expect.arrayContaining(['announcement', 'privacy', 'verify', 'eligibility', 'contact', 'photo'])
     );
+    expect(schema.questions.some((q) => q.fieldKey === 'announcementDoc' && q.type === 'content_block')).toBe(true);
+    expect(schema.questions.some((q) => q.fieldKey === 'agreedToAnnouncement' && q.type === 'checkbox_confirm')).toBe(true);
     expect(schema.questions.some((q) => q.fieldKey === 'privacyDoc' && q.type === 'content_block')).toBe(true);
     expect(schema.questions.some((q) => q.fieldKey === 'idPhotoGuide' && q.type === 'content_block')).toBe(true);
   });
 
-  test('mergeMissingSystemParts does not re-add deleted sections', () => {
+  test('mergeMissingAnnouncementParts backfills legacy schema without announcement', () => {
+    const base = buildDefaultEnglishTestFormSchema();
+    const legacy = {
+      ...base,
+      sections: base.sections.filter((s) => s.id !== 'announcement'),
+      questions: base.questions.filter((q) => q.sectionId !== 'announcement'),
+    };
+    expect(schemaNeedsAnnouncementMerge(legacy)).toBe(true);
+    const merged = mergeMissingAnnouncementParts(legacy);
+    expect(merged.sections.some((s) => s.id === 'announcement')).toBe(true);
+    expect(merged.questions.some((q) => q.fieldKey === 'announcementDoc')).toBe(true);
+    expect(merged.questions.some((q) => q.fieldKey === 'agreedToAnnouncement')).toBe(true);
+    expect(schemaNeedsAnnouncementMerge(merged)).toBe(false);
+  });
+
+  test('mergeMissingSystemParts backfills announcement but keeps other deleted sections removed', () => {
     const legacy = {
       title: '舊版',
       version: 1,
@@ -35,7 +54,10 @@ describe('englishTestFormSchemaService', () => {
       departmentOptions: {},
     };
     const merged = mergeMissingSystemParts(legacy);
-    expect(merged.sections.map((s) => s.id)).toEqual(['eligibility']);
+    expect(merged.sections.map((s) => s.id)).toEqual(
+      expect.arrayContaining(['announcement', 'eligibility'])
+    );
+    expect(merged.sections.some((s) => s.id === 'privacy')).toBe(false);
   });
 
   test('mergeMissingSystemParts fills default sections only when empty', () => {
@@ -46,14 +68,17 @@ describe('englishTestFormSchemaService', () => {
     );
   });
 
-  test('allows deleting preset questions', () => {
+  test('allows deleting preset questions except bootstrap announcement', () => {
     const base = buildDefaultEnglishTestFormSchema();
     const withoutPreset = {
       ...base,
       questions: base.questions.filter((q) => !q.system),
     };
     const normalized = validateAndNormalizeSchema(withoutPreset, base);
-    expect(normalized.questions.filter((q) => q.system).length).toBe(0);
+    expect(
+      normalized.questions.filter((q) => q.system && q.sectionId !== 'announcement').length
+    ).toBe(0);
+    expect(normalized.questions.some((q) => q.fieldKey === 'announcementDoc')).toBe(true);
     expect(normalized.warnings?.length).toBeGreaterThan(0);
   });
 

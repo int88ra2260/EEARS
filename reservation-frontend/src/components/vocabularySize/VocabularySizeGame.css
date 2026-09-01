@@ -1,0 +1,126 @@
+.vocabulary-size-actions {
+  margin-top: 1.5rem;
+}
+
+.vocabulary-size-disclaimer {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.vocabulary-size-board {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 1rem 0 2rem;
+}
+
+.vocabulary-size-progress {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color, #6c757d);
+  margin-bottom: 1.25rem;
+}
+
+.vocabulary-size-progress__band {
+  font-weight: 600;
+}
+
+.vocabulary-size-word-card {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  border-radius: 1rem;
+  background: var(--bs-light, #f8f9fa);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 1.5rem;
+}
+
+.vocabulary-size-word-card__hint {
+  font-size: 0.95rem;
+  color: var(--bs-secondary-color, #6c757d);
+  margin-bottom: 0.75rem;
+}
+
+.vocabulary-size-word-card__word {
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.vocabulary-size-responses {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.vocabulary-size-responses__know {
+  background: #2d6a4f;
+  border-color: #2d6a4f;
+  color: #fff;
+}
+
+.vocabulary-size-responses__know:hover {
+  background: #1b4332;
+  border-color: #1b4332;
+  color: #fff;
+}
+
+.vocabulary-size-responses__unknown {
+  background: #fff;
+  border: 2px solid #dee2e6;
+  color: #495057;
+}
+
+.vocabulary-size-responses__unknown:hover {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+  color: #212529;
+}
+
+.vocabulary-size-result {
+  max-width: 36rem;
+  margin: 0 auto;
+  padding: 1rem 0 2rem;
+}
+
+.vocabulary-size-result__title {
+  font-size: 1.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.vocabulary-size-result__size {
+  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  font-weight: 700;
+  color: #1d3557;
+  margin-bottom: 0.35rem;
+}
+
+.vocabulary-size-result__level {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.vocabulary-size-result__meta,
+.vocabulary-size-result__next {
+  color: var(--bs-secondary-color, #6c757d);
+  margin-bottom: 0.35rem;
+}
+
+.vocabulary-size-result__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.vocabulary-size-result__activities {
+  margin-top: 1.25rem;
+}
+
+.vocabulary-size-result__activities ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}

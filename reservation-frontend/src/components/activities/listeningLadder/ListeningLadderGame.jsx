@@ -1,6 +1,11 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import useListeningLadderGame, { PHASE } from '../../../hooks/useListeningLadderGame';
+import { submitLearningTrace } from '../../../services/learningTraceApi';
+import {
+  buildMiniGameStartPayload,
+  buildListeningLadderCompletePayload,
+} from '../../../utils/learningEventPayload';
 import GameHero from '../shared/GameHero';
 import GameHowToPlay from '../shared/GameHowToPlay';
 import ListeningLadderProgress from './ListeningLadderProgress';
@@ -18,13 +23,38 @@ function formatMessage(t, key, vars = {}) {
 export default function ListeningLadderGame({ onPhaseChange }) {
   const { t } = useLanguage();
   const game = useListeningLadderGame();
+  const startTraceSentRef = useRef(false);
+  const completeTraceSentRef = useRef(false);
 
   useEffect(() => {
     if (onPhaseChange) {
       const isPlaying = game.phase === PHASE.PLAYING || game.phase === PHASE.FEEDBACK;
       onPhaseChange(isPlaying ? 'playing' : game.phase);
     }
+    if (game.phase === PHASE.IDLE || game.phase === PHASE.READY) {
+      startTraceSentRef.current = false;
+      completeTraceSentRef.current = false;
+    }
   }, [game.phase, onPhaseChange]);
+
+  useEffect(() => {
+    if (game.phase !== PHASE.PLAYING || !game.traceId || startTraceSentRef.current) return;
+    startTraceSentRef.current = true;
+    submitLearningTrace(buildMiniGameStartPayload('listening_ladder', {
+      traceId: game.traceId,
+      startLevel: 'A1',
+    }));
+  }, [game.phase, game.traceId]);
+
+  useEffect(() => {
+    if (game.phase !== PHASE.COMPLETED || !game.sessionSummary) return;
+    if (completeTraceSentRef.current) return;
+    completeTraceSentRef.current = true;
+    const payload = buildListeningLadderCompletePayload(game.sessionSummary);
+    if (payload.traceId) {
+      submitLearningTrace(payload);
+    }
+  }, [game.phase, game.sessionSummary]);
 
   const handleKeyDown = useCallback((event) => {
     if (game.phase !== PHASE.PLAYING || !game.options?.length) return;

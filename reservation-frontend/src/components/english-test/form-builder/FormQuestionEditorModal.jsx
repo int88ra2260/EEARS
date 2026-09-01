@@ -74,6 +74,7 @@ export default function FormQuestionEditorModal({
     contentImageUrl: content.imageUrl || '',
     contentImageAlt: content.imageAlt || '',
     contentWarning: content.warning || '',
+    contentOfficialUrl: content.officialUrl || '',
     contentListText: Array.isArray(content.listItems) ? content.listItems.join('\n') : '',
     contentImagesText: imagesToText(content.images),
   }));
@@ -114,6 +115,7 @@ export default function FormQuestionEditorModal({
         imageUrl: draft.contentImageUrl || '',
         imageAlt: draft.contentImageAlt || '',
         warning: draft.contentWarning || '',
+        officialUrl: draft.contentOfficialUrl || '',
         listItems: String(draft.contentListText || '')
           .split('\n')
           .map((l) => l.trim())
@@ -265,6 +267,16 @@ export default function FormQuestionEditorModal({
                       value={draft.contentListText}
                       disabled={readOnly}
                       onChange={(e) => patch({ contentListText: e.target.value })}
+                    />
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label">官方完整公告連結（報名須知用）</label>
+                    <input
+                      className="form-control"
+                      value={draft.contentOfficialUrl}
+                      disabled={readOnly}
+                      onChange={(e) => patch({ contentOfficialUrl: e.target.value })}
+                      placeholder="https://siwan.nsysu.edu.tw/..."
                     />
                   </div>
                   <div className="col-md-8">

@@ -173,7 +173,7 @@ export default function EnglishTestEmailVerificationPanel({
         </div>
       ) : null}
       <div className="form-text">
-        請至填寫的信箱收取驗證碼（約 10 分鐘內有效）。若未收到，請檢查垃圾信件匣後再重新寄送。
+        請至填寫的信箱收取驗證碼（約 10 分鐘內有效）。若未收到，請檢查垃圾信件匣後再重新寄送。若未完成驗證，無法送出此次報名。
       </div>
     </div>
   );

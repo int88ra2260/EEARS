@@ -110,7 +110,7 @@ export default function LearningJourneyStudentProfilePage() {
     data: timelineData,
     loading: timelineLoading,
     error: timelineError,
-  } = useLearningJourneyTimeline(token, studentId);
+  } = useLearningJourneyTimeline(token, studentId, { semesterId, includeExcludedCourses: true });
 
   useEffect(() => {
     const sid = String(studentId || '').trim();

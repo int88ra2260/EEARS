@@ -29,7 +29,7 @@ const DEFAULT_EXAM_TYPE_RADIOS = [
   { value: 'NON', label: '不報考（NON）- 作答完前四題即可送出表單。' },
 ];
 
-const B2_WARNING = '此成績未達B2，若是這學期有修習英文課將無法獲得課堂成績5%';
+const B2_WARNING = '此成績未達B2，若是這學期有修習英文課，無法免考。若未選考，將無法獲得課堂成績5%';
 
 function ScoreRow({
   label,

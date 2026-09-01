@@ -11,6 +11,7 @@ import { searchReservations, cancelReservation } from '../services/reservationSe
 import useConfirm from '../components/ui/useConfirm';
 import { formatBookingCode } from '../utils/bookingCode';
 import { handleAPIError } from '../utils/errorHandler';
+import { sortReservationsByEventStartDesc } from '../utils/reservationRecordsSort';
 import {
   createSimulatedApiError,
   createSimulatedNetworkError,
@@ -75,7 +76,7 @@ export default function useReservationLookup({ showToast } = {}) {
       }
 
       const list = await searchReservations(trimmed);
-      setRecords(list);
+      setRecords(sortReservationsByEventStartDesc(list));
       saveReservationIdentity(trimmed);
       return { ok: true };
     } catch (err) {

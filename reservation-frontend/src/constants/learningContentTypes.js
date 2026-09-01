@@ -5,6 +5,8 @@
 export const MINI_GAME_IDS = {
   WORD_BRIDGE: 'word_bridge',
   LISTENING_LADDER: 'listening_ladder',
+  VOCABULARY_DEPTH: 'vocabulary_depth',
+  VOCABULARY_SIZE: 'vocabulary_size',
   WORD_MATCH: 'word_match',
   SENTENCE_BUILDER: 'sentence_builder',
   ERROR_HUNTER: 'error_hunter',

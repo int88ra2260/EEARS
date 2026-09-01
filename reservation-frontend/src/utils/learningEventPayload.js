@@ -4,6 +4,7 @@
 
 import { getClientSessionId } from './learningTraceSession';
 import { getVoluntaryStudentId } from './learningStudentLink';
+import { getActivityKeysForCefrLevel } from './wordBridgeRecommendations';
 
 /**
  * @param {string} gameId
@@ -36,6 +37,97 @@ export function buildMiniGameCompletePayload(gameId, result, summary = {}) {
       mistakeLog: summary.mistakeLog ?? [],
       confidence: result?.confidence ?? null,
       recommendedActivities: result?.activities ?? [],
+      stats: result?.stats ?? null,
+    },
+  };
+}
+
+/** @param {object} summary Listening Ladder session summary */
+export function buildListeningLadderCompletePayload(summary) {
+  const totalAnswered = Number(summary.totalAnswered || 0);
+  const correctCount = Number(summary.correctCount || 0);
+  const accuracy = totalAnswered > 0 ? correctCount / totalAnswered : summary.accuracy ?? null;
+
+  return {
+    traceId: summary.traceId,
+    gameId: 'listening_ladder',
+    eventType: 'session_complete',
+    clientSessionId: getClientSessionId(),
+    studentId: summary.studentId || getVoluntaryStudentId() || undefined,
+    occurredAt: new Date().toISOString(),
+    durationMs: summary.durationMs ?? 0,
+    score: summary.score ?? 0,
+    accuracy,
+    cefrLevel: summary.highestLevelReached ?? null,
+    skillTags: ['listening_vocabulary', 'listening'],
+    payload: {
+      endReason: 'time_up',
+      highestLevelReached: summary.highestLevelReached,
+      correctCount: summary.correctCount,
+      totalAnswered: summary.totalAnswered,
+      bestStreak: summary.bestStreak,
+      recommendedActivities: getActivityKeysForCefrLevel(summary.highestLevelReached || 'A1'),
+    },
+  };
+}
+
+/** @param {object} result vocabulary depth result */
+/** @param {object} summary session summary */
+export function buildVocabularyDepthCompletePayload(result, summary) {
+  const totalAnswered = Number(summary.totalAnswered || 0);
+  const correctCount = Number(summary.totalCorrect || 0);
+  const accuracy = totalAnswered > 0 ? correctCount / totalAnswered : result?.accuracy ?? null;
+
+  return {
+    traceId: summary.traceId,
+    gameId: 'vocabulary_depth',
+    eventType: 'session_complete',
+    clientSessionId: getClientSessionId(),
+    studentId: summary.studentId || getVoluntaryStudentId() || undefined,
+    occurredAt: new Date().toISOString(),
+    durationMs: summary.durationMs ?? 0,
+    score: Array.isArray(summary.passedLevels) ? summary.passedLevels.length : 0,
+    accuracy,
+    cefrLevel: result?.estimatedLevel ?? null,
+    skillTags: ['vocabulary', 'vocabulary_depth', 'reading_comprehension'],
+    payload: {
+      endReason: summary.endReason,
+      failLevel: summary.failLevel,
+      passedLevels: summary.passedLevels ?? [],
+      levelStats: summary.levelStats ?? [],
+      confidence: result?.confidence ?? null,
+      recommendedActivities: getActivityKeysForCefrLevel(result?.estimatedLevel || 'A1'),
+      stats: result?.stats ?? null,
+    },
+  };
+}
+
+/** @param {object} result vocabulary size result */
+/** @param {object} summary session summary */
+export function buildVocabularySizeCompletePayload(result, summary) {
+  const totalKnown = Number(summary.totalKnown || 0);
+  const totalSampled = Number(summary.totalSampled || 0);
+  const recognition = totalSampled > 0 ? totalKnown / totalSampled : result?.recognitionRate ?? null;
+
+  return {
+    traceId: summary.traceId,
+    gameId: 'vocabulary_size',
+    eventType: 'session_complete',
+    clientSessionId: getClientSessionId(),
+    studentId: summary.studentId || getVoluntaryStudentId() || undefined,
+    occurredAt: new Date().toISOString(),
+    durationMs: summary.durationMs ?? 0,
+    score: result?.estimatedWords ?? 0,
+    accuracy: recognition,
+    cefrLevel: result?.estimatedLevel ?? null,
+    skillTags: ['vocabulary', 'vocabulary_size', 'lexical_breadth'],
+    payload: {
+      endReason: result?.endReason ?? 'completed',
+      estimatedWords: result?.estimatedWords ?? null,
+      recognitionRate: result?.recognitionRate ?? recognition,
+      wordsToNextLevel: result?.wordsToNextLevel ?? null,
+      bandStats: result?.bandStats ?? [],
+      recommendedActivities: getActivityKeysForCefrLevel(result?.estimatedLevel || 'A1'),
       stats: result?.stats ?? null,
     },
   };

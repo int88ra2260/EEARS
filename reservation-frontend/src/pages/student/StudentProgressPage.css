@@ -116,7 +116,75 @@
   margin-top: 0.25rem;
 }
 
-.student-journey-feedback {
-  border-left: 3px solid var(--color-primary, #4f7cac);
-  padding-left: 0.85rem;
+.student-progress-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
 }
+
+.student-progress-activity-block {
+  border: 1px solid var(--color-border-soft, #e8e0d8);
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: var(--color-bg-secondary, #fbf8f4);
+}
+
+.student-progress-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.student-progress-activity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--color-border-soft, #ece4dc);
+}
+
+.student-progress-activity-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.student-progress-badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.student-progress-badge--success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.student-progress-badge--danger {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.student-progress-badge--info {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.student-progress-badge--muted {
+  background: #ececec;
+  color: #555;
+}
+
+.student-progress-meta-list__item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--color-border-soft, #ece4dc);
+}
+
+.student-progress-meta-list__item:last-child {
+  border-bottom: none;
+}
+

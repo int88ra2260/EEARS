@@ -66,6 +66,27 @@ describe('learningTraceService', () => {
       expect(input.gameId).toBe('word_bridge');
       expect(input.cefrLevel).toBe('B1');
     });
+
+    it('accepts listening_ladder and vocabulary_depth gameIds', () => {
+      const ll = validateTraceInput({
+        traceId: 'll_testtrace001',
+        gameId: 'listening_ladder',
+        eventType: 'session_complete',
+        clientSessionId: 'ls_123456',
+        cefrLevel: 'B1',
+        payload: { endReason: 'time_up' },
+      });
+      const vd = validateTraceInput({
+        traceId: 'vd_testtrace001',
+        gameId: 'vocabulary_depth',
+        eventType: 'session_complete',
+        clientSessionId: 'ls_123456',
+        cefrLevel: 'A2',
+        payload: { endReason: 'level_failed' },
+      });
+      expect(ll.gameId).toBe('listening_ladder');
+      expect(vd.gameId).toBe('vocabulary_depth');
+    });
   });
 
   describe('recordLearningTrace', () => {
@@ -167,7 +188,21 @@ describe('learningTraceService', () => {
         },
       ]);
 
-      const summary = await getMicroLearningEngagementSummary({ days: 30 });
+      const summary = await getMicroLearningEngagementSummary({ days: 30, gameId: 'word_bridge' });
+      expect(summary.totals.completedSessions).toBe(1);
+      expect(summary.gameId).toBe('word_bridge');
+    });
+
+    it('returns overview when gameId=all', async () => {
+      LearningTraceEvent.findAll
+        .mockResolvedValueOnce([{ clientSessionId: 'a', occurredAt: new Date(), durationMs: 1000, payload: {} }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const summary = await getMicroLearningEngagementSummary({ days: 30, gameId: 'all' });
+      expect(summary.gameId).toBe('all');
+      expect(summary.perGame).toHaveLength(4);
       expect(summary.totals.completedSessions).toBe(1);
     });
   });

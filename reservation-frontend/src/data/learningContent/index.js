@@ -22,3 +22,10 @@ export {
   getQuickPrepItems,
   PHRASEBOOK_ACTIVITY_TABS,
 } from './phrasebookItems';
+
+export {
+  VOCABULARY_DEPTH_QUESTIONS,
+  getQuestionsForLevel,
+  computeVocabularyDepthResult,
+  validateQuestionBank,
+} from './vocabularyDepth';

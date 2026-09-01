@@ -4,8 +4,9 @@ const { Op } = require('sequelize');
 const { LearningTraceEvent } = require('../models');
 const { projectTraceToLearningJourney } = require('./learningTrace/learningTraceProjectionService');
 
+const MICRO_LEARNING_GAME_IDS = ['word_bridge', 'listening_ladder', 'vocabulary_depth', 'vocabulary_size'];
 const ALLOWED_GAME_IDS = new Set([
-  'word_bridge',
+  ...MICRO_LEARNING_GAME_IDS,
   'activity_recommendation',
   'et_recommendation',
 ]);
@@ -188,21 +189,13 @@ function pct(num, den) {
   return Number((num / den).toFixed(4));
 }
 
-async function getMicroLearningEngagementSummary(query = {}) {
-  const gameId = String(query.gameId || 'word_bridge').trim();
-  const days = clampNumber(query.days, { min: 7, max: 90 }) || 30;
-  const since = new Date();
-  since.setDate(since.getDate() - days);
-  since.setHours(0, 0, 0, 0);
-
-  const where = {
-    gameId,
-    eventType: 'session_complete',
-    occurredAt: { [Op.gte]: since },
-  };
-
-  const rows = await LearningTraceEvent.findAll({
-    where,
+async function fetchCompletedSessionsForGame(gameId, since) {
+  return LearningTraceEvent.findAll({
+    where: {
+      gameId,
+      eventType: 'session_complete',
+      occurredAt: { [Op.gte]: since },
+    },
     attributes: [
       'id',
       'traceId',
@@ -217,7 +210,9 @@ async function getMicroLearningEngagementSummary(query = {}) {
     order: [['occurredAt', 'DESC']],
     limit: 5000,
   });
+}
 
+function summarizeEngagementRows(gameId, rows, days, since) {
   const uniqueSessions = new Set(rows.map((row) => row.clientSessionId)).size;
   const uniqueStudents = new Set(rows.map((row) => row.studentId).filter(Boolean)).size;
   const durations = rows.map((row) => Number(row.durationMs)).filter((n) => Number.isFinite(n) && n > 0);
@@ -277,6 +272,82 @@ async function getMicroLearningEngagementSummary(query = {}) {
     })),
     researchNote: '微學習軌跡為匿名或自願學號關聯之觀察資料，不作因果宣稱。',
   };
+}
+
+function mergeDailySeries(seriesList) {
+  /** @type {Map<string, number>} */
+  const buckets = new Map();
+  for (const series of seriesList) {
+    for (const row of series || []) {
+      buckets.set(row.date, (buckets.get(row.date) || 0) + row.sessions);
+    }
+  }
+  return [...buckets.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, sessions]) => ({ date, sessions }));
+}
+
+function aggregateMicroLearningSummaries(perGameSummaries, days, since) {
+  const totals = perGameSummaries.reduce(
+    (acc, summary) => ({
+      completedSessions: acc.completedSessions + (summary.totals?.completedSessions || 0),
+      uniqueClientSessions: acc.uniqueClientSessions + (summary.totals?.uniqueClientSessions || 0),
+      identifiedStudents: acc.identifiedStudents + (summary.totals?.identifiedStudents || 0),
+      durationSum: acc.durationSum + (summary.totals?.avgDurationMs || 0) * (summary.totals?.completedSessions || 0),
+      durationCount: acc.durationCount + (summary.totals?.avgDurationMs ? summary.totals.completedSessions : 0),
+    }),
+    { completedSessions: 0, uniqueClientSessions: 0, identifiedStudents: 0, durationSum: 0, durationCount: 0 },
+  );
+
+  return {
+    gameId: 'all',
+    windowDays: days,
+    since: since.toISOString(),
+    totals: {
+      completedSessions: totals.completedSessions,
+      uniqueClientSessions: totals.uniqueClientSessions,
+      identifiedStudents: totals.identifiedStudents,
+      avgDurationMs: totals.durationCount
+        ? Math.round(totals.durationSum / totals.durationCount)
+        : null,
+    },
+    perGame: perGameSummaries.map((s) => ({
+      gameId: s.gameId,
+      completedSessions: s.totals?.completedSessions || 0,
+      uniqueClientSessions: s.totals?.uniqueClientSessions || 0,
+      avgDurationMs: s.totals?.avgDurationMs ?? null,
+    })),
+    dailySessions: mergeDailySeries(perGameSummaries.map((s) => s.dailySessions)),
+    cefrDistribution: [],
+    endReasonDistribution: [],
+    mistakeDistribution: [],
+    recentSamples: [],
+    researchNote: '總覽加總為各遊戲 session 之和；跨遊戲不重複去重 clientSessionId。',
+  };
+}
+
+async function getMicroLearningEngagementSummary(query = {}) {
+  const requestedGameId = String(query.gameId || 'all').trim();
+  const days = clampNumber(query.days, { min: 7, max: 90 }) || 30;
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  since.setHours(0, 0, 0, 0);
+
+  if (requestedGameId === 'all') {
+    const perGameSummaries = await Promise.all(
+      MICRO_LEARNING_GAME_IDS.map(async (gameId) => {
+        const rows = await fetchCompletedSessionsForGame(gameId, since);
+        return summarizeEngagementRows(gameId, rows, days, since);
+      }),
+    );
+    return aggregateMicroLearningSummaries(perGameSummaries, days, since);
+  }
+
+  const gameId = MICRO_LEARNING_GAME_IDS.includes(requestedGameId)
+    ? requestedGameId
+    : 'word_bridge';
+  const rows = await fetchCompletedSessionsForGame(gameId, since);
+  return summarizeEngagementRows(gameId, rows, days, since);
 }
 
 async function getRecommendationFunnelSummary(query = {}) {

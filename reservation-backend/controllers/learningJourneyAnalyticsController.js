@@ -31,8 +31,12 @@ async function requireStudentScope(req, res, next) {
 
 async function getTimeline(req, res) {
   try {
+    const includeExcludedCourses = ['1', 'true', 'yes'].includes(
+      String(req.query.include_excluded_courses || req.query.includeExcludedCourses || '').toLowerCase()
+    );
     const data = await getStudentTimeline(req.params.studentId, {
       snapshotVersion: req.query.snapshot_version || req.query.snapshotVersion,
+      includeExcludedCourses,
     });
     if (!data) {
       return res.status(404).json({ success: false, error: '找不到學生', requestId: req.requestId });

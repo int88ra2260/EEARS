@@ -13,6 +13,7 @@ import './EnglishTestFormBuilder.css';
 
 /** 舊資料沒有 navLabel 時的後備顯示 */
 const STEP_META = {
+  announcement: { step: '步驟 0' },
   privacy: { step: '步驟 1' },
   verify: { step: '步驟 2' },
   eligibility: { step: '步驟 3' },
@@ -85,14 +86,14 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
       setUpdatedAt(data.updatedAt);
       setDirty(changed);
       if (changed) {
-        setBackfillNotice('已校正表單階段順序。題目可自由新增／編輯／刪除，記得按「儲存變更」。');
+        setBackfillNotice('已補齊「報名須知」階段或預設題目，請確認內容後按「儲存變更」。');
       } else if (data.systemPartsBackfilled) {
-        setBackfillNotice('後端已自動校正表單階段。');
+        setBackfillNotice('後端已自動補齊缺漏的表單階段（含報名須知）。請確認後儲存。');
       } else {
         setBackfillNotice('');
       }
       const firstSection = [...(nextSchema.sections || [])].sort((a, b) => a.order - b.order)[0];
-      setActiveSectionId(firstSection?.id || 'privacy');
+      setActiveSectionId(firstSection?.id || 'announcement');
     } catch (err) {
       setError(err.message || '載入失敗');
     } finally {

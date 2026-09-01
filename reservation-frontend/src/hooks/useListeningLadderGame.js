@@ -16,7 +16,8 @@ import {
   LADDER_DOWN_STREAK,
 } from '../data/learningContent/listeningLadderScoring';
 import { cancelSpeech, speakWord, speakTestSample, preloadSpeechVoices } from '../utils/speech/speakWord';
-import { saveListeningLadderBest } from '../services/listeningLadderLocalStore';
+import { saveBestScore, saveSession as saveLadderSession } from '../services/listeningLadder/sessionRepository';
+import { createMicroLearningTraceId } from '../utils/microLearningTraceId';
 
 export const PHASE = {
   IDLE: 'idle',
@@ -50,6 +51,8 @@ function createInitialState() {
     answerLog: [],
     speechError: null,
     startedAt: null,
+    traceId: '',
+    sessionSummary: null,
   };
 }
 
@@ -81,7 +84,8 @@ export default function useListeningLadderGame() {
     setState((prev) => {
       const accuracy = computeAccuracy(prev.correctCount, prev.totalAnswered);
       const durationMs = prev.startedAt ? Date.now() - prev.startedAt : 0;
-      const result = {
+      const sessionSummary = {
+        traceId: prev.traceId,
         score: prev.score,
         accuracy,
         highestLevelReached: prev.highestLevelReached,
@@ -92,8 +96,18 @@ export default function useListeningLadderGame() {
         answerLog: prev.answerLog,
         durationMs,
       };
-      saveListeningLadderBest(result);
-      return { ...prev, phase: PHASE.COMPLETED, ...result };
+      void saveBestScore({
+        score: sessionSummary.score,
+        accuracy: sessionSummary.accuracy,
+        highestLevelReached: sessionSummary.highestLevelReached,
+      });
+      void saveLadderSession(sessionSummary);
+      return {
+        ...prev,
+        phase: PHASE.COMPLETED,
+        ...sessionSummary,
+        sessionSummary,
+      };
     });
   }, []);
 
@@ -164,6 +178,7 @@ export default function useListeningLadderGame() {
       usedQuestionIds: [first.item.id],
       wordsHeard: [first.item.word],
       startedAt: Date.now(),
+      traceId: createMicroLearningTraceId('ll_'),
     });
   }, [loadNextQuestion]);
 

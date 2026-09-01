@@ -10,7 +10,6 @@ import {
   BOOKABLE_ACTIVITY_CARDS,
   CATALOG_DISPLAY_CARDS,
 } from '../constants/activityCatalog';
-import { MINI_GAMES_CATALOG } from '../constants/miniGamesCatalog';
 import { LEARNING_GUIDES_CATALOG } from '../constants/learningGuidesCatalog';
 import './ActivitiesPage.css';
 import '../components/guides/ActivityPhrasebook.css';
@@ -154,24 +153,6 @@ export default function ActivitiesPage() {
         <Link to="/events" className="btn btn-primary">
           <ContentText k="activitiesPage.bookFromCalendar" />
         </Link>
-      </section>
-
-      <section className="activities-practice" aria-labelledby="activities-practice-title">
-        <div className="activities-section-heading">
-          <ContentText k="miniGames.practiceKicker" as="p" className="activities-eyebrow" />
-          <ContentText k="miniGames.practiceTitle" as="h2" id="activities-practice-title" />
-          <ContentText k="miniGames.practiceLead" as="p" />
-        </div>
-        <div className="activities-practice-grid">
-          {MINI_GAMES_CATALOG.filter((card) => card.available).map((card) => (
-            <Link key={card.id} to={card.path} className="activities-practice-card">
-              <span className="activities-practice-card__tag">{card.tag}</span>
-              <h3 className="activities-practice-card__title">{t(card.titleKey)}</h3>
-              <p className="activities-practice-card__intro">{t(card.introKey)}</p>
-              <span className="activities-practice-card__cta">{t('miniGames.startPractice')} →</span>
-            </Link>
-          ))}
-        </div>
       </section>
 
       <section className="activities-guides" aria-labelledby="activities-guides-title">

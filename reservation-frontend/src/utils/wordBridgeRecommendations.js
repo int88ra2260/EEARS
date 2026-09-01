@@ -87,3 +87,27 @@ export function getExternalRecommendationUrl(key) {
   if (key === WRITING_WORKSHOP_KEY) return WRITING_WORKSHOP_URL;
   return null;
 }
+
+/** @param {string} estimatedLevel CEFR A1–C2 */
+export function getActivityKeysForCefrLevel(estimatedLevel) {
+  if (estimatedLevel === 'A1') return ['english-table'];
+  if (estimatedLevel === 'A2') return ['english-table', 'english-club'];
+  if (estimatedLevel === 'B1') return ['english-club', 'english-table', 'international-forum'];
+  if (estimatedLevel === 'B2') return ['international-forum', 'english-club', 'job-talk'];
+  return ['international-forum', 'job-talk', 'english-club'];
+}
+
+const ACTIVITY_TITLE_KEYS = {
+  'english-table': 'activities.englishTable',
+  'english-club': 'activities.englishClub',
+  'international-forum': 'activities.internationalForum',
+  'job-talk': 'activities.jobTalk',
+};
+
+/** @param {string} estimatedLevel */
+export function getRecommendedActivitiesForLevel(estimatedLevel) {
+  return getActivityKeysForCefrLevel(estimatedLevel).map((key) => ({
+    key,
+    labelKey: ACTIVITY_TITLE_KEYS[key] || key,
+  }));
+}

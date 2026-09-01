@@ -12,7 +12,7 @@ export default function ListeningLadderPage() {
 
   const breadcrumbs = [
     { label: t('nav.home'), path: '/' },
-    { label: t('nav.activities'), path: '/activities' },
+    { label: t('nav.learningResources'), path: '/learning-resources' },
     { label: t('listeningLadder.title') },
   ];
 

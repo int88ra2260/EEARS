@@ -1278,6 +1278,7 @@ async function listAuditLogsAdmin(filters = {}) {
 
 module.exports = {
   normalizeStudentContext,
+  getPassportForStudent,
   getStudentDashboard,
   listEnabledRules,
   applyPassport,

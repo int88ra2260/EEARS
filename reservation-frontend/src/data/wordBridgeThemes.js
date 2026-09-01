@@ -168,7 +168,7 @@ export const WORD_BRIDGE_THEME_BANKS = {
     { id: 'c2-lexicography', theme: 'lexicography', words: ['lexicography', 'neologism', 'archaism', 'corpus'] },
     { id: 'c2-metaphysics', theme: 'metaphysics', words: ['metaphysical', 'causality', 'determinism', 'dualism'] },
     { id: 'c2-statistics', theme: 'statistics', words: ['stochastic', 'variance', 'inference', 'multivariate'] },
-    { id: 'c2-sociolinguistics', theme: 'sociolinguistics', words: ['sociolinguistics', 'diglossia', 'pidgin', 'register'] },
+    { id: 'c2-sociolinguistics', theme: 'sociolinguistics', words: ['sociolinguistics', 'diglossia', 'pidgin', 'sociolect'] },
     { id: 'c2-aesthetics', theme: 'aesthetics', words: ['aesthetics', 'sublime', 'mimesis', 'avant-garde'] },
   ],
 };

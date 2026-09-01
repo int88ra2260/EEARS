@@ -86,7 +86,7 @@ function normalizeQuestion(raw, index) {
 function normalizeContent(raw, type) {
   if (!raw || typeof raw !== 'object') {
     return type === 'content_block'
-      ? { intro: '', imageUrl: '', imageAlt: '', warning: '', listItems: [], images: [] }
+      ? { intro: '', imageUrl: '', imageAlt: '', warning: '', officialUrl: '', listItems: [], images: [] }
       : {};
   }
   const listItems = Array.isArray(raw.listItems)
@@ -111,6 +111,7 @@ function normalizeContent(raw, type) {
     imageUrl: raw.imageUrl != null ? String(raw.imageUrl) : '',
     imageAlt: raw.imageAlt != null ? String(raw.imageAlt) : '',
     warning: raw.warning != null ? String(raw.warning) : '',
+    officialUrl: raw.officialUrl != null ? String(raw.officialUrl) : '',
     listItems,
     images,
   };
@@ -247,14 +248,17 @@ async function getPublishedSchema({ allowPersistMerge = true } = {}) {
   const raw = parseSchemaJson(row.schemaJson);
   const schema = mergeMissingSystemParts(raw);
 
-  // 舊 DB 缺步驟 1／2 時：讀取即補齊並寫回，之後台／學生端都看得到
-  if (allowPersistMerge && schemaNeedsSystemMerge(raw)) {
+  // 舊 DB 缺步驟 0／1／2 等時：讀取即補齊並寫回，之後台／學生端都看得到
+  if (allowPersistMerge && (schemaNeedsSystemMerge(raw) || schemaNeedsAnnouncementMerge(raw))) {
     const nextVersion = (Number(row.version) || 1) + 1;
+    const changeSummary = schemaNeedsSystemMerge(raw)
+      ? '自動補齊缺漏系統階段（步驟1/2、確認勾選、證件照說明等）'
+      : '自動補齊報名須知階段（步驟0）與預設題目';
     const persisted = await EnglishTestFormSchema.create({
       version: nextVersion,
       status: 'published',
       schemaJson: schema,
-      changeSummary: '自動補齊缺漏系統階段（步驟1/2、確認勾選、證件照說明等）',
+      changeSummary,
       updatedBy: null,
     });
     return {
@@ -281,9 +285,43 @@ async function getPublishedSchema({ allowPersistMerge = true } = {}) {
   };
 }
 
+/** 舊版 schema 可能缺少步驟 0「報名須知」階段或題目。 */
+function schemaNeedsAnnouncementMerge(raw) {
+  const sections = Array.isArray(raw?.sections) ? raw.sections : [];
+  const questions = Array.isArray(raw?.questions) ? raw.questions : [];
+  const hasSection = sections.some((s) => s.id === 'announcement');
+  const keys = new Set(questions.map((q) => q.fieldKey));
+  return !hasSection || !keys.has('announcementDoc') || !keys.has('agreedToAnnouncement');
+}
+
+/**
+ * 補齊步驟 0「報名須知」階段與預設題目（不影響其他已刪除階段）。
+ */
+function mergeMissingAnnouncementParts(schema) {
+  const defaults = buildDefaultEnglishTestFormSchema();
+  const next = cloneSchema(schema || defaults);
+  if (!Array.isArray(next.sections)) next.sections = [];
+  if (!Array.isArray(next.questions)) next.questions = [];
+
+  const defaultSection = defaults.sections.find((s) => s.id === 'announcement');
+  if (defaultSection && !next.sections.some((s) => s.id === 'announcement')) {
+    next.sections.push(cloneSchema(defaultSection));
+  }
+
+  const existingKeys = new Set(next.questions.map((q) => q.fieldKey));
+  for (const question of defaults.questions.filter((q) => q.sectionId === 'announcement')) {
+    if (!existingKeys.has(question.fieldKey)) {
+      next.questions.push(cloneSchema(question));
+    }
+  }
+
+  next.sections.sort((a, b) => (a.order || 0) - (b.order || 0));
+  return next;
+}
+
 /**
  * 確保 schema 結構完整；不強制回填已刪階段／題目（Google Forms 自由度）。
- * 僅當 sections 完全為空時套用預設階段清單。
+ * 僅當 sections 完全為空時套用預設階段清單；另補齊缺漏的報名須知（步驟 0）。
  */
 function mergeMissingSystemParts(schema) {
   const defaults = buildDefaultEnglishTestFormSchema();
@@ -299,7 +337,7 @@ function mergeMissingSystemParts(schema) {
   }
   if (!next.title) next.title = defaults.title;
 
-  return next;
+  return mergeMissingAnnouncementParts(next);
 }
 
 /**
@@ -414,7 +452,9 @@ module.exports = {
   collectSchemaWarnings,
   extractOptionsMap,
   mergeMissingSystemParts,
+  mergeMissingAnnouncementParts,
   schemaNeedsSystemMerge,
+  schemaNeedsAnnouncementMerge,
   parseSchemaJson,
   buildDefaultEnglishTestFormSchema,
   ALLOWED_QUESTION_TYPES,

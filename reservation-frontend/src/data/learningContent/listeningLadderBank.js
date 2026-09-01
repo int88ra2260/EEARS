@@ -1,8 +1,12 @@
 /**
  * Listening Ladder 題庫（聽英文、選中文，A1–C1，每級 30 題）
+ * 詞彙 CEFR 以 canonical vocabulary bank 為準。
  */
 
 import { LISTENING_LADDER_LEVELS } from '../../constants/learningContentTypes';
+import { RAW_LISTENING_WORDS } from './listeningLadderWords.js';
+import { getCanonicalEntry } from './vocabulary/index.js';
+
 /** @typedef {import('../../constants/learningContentTypes').ListeningLadderLevel} CefrLevel */
 
 /**
@@ -25,164 +29,6 @@ import { LISTENING_LADDER_LEVELS } from '../../constants/learningContentTypes';
  * @property {boolean} isActive
  */
 
-const RAW_WORDS = [
-  // A1
-  { word: 'hello', level: 'A1', pos: 'interjection', topic: 'campus_life', zh: '你好', d: ['help', 'yellow', 'hollow'] },
-  { word: 'book', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '書', d: ['look', 'cook', 'took'] },
-  { word: 'class', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '課堂', d: ['glass', 'clash', 'close'] },
-  { word: 'friend', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '朋友', d: ['trend', 'blend', 'fiend'] },
-  { word: 'study', level: 'A1', pos: 'verb', topic: 'campus_life', zh: '學習', d: ['steady', 'story', 'studio'] },
-  { word: 'teacher', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '老師', d: ['feature', 'creature', 'teach'] },
-  { word: 'student', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '學生', d: ['studied', 'studio', 'stadium'] },
-  { word: 'school', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '學校', d: ['stool', 'cool', 'scholar'] },
-  { word: 'table', level: 'A1', pos: 'noun', topic: 'english_table', zh: '桌子', d: ['cable', 'fable', 'stable'] },
-  { word: 'name', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '名字', d: ['game', 'same', 'lame'] },
-  { word: 'time', level: 'A1', pos: 'noun', topic: 'reservation', zh: '時間', d: ['team', 'tide', 'lime'] },
-  { word: 'room', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '房間', d: ['boom', 'broom', 'root'] },
-  { word: 'food', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '食物', d: ['good', 'mood', 'fold'] },
-  { word: 'water', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '水', d: ['winter', 'waiter', 'wander'] },
-  { word: 'happy', level: 'A1', pos: 'adjective', topic: 'campus_life', zh: '快樂的', d: ['happen', 'hobby', 'hasty'] },
-  { word: 'today', level: 'A1', pos: 'adverb', topic: 'reservation', zh: '今天', d: ['toady', 'delay', 'display'] },
-  { word: 'help', level: 'A1', pos: 'verb', topic: 'campus_life', zh: '幫助', d: ['hello', 'held', 'hemp'] },
-  { word: 'open', level: 'A1', pos: 'adjective', topic: 'reservation', zh: '開放的', d: ['often', 'oven', 'ocean'] },
-  { word: 'close', level: 'A1', pos: 'verb', topic: 'reservation', zh: '關閉', d: ['class', 'clothes', 'clone'] },
-  { word: 'speak', level: 'A1', pos: 'verb', topic: 'english_table', zh: '說話', d: ['speech', 'spoke', 'spark'] },
-  { word: 'morning', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '早晨', d: ['mourning', 'moaning', 'mining'] },
-  { word: 'chair', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '椅子', d: ['cheer', 'share', 'char'] },
-  { word: 'paper', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '紙', d: ['pepper', 'piper', 'proper'] },
-  { word: 'library', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '圖書館', d: ['literary', 'liberty', 'primary'] },
-  { word: 'campus', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '校園', d: ['compass', 'campaign', 'famous'] },
-  { word: 'listen', level: 'A1', pos: 'verb', topic: 'english_table', zh: '聆聽', d: ['listed', 'lessen', 'glisten'] },
-  { word: 'letter', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '字母；信', d: ['latter', 'ledger', 'litter'] },
-  { word: 'number', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '數字', d: ['nimble', 'amber', 'member'] },
-  { word: 'walk', level: 'A1', pos: 'verb', topic: 'campus_life', zh: '走路', d: ['talk', 'wall', 'work'] },
-  { word: 'phone', level: 'A1', pos: 'noun', topic: 'campus_life', zh: '電話', d: ['tone', 'bone', 'zone'] },
-  // A2
-  { word: 'reservation', level: 'A2', pos: 'noun', topic: 'reservation', zh: '預約', d: ['registration', 'presentation', 'conversation'] },
-  { word: 'activity', level: 'A2', pos: 'noun', topic: 'campus_life', zh: '活動', d: ['activist', 'actively', 'actual'] },
-  { word: 'cancel', level: 'A2', pos: 'verb', topic: 'reservation', zh: '取消', d: ['candle', 'channel', 'cancer'] },
-  { word: 'confirm', level: 'A2', pos: 'verb', topic: 'reservation', zh: '確認', d: ['conform', 'conflict', 'confuse'] },
-  { word: 'schedule', level: 'A2', pos: 'noun', topic: 'reservation', zh: '行程', d: ['scheme', 'scholar', 'scaffold'] },
-  { word: 'discussion', level: 'A2', pos: 'noun', topic: 'english_club', zh: '討論', d: ['description', 'distinction', 'distribution'] },
-  { word: 'opinion', level: 'A2', pos: 'noun', topic: 'english_club', zh: '意見', d: ['option', 'opposition', 'origin'] },
-  { word: 'question', level: 'A2', pos: 'noun', topic: 'english_table', zh: '問題', d: ['quotation', 'quest', 'quarrel'] },
-  { word: 'answer', level: 'A2', pos: 'noun', topic: 'english_table', zh: '回答', d: ['anchor', 'anger', 'announcer'] },
-  { word: 'topic', level: 'A2', pos: 'noun', topic: 'english_table', zh: '主題', d: ['tropic', 'toxic', 'topic'] },
-  { word: 'practice', level: 'A2', pos: 'noun', topic: 'english_club', zh: '練習', d: ['practical', 'practise', 'praise'] },
-  { word: 'meeting', level: 'A2', pos: 'noun', topic: 'campus_life', zh: '會議', d: ['meaning', 'melting', 'metering'] },
-  { word: 'introduce', level: 'A2', pos: 'verb', topic: 'english_table', zh: '介紹', d: ['instruction', 'instrument', 'insult'] },
-  { word: 'repeat', level: 'A2', pos: 'verb', topic: 'english_table', zh: '重複', d: ['receipt', 'repeal', 'repent'] },
-  { word: 'understand', level: 'A2', pos: 'verb', topic: 'english_table', zh: '理解', d: ['undertake', 'undergo', 'underline'] },
-  { word: 'explain', level: 'A2', pos: 'verb', topic: 'english_table', zh: '解釋', d: ['explore', 'explode', 'export'] },
-  { word: 'culture', level: 'A2', pos: 'noun', topic: 'international_forum', zh: '文化', d: ['capture', 'sculpture', 'fixture'] },
-  { word: 'country', level: 'A2', pos: 'noun', topic: 'international_forum', zh: '國家', d: ['county', 'counter', 'counting'] },
-  { word: 'travel', level: 'A2', pos: 'verb', topic: 'international_forum', zh: '旅行', d: ['travail', 'gravel', 'trail'] },
-  { word: 'career', level: 'A2', pos: 'noun', topic: 'job_talk', zh: '職涯', d: ['carrier', 'carrot', 'carver'] },
-  { word: 'register', level: 'A2', pos: 'verb', topic: 'reservation', zh: '登記', d: ['registrar', 'suggest', 'passenger'] },
-  { word: 'attend', level: 'A2', pos: 'verb', topic: 'campus_life', zh: '出席', d: ['intent', 'extend', 'accent'] },
-  { word: 'colleague', level: 'A2', pos: 'noun', topic: 'job_talk', zh: '同事', d: ['college', 'collide', 'collect'] },
-  { word: 'appointment', level: 'A2', pos: 'noun', topic: 'reservation', zh: '約會；預約', d: ['arrangement', 'apartment', 'apparent'] },
-  { word: 'available', level: 'A2', pos: 'adjective', topic: 'reservation', zh: '可取得的', d: ['variable', 'valuable', 'volunteer'] },
-  { word: 'comfortable', level: 'A2', pos: 'adjective', topic: 'english_table', zh: '自在的', d: ['comparable', 'combustible', 'commutable'] },
-  { word: 'passport', level: 'A2', pos: 'noun', topic: 'international_forum', zh: '護照', d: ['password', 'pastime', 'passage'] },
-  { word: 'exchange', level: 'A2', pos: 'verb', topic: 'international_forum', zh: '交流', d: ['expand', 'exclude', 'excise'] },
-  { word: 'prepare', level: 'A2', pos: 'verb', topic: 'job_talk', zh: '準備', d: ['repair', 'compare', 'premiere'] },
-  { word: 'interview', level: 'A2', pos: 'noun', topic: 'job_talk', zh: '面試', d: ['interval', 'interweave', 'intervene'] },
-  // B1
-  { word: 'participate', level: 'B1', pos: 'verb', topic: 'english_table', zh: '參與', d: ['participant', 'particular', 'participation'] },
-  { word: 'volunteer', level: 'B1', pos: 'verb', topic: 'campus_life', zh: '自願', d: ['voluntary', 'volume', 'voucher'] },
-  { word: 'perspective', level: 'B1', pos: 'noun', topic: 'international_forum', zh: '觀點', d: ['prospective', 'respective', 'protective'] },
-  { word: 'argument', level: 'B1', pos: 'noun', topic: 'english_club', zh: '論點', d: ['agreement', 'arrangement', 'augment'] },
-  { word: 'summarize', level: 'B1', pos: 'verb', topic: 'english_club', zh: '總結', d: ['symbolize', 'sympathize', 'synchronize'] },
-  { word: 'clarify', level: 'B1', pos: 'verb', topic: 'english_table', zh: '釐清', d: ['classify', 'clarity', 'classic'] },
-  { word: 'interrupt', level: 'B1', pos: 'verb', topic: 'english_club', zh: '打斷', d: ['intercept', 'interact', 'interpret'] },
-  { word: 'networking', level: 'B1', pos: 'noun', topic: 'job_talk', zh: '人脈交流', d: ['networked', 'netting', 'noteworthy'] },
-  { word: 'internship', level: 'B1', pos: 'noun', topic: 'job_talk', zh: '實習', d: ['internal', 'interview', 'interval'] },
-  { word: 'presentation', level: 'B1', pos: 'noun', topic: 'job_talk', zh: '簡報', d: ['preservation', 'prediction', 'prevention'] },
-  { word: 'feedback', level: 'B1', pos: 'noun', topic: 'english_club', zh: '回饋', d: ['feedstock', 'fallback', 'feather'] },
-  { word: 'deadline', level: 'B1', pos: 'noun', topic: 'campus_life', zh: '截止日期', d: ['headline', 'guideline', 'timeline'] },
-  { word: 'academic', level: 'B1', pos: 'adjective', topic: 'international_forum', zh: '學術的', d: ['academy', 'epidemic', 'economic'] },
-  { word: 'contribute', level: 'B1', pos: 'verb', topic: 'english_club', zh: '貢獻', d: ['contribution', 'constitute', 'continue'] },
-  { word: 'hesitate', level: 'B1', pos: 'verb', topic: 'english_table', zh: '猶豫', d: ['hesitation', 'estimate', 'illustrate'] },
-  { word: 'recommend', level: 'B1', pos: 'verb', topic: 'job_talk', zh: '推薦', d: ['recognize', 'reconcile', 'recover'] },
-  { word: 'experience', level: 'B1', pos: 'noun', topic: 'job_talk', zh: '經驗', d: ['experiment', 'expedite', 'expense'] },
-  { word: 'challenge', level: 'B1', pos: 'noun', topic: 'english_club', zh: '挑戰', d: ['challenged', 'chancellor', 'channel'] },
-  { word: 'approach', level: 'B1', pos: 'noun', topic: 'english_table', zh: '方式', d: ['approve', 'approximate', 'appreciate'] },
-  { word: 'confident', level: 'B1', pos: 'adjective', topic: 'english_table', zh: '有信心的', d: ['confidential', 'conference', 'conflict'] },
-  { word: 'prioritize', level: 'B1', pos: 'verb', topic: 'campus_life', zh: '優先安排', d: ['primary', 'privacy', 'privilege'] },
-  { word: 'demonstrate', level: 'B1', pos: 'verb', topic: 'english_club', zh: '示範', d: ['democracy', 'departure', 'demeanor'] },
-  { word: 'influence', level: 'B1', pos: 'noun', topic: 'international_forum', zh: '影響', d: ['influx', 'inflate', 'informal'] },
-  { word: 'maintain', level: 'B1', pos: 'verb', topic: 'campus_life', zh: '維持', d: ['mountain', 'fountain', 'contain'] },
-  { word: 'acknowledge', level: 'B1', pos: 'verb', topic: 'english_table', zh: '承認', d: ['accomplish', 'accommodation', 'accordion'] },
-  { word: 'emphasize', level: 'B1', pos: 'verb', topic: 'english_club', zh: '強調', d: ['empathize', 'enterprise', 'envelope'] },
-  { word: 'evaluate', level: 'B1', pos: 'verb', topic: 'job_talk', zh: '評估', d: ['evaporate', 'evacuate', 'elevate'] },
-  { word: 'implement', level: 'B1', pos: 'verb', topic: 'campus_life', zh: '實施', d: ['important', 'implicit', 'impress'] },
-  { word: 'framework', level: 'B1', pos: 'noun', topic: 'campus_life', zh: '架構', d: ['freeware', 'freewheel', 'freight'] },
-  { word: 'capability', level: 'B1', pos: 'noun', topic: 'job_talk', zh: '能力', d: ['capacity', 'capital', 'captive'] },
-  // B2
-  { word: 'articulate', level: 'B2', pos: 'verb', topic: 'english_table', zh: '清楚表達', d: ['articulation', 'artificial', 'arithmetic'] },
-  { word: 'elaborate', level: 'B2', pos: 'verb', topic: 'english_club', zh: '詳細說明', d: ['elaboration', 'elastic', 'elevate'] },
-  { word: 'negotiate', level: 'B2', pos: 'verb', topic: 'job_talk', zh: '協商', d: ['navigation', 'negative', 'negligent'] },
-  { word: 'collaborate', level: 'B2', pos: 'verb', topic: 'english_club', zh: '合作', d: ['collaboration', 'corporate', 'celebrate'] },
-  { word: 'hypothesis', level: 'B2', pos: 'noun', topic: 'international_forum', zh: '假設', d: ['hypothetical', 'synthesis', 'symbiosis'] },
-  { word: 'implication', level: 'B2', pos: 'noun', topic: 'international_forum', zh: '含意', d: ['implementation', 'application', 'duplication'] },
-  { word: 'skeptical', level: 'B2', pos: 'adjective', topic: 'english_club', zh: '懷疑的', d: ['skepticism', 'critical', 'cynical'] },
-  { word: 'proficiency', level: 'B2', pos: 'noun', topic: 'campus_life', zh: '熟練度', d: ['proficient', 'efficiency', 'sufficiency'] },
-  { word: 'competency', level: 'B2', pos: 'noun', topic: 'job_talk', zh: '能力', d: ['competent', 'complacency', 'competition'] },
-  { word: 'initiative', level: 'B2', pos: 'noun', topic: 'job_talk', zh: '主動性', d: ['initial', 'initiate', 'innovative'] },
-  { word: 'nuanced', level: 'B2', pos: 'adjective', topic: 'international_forum', zh: '細微的', d: ['nauseated', 'narrated', 'nurtured'] },
-  { word: 'consensus', level: 'B2', pos: 'noun', topic: 'english_club', zh: '共識', d: ['consequence', 'conscience', 'consent'] },
-  { word: 'counterargument', level: 'B2', pos: 'noun', topic: 'english_club', zh: '反論', d: ['counterpart', 'counterbalance', 'counterfeit'] },
-  { word: 'facilitate', level: 'B2', pos: 'verb', topic: 'english_table', zh: '促進', d: ['facility', 'fascinate', 'fabricate'] },
-  { word: 'interpersonal', level: 'B2', pos: 'adjective', topic: 'job_talk', zh: '人際的', d: ['international', 'intellectual', 'intermediate'] },
-  { word: 'synthesize', level: 'B2', pos: 'verb', topic: 'english_club', zh: '綜合', d: ['sympathize', 'symbolize', 'systemize'] },
-  { word: 'ambiguity', level: 'B2', pos: 'noun', topic: 'english_table', zh: '模糊', d: ['ambitious', 'ambulance', 'amplitude'] },
-  { word: 'rhetorical', level: 'B2', pos: 'adjective', topic: 'international_forum', zh: '修辭的', d: ['rhetoric', 'rhythmical', 'ritual'] },
-  { word: 'substantiate', level: 'B2', pos: 'verb', topic: 'international_forum', zh: '證實', d: ['substitute', 'substantial', 'subordinate'] },
-  { word: 'vocabulary', level: 'B2', pos: 'noun', topic: 'campus_life', zh: '字彙', d: ['voluntary', 'vocational', 'vocal'] },
-  { word: 'scrutinize', level: 'B2', pos: 'verb', topic: 'academic', zh: '仔細檢視', d: ['scrutiny', 'stabilize', 'sterilize'] },
-  { word: 'pervasive', level: 'B2', pos: 'adjective', topic: 'international_forum', zh: '普遍的', d: ['persuasive', 'perverse', 'preserve'] },
-  { word: 'mitigate', level: 'B2', pos: 'verb', topic: 'english_club', zh: '減輕', d: ['migrate', 'mutilate', 'meditate'] },
-  { word: 'discern', level: 'B2', pos: 'verb', topic: 'english_table', zh: '辨識', d: ['concern', 'disarm', 'discount'] },
-  { word: 'extrapolate', level: 'B2', pos: 'verb', topic: 'academic', zh: '推論', d: ['extract', 'expel', 'expend'] },
-  { word: 'underpin', level: 'B2', pos: 'verb', topic: 'job_talk', zh: '支撐', d: ['underpay', 'underplay', 'undercut'] },
-  { word: 'contentious', level: 'B2', pos: 'adjective', topic: 'english_club', zh: '有爭議的', d: ['contention', 'conscientious', 'conscious'] },
-  { word: 'substantial', level: 'B2', pos: 'adjective', topic: 'job_talk', zh: '大量的', d: ['substitute', 'subordinate', 'subsidiary'] },
-  { word: 'intricate', level: 'B2', pos: 'adjective', topic: 'international_forum', zh: '複雜的', d: ['integrate', 'interstate', 'intimidate'] },
-  { word: 'culminate', level: 'B2', pos: 'verb', topic: 'campus_life', zh: '達到高潮', d: ['calculate', 'cultivate', 'climate'] },
-  // C1
-  { word: 'dichotomy', level: 'C1', pos: 'noun', topic: 'academic', zh: '二元對立', d: ['dichotomize', 'taxonomy', 'anatomy'] },
-  { word: 'paradigm', level: 'C1', pos: 'noun', topic: 'academic', zh: '典範', d: ['paradox', 'parallel', 'paramount'] },
-  { word: 'ubiquitous', level: 'C1', pos: 'adjective', topic: 'international_forum', zh: '無所不在的', d: ['ambiguous', 'ambitious', 'ambivalent'] },
-  { word: 'meticulous', level: 'C1', pos: 'adjective', topic: 'job_talk', zh: '一絲不苟的', d: ['miraculous', 'ridiculous', 'spacious'] },
-  { word: 'conjecture', level: 'C1', pos: 'noun', topic: 'academic', zh: '推測', d: ['conference', 'conjectural', 'conjuncture'] },
-  { word: 'disseminate', level: 'C1', pos: 'verb', topic: 'academic', zh: '傳播', d: ['disassemble', 'dissimulate', 'disseminated'] },
-  { word: 'corroborate', level: 'C1', pos: 'verb', topic: 'academic', zh: '佐證', d: ['collaborate', 'corporate', 'corrugated'] },
-  { word: 'juxtaposition', level: 'C1', pos: 'noun', topic: 'english_club', zh: '並置對比', d: ['justification', 'jurisdiction', 'junction'] },
-  { word: 'substantive', level: 'C1', pos: 'adjective', topic: 'international_forum', zh: '實質的', d: ['substantiate', 'subordinate', 'substitute'] },
-  { word: 'multifaceted', level: 'C1', pos: 'adjective', topic: 'english_club', zh: '多面向的', d: ['multilateral', 'multicultural', 'multimedia'] },
-  { word: 'scrutiny', level: 'C1', pos: 'noun', topic: 'job_talk', zh: '審視', d: ['sculpture', 'scripture', 'scuttle'] },
-  { word: 'heuristic', level: 'C1', pos: 'adjective', topic: 'academic', zh: '啟發式的', d: ['hermetic', 'hurricane', 'euphoric'] },
-  { word: 'ramifications', level: 'C1', pos: 'noun', topic: 'international_forum', zh: '連帶影響', d: ['ratifications', 'ramification', 'rambling'] },
-  { word: 'deliberation', level: 'C1', pos: 'noun', topic: 'english_club', zh: '審議', d: ['deliberate', 'liberation', 'deprivation'] },
-  { word: 'incongruous', level: 'C1', pos: 'adjective', topic: 'english_table', zh: '不協調的', d: ['incongruity', 'congruous', 'inconvenient'] },
-  { word: 'permeate', level: 'C1', pos: 'verb', topic: 'international_forum', zh: '滲透', d: ['percolate', 'permeable', 'permeated'] },
-  { word: 'reconcile', level: 'C1', pos: 'verb', topic: 'english_club', zh: '調和', d: ['recognize', 'recollect', 'reconcilement'] },
-  { word: 'stipulate', level: 'C1', pos: 'verb', topic: 'job_talk', zh: '規定', d: ['stimulate', 'stipend', 'stippling'] },
-  { word: 'elucidate', level: 'C1', pos: 'verb', topic: 'english_table', zh: '闡明', d: ['elude', 'elusive', 'electrify'] },
-  { word: 'ostensible', level: 'C1', pos: 'adjective', topic: 'job_talk', zh: '表面上的', d: ['ostentatious', 'sensible', 'extensible'] },
-  { word: 'precipitate', level: 'C1', pos: 'verb', topic: 'international_forum', zh: '促成', d: ['participate', 'precipitous', 'precipitation'] },
-  { word: 'quintessential', level: 'C1', pos: 'adjective', topic: 'english_club', zh: '典型的', d: ['quintessence', 'essential', 'sequential'] },
-  { word: 'incisive', level: 'C1', pos: 'adjective', topic: 'english_club', zh: '深刻的', d: ['decisive', 'incision', 'excisive'] },
-  { word: 'pragmatism', level: 'C1', pos: 'noun', topic: 'international_forum', zh: '實用主義', d: ['pragmatic', 'magnetism', 'optimism'] },
-  { word: 'instrumental', level: 'C1', pos: 'adjective', topic: 'job_talk', zh: '有助達成的', d: ['instrument', 'incremental', 'incidental'] },
-  { word: 'contingency', level: 'C1', pos: 'noun', topic: 'campus_life', zh: '偶發狀況', d: ['continuity', 'contingent', 'contentment'] },
-  { word: 'interlocutor', level: 'C1', pos: 'noun', topic: 'english_table', zh: '對話者', d: ['interlocution', 'interloper', 'interceptor'] },
-  { word: 'epistemic', level: 'C1', pos: 'adjective', topic: 'academic', zh: '認識論的', d: ['epidemic', 'episodic', 'epistles'] },
-  { word: 'extrapolation', level: 'C1', pos: 'noun', topic: 'academic', zh: '外推推論', d: ['interpolation', 'explanation', 'exploration'] },
-  { word: 'corroboration', level: 'C1', pos: 'noun', topic: 'academic', zh: '佐證', d: ['collaboration', 'corporation', 'correlation'] },
-];
-
 const EXAMPLE_SENTENCES = {
   participate: 'Students are encouraged to participate in English Table.',
   reservation: 'Please make a reservation before the activity starts.',
@@ -193,17 +39,20 @@ const EXAMPLE_SENTENCES = {
 function buildItem(raw, index) {
   const id = `ll_${String(index + 1).padStart(4, '0')}`;
   const word = raw.word;
+  const canonical = getCanonicalEntry(word);
+  const level = canonical?.level ?? raw.level;
+  const zh = canonical?.zh ?? raw.zh;
   return {
     id,
     word,
     audioText: word,
     audioUrl: null,
-    level: raw.level,
+    level,
     partOfSpeech: raw.pos,
     topic: raw.topic,
     questionTypes: ['zh_match'],
     correctOptions: {
-      sound_match: raw.zh,
+      sound_match: zh,
       synonym: [],
       definition: '',
     },
@@ -213,8 +62,8 @@ function buildItem(raw, index) {
       definition: [],
     },
     exampleSentence: EXAMPLE_SENTENCES[word] || `Example: ${word}.`,
-    translationZh: raw.zh,
-    tags: [raw.level, raw.topic],
+    translationZh: zh,
+    tags: [level, raw.topic],
     skillTag: 'listening_vocabulary',
     subSkill: 'word_recognition',
     isActive: true,
@@ -222,7 +71,7 @@ function buildItem(raw, index) {
 }
 
 /** @type {ListeningLadderItem[]} */
-export const LISTENING_LADDER_ITEMS = RAW_WORDS.map(buildItem);
+export const LISTENING_LADDER_ITEMS = RAW_LISTENING_WORDS.map(buildItem);
 
 /**
  * @param {{ level?: string, topic?: string }} [filters]

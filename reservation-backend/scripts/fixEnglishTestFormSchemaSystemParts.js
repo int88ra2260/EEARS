@@ -11,6 +11,7 @@ const {
   savePublishedSchema,
   mergeMissingSystemParts,
   schemaNeedsSystemMerge,
+  schemaNeedsAnnouncementMerge,
   parseSchemaJson,
   buildDefaultEnglishTestFormSchema,
 } = require('../services/englishTestFormSchemaService');
@@ -38,19 +39,26 @@ async function main() {
 
   const raw = parseSchemaJson(row.schemaJson);
   console.log('before sections:', (raw.sections || []).map((s) => `${s.order}:${s.id}`).join(' | '));
-  console.log('needsMerge:', schemaNeedsSystemMerge(raw));
+  console.log('needsMerge:', schemaNeedsSystemMerge(raw) || schemaNeedsAnnouncementMerge(raw));
 
   const merged = mergeMissingSystemParts(raw);
   console.log('after sections:', (merged.sections || []).map((s) => `${s.order}:${s.id}`).join(' | '));
 
-  if (!schemaNeedsSystemMerge(raw) && JSON.stringify(raw.sections) === JSON.stringify(merged.sections)) {
+  if (
+    !schemaNeedsSystemMerge(raw)
+    && !schemaNeedsAnnouncementMerge(raw)
+    && JSON.stringify(raw.sections) === JSON.stringify(merged.sections)
+    && JSON.stringify(raw.questions) === JSON.stringify(merged.questions)
+  ) {
     console.log('already up to date');
     return;
   }
 
   const saved = await savePublishedSchema(merged, {
     userId: null,
-    changeSummary: '維運腳本：補齊步驟1/2並校正階段順序',
+    changeSummary: schemaNeedsAnnouncementMerge(raw)
+      ? '維運腳本：補齊報名須知（步驟0）'
+      : '維運腳本：補齊步驟1/2並校正階段順序',
   });
   console.log('saved version', saved.version);
   console.log(

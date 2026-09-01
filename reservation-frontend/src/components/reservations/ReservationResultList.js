@@ -1,13 +1,15 @@
 /**
- * 預約查詢結果列表：多筆 ReservationResultCard + 空狀態
+ * 預約查詢結果列表：多筆 ReservationResultCard + 空狀態 + 分頁
  */
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import ReservationResultCard from './ReservationResultCard';
 import SkeletonCard from '../ui/SkeletonCard';
 import EmptyState from '../ui/EmptyState';
 import './ReservationResultList.css';
+
+const PAGE_SIZE = 6;
 
 export default function ReservationResultList({
   records,
@@ -24,6 +26,25 @@ export default function ReservationResultList({
   loading,
 }) {
   const { t } = useLanguage();
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.max(1, Math.ceil((records?.length || 0) / PAGE_SIZE));
+
+  useEffect(() => {
+    setPage(1);
+  }, [records]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const pageRecords = useMemo(() => {
+    if (!records?.length) return [];
+    const start = (page - 1) * PAGE_SIZE;
+    return records.slice(start, start + PAGE_SIZE);
+  }, [records, page]);
 
   if (loading && hasSearched) {
     return (
@@ -102,13 +123,22 @@ export default function ReservationResultList({
     );
   }
 
+  const rangeStart = (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, records.length);
+
   return (
     <section className="reservation-result-list" aria-labelledby="reservation-result-title">
-      <h2 id="reservation-result-title" className="reservation-result-list-title">
-        {t('page.reservationResultTitle')}
-      </h2>
+      <div className="reservation-result-list-header">
+        <h2 id="reservation-result-title" className="reservation-result-list-title">
+          {t('page.reservationResultTitle')}
+        </h2>
+        <p className="reservation-result-list-meta text-muted small mb-0">
+          共 {records.length} 筆，依活動時間由新到舊排列
+          {records.length > PAGE_SIZE ? ` · 第 ${rangeStart}–${rangeEnd} 筆` : ''}
+        </p>
+      </div>
       <div className="reservation-result-list-cards">
-        {records.map((record) => (
+        {pageRecords.map((record) => (
           <ReservationResultCard
             key={record.id}
             record={record}
@@ -123,6 +153,39 @@ export default function ReservationResultList({
           />
         ))}
       </div>
+      {totalPages > 1 ? (
+        <nav className="reservation-result-list-pagination mt-3" aria-label="查詢結果分頁">
+          <ul className="pagination pagination-sm mb-0 justify-content-center">
+            <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
+              <button
+                type="button"
+                className="page-link"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                aria-label="上一頁"
+              >
+                上一頁
+              </button>
+            </li>
+            <li className="page-item active" aria-current="page">
+              <span className="page-link">
+                {page} / {totalPages}
+              </span>
+            </li>
+            <li className={`page-item ${page >= totalPages ? 'disabled' : ''}`}>
+              <button
+                type="button"
+                className="page-link"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                aria-label="下一頁"
+              >
+                下一頁
+              </button>
+            </li>
+          </ul>
+        </nav>
+      ) : null}
       <p className="reservation-result-list-next mt-3 mb-2">{t('page.reservationResultNextHint')}</p>
       <div className="d-flex flex-wrap gap-2">
         <Link className="btn btn-primary btn-sm" to="/events">

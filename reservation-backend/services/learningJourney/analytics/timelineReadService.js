@@ -18,6 +18,7 @@ const { assertBeforeExposure } = require('../utils/eventQualityAssertions');
 const { buildSnapshotVersion, parseSnapshotVersion } = require('../utils/snapshotVersion');
 const { getCefrRank } = require('../utils/cefr');
 const { normSid } = require('./eventProjectorService');
+const { ensureStudentAnalyticsReady } = require('./studentAnalyticsSyncService');
 
 function laneForEventType(eventType) {
   if (eventType === EVENT_TYPES.BASELINE) return 'baseline';
@@ -38,7 +39,8 @@ function buildBadges(ev, exposureRelation) {
   const rank = getCefrRank(ev.cefrLevel);
   if (rank != null && rank >= B2_RANK) badges.push('B2+');
   if (ev.status === EVENT_STATUS.REGISTERED_NO_SCORE) badges.push('未出分');
-  if (ev.excludeFlag) badges.push('已排除');
+  if (ev.excludeFlag && ev.eventType === EVENT_TYPES.COURSE) badges.push('修課中');
+  else if (ev.excludeFlag) badges.push('已排除');
   if (exposureRelation === 'before_exam') badges.push('考前暴露');
   if (exposureRelation === 'after_exam') badges.push('考後');
   return badges;
@@ -66,15 +68,33 @@ function resolveTimelineTermLabel(eventJson, enrollmentTerm) {
   return null;
 }
 
+function filterTimelineEvents(events, opts = {}) {
+  const includeExcludedCourses = opts.includeExcludedCourses === true;
+  if (!includeExcludedCourses) {
+    return events.filter((ev) => !ev.excludeFlag);
+  }
+  return events.filter((ev) => {
+    if (!ev.excludeFlag) return true;
+    return ev.eventType === EVENT_TYPES.COURSE;
+  });
+}
+
 async function getStudentTimeline(studentId, opts = {}) {
   const sid = normSid(studentId);
   if (!sid) return null;
 
+  try {
+    await ensureStudentAnalyticsReady(sid);
+  } catch (_) {
+    // 投影失敗不阻擋唯讀時間軸
+  }
+
   const snapshotVersion = opts.snapshotVersion || await resolveLatestSnapshotVersion();
-  const events = await LjStudentEvent.findAll({
-    where: { studentId: sid, excludeFlag: false },
+  const rawEvents = await LjStudentEvent.findAll({
+    where: { studentId: sid },
     order: [['eventDate', 'ASC'], ['id', 'ASC']],
   });
+  const events = filterTimelineEvents(rawEvents, opts);
 
   const analyticStudent = await LjAnalyticStudent.findOne({
     where: { studentId: sid, snapshotVersion },

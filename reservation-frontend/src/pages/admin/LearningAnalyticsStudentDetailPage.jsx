@@ -101,7 +101,7 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
         </Button>
         <Button
           as={Link}
-          to={`/admin/learning-journey/students/${encodeURIComponent(studentId)}`}
+          to={`/admin/learning-journey/students/${encodeURIComponent(studentId)}?semesterId=${encodeURIComponent(apiParams()?.semester || '')}`}
           variant="outline-primary"
           size="sm"
         >
