@@ -9,9 +9,15 @@ const mockMemberCreate = jest.fn();
 const mockMemberFindOne = jest.fn();
 const mockMemberFindAll = jest.fn();
 const mockMemberFindOneInOtherTeam = jest.fn();
-const mockRegistrationFindOne = jest.fn();
+const mockFindRegistrationForSemester = jest.fn();
 const mockTeamTx = { commit: jest.fn(), rollback: jest.fn() };
 const mockMemberTx = { commit: jest.fn(), rollback: jest.fn() };
+
+const MEMBER_NAMES = {
+  TEST001: '測試學生一',
+  TEST002: '測試學生二',
+  TEST003: '測試學生三',
+};
 
 jest.mock('../models', () => {
   const sequelizeLock = { UPDATE: 'UPDATE' };
@@ -20,7 +26,7 @@ jest.mock('../models', () => {
     Sequelize: { Transaction: { LOCK: sequelizeLock } },
     QueryTypes: {},
     Settings: { findOne: (...args) => mockSettingsFindOne(...args) },
-    EnglishTestRegistration: { findOne: (...args) => mockRegistrationFindOne(...args) },
+    EnglishTestRegistration: { findOne: jest.fn(), findAll: jest.fn(async () => []) },
     LearningPartnerTeam: {
       sequelize: { transaction: jest.fn(async () => mockTeamTx) },
       count: (...args) => mockTeamCount(...args),
@@ -55,6 +61,9 @@ jest.mock('../middlewares/auth', () => ({
 
 jest.mock('../config/email', () => ({ sendEmail: jest.fn() }));
 jest.mock('../utils/emailQueue', () => ({ enqueue: jest.fn(async () => {}) }));
+jest.mock('../services/englishTestRegistrationService', () => ({
+  findRegistrationForSemester: (...args) => mockFindRegistrationForSemester(...args),
+}));
 
 const router = require('../routes/learningPartnerRouter');
 
@@ -62,9 +71,17 @@ function resetDefaults() {
   jest.clearAllMocks();
   mockSettingsFindOne.mockResolvedValue({ value: 'true', valueBool: true });
   mockTeamCount.mockResolvedValue(0);
-  mockRegistrationFindOne.mockImplementation(async ({ where }) => ({
-    id: where.studentId === 'TEST001' ? 1 : 2,
-    email: `${String(where.studentId).toLowerCase()}@example.com`,
+  mockFindRegistrationForSemester.mockImplementation(async (studentId) => ({
+    registration: MEMBER_NAMES[studentId]
+      ? {
+          id: studentId === 'TEST001' ? 1 : 2,
+          studentId,
+          name: MEMBER_NAMES[studentId],
+          email: `${String(studentId).toLowerCase()}@example.com`,
+          status: 'success',
+        }
+      : null,
+    legacySemesterInferred: false,
   }));
   mockMemberFindOneInOtherTeam.mockResolvedValue(null);
   mockTeamCreate.mockResolvedValue({
@@ -162,7 +179,10 @@ describe('Learning Partner Router unit tests (DB mocked)', () => {
   });
 
   it('POST /api/learning-partner/teams 成員不符資格會 400', async () => {
-    mockRegistrationFindOne.mockResolvedValueOnce(null);
+    mockFindRegistrationForSemester.mockImplementationOnce(async () => ({
+      registration: null,
+      legacySemesterInferred: false,
+    }));
     const response = await request(app).post('/api/learning-partner/teams').send({
       teamSize: 3,
       members: [
