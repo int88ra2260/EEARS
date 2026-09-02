@@ -5,6 +5,9 @@ import {
   countQuestionsByLevel,
 } from './questionBank';
 import { VOCABULARY_DEPTH_QUESTIONS_GENERATED } from './questionBankGenerated';
+import { VOCABULARY_DEPTH_QUESTIONS_EXTENDED } from './questionBankExtended';
+import { validateA2ContextQuestion } from './a2ContextRules';
+import { validateB1SynonymQuestion } from './b1SynonymRules';
 
 describe('vocabularyDepth questionBank', () => {
   beforeAll(() => {
@@ -51,16 +54,27 @@ describe('vocabularyDepth questionBank', () => {
     expect(seen.size).toBeGreaterThan(6);
   });
 
-  test('generated A2/B1 context questions include complete bilingual prompts', () => {
-    const contextual = VOCABULARY_DEPTH_QUESTIONS_GENERATED.filter(
-      (q) => q.level === 'A2' || q.level === 'B1',
+  test('generated A2 questions do not leak answers in prompts', () => {
+    const a2Generated = VOCABULARY_DEPTH_QUESTIONS_GENERATED.filter(
+      (q) => q.level === 'A2' && q.type === 'context',
     );
-    expect(contextual.length).toBeGreaterThan(0);
-    for (const q of contextual) {
-      expect(q.prompt).toContain('______');
-      expect(q.promptZh).toContain('______');
-      expect(q.promptZh).toContain('提示：');
-      expect(q.promptZh).not.toMatch(/情境填空$/);
+    expect(a2Generated.length).toBeGreaterThan(0);
+    for (const question of a2Generated) {
+      validateA2ContextQuestion(question);
     }
+  });
+
+  test('available A2 question does not leak Chinese gloss in prompt', () => {
+    const available = VOCABULARY_DEPTH_QUESTIONS_EXTENDED.find((q) => q.word === 'available');
+    validateA2ContextQuestion(available);
+    expect(available.promptZh).not.toMatch(/有空/);
+  });
+
+  test('generated B1 brand question does not leak answer in prompt or options', () => {
+    const brand = VOCABULARY_DEPTH_QUESTIONS_GENERATED.find((q) => q.word === 'brand');
+    validateB1SynonymQuestion(brand);
+    expect(brand.promptZh).not.toMatch(/品牌/);
+    expect(brand.options.find((o) => o.id === brand.correctOptionId).textZh).not.toMatch(/品牌/);
+    expect(brand.options.every((o) => !o.textZh?.includes('相關'))).toBe(true);
   });
 });

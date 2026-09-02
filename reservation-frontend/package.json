@@ -35,8 +35,7 @@
     "export:word-bridge-docx": "node scripts/exportWordBridgeBankDocx.mjs",
     "audit:cefr-banks": "node scripts/auditCefrWordBanks.mjs",
     "build:vocabulary-bank": "node scripts/buildCanonicalVocabularyBank.mjs",
-    "build:vocabulary-depth-bank": "node scripts/buildVocabularyDepthQuestionBank.mjs",
-    "build:vocabulary-size-bank": "node scripts/buildVocabularySizeFrequencyBank.mjs",
+    "build:micro-learning-banks": "node scripts/buildMicroLearningQuestionBanks.mjs",
     "analyze": "cross-env ANALYZE=true react-scripts build",
     "depcheck": "depcheck"
   },

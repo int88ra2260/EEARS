@@ -109,11 +109,11 @@ export default function EnglishTestStudentRosterTab({ token }) {
   return (
     <div className="pt-3">
       <Card className="mb-3">
-        <Card.Header className="bg-secondary text-white py-2 small fw-semibold">學名單比對（學號/身分證）</Card.Header>
+        <Card.Header className="bg-secondary text-white py-2 small fw-semibold">在學名單比對（學號/身分證）</Card.Header>
         <Card.Body>
           <Alert variant="info" className="py-2 small mb-3">
-            上傳後會依 Excel 的「學號」「身分證字號」建立對照表，並在學生端報名時直接阻擋不相符的資料。
-            系統僅使用這兩欄進行比對（其餘欄位可忽略）。
+            上傳在學名單後，系統會依 Excel 的「學號」「身分證字號」建立對照表，並在學生端報名時直接阻擋不相符的資料。
+            請上傳僅含在學學生的名單；系統僅比對這兩欄（其餘欄位如「學籍狀態」不會自動篩選）。
           </Alert>
 
           <div className="d-flex flex-wrap gap-2 mb-3">
@@ -123,7 +123,7 @@ export default function EnglishTestStudentRosterTab({ token }) {
           </div>
 
           <ImportUploadPanel
-            title="上傳最新學名單 Excel"
+            title="上傳最新在學名單 Excel"
             description="上傳時會自動覆蓋先前的對照資料（只保留最新一份）。"
             acceptedFileTypes=".xlsx,.xls"
             selectedFile={selectedFile}
@@ -187,7 +187,7 @@ export default function EnglishTestStudentRosterTab({ token }) {
                       </div>
                     </>
                   ) : (
-                    <div className="mt-1">尚未上傳學名單（目前沒有對照表）。</div>
+                    <div className="mt-1">尚未上傳在學名單（目前沒有對照表）。</div>
                   )}
                 </div>
                 {canLoadMore ? (
@@ -218,7 +218,7 @@ export default function EnglishTestStudentRosterTab({ token }) {
                     ) : (
                       <tr>
                         <td colSpan={3} className="text-center text-muted">
-                          暫無資料，請先上傳學名單 Excel。
+                          暫無資料，請先上傳在學名單 Excel。
                         </td>
                       </tr>
                     )}

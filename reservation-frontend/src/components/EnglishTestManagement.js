@@ -158,7 +158,7 @@ export default function EnglishTestManagement() {
             role="tab"
             aria-selected={mainTab === 'roster'}
           >
-            學名單比對
+            在學名單比對
           </button>
         )}
       </div>

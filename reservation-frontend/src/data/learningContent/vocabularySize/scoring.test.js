@@ -4,8 +4,17 @@ import {
   mapSizeToCefr,
 } from './scoring';
 import { buildVocabularySizeDeck } from './sampling';
+import { validateFrequencyBank } from './frequencyBank';
 
 describe('vocabularySize scoring', () => {
+  beforeAll(() => {
+    validateFrequencyBank();
+  });
+
+  test('frequency bank meets minimum size', () => {
+    validateFrequencyBank();
+  });
+
   test('estimateVocabularySize extrapolates from band recognition', () => {
     const bandStats = [
       { band: 1, known: 5, sampled: 5 },

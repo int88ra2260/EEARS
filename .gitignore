@@ -21,6 +21,8 @@ reservation-frontend/exports/
 
 # Local generation / scratch workspace
 scroll-world-work/
+.tmp-ux-audit/
+EEARS115_資料/
 
 # Root-only capture junk (do not use bare *.mp4 — that would ignore public videos)
 /*.mp4

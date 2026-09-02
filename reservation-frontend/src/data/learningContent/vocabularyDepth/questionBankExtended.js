@@ -88,7 +88,7 @@ export const VOCABULARY_DEPTH_QUESTIONS_EXTENDED = [
   {
     id: 'vd_a2_07', level: 'A2', type: 'context', word: 'available',
     prompt: '"Is this seat still ______?"',
-    promptZh: '「Is this seat still ______?」（這個座位還有空嗎？）',
+    promptZh: '「Is this seat still ______?」（詢問這個座位是否尚可使用。）',
     options: [
       { id: 'a', text: 'available', textZh: 'available（有空／可取得）' },
       { id: 'b', text: 'avalanche', textZh: 'avalanche（雪崩）' },
@@ -114,7 +114,7 @@ export const VOCABULARY_DEPTH_QUESTIONS_EXTENDED = [
   {
     id: 'vd_a2_09', level: 'A2', type: 'context', word: 'register',
     prompt: '"Please ______ online before the deadline."',
-    promptZh: '「Please ______ online before the deadline.」（請在截止前線上報名）',
+    promptZh: '「Please ______ online before the deadline.」（請在截止前於網站完成必要步驟。）',
     options: [
       { id: 'a', text: 'register', textZh: 'register（報名／註冊）' },
       { id: 'b', text: 'remember', textZh: 'remember（記得）' },
@@ -127,7 +127,7 @@ export const VOCABULARY_DEPTH_QUESTIONS_EXTENDED = [
   {
     id: 'vd_a2_10', level: 'A2', type: 'context', word: 'introduce',
     prompt: '"Let me ______ myself. I\'m Alex."',
-    promptZh: '「Let me ______ myself. I\'m Alex.」（讓我自我介紹）',
+    promptZh: '「Let me ______ myself. I\'m Alex.」（開場說明自己是誰。）',
     options: [
       { id: 'a', text: 'introduce', textZh: 'introduce（介紹）' },
       { id: 'b', text: 'increase', textZh: 'increase（增加）' },
@@ -140,7 +140,7 @@ export const VOCABULARY_DEPTH_QUESTIONS_EXTENDED = [
   {
     id: 'vd_a2_11', level: 'A2', type: 'context', word: 'resume',
     prompt: 'Job Talk: "Please bring your ______ to the session."',
-    promptZh: 'Job Talk：「Please bring your ______ to the session.」（請帶履歷）',
+    promptZh: 'Job Talk：「Please bring your ______ to the session.」（請攜帶必備文件。）',
     options: [
       { id: 'a', text: 'resume', textZh: 'resume（履歷）' },
       { id: 'b', text: 'rescue', textZh: 'rescue（救援）' },
@@ -153,7 +153,7 @@ export const VOCABULARY_DEPTH_QUESTIONS_EXTENDED = [
   {
     id: 'vd_a2_12', level: 'A2', type: 'context', word: 'culture',
     prompt: 'International Forum: "We discussed food and ______."',
-    promptZh: 'International Forum：「We discussed food and ______.」（我們討論了飲食與文化）',
+    promptZh: 'International Forum：「We discussed food and ______.」（討論的另一個主題。）',
     options: [
       { id: 'a', text: 'culture', textZh: 'culture（文化）' },
       { id: 'b', text: 'capture', textZh: 'capture（捕捉）' },
@@ -311,7 +311,7 @@ export const VOCABULARY_DEPTH_QUESTIONS_EXTENDED = [
   {
     id: 'vd_b2_12', level: 'B2', type: 'collocation', word: 'feedback',
     prompt: 'After a presentation: "I appreciate your ______."',
-    promptZh: '簡報後：「I appreciate your ______.」（感謝你的回饋）',
+    promptZh: '簡報後：「I appreciate your ______.」（向對方致謝。）',
     options: [
       { id: 'a', text: 'feedback', textZh: 'feedback（回饋）' },
       { id: 'b', text: 'feedstock', textZh: 'feedstock（原料）' },

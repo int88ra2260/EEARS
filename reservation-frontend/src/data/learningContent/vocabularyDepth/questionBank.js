@@ -1,6 +1,8 @@
 import { VOCABULARY_DEPTH_LEVELS } from './constants';
 import { VOCABULARY_DEPTH_QUESTIONS_EXTENDED } from './questionBankExtended';
 import { VOCABULARY_DEPTH_QUESTIONS_GENERATED } from './questionBankGenerated';
+import { validateA2ContextQuestion } from './a2ContextRules';
+import { validateB1SynonymQuestion } from './b1SynonymRules';
 
 /**
  * @typedef {Object} VocabularyDepthOption
@@ -478,6 +480,14 @@ export function validateQuestionBank() {
     const n = countQuestionsByLevel(level);
     if (n < 30) {
       throw new Error(`Vocabulary Depth: level ${level} has only ${n} questions (need ≥30)`);
+    }
+  }
+  for (const question of ALL_VOCABULARY_DEPTH_QUESTIONS) {
+    if (question.level === 'A2' && question.type === 'context') {
+      validateA2ContextQuestion(question);
+    }
+    if (question.level === 'B1' && question.type === 'synonym') {
+      validateB1SynonymQuestion(question);
     }
   }
 }

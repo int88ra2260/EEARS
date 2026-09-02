@@ -9,12 +9,7 @@ export default function VocabularyDepthQuestion({
   onSelect,
   disabled,
 }) {
-  const prompt = (() => {
-    if (lang === 'en') return question.prompt;
-    const zh = question.promptZh || '';
-    if (zh.includes('______') || zh.includes('提示：')) return zh;
-    return question.prompt;
-  })();
+  const prompt = lang === 'en' ? question.prompt : (question.promptZh || question.prompt);
 
   return (
     <div className="vocabulary-depth-board">
