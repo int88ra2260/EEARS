@@ -25,10 +25,18 @@ jest.mock('../middlewares/auth', () => ({
     }
     return next();
   },
+  requirePermission: (permission, message) => (req, res, next) => {
+    if (permission === 'can_manage_settings') {
+      if (req.user?.role === 'admin') return next();
+      if (req.user?.role === 'office_staff') return next();
+      return res.status(403).json({ error: message || '權限不足' });
+    }
+    return next();
+  },
   requireAnyPermission: (permissions, message) => (req, res, next) => {
     const role = req.user?.role;
     if (role === 'admin') return next();
-    if (role === 'office_staff' && req.user?.staffLevel === 'deputy_manager') return next();
+    if (role === 'office_staff') return next();
     return res.status(403).json({ error: message || '權限不足' });
   },
   P: {

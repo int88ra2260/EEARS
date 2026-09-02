@@ -103,6 +103,18 @@ EEARS/
 2. 修復後跑完整 CI 檢查鏈
 3. 勿跳過 pre-commit hooks
 
+### 字彙庫與微學習題庫
+
+Canonical 詞彙與 Vocabulary Depth / Word Bridge / Listening Ladder 衍生題庫由腳本產生，**勿手改** `*Generated.js` 或 `canonicalVocabulary.js`。
+
+| 指令（於 `reservation-frontend`） | 用途 |
+|------|------|
+| `npm run vocab:build` | 完整重建（canonical → 微學習題庫 → CEFR 稽核） |
+| `npm run vocab:check` | 僅驗證、不寫檔（CI 使用） |
+| `npm run vocab:verify` | 稽核 + 相關 Jest |
+
+Runbook：`docs/micro-learning/vocabulary-bank-maintenance.md`；目錄說明：`reservation-frontend/src/data/learningContent/vocabulary/README.md`。
+
 ### 用 AI 生成本週週報草稿
 
 1. 複製 `.cursor/skills/eears-weekly-ai-workflow/PROMPT-TEMPLATE.md` 填寫靈感

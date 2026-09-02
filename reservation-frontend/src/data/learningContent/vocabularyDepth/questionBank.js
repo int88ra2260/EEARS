@@ -3,6 +3,9 @@ import { VOCABULARY_DEPTH_QUESTIONS_EXTENDED } from './questionBankExtended';
 import { VOCABULARY_DEPTH_QUESTIONS_GENERATED } from './questionBankGenerated';
 import { validateA2ContextQuestion } from './a2ContextRules';
 import { validateB1SynonymQuestion } from './b1SynonymRules';
+import { validateA1DefinitionQuestion } from './a1DefinitionRules';
+import { validateB2CollocationQuestion } from './b2CollocationRules';
+import { validateC1NuanceQuestion } from './c1NuanceRules';
 
 /**
  * @typedef {Object} VocabularyDepthOption
@@ -196,10 +199,10 @@ export const VOCABULARY_DEPTH_QUESTIONS = [
     prompt: 'Which is closest in meaning to "participate"?',
     promptZh: '哪個詞與 participate 意思最接近？',
     options: [
-      { id: 'a', text: 'take part', textZh: '參與' },
-      { id: 'b', text: 'particular', textZh: '特定的' },
-      { id: 'c', text: 'depart', textZh: '離開' },
-      { id: 'd', text: 'predict', textZh: '預測' },
+      { id: 'a', text: 'join', textZh: '參與' },
+      { id: 'b', text: 'attend', textZh: '出席' },
+      { id: 'c', text: 'enroll', textZh: '登記' },
+      { id: 'd', text: 'register', textZh: '註冊' },
     ],
     correctOptionId: 'a',
     tags: ['english_table'],
@@ -209,10 +212,10 @@ export const VOCABULARY_DEPTH_QUESTIONS = [
     prompt: 'Which is closest in meaning to "clarify"?',
     promptZh: '哪個詞與 clarify 意思最接近？',
     options: [
-      { id: 'a', text: 'make clear', textZh: '釐清' },
-      { id: 'b', text: 'classify', textZh: '分類' },
-      { id: 'c', text: 'celebrate', textZh: '慶祝' },
-      { id: 'd', text: 'calculate', textZh: '計算' },
+      { id: 'a', text: 'explain', textZh: '釐清' },
+      { id: 'b', text: 'define', textZh: '定義' },
+      { id: 'c', text: 'resolve', textZh: '解決' },
+      { id: 'd', text: 'settle', textZh: '釐定' },
     ],
     correctOptionId: 'a',
     tags: ['english_club'],
@@ -223,9 +226,9 @@ export const VOCABULARY_DEPTH_QUESTIONS = [
     promptZh: '哪個詞與 recommend 意思最接近？',
     options: [
       { id: 'a', text: 'suggest', textZh: '建議' },
-      { id: 'b', text: 'recover', textZh: '恢復' },
-      { id: 'c', text: 'record', textZh: '記錄' },
-      { id: 'd', text: 'reduce', textZh: '減少' },
+      { id: 'b', text: 'oppose', textZh: '反對' },
+      { id: 'c', text: 'withhold', textZh: '保留' },
+      { id: 'd', text: 'reject', textZh: '拒絕' },
     ],
     correctOptionId: 'a',
     tags: ['job_talk'],
@@ -248,10 +251,10 @@ export const VOCABULARY_DEPTH_QUESTIONS = [
     prompt: 'Which is closest in meaning to "demonstrate"?',
     promptZh: '哪個詞與 demonstrate 意思最接近？',
     options: [
-      { id: 'a', text: 'show how', textZh: '示範' },
-      { id: 'b', text: 'demolish', textZh: '拆除' },
-      { id: 'c', text: 'demote', textZh: '降職' },
-      { id: 'd', text: 'deny', textZh: '否認' },
+      { id: 'a', text: 'illustrate', textZh: '示範' },
+      { id: 'b', text: 'explain', textZh: '說明' },
+      { id: 'c', text: 'perform', textZh: '執行' },
+      { id: 'd', text: 'describe', textZh: '描述' },
     ],
     correctOptionId: 'a',
     tags: ['english_club'],
@@ -261,10 +264,10 @@ export const VOCABULARY_DEPTH_QUESTIONS = [
     prompt: 'Which is closest in meaning to "perspective"?',
     promptZh: '哪個詞與 perspective 意思最接近？',
     options: [
-      { id: 'a', text: 'point of view', textZh: '觀點' },
-      { id: 'b', text: 'prospectus', textZh: '簡章' },
-      { id: 'c', text: 'prospect', textZh: '前景' },
-      { id: 'd', text: 'protein', textZh: '蛋白質' },
+      { id: 'a', text: 'viewpoint', textZh: '觀點' },
+      { id: 'b', text: 'opinion', textZh: '看法' },
+      { id: 'c', text: 'stance', textZh: '立場' },
+      { id: 'd', text: 'angle', textZh: '角度' },
     ],
     correctOptionId: 'a',
     tags: ['international_forum'],
@@ -483,11 +486,20 @@ export function validateQuestionBank() {
     }
   }
   for (const question of ALL_VOCABULARY_DEPTH_QUESTIONS) {
+    if (question.level === 'A1' && question.type === 'definition') {
+      validateA1DefinitionQuestion(question);
+    }
     if (question.level === 'A2' && question.type === 'context') {
       validateA2ContextQuestion(question);
     }
     if (question.level === 'B1' && question.type === 'synonym') {
       validateB1SynonymQuestion(question);
+    }
+    if (question.level === 'B2' && question.type === 'collocation') {
+      validateB2CollocationQuestion(question);
+    }
+    if (question.level === 'C1' && question.type === 'nuance') {
+      validateC1NuanceQuestion(question);
     }
   }
 }

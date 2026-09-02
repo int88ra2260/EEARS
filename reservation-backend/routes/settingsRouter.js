@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { Settings } = require('../models');
-const { authMiddleware, requireSystemPermission, requireAnyPermission, P } = require('../middlewares/auth');
+const { authMiddleware, requirePermission, requireAnyPermission, P } = require('../middlewares/auth');
 const auditLogService = require('../services/auditLogService');
 const {
   KEYS,
@@ -12,8 +12,8 @@ const {
   setGroupRegistrationEnabled,
 } = require('../services/registrationSettingsService');
 
-/** 與全站一致：僅系統管理員可變更系統設定 */
-const manageSettingsAuth = [authMiddleware, requireSystemPermission(P.CAN_MANAGE_SETTINGS)];
+/** 具 can_manage_settings 者可變更系統設定（含行政職員職務範本） */
+const manageSettingsAuth = [authMiddleware, requirePermission(P.CAN_MANAGE_SETTINGS)];
 /** 培力英檢報名開關：系統管理員或具英檢管理權（含副理） */
 const manageEnglishRegistrationAuth = [
   authMiddleware,

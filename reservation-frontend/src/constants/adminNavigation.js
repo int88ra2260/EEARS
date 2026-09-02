@@ -482,6 +482,15 @@ export const ADMIN_NAV_SECTIONS = [
         breadcrumbLabel: '群體分析',
       },
       {
+        id: 'learning-analytics-offerings',
+        label: '課程／教師／活動細項',
+        path: '/admin/learning-analytics/offerings',
+        matchPrefixes: ['/admin/learning-analytics/offerings'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '課程／教師／活動細項分析',
+        breadcrumbLabel: '細項分析',
+      },
+      {
         id: 'learning-analytics-resources',
         label: '課程與活動效益',
         path: '/admin/learning-analytics/resources',

@@ -3,11 +3,15 @@ import {
   shuffleQuestionOptions,
   validateQuestionBank,
   countQuestionsByLevel,
+  VOCABULARY_DEPTH_QUESTIONS,
 } from './questionBank';
 import { VOCABULARY_DEPTH_QUESTIONS_GENERATED } from './questionBankGenerated';
 import { VOCABULARY_DEPTH_QUESTIONS_EXTENDED } from './questionBankExtended';
 import { validateA2ContextQuestion } from './a2ContextRules';
 import { validateB1SynonymQuestion } from './b1SynonymRules';
+import { validateA1DefinitionQuestion } from './a1DefinitionRules';
+import { validateB2CollocationQuestion } from './b2CollocationRules';
+import { validateC1NuanceQuestion } from './c1NuanceRules';
 
 describe('vocabularyDepth questionBank', () => {
   beforeAll(() => {
@@ -76,5 +80,30 @@ describe('vocabularyDepth questionBank', () => {
     expect(brand.promptZh).not.toMatch(/品牌/);
     expect(brand.options.find((o) => o.id === brand.correctOptionId).textZh).not.toMatch(/品牌/);
     expect(brand.options.every((o) => !o.textZh?.includes('相關'))).toBe(true);
+  });
+
+  test('manual B1 demonstrate question does not leak via first-letter outlier', () => {
+    const demonstrate = [...VOCABULARY_DEPTH_QUESTIONS, ...VOCABULARY_DEPTH_QUESTIONS_EXTENDED]
+      .find((q) => q.word === 'demonstrate');
+    validateB1SynonymQuestion(demonstrate);
+    expect(demonstrate.options.map((o) => o.text)).toEqual(
+      expect.arrayContaining(['illustrate', 'explain', 'perform', 'describe']),
+    );
+  });
+
+  test('generated A1 banana question uses English-only option text', () => {
+    const banana = VOCABULARY_DEPTH_QUESTIONS_GENERATED.find((q) => q.word === 'banana');
+    validateA1DefinitionQuestion(banana);
+    expect(banana.options.every((o) => !/meaning:/i.test(o.text))).toBe(true);
+    expect(banana.options.every((o) => !/[\u4e00-\u9fff]/.test(o.text))).toBe(true);
+  });
+
+  test('generated B2 and C1 questions use uniform option patterns', () => {
+    const b2 = VOCABULARY_DEPTH_QUESTIONS_GENERATED.filter((q) => q.level === 'B2');
+    const c1 = VOCABULARY_DEPTH_QUESTIONS_GENERATED.filter((q) => q.level === 'C1');
+    for (const q of b2) validateB2CollocationQuestion(q);
+    for (const q of c1) validateC1NuanceQuestion(q);
+    expect(b2.length).toBeGreaterThan(0);
+    expect(c1.length).toBeGreaterThan(0);
   });
 });

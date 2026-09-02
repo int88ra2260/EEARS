@@ -150,6 +150,7 @@ export const translations = {
       wordBridgeToolCta: '開始語彙連橋',
       wordBridgeToolEmpty: '完成一場語彙連橋後，這裡會依你的表現推薦活動。',
       wordBridgeToolLevel: '最近推估層級：{{level}}',
+      practiceResourcesCta: '前往學習資源練習',
       styleToolTitle: '學習型態',
       styleToolLead: '選擇學習節奏與加強方向，取得活動型態建議（僅本次瀏覽有效）。',
       styleToolCta: '填寫學習型態',
@@ -424,6 +425,7 @@ export const translations = {
       wordBridgeCta: '接著玩語彙連橋',
       bookSessionCta: '去預約場次',
       phrasebookCta: '活動前看看應答指南',
+      backToLearningResources: '返回學習資源',
       backToActivities: '更多學習資源',
     },
     vocabularyDepth: {
@@ -1235,6 +1237,7 @@ export const translations = {
       wordBridgeToolCta: 'Start Word Bridge',
       wordBridgeToolEmpty: 'Complete a Word Bridge round to see activity suggestions here.',
       wordBridgeToolLevel: 'Latest estimate: {{level}}',
+      practiceResourcesCta: 'Practice on Learning Resources',
       styleToolTitle: 'Learning style',
       styleToolLead: 'Pick your pace and focus for activity suggestions (this session only).',
       styleToolCta: 'Set learning style',
@@ -1509,6 +1512,7 @@ export const translations = {
       wordBridgeCta: 'Play Word Bridge next',
       bookSessionCta: 'Book a session',
       phrasebookCta: 'Activity phrasebook',
+      backToLearningResources: 'Back to Learning Resources',
       backToActivities: 'More learning resources',
     },
     vocabularyDepth: {

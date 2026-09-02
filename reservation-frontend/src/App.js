@@ -113,6 +113,7 @@ const LearningJourneyStudentProfilePage = lazy(() => import('./pages/admin/Learn
 const LearningAnalyticsLayout = lazy(() => import('./pages/admin/LearningAnalyticsLayout'));
 const LearningAnalyticsOverviewPage = lazy(() => import('./pages/admin/LearningAnalyticsOverviewPage'));
 const LearningAnalyticsCohortsPage = lazy(() => import('./pages/admin/LearningAnalyticsCohortsPage'));
+const LearningAnalyticsOfferingsPage = lazy(() => import('./pages/admin/LearningAnalyticsOfferingsPage'));
 const LearningAnalyticsResourcesPage = lazy(() => import('./pages/admin/LearningAnalyticsResourcesPage'));
 const LearningAnalyticsSkillsPage = lazy(() => import('./pages/admin/LearningAnalyticsSkillsPage'));
 const LearningAnalyticsStudentJourneyPage = lazy(() => import('./pages/admin/LearningAnalyticsStudentJourneyPage'));
@@ -579,6 +580,7 @@ function AppContent() {
                 <Route index element={<Navigate to="overview" replace />} />
                 <Route path="overview" element={<LearningAnalyticsOverviewPage />} />
                 <Route path="cohorts" element={<LearningAnalyticsCohortsPage />} />
+                <Route path="offerings" element={<LearningAnalyticsOfferingsPage />} />
                 <Route path="resources" element={<LearningAnalyticsResourcesPage />} />
                 <Route path="skills" element={<LearningAnalyticsSkillsPage />} />
                 <Route path="skills/:studentId" element={<LearningAnalyticsStudentDetailPage focus="skills" />} />

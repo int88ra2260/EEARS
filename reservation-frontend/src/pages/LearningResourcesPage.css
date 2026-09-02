@@ -22,6 +22,10 @@
   margin-top: 1.5rem;
 }
 
+.learning-resources-page .activities-practice .activity-step1-tools {
+  margin-top: 1.25rem;
+}
+
 .learning-resources-page__site-card {
   text-decoration: none;
   color: inherit;

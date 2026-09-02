@@ -199,3 +199,12 @@ src/
 | v1.1 | 擴題至 50、CEFR 稽核 golden list |
 | v1.2 | 後端題庫 API、`sessionRepository` 切換 |
 | v2 | 依活動類型動態抽題（ET/EC 場景權重） |
+
+---
+
+## 11. 字彙庫維護
+
+題庫與 canonical 詞彙的**更新、重建、驗證**流程見 [vocabulary-bank-maintenance.md](./vocabulary-bank-maintenance.md)。
+
+- 日常：`npm run vocab:build`（改來源後重建）
+- PR / CI：`npm run vocab:check`（驗證已提交產物與規則一致）

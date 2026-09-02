@@ -25,6 +25,7 @@ const { deriveEnrollmentTerm, computeSemIndex, parseSemesterId } = require('../u
 const { hoursForActivityType, hoursForActivityParticipation, hoursForCourse } = require('../utils/activityHours');
 const { SEMESTER_RANGES, semesterIdFromDate } = require('../../../utils/semesterConstants');
 const { normalizeCefr } = require('../utils/cefr');
+const { normalizeAcademicCourseResourceType } = require('./academicCourseResourceType');
 
 function normSid(v) {
   return String(v || '').trim().toUpperCase();
@@ -356,6 +357,10 @@ async function projectCourseEvents(studentIds, enrollmentMap) {
       || (row.enrollmentStatus === 'enrolled' && row.passStatus !== 'passed' && row.passStatus !== 'failed');
     const hours = hoursForCourse(row.course?.credits);
     const excluded = withdrawn || inProgress;
+    const courseType = row.course?.courseType || null;
+    const courseCode = row.course?.courseCode || null;
+    const resourceType = normalizeAcademicCourseResourceType(courseType)
+      || normalizeAcademicCourseResourceType(courseCode);
     rows.push({
       studentId: sid,
       eventType: EVENT_TYPES.COURSE,
@@ -377,7 +382,13 @@ async function projectCourseEvents(studentIds, enrollmentMap) {
       title: row.course?.courseName || row.course?.courseCode || '修課',
       subtitle: row.enrollmentStatus,
       ruleVersion: RULE_VERSION,
-      rawPayload: { courseId: row.courseId, credits: row.course?.credits },
+      rawPayload: {
+        courseId: row.courseId,
+        credits: row.course?.credits,
+        courseType,
+        courseCode,
+        resourceType,
+      },
     });
   }
   return rows;
@@ -456,6 +467,52 @@ const UPSERT_UPDATE_FIELDS = [
   'rawPayload',
 ];
 
+async function pruneOrphanedCourseEnrollmentEvents(studentIds = []) {
+  const where = {
+    sourceSystem: 'course_enrollments',
+    eventType: EVENT_TYPES.COURSE,
+    status: EVENT_STATUS.VALID,
+  };
+  if (studentIds.length) {
+    where.studentId = { [Op.in]: studentIds.map(normSid) };
+  }
+
+  const courseEvents = await LjStudentEvent.findAll({
+    where,
+    attributes: ['id', 'sourceRecordId'],
+    raw: true,
+  });
+  if (!courseEvents.length) return { voided: 0 };
+
+  const sourceRecordIds = [...new Set(
+    courseEvents.map((row) => String(row.sourceRecordId || '').trim()).filter(Boolean)
+  )];
+  if (!sourceRecordIds.length) return { voided: 0 };
+
+  const existingEnrollments = await CourseEnrollment.findAll({
+    where: { id: { [Op.in]: sourceRecordIds } },
+    attributes: ['id'],
+    raw: true,
+  });
+  const existingIds = new Set(existingEnrollments.map((row) => String(row.id)));
+  const orphanEventIds = courseEvents
+    .filter((row) => !existingIds.has(String(row.sourceRecordId)))
+    .map((row) => row.id);
+
+  if (!orphanEventIds.length) return { voided: 0 };
+
+  const [voided] = await LjStudentEvent.update(
+    {
+      status: EVENT_STATUS.VOID,
+      excludeFlag: true,
+      reasonCode: REASON_CODES.OTHER,
+    },
+    { where: { id: { [Op.in]: orphanEventIds } } },
+  );
+
+  return { voided };
+}
+
 async function upsertEventRows(rows) {
   if (!rows.length) return { inserted: 0, updated: 0, total: 0 };
 
@@ -530,16 +587,19 @@ async function projectAllEvents(opts = {}) {
     ...(await projectCourseEvents(studentIds, enrollmentMap)),
   ];
   const upsert = await upsertEventRows(allRows);
+  const pruned = await pruneOrphanedCourseEnrollmentEvents(studentIds);
   return {
     studentCount: studentIds.length,
     activityFromParticipations: activityRows.length,
     activityFromReservations: reservationActivityRows.length,
     ...upsert,
+    prunedOrphanCourseEvents: pruned.voided,
   };
 }
 
 module.exports = {
   projectAllEvents,
+  pruneOrphanedCourseEnrollmentEvents,
   projectReservationActivityEvents,
   projectActivityEvents,
   fetchReservationActivityRows,

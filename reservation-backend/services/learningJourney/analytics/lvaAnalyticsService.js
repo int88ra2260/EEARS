@@ -30,6 +30,7 @@ const {
 const { LVA_CONFIG_DEFAULTS } = require('../../learningAnalytics/learningAnalyticsLvaDefaults');
 const { getMethodComparisonPayload } = require('../../learningAnalytics/learningAnalyticsMethodComparison');
 const { mapEwlEventNameToResourceType } = require('../../learningAnalytics/ewlResourceTypes');
+const { normalizeAcademicCourseResourceType } = require('./academicCourseResourceType');
 const {
   summarizeAdjustedGrowthLegacy,
   summarizeAdjustedGrowthV2,
@@ -114,6 +115,12 @@ function resourceKeyForEvent(event) {
   const payload = event.rawPayload && typeof event.rawPayload === 'object' ? event.rawPayload : {};
   const explicit = String(payload.resourceType || payload.category || payload.type || '').toUpperCase();
   if (explicit && getResourceSkillProfilesMap()[explicit]) return explicit;
+  if (event.eventType === 'course_event') {
+    const fromCourseMeta = normalizeAcademicCourseResourceType(
+      payload.courseType || payload.courseCode || payload.resourceType
+    );
+    if (fromCourseMeta) return fromCourseMeta;
+  }
   const ewlFromTitle = mapEwlEventNameToResourceType(event.title);
   if (ewlFromTitle && getResourceSkillProfilesMap()[ewlFromTitle]) return ewlFromTitle;
   if (/english\s*table|英語桌|英語餐桌/i.test(title)) return 'ENGLISH_TABLE';
@@ -476,6 +483,7 @@ module.exports = {
   inferGseScore,
   evidenceQualityForStudent,
   resourceKeyForEvent,
+  normalizeAcademicCourseResourceType,
   summarizeAdjustedGrowth,
   computeAdjustedGrowthEpisodes,
   summarizeQuasiCausalEstimates,

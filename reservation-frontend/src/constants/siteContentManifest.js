@@ -37,7 +37,7 @@ export const SITE_CONTENT_KEY_SUGGESTIONS = {
     { key: 'home.ruleNoWalkIn', label: '不開放現場候補' },
   ],
   english_test_registration: [
-    { key: 'englishTestRegistration.idCardMismatchMessage', label: '英檢：學號/身分證不匹配提示' },
+    { key: 'englishTestRegistration.idCardMismatchMessage', label: '英檢：在學名單比對不符提示' },
   ],
   activities: [
     { key: 'activitiesPage.title', label: '頁面標題' },

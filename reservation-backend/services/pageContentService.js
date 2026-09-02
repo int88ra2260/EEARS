@@ -225,37 +225,90 @@ async function ensureLearningResourcesDefaults() {
     ]);
   }
 
-  // LearningResourceMiniGames
-  const miniGamesCount = await LearningResourceMiniGame.count();
-  if (miniGamesCount === 0) {
-    await LearningResourceMiniGame.bulkCreate([
-      {
+  // LearningResourceMiniGames — 與前端 miniGamesCatalog 同步
+  const DEFAULT_MINI_GAMES = [
+    {
+      titleKey: 'wordBridge.title',
+      introKey: 'miniGames.wordBridgeIntro',
+      tag: 'Vocabulary',
+      href: '/practice/word-bridge',
+      sortOrder: 0,
+    },
+    {
+      titleKey: 'listeningLadder.title',
+      introKey: 'miniGames.listeningLadderIntro',
+      tag: 'Listening',
+      href: '/practice/listening-ladder',
+      sortOrder: 1,
+    },
+    {
+      titleKey: 'vocabularyDepth.title',
+      introKey: 'miniGames.vocabularyDepthIntro',
+      tag: 'Vocabulary',
+      href: '/practice/vocabulary-depth',
+      sortOrder: 2,
+    },
+    {
+      titleKey: 'vocabularySize.title',
+      introKey: 'miniGames.vocabularySizeIntro',
+      tag: 'Vocabulary',
+      href: '/practice/vocabulary-size',
+      sortOrder: 3,
+    },
+  ];
+
+  const LEGACY_MINI_GAME_HREFS = {
+    '/activities/word-bridge': '/practice/word-bridge',
+    '/activities/games/listening-ladder': '/practice/listening-ladder',
+    '/activities/games/vocabulary-depth': '/practice/vocabulary-depth',
+    '/activities/games/vocabulary-size': '/practice/vocabulary-size',
+  };
+
+  const existingMiniGames = await LearningResourceMiniGame.findAll();
+  const byTitleKey = new Map(
+    existingMiniGames.filter((row) => row.titleKey).map((row) => [row.titleKey, row]),
+  );
+
+  if (existingMiniGames.length === 0) {
+    await LearningResourceMiniGame.bulkCreate(
+      DEFAULT_MINI_GAMES.map((item) => ({
         titleZh: null,
         titleEn: null,
         introZh: null,
         introEn: null,
-        tag: 'Vocabulary',
-        href: '/activities/word-bridge',
+        tag: item.tag,
+        href: item.href,
         isExternal: false,
-        titleKey: 'wordBridge.title',
-        introKey: 'miniGames.wordBridgeIntro',
-        sortOrder: 0,
+        titleKey: item.titleKey,
+        introKey: item.introKey,
+        sortOrder: item.sortOrder,
         isActive: true,
-      },
-      {
-        titleZh: null,
-        titleEn: null,
-        introZh: null,
-        introEn: null,
-        tag: 'Listening',
-        href: '/activities/games/listening-ladder',
-        isExternal: false,
-        titleKey: 'listeningLadder.title',
-        introKey: 'miniGames.listeningLadderIntro',
-        sortOrder: 1,
-        isActive: true,
-      },
-    ]);
+      })),
+    );
+  } else {
+    for (const item of DEFAULT_MINI_GAMES) {
+      const row = byTitleKey.get(item.titleKey);
+      if (!row) {
+        await LearningResourceMiniGame.create({
+          titleZh: null,
+          titleEn: null,
+          introZh: null,
+          introEn: null,
+          tag: item.tag,
+          href: item.href,
+          isExternal: false,
+          titleKey: item.titleKey,
+          introKey: item.introKey,
+          sortOrder: item.sortOrder,
+          isActive: true,
+        });
+        continue;
+      }
+      const canonicalHref = LEGACY_MINI_GAME_HREFS[row.href] || item.href;
+      if (row.href !== canonicalHref) {
+        await row.update({ href: canonicalHref });
+      }
+    }
   }
 
   // LearningResourceGuides

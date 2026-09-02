@@ -4,7 +4,15 @@ const {
   mapEventTypeToActivityEnum,
   mapCheckinToAttendance,
   activityParticipationKey,
+  pruneOrphanedCourseEnrollmentEvents,
 } = require('../services/learningJourney/analytics/eventProjectorService');
+
+jest.mock('../models', () => ({
+  LjStudentEvent: { findAll: jest.fn(), update: jest.fn() },
+  CourseEnrollment: { findAll: jest.fn() },
+}));
+
+const { LjStudentEvent, CourseEnrollment } = require('../models');
 
 describe('eventProjectorService reservation helpers', () => {
   it('maps event types to activity enums including Job Talk', () => {
@@ -23,5 +31,22 @@ describe('eventProjectorService reservation helpers', () => {
   it('builds dedupe keys for activity participations', () => {
     expect(activityParticipationKey('s001', 42)).toBe('S001|42');
     expect(activityParticipationKey('', 42)).toBeNull();
+  });
+
+  it('voids course events whose enrollment row no longer exists', async () => {
+    LjStudentEvent.findAll.mockResolvedValue([
+      { id: 1, sourceRecordId: '10' },
+      { id: 2, sourceRecordId: '11' },
+    ]);
+    CourseEnrollment.findAll.mockResolvedValue([{ id: 10 }]);
+    LjStudentEvent.update.mockResolvedValue([1]);
+
+    const result = await pruneOrphanedCourseEnrollmentEvents();
+
+    expect(result).toEqual({ voided: 1 });
+    expect(LjStudentEvent.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'void', excludeFlag: true }),
+      expect.objectContaining({ where: expect.objectContaining({ id: expect.anything() }) }),
+    );
   });
 });

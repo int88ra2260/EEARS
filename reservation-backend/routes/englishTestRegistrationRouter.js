@@ -1004,9 +1004,10 @@ router.post('/english-test/register',
         return res.status(400).json({ error: '缺少必要欄位：學號、姓名、身分證字號' });
       }
 
-      // 比對學號/身分證是否屬於同一位學生（由 admin 上傳學名單 Excel 決定）
-      const rosterMismatch = await englishTestStudentIdCardRosterService.checkStudentIdIdNumberMatch({
+      // 步驟二身分驗證：比對在學名單（admin 可設定要比對的欄位）
+      const rosterMismatch = await englishTestStudentIdCardRosterService.checkRosterMatch({
         studentId: formData.studentId,
+        name: formData.name,
         idNumber: formData.idNumber,
       });
       if (!rosterMismatch.matched) {
@@ -1999,6 +2000,60 @@ router.get(
   }
 );
 
+// API: 更新在學名單比對欄位設定（admin）
+router.put(
+  '/english-test/admin/student-roster/match-fields',
+  ...englishRegFormManageAuth,
+  async (req, res) => {
+    try {
+      const { matchFields } = req.body || {};
+      if (!matchFields || typeof matchFields !== 'object') {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_MATCH_FIELDS',
+          error: '請提供 matchFields 物件（studentId / name / idNumber）',
+          message: '請提供 matchFields 物件（studentId / name / idNumber）',
+        });
+      }
+
+      const normalized = await englishTestStudentIdCardRosterService.setRosterMatchFields(matchFields);
+      return res.json({
+        success: true,
+        data: { matchFields: normalized },
+      });
+    } catch (error) {
+      logger.error('更新在學名單比對欄位失敗', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || '伺服器錯誤',
+        message: error.message || '伺服器錯誤',
+      });
+    }
+  }
+);
+
+// API: 刪除目前在學名單對照表（admin）
+router.delete(
+  '/english-test/admin/student-roster',
+  ...englishRegFormManageAuth,
+  async (req, res) => {
+    try {
+      const result = await englishTestStudentIdCardRosterService.clearRoster();
+      return res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      logger.error('刪除在學名單失敗', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || '伺服器錯誤',
+        message: error.message || '伺服器錯誤',
+      });
+    }
+  }
+);
+
 // API: 根據學號、姓名、身分證字號查詢報名資料（公開，用於檢視與修正）
 router.post(
   '/english-test/registrations/query',
@@ -2019,9 +2074,10 @@ router.post(
     const trimmedName = name.trim();
     const trimmedIdNumber = idNumber.trim().toUpperCase();
 
-    // 比對學號/身分證是否屬於同一位學生（由 admin 上傳學名單 Excel 決定）
-    const rosterMismatch = await englishTestStudentIdCardRosterService.checkStudentIdIdNumberMatch({
+    // 步驟二身分驗證：比對在學名單（admin 可設定要比對的欄位）
+    const rosterMismatch = await englishTestStudentIdCardRosterService.checkRosterMatch({
       studentId: trimmedStudentId,
+      name: trimmedName,
       idNumber: trimmedIdNumber,
     });
     if (!rosterMismatch.matched) {

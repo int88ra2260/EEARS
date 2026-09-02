@@ -2,6 +2,8 @@
 
 const { getLearningAnalyticsOverview } = require('../services/learningAnalytics/learningAnalyticsOverviewService');
 const { getLearningAnalyticsCohorts } = require('../services/learningAnalytics/learningAnalyticsCohortService');
+const { getLearningAnalyticsOfferings, getLearningAnalyticsOfferingDetail } = require('../services/learningAnalytics/learningAnalyticsOfferingService');
+const { buildOfferingsExportWorkbook } = require('../services/learningAnalytics/learningAnalyticsOfferingExportService');
 const { getLearningAnalyticsMeta } = require('../services/learningAnalytics/learningAnalyticsMetaService');
 const { getLearningAnalyticsSkills } = require('../services/learningAnalytics/learningAnalyticsGrowthService');
 const { getLvaAnalytics } = require('../services/learningJourney/analytics/lvaAnalyticsService');
@@ -57,6 +59,71 @@ async function getCohorts(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function getOfferings(req, res) {
+  try {
+    const data = await getLearningAnalyticsOfferings(req.query || {}, { user: req.user });
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function getOfferingDetail(req, res) {
+  try {
+    const data = await getLearningAnalyticsOfferingDetail(req.query || {}, { user: req.user });
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function getOfferingExport(req, res) {
+  try {
+    const exportResult = await buildOfferingsExportWorkbook(req.query || {}, { user: req.user });
+    const {
+      workbook,
+      fileName,
+      dimension,
+      filters,
+      rowCount,
+      studentRowCount,
+      truncated,
+      maxRows,
+    } = exportResult;
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+    await workbook.xlsx.write(res);
+
+    logExportAudit(req, {
+      module: 'learning_analytics',
+      action: 'export_offerings_xlsx',
+      entityType: 'LjAnalyticOfferingExport',
+      entityId: dimension,
+      exportType: 'xlsx',
+      reportType: `offerings_${dimension}`,
+      rowCount,
+      filters: {
+        ...filters,
+        studentRowCount,
+        truncated,
+        maxRows,
+      },
+      fileName,
+    });
+
+    return res.end();
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
   }
 }
 
@@ -330,6 +397,9 @@ module.exports = {
   postResetLvaConfig,
   getOverview,
   getCohorts,
+  getOfferings,
+  getOfferingDetail,
+  getOfferingExport,
   getResources,
   getSkills,
   getInsights,

@@ -4,10 +4,12 @@ import { useLanguage } from '../context/LanguageContext';
 import ContentText from '../components/siteContent/ContentText';
 import PageHeader from '../components/layout/PageHeader';
 import { fetchLearningResourcesPublic } from '../services/pageContentPublicApi';
-import { MINI_GAMES_CATALOG } from '../constants/miniGamesCatalog';
+import { mergeLearningResourceMiniGames } from '../constants/miniGamesCatalog';
 import { LEARNING_GUIDES_CATALOG } from '../constants/learningGuidesCatalog';
+import ActivityStepOneTools from '../components/activities/ActivityStepOneTools';
 import './LearningResourcesPage.css';
 import './ActivitiesPage.css';
+import '../components/activities/ActivityStepOneTools.css';
 
 const LEARNING_SITES = [
   {
@@ -82,20 +84,10 @@ export default function LearningResourcesPage() {
   }, []);
 
   const sites = content?.sites || FALLBACK_SITES;
-  const miniGames = content?.miniGames || MINI_GAMES_CATALOG.filter((c) => c.available).map((c, idx) => ({
-    id: c.id,
-    titleZh: null,
-    titleEn: null,
-    introZh: null,
-    introEn: null,
-    tag: c.tag,
-    href: c.path,
-    isExternal: false,
-    titleKey: c.titleKey,
-    introKey: c.introKey,
-    sortOrder: idx,
-    isActive: true,
-  }));
+  const miniGames = useMemo(
+    () => mergeLearningResourceMiniGames(content?.miniGames),
+    [content?.miniGames],
+  );
   const guides = content?.guides || LEARNING_GUIDES_CATALOG.filter((c) => c.available).map((c, idx) => ({
     id: c.id,
     titleZh: null,
@@ -165,6 +157,7 @@ export default function LearningResourcesPage() {
             )
           ))}
         </div>
+        <ActivityStepOneTools />
       </section>
 
       <section className="activities-guides" aria-labelledby="learning-resources-guides-title">

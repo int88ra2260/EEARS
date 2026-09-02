@@ -107,7 +107,7 @@ export default function ListeningLadderResultSummary({
           {t('listeningLadder.phrasebookCta')}
         </Link>
         <Link to="/learning-resources" className="btn btn-link">
-          {t('listeningLadder.backToActivities')}
+          {t('listeningLadder.backToLearningResources')}
         </Link>
       </div>
     </div>

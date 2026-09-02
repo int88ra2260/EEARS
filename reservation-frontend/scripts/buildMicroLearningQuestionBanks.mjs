@@ -16,9 +16,21 @@ import {
   wordLeaksIntoPrompt,
 } from '../src/data/learningContent/vocabularyDepth/a2ContextRules.js';
 import {
-  getB1SynonymAnswer,
+  getB1SynonymEntry,
   validateB1SynonymQuestion,
 } from '../src/data/learningContent/vocabularyDepth/b1SynonymRules.js';
+import {
+  getA1Definition,
+  validateA1DefinitionQuestion,
+} from '../src/data/learningContent/vocabularyDepth/a1DefinitionRules.js';
+import {
+  getB2Collocation,
+  validateB2CollocationQuestion,
+} from '../src/data/learningContent/vocabularyDepth/b2CollocationRules.js';
+import {
+  getC1Nuance,
+  validateC1NuanceQuestion,
+} from '../src/data/learningContent/vocabularyDepth/c1NuanceRules.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -39,34 +51,6 @@ const CEFR_TO_BANDS = {
 };
 
 
-const B2_COLLOCATION_TEMPLATES = [
-  { correct: (w) => `discuss ${w}`, wrong: (w) => [`eat ${w}`, `sleep ${w}`, `drive ${w}`] },
-  { correct: (w) => `address ${w}`, wrong: (w) => [`paint ${w}`, `cook ${w}`, `swim ${w}`] },
-  { correct: (w) => `develop ${w}`, wrong: (w) => [`delete ${w}`, `ignore ${w}`, `break ${w}`] },
-  { correct: (w) => `improve ${w}`, wrong: (w) => [`sell ${w}`, `buy ${w}`, `hide ${w}`] },
-  { correct: (w) => `consider ${w}`, wrong: (w) => [`throw ${w}`, `kick ${w}`, `drink ${w}`] },
-];
-
-const C1_NUANCE_TEMPLATES = [
-  {
-    prompt: (w) => `"In academic discussion, "${w}" often refers to…`,
-    promptZh: (w, zh) => `在學術討論中，「${w}」通常指…`,
-    correct: (w, zh) => `a concept related to ${zh}`,
-    correctZh: (w, zh) => `與「${zh}」相關的概念`,
-  },
-  {
-    prompt: (w) => `"When speakers use "${w}", they usually mean…`,
-    promptZh: (w, zh) => `當使用者說「${w}」時，通常意指…`,
-    correct: (w, zh) => `something connected to ${zh}`,
-    correctZh: (w, zh) => `與「${zh}」相關的含義`,
-  },
-  {
-    prompt: (w) => `"In formal English, "${w}" is best understood as…`,
-    promptZh: (w, zh) => `在正式英語中，「${w}」最好理解為…`,
-    correct: (w, zh) => `a term meaning ${zh}`,
-    correctZh: (w, zh) => `意為「${zh}」的詞彙`,
-  },
-];
 
 function extractUsedDepthWords() {
   const used = new Set();
@@ -142,19 +126,15 @@ function posLabel(entry) {
   return 'word';
 }
 
-function englishGloss(entry) {
-  const pos = posLabel(entry);
-  return `A common English ${pos} (meaning: ${entry.zh})`;
-}
-
 function topicTag(entry) {
   const topic = entry.listening?.topic || entry.topics?.[0] || entry.wbThemes?.[0];
   return topic || 'campus_life';
 }
 
+
 function buildA1Question(entry, pool, seq) {
-  const distractors = pickDistractors(pool, entry.word);
-  return {
+  const def = getA1Definition(entry);
+  const question = {
     id: `vd_gen_a1_${String(seq).padStart(2, '0')}`,
     level: 'A1',
     type: 'definition',
@@ -162,11 +142,11 @@ function buildA1Question(entry, pool, seq) {
     prompt: `What does "${entry.word}" mean?`,
     promptZh: `「${entry.word}」是什麼意思？`,
     options: [
-      { id: 'a', text: englishGloss(entry), textZh: entry.zh },
-      ...distractors.map((d, idx) => ({
+      { id: 'a', text: def.correct.text, textZh: def.correct.textZh },
+      ...def.distractors.map((d, idx) => ({
         id: ['b', 'c', 'd'][idx],
-        text: englishGloss(d),
-        textZh: d.zh,
+        text: d.text,
+        textZh: d.textZh,
       })),
     ],
     correctOptionId: 'a',
@@ -174,6 +154,8 @@ function buildA1Question(entry, pool, seq) {
     explanationZh: `「${entry.word}」的基本中文意思為「${entry.zh}」。`,
     tags: [topicTag(entry)],
   };
+  validateA1DefinitionQuestion(question);
+  return question;
 }
 
 function buildA2Question(entry, pool, seq) {
@@ -203,8 +185,7 @@ function buildA2Question(entry, pool, seq) {
 }
 
 function buildB1Question(entry, pool, seq) {
-  const distractors = pickDistractors(pool, entry.word, 3);
-  const correct = getB1SynonymAnswer(entry);
+  const syn = getB1SynonymEntry(entry);
   const question = {
     id: `vd_gen_b1_${String(seq).padStart(2, '0')}`,
     level: 'B1',
@@ -213,11 +194,11 @@ function buildB1Question(entry, pool, seq) {
     prompt: `Which is closest in meaning to "${entry.word}"?`,
     promptZh: `哪個詞與 "${entry.word}" 意思最接近？`,
     options: [
-      { id: 'a', text: correct.text, textZh: correct.textZh },
-      ...distractors.map((d, idx) => ({
+      { id: 'a', text: syn.correct.text, textZh: syn.correct.textZh },
+      ...syn.distractors.map((d, idx) => ({
         id: ['b', 'c', 'd'][idx],
-        text: d.word,
-        textZh: d.zh,
+        text: d.text,
+        textZh: d.textZh,
       })),
     ],
     correctOptionId: 'a',
@@ -228,48 +209,51 @@ function buildB1Question(entry, pool, seq) {
 }
 
 function buildB2Question(entry, pool, seq) {
-  const tpl = B2_COLLOCATION_TEMPLATES[seq % B2_COLLOCATION_TEMPLATES.length];
-  const wrong = tpl.wrong(entry.word);
-  const distractors = pickDistractors(pool, entry.word).slice(0, 0);
-  return {
+  const col = getB2Collocation(entry);
+  const question = {
     id: `vd_gen_b2_${String(seq).padStart(2, '0')}`,
     level: 'B2',
     type: 'collocation',
     word: entry.word,
     prompt: 'Which collocation is most natural?',
-    promptZh: `哪個搭配最自然？（詞彙：${entry.word}／${entry.zh}）`,
+    promptZh: '哪個搭配最自然？',
     options: [
-      { id: 'a', text: tpl.correct(entry.word), textZh: `${tpl.correct(entry.word)}（自然搭配）` },
-      { id: 'b', text: wrong[0], textZh: wrong[0] },
-      { id: 'c', text: wrong[1], textZh: wrong[1] },
-      { id: 'd', text: wrong[2], textZh: wrong[2] },
-    ],
-    correctOptionId: 'a',
-    tags: [topicTag(entry)],
-  };
-}
-
-function buildC1Question(entry, pool, seq) {
-  const tpl = C1_NUANCE_TEMPLATES[seq % C1_NUANCE_TEMPLATES.length];
-  const distractors = pickDistractors(pool, entry.word);
-  return {
-    id: `vd_gen_c1_${String(seq).padStart(2, '0')}`,
-    level: 'C1',
-    type: 'nuance',
-    word: entry.word,
-    prompt: tpl.prompt(entry.word),
-    promptZh: tpl.promptZh(entry.word, entry.zh),
-    options: [
-      { id: 'a', text: tpl.correct(entry.word, entry.zh), textZh: tpl.correctZh(entry.word, entry.zh) },
-      ...distractors.map((d, idx) => ({
+      { id: 'a', text: col.correct.text, textZh: col.correct.textZh },
+      ...col.distractors.map((d, idx) => ({
         id: ['b', 'c', 'd'][idx],
-        text: `a term meaning ${d.zh}`,
-        textZh: `意為「${d.zh}」的詞`,
+        text: d.text,
+        textZh: d.textZh,
       })),
     ],
     correctOptionId: 'a',
     tags: [topicTag(entry)],
   };
+  validateB2CollocationQuestion(question);
+  return question;
+}
+
+function buildC1Question(entry, pool, seq) {
+  const nuance = getC1Nuance(entry);
+  const question = {
+    id: `vd_gen_c1_${String(seq).padStart(2, '0')}`,
+    level: 'C1',
+    type: 'nuance',
+    word: entry.word,
+    prompt: nuance.prompt,
+    promptZh: nuance.promptZh,
+    options: [
+      { id: 'a', text: nuance.correct.text, textZh: nuance.correct.textZh },
+      ...nuance.distractors.map((d, idx) => ({
+        id: ['b', 'c', 'd'][idx],
+        text: d.text,
+        textZh: d.textZh,
+      })),
+    ],
+    correctOptionId: 'a',
+    tags: [topicTag(entry)],
+  };
+  validateC1NuanceQuestion(question);
+  return question;
 }
 
 const BUILDERS = {

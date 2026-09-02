@@ -8,11 +8,18 @@ const { SiteContentEntry, EnglishTestStudentIdCardRosterUpload, EnglishTestStude
 
 const ROSTER_SECTION = 'english_test_registration';
 const ROSTER_MISMATCH_CONTENT_KEY = 'englishTestRegistration.idCardMismatchMessage';
+const ROSTER_MATCH_FIELDS_CONTENT_KEY = 'englishTestRegistration.rosterMatchFields';
 
 const DEFAULT_MISMATCH_PROMPT_ZH = [
-  '您輸入的「學號」與「身分證字號」不匹配，請確認資料後重新填寫。',
+  '您輸入的資料與在學名單不符，請確認後重新填寫。',
   '如有疑問，請聯繫全英語卓越教學中心。',
 ].join('\n');
+
+const DEFAULT_MATCH_FIELDS = Object.freeze({
+  studentId: true,
+  name: false,
+  idNumber: true,
+});
 
 function normalizeStudentId(value) {
   return String(value ?? '')
@@ -28,13 +35,30 @@ function normalizeIdNumber(value) {
     .replace(/[^A-Z0-9]/g, '');
 }
 
+function normalizeName(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/g, '');
+}
+
+function normalizeMatchFields(raw) {
+  const fields = {
+    studentId: !!raw?.studentId,
+    name: !!raw?.name,
+    idNumber: !!raw?.idNumber,
+  };
+  if (!fields.studentId && !fields.name && !fields.idNumber) {
+    return { ...DEFAULT_MATCH_FIELDS };
+  }
+  return fields;
+}
+
 function isEmptyRow(row) {
   if (!Array.isArray(row)) return true;
   return row.every((c) => c == null || String(c).trim() === '');
 }
 
 async function getMismatchPromptZh() {
-  // 輕量快取：避免每次查詢都打 DB
   const now = Date.now();
   if (getMismatchPromptZh._cache && now - getMismatchPromptZh._cache.at < 30_000) {
     return getMismatchPromptZh._cache.value;
@@ -54,6 +78,59 @@ async function getMismatchPromptZh() {
   return value;
 }
 
+async function getRosterMatchFields() {
+  const now = Date.now();
+  if (getRosterMatchFields._cache && now - getRosterMatchFields._cache.at < 30_000) {
+    return getRosterMatchFields._cache.value;
+  }
+
+  const row = await SiteContentEntry.findOne({
+    where: {
+      isActive: true,
+      section: ROSTER_SECTION,
+      contentKey: ROSTER_MATCH_FIELDS_CONTENT_KEY,
+    },
+    order: [['updatedAt', 'DESC']],
+  });
+
+  let value = { ...DEFAULT_MATCH_FIELDS };
+  if (row?.valueZh) {
+    try {
+      value = normalizeMatchFields(JSON.parse(row.valueZh));
+    } catch {
+      value = { ...DEFAULT_MATCH_FIELDS };
+    }
+  }
+
+  getRosterMatchFields._cache = { at: now, value };
+  return value;
+}
+
+async function setRosterMatchFields(rawFields) {
+  const normalized = normalizeMatchFields(rawFields);
+  const payload = {
+    entryType: 'text',
+    section: ROSTER_SECTION,
+    contentKey: ROSTER_MATCH_FIELDS_CONTENT_KEY,
+    label: '英檢：在學名單比對欄位',
+    valueZh: JSON.stringify(normalized),
+    isActive: true,
+  };
+
+  const existing = await SiteContentEntry.findOne({
+    where: { contentKey: ROSTER_MATCH_FIELDS_CONTENT_KEY },
+  });
+
+  if (existing) {
+    await existing.update(payload);
+  } else {
+    await SiteContentEntry.create(payload);
+  }
+
+  getRosterMatchFields._cache = { at: Date.now(), value: normalized };
+  return normalized;
+}
+
 function parseRosterMatrix(matrix) {
   if (!Array.isArray(matrix) || matrix.length < 2) {
     const err = new Error('Excel 內容無法解析或沒有資料列。');
@@ -68,8 +145,8 @@ function parseRosterMatrix(matrix) {
   const idxIdNumber = header.findIndex((h) => h === '身分證字號');
   const idxNameZh = header.findIndex((h) => h === '姓名');
 
-  if (idxStudentId < 0 || idxIdNumber < 0) {
-    const err = new Error('Excel 表頭必須包含「學號」與「身分證字號」兩欄。');
+  if (idxStudentId < 0 || idxIdNumber < 0 || idxNameZh < 0) {
+    const err = new Error('Excel 表頭必須包含「學號」「身分證字號」「姓名」三欄。');
     err.code = 'ROSTER_MISSING_HEADERS';
     throw err;
   }
@@ -77,7 +154,7 @@ function parseRosterMatrix(matrix) {
   const totalDataRows = Math.max(0, matrix.length - 1);
   const conflicts = [];
   const invalidRows = [];
-  const dedupe = new Map(); // studentId -> { studentId, idNumber, nameZh }
+  const dedupe = new Map();
 
   for (let i = 1; i < matrix.length; i += 1) {
     const row = matrix[i] || [];
@@ -85,13 +162,13 @@ function parseRosterMatrix(matrix) {
 
     const rawStudentId = row[idxStudentId];
     const rawIdNumber = row[idxIdNumber];
-    const rawNameZh = idxNameZh >= 0 ? row[idxNameZh] : null;
+    const rawNameZh = row[idxNameZh];
 
     const studentId = normalizeStudentId(rawStudentId);
     const idNumber = normalizeIdNumber(rawIdNumber);
-    const nameZh = rawNameZh == null ? null : String(rawNameZh).trim() || null;
+    const nameZh = normalizeName(rawNameZh) || null;
 
-    const excelRowNumber = i + 1; // 1-indexed in Excel display
+    const excelRowNumber = i + 1;
 
     if (!studentId) {
       invalidRows.push({ row: excelRowNumber, field: '學號', message: '學號為空或格式無效', value: rawStudentId ?? '-' });
@@ -101,6 +178,10 @@ function parseRosterMatrix(matrix) {
       invalidRows.push({ row: excelRowNumber, field: '身分證字號', message: '身分證字號為空或格式無效', value: rawIdNumber ?? '-' });
       continue;
     }
+    if (!nameZh) {
+      invalidRows.push({ row: excelRowNumber, field: '姓名', message: '姓名為空或格式無效', value: rawNameZh ?? '-' });
+      continue;
+    }
 
     const prev = dedupe.get(studentId);
     if (!prev) {
@@ -108,15 +189,15 @@ function parseRosterMatrix(matrix) {
       continue;
     }
 
-    // 同一學號出現多筆且身分證不同：視為衝突，跳過該學號
-    if (prev.idNumber !== idNumber) {
+    if (prev.idNumber !== idNumber || prev.nameZh !== nameZh) {
       conflicts.push({
         row: excelRowNumber,
         studentId,
         expectedIdNumber: prev.idNumber,
         actualIdNumber: idNumber,
+        expectedNameZh: prev.nameZh,
+        actualNameZh: nameZh,
       });
-      // 移除之前那筆，確保不會寫入不一致資料
       dedupe.delete(studentId);
     }
   }
@@ -142,7 +223,6 @@ async function parseRosterExcelToEntries(buffer) {
     throw err;
   }
 
-  // header: 1 => 以矩陣方式讀取（能處理重複欄名）
   const matrix = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
   return parseRosterMatrix(matrix);
 }
@@ -152,7 +232,6 @@ async function replaceLatestRosterFromUpload({ fileNameOriginal, storedFileUrl, 
 
   const t = await sequelize.transaction();
   try {
-    // 覆蓋：只保留「最新一份」的 mapping 與上傳 metadata
     await EnglishTestStudentIdCardRosterEntry.destroy({ where: {}, transaction: t });
     await EnglishTestStudentIdCardRosterUpload.destroy({ where: {}, transaction: t });
 
@@ -184,6 +263,23 @@ async function replaceLatestRosterFromUpload({ fileNameOriginal, storedFileUrl, 
   }
 }
 
+async function clearRoster() {
+  const t = await sequelize.transaction();
+  try {
+    const deletedEntries = await EnglishTestStudentIdCardRosterEntry.destroy({ where: {}, transaction: t });
+    const deletedUploads = await EnglishTestStudentIdCardRosterUpload.destroy({ where: {}, transaction: t });
+    await t.commit();
+    return {
+      success: true,
+      deletedEntries,
+      deletedUploads,
+    };
+  } catch (e) {
+    await t.rollback();
+    throw e;
+  }
+}
+
 async function getLatestRosterPreview({ offset = 0, limit = 30 } = {}) {
   const upload = await EnglishTestStudentIdCardRosterUpload.findOne({
     order: [['createdAt', 'DESC']],
@@ -196,9 +292,12 @@ async function getLatestRosterPreview({ offset = 0, limit = 30 } = {}) {
     limit: Number(limit) || 30,
   });
 
+  const matchFields = await getRosterMatchFields();
+
   return {
     upload,
     totalEntries,
+    matchFields,
     entries: entries.map((r) => ({
       studentId: r.studentId,
       idNumber: r.idNumber,
@@ -207,52 +306,80 @@ async function getLatestRosterPreview({ offset = 0, limit = 30 } = {}) {
   };
 }
 
-async function checkStudentIdIdNumberMatch({ studentId, idNumber }) {
-  const normalizedStudentId = normalizeStudentId(studentId);
-  const normalizedIdNumber = normalizeIdNumber(idNumber);
+function entryMatchesFields(entry, normalized, matchFields) {
+  if (matchFields.studentId && entry.studentId !== normalized.studentId) return false;
+  if (matchFields.idNumber && entry.idNumber !== normalized.idNumber) return false;
+  if (matchFields.name && normalizeName(entry.nameZh) !== normalized.name) return false;
+  return true;
+}
+
+async function loadRosterCandidates(normalized, matchFields) {
+  if (matchFields.studentId && normalized.studentId) {
+    const entry = await EnglishTestStudentIdCardRosterEntry.findByPk(normalized.studentId);
+    return entry ? [entry] : [];
+  }
+
+  const where = {};
+  if (matchFields.idNumber && normalized.idNumber) {
+    where.idNumber = normalized.idNumber;
+  }
+
+  if (Object.keys(where).length > 0) {
+    return EnglishTestStudentIdCardRosterEntry.findAll({ where });
+  }
+
+  return EnglishTestStudentIdCardRosterEntry.findAll();
+}
+
+/**
+ * 比對學生填寫資料與 admin 上傳的在學名單。
+ * 勾選多個欄位時，須在同一筆 Excel 列全部符合。
+ * 尚未上傳名單時不阻擋（matched: true）。
+ */
+async function checkRosterMatch({ studentId, name, idNumber }) {
+  const matchFields = await getRosterMatchFields();
   const promptZh = await getMismatchPromptZh();
 
-  // 尚未上傳過任何學名單時，不進行比對，以避免整個報名功能被阻擋
   const latestUpload = await EnglishTestStudentIdCardRosterUpload.findOne({
     order: [['createdAt', 'DESC']],
     attributes: ['id'],
   });
   if (!latestUpload) {
-    return { matched: true };
+    return { matched: true, matchFields };
   }
 
-  if (!normalizedStudentId || !normalizedIdNumber) {
-    return {
-      matched: false,
-      code: 'ENGLISH_TEST_STUDENT_IDCARD_MISMATCH',
-      message: promptZh,
-    };
-  }
+  const normalized = {
+    studentId: normalizeStudentId(studentId),
+    idNumber: normalizeIdNumber(idNumber),
+    name: normalizeName(name),
+  };
 
-  const entry = await EnglishTestStudentIdCardRosterEntry.findByPk(normalizedStudentId);
-  if (!entry) {
-    return {
-      matched: false,
-      code: 'ENGLISH_TEST_STUDENT_IDCARD_MISMATCH',
-      message: promptZh,
-    };
-  }
+  const fail = {
+    matched: false,
+    code: 'ENGLISH_TEST_STUDENT_IDCARD_MISMATCH',
+    message: promptZh,
+    matchFields,
+  };
 
-  const ok = entry.idNumber === normalizedIdNumber;
-  if (!ok) {
-    return {
-      matched: false,
-      code: 'ENGLISH_TEST_STUDENT_IDCARD_MISMATCH',
-      message: promptZh,
-    };
-  }
+  if (matchFields.studentId && !normalized.studentId) return fail;
+  if (matchFields.idNumber && !normalized.idNumber) return fail;
+  if (matchFields.name && !normalized.name) return fail;
 
-  return { matched: true };
+  const candidates = await loadRosterCandidates(normalized, matchFields);
+  const matched = candidates.some((entry) => entryMatchesFields(entry, normalized, matchFields));
+
+  if (!matched) return fail;
+  return { matched: true, matchFields };
+}
+
+/** @deprecated 使用 checkRosterMatch */
+async function checkStudentIdIdNumberMatch({ studentId, idNumber, name }) {
+  return checkRosterMatch({ studentId, name, idNumber });
 }
 
 function buildRosterSampleWorkbook() {
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('學名單範例');
+  const worksheet = workbook.addWorksheet('在學名單範例');
 
   worksheet.addRow([
     '系所',
@@ -304,12 +431,20 @@ function buildRosterSampleWorkbook() {
 module.exports = {
   normalizeStudentId,
   normalizeIdNumber,
+  normalizeName,
+  normalizeMatchFields,
+  parseRosterMatrix,
   parseRosterExcelToEntries,
   replaceLatestRosterFromUpload,
+  clearRoster,
   getLatestRosterPreview,
+  getRosterMatchFields,
+  setRosterMatchFields,
+  checkRosterMatch,
   checkStudentIdIdNumberMatch,
   buildRosterSampleWorkbook,
   ROSTER_MISMATCH_CONTENT_KEY,
+  ROSTER_MATCH_FIELDS_CONTENT_KEY,
   ROSTER_SECTION,
+  DEFAULT_MATCH_FIELDS,
 };
-

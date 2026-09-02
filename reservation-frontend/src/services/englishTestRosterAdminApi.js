@@ -1,5 +1,5 @@
 /**
- * 英檢學名單（學號/身分證字號）比對 Excel 管理 API
+ * 英檢在學名單比對 Excel 管理 API
  */
 import { fetchClient } from '../utils/fetchClient';
 
@@ -53,6 +53,30 @@ export async function uploadEnglishTestStudentRosterAdmin(token, file) {
   return data.data;
 }
 
+export async function updateEnglishTestStudentRosterMatchFields(token, matchFields) {
+  const res = await fetchClient(`${BASE}/match-fields`, {
+    method: 'PUT',
+    headers: {
+      ...authHeaders(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ matchFields }),
+  });
+
+  const data = await parseJsonOrThrow(res);
+  return data.data;
+}
+
+export async function deleteEnglishTestStudentRosterAdmin(token) {
+  const res = await fetchClient(BASE, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+
+  const data = await parseJsonOrThrow(res);
+  return data.data;
+}
+
 export async function downloadEnglishTestRosterSampleXlsx(token) {
   const res = await fetchClient(`${BASE}/sample-xlsx`, { headers: authHeaders(token) });
   if (!res.ok) {
@@ -61,4 +85,3 @@ export async function downloadEnglishTestRosterSampleXlsx(token) {
   }
   return res.blob();
 }
-

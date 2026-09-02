@@ -197,6 +197,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   'learning-analytics': ['LA', '成效', '分析', '模型'],
   'learning-analytics-overview': ['KPI', '總覽', '趨勢比較', '中心成效'],
   'learning-analytics-cohorts': ['入學屆別', 'cohort', '群體'],
+  'learning-analytics-offerings': ['細項分析', 'offerings', '課程細項', '活動細項'],
   'learning-analytics-resources': ['課程效益', '活動效益', '資源'],
   'learning-analytics-skills': ['四技能', 'GSE', '技能成長'],
   'learning-analytics-students': ['學習軌跡', '學生歷程', '個人分析'],

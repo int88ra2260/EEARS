@@ -7,6 +7,7 @@ import '../../components/learningAnalytics/learningAnalytics.css';
 const TABS = [
   { to: '/admin/learning-analytics/overview', label: '中心總覽', end: false },
   { to: '/admin/learning-analytics/cohorts', label: '群體分析' },
+  { to: '/admin/learning-analytics/offerings', label: '細項分析' },
   { to: '/admin/learning-analytics/resources', label: '資源效益' },
   { to: '/admin/learning-analytics/skills', label: '技能成長' },
   { to: '/admin/learning-analytics/students', label: '學習軌跡' },

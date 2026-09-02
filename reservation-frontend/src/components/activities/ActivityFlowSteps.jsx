@@ -1,14 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ContentText from '../siteContent/ContentText';
-import ActivityStepOneTools from './ActivityStepOneTools';
 import LearningStyleModal from './LearningStyleModal';
 import {
   getWordBridgePreferences,
   saveWordBridgePreferences,
 } from '../../services/wordBridgeSessionStore';
 import './ActivityFlowSteps.css';
-import './ActivityStepOneTools.css';
 
 const STEPS = [
   { key: 'homePage.step1', hasToolLinks: true },
@@ -66,9 +64,6 @@ export default function ActivityFlowSteps() {
               <ContentText k={step.key} as="p" className="activity-flow-steps__label" />
               {step.hasToolLinks ? (
                 <div className="activity-flow-steps__tool-links">
-                  <Link to="/practice/word-bridge" className="activity-flow-steps__link">
-                    <ContentText k="activitiesPage.wordBridgeToolCta" />
-                  </Link>
                   <button
                     type="button"
                     className="activity-flow-steps__link"
@@ -87,8 +82,6 @@ export default function ActivityFlowSteps() {
           </li>
         ))}
       </ol>
-
-      <ActivityStepOneTools />
 
       <LearningStyleModal
         open={styleModalOpen}

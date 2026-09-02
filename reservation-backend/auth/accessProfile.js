@@ -238,6 +238,7 @@ function buildBasePermissionSet(user) {
       P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
       P.CAN_MANAGE_ANNOUNCEMENTS,
       P.CAN_MANAGE_SITE_CONTENT,
+      P.CAN_MANAGE_SETTINGS,
     ];
     const eventLead = [
       P.CAN_VIEW_EVENTS_ADMIN,
@@ -287,6 +288,7 @@ function buildBasePermissionSet(user) {
         P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
         P.CAN_MANAGE_ENGLISH_LEARNING_RULES,
         P.CAN_MANAGE_SITE_CONTENT,
+        P.CAN_MANAGE_SETTINGS,
         P.CAN_MANAGE_ACCOUNTS,
         P.CAN_RESET_PASSWORDS,
       ]);

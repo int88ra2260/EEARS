@@ -362,6 +362,12 @@ export const ADMIN_ROUTE_ACCESS = [
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
+    pattern: '/admin/learning-analytics/offerings',
+    label: '課程／教師／活動細項',
+    allowAdminOrExecutive: true,
+    anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
+  },
+  {
     pattern: '/admin/learning-analytics/resources',
     label: '課程與活動效益',
     allowAdminOrExecutive: true,

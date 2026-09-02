@@ -140,7 +140,7 @@ describe('teacher role access matrix', () => {
       expect(p.permissionSet.has(P.CAN_MANAGE_ACCOUNTS)).toBe(true);
       expect(p.permissionSet.has(P.CAN_RESET_PASSWORDS)).toBe(true);
       expect(p.permissionSet.has(P.CAN_VIEW_SURVEYS)).toBe(false);
-      expect(p.permissionSet.has(P.CAN_MANAGE_SETTINGS)).toBe(false);
+      expect(p.permissionSet.has(P.CAN_MANAGE_SETTINGS)).toBe(true);
       expect(p.permissionSet.has(P.CAN_VIEW_ANALYTICS)).toBe(false);
     });
 
@@ -148,6 +148,7 @@ describe('teacher role access matrix', () => {
       const p = buildAccessProfile({ role: 'office_staff', staffLevel: 'curriculum_lead' });
       expect(p.permissionSet.has(P.CAN_MANAGE_CLASSES)).toBe(true);
       expect(p.permissionSet.has(P.CAN_MANAGE_ANNOUNCEMENTS)).toBe(true);
+      expect(p.permissionSet.has(P.CAN_MANAGE_SETTINGS)).toBe(true);
       expect(p.permissionSet.has(P.CAN_VIEW_SURVEYS)).toBe(false);
     });
 
@@ -161,6 +162,7 @@ describe('teacher role access matrix', () => {
       expect(p.permissionSet.has(P.CAN_EXPORT_BESTEP)).toBe(true);
       expect(p.permissionSet.has(P.CAN_MANAGE_ANNOUNCEMENTS)).toBe(true);
       expect(p.permissionSet.has(P.CAN_MANAGE_SITE_CONTENT)).toBe(true);
+      expect(p.permissionSet.has(P.CAN_MANAGE_SETTINGS)).toBe(true);
       expect(p.permissionSet.has(P.CAN_MANAGE_ACCOUNTS)).toBe(false);
       expect(p.permissionSet.has(P.CAN_RESET_PASSWORDS)).toBe(false);
       expect(p.permissionSet.has(P.CAN_VIEW_EVENTS_ADMIN)).toBe(false);

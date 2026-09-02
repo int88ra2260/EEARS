@@ -10,6 +10,7 @@ const {
   summarizePropensityWeightedEstimates,
   supportedFilters,
   resourceKeyForEvent,
+  normalizeAcademicCourseResourceType,
 } = require('../services/learningJourney/analytics/lvaAnalyticsService');
 
 describe('lvaAnalyticsService', () => {
@@ -230,6 +231,27 @@ describe('lvaAnalyticsService', () => {
       causalClaimAllowed: false,
     }));
     expect(estimates.byResource[0].estimatedEffect).not.toBeNull();
+  });
+
+  it('maps academic course metadata to GE/EAP/ESP resource types', () => {
+    expect(normalizeAcademicCourseResourceType('EAP')).toBe('EAP');
+    expect(normalizeAcademicCourseResourceType('EAP001')).toBe('EAP');
+    expect(normalizeAcademicCourseResourceType('通識英文')).toBe('GE');
+    expect(resourceKeyForEvent({
+      eventType: 'course_event',
+      title: '實用醫療英語（中高級）',
+      rawPayload: { courseType: 'ESP', courseCode: 'ESP003' },
+    })).toBe('ESP');
+    expect(resourceKeyForEvent({
+      eventType: 'course_event',
+      title: '學術英文寫作',
+      rawPayload: { courseType: 'EAP' },
+    })).toBe('EAP');
+    expect(resourceKeyForEvent({
+      eventType: 'course_event',
+      title: '實用醫療英語（中高級）',
+      rawPayload: {},
+    })).toBe('COURSE_OTHER');
   });
 
   it('maps EWL activity titles to dedicated resource types', () => {

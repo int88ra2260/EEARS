@@ -167,6 +167,43 @@ export async function getLearningAnalyticsCohorts(token, params = {}, options = 
   return parseEnvelope(res);
 }
 
+export async function getLearningAnalyticsOfferings(token, params = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/offerings${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function getLearningAnalyticsOfferingDetail(token, params = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/offerings/detail${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function exportLearningAnalyticsOfferings(token, params = {}, options = {}) {
+  const qs = buildQuery(params);
+  const res = await fetchClient(`${BASE_URL}/offerings/export${qs}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    let msg = json.error || json.message || `HTTP ${res.status}`;
+    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
+      msg = '您沒有匯出學習成效分析資料的權限。';
+    }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const fallback = `EEARS_LA_offerings_${String(params.dimension || 'course')}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}_0000.xlsx`;
+  return { blob, fileName: match ? match[1] : fallback };
+}
+
 export async function getLearningAnalyticsResources(token, params = {}, options = {}) {
   const res = await fetchClient(`${BASE_URL}/resources${buildQuery(params)}`, {
     headers: authHeaders(token),

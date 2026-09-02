@@ -29,7 +29,7 @@ export default function VocabularyDepthQuestion({
         <legend className="vocabulary-depth-question__prompt">{prompt}</legend>
         <div className="vocabulary-depth-options">
           {question.options.map((opt, index) => {
-            const label = lang === 'en' ? opt.text : (opt.textZh || opt.text);
+            const label = opt.text;
             const isSelected = lastFeedback?.selectedOptionId === opt.id;
             const isCorrectOption = opt.id === question.correctOptionId;
             let optionClass = 'vocabulary-depth-option';
