@@ -1,7 +1,5 @@
 /**
- * EMI 中心師資與行政團隊（資料來源：中心官網 about/team、about/admin）
- * @see https://emicenter.siwan.nsysu.edu.tw/about/team
- * @see https://emicenter.siwan.nsysu.edu.tw/about/admin
+ * EMI 中心師資與行政團隊（站內預設名單；後台 Site Content 可覆寫）
  */
 
 export const EMI_CENTER_TEAM_URL = 'https://emicenter.siwan.nsysu.edu.tw/about/team';

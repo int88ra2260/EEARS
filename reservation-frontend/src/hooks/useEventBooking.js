@@ -6,12 +6,11 @@ import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { validateReservationData } from '../utils/validators';
 import { handleAPIError } from '../utils/errorHandler';
-import { createReservation, checkBlacklist, joinWaitlist } from '../services/eventBookingService';
+import { createReservation, checkBlacklist } from '../services/eventBookingService';
 import { loadStudentTrio, saveStudentTrio } from '../utils/studentTrioStorage';
 import {
   buildSurveyRedirectPath,
   savePendingReservation,
-  savePendingWaitlist,
   SURVEY_GATE_REDIRECT_DELAY_MS,
 } from '../utils/pendingReservationFlow';
 
@@ -46,164 +45,6 @@ export default function useEventBooking() {
   const [blacklistInfo, setBlacklistInfo] = useState(null);
   const [violationWarning, setViolationWarning] = useState(null);
   const [successMeta, setSuccessMeta] = useState(null);
-  const [waitlistSuccessMeta, setWaitlistSuccessMeta] = useState(null);
-
-  const handleJoinWaitlist = useCallback(async (event, onSuccess, { onSurveyRequired } = {}) => {
-    if (!event) return;
-    if (isSubmitting) return;
-
-    const now = Date.now();
-    const timeDiff = now - lastSubmitTime;
-    if (timeDiff < RATE_LIMIT_MS && submitCount >= RATE_LIMIT_MAX) {
-      setVariant('warning');
-      setMsg('提交過於頻繁，請稍後再試');
-      return;
-    }
-    if (timeDiff >= RATE_LIMIT_MS) {
-      setSubmitCount(1);
-    } else {
-      setSubmitCount((prev) => prev + 1);
-    }
-    setLastSubmitTime(now);
-
-    const validationResult = validateReservationData({
-      studentId: studentId.trim(),
-      studentName: studentName.trim(),
-      studentEmail: studentEmail.trim(),
-    });
-    if (!validationResult.isValid) {
-      setVariant('danger');
-      setMsg(validationResult.errors.join(', '));
-      return;
-    }
-
-    setIsSubmitting(true);
-    setMsg('');
-    setVariant('');
-    setWaitlistSuccessMeta(null);
-
-    saveStudentTrio({
-      studentId: studentId.trim(),
-      studentName: studentName.trim(),
-      studentEmail: studentEmail.trim(),
-    });
-
-    try {
-      const blacklistRes = await checkBlacklist(studentId);
-      if (blacklistRes.ok && blacklistRes.data) {
-        const d = blacklistRes.data;
-        if (d.isBlacklisted && d.blacklistUntil) {
-          const untilDate = new Date(d.blacklistUntil);
-          if (untilDate > new Date()) {
-            setBlacklistInfo({
-              isBlacklisted: true,
-              blacklistUntil: d.blacklistUntil,
-              violationCount: d.violationCount || 0,
-            });
-            setShowBlacklistModal(true);
-            setIsSubmitting(false);
-            return;
-          }
-        }
-        if (d.violationCount === 1) {
-          setViolationWarning({
-            violationCount: 1,
-            message: '您目前已有 1 次違規紀錄，若再累積 1 次違規，將被列入黑名單兩週。',
-          });
-        }
-      }
-
-      const res = await joinWaitlist({
-        eventId: event.id,
-        studentId: studentId.trim(),
-        studentName: studentName.trim(),
-        studentEmail: studentEmail.trim(),
-      });
-
-      if (!res.ok) {
-        const data = res.data || {};
-        if (
-          res.status === 409 &&
-          data.code &&
-          (data.code === 'ENGLISH_TABLE_SURVEY_REQUIRED' ||
-            data.code === 'ENGLISH_CLUB_SURVEY_REQUIRED' ||
-            data.code === 'SURVEY_REQUIRED')
-        ) {
-          setVariant('info');
-          setMsg('此活動需先完成問卷。系統即將帶您前往問卷頁，完成後會自動恢復候補流程。');
-          if (typeof onSurveyRequired === 'function') onSurveyRequired();
-
-          let finalSurveyId = data.surveyId;
-          if (!finalSurveyId) {
-            if (event.eventType === 'English Table') finalSurveyId = 'english_table_feedback_114_1';
-            else if (event.eventType === 'English Club') finalSurveyId = 'english_club_feedback_114_1';
-          }
-          const mappedSurveyId = SURVEY_ID_MAPPING[finalSurveyId] || finalSurveyId;
-          const eventType = event.eventType || 'English Table';
-          const surveyPath = buildSurveyRedirectPath(mappedSurveyId, {
-            eventId: event.id,
-            eventType,
-          });
-
-          savePendingWaitlist({
-            eventId: event.id,
-            eventName: event.name,
-            eventType,
-            eventDate: event.date,
-            startTime: event.startTime,
-            endTime: event.endTime,
-            studentId: studentId.trim(),
-            studentName: studentName.trim(),
-            studentEmail: studentEmail.trim(),
-            redirectUrl: surveyPath,
-            surveyId: mappedSurveyId,
-          });
-          setTimeout(() => navigate(surveyPath), SURVEY_GATE_REDIRECT_DELAY_MS);
-          return;
-        }
-        if (data.errorCode === 'ALREADY_WAITLISTED') {
-          setVariant('warning');
-          setMsg(
-            data.position != null
-              ? `你已在候補名單中（目前順位：第 ${data.position} 位）`
-              : '你已在候補名單中'
-          );
-          return;
-        }
-        try {
-          const errorMessage = handleAPIError(null, { status: res.status, data, requestId: res.requestId });
-          setVariant('danger');
-          setMsg(errorMessage?.display || data?.message || data?.error || '加入候補失敗，請稍後再試');
-        } catch {
-          setVariant('danger');
-          setMsg(data?.message || data?.error || `加入候補失敗 (HTTP ${res.status})`);
-        }
-        return;
-      }
-
-      const pos = res.data?.position;
-      setVariant('success');
-      setMsg(res.data?.message || '已加入候補名單');
-      saveStudentTrio({
-        studentId: studentId.trim(),
-        studentName: studentName.trim(),
-        studentEmail: studentEmail.trim(),
-      });
-      setWaitlistSuccessMeta({
-        position: pos,
-        studentEmail: studentEmail.trim(),
-      });
-      setTimeout(() => {
-        if (typeof onSuccess === 'function') onSuccess();
-      }, 400);
-    } catch (error) {
-      const errorMessage = handleAPIError(error);
-      setVariant('danger');
-      setMsg(errorMessage.display);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [studentId, studentName, studentEmail, isSubmitting, submitCount, lastSubmitTime, navigate]);
 
   const handleReserve = useCallback(async (event, onSuccess, { onSurveyRequired } = {}) => {
     if (!event) return;
@@ -397,7 +238,6 @@ export default function useEventBooking() {
 
   const resetBookingModalState = useCallback(() => {
     setSuccessMeta(null);
-    setWaitlistSuccessMeta(null);
     setMsg('');
     setVariant('');
   }, []);
@@ -417,9 +257,7 @@ export default function useEventBooking() {
     blacklist: { showBlacklistModal, setShowBlacklistModal, blacklistInfo },
     survey: { showSurvey, setShowSurvey },
     successMeta,
-    waitlistSuccessMeta,
     handleReserve,
-    handleJoinWaitlist,
     handleSurveyClose,
     handleSurveyComplete,
     resetBookingModalState,

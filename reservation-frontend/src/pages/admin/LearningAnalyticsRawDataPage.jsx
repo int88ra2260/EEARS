@@ -14,6 +14,7 @@ import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../
 import LearningAnalyticsRawDataPreview from '../../components/learningAnalytics/LearningAnalyticsRawDataPreview';
 import { DATASET_OPTIONS } from '../../components/learningAnalytics/learningAnalyticsRawDataColumns';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
+import { LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { downloadBlob } from '../../utils/learningJourneyOperationsHelpers';
 import { P } from '../../constants/permissions';
@@ -124,7 +125,11 @@ export default function LearningAnalyticsRawDataPage() {
 
   return (
     <div>
-      <LearningAnalyticsDataHealth meta={meta} error={metaError} />
+      <LearningAnalyticsDataHealth
+        meta={meta}
+        error={metaError}
+        snapshotVersion={appliedFilters.snapshot_version}
+      />
 
       <p className="small text-muted mb-3">預覽或匯出底層摘要。預覽最多 100 筆，完整資料請匯出。</p>
 
@@ -136,9 +141,11 @@ export default function LearningAnalyticsRawDataPage() {
         loading={loading || !ready}
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
+        snapshotOptions={meta?.snapshots}
         filterTitle="篩選條件"
         submitLabel="套用篩選"
         showAdvanced={false}
+        intro={LA_FILTER_INTRO_COHORT}
       />
       <LearningAnalyticsActiveFilters filters={appliedFilters} />
 

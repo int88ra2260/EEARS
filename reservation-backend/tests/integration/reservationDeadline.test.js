@@ -19,6 +19,29 @@ describe('reservation / cancellation 2-hour cutoff', () => {
     jest.useRealTimers();
   });
 
+  it('English Table opens at noon the day before (not midnight)', () => {
+    const event = {
+      eventType: 'English Table',
+      date: '2026-05-08',
+      startTime: '14:00:00',
+    };
+    const { openStart, openEnd } = calculateReservationTime(event);
+    expect(openStart.format('YYYY-MM-DD HH:mm')).toBe('2026-05-07 12:00');
+    expect(openEnd.format('YYYY-MM-DD HH:mm')).toBe('2026-05-08 12:00');
+    expect(openStart.hour()).toBe(12);
+    expect(openStart.minute()).toBe(0);
+  });
+
+  it('custom event types use English Table noon-open rule', () => {
+    const event = {
+      eventType: 'Custom Workshop',
+      date: '2026-05-08',
+      startTime: '14:00:00',
+    };
+    const { openStart } = calculateReservationTime(event);
+    expect(openStart.format('YYYY-MM-DD HH:mm')).toBe('2026-05-07 12:00');
+  });
+
   it('can reserve before cutoff', () => {
     jest.setSystemTime(new Date('2026-05-08T08:00:00+08:00'));
     const event = {

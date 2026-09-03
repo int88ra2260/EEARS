@@ -36,6 +36,7 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
     metaError,
     ready,
     apiParams,
+    appliedFilters,
     token,
   } = useLearningAnalyticsBootstrap();
   const [loading, setLoading] = useState(false);
@@ -94,7 +95,11 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
 
   return (
     <div>
-      <LearningAnalyticsDataHealth meta={meta} error={metaError} />
+      <LearningAnalyticsDataHealth
+        meta={meta}
+        error={metaError}
+        snapshotVersion={appliedFilters.snapshot_version}
+      />
       <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
         <Button as={Link} to={backTo} variant="outline-secondary" size="sm">
           ← 返回{focus === 'skills' ? '技能成長' : '學習軌跡'}

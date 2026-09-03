@@ -2,7 +2,6 @@ import HomePage from '../HomePage';
 import ActivitiesPage from '../ActivitiesPage';
 import AboutPage from '../AboutPage';
 import LegalVisualPreview from './LegalVisualPreview';
-import RulesModalVisualPreview from './RulesModalVisualPreview';
 
 /** 各文案區塊對應的學生端預覽頁面 */
 export const VISUAL_SECTION_CONFIG = {
@@ -35,12 +34,6 @@ export const VISUAL_SECTION_CONFIG = {
     layout: 'public',
     Component: LegalVisualPreview,
     hint: '切換隱私權／使用條款後，點擊段落文字即可編輯。',
-  },
-  rules_modal: {
-    path: '/',
-    layout: 'minimal',
-    Component: RulesModalVisualPreview,
-    hint: '這是學生端活動規定彈窗的預覽；點擊文字即可編輯，可切換上方 Tab 預覽不同區塊。',
   },
 };
 

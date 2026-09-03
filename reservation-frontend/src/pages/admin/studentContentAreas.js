@@ -5,7 +5,7 @@ export const STUDENT_CONTENT_AREAS = [
     id: 'copy',
     label: '改頁面上的字',
     shortLabel: '固定頁文案',
-    description: '首頁、關於我們、聯絡資訊、FAQ、師資與活動規定等固定版面文字。',
+    description: '首頁、關於我們、聯絡資訊、常見問題與師資等固定版面文字。',
     howTo: '在預覽畫面上點文字即可修改，存檔後學生端立刻更新。',
     previewPath: '/',
     previewLabel: '首頁',

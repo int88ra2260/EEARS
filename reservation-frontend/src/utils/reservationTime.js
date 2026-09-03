@@ -21,8 +21,8 @@ export function calculateReservationTime(event) {
   
   switch (event.eventType) {
     case 'English Table':
-      // English Table保持原樣：前一天 00:00 開始
-      openStart = eventStart.subtract(1, 'day').startOf('day');
+      // English Table：前一天 12:00 開始
+      openStart = eventStart.subtract(1, 'day').hour(12).minute(0).second(0);
       openEnd = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
       break;
       
@@ -47,8 +47,8 @@ export function calculateReservationTime(event) {
       break;
       
     default:
-      // 預設使用 English Table 的邏輯（包含自定義活動類型）
-      openStart = eventStart.subtract(1, 'day').startOf('day');
+      // 預設使用 English Table 的邏輯（包含自定義活動類型）：前一天 12:00
+      openStart = eventStart.subtract(1, 'day').hour(12).minute(0).second(0);
       openEnd = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
       break;
   }

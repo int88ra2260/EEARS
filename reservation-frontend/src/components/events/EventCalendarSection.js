@@ -39,7 +39,6 @@ function hoverBadgeLabel(reasonCode, t) {
 export default forwardRef(function EventCalendarSection({
   events,
   canReserveAndReason,
-  canWaitlistAndReason,
   onEventClick,
   t,
   surveyActive = false,
@@ -79,13 +78,7 @@ export default forwardRef(function EventCalendarSection({
   const handleClick = (info) => {
     const evt = info.event.extendedProps.originalEvent;
     const { canReserve, reasonMessage, reasonCode } = canReserveAndReason(evt);
-    if (canReserve) {
-      onEventClick(evt);
-      return;
-    }
-    const wl =
-      typeof canWaitlistAndReason === 'function' ? canWaitlistAndReason(evt) : { canWaitlist: false };
-    if (reasonCode === 'FULL' && wl.canWaitlist) {
+    if (canReserve || reasonCode === 'FULL') {
       onEventClick(evt);
       return;
     }
@@ -159,9 +152,7 @@ export default forwardRef(function EventCalendarSection({
 
     const expanded = expandedEventId === evt.id;
     const statusLabel = canReserve ? t('home.eventHoverBadgeOpen') : hoverBadgeLabel(reasonCode, t);
-    const wl =
-      typeof canWaitlistAndReason === 'function' ? canWaitlistAndReason(evt) : { canWaitlist: false };
-    const showBookCta = canReserve || (reasonCode === 'FULL' && wl.canWaitlist);
+    const showBookCta = canReserve;
 
     if (showMobileExpand) {
       return (

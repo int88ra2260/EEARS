@@ -56,18 +56,20 @@
 
 成長指標優先序：
 
-| 優先 | 指標 | 來源 |
-|------|------|------|
-| 1 | 原始分進步 | `deltaRawScore` |
-| 2（Phase 2） | GSE 實際成長 | `actualGseGrowth` |
-| 3（Phase 2） | 修正成長 | `adjustedGseGrowth` |
+| 優先 | 指標 | 來源 | 狀態 |
+|------|------|------|------|
+| 1 | 原始分進步 | `deltaRawScore` | Phase 1 |
+| 2 | GSE 實際成長 | `actualGseGrowth` | Phase 1.1 已完成 |
+| 3 | 修正成長 | `adjustedGseGrowth` | Phase 1.1 已完成 |
 
 ---
 
 ## 4. 隱私與樣本門檻
 
-- 可計算成長人數 **< 10**：遮蔽平均進步與進步率，顯示「樣本不足」
-- 教師維度：預留 Phase 2 讓 `teacher` 角色僅能看自己的列（沿用 `learningJourneyAccessService` scope）
+- 可計算成長人數 **&lt; 10**（`MIN_GROWTH_SAMPLE`）：遮蔽平均進步與進步率，顯示「樣本不足」
+- 與資源效益頁「進階估計」UI 門檻同一常數語意（前端 `LA_MIN_DISPLAY_SAMPLE = 10`）
+- 勿與後端 `evidenceLevel: medium`（描述／配對常需約 **30** 人）混淆——那是資料完整度標籤，不是顯示門檻
+- 教師維度：`teacher` 角色僅能看自己的列（self-scope，已實作）
 - 所有列標記 `causalClaimAllowed: false`
 
 ---
@@ -84,7 +86,8 @@ Query：
 |------|------|
 | `dimension` | `course` \| `instructor` \| `activity` \| `resource_category` |
 | `semester` | 學期（建議必填；活動／課程預設依學期篩選） |
-| 其餘 | 沿用 LVA 群體篩選（系所、學院、起始能力…） |
+| `snapshot_version` | 分析摘要資料版本（多版本時 UI 顯示） |
+| 其餘學生群體篩選 | Phase 1 UI **不提供**（系所、學院、起始能力等）；API 仍可接受但細項頁不送出 |
 
 ```
 GET /api/admin/learning-analytics/offerings/export
@@ -123,11 +126,11 @@ GET /api/admin/learning-analytics/offerings/export
 新增 LVA 子頁：**「細項分析」**（`/admin/learning-analytics/offerings`）
 
 - 頂部：維度切換（課程／教師／活動／資源類別）
-- 沿用既有 `LearningAnalyticsFilters`（學期、系所…）
+- 範圍條件：僅 **學期**（多版本時另顯示 **資料版本**）；不沿用系所／入學年度等學生群體篩選
 - 表格可排序：人數、可計算成長、進步率、平均原始進步
 - 固定警示：描述性統計、非因果；同一學生可能重複計入多個細項
-
-Phase 2：點列展開技能 breakdown、連到學習軌跡篩選名單。
+- 列展開：技能 breakdown、學生明細（已完成）
+- Excel 匯出：需 `CAN_EXPORT_LEARNING_ANALYTICS`（已完成）
 
 ---
 
@@ -137,7 +140,8 @@ Phase 2：點列展開技能 breakdown、連到學習軌跡篩選名單。
 |------|------|
 | **Phase 1（MVP）** | API + 細項分析頁 + 單元測試 + 文件 |
 | **Phase 1.1（已完成）** | 樣本門檻 10 人；三種進步定義；GSE 成長；技能 breakdown；學生下鑽；教師跨學期／依學期；教師 self-scope |
-| Phase 2 | 匯出、物化彙總、與 model run 連動 |
+| **Phase 1.2（已完成）** | Excel 匯出；範圍條件僅學期／資料版本（拿掉學生群體篩選列） |
+| Phase 2 | 物化彙總、與 model run 連動、跨頁隱私門檻敘事持續對齊 |
 
 ---
 

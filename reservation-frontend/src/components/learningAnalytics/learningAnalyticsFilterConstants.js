@@ -49,19 +49,23 @@ export const FILTER_LABELS = Object.freeze({
 
 /** 篩選欄位說明（以標籤旁驚嘆號提示顯示） */
 export const FILTER_FIELD_HINTS = Object.freeze({
-  semester: '僅影響 B2+ 認證率等學期相關區塊。',
+  semester: '多數圖表依分析快照全體（不受學期）。學期主要影響「B2+ 認證通過率」等學期名冊區塊；細項分析頁則用學期篩課程／活動。',
+  snapshot_version: '分析摘要的資料版本。請優先選最新「全域」分析；課程匯入／學期重建產生的舊版可能人數重複或偏少。',
   cohort: '選項來自分析資料中的入學年度，以及模組設定中手動新增的項目。',
   college: '選項來自分析資料中的學院，以及模組設定中手動新增的項目。',
   department: '選項來自分析資料中的系所，以及模組設定中手動新增的項目。',
   baseline_level: '依學生基線英語能力（CEFR 等級）篩選群體。',
   exposure_level: '依考前累積的英語課程與活動參與時數分級。',
   retest_flag: '是否曾有前後測可計算成長的英檢紀錄。',
-  is_b2plus: '是否已達 B2 以上認證（依分析快照計算）。',
+  is_b2plus: '是否已達 B2 以上認證（依分析快照計算，非單一學期名冊）。',
   instrument: '篩選特定英檢工具之成績紀錄。',
   skill: '篩選特定技能維度（聽說讀寫等）之成長或成績。',
   evidence_quality: '依學生資料完整度（基線、英檢筆數等）篩選。',
   matching_caliper: '數字愈小，對照學生的背景要愈接近。多半可留空用預設。',
 });
+
+/** 標準 LA 頁（非細項分析）篩選列說明 */
+export const LA_FILTER_INTRO_COHORT = '學期大多只影響認證等「學期名冊」區塊；其餘圖表依資料版本與學生條件篩選分析快照。';
 
 /** 使用者可讀的指標說明 */
 export const LA_TERM_HELP = Object.freeze({
@@ -153,9 +157,24 @@ export function buildDefaultFilters({ semester = '', snapshotVersion = '' } = {}
   };
 }
 
-export function countActiveFilters(filters = {}) {
-  return FILTER_PARAM_KEYS.filter((key) => {
-    if (key === 'snapshot_version') return false;
+/** 只保留指定鍵；其餘回到預設空值（用於細項分析等縮小篩選範圍的頁面） */
+export function pickFilterKeys(filters = {}, keys = FILTER_PARAM_KEYS) {
+  const keySet = new Set(keys);
+  const next = { ...DEFAULT_LA_FILTERS };
+  FILTER_PARAM_KEYS.forEach((key) => {
+    if (!keySet.has(key)) return;
+    const value = filters[key];
+    if (value !== undefined && value !== null && value !== '') {
+      next[key] = value;
+    }
+  });
+  return next;
+}
+
+export function countActiveFilters(filters = {}, { keys = null, includeSnapshot = false } = {}) {
+  const list = keys?.length ? keys : FILTER_PARAM_KEYS;
+  return list.filter((key) => {
+    if (key === 'snapshot_version' && !includeSnapshot) return false;
     const value = filters[key];
     return value !== undefined && value !== null && value !== '';
   }).length;

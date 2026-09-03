@@ -10,6 +10,7 @@ const PAGE_META = {
   '/activities': { zh: { title: '活動總覽 | EEARS', desc: 'English Table、English Club、International Forum、BESTEP 等活動介紹與預約。' }, en: { title: 'Activities | EEARS', desc: 'English Table, English Club, International Forum, BESTEP — intro and reservation.' } },
   '/announcements': { zh: { title: '最新公告 | EEARS', desc: 'EMI Center 最新公告與活動訊息。' }, en: { title: 'Announcements | EEARS', desc: 'EMI Center announcements and updates.' } },
   '/learning-resources': { zh: { title: '學習資源 | EEARS', desc: '練習遊戲、口說指南與英語學習素材。' }, en: { title: 'Learning Resources | EEARS', desc: 'Practice games, speaking guides, and English learning materials.' } },
+  '/course-guide': { zh: { title: '修課說明 | EEARS', desc: '英文畢業標準、修課與認證規定說明。' }, en: { title: 'Course Guide | EEARS', desc: 'Graduation English standards, courses, and certification guide.' } },
   '/regulations-forms': { zh: { title: '法規表單 | EEARS', desc: '常見問題、隱私權政策與使用條款等規範入口。' }, en: { title: 'Regulations & Forms | EEARS', desc: 'FAQ, privacy policy, terms of use, and related forms.' } },
   '/my-reservations': { zh: { title: '我的預約 | EEARS', desc: '查詢或取消您的活動預約。' }, en: { title: 'My Reservations | EEARS', desc: 'Check or cancel your activity reservations.' } },
   '/survey': { zh: { title: '問卷 | EEARS', desc: '學期問卷與活動問卷。' }, en: { title: 'Survey | EEARS', desc: 'Semester and activity surveys.' } },

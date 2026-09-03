@@ -5,9 +5,10 @@ import { useOutletContext } from 'react-router-dom';
 import useToast from '../../components/ui/useToast';
 import { getTranslation, LANG_EN, LANG_ZH } from '../../constants/translations';
 import {
+  FAQ_PAGE_TITLE_KEY,
   SITE_CONTENT_KEY_SUGGESTIONS,
-  SITE_CONTENT_SECTIONS,
   STRUCTURED_SECTIONS,
+  VISIBLE_SITE_CONTENT_SECTIONS,
 } from '../../constants/siteContentManifest';
 import {
   createSiteContentFaq,
@@ -26,19 +27,19 @@ import { VISUAL_TEXT_SECTIONS } from './siteContentVisualConfig';
 import { previewTypographyClass } from '../../utils/siteContentGroups';
 import './siteContentAdmin.css';
 
-const TEXT_SECTIONS = SITE_CONTENT_SECTIONS.filter((s) => !STRUCTURED_SECTIONS.includes(s.id));
+const TEXT_SECTIONS = VISIBLE_SITE_CONTENT_SECTIONS.filter((s) => !STRUCTURED_SECTIONS.includes(s.id));
 const STAFF_SECTIONS = ['staff_faculty', 'staff_admin'];
 
 const SECTION_LEADS = {
-  home: '直接點擊首頁畫面上的文字即可編輯 Hero、公告、FAQ 等區塊。',
+  home: '直接點擊首頁畫面上的文字即可編輯 Hero、公告、規則提示等區塊。',
   activities: '在活動介紹頁預覽中點擊文字，即可修改各類型說明與導言。',
-  about: '在關於我們頁面預覽中點擊介紹段落即可編輯。',
-  contact: '在聯絡我們頁面預覽中點擊標籤與內容即可編輯。',
+  about: '編輯 /about 頁的中心介紹、系統說明與團隊區塊導言。',
+  contact: '聯絡資訊已整合於關於我們頁；點擊聯絡區塊即可編輯。',
   legal: '切換隱私權／使用條款後，點擊段落文字即可編輯。',
-  faq: '學生端常見問題列表，可排序與雙語編輯。',
-  rules_modal: '在彈窗預覽中點擊文字，可編輯取消預約、黑名單與活動規定內容。',
+  faq: '管理 /faq 與關於我們頁的常見問題列表，以及 FAQ 頁標題。',
   staff_faculty: '關於我們頁面的師資卡片。',
   staff_admin: '關於我們頁面的行政團隊卡片。',
+  english_test_registration: '英檢報名流程中，在學名單比對不符時顯示的提示訊息。',
 };
 
 function emptyTextForm() {
@@ -199,7 +200,7 @@ function TextEditorModal({ show, onHide, section, initial, saving, onSubmit }) {
               onChange={(e) => setForm((f) => ({ ...f, contentKey: e.target.value }))}
               placeholder="homePage.heroTitle"
               required
-              disabled={!!initial?.id}
+              disabled={Boolean(initial?.id || initial?.contentKey)}
             />
           </Form.Group>
           <Form.Group className="mb-3">
@@ -555,12 +556,14 @@ function StaffEditorModal({ show, onHide, initial, saving, onSubmit }) {
 
 function FaqListPanel({
   items,
+  pageTitle,
   loading,
   saving,
   onCreate,
   onEdit,
   onDelete,
   onMove,
+  onEditPageTitle,
 }) {
   const [query, setQuery] = useState('');
 
@@ -573,8 +576,37 @@ function FaqListPanel({
     );
   }, [items, query]);
 
+  const titleZh = pageTitle?.valueZh || getTranslation(LANG_ZH, FAQ_PAGE_TITLE_KEY);
+  const titleEn = pageTitle?.valueEn || getTranslation(LANG_EN, FAQ_PAGE_TITLE_KEY);
+
   return (
     <div className="scm-panel">
+      <article className="scm-item-card scm-item-card--title mb-3">
+        <div className="scm-item-card__main">
+          <div className="scm-item-card__head">
+            <h3 className="scm-item-card__title">FAQ 頁標題</h3>
+            <StatusBadge isActive={pageTitle ? pageTitle.isActive !== false : true} />
+          </div>
+          <code className="scm-code scm-item-card__key">{FAQ_PAGE_TITLE_KEY}</code>
+          <p className="scm-item-card__preview" title={titleZh}>
+            {titleZh}
+          </p>
+          {titleEn ? (
+            <p className="scm-table__secondary mb-0">{titleEn}</p>
+          ) : null}
+        </div>
+        <div className="scm-item-card__actions">
+          <button
+            type="button"
+            className="scm-btn-ghost"
+            disabled={saving}
+            onClick={onEditPageTitle}
+          >
+            編輯
+          </button>
+        </div>
+      </article>
+
       <div className="scm-toolbar">
         <p className="scm-toolbar__meta mb-0">共 {items.length} 則 FAQ</p>
         <div className="scm-toolbar__search">
@@ -854,18 +886,20 @@ export default function SiteContentManagementPage({ embedded = false } = {}) {
 
   const textItems = useMemo(() => sectionData?.items || [], [sectionData]);
   const faqItems = useMemo(() => sectionData?.faq || [], [sectionData]);
+  const faqPageTitle = useMemo(() => sectionData?.pageTitle || null, [sectionData]);
   const staffItems = useMemo(() => sectionData?.staff || [], [sectionData]);
   const isStaffSection = STAFF_SECTIONS.includes(activeSection);
 
   const activeSectionMeta = useMemo(
-    () => SITE_CONTENT_SECTIONS.find((s) => s.id === activeSection),
+    () => VISIBLE_SITE_CONTENT_SECTIONS.find((s) => s.id === activeSection),
     [activeSection]
   );
 
   const handleSaveText = async (form) => {
     setSaving(true);
     try {
-      await upsertSiteContentText(token, activeSection, form);
+      const sectionForUpsert = form.contentKey === FAQ_PAGE_TITLE_KEY ? 'faq' : activeSection;
+      await upsertSiteContentText(token, sectionForUpsert, form);
       toast.success('文案已儲存');
       if (textModal.show) {
         setTextModal({ show: false, item: null });
@@ -964,7 +998,7 @@ export default function SiteContentManagementPage({ embedded = false } = {}) {
           <p className="scm-page__kicker">Site content</p>
           <h1 className="scm-page__title">網站文案管理</h1>
           <p className="scm-page__lead">
-            直接在學生端畫面上點擊文字即可修改；儲存後即時生效。FAQ 與師資名單仍使用列表編輯。
+            直接在學生端畫面上點擊文字即可修改；儲存後即時生效。常見問題與師資名單使用列表編輯。
           </p>
         </header>
       )}
@@ -972,7 +1006,7 @@ export default function SiteContentManagementPage({ embedded = false } = {}) {
       {error ? <div className="scm-alert" role="alert">{error}</div> : null}
 
       <nav className="scm-tabs" role="tablist" aria-label="文案區塊">
-        {SITE_CONTENT_SECTIONS.map((s) => (
+        {VISIBLE_SITE_CONTENT_SECTIONS.map((s) => (
           <button
             key={s.id}
             type="button"
@@ -995,12 +1029,24 @@ export default function SiteContentManagementPage({ embedded = false } = {}) {
       {activeSection === 'faq' ? (
         <FaqListPanel
           items={faqItems}
+          pageTitle={faqPageTitle}
           loading={loading}
           saving={saving}
           onCreate={() => setFaqModal({ show: true, item: null })}
           onEdit={(item) => setFaqModal({ show: true, item })}
           onDelete={handleDelete}
           onMove={moveFaq}
+          onEditPageTitle={() => setTextModal({
+            show: true,
+            item: {
+              id: faqPageTitle?.id || null,
+              contentKey: FAQ_PAGE_TITLE_KEY,
+              label: 'FAQ 頁標題',
+              valueZh: faqPageTitle?.valueZh || getTranslation(LANG_ZH, FAQ_PAGE_TITLE_KEY),
+              valueEn: faqPageTitle?.valueEn || getTranslation(LANG_EN, FAQ_PAGE_TITLE_KEY),
+              isActive: faqPageTitle ? faqPageTitle.isActive !== false : true,
+            },
+          })}
         />
       ) : isStaffSection ? (
         <StaffListPanel

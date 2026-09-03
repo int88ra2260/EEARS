@@ -14,11 +14,12 @@ const TASK_NAV = [
   { action: 'progress', path: '/student/progress', labelKey: 'nav.myProgress' },
 ];
 
-/** 探索導覽：資訊瀏覽 */
+/** 探索導覽：資訊瀏覽（最新公告／活動介紹／學習資源／修課說明／法規表單／關於我們） */
 const EXPLORE_NAV = [
   { action: 'announcements', path: '/announcements', labelKey: 'nav.announcements' },
   { action: 'activities', path: '/activities', labelKey: 'nav.activitiesIntro' },
   { action: 'learning-resources', path: '/learning-resources', labelKey: 'nav.learningResources' },
+  { action: 'course-guide', path: '/course-guide', labelKey: 'nav.courseGuide' },
   { action: 'regulations-forms', path: '/regulations-forms', labelKey: 'nav.regulationsForms' },
   { action: 'about', path: '/about', labelKey: 'nav.about' },
 ];

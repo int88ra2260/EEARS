@@ -50,7 +50,7 @@ function AdminEventReservationsTab({
             {p.canViewReservations && (
               <div className="mt-4 pt-3 border-top">
                 <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-                  <h6 className="text-secondary fw-semibold mb-0">候補名單</h6>
+                  <h6 className="text-secondary fw-semibold mb-0">候補已停用（歷史）</h6>
                   <Button
                     variant="outline-secondary"
                     size="sm"
@@ -58,7 +58,7 @@ function AdminEventReservationsTab({
                     onClick={() => p.refreshWaitlist && p.refreshWaitlist()}
                     disabled={p.waitlistLoading}
                   >
-                    {p.waitlistLoading ? '載入中…' : '重新整理候補'}
+                    {p.waitlistLoading ? '載入中…' : '重新整理歷史'}
                   </Button>
                 </div>
                 {p.waitlistError ? (
@@ -82,7 +82,7 @@ function AdminEventReservationsTab({
                         {!p.waitlistItems || p.waitlistItems.length === 0 ? (
                           <tr>
                             <td colSpan={6} className="text-center text-muted">
-                              {p.waitlistLoading ? '載入中…' : '目前無候補紀錄'}
+                              {p.waitlistLoading ? '載入中…' : '目前無候補歷史紀錄'}
                             </td>
                           </tr>
                         ) : (

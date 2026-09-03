@@ -21,13 +21,9 @@ function formatSessionDate(dateStr, lang) {
   );
 }
 
-/**
- * @param {{ event: object, surveyRequired?: boolean, allowWaitlist?: boolean }} props
- */
 export default function EventBookingSummary({
   event,
   surveyRequired = false,
-  allowWaitlist = false,
 }) {
   const { t, lang } = useLanguage();
   const spots = event ? Number(event.availableSpots) : 0;
@@ -72,18 +68,11 @@ export default function EventBookingSummary({
     <section className="event-booking-summary" aria-label={t('booking.summaryAria')}>
       <div className="event-booking-summary__status" role="status">
         <EventDeadlineHint event={event} t={t} showWindow={false} />
-        {(allowWaitlist && spots === 0) || surveyRequired ? (
+        {surveyRequired ? (
           <div className="event-booking-summary__extra-badges">
-            {allowWaitlist && spots === 0 && (
-              <StatusBadge variant="warning" size="md">
-                {t('booking.badgeWaitlist')}
-              </StatusBadge>
-            )}
-            {surveyRequired && (
-              <StatusBadge variant="info" size="md">
-                {t('booking.badgeSurvey')}
-              </StatusBadge>
-            )}
+            <StatusBadge variant="info" size="md">
+              {t('booking.badgeSurvey')}
+            </StatusBadge>
           </div>
         ) : null}
       </div>

@@ -12,7 +12,7 @@ export default function LearningAnalyticsOverviewGuide() {
           要比系所或入學年度，請到
           {' '}
           <Link to="/admin/learning-analytics/cohorts">群體分析</Link>
-          ；要比課程／活動效果，請到
+          ；要比資源類型與進步的關聯（描述／進階觀察估計），請到
           {' '}
           <Link to="/admin/learning-analytics/resources">資源效益</Link>
           。

@@ -78,8 +78,13 @@ export default function MicroLearningEngagementPanel({ token, ready = true }) {
     <section className="la-panel mb-4">
       <LearningAnalyticsPanelHeader
         title="微學習參與軌跡"
-        subtitle={subtitle}
+        lead={subtitle}
       />
+      <Alert variant="light" className="small border py-2 mb-3">
+        本區塊為近 <strong>30</strong> 天微學習 session（匿名／自願學號），
+        <strong>不受</strong>
+        上方學期、系所、資料版本等 LA 篩選影響。
+      </Alert>
 
       <Nav variant="tabs" className="mb-3 flex-nowrap overflow-auto">
         {GAME_TABS.map((tab) => (

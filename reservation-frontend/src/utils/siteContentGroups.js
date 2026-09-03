@@ -236,38 +236,9 @@ const GROUPS = {
   ],
   rules_modal: [
     {
-      id: 'shell',
-      label: '彈窗框架',
-      description: '標題與分頁標籤',
-      match: (k) => k === 'faq.title' || k === 'faq.cancel' || k === 'faq.blacklist' || k === 'faq.rules',
-    },
-    {
-      id: 'cancel-tab',
-      label: '取消預約',
-      description: '取消步驟與提醒',
-      match: (k) => k.startsWith('faq.cancel') || k === 'faq.importantReminder',
-    },
-    {
-      id: 'blacklist-tab',
-      label: '黑名單說明',
-      description: '違規、影響與避免方式',
-      match: (k) => k.startsWith('faq.blacklist')
-        || k.startsWith('faq.violation')
-        || k.startsWith('faq.impact')
-        || k.startsWith('faq.avoid')
-        || k === 'faq.howToAvoid'
-        || k === 'faq.violationsInclude',
-    },
-    {
-      id: 'rules-tab',
-      label: '活動規定',
-      description: '現場候補、補蓋章、遲到等規定',
-      match: (k) => k.startsWith('faq.rule') || k === 'faq.rulesTitle' || k === 'faq.rulesImportant',
-    },
-    {
-      id: 'other',
-      label: '其他',
-      description: '未歸入上述分類的欄位',
+      id: 'legacy',
+      label: '已下架彈窗文案',
+      description: '舊活動規定彈窗已不再顯示於學生端',
       match: () => true,
     },
   ],

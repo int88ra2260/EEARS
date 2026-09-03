@@ -1382,56 +1382,20 @@ router.get(
   }
 });
 
-// 學生加入活動候補（額滿；問卷／時間窗／黑名單與正式預約一致）
+// 候補已停用（保留端點以免舊客戶端無說明）
 // POST /api/events/:eventId/waitlist
-router.post(
-  '/events/:eventId/waitlist',
-  (req, res, next) => {
-    req.body = { ...(req.body || {}), eventId: req.params.eventId };
-    next();
-  },
-  checkSurvey,
-  async (req, res, next) => {
-    try {
-      const { eventId, studentId, studentName, studentEmail } = req.body;
-      const result = await waitlistService.joinWaitlist({
-        eventId,
-        studentId,
-        studentName,
-        studentEmail,
-        requestId: req.requestId,
-        req,
-      });
-
-      if (!result.ok) {
-        const code = result.code;
-        if (code === 'EVENT_NOT_FOUND') {
-          return res.status(404).json({ success: false, errorCode: code, message: result.message });
-        }
-        if (code === 'BLACKLIST') {
-          return res.status(403).json({ success: false, errorCode: code, message: result.message });
-        }
-        const status = 400;
-        const body = {
-          success: false,
-          errorCode: code,
-          message: result.message,
-        };
-        if (result.position != null) body.position = result.position;
-        return res.status(status).json(body);
-      }
-
-      return res.json({
-        success: true,
-        status: result.status,
-        position: result.position,
-        message: result.message,
-      });
-    } catch (err) {
-      next(err);
-    }
+router.post('/events/:eventId/waitlist', async (req, res, next) => {
+  try {
+    const result = await waitlistService.joinWaitlist();
+    return res.status(410).json({
+      success: false,
+      errorCode: result.code,
+      message: result.message,
+    });
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 // 活動結束後自動檢查並記錄違規
 // POST /api/events/:id/auto-check

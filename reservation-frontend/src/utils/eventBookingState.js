@@ -106,8 +106,8 @@ export function canReserveFromState(state) {
   return state.code === 'OPEN' || state.code === 'CLOSING_SOON';
 }
 
-export function canWaitlistFromState(state) {
-  return state.code === 'FULL';
+export function canWaitlistFromState() {
+  return false;
 }
 
 /**

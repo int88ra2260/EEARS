@@ -31,7 +31,6 @@ const importRollbackManifestService = require('../services/importRollbackManifes
 const notificationService = require('../services/notificationService');
 const reservationService = require('../services/reservationService');
 const waitlistService = require('../services/waitlistService');
-const logger = require('../utils/logger');
 const {
   assertCanAccessEvent,
   buildEventScopeWhere,
@@ -605,20 +604,6 @@ router.post(
         message: 'If the reservation matches the provided information, it has been cancelled.',
       });
 
-      if (result.cancelled && result.reservation?.Event?.id) {
-        const eventId = result.reservation.Event.id;
-        waitlistService
-          .promoteNextWaitlistedStudent({
-            eventId,
-            triggeredBy: 'public_cancel',
-            requestId: req.requestId,
-            req,
-          })
-          .catch((err) => {
-            logger.error('[waitlist] promote after public cancel failed', { eventId, err });
-          });
-      }
-
       return out;
     } catch (err) {
       console.error(err);
@@ -677,20 +662,6 @@ router.delete(
           req,
         });
       } catch (_) {}
-
-      if (result.reservation?.Event?.id) {
-        const eventId = result.reservation.Event.id;
-        waitlistService
-          .promoteNextWaitlistedStudent({
-            eventId,
-            triggeredBy: 'admin_cancel',
-            requestId: req.requestId,
-            req,
-          })
-          .catch((err) => {
-            logger.error('[waitlist] promote after admin cancel failed', { eventId, err });
-          });
-      }
 
       return res.json({ success: true, message: 'Reservation cancelled.' });
     } catch (err) {

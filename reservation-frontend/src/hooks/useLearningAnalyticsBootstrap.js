@@ -6,9 +6,22 @@ import {
   buildDefaultFilters,
   filtersToApiParams,
   parseFiltersFromSearchParams,
+  pickFilterKeys,
 } from '../components/learningAnalytics/learningAnalyticsFilterConstants';
 
-export function useLearningAnalyticsBootstrap() {
+/**
+ * @param {{
+ *   scopeKeys?: string[] | null,
+ *   defaultSemester?: 'current' | 'none',
+ * }} [options]
+ *   scopeKeys：若指定，僅保留這些篩選鍵（其餘忽略），供細項分析等頁使用。
+ *   defaultSemester：無 URL 學期時是否帶入當前學期。預設 'none'（避免誤以為整頁已依學期篩選）。
+ *     Offerings 等學期為主軸的頁面請用 'current'。
+ */
+export function useLearningAnalyticsBootstrap({
+  scopeKeys = null,
+  defaultSemester = 'none',
+} = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const semesterFromUrl = (searchParams.get('semester') || '').trim();
   const token = localStorage.getItem('token') || '';
@@ -16,10 +29,26 @@ export function useLearningAnalyticsBootstrap() {
   const [metaError, setMetaError] = useState('');
   const [ready, setReady] = useState(false);
 
+  const resolveDefaultSemester = useCallback(() => {
+    if (semesterFromUrl) return semesterFromUrl;
+    if (defaultSemester === 'current') return getCurrentSemester() || '';
+    return '';
+  }, [defaultSemester, semesterFromUrl]);
+
+  const narrow = useCallback((next) => (
+    scopeKeys?.length ? pickFilterKeys(next, scopeKeys) : next
+  ), [scopeKeys]);
+
   const initialFilters = useMemo(() => {
     const fromUrl = parseFiltersFromSearchParams(searchParams);
-    const semester = fromUrl.semester || semesterFromUrl || getCurrentSemester() || '';
-    return buildDefaultFilters({ semester });
+    const semester = fromUrl.semester || semesterFromUrl
+      || (defaultSemester === 'current' ? (getCurrentSemester() || '') : '');
+    const merged = {
+      ...buildDefaultFilters({ semester }),
+      ...fromUrl,
+      semester,
+    };
+    return scopeKeys?.length ? pickFilterKeys(merged, scopeKeys) : merged;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only URL parse
 
   const [filters, setFilters] = useState(initialFilters);
@@ -27,13 +56,15 @@ export function useLearningAnalyticsBootstrap() {
 
   useEffect(() => {
     if (!semesterFromUrl) return;
-    setFilters((prev) => (
-      prev.semester === semesterFromUrl ? prev : { ...prev, semester: semesterFromUrl }
-    ));
-    setAppliedFilters((prev) => (
-      prev.semester === semesterFromUrl ? prev : { ...prev, semester: semesterFromUrl }
-    ));
-  }, [semesterFromUrl]);
+    setFilters((prev) => {
+      if (prev.semester === semesterFromUrl) return prev;
+      return narrow({ ...prev, semester: semesterFromUrl });
+    });
+    setAppliedFilters((prev) => {
+      if (prev.semester === semesterFromUrl) return prev;
+      return narrow({ ...prev, semester: semesterFromUrl });
+    });
+  }, [semesterFromUrl, narrow]);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,8 +75,14 @@ export function useLearningAnalyticsBootstrap() {
         setMeta(payload);
         const recommended = payload.recommendedSnapshotVersion || '';
         if (!recommended) return;
-        setFilters((prev) => ({ ...prev, snapshot_version: recommended }));
-        setAppliedFilters((prev) => ({ ...prev, snapshot_version: recommended }));
+        setFilters((prev) => {
+          if (prev.snapshot_version) return prev;
+          return narrow({ ...prev, snapshot_version: recommended });
+        });
+        setAppliedFilters((prev) => {
+          if (prev.snapshot_version) return prev;
+          return narrow({ ...prev, snapshot_version: recommended });
+        });
       } catch (e) {
         if (!cancelled) setMetaError(e.message || '無法載入分析中繼資料');
       } finally {
@@ -53,33 +90,37 @@ export function useLearningAnalyticsBootstrap() {
       }
     })();
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, narrow]);
 
   const apiParams = useCallback(
     () => filtersToApiParams(appliedFilters),
     [appliedFilters]
   );
 
-  const applyFilters = useCallback(() => {
-    setAppliedFilters({ ...filters });
+  const writeUrl = useCallback((nextFilters) => {
     const next = new URLSearchParams();
-    Object.entries(filtersToApiParams(filters)).forEach(([key, value]) => {
+    Object.entries(filtersToApiParams(nextFilters)).forEach(([key, value]) => {
       if (key !== 'snapshot_version') next.set(key, String(value));
     });
     setSearchParams(next, { replace: true });
-  }, [filters, setSearchParams]);
+  }, [setSearchParams]);
+
+  const applyFilters = useCallback(() => {
+    const nextFilters = narrow({ ...filters });
+    setFilters(nextFilters);
+    setAppliedFilters(nextFilters);
+    writeUrl(nextFilters);
+  }, [filters, narrow, writeUrl]);
 
   const resetFilters = useCallback(() => {
-    const reset = buildDefaultFilters({
-      semester: semesterFromUrl || getCurrentSemester() || '',
+    const reset = narrow(buildDefaultFilters({
+      semester: resolveDefaultSemester(),
       snapshotVersion: meta?.recommendedSnapshotVersion || '',
-    });
+    }));
     setFilters(reset);
     setAppliedFilters(reset);
-    const next = new URLSearchParams();
-    if (reset.semester) next.set('semester', reset.semester);
-    setSearchParams(next, { replace: true });
-  }, [meta, semesterFromUrl, setSearchParams]);
+    writeUrl(reset);
+  }, [meta, narrow, resolveDefaultSemester, writeUrl]);
 
   return {
     token,

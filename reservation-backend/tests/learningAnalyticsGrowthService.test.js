@@ -175,34 +175,23 @@ describe('learningAnalyticsGrowthService', () => {
 
 
   it('computes growth student ratio per skill', () => {
-
     const view = buildGrowthView(lvaFixture);
-
     const listening = view.bySkill.find((row) => row.skill === 'listening');
-
-    expect(listening.growthStudentRatio).toBe(1);
-
-    expect(listening.improvedCount).toBe(2);
-
-    expect(listening.label).toBe('聽力');
-
-  });
-
-
-
-  it('builds radar chart data for skills with growth samples', () => {
-
-    const view = buildGrowthView(lvaFixture);
-
-    expect(view.radar.length).toBeGreaterThanOrEqual(1);
-
-    const listening = view.radar.find((row) => row.skill === 'listening');
-
+    // S001 actualGse +20 > 0；S002 無 adjusted 對應 → actualGse null，不計入 improved
+    expect(listening.improvedCount).toBe(1);
+    expect(listening.growthStudentRatio).toBe(0.5);
+    expect(listening.actualGseGrowthAverage).toBe(20);
     expect(listening.rawGrowthAverage).toBe(25);
-
-    expect(listening.adjustedGseGrowthAverage).toBe(12.5);
-
+    expect(listening.label).toBe('聽力');
   });
 
+  it('builds radar chart data on GSE scale (not raw instrument scores)', () => {
+    const view = buildGrowthView(lvaFixture);
+    expect(view.radar.length).toBeGreaterThanOrEqual(1);
+    const listening = view.radar.find((row) => row.skill === 'listening');
+    expect(listening.actualGseGrowthAverage).toBe(20);
+    expect(listening.adjustedGseGrowthAverage).toBe(12.5);
+    expect(listening.rawGrowthAverage).toBe(25);
+  });
 });
 

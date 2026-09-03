@@ -15,8 +15,8 @@ export const HOME_IMMERSIVE_JOURNEY = [
       en: 'English Table, English Club, Job Talk — book and join without creating an account.',
     },
     tags: {
-      zh: ['活動預約', '候補名單', '簽到管理'],
-      en: ['Booking', 'Waitlist', 'Check-in'],
+      zh: ['活動預約', '簽到管理'],
+      en: ['Booking', 'Check-in'],
     },
     cta: { zh: '前往活動預約', en: 'Book an event', to: '/events' },
   },

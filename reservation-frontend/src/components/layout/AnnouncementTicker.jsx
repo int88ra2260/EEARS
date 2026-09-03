@@ -10,6 +10,7 @@ const TICKER_PATHS = new Set([
   '/activities',
   '/my-reservations',
   '/learning-resources',
+  '/course-guide',
   '/regulations-forms',
   '/about',
   '/survey/choice',

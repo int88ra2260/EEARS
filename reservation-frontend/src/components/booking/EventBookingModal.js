@@ -16,8 +16,7 @@ import { formatMessage } from '../../utils/formatMessage';
 import '../EventDetail.css';
 import '../../styles/student-events.css';
 import BookingSuccessView from './BookingSuccessView';
-import WaitlistSuccessView from './WaitlistSuccessView';
-import { canWaitlistFromState, getEventBookingState } from '../../utils/eventBookingState';
+import { getEventBookingState } from '../../utils/eventBookingState';
 
 gsap.registerPlugin(useGSAP);
 
@@ -53,9 +52,7 @@ export default function EventBookingModal({ show, event, onClose }) {
     blacklist,
     survey,
     successMeta,
-    waitlistSuccessMeta,
     handleReserve,
-    handleJoinWaitlist,
     handleSurveyClose,
     handleSurveyComplete,
     resetBookingModalState,
@@ -63,10 +60,8 @@ export default function EventBookingModal({ show, event, onClose }) {
 
   const waitlistInfo = useMemo(() => {
     const state = getEventBookingState(event);
-    const allowWaitlist = canWaitlistFromState(state);
     return {
       isFull: state.code === 'FULL',
-      allowWaitlist,
     };
   }, [event]);
 
@@ -133,19 +128,6 @@ export default function EventBookingModal({ show, event, onClose }) {
   };
 
   const handleSurveyCompleteClick = () => {
-    try {
-      const raw = sessionStorage.getItem('pendingWaitlist');
-      if (raw) {
-        const p = JSON.parse(raw);
-        if (p && String(p.eventId) === String(event.id)) {
-          sessionStorage.removeItem('pendingWaitlist');
-          handleJoinWaitlist(event, () => setBookingStep(3), {});
-          return;
-        }
-      }
-    } catch (_) {
-      // ignore
-    }
     handleSurveyComplete(event, () => {
       setSuccessEmail(form.studentEmail);
       setBookingStep(3);
@@ -316,13 +298,12 @@ export default function EventBookingModal({ show, event, onClose }) {
         </Modal.Header>
 
         <Modal.Body ref={bodyScopeRef} style={bodyStyle}>
-          <BookingStepIndicator step={bookingStep} waitlistSuccess={Boolean(waitlistSuccessMeta)} />
+          <BookingStepIndicator step={bookingStep} />
 
           {showBookingSummary ? (
             <div data-booking-summary>
               <EventBookingSummary
                 event={event}
-                allowWaitlist={waitlistInfo.allowWaitlist}
                 surveyRequired={surveyMayBeRequired}
               />
             </div>
@@ -336,7 +317,7 @@ export default function EventBookingModal({ show, event, onClose }) {
 
           {showStep1Form && (
             <div data-booking-step="1">
-              {waitlistInfo.isFull && !waitlistInfo.allowWaitlist && (
+              {waitlistInfo.isFull && (
                 <div className="alert alert-warning py-2 mb-3" role="alert">
                   {t('booking.fullNoWaitlist')}
                 </div>
@@ -379,18 +360,7 @@ export default function EventBookingModal({ show, event, onClose }) {
             </div>
           )}
 
-          {bookingStep === 3 && waitlistSuccessMeta && (
-            <div data-booking-step="3">
-              <WaitlistSuccessView
-                event={event}
-                studentEmail={waitlistSuccessMeta.studentEmail || form.studentEmail}
-                position={waitlistSuccessMeta.position}
-                onClose={handleCloseModal}
-              />
-            </div>
-          )}
-
-          {bookingStep === 3 && !waitlistSuccessMeta && (
+          {bookingStep === 3 && (
             <div data-booking-step="3">
               <BookingSuccessView
                 event={event}
@@ -419,7 +389,7 @@ export default function EventBookingModal({ show, event, onClose }) {
               <Button
                 variant="primary"
                 onClick={() => setMobileSubStep('form')}
-                disabled={waitlistInfo.isFull && !waitlistInfo.allowWaitlist}
+                disabled={waitlistInfo.isFull}
                 className={buttonClass}
                 style={buttonStyle}
               >
@@ -441,26 +411,14 @@ export default function EventBookingModal({ show, event, onClose }) {
               </Button>
               <Button
                 variant="primary"
-                onClick={waitlistInfo.allowWaitlist ? () =>
-                  handleJoinWaitlist(
-                    event,
-                    () => {
-                      setBookingStep(3);
-                    },
-                    {
-                      onSurveyRequired: () => setBookingStep(2),
-                    }
-                  ) : handleReserveClick
-                }
-                disabled={isSubmitting || (waitlistInfo.isFull && !waitlistInfo.allowWaitlist)}
+                onClick={handleReserveClick}
+                disabled={isSubmitting || waitlistInfo.isFull}
                 className={buttonClass}
                 style={buttonStyle}
               >
                 {isSubmitting
                   ? t('booking.btnProcessing')
-                  : waitlistInfo.allowWaitlist
-                    ? t('booking.btnWaitlist')
-                    : t('booking.btnReserve')}
+                  : t('booking.btnReserve')}
               </Button>
             </div>
           )}

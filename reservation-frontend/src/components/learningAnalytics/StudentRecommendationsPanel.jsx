@@ -27,8 +27,10 @@ export default function StudentRecommendationsPanel({ data }) {
 
   return (
     <div className="la-panel mb-3">
-      <div className="la-panel-title">建議可加強的資源</div>
-      <p className="small text-muted la-panel-lead mb-3">依弱項技能對應，僅供參考。</p>
+      <div className="la-panel-title">建議可加強的資源（實驗）</div>
+      <p className="small text-muted la-panel-lead mb-3">
+        依弱項技能對應資源設定，屬啟發式建議，非正式輔導優先序或成效保證。
+      </p>
 
       <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
         <span className="small text-muted">弱項技能</span>

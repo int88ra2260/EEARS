@@ -149,7 +149,7 @@ export default function AddEventForm({
                 value={fields.customReservationRule}
                 onChange={(e) => setField('customReservationRule', e.target.value)}
               />
-              <small className="text-muted">注意：自定義活動類型將使用 English Table 的預約時間邏輯（前一天00:00開始）</small>
+              <small className="text-muted">注意：自定義活動類型將使用 English Table 的預約時間邏輯（前一天 12:00 開始）</small>
             </div>
           </div>
         )}

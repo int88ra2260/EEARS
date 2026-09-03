@@ -207,6 +207,44 @@ describe('site content API', () => {
     expect(res.body.contentKey).toBe('faq.rulesTitle');
   });
 
+  it('admin can upsert faq page title on faq section', async () => {
+    mockFindOne.mockResolvedValue(null);
+    mockCreate.mockResolvedValue({
+      id: 4,
+      entryType: 'text',
+      section: 'faq',
+      contentKey: 'faq.title',
+      label: 'FAQ 頁標題',
+      valueZh: '常見問題',
+      valueEn: 'FAQ',
+      sortOrder: 0,
+      isActive: true,
+      updatedAt: new Date(),
+      get: () => ({
+        id: 4,
+        entryType: 'text',
+        section: 'faq',
+        contentKey: 'faq.title',
+        label: 'FAQ 頁標題',
+        valueZh: '常見問題',
+        valueEn: 'FAQ',
+        sortOrder: 0,
+        isActive: true,
+        updatedAt: new Date(),
+      }),
+    });
+
+    const app = createApp();
+    const res = await request(app)
+      .put('/api/admin/site-content/faq/text')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_MANAGE_SITE_CONTENT)
+      .send({ contentKey: 'faq.title', valueZh: '常見問題', valueEn: 'FAQ', label: 'FAQ 頁標題' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.contentKey).toBe('faq.title');
+  });
+
   it('admin can seed missing text defaults', async () => {
     mockFindOne.mockResolvedValue(null);
     mockCreate.mockResolvedValue({ id: 3 });

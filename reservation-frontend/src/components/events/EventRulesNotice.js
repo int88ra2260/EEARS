@@ -1,5 +1,5 @@
 /**
- * 頁頂固定規則說明：補蓋章、不開放現場候補兩條 Alert
+ * 頁頂固定規則說明：補蓋章、不開放候補兩條 Alert
  * 供 EventList 使用；實際區塊由 eventsContentConfig.RULES_NOTICES 驅動
  */
 import React from 'react';

@@ -29,10 +29,14 @@ const SITE_CONTENT_SECTIONS = Object.freeze({
   faq: {
     label: '常見問題',
     prefixes: [],
+    /** 結構化 FAQ 列表外，允許編輯的頁面級文字鍵 */
+    exactKeys: ['faq.title'],
   },
+  /** @deprecated 舊 EventFAQModal 已下架；API 仍接受以相容既有覆寫資料 */
   rules_modal: {
-    label: '活動規定／FAQ 彈窗',
+    label: '活動規定／FAQ 彈窗（已下架）',
     prefixes: ['faq.'],
+    deprecated: true,
   },
   staff_faculty: {
     label: '師資名單',
@@ -65,8 +69,14 @@ function isValidSection(section) {
 function isAllowedTextKey(section, contentKey) {
   if (!contentKey || typeof contentKey !== 'string') return false;
   const cfg = SITE_CONTENT_SECTIONS[section];
-  if (!cfg || STRUCTURED_SECTIONS.includes(section)) return false;
-  return cfg.prefixes.some((prefix) => contentKey.startsWith(prefix));
+  if (!cfg) return false;
+  if (Array.isArray(cfg.exactKeys) && cfg.exactKeys.includes(contentKey)) return true;
+  if (STRUCTURED_SECTIONS.includes(section)) return false;
+  return (cfg.prefixes || []).some((prefix) => contentKey.startsWith(prefix));
+}
+
+function isDeprecatedSection(section) {
+  return Boolean(SITE_CONTENT_SECTIONS[section]?.deprecated);
 }
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,78}$/;
@@ -84,5 +94,6 @@ module.exports = {
   staffGroupFromSection,
   isValidSection,
   isAllowedTextKey,
+  isDeprecatedSection,
   isValidStaffSlug,
 };

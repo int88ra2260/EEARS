@@ -149,6 +149,19 @@ export default function EventFAQModal({ show, onClose }) {
                         </ul>
                       </div>
                       <div className="mt-3">
+                        <h6 className="text-info">
+                          <i className="fas fa-clock me-2" />
+                          <ContentText k="faq.bookingWindowTitle" />
+                        </h6>
+                        <ul className="text-muted">
+                          <li><ContentText k="faq.bookingWindowEt" /></li>
+                          <li><ContentText k="faq.bookingWindowJt" /></li>
+                          <li><ContentText k="faq.bookingWindowEc" /></li>
+                          <li><ContentText k="faq.bookingWindowIf" /></li>
+                          <li><ContentText k="faq.bookingWindowCutoff" /></li>
+                        </ul>
+                      </div>
+                      <div className="mt-3">
                         <h6 className="text-warning">
                           <i className="fas fa-stamp me-2" />
                           <ContentText k="faq.ruleNoStampDetail" />

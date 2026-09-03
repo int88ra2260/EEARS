@@ -5,7 +5,6 @@
 import { loadStudentTrio } from './studentTrioStorage';
 
 const PENDING_KEY = 'pendingReservation';
-const PENDING_WAITLIST_KEY = 'pendingWaitlist';
 const SURVEY_REDIRECT_DELAY_MS = 800;
 
 /** 導向問卷頁前的最短提示時間（讓使用者看見 info 訊息） */
@@ -27,10 +26,6 @@ export function buildSurveyRedirectPath(surveyKey, { eventId, eventType } = {}) 
 
 export function savePendingReservation(payload) {
   sessionStorage.setItem(PENDING_KEY, JSON.stringify(payload));
-}
-
-export function savePendingWaitlist(payload) {
-  sessionStorage.setItem(PENDING_WAITLIST_KEY, JSON.stringify(payload));
 }
 
 /**

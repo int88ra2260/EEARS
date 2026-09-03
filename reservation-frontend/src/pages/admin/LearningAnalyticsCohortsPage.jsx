@@ -12,6 +12,7 @@ import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
+import { LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
 
 
@@ -147,7 +148,11 @@ export default function LearningAnalyticsCohortsPage() {
 
     <div>
 
-      <LearningAnalyticsDataHealth meta={meta} error={metaError} />
+      <LearningAnalyticsDataHealth
+        meta={meta}
+        error={metaError}
+        snapshotVersion={appliedFilters.snapshot_version}
+      />
 
       <LearningAnalyticsFilters
 
@@ -163,6 +168,8 @@ export default function LearningAnalyticsCohortsPage() {
 
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
+        snapshotOptions={meta?.snapshots}
+        intro={LA_FILTER_INTRO_COHORT}
 
       />
 

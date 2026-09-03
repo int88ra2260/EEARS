@@ -6,7 +6,6 @@ import { useLanguage } from '../../context/LanguageContext';
  */
 export default function BookingStepIndicator({
   step,
-  waitlistSuccess = false,
 }) {
   const { t } = useLanguage();
 
@@ -15,8 +14,6 @@ export default function BookingStepIndicator({
   const step2DotClass =
     step === 2 ? 'booking-step__dot--survey' : step > 2 ? 'booking-step__dot--done' : 'booking-step__dot--pending';
   const step3DotClass = step === 3 ? 'booking-step__dot--done' : 'booking-step__dot--pending';
-
-  const step3Label = waitlistSuccess ? t('booking.step3Waitlist') : t('booking.step3Reserve');
 
   return (
     <div className="booking-steps" aria-label={t('booking.stepAria')} data-booking-intro>
@@ -43,7 +40,7 @@ export default function BookingStepIndicator({
       <div className="booking-step">
         <div data-booking-step-dot="3" className={`booking-step__dot ${step3DotClass}`}>3</div>
         <span className={`booking-step__label ${step === 3 ? 'booking-step__label--success-active' : ''}`}>
-          {step3Label}
+          {t('booking.step3Reserve')}
         </span>
       </div>
     </div>

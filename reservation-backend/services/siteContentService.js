@@ -8,6 +8,7 @@ const {
   staffGroupFromSection,
   isValidSection,
   isAllowedTextKey,
+  isDeprecatedSection,
   isValidStaffSlug,
 } = require('../constants/siteContentManifest');
 
@@ -77,8 +78,11 @@ function validateTextPayload(section, body) {
   const contentKey = trimOrNull(body.contentKey);
   const valueZh = trimOrNull(body.valueZh);
   const valueEn = trimOrNull(body.valueEn);
+  const allowsExactOnStructured = Boolean(
+    contentKey && SITE_CONTENT_SECTIONS[section]?.exactKeys?.includes(contentKey)
+  );
 
-  if (!isValidSection(section) || STRUCTURED_SECTIONS.includes(section)) {
+  if (!isValidSection(section) || (STRUCTURED_SECTIONS.includes(section) && !allowsExactOnStructured)) {
     errors.push('無效的 section');
   }
   if (!contentKey) {
@@ -197,10 +201,15 @@ async function listAdmin({ section }) {
         ['id', 'ASC'],
       ],
     });
+    const pageTitleRow = await SiteContentEntry.findOne({
+      where: { entryType: ENTRY_TEXT, contentKey: 'faq.title' },
+    });
     return {
       section,
       sectionLabel: SITE_CONTENT_SECTIONS.faq.label,
       faq: rows.map(serializeFaqEntry),
+      pageTitle: pageTitleRow ? serializeTextEntry(pageTitleRow) : null,
+      allowedExactKeys: SITE_CONTENT_SECTIONS.faq.exactKeys || [],
     };
   }
 
@@ -239,7 +248,7 @@ async function listAdmin({ section }) {
 }
 
 async function listAdminSections() {
-  return VALID_SECTIONS.map((id) => ({
+  return VALID_SECTIONS.filter((id) => !isDeprecatedSection(id)).map((id) => ({
     id,
     label: SITE_CONTENT_SECTIONS[id].label,
   }));

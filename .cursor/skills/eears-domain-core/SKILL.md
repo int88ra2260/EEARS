@@ -8,7 +8,7 @@ license: MIT
 
 ## When to Use This Skill
 
-- 你要改任何與學生端預約/取消/候補相關的 UI 或 API 呼叫
+- 你要改任何與學生端預約/取消相關的 UI 或 API 呼叫
 - 你要改問卷 Gate（ET/EC）或 blacklist/違規/簽到/自動檢查
 - 你要改時間規則（例如 2hr 截止、eventType 預約開放窗）
 - 你要改任何會改錯誤碼/redirectUrl 的邏輯

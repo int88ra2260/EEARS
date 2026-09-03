@@ -14,14 +14,14 @@ router.get('/sections', adminSiteContentController.listSections);
 router.post('/faq', adminSiteContentController.createFaq);
 router.post('/faq/reorder', adminSiteContentController.reorderFaq);
 router.post('/faq/seed', adminSiteContentController.seedFaq);
-router.put('/faq/:id', adminSiteContentController.updateFaq);
 router.post('/staff/:section/reorder', adminSiteContentController.reorderStaff);
 router.post('/staff/:section/seed', adminSiteContentController.seedStaff);
 router.post('/staff/:section', adminSiteContentController.createStaff);
 router.put('/staff/:id', adminSiteContentController.updateStaff);
 router.post('/:section/text/seed', adminSiteContentController.seedText);
-router.get('/:section', adminSiteContentController.listBySection);
 router.put('/:section/text', adminSiteContentController.upsertText);
+router.put('/faq/:id', adminSiteContentController.updateFaq);
+router.get('/:section', adminSiteContentController.listBySection);
 router.delete('/:id', adminSiteContentController.remove);
 
 module.exports = router;

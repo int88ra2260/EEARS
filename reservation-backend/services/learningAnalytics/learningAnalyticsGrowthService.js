@@ -2,7 +2,7 @@
 
 const { getLvaAnalytics } = require('../learningJourney/analytics/lvaAnalyticsService');
 
-const CONTRACT_VERSION = 'learning-analytics.skills.v2';
+const CONTRACT_VERSION = 'learning-analytics.skills.v3';
 
 const SKILL_ORDER = ['listening', 'reading', 'speaking', 'writing'];
 
@@ -18,6 +18,15 @@ function round(value, digits = 2) {
   if (!Number.isFinite(n)) return null;
   const factor = 10 ** digits;
   return Math.round(n * factor) / factor;
+}
+
+function mean(values) {
+  const nums = (values || [])
+    .filter((v) => v !== null && v !== undefined && v !== '')
+    .map(Number)
+    .filter(Number.isFinite);
+  if (!nums.length) return null;
+  return nums.reduce((sum, n) => sum + n, 0) / nums.length;
 }
 
 function buildAdjustedLookup(adjustedGrowth) {
@@ -65,12 +74,16 @@ function enrichBySkill(growthEpisodes, episodes) {
     .map((skill) => {
       const row = bySkillMap.get(skill);
       const skillEpisodes = episodes.filter((ep) => ep.skill === skill);
-      const improvedCount = skillEpisodes.filter((ep) => Number(ep.rawGrowth) > 0).length;
+      const improvedCount = skillEpisodes.filter((ep) => Number(ep.actualGseGrowth) > 0).length;
       const sampleSize = row.sampleSize || skillEpisodes.length;
       return {
         ...row,
         skill,
         label: SKILL_LABELS[skill] || skill,
+        /** 工具原始分平均差（不同英檢不可與 GSE 同軸比較） */
+        rawGrowthAverage: row.rawGrowthAverage ?? null,
+        /** GSE 實際成長平均（與校正後同尺） */
+        actualGseGrowthAverage: round(mean(skillEpisodes.map((ep) => ep.actualGseGrowth)), 2),
         growthStudentRatio: sampleSize ? round(improvedCount / sampleSize, 4) : null,
         improvedCount,
         declinedOrFlatCount: Math.max(0, sampleSize - improvedCount),
@@ -83,15 +96,17 @@ function buildRadarChart(bySkill, adjustedBySkill) {
   return SKILL_ORDER
     .filter((skill) => bySkill.some((row) => row.skill === skill))
     .map((skill) => {
-      const raw = bySkill.find((row) => row.skill === skill);
+      const row = bySkill.find((r) => r.skill === skill);
       const adj = adjMap.get(skill);
       return {
         skill,
         label: SKILL_LABELS[skill] || skill,
-        rawGrowthAverage: raw?.rawGrowthAverage ?? null,
+        actualGseGrowthAverage: row?.actualGseGrowthAverage ?? null,
         adjustedGseGrowthAverage: adj?.adjustedGseGrowthAverage ?? null,
-        sampleSize: raw?.sampleSize ?? 0,
-        confidenceInterval: raw?.confidenceInterval ?? null,
+        /** @deprecated 僅供明細／除錯；圖表請用 actualGseGrowthAverage */
+        rawGrowthAverage: row?.rawGrowthAverage ?? null,
+        sampleSize: row?.sampleSize ?? 0,
+        confidenceInterval: row?.confidenceInterval ?? null,
       };
     });
 }
@@ -107,6 +122,7 @@ function buildGrowthView(lva) {
       episodeSampleSize: episodes.length,
       timeWindowRule: '僅後測日期之前的資源計入該次成長區間；考後活動不納入該次成長解釋。',
       estimateType: lva.growthEpisodes?.estimateType || lva.estimatePolicy?.descriptive,
+      scaleNote: '圖表「實際／校正後」皆為 GSE 量尺；工具原始分進步另見 rawGrowthAverage，不可與 GSE 同軸比較。',
       causalClaimAllowed: false,
     },
     bySkill,

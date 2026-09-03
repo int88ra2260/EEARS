@@ -5,8 +5,6 @@ import { siteAuthor } from '../config/author';
 import { fetchViewStats } from '../services/statsApi';
 import './Footer.css';
 
-const EMI_CENTER_URL = 'https://emicenter.siwan.nsysu.edu.tw/';
-
 export default function Footer() {
   const { t } = useLanguage();
   const showAuthor = siteAuthor.name && siteAuthor.name.trim() !== '';
@@ -39,19 +37,11 @@ export default function Footer() {
             <span className="footer-divider">|</span>
             <Link to="/learning-resources" className="footer-link">{t('nav.learningResources')}</Link>
             <span className="footer-divider">|</span>
+            <Link to="/course-guide" className="footer-link">{t('nav.courseGuide')}</Link>
+            <span className="footer-divider">|</span>
             <Link to="/regulations-forms" className="footer-link">{t('nav.regulationsForms')}</Link>
             <span className="footer-divider">|</span>
             <Link to="/about" className="footer-link">{t('nav.about')}</Link>
-            <span className="footer-divider">|</span>
-            <a
-              href={EMI_CENTER_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="footer-link"
-            >
-              <i className="fas fa-external-link-alt me-2" aria-hidden />
-              {t('footer.linkToCenter')}
-            </a>
           </nav>
         </div>
         <div className="footer-bottom">

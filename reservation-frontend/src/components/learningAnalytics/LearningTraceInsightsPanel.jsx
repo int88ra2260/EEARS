@@ -50,8 +50,13 @@ export default function LearningTraceInsightsPanel({ token, ready = true }) {
     <section className="la-panel mb-4">
       <LearningAnalyticsPanelHeader
         title="學習軌跡洞察"
-        subtitle="推薦漏斗 × LJ 關聯分析（觀察性資料）"
+        lead="推薦漏斗（近 30 天）× LJ 關聯（近 90 天）；觀察性資料。"
       />
+      <Alert variant="light" className="small border py-2 mb-3">
+        本區塊使用 learning-trace 固定時間窗，
+        <strong>不受</strong>
+        上方學期、系所、資料版本等 LA 篩選影響。
+      </Alert>
 
       {loading ? (
         <div className="d-flex align-items-center gap-2 text-muted py-3">

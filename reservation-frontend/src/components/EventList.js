@@ -6,7 +6,6 @@ import EventDetail from './EventDetail';
 import {
   getEventBookingState,
   canReserveFromState,
-  canWaitlistFromState,
 } from '../utils/eventBookingState';
 import { bookingStateToReasonCode } from './events/EventDeadlineHint';
 import { safeAPICall } from '../utils/errorHandler';
@@ -260,19 +259,6 @@ function EventList({ initialTab: initialTabProp }) {
     [t, fillTemplate],
   );
 
-  /** 額滿時，與正式預約相同的開放／截止時間窗內可候補 */
-  const canWaitlistAndReason = useCallback(
-    (evt) => {
-      const state = getEventBookingState(evt);
-      if (canWaitlistFromState(state)) {
-        return { canWaitlist: true, reasonMessage: '', bookingState: state };
-      }
-      const { reasonMessage } = canReserveAndReason(evt);
-      return { canWaitlist: false, reasonMessage, bookingState: state };
-    },
-    [canReserveAndReason],
-  );
-
   const handleEventClick = (evt) => {
     setSelectedEvent(evt);
   };
@@ -285,9 +271,8 @@ function EventList({ initialTab: initialTabProp }) {
     let bookableCount = 0;
     let nextBookable = null;
     for (const evt of sorted) {
-      const { canReserve, reasonCode } = canReserveAndReason(evt);
-      const wl = canWaitlistAndReason(evt);
-      const isBookable = canReserve || (reasonCode === 'FULL' && wl.canWaitlist);
+      const { canReserve } = canReserveAndReason(evt);
+      const isBookable = canReserve;
       if (canReserve) bookableCount += 1;
       if (!nextBookable && isBookable) nextBookable = evt;
     }
@@ -297,7 +282,7 @@ function EventList({ initialTab: initialTabProp }) {
       nextBookable,
       nextEvent: sorted.length > 0 ? sorted[0] : null,
     };
-  }, [filteredEvents, canReserveAndReason, canWaitlistAndReason]);
+  }, [filteredEvents, canReserveAndReason]);
 
   const handleJumpToNextBookable = useCallback(() => {
     const { nextBookable, nextEvent } = calendarBookingMeta;
@@ -469,7 +454,6 @@ function EventList({ initialTab: initialTabProp }) {
         ref={calendarSectionRef}
         events={filteredEvents}
         canReserveAndReason={canReserveAndReason}
-        canWaitlistAndReason={canWaitlistAndReason}
         onEventClick={handleEventClick}
         t={t}
         surveyActive={enabledSurveys.length > 0}

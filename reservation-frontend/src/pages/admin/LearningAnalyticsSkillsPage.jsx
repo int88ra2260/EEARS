@@ -50,6 +50,7 @@ import MetricCard from '../../components/learningAnalytics/MetricCard';
 import GrowthMetricsExplainer from '../../components/learningAnalytics/GrowthMetricsExplainer';
 
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
+import { LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
 
 
@@ -152,66 +153,44 @@ export default function LearningAnalyticsSkillsPage() {
   const growth = data?.growth;
 
   const chartData = useMemo(() => {
-
     const bySkill = growth?.bySkill || data?.growthEpisodes?.bySkill || [];
-
     const adjusted = data?.adjustedGrowth?.bySkill || [];
-
     const adjMap = new Map(adjusted.map((r) => [r.skill, r.adjustedGseGrowthAverage]));
-
     return bySkill
-
       .filter((r) => SKILL_LABELS[r.skill])
-
       .map((r) => ({
-
         skill: r.label || SKILL_LABELS[r.skill],
-
-        raw: Number(r.rawGrowthAverage) || 0,
-
-        adjusted: Number(adjMap.get(r.skill)) || 0,
-
+        actual: Number(r.actualGseGrowthAverage) || 0,
+        adjusted: Number(adjMap.get(r.skill) ?? r.adjustedGseGrowthAverage) || 0,
+        rawInstrument: Number(r.rawGrowthAverage) || null,
         sampleSize: r.sampleSize,
-
         growthRatio: r.growthStudentRatio,
-
       }));
-
   }, [data, growth]);
 
-
-
   const radarData = useMemo(() => {
-
     return (growth?.radar || []).map((row) => ({
-
       skill: row.label || SKILL_LABELS[row.skill] || row.skill,
-
-      raw: Number(row.rawGrowthAverage) || 0,
-
+      actual: Number(row.actualGseGrowthAverage) || 0,
       adjusted: Number(row.adjustedGseGrowthAverage) || 0,
-
       fullMark: Math.max(
-
         50,
-
-        ...chartData.map((r) => Math.abs(r.raw)),
-
+        ...chartData.map((r) => Math.abs(r.actual)),
         ...chartData.map((r) => Math.abs(r.adjusted))
-
       ),
-
     }));
-
   }, [growth, chartData]);
-
 
 
   return (
 
     <div>
 
-      <LearningAnalyticsDataHealth meta={meta} error={metaError} />
+      <LearningAnalyticsDataHealth
+        meta={meta}
+        error={metaError}
+        snapshotVersion={appliedFilters.snapshot_version}
+      />
 
       <LearningAnalyticsFilters
 
@@ -227,11 +206,12 @@ export default function LearningAnalyticsSkillsPage() {
 
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
+        snapshotOptions={meta?.snapshots}
+        intro={LA_FILTER_INTRO_COHORT}
 
       />
 
       <LearningAnalyticsActiveFilters filters={appliedFilters} />
-
       {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
 
       {loading ? <div className="text-center py-5"><Spinner animation="border" /></div> : null}
@@ -289,7 +269,9 @@ export default function LearningAnalyticsSkillsPage() {
 
               <div className="la-panel">
 
-                <div className="la-panel-title">各技能進步</div>
+                <div className="la-panel-title">各技能進步（GSE 量尺）</div>
+
+                <p className="small text-muted mb-2">實際與校正後皆為 GSE，可同圖比較；不含各測驗原始分差。</p>
 
                 <div style={{ width: '100%', height: 320 }}>
 
@@ -301,15 +283,15 @@ export default function LearningAnalyticsSkillsPage() {
 
                       <XAxis dataKey="skill" />
 
-                      <YAxis />
+                      <YAxis label={{ value: 'GSE', angle: -90, position: 'insideLeft', fontSize: 11 }} />
 
                       <Tooltip />
 
                       <Legend />
 
-                      <Bar dataKey="raw" name="實際進步" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="actual" name="GSE 實際進步" fill="#94a3b8" radius={[4, 4, 0, 0]} />
 
-                      <Bar dataKey="adjusted" name="校正後進步" fill="#2c5282" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="adjusted" name="GSE 校正後進步" fill="#2c5282" radius={[4, 4, 0, 0]} />
 
                     </BarChart>
 
@@ -326,6 +308,7 @@ export default function LearningAnalyticsSkillsPage() {
               <div className="la-panel">
 
                 <div className="la-panel-title">有進步的學生比例</div>
+                <p className="small text-muted mb-2">以 GSE 實際進步 &gt; 0 計算。</p>
 
                 <ul className="list-unstyled small mb-0">
 
@@ -363,9 +346,9 @@ export default function LearningAnalyticsSkillsPage() {
 
                         <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={{ fontSize: 10 }} />
 
-                        <Radar name="實際" dataKey="raw" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.25} />
+                        <Radar name="GSE 實際" dataKey="actual" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.25} />
 
-                        <Radar name="校正後" dataKey="adjusted" stroke="#2c5282" fill="#2c5282" fillOpacity={0.2} />
+                        <Radar name="GSE 校正後" dataKey="adjusted" stroke="#2c5282" fill="#2c5282" fillOpacity={0.2} />
 
                         <Legend />
 

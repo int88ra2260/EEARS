@@ -134,6 +134,9 @@ function StudentDetailTable({ students }) {
   );
 }
 
+/** 細項分析僅適用學期／資料版本，不沿用學生群體篩選 */
+const OFFERING_SCOPE_KEYS = ['semester', 'snapshot_version'];
+
 export default function LearningAnalyticsOfferingsPage() {
   const {
     meta,
@@ -146,7 +149,10 @@ export default function LearningAnalyticsOfferingsPage() {
     ready,
     apiParams,
     token,
-  } = useLearningAnalyticsBootstrap();
+  } = useLearningAnalyticsBootstrap({
+    scopeKeys: OFFERING_SCOPE_KEYS,
+    defaultSemester: 'current',
+  });
   const [dimension, setDimension] = useState('course');
   const [instructorGrouping, setInstructorGrouping] = useState('by_semester');
   const [loading, setLoading] = useState(false);
@@ -160,6 +166,10 @@ export default function LearningAnalyticsOfferingsPage() {
 
   const accessProfile = useMemo(() => buildAccessProfile(token), [token]);
   const canExport = hasPermission(accessProfile, P.CAN_EXPORT_LEARNING_ANALYTICS);
+  const showSnapshotFilter = (meta?.snapshotVersionCount || 0) > 1;
+  const offeringVisibleKeys = useMemo(() => (
+    showSnapshotFilter ? ['semester', 'snapshot_version'] : ['semester']
+  ), [showSnapshotFilter]);
 
   const load = useCallback(async () => {
     if (!ready) return;
@@ -242,7 +252,11 @@ export default function LearningAnalyticsOfferingsPage() {
 
   return (
     <div>
-      <LearningAnalyticsDataHealth meta={meta} error={metaError} />
+      <LearningAnalyticsDataHealth
+        meta={meta}
+        error={metaError}
+        snapshotVersion={appliedFilters.snapshot_version}
+      />
 
       <Alert variant="info" className="mt-2 mb-0">
         <strong>描述性統計，非因果證明。</strong>
@@ -257,10 +271,19 @@ export default function LearningAnalyticsOfferingsPage() {
         onReset={resetFilters}
         loading={loading || !ready}
         filterOptions={meta?.filterOptions}
-        matchingCaliperDefault={meta?.matchingCaliperDefault}
+        snapshotOptions={meta?.snapshots}
+        visibleKeys={offeringVisibleKeys}
+        showAdvanced={false}
+        filterTitle="範圍條件"
+        emptyHint="未選學期時顯示所有學期細項（建議先選學期）"
+        intro="本頁依課程／教師／活動彙總，不使用系所、入學年度等學生群體條件；請用下方「分析維度」切換彙總方式。學期會篩選修課與活動細項。"
       />
 
-      <LearningAnalyticsActiveFilters filters={appliedFilters} />
+      <LearningAnalyticsActiveFilters
+        filters={appliedFilters}
+        visibleKeys={offeringVisibleKeys}
+        semesterScope="full"
+      />
 
       <div className="d-flex flex-wrap gap-3 align-items-end mt-3">
         <Form.Group style={{ minWidth: 220 }}>
@@ -313,7 +336,7 @@ export default function LearningAnalyticsOfferingsPage() {
 
       {showSemesterHint ? (
         <Alert variant="warning" className="mt-3 mb-0">
-          建議在篩選條件中選擇學期，以便聚焦單一學期的課程或活動細項；教師維度可切換「跨學期合併」。
+          建議先選擇學期，以便聚焦單一學期的課程或活動細項；教師維度可切換「跨學期合併」。
         </Alert>
       ) : null}
 

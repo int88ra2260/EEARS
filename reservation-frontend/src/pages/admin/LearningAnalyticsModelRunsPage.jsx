@@ -132,7 +132,11 @@ export default function LearningAnalyticsModelRunsPage() {
 
   return (
     <div>
-      <LearningAnalyticsDataHealth meta={meta} error={metaError} />
+      <LearningAnalyticsDataHealth
+        meta={meta}
+        error={metaError}
+        snapshotVersion={appliedFilters.snapshot_version}
+      />
 
       <LearningAnalyticsFilters
         filters={filters}
@@ -142,9 +146,11 @@ export default function LearningAnalyticsModelRunsPage() {
         loading={loading || saving || !ready}
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
+        snapshotOptions={meta?.snapshots}
         filterTitle="這次要存的篩選"
         submitLabel="套用篩選"
         showAdvanced
+        intro="以下篩選僅用於「儲存新紀錄」；下方歷史列表不會因改條件而刷新。"
       />
       <LearningAnalyticsActiveFilters filters={appliedFilters} />
 

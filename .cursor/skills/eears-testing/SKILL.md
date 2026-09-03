@@ -9,7 +9,7 @@ license: MIT
 ## When to Use This Skill
 
 - 你要修 bug、加功能、或重構會影響：
-  - 預約/取消（2hr 截止、候補、blacklist 檢查）
+  - 預約/取消（2hr 截止、blacklist 檢查）
   - 問卷 Gate（ET/EC、409 + redirectUrl）
   - 權限（RBAC/scope）
   - 匯入（Excel 去重、import-runs 狀態/刪除）

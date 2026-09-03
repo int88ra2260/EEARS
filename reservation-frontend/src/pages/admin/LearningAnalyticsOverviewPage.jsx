@@ -30,6 +30,7 @@ import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/Lea
 import LaFold from '../../components/learningAnalytics/LaFold';
 import EvidenceQualityBadge from '../../components/learningAnalytics/EvidenceQualityBadge';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
+import { LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
 const SKILL_LABELS = {
   listening: '聽力',
@@ -132,7 +133,11 @@ export default function LearningAnalyticsOverviewPage() {
 
   return (
     <div>
-      <LearningAnalyticsDataHealth meta={meta} error={metaError} />
+      <LearningAnalyticsDataHealth
+        meta={meta}
+        error={metaError}
+        snapshotVersion={appliedFilters.snapshot_version}
+      />
       <LearningAnalyticsOverviewGuide />
       {(semesterFromUrl || filters.semester) ? (
         <Alert variant="light" className="small py-2 mb-3 border">
@@ -151,9 +156,11 @@ export default function LearningAnalyticsOverviewPage() {
         loading={loading || !ready}
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
+        snapshotOptions={meta?.snapshots}
         filterTitle="篩選條件"
         submitLabel="套用篩選"
         showAdvanced={false}
+        intro={LA_FILTER_INTRO_COHORT}
       />
       <LearningAnalyticsActiveFilters filters={appliedFilters} />
 
@@ -206,10 +213,10 @@ export default function LearningAnalyticsOverviewPage() {
             </Col>
             <Col md={3} sm={6}>
               <MetricCard
-                label="B2 以上達標率"
+                label="B2 以上達標率（快照累積）"
                 value={formatPct(headline.b2plusRate)}
                 hint={`${formatNum(headline.b2plusCount)} 人`}
-                tooltip="依每位學生歷史最佳技能成績，CEFR 達 B2 或以上者所占比例。"
+                tooltip="依分析快照中每位學生歷史最佳技能成績，CEFR 達 B2 或以上者所占比例。不受上方「學期」篩選；學期名冊認證率見下方區塊。"
               />
             </Col>
             <Col md={3} sm={6}>
@@ -225,9 +232,17 @@ export default function LearningAnalyticsOverviewPage() {
           {certSkills ? (
             <Row className="g-3 mt-1">
               <Col xs={12}>
+                <Alert variant="secondary" className="small py-2 mb-0">
+                  以下認證通過率依<strong>學期名冊</strong>計算，是本頁少數真正受「學期」篩選影響的區塊。
+                  {!appliedFilters.semester
+                    ? ' 尚未選擇學期時不顯示此區；請在篩選條件選擇學期後按「套用篩選」。'
+                    : null}
+                </Alert>
+              </Col>
+              <Col xs={12}>
                 <LearningAnalyticsPanelHeader
                   title={`${data.certification.semesterId} 學期 · 四技能 B2+ 認證通過率`}
-                  lead={`依該學期名冊${data.certification.totalStudents != null ? `（共 ${data.certification.totalStudents} 人）` : ''}，統計各技能達 B2 以上的比例。`}
+                  lead={`依該學期名冊${data.certification.totalStudents != null ? `（共 ${data.certification.totalStudents} 人）` : ''}，統計各技能達 B2 以上的比例。與上方「快照累積」達標率定義不同，請勿直接互比。`}
                 />
               </Col>
               {Object.entries(certSkills).map(([skill, cell]) => (
@@ -242,6 +257,10 @@ export default function LearningAnalyticsOverviewPage() {
                 </Col>
               ))}
             </Row>
+          ) : appliedFilters.semester ? (
+            <Alert variant="light" className="mt-3 small border">
+              已選學期 {appliedFilters.semester}，但尚無該學期認證名冊資料可顯示。
+            </Alert>
           ) : null}
 
           <Row className="g-3 mt-2">
@@ -323,7 +342,7 @@ export default function LearningAnalyticsOverviewPage() {
                       <tr>
                         <th>資源類型</th>
                         <th className="text-end">樣本人數</th>
-                        <th className="text-end">平均成長</th>
+                        <th className="text-end">平均原始分進步</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -338,7 +357,7 @@ export default function LearningAnalyticsOverviewPage() {
                   </table>
                 </div>
                 <p className="small text-muted mt-2 mb-0">
-                  想深入比較各資源？請至
+                  「平均原始分進步」為各英檢工具分數差，非 GSE；跨工具不宜直接互比。想深入比較請至
                   {' '}
                   <Link to="/admin/learning-analytics/resources">資源效益</Link>
                   。

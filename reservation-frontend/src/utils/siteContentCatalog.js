@@ -9,7 +9,6 @@ export const TEXT_SECTION_PREFIXES = {
   about: ['aboutPage.'],
   contact: ['homePage.contact'],
   legal: ['privacyPage.', 'termsPage.'],
-  rules_modal: ['faq.'],
 };
 
 const LABEL_BY_KEY = Object.fromEntries(
