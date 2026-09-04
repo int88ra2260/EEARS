@@ -92,49 +92,166 @@
 }
 
 .public-registration__steps {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
   margin: 1.25rem 0 1.5rem;
+  padding: 0.85rem 0.75rem 0.75rem;
+  border: 1px solid var(--reg-border);
+  border-radius: 10px;
+  background: var(--reg-primary-light);
 }
 
-.public-registration__step-bar {
-  flex: 1;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--reg-border);
-  transition: background-color 0.2s ease;
+.public-registration__stepper {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
 }
 
-.public-registration__step-bar.is-done {
+.public-registration__step {
+  min-width: 0;
+  position: relative;
+}
+
+.public-registration__step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 1rem;
+  left: calc(50% + 1.1rem);
+  width: calc(100% - 0.9rem);
+  height: 2px;
+  background: #c5d4e8;
+  pointer-events: none;
+}
+
+.public-registration__step.is-completed:not(:last-child)::after,
+.public-registration__step.is-current:not(:last-child)::after {
   background: var(--reg-primary);
 }
 
-.public-registration__step-label {
-  font-size: 0.75rem;
-  font-weight: 600;
+.public-registration__step-btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.2rem;
+  border: none;
+  background: transparent;
   color: var(--reg-text-muted);
-  white-space: nowrap;
-  margin-left: 0.5rem;
-  font-variant-numeric: tabular-nums;
-  max-width: 55%;
+  cursor: default;
+  appearance: none;
+}
+
+.public-registration__step-index {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 2px solid #c5d4e8;
+  background: #fff;
+  color: var(--reg-text-muted);
+  position: relative;
+  z-index: 1;
+}
+
+.public-registration__step-name {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-registration__step.is-completed .public-registration__step-index {
+  border-color: var(--reg-primary);
+  background: var(--reg-primary);
+  color: #fff;
+}
+
+.public-registration__step.is-completed .public-registration__step-name {
+  color: var(--reg-primary-dark);
+}
+
+.public-registration__step.is-current .public-registration__step-index {
+  border-color: var(--reg-primary);
+  background: #fff;
+  color: var(--reg-primary);
+  box-shadow: 0 0 0 3px rgba(42, 93, 159, 0.18);
+}
+
+.public-registration__step.is-current .public-registration__step-name {
+  color: var(--reg-primary-dark);
+  font-weight: 700;
+}
+
+.public-registration__step.is-clickable .public-registration__step-btn {
+  cursor: pointer;
+}
+
+.public-registration__step.is-clickable .public-registration__step-btn:hover .public-registration__step-index {
+  border-color: var(--reg-primary);
+  transform: translateY(-1px);
+}
+
+.public-registration__step.is-clickable .public-registration__step-btn:hover .public-registration__step-name {
+  color: var(--reg-primary-dark);
+}
+
+.public-registration__step-btn:focus-visible {
+  outline: 2px solid var(--reg-primary);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.public-registration__step.is-locked .public-registration__step-btn:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.public-registration__step-status {
+  margin: 0.65rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--reg-primary-dark);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 576px) {
   .public-registration__steps {
-    flex-wrap: wrap;
+    padding: 0.75rem 0.5rem 0.65rem;
   }
 
-  .public-registration__step-label {
-    flex: 1 1 100%;
-    max-width: none;
-    white-space: normal;
-    margin-left: 0;
-    margin-top: 0.35rem;
-    overflow: visible;
-    text-overflow: unset;
+  .public-registration__stepper {
+    gap: 0.2rem;
+  }
+
+  .public-registration__step:not(:last-child)::after {
+    left: calc(50% + 0.95rem);
+    width: calc(100% - 0.7rem);
+  }
+
+  .public-registration__step-index {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.75rem;
+  }
+
+  .public-registration__step-name {
+    font-size: 0.625rem;
+  }
+
+  .public-registration__step-status {
+    font-size: 0.6875rem;
     line-height: 1.4;
   }
 }

@@ -264,28 +264,50 @@ const EXAM_GSE_MAPPINGS = Object.freeze({
   },
   BESTEP: {
     mappingType: 'score_anchors',
-    source: 'school_policy_bestep_gse_interpolation',
+    /**
+     * 以校內培力 CEFR 分數門檻對齊 Pearson GSE 的 CEFR 區間：
+     * - 聽／讀：70=B1、100=B2、130=C1（滿分 140）
+     * - 說／寫：280=B2、330=C1（滿分 360；說寫無官方 B1 門檻）
+     * 各 CEFR 帶：分數落在「該級下限 → 下一級下限前」時，GSE 在該級 gseMin–gseMax 內線性插值。
+     * 低於最低 CEFR 門檻：估為 A1–A2 區間（非校內正式切點）。
+     */
+    source: 'school_policy_bestep_cefr_to_gse_bands',
     confidence: 'estimated',
     version: VERSION,
     verifiedAt: VERIFIED_AT,
     skills: {
+      // 帶內：CEFR 下限分數 → gseMin；下一級門檻前一分 → gseMax，避免跨級滲漏
       listening: [
-        { rawMin: 130, gse: 76 },
-        { rawMin: 100, gse: 59 },
-        { rawMin: 70, gse: 43 },
+        { rawMin: 140, gse: 84 }, // 滿分 → C1 上界
+        { rawMin: 130, gse: 76 }, // C1 下限
+        { rawMin: 129, gse: 75 }, // B2 上界
+        { rawMin: 100, gse: 59 }, // B2 下限
+        { rawMin: 99, gse: 58 }, // B1 上界
+        { rawMin: 70, gse: 43 }, // B1 下限
+        { rawMin: 0, gse: 22 }, // 低於 B1：估 A1 下限
       ],
       reading: [
+        { rawMin: 140, gse: 84 },
         { rawMin: 130, gse: 76 },
+        { rawMin: 129, gse: 75 },
         { rawMin: 100, gse: 59 },
+        { rawMin: 99, gse: 58 },
         { rawMin: 70, gse: 43 },
+        { rawMin: 0, gse: 22 },
       ],
       speaking: [
+        { rawMin: 360, gse: 84 },
         { rawMin: 330, gse: 76 },
+        { rawMin: 329, gse: 75 },
         { rawMin: 280, gse: 59 },
+        { rawMin: 0, gse: 30 },
       ],
       writing: [
+        { rawMin: 360, gse: 84 },
         { rawMin: 330, gse: 76 },
+        { rawMin: 329, gse: 75 },
         { rawMin: 280, gse: 59 },
+        { rawMin: 0, gse: 30 },
       ],
     },
   },

@@ -22,20 +22,25 @@ function toScopesArray(rows) {
   return Array.from(new Set(values));
 }
 
-function normalizeRoleKey(role, teacherLevel, staffLevel) {
+function normalizeRoleKey(role, teacherLevel, staffLevel, workerLevel) {
   if (typeof role === 'string') {
-    if (role.startsWith('teacher:') || role.startsWith('office_staff:')) {
+    if (
+      role.startsWith('teacher:')
+      || role.startsWith('office_staff:')
+      || role.startsWith('worker:')
+    ) {
       return role;
     }
   }
   if (role === 'teacher') return `teacher:${teacherLevel || 'regular'}`;
   if (role === 'office_staff') return `office_staff:${staffLevel || 'event_lead'}`;
+  if (role === 'worker') return `worker:${workerLevel || 'event_ops'}`;
   return role || '';
 }
 
 async function getRolePermissions(role, teacherLevel, options = {}) {
-  const { transaction, staffLevel } = options;
-  const roleKey = normalizeRoleKey(role, teacherLevel, staffLevel);
+  const { transaction, staffLevel, workerLevel } = options;
+  const roleKey = normalizeRoleKey(role, teacherLevel, staffLevel, workerLevel);
   if (!roleKey) return [];
   const rows = await RolePermission.findAll({
     where: { role: roleKey },
@@ -89,6 +94,7 @@ async function buildEffectiveAccessFromSources({
   role = null,
   teacherLevel = null,
   staffLevel = null,
+  workerLevel = null,
   jsonPermissions = null,
   jsonScopes = null,
   mode = 'json_only',
@@ -109,7 +115,7 @@ async function buildEffectiveAccessFromSources({
   }
 
   const [tableBasePermissionsRaw, tablePermissionOverrides, tableScopeOverrides] = await Promise.all([
-    getRolePermissions(role, teacherLevel, { staffLevel }),
+    getRolePermissions(role, teacherLevel, { staffLevel, workerLevel }),
     getUserOverrides(userId),
     getUserScopes(userId),
   ]);

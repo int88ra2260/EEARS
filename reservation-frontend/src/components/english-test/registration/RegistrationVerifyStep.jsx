@@ -14,6 +14,7 @@ export default function RegistrationVerifyStep({
   onFormChange,
   onSubmit,
   onViewEdit,
+  onBack,
   onClose,
   onRegistrationClosedSubmitClick,
   isLoadingRegistration,
@@ -252,6 +253,22 @@ export default function RegistrationVerifyStep({
                   width: isSmallMobile ? '100%' : 'auto',
                 }}
               >
+                {onBack ? (
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={onBack}
+                    style={{
+                      padding: isSmallMobile ? '0.625rem 1.25rem' : '0.625rem 1.5rem',
+                      fontSize: isSmallMobile ? '0.875rem' : '1rem',
+                      fontWeight: 'bold',
+                      borderRadius: '8px',
+                      flex: isSmallMobile ? 1 : 'none',
+                    }}
+                  >
+                    ← 上一步
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="btn btn-secondary"

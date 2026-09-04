@@ -272,6 +272,10 @@
 }
 
 .batch-add-field--location {
+  grid-column: 1 / span 3;
+}
+
+.batch-add-field--notes {
   grid-column: 4 / span 2;
 }
 
@@ -325,6 +329,7 @@
 
   .batch-add-field--capacity,
   .batch-add-field--location,
+  .batch-add-field--notes,
   .batch-add-field--name {
     grid-column: 1 / -1;
   }

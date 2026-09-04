@@ -108,6 +108,42 @@ const GROUPS = {
       match: () => true,
     },
   ],
+  english_learning_passport: [
+    {
+      id: 'hero',
+      label: '頁首與導言',
+      description: '學生端護照頁主標題與說明',
+      match: (k) => k.startsWith('elpPage.hero'),
+    },
+    {
+      id: 'guide',
+      label: '快速指南',
+      description: '使用說明卡片與流程圖',
+      match: (k) => k.startsWith('elpPage.guide'),
+    },
+    {
+      id: 'identify-apply',
+      label: '身分與申請',
+      description: '身分驗證與申請護照相關文案',
+      match: (k) => k.startsWith('elpPage.identify')
+        || k.startsWith('elpPage.apply')
+        || k === 'elpPage.emailHint',
+    },
+    {
+      id: 'progress',
+      label: '進度與提交',
+      description: '達標提示、匯出與提交區塊',
+      match: (k) => k.startsWith('elpPage.completed')
+        || k.startsWith('elpPage.export')
+        || k.startsWith('elpPage.submit'),
+    },
+    {
+      id: 'other',
+      label: '其他',
+      description: '未歸入上述分類的欄位',
+      match: () => true,
+    },
+  ],
   activities: [
     {
       id: 'page-intro',

@@ -65,6 +65,94 @@ describe('learningAnalyticsOfferingService', () => {
     expect(metrics.improvement.any.studentCount).toBeGreaterThan(0);
     expect(metrics.improvement.allSkills.studentCount).toBeLessThanOrEqual(metrics.improvement.any.studentCount);
     expect(metrics.improvement.avgPositive.studentCount).toBeGreaterThan(0);
+    expect(metrics.direction.improved).toBe(metrics.improvement.avgPositive.studentCount);
+    expect(metrics.direction.improved + metrics.direction.flat + metrics.direction.declined)
+      .toBe(metrics.growthSampleSize);
+    expect(metrics.rawDistribution.median).not.toBeNull();
+    expect(metrics.rawDistribution.p25).toBeLessThanOrEqual(metrics.rawDistribution.p75);
+    expect(metrics.medianRawDelta).toBe(metrics.rawDistribution.median);
+  });
+
+  it('flags outlier skew when mean is pulled by extreme student averages', () => {
+    const exams = [
+      { studentId: 'E01', retestFlag: true, deltaRawScore: 100, improvedFlag: true, skill: 'listening' },
+      { studentId: 'E02', retestFlag: true, deltaRawScore: 2, improvedFlag: true, skill: 'listening' },
+      { studentId: 'E03', retestFlag: true, deltaRawScore: 2, improvedFlag: true, skill: 'listening' },
+      { studentId: 'E04', retestFlag: true, deltaRawScore: 2, improvedFlag: true, skill: 'listening' },
+      { studentId: 'E05', retestFlag: true, deltaRawScore: 2, improvedFlag: true, skill: 'listening' },
+      { studentId: 'E06', retestFlag: true, deltaRawScore: 2, improvedFlag: true, skill: 'listening' },
+      { studentId: 'E07', retestFlag: true, deltaRawScore: 2, improvedFlag: true, skill: 'listening' },
+      { studentId: 'E08', retestFlag: true, deltaRawScore: 2, improvedFlag: true, skill: 'listening' },
+      { studentId: 'E09', retestFlag: true, deltaRawScore: 2, improvedFlag: true, skill: 'listening' },
+      { studentId: 'E10', retestFlag: true, deltaRawScore: 2, improvedFlag: true, skill: 'listening' },
+    ];
+    const growthMap = buildStudentGrowthMap(exams);
+    const ids = new Set(exams.map((e) => e.studentId));
+    const metrics = aggregateOfferingMetrics(ids, growthMap);
+    expect(metrics.avgRawDelta).toBeGreaterThan(metrics.medianRawDelta);
+    expect(metrics.outlierSkew.flagged).toBe(true);
+    expect(metrics.outlierSkew.reason).toMatch(/極端|中位數/);
+    expect(metrics.direction.declined).toBe(0);
+    expect(metrics.direction.improved).toBe(10);
+  });
+
+  it('reports declined and flat counts explicitly', () => {
+    const exams = [
+      ...['A01', 'A02', 'A03', 'A04', 'A05'].map((studentId) => ({
+        studentId, retestFlag: true, deltaRawScore: 10, improvedFlag: true, skill: 'listening',
+      })),
+      ...['B01', 'B02'].map((studentId) => ({
+        studentId, retestFlag: true, deltaRawScore: 0, improvedFlag: false, skill: 'listening',
+      })),
+      ...['C01', 'C02', 'C03'].map((studentId) => ({
+        studentId, retestFlag: true, deltaRawScore: -5, improvedFlag: false, skill: 'listening',
+      })),
+    ];
+    const growthMap = buildStudentGrowthMap(exams);
+    const ids = new Set(exams.map((e) => e.studentId));
+    const metrics = aggregateOfferingMetrics(ids, growthMap);
+    expect(metrics.direction).toEqual({
+      improved: 5,
+      flat: 2,
+      declined: 3,
+      total: 10,
+    });
+    expect(metrics.primaryGrowthMetric).toBe('rawDelta');
+  });
+
+  it('flags gse resolution warning when raw moves but gse is flat', () => {
+    const { detectGseResolutionWarning } = require('../services/learningAnalytics/learningAnalyticsOfferingService');
+    expect(detectGseResolutionWarning(22.5, 0).flagged).toBe(true);
+    expect(detectGseResolutionWarning(22.5, 0).code).toBe('gse_resolution_low');
+    expect(detectGseResolutionWarning(22.5, null).code).toBe('gse_unmapped');
+    expect(detectGseResolutionWarning(2, 0).flagged).toBe(false);
+    expect(detectGseResolutionWarning(22.5, 3.2).flagged).toBe(false);
+  });
+
+  it('marks allSkills false when only one skill has data; true when all four improve', () => {
+    const oneSkill = buildStudentGrowthMap([
+      { studentId: 'S1', retestFlag: true, deltaRawScore: 45, skill: 'listening', instrument: 'BESTEP' },
+    ]);
+    const oneRows = buildStudentDetailRows(new Set(['S1']), oneSkill, new Map());
+    expect(oneRows[0].improvement.any.studentCount).toBe(1);
+    expect(oneRows[0].improvement.allSkills.studentCount).toBe(0);
+
+    const fourSkill = buildStudentGrowthMap([
+      { studentId: 'S2', retestFlag: true, deltaRawScore: 10, skill: 'listening', instrument: 'BESTEP' },
+      { studentId: 'S2', retestFlag: true, deltaRawScore: 8, skill: 'reading', instrument: 'BESTEP' },
+      { studentId: 'S2', retestFlag: true, deltaRawScore: 5, skill: 'speaking', instrument: 'BESTEP' },
+      { studentId: 'S2', retestFlag: true, deltaRawScore: 6, skill: 'writing', instrument: 'BESTEP' },
+    ]);
+    const fourRows = buildStudentDetailRows(new Set(['S2']), fourSkill, new Map());
+    expect(fourRows[0].improvement.any.studentCount).toBe(1);
+    expect(fourRows[0].improvement.allSkills.studentCount).toBe(1);
+  });
+
+  it('uses clarified improvement definition labels', () => {
+    const { IMPROVEMENT_DEFINITIONS } = require('../services/learningAnalytics/learningAnalyticsOfferingService');
+    expect(IMPROVEMENT_DEFINITIONS[0].label).toBe('任一技能進步');
+    expect(IMPROVEMENT_DEFINITIONS[1].label).toBe('全技能進步');
+    expect(IMPROVEMENT_DEFINITIONS[1].detail).toMatch(/四項/);
   });
 
   it('aggregates course offerings with skill breakdown', () => {

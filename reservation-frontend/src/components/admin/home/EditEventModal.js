@@ -130,6 +130,18 @@ export default function EditEventModal({
               onChange={(location) => setField('location', location)}
             />
           </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label>備註</Form.Label>
+            <Form.Control
+              type="text"
+              value={fields.notes ?? ''}
+              onChange={(e) => setField('notes', e.target.value)}
+              placeholder="實踐歷程檔案"
+              maxLength={255}
+            />
+            <Form.Text muted>預設為「實踐歷程檔案」，可自行修改。</Form.Text>
+          </Form.Group>
         </Form>
       </Modal.Body>
       <Modal.Footer>

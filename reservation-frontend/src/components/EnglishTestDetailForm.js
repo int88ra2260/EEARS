@@ -213,7 +213,7 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
           onClick={onBack}
           style={{ padding: '0.625rem 1.5rem', fontSize: '1rem', fontWeight: 'bold' }}
         >
-          上一步
+          ← 上一步
         </button>
         <div>
           <button

@@ -83,6 +83,22 @@ function normalizeLocation(value) {
   return trimmed || null;
 }
 
+const DEFAULT_EVENT_NOTES = '實踐歷程檔案';
+
+/** @param {unknown} value @param {{ useDefault?: boolean }} [opts] */
+function normalizeNotes(value, opts = {}) {
+  const { useDefault = false } = opts;
+  if (value === undefined || value === null) {
+    return useDefault ? DEFAULT_EVENT_NOTES : null;
+  }
+  if (typeof value !== 'string') {
+    return useDefault ? DEFAULT_EVENT_NOTES : null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) return useDefault ? DEFAULT_EVENT_NOTES : null;
+  return trimmed.slice(0, 255);
+}
+
 // 1) GET /api/events - 前台取得全部活動 (無需 Token)
 router.get('/events', async (req, res, next) => {
   try {
@@ -115,6 +131,7 @@ router.get('/events', async (req, res, next) => {
         eventType: e.eventType || 'English Table',
         customReservationRule: e.customReservationRule,
         location: e.location,
+        notes: e.notes || DEFAULT_EVENT_NOTES,
         availableSpots: availableSpots
       };
     });
@@ -147,6 +164,7 @@ router.get(
         'eventType',
         'customReservationRule',
         'location',
+        'notes',
         'autoCheckCompleted',
       ],
     });
@@ -169,6 +187,7 @@ router.get(
       eventType: event.eventType || 'English Table',
       customReservationRule: event.customReservationRule,
       location: event.location,
+      notes: event.notes || DEFAULT_EVENT_NOTES,
       reserved: reservedCount,
       availableSpots,
       checkedInCount: Math.max(0, parseInt(stats.checkedIn) || 0),
@@ -231,6 +250,7 @@ router.get(
         'eventType',
         'customReservationRule',
         'location',
+        'notes',
       ],
     });
     if (!event) return res.status(404).json({ error: '活動不存在' });
@@ -251,6 +271,7 @@ router.get(
       eventType: event.eventType || 'English Table',
       customReservationRule: event.customReservationRule,
       location: event.location,
+      notes: event.notes || DEFAULT_EVENT_NOTES,
       reserved: reservedCount,
       availableSpots,
     });
@@ -394,6 +415,7 @@ router.get('/reports/summary', authMiddleware, requirePermission(P.CAN_VIEW_EVEN
         eventType: evt.eventType || 'English Table',
         customReservationRule: evt.customReservationRule,
         location: evt.location,
+        notes: evt.notes || DEFAULT_EVENT_NOTES,
         reservedCount: reservedCount,
         checkedIn: Math.max(0, parseInt(stats.checkedIn) || 0),
         notCheckedIn: Math.max(0, parseInt(stats.notCheckedIn) || 0),
@@ -629,7 +651,7 @@ router.get('/reports/export', authMiddleware, requirePermission(P.CAN_EXPORT_REP
 // 5) POST /api/events - 新增活動 (需 Token)
 router.post('/events', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), async (req, res, next) => {
   try {
-    const { name, date, startTime, endTime, maxCapacity, eventType, customReservationRule, location, groupCount, perGroupCapacity } = req.body;
+    const { name, date, startTime, endTime, maxCapacity, eventType, customReservationRule, location, notes, groupCount, perGroupCapacity } = req.body;
     if (!name || !date || !startTime || !endTime) {
       return res.status(400).json({ error: "缺少必要欄位" });
     }
@@ -654,7 +676,8 @@ router.post('/events', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), a
       perGroupCapacity: capacity.perGroupCapacity,
       eventType: eventType || 'English Table',
       customReservationRule: customReservationRule || null,
-      location: normalizeLocation(location)
+      location: normalizeLocation(location),
+      notes: normalizeNotes(notes, { useDefault: true }),
     });
     auditLogService.logAuditAsync({
       module: 'events',
@@ -667,6 +690,7 @@ router.post('/events', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), a
         name: newEvent.name,
         date: newEvent.date,
         eventType: newEvent.eventType,
+        notes: newEvent.notes,
       },
       req,
     });
@@ -729,7 +753,8 @@ router.post('/events/batch', authMiddleware, requirePermission(P.CAN_MANAGE_EVEN
             perGroupCapacity: capacity.perGroupCapacity,
             eventType: eventData.eventType || 'English Table',
             customReservationRule: eventData.customReservationRule || null,
-            location: normalizeLocation(eventData.location)
+            location: normalizeLocation(eventData.location),
+            notes: normalizeNotes(eventData.notes, { useDefault: true }),
           }, { transaction });
 
           results.successCount++;
@@ -737,7 +762,8 @@ router.post('/events/batch', authMiddleware, requirePermission(P.CAN_MANAGE_EVEN
             id: newEvent.id,
             name: newEvent.name,
             date: newEvent.date,
-            location: newEvent.location
+            location: newEvent.location,
+            notes: newEvent.notes,
           });
         } catch (err) {
           console.error(`批量新增活動時發生錯誤（第 ${i + 1} 個）:`, err);
@@ -869,10 +895,11 @@ const updateEventHandler = async (req, res, next) => {
       maxCapacity: event.maxCapacity,
       eventType: event.eventType,
       location: event.location,
+      notes: event.notes,
       customReservationRule: event.customReservationRule,
     };
 
-    const { name, date, startTime, endTime, maxCapacity, eventType, customReservationRule, location, groupCount, perGroupCapacity } = req.body;
+    const { name, date, startTime, endTime, maxCapacity, eventType, customReservationRule, location, notes, groupCount, perGroupCapacity } = req.body;
     if (name !== undefined) event.name = name;
     if (date !== undefined) event.date = date;
     if (startTime !== undefined) event.startTime = startTime;
@@ -880,6 +907,7 @@ const updateEventHandler = async (req, res, next) => {
     if (eventType !== undefined) event.eventType = eventType;
     if (customReservationRule !== undefined) event.customReservationRule = customReservationRule;
     if (location !== undefined) event.location = normalizeLocation(location);
+    if (notes !== undefined) event.notes = normalizeNotes(notes);
 
     if (maxCapacity !== undefined || groupCount !== undefined || perGroupCapacity !== undefined) {
       const capacity = normalizeEventCapacityInput({
@@ -905,6 +933,7 @@ const updateEventHandler = async (req, res, next) => {
       maxCapacity: event.maxCapacity,
       eventType: event.eventType,
       location: event.location,
+      notes: event.notes,
       customReservationRule: event.customReservationRule,
     };
     auditLogService.logAuditAsync({

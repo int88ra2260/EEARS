@@ -82,7 +82,7 @@ export default function AnnouncementDetailPage() {
     }
     link.setAttribute('href', `${window.location.origin}${path}`);
     return () => {
-      document.title = 'EEARS｜英語增能活動預約系統';
+      document.title = 'EEARS｜中山大學全英語卓越教學中心';
     };
   }, [item]);
 

@@ -1,6 +1,7 @@
 import HomePage from '../HomePage';
 import ActivitiesPage from '../ActivitiesPage';
 import AboutPage from '../AboutPage';
+import EnglishLearningPassportPage from '../student/EnglishLearningPassportPage';
 import LegalVisualPreview from './LegalVisualPreview';
 
 /** 各文案區塊對應的學生端預覽頁面 */
@@ -34,6 +35,12 @@ export const VISUAL_SECTION_CONFIG = {
     layout: 'public',
     Component: LegalVisualPreview,
     hint: '切換隱私權／使用條款後，點擊段落文字即可編輯。',
+  },
+  english_learning_passport: {
+    path: '/student/english-learning-passport',
+    layout: 'public',
+    Component: EnglishLearningPassportPage,
+    hint: '點擊學生端護照頁上的文字或指南圖即可編輯；點擊圖片後可在右側上傳／挑選新圖。',
   },
 };
 

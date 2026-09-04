@@ -103,6 +103,7 @@ const EnglishLearningPointRule = require('./EnglishLearningPointRule');
 const EnglishLearningSubmission = require('./EnglishLearningSubmission');
 const EnglishLearningAttachment = require('./EnglishLearningAttachment');
 const EnglishLearningAuditLog = require('./EnglishLearningAuditLog');
+const EnglishLearningPassportEmailVerification = require('./EnglishLearningPassportEmailVerification');
 const EtGroupBandConfig = require('./EtGroupBandConfig');
 const EtEventGroupPlan = require('./EtEventGroupPlan');
 const EtEventGroupAssignment = require('./EtEventGroupAssignment');
@@ -416,6 +417,7 @@ module.exports = {
   EnglishLearningSubmission,
   EnglishLearningAttachment,
   EnglishLearningAuditLog,
+  EnglishLearningPassportEmailVerification,
   EtGroupBandConfig,
   EtEventGroupPlan,
   EtEventGroupAssignment,

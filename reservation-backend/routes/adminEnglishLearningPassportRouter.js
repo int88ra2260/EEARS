@@ -4,6 +4,7 @@ const express = require('express');
 const { authMiddleware, requirePermission, requireAnyPermission, P } = require('../middlewares/auth');
 const passportService = require('../services/englishLearningPassport/passportService');
 const exportService = require('../services/englishLearningPassport/exportService');
+const siteContentService = require('../services/siteContentService');
 
 const router = express.Router();
 
@@ -164,6 +165,83 @@ router.delete('/english-learning-passports/rules/:id', rulesViewAuth, async (req
   }
 });
 
+router.post('/english-learning-passports/batch-delete', manageAuth, async (req, res, next) => {
+  try {
+    const allowActive = !!req.body?.force;
+    const data = await passportService.batchDeletePassportsAdmin(req.body?.ids, req, { allowActive });
+    res.json({ success: true, data });
+  } catch (e) {
+    handleServiceError(e, res, next);
+  }
+});
+
+router.post('/english-learning-passports/batch-reject', manageAuth, async (req, res, next) => {
+  try {
+    const data = await passportService.batchRejectPassportsAdmin(
+      req.body?.ids,
+      req.user.id,
+      req.body?.reason,
+      req,
+    );
+    res.json({ success: true, data });
+  } catch (e) {
+    handleServiceError(e, res, next);
+  }
+});
+
+const ELP_PAGE_UI_SECTION = 'english_learning_passport';
+
+router.get('/english-learning-passports/page-ui', manageAuth, async (req, res, next) => {
+  try {
+    const data = await siteContentService.listAdmin({ section: ELP_PAGE_UI_SECTION });
+    res.json(data);
+  } catch (e) {
+    handleServiceError(e, res, next);
+  }
+});
+
+router.put('/english-learning-passports/page-ui/text', manageAuth, async (req, res, next) => {
+  try {
+    const row = await siteContentService.upsertTextEntry(
+      ELP_PAGE_UI_SECTION,
+      req.body,
+      req.user?.id || null,
+    );
+    res.json({ success: true, item: row });
+  } catch (e) {
+    handleServiceError(e, res, next);
+  }
+});
+
+router.post('/english-learning-passports/page-ui/seed', manageAuth, async (req, res, next) => {
+  try {
+    const result = await siteContentService.seedTextFromDefaults(
+      ELP_PAGE_UI_SECTION,
+      req.body?.items || [],
+      req.user?.id || null,
+      { overwrite: !!req.body?.overwrite },
+    );
+    res.json({ success: true, result });
+  } catch (e) {
+    handleServiceError(e, res, next);
+  }
+});
+
+router.delete('/english-learning-passports/page-ui/:id', manageAuth, async (req, res, next) => {
+  try {
+    const data = await siteContentService.listAdmin({ section: ELP_PAGE_UI_SECTION });
+    const items = data?.items || [];
+    const target = items.find((x) => String(x.id) === String(req.params.id));
+    if (!target) {
+      return res.status(404).json({ success: false, message: '找不到此文案項目' });
+    }
+    await siteContentService.deleteEntry(req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    handleServiceError(e, res, next);
+  }
+});
+
 router.get('/english-learning-passports/:id', viewAuth, async (req, res, next) => {
   try {
     const data = await passportService.getPassportDetailAdmin(req.params.id);
@@ -190,6 +268,17 @@ router.post('/english-learning-passports/:id/reject', manageAuth, async (req, re
       req.body.reason,
       req,
     );
+    res.json({ success: true, data });
+  } catch (e) {
+    handleServiceError(e, res, next);
+  }
+});
+
+router.delete('/english-learning-passports/:id', manageAuth, async (req, res, next) => {
+  try {
+    const allowActive = String(req.query.force || req.body?.force || '').toLowerCase() === 'true'
+      || req.body?.force === true;
+    const data = await passportService.deletePassportAdmin(req.params.id, req, { allowActive });
     res.json({ success: true, data });
   } catch (e) {
     handleServiceError(e, res, next);

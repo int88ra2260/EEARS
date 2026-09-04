@@ -7,6 +7,8 @@ import {
   ROLE_BADGE_SOFT,
   STAFF_LEVEL_OPTIONS,
   STAFF_LEVEL_TABLE_LABEL,
+  WORKER_LEVEL_OPTIONS,
+  WORKER_LEVEL_TABLE_LABEL,
   TEACHER_LEVEL_OPTIONS,
   TEACHER_LEVEL_TABLE_LABEL,
 } from '../../../constants/accountManagement';
@@ -165,6 +167,8 @@ export default function AccountTable({
                       const levelShort = TEACHER_LEVEL_TABLE_LABEL[levelKey] || levelKey;
                       const staffKey = account.staffLevel || '';
                       const staffShort = STAFF_LEVEL_TABLE_LABEL[staffKey] || staffKey;
+                      const workerKey = account.workerLevel || '';
+                      const workerShort = WORKER_LEVEL_TABLE_LABEL[workerKey] || workerKey;
                       const roleSoft = ROLE_BADGE_SOFT[account.role] || ROLE_BADGE_DEFAULT;
                       return (
                         <tr key={account.id}>
@@ -201,6 +205,16 @@ export default function AccountTable({
                                   title={STAFF_LEVEL_OPTIONS.find((o) => o.value === account.staffLevel)?.label || ''}
                                 >
                                   {staffShort}
+                                </Badge>
+                              ) : account.role === 'worker' && workerKey ? (
+                                <Badge
+                                  bg="primary-subtle"
+                                  text="primary-emphasis"
+                                  className="fw-normal text-truncate border border-secondary-subtle"
+                                  style={{ maxWidth: '100%' }}
+                                  title={WORKER_LEVEL_OPTIONS.find((o) => o.value === account.workerLevel)?.label || ''}
+                                >
+                                  {workerShort}
                                 </Badge>
                               ) : (
                                 <span className="text-muted small">—</span>

@@ -9,7 +9,20 @@ import {
   testSendEmailTemplate,
 } from '../../services/emailTemplatesAdminApi';
 
-const CATEGORY_ORDER = ['reservation', 'english_test', 'learning_partner'];
+const CATEGORY_ORDER = [
+  'reservation',
+  'english_test',
+  'english_learning_passport',
+  'learning_partner',
+];
+
+const CATEGORY_FILTER_OPTIONS = [
+  { value: 'all', label: '全部分類' },
+  { value: 'reservation', label: '活動預約' },
+  { value: 'english_test', label: '培力英檢' },
+  { value: 'english_learning_passport', label: '英語實踐歷程護照' },
+  { value: 'learning_partner', label: '學習有伴' },
+];
 
 export default function AdminEmailTemplatesPage() {
   const { token } = useOutletContext();
@@ -82,7 +95,9 @@ export default function AdminEmailTemplatesPage() {
       if (!map.has(t.category)) map.set(t.category, []);
       map.get(t.category).push(t);
     }
-    return CATEGORY_ORDER.filter((c) => map.has(c)).map((c) => ({
+    const ordered = CATEGORY_ORDER.filter((c) => map.has(c));
+    const extras = [...map.keys()].filter((c) => !CATEGORY_ORDER.includes(c)).sort();
+    return [...ordered, ...extras].map((c) => ({
       category: c,
       label: map.get(c)[0]?.categoryLabel || c,
       items: map.get(c),
@@ -207,14 +222,13 @@ export default function AdminEmailTemplatesPage() {
               <div className="d-flex flex-wrap gap-2 mb-2">
                 <select
                   className="form-select form-select-sm"
-                  style={{ maxWidth: 160 }}
+                  style={{ maxWidth: 200 }}
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
                 >
-                  <option value="all">全部分類</option>
-                  <option value="reservation">活動預約</option>
-                  <option value="english_test">培力英檢</option>
-                  <option value="learning_partner">學習有伴</option>
+                  {CATEGORY_FILTER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
                 <input
                   className="form-control form-control-sm"

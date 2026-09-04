@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 
-const DEFAULT_TITLE = 'EEARS｜英語增能活動預約系統';
-const DEFAULT_TITLE_EN = 'EEARS | English Enhancement Activity Reservation System';
-const DEFAULT_DESC = '國立中山大學 EMI Center 英語增能活動預約系統，提供 English Table、English Club、International Forum 等活動預約與資訊查詢。';
-const DEFAULT_DESC_EN = 'National Sun Yat-sen University EMI Center — Reserve English Table, English Club, International Forum and more.';
+const DEFAULT_TITLE = 'EEARS｜中山大學全英語卓越教學中心';
+const DEFAULT_TITLE_EN = 'EEARS | NSYSU Center for EMI Excellence';
+const DEFAULT_DESC = '國立中山大學全英語卓越教學中心（EMI Center）英語增能活動預約系統，提供 English Table、English Club、International Forum 等活動預約與資訊查詢。';
+const DEFAULT_DESC_EN = 'National Sun Yat-sen University Center for EMI Excellence — Reserve English Table, English Club, International Forum and more.';
 
 const PAGE_META = {
   '/': { zh: { title: DEFAULT_TITLE, desc: DEFAULT_DESC }, en: { title: DEFAULT_TITLE_EN, desc: DEFAULT_DESC_EN } },

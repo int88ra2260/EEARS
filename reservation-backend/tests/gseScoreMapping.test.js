@@ -102,6 +102,29 @@ describe('gseScoreMapping', () => {
     expect(mid).toBe(51);
   });
 
+  test('BESTEP 聽力：CEFR 門檻對齊 GSE 帶界，帶內有解析度', () => {
+    const atB1 = inferGseFromScore({ examType: 'BESTEP', skill: 'listening', rawScore: 70 });
+    const midB1 = inferGseFromScore({ examType: 'BESTEP', skill: 'listening', rawScore: 85 });
+    const atB2 = inferGseFromScore({ examType: 'BESTEP', skill: 'listening', rawScore: 100 });
+    const midB2 = inferGseFromScore({ examType: 'BESTEP', skill: 'listening', rawScore: 115 });
+    const atC1 = inferGseFromScore({ examType: 'BESTEP', skill: 'listening', rawScore: 130 });
+    const top = inferGseFromScore({ examType: 'BESTEP', skill: 'listening', rawScore: 140 });
+    expect(atB1.gse).toBe(43);
+    expect(atB2.gse).toBe(59);
+    expect(atC1.gse).toBe(76);
+    expect(top.gse).toBe(84);
+    expect(midB1.gse).toBeGreaterThan(atB1.gse);
+    expect(midB1.gse).toBeLessThan(atB2.gse);
+    expect(midB2.gse).toBeGreaterThan(atB2.gse);
+    expect(midB2.gse).toBeLessThan(atC1.gse);
+  });
+
+  test('BESTEP 同測卷面進步應反映為 GSE 進步（B1 帶內）', () => {
+    const pre = inferGseFromScore({ examType: 'BESTEP', skill: 'listening', rawScore: 75 });
+    const post = inferGseFromScore({ examType: 'BESTEP', skill: 'listening', rawScore: 95 });
+    expect(post.gse - pre.gse).toBeGreaterThan(0);
+  });
+
   test('listGseMappingForSettings 涵蓋系統內所有英檢', () => {
     const data = listGseMappingForSettings();
     const types = data.examMappings.map((m) => m.examType);

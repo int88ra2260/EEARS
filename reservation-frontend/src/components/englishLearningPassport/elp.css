@@ -52,6 +52,11 @@
   line-height: 1.6;
 }
 
+.elp-guide-card__image-link--editable {
+  display: block;
+  cursor: default;
+}
+
 .elp-guide-card__open {
   display: inline-flex;
   align-items: center;

@@ -5,6 +5,7 @@ import { SITE_CONTENT_KEY_SUGGESTIONS } from '../constants/siteContentManifest';
 export const TEXT_SECTION_PREFIXES = {
   home: ['homePage.', 'home.notice', 'home.rule', 'home.usage'],
   english_test_registration: ['englishTestRegistration.'],
+  english_learning_passport: ['elpPage.'],
   activities: ['activitiesPage.', 'activities.', 'page.activitiesLead', 'page.activityCategoryLead'],
   about: ['aboutPage.'],
   contact: ['homePage.contact'],

@@ -105,16 +105,56 @@ function buildBasePermissionSet(user) {
   }
 
   if (role === 'worker') {
-    addAll(perms, [
-      P.CAN_VIEW_EVENTS_ADMIN,
-      P.CAN_VIEW_RESERVATIONS,
-      P.CAN_EXPORT_RESERVATIONS,
-      P.CAN_CHECKIN_STUDENTS,
-      P.CAN_VIEW_BLACKLIST,
-      P.CAN_RECORD_VIOLATIONS,
-      P.CAN_MANAGE_VIOLATIONS,
-      P.CAN_VIEW_ENGLISH_TEST_METRICS,
-    ]);
+    const worker = (user && user.workerLevel) || 'event_ops';
+    if (worker === 'event_ops') {
+      addAll(perms, [
+        P.CAN_VIEW_EVENTS_ADMIN,
+        P.CAN_MANAGE_EVENTS,
+        P.CAN_VIEW_RESERVATIONS,
+        P.CAN_MANAGE_RESERVATIONS,
+        P.CAN_EXPORT_RESERVATIONS,
+        P.CAN_CHECKIN_STUDENTS,
+        P.CAN_VIEW_BLACKLIST,
+        P.CAN_RECORD_VIOLATIONS,
+        P.CAN_MANAGE_VIOLATIONS,
+        P.CAN_VIEW_ET_GROUPING,
+        P.CAN_EXPORT_ET_GROUPING,
+      ]);
+    } else if (worker === 'bestep_ops') {
+      addAll(perms, [
+        P.CAN_VIEW_ENGLISH_TEST_METRICS,
+        P.CAN_VIEW_ENGLISH_TESTS,
+        P.CAN_MANAGE_ENGLISH_TESTS,
+        P.CAN_REVIEW_ENGLISH_TEST_REGISTRATIONS,
+        P.CAN_EXPORT_ENGLISH_TEST_DATA,
+        P.CAN_VIEW_ENGLISH_TEST_TRACKING,
+        P.CAN_MANAGE_ENGLISH_TEST_TRACKING,
+        P.CAN_IMPORT_BESTEP,
+        P.CAN_EXPORT_BESTEP,
+      ]);
+    } else if (worker === 'content_editor') {
+      addAll(perms, [
+        P.CAN_MANAGE_ANNOUNCEMENTS,
+        P.CAN_MANAGE_SITE_CONTENT,
+      ]);
+    } else if (worker === 'passport_ops') {
+      addAll(perms, [
+        P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS,
+        P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS,
+        P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS,
+        P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
+      ]);
+    } else {
+      addAll(perms, [
+        P.CAN_VIEW_EVENTS_ADMIN,
+        P.CAN_VIEW_RESERVATIONS,
+        P.CAN_EXPORT_RESERVATIONS,
+        P.CAN_CHECKIN_STUDENTS,
+        P.CAN_VIEW_BLACKLIST,
+        P.CAN_RECORD_VIOLATIONS,
+        P.CAN_MANAGE_VIOLATIONS,
+      ]);
+    }
     return perms;
   }
 
@@ -304,6 +344,21 @@ function baseScopesFromStaffLevel(staffLevel) {
   }
 }
 
+function baseScopesFromWorkerLevel(workerLevel) {
+  const level = workerLevel || 'event_ops';
+  switch (level) {
+    case 'event_ops':
+      return [SCOPE.ALL];
+    case 'bestep_ops':
+      return [SCOPE.ENGLISH_TEST, SCOPE.CLASS];
+    case 'content_editor':
+    case 'passport_ops':
+      return [];
+    default:
+      return [SCOPE.ALL];
+  }
+}
+
 function normalizeScopes(scopes) {
   if (!Array.isArray(scopes)) return [];
   const set = new Set();
@@ -341,6 +396,8 @@ export function buildAccessProfile(token, fallbackRole = '') {
   let role = fallbackRole || '';
   let teacherLevel = 'regular';
   let staffLevel = null;
+  let workerLevel = null;
+  let isDemo = false;
   let permissionOverrides = null;
   let scopeOverrides = null;
 
@@ -351,6 +408,8 @@ export function buildAccessProfile(token, fallbackRole = '') {
         if (payload.role) role = payload.role;
         teacherLevel = payload.teacherLevel || 'regular';
         staffLevel = payload.staffLevel != null ? payload.staffLevel : null;
+        workerLevel = payload.workerLevel != null ? payload.workerLevel : null;
+        isDemo = !!(payload.isDemo === true || payload.isDemo === 1 || payload.isDemo === 'true');
         permissionOverrides = payload.permissions || null;
         scopeOverrides = Array.isArray(payload.scopes) ? payload.scopes : null;
       }
@@ -371,6 +430,8 @@ export function buildAccessProfile(token, fallbackRole = '') {
     role,
     teacherLevel: role === 'teacher' ? teacherLevel : null,
     staffLevel: isOfficeStaff ? (staffLevel || 'event_lead') : null,
+    workerLevel: isWorker ? (workerLevel || 'event_ops') : null,
+    isDemo,
     permissions: permissionOverrides,
     scopes: scopeOverrides,
   };
@@ -383,7 +444,7 @@ export function buildAccessProfile(token, fallbackRole = '') {
 
   let baseScopes;
   if (isAdmin || isExecutive) baseScopes = [SCOPE.ALL];
-  else if (isWorker) baseScopes = [SCOPE.ALL];
+  else if (isWorker) baseScopes = baseScopesFromWorkerLevel(workerLevel || 'event_ops');
   else if (isLeader) baseScopes = [SCOPE.ENGLISH_TABLE];
   else if (isTeacher) baseScopes = baseScopesFromTeacherLevel(teacherLevel);
   else if (isOfficeStaff) baseScopes = baseScopesFromStaffLevel(staffLevel || 'event_lead');
@@ -396,6 +457,8 @@ export function buildAccessProfile(token, fallbackRole = '') {
     role,
     teacherLevel: userLike.teacherLevel,
     staffLevel: userLike.staffLevel,
+    workerLevel: userLike.workerLevel,
+    isDemo,
     permissionSet,
     basePermissions: Array.from(basePermissionsSet).sort(),
     permissionOverrides,

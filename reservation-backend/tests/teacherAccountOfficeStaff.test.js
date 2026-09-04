@@ -14,6 +14,7 @@ function mockCreateTeacherRecord(data = {}) {
     role: data.role || 'teacher',
     teacherLevel: Object.prototype.hasOwnProperty.call(data, 'teacherLevel') ? data.teacherLevel : 'regular',
     staffLevel: Object.prototype.hasOwnProperty.call(data, 'staffLevel') ? data.staffLevel : null,
+    workerLevel: Object.prototype.hasOwnProperty.call(data, 'workerLevel') ? data.workerLevel : null,
     department: data.department ?? null,
     phone: data.phone ?? null,
     isActive: data.isActive ?? true,
@@ -251,10 +252,12 @@ describe('teacher account office_staff api', () => {
 
     const workerRes = await request(app).patch('/api/admin/teachers/79').send({
       role: 'worker',
+      workerLevel: 'event_ops',
     });
     expect(workerRes.status).toBe(200);
     expect(workerRes.body.data.role).toBe('worker');
     expect(workerRes.body.data.staffLevel).toBeNull();
+    expect(workerRes.body.data.workerLevel).toBe('event_ops');
 
     const adminRes = await request(app).patch('/api/admin/teachers/79').send({
       role: 'admin',
@@ -262,5 +265,34 @@ describe('teacher account office_staff api', () => {
     expect(adminRes.status).toBe(200);
     expect(adminRes.body.data.role).toBe('admin');
     expect(adminRes.body.data.staffLevel).toBeNull();
+    expect(adminRes.body.data.workerLevel).toBeNull();
+  });
+
+  it('POST /api/admin/teachers role=worker 缺 workerLevel -> 400', async () => {
+    const app = createApp();
+    const res = await request(app).post('/api/admin/teachers').send({
+      name: 'Worker A',
+      email: 'worker-a@example.com',
+      username: 'workerA',
+      role: 'worker',
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('工讀生須指定職務');
+  });
+
+  it('POST /api/admin/teachers role=worker workerLevel 合法 -> 201', async () => {
+    const app = createApp();
+    const res = await request(app).post('/api/admin/teachers').send({
+      name: 'Worker B',
+      email: 'worker-b@example.com',
+      username: 'workerB',
+      role: 'worker',
+      workerLevel: 'content_editor',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.role).toBe('worker');
+    expect(res.body.data.workerLevel).toBe('content_editor');
+    expect(res.body.data.staffLevel).toBeNull();
   });
 });

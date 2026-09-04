@@ -13,6 +13,7 @@ import EnglishTestViewEditModal from './EnglishTestViewEditModal';
 export default function EnglishTestRegistrationPage() {
   const {
     englishTestStep,
+    navigableMaxStep,
     agreedToAnnouncement,
     setAgreedToAnnouncement,
     agreedToPrivacyPolicy,
@@ -33,6 +34,8 @@ export default function EnglishTestRegistrationPage() {
     handleCloseEnglishTestModal,
     handleAnnouncementNext,
     handlePrivacyPolicyNext,
+    handleStepBack,
+    handleGoToStep,
     handleViewEdit,
     handleEnglishTestFormChange,
     handleEnglishTestSubmit,
@@ -48,8 +51,10 @@ export default function EnglishTestRegistrationPage() {
   return (
     <RegistrationPageLayout
       englishTestStep={englishTestStep}
+      maxReachedStep={navigableMaxStep}
       isCheckingRegistrationStatus={isCheckingRegistrationStatus}
       onClose={handleCloseEnglishTestModal}
+      onStepSelect={handleGoToStep}
     >
       {englishTestStep === 0 && (
         <RegistrationAnnouncementStep
@@ -64,6 +69,7 @@ export default function EnglishTestRegistrationPage() {
           agreedToPrivacyPolicy={agreedToPrivacyPolicy}
           onAgreedChange={setAgreedToPrivacyPolicy}
           onNext={handlePrivacyPolicyNext}
+          onBack={handleStepBack}
         />
       )}
 
@@ -78,6 +84,7 @@ export default function EnglishTestRegistrationPage() {
           onFormChange={handleEnglishTestFormChange}
           onSubmit={handleEnglishTestSubmit}
           onViewEdit={handleViewEdit}
+          onBack={handleStepBack}
           onClose={handleCloseEnglishTestModal}
           onRegistrationClosedSubmitClick={handleRegistrationClosedSubmitClick}
           isLoadingRegistration={isLoadingRegistration}
@@ -103,6 +110,7 @@ export default function EnglishTestRegistrationPage() {
           basicInfo={englishTestForm}
           initialData={studentData}
           onNext={handleStep3Next}
+          onBack={handleStepBack}
           onClose={handleCloseEnglishTestModal}
           onSubmitNonExam={handleSubmitNonExam}
         />

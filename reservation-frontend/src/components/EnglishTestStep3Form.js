@@ -10,7 +10,7 @@ import EnglishTestStep3FormBody from './english-test/registration/EnglishTestSte
 import { useEnglishTestFormSchemaPublic } from '../hooks/useEnglishTestFormSchemaPublic';
 import { buildFormOptionsFromMeta } from '../utils/englishTestFormSchemaMeta';
 
-export default function EnglishTestStep3Form({ basicInfo, initialData, onNext, onClose, onSubmitNonExam }) {
+export default function EnglishTestStep3Form({ basicInfo, initialData, onNext, onBack, onClose, onSubmitNonExam }) {
   const toast = useToast();
   const { confirm } = useConfirm();
   const { meta } = useEnglishTestFormSchemaPublic();
@@ -43,6 +43,7 @@ export default function EnglishTestStep3Form({ basicInfo, initialData, onNext, o
         handleChange={handleChange}
         handleFileChange={handleFileChange}
         checkB2Level={checkB2Level}
+        onBack={onBack}
         onClose={onClose}
         formOptions={formOptions}
       />

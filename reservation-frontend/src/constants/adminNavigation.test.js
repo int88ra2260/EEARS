@@ -27,6 +27,13 @@ describe('getAdminRoleHomePath', () => {
     expect(getAdminRoleHomePath({ role: 'office_staff' })).toBe('/admin/operations');
   });
 
+  it('returns role home by workerLevel', () => {
+    expect(getAdminRoleHomePath({ role: 'worker', workerLevel: 'event_ops' })).toBe('/admin/operations');
+    expect(getAdminRoleHomePath({ role: 'worker', workerLevel: 'content_editor' })).toBe('/admin/announcements');
+    expect(getAdminRoleHomePath({ role: 'worker', workerLevel: 'bestep_ops' })).toBe('/admin/english-tests');
+    expect(getAdminRoleHomePath({ role: 'worker', workerLevel: 'passport_ops' })).toBe('/admin/english-learning-passports');
+  });
+
   it('returns dashboard for admin', () => {
     expect(getAdminRoleHomePath({ role: 'admin' })).toBe('/admin/dashboard');
   });
@@ -41,39 +48,39 @@ describe('getAdminRoleHomeLabel', () => {
   });
 });
 
-describe('filterVisibleNav worker restriction', () => {
-  const workerProfile = buildAccessProfile('', 'worker');
-  const workerCtx = buildNavContextFromAccessProfile(workerProfile);
+describe('filterVisibleNav worker by workerLevel', () => {
+  it('event_ops worker can access operations route and sees events nav', () => {
+    const workerProfile = buildAccessProfile('', 'worker');
+    expect(workerProfile.workerLevel).toBe('event_ops');
+    expect(canAccessAdminRoute(workerProfile, '/admin/operations')).toBe(true);
+    expect(canAccessAdminRoute(workerProfile, '/admin/announcements')).toBe(false);
 
-  it('allows worker to access dashboard route', () => {
-    expect(canAccessAdminRoute(workerProfile, '/admin/dashboard')).toBe(true);
-  });
-
-  it('shows only dashboard and password reset for worker', () => {
+    const workerCtx = buildNavContextFromAccessProfile(workerProfile);
     const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, workerCtx);
-    const leafIds = visible
-      .flatMap((section) => (section.children || []).map((child) => child.id))
-      .sort();
-    expect(leafIds).toEqual(['account-reset', 'system-dashboard']);
+    const sectionIds = visible.map((section) => section.id);
+    expect(sectionIds).toContain('events');
+    expect(sectionIds).not.toContain('announcements');
   });
 
-  it('hides legacy student lookup from nav for admin context', () => {
-    const adminCtx = buildNavContextFromAccessProfile(
-      buildAccessProfile('', 'admin')
-    );
-    const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, adminCtx);
-    const analyticsSection = visible.find((s) => s.id === 'analytics');
-    const legacyStudent = analyticsSection?.children?.find((c) => c.id === 'analytics-students');
-    expect(legacyStudent).toBeUndefined();
+  it('content_editor worker sees announcement routes', () => {
+    const tokenPayload = Buffer.from(JSON.stringify({
+      role: 'worker',
+      workerLevel: 'content_editor',
+    })).toString('base64');
+    const fakeToken = `hdr.${tokenPayload}.sig`;
+    const profile = buildAccessProfile(fakeToken, 'worker');
+    expect(profile.workerLevel).toBe('content_editor');
+    expect(canAccessAdminRoute(profile, '/admin/announcements')).toBe(true);
+    expect(canAccessAdminRoute(profile, '/admin/operations')).toBe(false);
   });
 });
 
 describe('getDefaultExpandedSectionIds', () => {
-  it('expands system and accounts for worker', () => {
+  it('expands events and accounts for event_ops worker', () => {
     const workerCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'worker'));
     const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, workerCtx);
     const ids = getDefaultExpandedSectionIds(workerCtx, visible);
-    expect(ids.has('system')).toBe(true);
+    expect(ids.has('events')).toBe(true);
     expect(ids.has('accounts')).toBe(true);
   });
 

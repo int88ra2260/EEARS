@@ -60,10 +60,12 @@ jest.mock('../services/auditLogService', () => ({
 const passportService = require('../services/englishLearningPassport/passportService');
 const pointValidation = require('../services/englishLearningPassport/pointValidationService');
 
+process.env.ELP_EMAIL_VERIFICATION_ENABLED = 'false';
+
 const studentCtx = {
-  studentId: 'S12345678',
+  studentId: 'B123456789',
   studentName: '測試學生',
-  studentEmail: 'test@example.com',
+  studentEmail: 'b123456789@student.nsysu.edu.tw',
 };
 
 function makePassport(overrides = {}) {

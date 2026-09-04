@@ -10,6 +10,10 @@ const SITE_CONTENT_SECTIONS = Object.freeze({
     label: '英檢註冊比對訊息',
     prefixes: ['englishTestRegistration.'],
   },
+  english_learning_passport: {
+    label: '英語實踐歷程護照',
+    prefixes: ['elpPage.'],
+  },
   activities: {
     label: '活動介紹',
     prefixes: ['activitiesPage.', 'activities.', 'page.activitiesLead', 'page.activityCategoryLead'],

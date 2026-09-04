@@ -30,6 +30,7 @@ const { isLeaderOnlyAccountManagerUser } = require('../auth/accessProfile');
 const ALLOWED_ROLES = ['admin', 'worker', 'teacher', 'office_staff', 'leader'];
 const ALLOWED_TEACHER_LEVELS = ['regular', 'executive', 'et_manager', 'if_manager', 'jt_manager'];
 const ALLOWED_STAFF_LEVELS = ['event_lead', 'curriculum_lead', 'bestep_lead', 'deputy_manager'];
+const ALLOWED_WORKER_LEVELS = ['event_ops', 'bestep_ops', 'content_editor', 'passport_ops'];
 
 function passwordPolicyContextFromTeacher(teacher) {
   return buildPasswordPolicyContext({
@@ -72,6 +73,8 @@ function mapTeacherResponse(teacher, accessData = null) {
     role: teacher.role,
     teacherLevel: teacher.teacherLevel || null,
     staffLevel: teacher.staffLevel || null,
+    workerLevel: teacher.workerLevel || null,
+    isDemo: !!teacher.isDemo,
     department: teacher.department,
     phone: teacher.phone,
     isActive: teacher.isActive,
@@ -142,6 +145,7 @@ function shouldBumpAccessVersion(before, after) {
     'role',
     'teacherLevel',
     'staffLevel',
+    'workerLevel',
     'permissions',
     'scopes',
     'isActive',
@@ -169,6 +173,7 @@ async function createTeacher(req, res, next) {
       role = 'teacher',
       teacherLevel = 'regular',
       staffLevel = null,
+      workerLevel = null,
       studentId = null,
       isActive = true,
       permissions = null,
@@ -192,6 +197,17 @@ async function createTeacher(req, res, next) {
         return res.status(400).json({
           error: '行政職員須指定職務',
           allowedStaffLevels: ALLOWED_STAFF_LEVELS,
+        });
+      }
+    }
+    let normalizedWorkerLevel = null;
+    if (normalizedRole === 'worker') {
+      normalizedWorkerLevel = workerLevel && ALLOWED_WORKER_LEVELS.includes(workerLevel) ? workerLevel : null;
+      if (!normalizedWorkerLevel) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: '工讀生須指定職務',
+          allowedWorkerLevels: ALLOWED_WORKER_LEVELS,
         });
       }
     }
@@ -255,6 +271,7 @@ async function createTeacher(req, res, next) {
       role: normalizedRole,
       teacherLevel: normalizedRole === 'teacher' ? (teacherLevel || 'regular') : null,
       staffLevel: normalizedRole === 'office_staff' ? staffLevel : null,
+      workerLevel: normalizedRole === 'worker' ? normalizedWorkerLevel : null,
       isActive: !!isActive,
       disabledReason: !!isActive ? null : (disabledReason || null),
       mustResetPassword: true,
@@ -280,6 +297,7 @@ async function createTeacher(req, res, next) {
         role: teacher.role,
         teacherLevel: teacher.teacherLevel,
         staffLevel: teacher.staffLevel || null,
+        workerLevel: teacher.workerLevel || null,
         permissions: permissionOverrides,
         scopes: scopeOverrides,
         isActive: teacher.isActive,
@@ -318,6 +336,7 @@ async function getTeachers(req, res, next) {
       status,
       teacherLevel,
       staffLevel,
+      workerLevel,
       mustResetPassword,
     } = req.query;
     const offset = (page - 1) * pageSize;
@@ -331,6 +350,9 @@ async function getTeachers(req, res, next) {
     }
     if (staffLevel && ALLOWED_STAFF_LEVELS.includes(staffLevel)) {
       whereClause.staffLevel = staffLevel;
+    }
+    if (workerLevel && ALLOWED_WORKER_LEVELS.includes(workerLevel)) {
+      whereClause.workerLevel = workerLevel;
     }
     if (status === 'active') {
       whereClause.isActive = true;
@@ -355,6 +377,7 @@ async function getTeachers(req, res, next) {
       whereClause.role = 'leader';
       delete whereClause.teacherLevel;
       delete whereClause.staffLevel;
+      delete whereClause.workerLevel;
     } else if (!isSystemAdminReq(req)) {
       if (whereClause.role === 'admin') {
         return res.json({
@@ -375,7 +398,7 @@ async function getTeachers(req, res, next) {
 
     const { count, rows: teachers } = await Teacher.findAndCountAll({
       where: whereClause,
-      attributes: ['id', 'name', 'email', 'username', 'studentId', 'role', 'teacherLevel', 'staffLevel', 'department', 'phone', 'isActive', 'disabledReason', 'mustResetPassword', 'permissions', 'scopes', 'accessVersion', 'lastLoginAt', 'createdAt', 'updatedAt'],
+      attributes: ['id', 'name', 'email', 'username', 'studentId', 'role', 'teacherLevel', 'staffLevel', 'workerLevel', 'department', 'phone', 'isActive', 'disabledReason', 'mustResetPassword', 'permissions', 'scopes', 'accessVersion', 'lastLoginAt', 'createdAt', 'updatedAt'],
       order: [['createdAt', 'DESC']],
       limit: parseInt(pageSize),
       offset: parseInt(offset)
@@ -534,6 +557,7 @@ async function updateTeacher(req, res, next) {
       role,
       teacherLevel,
       staffLevel,
+      workerLevel,
       studentId,
       isActive,
       permissions,
@@ -560,6 +584,17 @@ async function updateTeacher(req, res, next) {
         });
       }
     }
+    let nextWorkerLevel = null;
+    if (nextRole === 'worker') {
+      nextWorkerLevel = workerLevel !== undefined && workerLevel !== null ? workerLevel : teacher.workerLevel;
+      if (!nextWorkerLevel || !ALLOWED_WORKER_LEVELS.includes(nextWorkerLevel)) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: '工讀生須指定有效職務',
+          allowedWorkerLevels: ALLOWED_WORKER_LEVELS,
+        });
+      }
+    }
     const forbid = accountGovernanceForbidden(req, teacher, nextRole);
     if (forbid) {
       await transaction.rollback();
@@ -575,6 +610,7 @@ async function updateTeacher(req, res, next) {
       role: teacher.role,
       teacherLevel: teacher.teacherLevel || null,
       staffLevel: teacher.staffLevel || null,
+      workerLevel: teacher.workerLevel || null,
       isActive: teacher.isActive,
       mustResetPassword: teacher.mustResetPassword,
       disabledReason: teacher.disabledReason || null,
@@ -640,6 +676,7 @@ async function updateTeacher(req, res, next) {
       role: nextRole,
       teacherLevel: nextRole === 'teacher' ? (teacherLevel ?? teacher.teacherLevel ?? 'regular') : null,
       staffLevel: nextStaffLevel,
+      workerLevel: nextWorkerLevel,
       isActive: nextIsActive,
       disabledReason: nextDisabledReason,
     };
@@ -677,6 +714,7 @@ async function updateTeacher(req, res, next) {
       role: teacher.role,
       teacherLevel: teacher.teacherLevel || null,
       staffLevel: teacher.staffLevel || null,
+      workerLevel: teacher.workerLevel || null,
       permissions: nextPermissionOverrides,
       scopes: nextScopes,
       isActive: teacher.isActive,
@@ -717,6 +755,7 @@ async function updateTeacher(req, res, next) {
         role: teacher.role,
         teacherLevel: teacher.teacherLevel || null,
         staffLevel: teacher.staffLevel || null,
+        workerLevel: teacher.workerLevel || null,
         isActive: teacher.isActive,
         disabledReason: teacher.disabledReason || null,
         permissions: nextPermissionOverrides,

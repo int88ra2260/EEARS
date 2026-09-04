@@ -9,9 +9,9 @@ export default function RegistrationPrivacyStep({
   agreedToPrivacyPolicy,
   onAgreedChange,
   onNext,
+  onBack,
 }) {
   const { t } = useLanguage();
-  const isMobile = useMediaQuery('(max-width: 768px)');
   const isSmallMobile = useMediaQuery('(max-width: 576px)');
   const { schema } = useEnglishTestFormSchemaPublic();
   const questions = schema?.questions || [];
@@ -97,25 +97,45 @@ export default function RegistrationPrivacyStep({
         </div>
       )}
 
-      <div className="d-flex flex-column align-items-end gap-2">
-        <button
-          type="button"
-          className="btn btn-primary-custom"
-          onClick={onNext}
-          disabled={agreeRequired && !agreedToPrivacyPolicy}
-          aria-describedby={agreeRequired && !agreedToPrivacyPolicy ? 'privacyNextHint' : undefined}
-          style={{
-            padding: isSmallMobile ? '0.625rem 1.5rem' : '0.75rem 2rem',
-            fontSize: isSmallMobile ? '0.9375rem' : '1rem',
-            fontWeight: 'bold',
-            borderRadius: '8px',
-            minWidth: isSmallMobile ? '100px' : '120px',
-          }}
-        >
-          {t('page.englishTestAnnouncementNext')}
-        </button>
+      <div className="d-flex flex-column align-items-stretch gap-2">
+        <div className="d-flex justify-content-between gap-2">
+          {onBack ? (
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={onBack}
+              style={{
+                padding: isSmallMobile ? '0.625rem 1.5rem' : '0.75rem 2rem',
+                fontSize: isSmallMobile ? '0.9375rem' : '1rem',
+                fontWeight: 'bold',
+                borderRadius: '8px',
+                minWidth: isSmallMobile ? '100px' : '120px',
+              }}
+            >
+              ← 上一步
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            className="btn btn-primary-custom"
+            onClick={onNext}
+            disabled={agreeRequired && !agreedToPrivacyPolicy}
+            aria-describedby={agreeRequired && !agreedToPrivacyPolicy ? 'privacyNextHint' : undefined}
+            style={{
+              padding: isSmallMobile ? '0.625rem 1.5rem' : '0.75rem 2rem',
+              fontSize: isSmallMobile ? '0.9375rem' : '1rem',
+              fontWeight: 'bold',
+              borderRadius: '8px',
+              minWidth: isSmallMobile ? '100px' : '120px',
+            }}
+          >
+            {t('page.englishTestAnnouncementNext')}
+          </button>
+        </div>
         {agreeRequired && !agreedToPrivacyPolicy ? (
-          <p id="privacyNextHint" className="public-registration__next-hint mb-0" role="status">
+          <p id="privacyNextHint" className="public-registration__next-hint mb-0 text-end" role="status">
             {t('page.englishTestPrivacyNextHint')}
           </p>
         ) : null}

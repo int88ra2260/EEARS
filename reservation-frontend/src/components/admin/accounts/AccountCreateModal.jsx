@@ -3,6 +3,8 @@ import { Button, Form, Modal } from 'react-bootstrap';
 import {
   STAFF_LEVEL_OPTIONS,
   STAFF_LEVEL_SUMMARY,
+  WORKER_LEVEL_OPTIONS,
+  WORKER_LEVEL_SUMMARY,
 } from '../../../constants/accountManagement';
 
 export default function AccountCreateModal({
@@ -109,6 +111,32 @@ export default function AccountCreateModal({
                 <div className="mt-1">
                   預設權限摘要：
                   {(STAFF_LEVEL_SUMMARY[createForm.staffLevel || 'event_lead']?.permissions || []).join('、')}
+                </div>
+              </div>
+            </Form.Group>
+          )}
+          {createForm.role === 'worker' && (
+            <Form.Group className="mb-3">
+              <Form.Label>工讀職務 <span className="text-danger">*</span></Form.Label>
+              <Form.Select
+                value={createForm.workerLevel}
+                onChange={(e) => onInputChange('workerLevel', e.target.value)}
+                required
+              >
+                {WORKER_LEVEL_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </Form.Select>
+              <Form.Text className="text-muted">
+                開帳號時須指定職務，預設權限會依職務分責；不含帳號管理與系統設定。
+              </Form.Text>
+              <div className="mt-2 small text-muted">
+                <div className="fw-semibold text-body">
+                  {WORKER_LEVEL_SUMMARY[createForm.workerLevel || 'event_ops']?.description}
+                </div>
+                <div className="mt-1">
+                  預設權限摘要：
+                  {(WORKER_LEVEL_SUMMARY[createForm.workerLevel || 'event_ops']?.permissions || []).join('、')}
                 </div>
               </div>
             </Form.Group>

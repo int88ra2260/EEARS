@@ -170,6 +170,26 @@ const EMAIL_TEMPLATE_CATALOG = [
     },
   },
   {
+    key: 'englishLearningPassportEmailVerification',
+    category: 'english_learning_passport',
+    categoryLabel: '英語實踐歷程護照',
+    name: '信箱驗證碼（OTP）',
+    description: '護照申請前信箱驗證；請保留 {{code}}。',
+    channel: 'reservation',
+    variables: [
+      { name: 'email', required: true },
+      { name: 'code', description: '驗證碼', required: true },
+      { name: 'expiresInMinutes', description: '有效分鐘數' },
+      { name: 'studentId', description: '學號（若有）' },
+    ],
+    sampleData: {
+      email: 'b123456789@student.nsysu.edu.tw',
+      code: '123456',
+      expiresInMinutes: 10,
+      studentId: 'B123456789',
+    },
+  },
+  {
     key: 'englishTestRegistrationSuccess',
     category: 'english_test',
     categoryLabel: '培力英檢',

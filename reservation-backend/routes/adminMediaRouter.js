@@ -9,8 +9,12 @@ const router = express.Router();
 router.use(
   authMiddleware,
   requireAnyPermission(
-    [P.CAN_MANAGE_SITE_CONTENT, P.CAN_MANAGE_ANNOUNCEMENTS],
-    '需要學生端內容或公告／週報管理權限',
+    [
+      P.CAN_MANAGE_SITE_CONTENT,
+      P.CAN_MANAGE_ANNOUNCEMENTS,
+      P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS,
+    ],
+    '需要學生端內容、公告／週報或英語學習護照管理權限',
   ),
 );
 

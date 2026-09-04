@@ -3,7 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button, Card, Col, Form, ProgressBar, Row, Spinner, Alert } from 'react-bootstrap';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ElpStatusBadge from '../../components/englishLearningPassport/ElpStatusBadge';
-import { validateReservationFields } from '../../utils/validators';
+import ElpEmailVerificationPanel from '../../components/englishLearningPassport/ElpEmailVerificationPanel';
+import ContentText from '../../components/siteContent/ContentText';
+import ContentImage from '../../components/siteContent/ContentImage';
+import { useLanguage } from '../../context/LanguageContext';
+import { useSiteContentVisualEdit } from '../../context/SiteContentVisualEditContext';
+import { validateElpStudentFields } from '../../utils/validators';
 import {
   fetchElpDashboard,
   applyElpPassport,
@@ -17,46 +22,73 @@ import elpStudentGuideImage from '../../assets/elp-student-guide.png';
 import '../../components/englishLearningPassport/elp.css';
 
 const THRESHOLD = 100;
+const GUIDE_IMAGE_KEY = 'elpPage.guideImageUrl';
+
+function resolveGuideImageUrl(t) {
+  const custom = String(t(GUIDE_IMAGE_KEY) || '').trim();
+  if (!custom || custom === GUIDE_IMAGE_KEY) return elpStudentGuideImage;
+  if (/^https?:\/\//i.test(custom) || custom.startsWith('/')) return custom;
+  return elpStudentGuideImage;
+}
 
 function PassportGuideFigure() {
+  const { t } = useLanguage();
+  const visual = useSiteContentVisualEdit();
+  const imageSrc = resolveGuideImageUrl(t);
+  const editingImage = visual?.enabled && visual.isEditable(GUIDE_IMAGE_KEY);
+
+  const imageNode = (
+    <ContentImage
+      k={GUIDE_IMAGE_KEY}
+      className="elp-guide-card__image"
+      src={imageSrc}
+      alt={t('elpPage.guideImageAlt')}
+    />
+  );
+
   return (
     <section className="elp-guide-card" aria-labelledby="elp-guide-title">
       <div className="elp-guide-card__header">
         <div>
-          <p className="elp-guide-card__kicker">學生使用說明</p>
-          <h2 id="elp-guide-title">英語實踐歷程檔案快速指南</h2>
-          <p>
-            先申請護照，審核通過後提交任務附件並累積點數；滿 100 點即可申請英語能力標準認證。
-          </p>
+          <ContentText k="elpPage.guideKicker" as="p" className="elp-guide-card__kicker" />
+          <ContentText k="elpPage.guideTitle" as="h2" id="elp-guide-title" />
+          <ContentText k="elpPage.guideDesc" as="p" />
         </div>
+        {editingImage ? (
+          <span className="elp-guide-card__open text-muted small">預覽模式：點圖換圖</span>
+        ) : (
+          <a
+            className="elp-guide-card__open"
+            href={imageSrc}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <ContentText k="elpPage.guideOpenLarge" as="span" />
+          </a>
+        )}
+      </div>
+      {editingImage ? (
+        <div className="elp-guide-card__image-link elp-guide-card__image-link--editable">
+          {imageNode}
+        </div>
+      ) : (
         <a
-          className="elp-guide-card__open"
-          href={elpStudentGuideImage}
+          className="elp-guide-card__image-link"
+          href={imageSrc}
           target="_blank"
           rel="noreferrer"
+          aria-label={t('elpPage.guideOpenLarge')}
         >
-          開啟大圖
+          {imageNode}
         </a>
-      </div>
-      <a
-        className="elp-guide-card__image-link"
-        href={elpStudentGuideImage}
-        target="_blank"
-        rel="noreferrer"
-        aria-label="開啟英語實踐歷程檔案快速指南大圖"
-      >
-        <img
-          className="elp-guide-card__image"
-          src={elpStudentGuideImage}
-          alt="EEARS 英語實踐歷程檔案學生使用說明，包含申請護照、等待核准、完成任務並上傳、查看累積點數、滿 100 點申請認證等流程"
-        />
-      </a>
+      )}
     </section>
   );
 }
 
 export default function EnglishLearningPassportPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [student, setStudent] = useState(() => loadElpStudent());
   const [form, setForm] = useState({ studentId: '', studentName: '', studentEmail: '' });
   const [dashboard, setDashboard] = useState(null);
@@ -65,6 +97,8 @@ export default function EnglishLearningPassportPage() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [applying, setApplying] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [emailVerificationToken, setEmailVerificationToken] = useState(null);
+  const [verifiedEmail, setVerifiedEmail] = useState(null);
   const loadSeqRef = useRef(0);
 
   const loadDashboard = useCallback(async (s) => {
@@ -101,11 +135,11 @@ export default function EnglishLearningPassportPage() {
   const handleIdentify = (e) => {
     e.preventDefault();
     const s = {
-      studentId: form.studentId.trim(),
+      studentId: form.studentId.trim().toUpperCase(),
       studentName: form.studentName.trim(),
-      studentEmail: form.studentEmail.trim(),
+      studentEmail: form.studentEmail.trim().toLowerCase(),
     };
-    const { isValid, fieldErrors: nextFieldErrors } = validateReservationFields(s);
+    const { isValid, fieldErrors: nextFieldErrors } = validateElpStudentFields(s);
     if (!isValid) {
       setFieldErrors(nextFieldErrors);
       setError('');
@@ -113,15 +147,23 @@ export default function EnglishLearningPassportPage() {
     }
     setFieldErrors({});
     setError('');
+    setEmailVerificationToken(null);
+    setVerifiedEmail(null);
     saveElpStudent(s);
     setStudent(s);
   };
 
   const handleApply = async () => {
+    if (!emailVerificationToken || verifiedEmail !== student?.studentEmail) {
+      setError('請先完成信箱驗證碼驗證後再申請護照');
+      return;
+    }
     setApplying(true);
     setError('');
     try {
-      await applyElpPassport(student, '');
+      await applyElpPassport(student, '', emailVerificationToken);
+      setEmailVerificationToken(null);
+      setVerifiedEmail(null);
       await loadDashboard(student);
     } catch (e) {
       setError(e.message || '申請失敗');
@@ -181,15 +223,13 @@ export default function EnglishLearningPassportPage() {
     return (
       <div className="elp-page">
         <div className="elp-hero">
-          <h1 className="h3 mb-2">英語實踐歷程護照</h1>
-          <p className="text-muted mb-0">
-            透過完成指定英語學習任務累積點數，滿 100 點可申請英語文能力標準認證。
-          </p>
+          <ContentText k="elpPage.heroTitle" as="h1" className="h3 mb-2" />
+          <ContentText k="elpPage.heroDesc" as="p" className="text-muted mb-0" />
         </div>
         <PassportGuideFigure />
         <Card>
           <Card.Body>
-            <h2 className="h5 mb-3">身分驗證</h2>
+            <ContentText k="elpPage.identifyTitle" as="h2" className="h5 mb-3" />
             {error && <Alert variant="danger">{error}</Alert>}
             <Form onSubmit={handleIdentify} noValidate>
               <Row className="g-3">
@@ -201,6 +241,7 @@ export default function EnglishLearningPassportPage() {
                       onChange={(e) => setForm({ ...form, studentId: e.target.value })}
                       isInvalid={!!fieldErrors.studentId}
                       aria-describedby={fieldErrors.studentId ? 'elp-student-id-error' : undefined}
+                      placeholder="例：B123456789"
                     />
                     <Form.Control.Feedback type="invalid" id="elp-student-id-error">
                       {fieldErrors.studentId}
@@ -230,14 +271,22 @@ export default function EnglishLearningPassportPage() {
                       onChange={(e) => setForm({ ...form, studentEmail: e.target.value })}
                       isInvalid={!!fieldErrors.studentEmail}
                       aria-describedby={fieldErrors.studentEmail ? 'elp-student-email-error' : undefined}
+                      placeholder="學號@student.nsysu.edu.tw"
                     />
                     <Form.Control.Feedback type="invalid" id="elp-student-email-error">
                       {fieldErrors.studentEmail}
                     </Form.Control.Feedback>
+                    {!fieldErrors.studentEmail && (
+                      <Form.Text className="text-muted">
+                        <ContentText k="elpPage.emailHint" as="span" />
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
-              <Button type="submit" variant="primary" className="mt-3">進入我的護照</Button>
+              <Button type="submit" variant="primary" className="mt-3">
+                <ContentText k="elpPage.identifySubmit" as="span" />
+              </Button>
             </Form>
           </Card.Body>
         </Card>
@@ -253,19 +302,27 @@ export default function EnglishLearningPassportPage() {
   const otherSubmissions = submissions.filter((s) => s.status !== 'draft');
   const points = passport?.totalApprovedPoints || 0;
   const pct = Math.min(100, Math.round((points / THRESHOLD) * 100));
+  const emailVerifiedOk =
+    !!emailVerificationToken
+    && verifiedEmail === student.studentEmail;
 
   return (
     <div className="elp-page">
       <div className="elp-hero">
         <div className="d-flex flex-wrap justify-content-between align-items-start gap-2">
           <div>
-            <h1 className="h3 mb-1">英語實踐歷程護照</h1>
+            <ContentText k="elpPage.heroTitle" as="h1" className="h3 mb-1" />
             <p className="text-muted mb-0 small">{student.studentName}（{student.studentId}）</p>
           </div>
           <Button
             size="sm"
             variant="outline-secondary"
-            onClick={() => { localStorage.removeItem('eears_elp_student'); setStudent(null); }}
+            onClick={() => {
+              localStorage.removeItem('eears_elp_student');
+              setStudent(null);
+              setEmailVerificationToken(null);
+              setVerifiedEmail(null);
+            }}
           >
             切換身分
           </Button>
@@ -279,23 +336,23 @@ export default function EnglishLearningPassportPage() {
               {passport.certificationStatus === 'pending' && (
                 <StatusBadge variant="info" size="md">最終認證審核中</StatusBadge>
               )}
-              {passport.certificationStatus === 'approved' && (
+              {(passport.certificationStatus === 'approved' || passport.hasCompletedCertification) && (
                 <StatusBadge variant="success" size="md">已通過英語能力認證</StatusBadge>
               )}
             </div>
-            {passport.certificationStatus === 'approved' && (
+            {(passport.certificationStatus === 'approved' || passport.hasCompletedCertification) && (
               <div className="mt-2">
                 <Button
                   size="sm"
                   variant="outline-success"
                   onClick={() => openElpCertificationCertificate(student)}
                 >
-                  匯出認證單（PDF）
+                  <ContentText k="elpPage.exportCertificate" as="span" />
                 </Button>
                 <span className="small text-muted ms-2">開啟審核表後可列印或另存為 PDF</span>
               </div>
             )}
-            {passport.status === 'active' && (
+            {(passport.status === 'active' || passport.status === 'completed') && (
               <div className="elp-progress-wrap">
                 <div className="d-flex justify-content-between small mb-1">
                   <span>累積點數</span>
@@ -315,11 +372,29 @@ export default function EnglishLearningPassportPage() {
 
       {!loading && !passport && (
         <Card>
-          <Card.Body className="text-center py-4">
-            <p className="mb-3">您尚未申請英語實踐歷程護照。這是畢業認證點數作業，不是活動預約紀錄。</p>
-            <div className="d-flex flex-wrap justify-content-center gap-2">
-              <Button variant="primary" onClick={handleApply} disabled={applying}>
-                {applying ? '申請中…' : '申請護照'}
+          <Card.Body className="py-4">
+            <p className="mb-3 text-center">
+              <ContentText k="elpPage.applyLead" as="span" />
+            </p>
+            <div className="mx-auto" style={{ maxWidth: 480 }}>
+              <ElpEmailVerificationPanel
+                email={student.studentEmail}
+                studentId={student.studentId}
+                emailVerificationToken={emailVerificationToken}
+                verifiedEmail={verifiedEmail}
+                onTokenChange={({ token, verifiedEmail: nextEmail }) => {
+                  setEmailVerificationToken(token);
+                  setVerifiedEmail(nextEmail);
+                }}
+              />
+            </div>
+            <div className="d-flex flex-wrap justify-content-center gap-2 mt-2">
+              <Button
+                variant="primary"
+                onClick={handleApply}
+                disabled={applying || !emailVerifiedOk}
+              >
+                {applying ? '申請中…' : <ContentText k="elpPage.applyButton" as="span" />}
               </Button>
               <Link to="/student/progress" className="btn btn-outline-primary">
                 查看我的英語進度
@@ -348,15 +423,32 @@ export default function EnglishLearningPassportPage() {
       {!loading && passport?.status === 'rejected' && (
         <Alert variant="danger">
           護照申請已退回：{passport.rejectionReason || '請聯繫英語中心'}
+          <div className="mt-3 mx-auto" style={{ maxWidth: 480 }}>
+            <ElpEmailVerificationPanel
+              email={student.studentEmail}
+              studentId={student.studentId}
+              emailVerificationToken={emailVerificationToken}
+              verifiedEmail={verifiedEmail}
+              onTokenChange={({ token, verifiedEmail: nextEmail }) => {
+                setEmailVerificationToken(token);
+                setVerifiedEmail(nextEmail);
+              }}
+            />
+          </div>
           <div className="mt-2">
-            <Button size="sm" variant="outline-primary" onClick={handleApply} disabled={applying}>
+            <Button
+              size="sm"
+              variant="outline-primary"
+              onClick={handleApply}
+              disabled={applying || !emailVerifiedOk}
+            >
               重新申請
             </Button>
           </div>
         </Alert>
       )}
 
-      {!loading && passport?.status === 'active' && summary && (
+      {!loading && (passport?.status === 'active' || passport?.status === 'completed') && summary && (
         <>
           <div className="elp-stat-grid">
             <div className="elp-stat-card"><strong>{summary.approvedPoints}</strong><span className="small text-muted">已核准點數</span></div>
@@ -364,32 +456,36 @@ export default function EnglishLearningPassportPage() {
             <div className="elp-stat-card"><strong>{summary.rejectedCount}</strong><span className="small text-muted">退件紀錄</span></div>
           </div>
 
-          {passport.canRequestCertification && (
+          {passport.hasCompletedCertification && (
             <Alert variant="success" className="d-flex flex-wrap align-items-center justify-content-between gap-2">
-              <span>已達 {THRESHOLD} 點認證門檻！</span>
-              <Button variant="success" onClick={() => navigate('/student/english-learning-passport/certification')}>
-                申請英語能力標準認證
+              <ContentText k="elpPage.completedMessage" as="span" />
+              <Button variant="success" onClick={() => openElpCertificationCertificate(student)}>
+                <ContentText k="elpPage.exportCertificate" as="span" />
               </Button>
             </Alert>
           )}
 
-          <h2 className="h5 mt-4 mb-2">可提交項目</h2>
-          <div className="elp-rule-grid">
-            {rules.map((rule) => (
-              <div key={rule.code} className="elp-rule-card">
-                <h6>{rule.name}</h6>
-                <span className="elp-rule-hint">{RULE_LIMIT_HINTS[rule.code] || `基礎 ${rule.basePoints} 點`}</span>
-                <Button
-                  size="sm"
-                  variant="outline-primary"
-                  className="mt-auto"
-                  onClick={() => navigate(`/student/english-learning-passport/submissions/new?rule=${rule.code}`)}
-                >
-                  提交紀錄
-                </Button>
+          {passport.status === 'active' && (
+            <>
+              <ContentText k="elpPage.submitSectionTitle" as="h2" className="h5 mt-4 mb-2" />
+              <div className="elp-rule-grid">
+                {rules.map((rule) => (
+                  <div key={rule.code} className="elp-rule-card">
+                    <h6>{rule.name}</h6>
+                    <span className="elp-rule-hint">{RULE_LIMIT_HINTS[rule.code] || `基礎 ${rule.basePoints} 點`}</span>
+                    <Button
+                      size="sm"
+                      variant="outline-primary"
+                      className="mt-auto"
+                      onClick={() => navigate(`/student/english-learning-passport/submissions/new?rule=${rule.code}`)}
+                    >
+                      <ContentText k="elpPage.submitAction" as="span" />
+                    </Button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </>
       )}
 

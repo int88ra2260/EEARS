@@ -20,6 +20,8 @@ import {
   STAFF_LEVEL_OPTIONS,
   STAFF_LEVEL_SUMMARY,
   TEACHER_LEVEL_OPTIONS,
+  WORKER_LEVEL_OPTIONS,
+  WORKER_LEVEL_SUMMARY,
 } from '../../../constants/accountManagement';
 import { ALL_SCOPES } from '../../../constants/scopes';
 import PermissionOverrideGuide from './PermissionOverrideGuide';
@@ -69,6 +71,11 @@ export default function AccountEditModal({
               {editingAccount.role === 'office_staff' && editingAccount.staffLevel ? (
                 <Badge bg="info" className="fw-normal">
                   {STAFF_LEVEL_OPTIONS.find((o) => o.value === editingAccount.staffLevel)?.label || editingAccount.staffLevel}
+                </Badge>
+              ) : null}
+              {editingAccount.role === 'worker' && editingAccount.workerLevel ? (
+                <Badge bg="info" className="fw-normal">
+                  {WORKER_LEVEL_OPTIONS.find((o) => o.value === editingAccount.workerLevel)?.label || editingAccount.workerLevel}
                 </Badge>
               ) : null}
               <span className="text-nowrap">id <code>{editingAccount.id}</code></span>
@@ -138,16 +145,19 @@ export default function AccountEditModal({
                           ...p,
                           role: v,
                           ...(v === 'teacher'
-                            ? { teacherLevel: p.teacherLevel || 'regular', staffLevel: null }
+                            ? { teacherLevel: p.teacherLevel || 'regular', staffLevel: null, workerLevel: null }
                             : {}),
                           ...(v === 'office_staff'
-                            ? { staffLevel: p.staffLevel || 'event_lead', teacherLevel: null }
+                            ? { staffLevel: p.staffLevel || 'event_lead', teacherLevel: null, workerLevel: null }
+                            : {}),
+                          ...(v === 'worker'
+                            ? { workerLevel: p.workerLevel || 'event_ops', teacherLevel: null, staffLevel: null, studentId: '' }
                             : {}),
                           ...(v === 'leader'
-                            ? { teacherLevel: null, staffLevel: null }
+                            ? { teacherLevel: null, staffLevel: null, workerLevel: null }
                             : {}),
-                          ...((v === 'admin' || v === 'worker')
-                            ? { teacherLevel: null, staffLevel: null, studentId: '' }
+                          ...(v === 'admin'
+                            ? { teacherLevel: null, staffLevel: null, workerLevel: null, studentId: '' }
                             : {}),
                         }));
                       }}
@@ -198,6 +208,26 @@ export default function AccountEditModal({
                       <Form.Text className="text-muted d-block">
                         預設權限摘要：
                         {(STAFF_LEVEL_SUMMARY[editForm.staffLevel || 'event_lead']?.permissions || []).join('、')}
+                      </Form.Text>
+                    </Form.Group>
+                  )}
+                  {editForm.role === 'worker' && (
+                    <Form.Group className="mb-0">
+                      <Form.Label className="fw-medium">工讀職務 <span className="text-danger">*</span></Form.Label>
+                      <Form.Select
+                        value={editForm.workerLevel}
+                        onChange={(e) => setEditForm((p) => ({ ...p, workerLevel: e.target.value }))}
+                      >
+                        {WORKER_LEVEL_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </Form.Select>
+                      <Form.Text className="text-muted d-block mt-2">
+                        {WORKER_LEVEL_SUMMARY[editForm.workerLevel || 'event_ops']?.description}
+                      </Form.Text>
+                      <Form.Text className="text-muted d-block">
+                        預設權限摘要：
+                        {(WORKER_LEVEL_SUMMARY[editForm.workerLevel || 'event_ops']?.permissions || []).join('、')}
                       </Form.Text>
                     </Form.Group>
                   )}

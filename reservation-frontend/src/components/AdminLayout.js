@@ -195,6 +195,9 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
           </div>
           <div className="d-flex align-items-center gap-3 flex-wrap">
             <span className="admin-badge admin-badge--role">{getRoleDisplayText(actualUserRole, username)}</span>
+            {accessProfile.isDemo && (
+              <span className="admin-badge admin-badge--warn">DEMO</span>
+            )}
             {mustResetPassword && (
               <span className="admin-badge admin-badge--warn">需更改密碼</span>
             )}
@@ -209,6 +212,12 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
             <i className="fas fa-exclamation-triangle me-2"></i>
             您的登入即將在15分鐘內過期，請及時儲存工作並重新登入。
             <button type="button" className="btn-close" onClick={() => setShowTokenWarning(false)}></button>
+          </div>
+        )}
+
+        {accessProfile.isDemo && (
+          <div className="alert alert-info mx-3 mt-2 mb-0" role="alert">
+            此為 DEMO 帳號：可瀏覽後台功能介面，不會顯示真實資料，且無法新增／修改／刪除。
           </div>
         )}
 

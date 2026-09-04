@@ -53,6 +53,11 @@ const Teacher = sequelize.define('Teacher', {
     allowNull: true,
     comment: '行政職員職務：活動／課務／培力英檢／副理（僅 role=office_staff 有意義）'
   },
+  workerLevel: {
+    type: DataTypes.ENUM('event_ops', 'bestep_ops', 'content_editor', 'passport_ops'),
+    allowNull: true,
+    comment: '工讀生職務：活動／培力／小編／實踐歷程（僅 role=worker 有意義）'
+  },
   mustResetPassword: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
@@ -78,6 +83,12 @@ const Teacher = sequelize.define('Teacher', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
     comment: '帳號是否啟用'
+  },
+  isDemo: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+    comment: 'DEMO 帳號：可看功能、不顯示真實資料、唯讀'
   },
   department: {
     type: DataTypes.STRING(100),

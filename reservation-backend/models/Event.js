@@ -55,6 +55,12 @@ const Event = sequelize.define('Event', {
     allowNull: true,
     comment: '活動地點'
   },
+  notes: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    defaultValue: '實踐歷程檔案',
+    comment: '活動備註（預設：實踐歷程檔案）'
+  },
   autoCheckCompleted: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

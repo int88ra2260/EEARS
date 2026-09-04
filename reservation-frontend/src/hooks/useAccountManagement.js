@@ -43,6 +43,7 @@ function createEditFormFromAccount(account) {
     role: account?.role || 'teacher',
     teacherLevel: account?.role === 'teacher' ? (account?.teacherLevel || 'regular') : null,
     staffLevel: account?.role === 'office_staff' ? (account?.staffLevel || 'event_lead') : null,
+    workerLevel: account?.role === 'worker' ? (account?.workerLevel || 'event_ops') : null,
     isActive: !!account?.isActive,
     disabledReason: account?.disabledReason || '',
     mustResetPassword: !!account?.mustResetPassword,
@@ -151,7 +152,7 @@ export function useAccountManagement({ token, userRole, accessProfile: ctxProfil
   useEffect(() => {
     if (!actorIsEventLeadAccountManager) return;
     setFilters((prev) => {
-      if (prev.role === 'leader' && prev.teacherLevel === 'all' && prev.staffLevel === 'all') {
+      if (prev.role === 'leader' && prev.teacherLevel === 'all' && prev.staffLevel === 'all' && prev.workerLevel === 'all') {
         return prev;
       }
       return {
@@ -159,6 +160,7 @@ export function useAccountManagement({ token, userRole, accessProfile: ctxProfil
         role: 'leader',
         teacherLevel: 'all',
         staffLevel: 'all',
+        workerLevel: 'all',
       };
     });
   }, [actorIsEventLeadAccountManager]);
@@ -168,6 +170,7 @@ export function useAccountManagement({ token, userRole, accessProfile: ctxProfil
       role: actorIsEventLeadAccountManager ? 'leader' : filters.role,
       teacherLevel: actorIsEventLeadAccountManager ? 'all' : filters.teacherLevel,
       staffLevel: actorIsEventLeadAccountManager ? 'all' : filters.staffLevel,
+      workerLevel: actorIsEventLeadAccountManager ? 'all' : filters.workerLevel,
       status: filters.status,
       mustResetPassword: filters.mustResetPassword,
       search: filters.search,
@@ -177,6 +180,7 @@ export function useAccountManagement({ token, userRole, accessProfile: ctxProfil
       filters.role,
       filters.teacherLevel,
       filters.staffLevel,
+      filters.workerLevel,
       filters.status,
       filters.mustResetPassword,
       filters.search,
@@ -247,6 +251,7 @@ export function useAccountManagement({ token, userRole, accessProfile: ctxProfil
         role: value,
         teacherLevel: value === 'teacher' ? (prev.teacherLevel || 'regular') : null,
         staffLevel: value === 'office_staff' ? (prev.staffLevel || 'event_lead') : null,
+        workerLevel: value === 'worker' ? (prev.workerLevel || 'event_ops') : null,
       };
     });
   }, []);
@@ -257,6 +262,7 @@ export function useAccountManagement({ token, userRole, accessProfile: ctxProfil
       role: actorIsEventLeadAccountManager ? 'leader' : EMPTY_CREATE_FORM.role,
       teacherLevel: actorIsEventLeadAccountManager ? null : EMPTY_CREATE_FORM.teacherLevel,
       staffLevel: actorIsEventLeadAccountManager ? null : EMPTY_CREATE_FORM.staffLevel,
+      workerLevel: actorIsEventLeadAccountManager ? null : EMPTY_CREATE_FORM.workerLevel,
     });
     setShowCreateModal(true);
   }, [actorIsEventLeadAccountManager]);

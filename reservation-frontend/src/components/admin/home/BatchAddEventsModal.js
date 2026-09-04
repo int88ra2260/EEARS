@@ -301,6 +301,18 @@ export default function BatchAddEventsModal({
                       onChange={(location) => handleUpdateEvent(index, 'location', location)}
                     />
                   </div>
+
+                  <div className="batch-add-field batch-add-field--notes">
+                    <label className="form-label">備註</label>
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      value={event.notes ?? ''}
+                      maxLength={255}
+                      placeholder="實踐歷程檔案"
+                      onChange={(e) => handleUpdateEvent(index, 'notes', e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             );

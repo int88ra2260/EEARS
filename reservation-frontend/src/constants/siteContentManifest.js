@@ -6,6 +6,7 @@ import { EMI_ADMIN_STAFF, EMI_FACULTY } from '../data/emiCenterStaff';
 export const SITE_CONTENT_SECTIONS = [
   { id: 'home', label: '首頁' },
   { id: 'english_test_registration', label: '英檢註冊比對訊息' },
+  { id: 'english_learning_passport', label: '英語實踐歷程護照' },
   { id: 'activities', label: '活動介紹' },
   { id: 'about', label: '關於我們' },
   { id: 'contact', label: '聯絡我們' },
@@ -43,6 +44,25 @@ export const SITE_CONTENT_KEY_SUGGESTIONS = {
   ],
   english_test_registration: [
     { key: 'englishTestRegistration.idCardMismatchMessage', label: '英檢：在學名單比對不符提示' },
+  ],
+  english_learning_passport: [
+    { key: 'elpPage.heroTitle', label: '頁面主標題' },
+    { key: 'elpPage.heroDesc', label: '頁面導言' },
+    { key: 'elpPage.guideKicker', label: '指南小標' },
+    { key: 'elpPage.guideTitle', label: '指南標題' },
+    { key: 'elpPage.guideDesc', label: '指南說明' },
+    { key: 'elpPage.guideOpenLarge', label: '開啟大圖按鈕' },
+    { key: 'elpPage.guideImageUrl', label: '指南圖片網址（空白＝系統預設圖）' },
+    { key: 'elpPage.guideImageAlt', label: '指南圖片替代文字' },
+    { key: 'elpPage.identifyTitle', label: '身分驗證標題' },
+    { key: 'elpPage.identifySubmit', label: '進入護照按鈕' },
+    { key: 'elpPage.emailHint', label: 'Email 欄位提示' },
+    { key: 'elpPage.applyLead', label: '尚未申請時的說明' },
+    { key: 'elpPage.applyButton', label: '申請護照按鈕' },
+    { key: 'elpPage.completedMessage', label: '達標完成提示' },
+    { key: 'elpPage.exportCertificate', label: '匯出認證單按鈕' },
+    { key: 'elpPage.submitSectionTitle', label: '可提交項目標題' },
+    { key: 'elpPage.submitAction', label: '提交紀錄按鈕' },
   ],
   activities: [
     { key: 'activitiesPage.title', label: '頁面標題' },

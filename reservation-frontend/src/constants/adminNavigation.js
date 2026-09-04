@@ -26,7 +26,7 @@ function canAccessImportCenter(c) {
 
 /**
  * visibility 鍵：
- * - all：凡可進後台者（仍會被 filterVisibleNav 依 worker 縮限）
+ * - all：凡可進後台者
  * - canViewReport：活動與預約（列表／明細）
  * - classes：班級與參與
  * - english：英檢與培力
@@ -110,14 +110,15 @@ export function isNavItemVisible(visibility, c) {
 }
 
 /**
- * Worker：側欄只保留「營運總覽」與「變更密碼」（日常簽到／違規由 dashboard 快捷連結進入）。
- * @param {AdminNavContext} c
+ * Worker 側欄改為依權限顯示（配合 workerLevel 分責）。
+ * 保留函式名稱供測試／相容；目前一律回傳 false。
+ * @param {AdminNavContext} _c
  */
-export function isWorkerRestrictedMenu(c) {
-  return c.actualUserRole === 'worker';
+export function isWorkerRestrictedMenu(_c) {
+  return false;
 }
 
-/** Worker 側欄允許的 leaf id（測試可引用） */
+/** @deprecated worker 已改權限導向；保留常數避免舊測試硬依賴 */
 export const WORKER_NAV_LEAF_IDS = new Set(['system-dashboard', 'account-reset']);
 
 /**
@@ -128,14 +129,9 @@ export const WORKER_NAV_LEAF_IDS = new Set(['system-dashboard', 'account-reset']
  */
 export function getDefaultExpandedSectionIds(c, visibleSections) {
   const ids = new Set();
-  if (isWorkerRestrictedMenu(c)) {
-    ids.add('system');
-    ids.add('accounts');
-    return ids;
-  }
-
   const role = c?.actualUserRole;
   const teacherLevel = c?.accessProfile?.teacherLevel;
+  const workerLevel = c?.accessProfile?.workerLevel;
 
   if (role === 'leader') {
     ids.add('events');
@@ -143,6 +139,11 @@ export function getDefaultExpandedSectionIds(c, visibleSections) {
     ids.add('classes');
   } else if (role === 'office_staff') {
     ids.add('events');
+  } else if (role === 'worker') {
+    if (workerLevel === 'bestep_ops' || workerLevel === 'passport_ops') ids.add('english');
+    else if (workerLevel === 'content_editor') ids.add('announcements');
+    else ids.add('events');
+    ids.add('accounts');
   } else {
     for (const sectionId of ['events', 'english', 'surveys', 'learning-journey']) {
       if (visibleSections.some((section) => section.id === sectionId)) {
@@ -166,11 +167,18 @@ export function getAdminRoleHomePath(accessProfile) {
     return '/admin/classes';
   }
   if (role === 'office_staff') return '/admin/operations';
+  if (role === 'worker') {
+    const level = accessProfile.workerLevel || 'event_ops';
+    if (level === 'bestep_ops') return '/admin/english-tests';
+    if (level === 'content_editor') return '/admin/announcements';
+    if (level === 'passport_ops') return '/admin/english-learning-passports';
+    return '/admin/operations';
+  }
   return '/admin/dashboard';
 }
 
 /**
- * @param {{ role?: string, teacherLevel?: string } | null | undefined} accessProfile
+ * @param {{ role?: string, teacherLevel?: string, workerLevel?: string } | null | undefined} accessProfile
  */
 export function getAdminRoleHomeLabel(accessProfile) {
   const role = accessProfile?.role;
@@ -179,6 +187,13 @@ export function getAdminRoleHomeLabel(accessProfile) {
     return '返回班級概況';
   }
   if (role === 'office_staff') return '返回活動列表';
+  if (role === 'worker') {
+    const level = accessProfile?.workerLevel || 'event_ops';
+    if (level === 'bestep_ops') return '返回英檢管理';
+    if (level === 'content_editor') return '返回公告管理';
+    if (level === 'passport_ops') return '返回實踐歷程護照';
+    return '返回活動列表';
+  }
   return '返回後台首頁';
 }
 
@@ -980,20 +995,6 @@ export function getAdminPageMeta(pathname, ctx) {
  * @returns {AdminNavSection[]}
  */
 export function filterVisibleNav(sections, c) {
-  if (isWorkerRestrictedMenu(c)) {
-    return sections
-      .map((section) => {
-        if (!section.children?.length) return null;
-        if (section.id !== 'system' && section.id !== 'accounts') return null;
-        const children = section.children.filter(
-          (ch) => WORKER_NAV_LEAF_IDS.has(ch.id) && canShowAdminNavItem(ch, c)
-        );
-        if (children.length === 0) return null;
-        return { ...section, children };
-      })
-      .filter(Boolean);
-  }
-
   return sections
     .map((section) => {
       if (section.children?.length) {

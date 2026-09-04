@@ -259,6 +259,10 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '通知信',
     '模板',
     '寄信',
+    '驗證碼',
+    '實踐歷程',
+    '英語學習護照',
+    'OTP',
   ],
   'system-logs': [
     'audit',

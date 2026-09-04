@@ -2,6 +2,7 @@
  * 英語實踐歷程護照 API（學生端無 token + 管理端有 token）
  */
 import { fetchClient } from '../utils/fetchClient';
+import { clearSiteContentCache } from './siteContentApi';
 
 const STUDENT_BASE = '/api/english-learning-passport';
 const ADMIN_BASE = '/api/admin/english-learning-passports';
@@ -151,16 +152,39 @@ export async function fetchElpRules({ force = false } = {}) {
   return data.data;
 }
 
-export async function applyElpPassport(student, applicationReason) {
+export async function applyElpPassport(student, applicationReason, emailVerificationToken) {
   const res = await fetchClient(`${STUDENT_BASE}/apply`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(studentBody(student, { applicationReason })),
+    body: JSON.stringify(studentBody(student, {
+      applicationReason,
+      emailVerificationToken,
+    })),
   });
   const data = await parseJson(res);
   if (!res.ok) throw new Error(data.message || '申請失敗');
   invalidateElpDashboardCache(student);
   return data.data;
+}
+
+export async function sendElpEmailVerificationCode({ email, studentId }) {
+  const res = await fetchClient(`${STUDENT_BASE}/email-verification/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, studentId }),
+  });
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function verifyElpEmailCode({ email, code }) {
+  const res = await fetchClient(`${STUDENT_BASE}/email-verification/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
 }
 
 export async function createElpSubmission(student, payload) {
@@ -314,6 +338,39 @@ export async function adminRejectPassport(token, id, reason) {
   return data.data;
 }
 
+export async function adminDeletePassport(token, id, { force = false } = {}) {
+  const qs = force ? '?force=true' : '';
+  const res = await fetchClient(`${ADMIN_BASE}/${id}${qs}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.message || '刪除失敗');
+  return data.data;
+}
+
+export async function adminBatchDeletePassports(token, ids, { force = false } = {}) {
+  const res = await fetchClient(`${ADMIN_BASE}/batch-delete`, {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ ids, force }),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.message || '批量刪除失敗');
+  return data.data;
+}
+
+export async function adminBatchRejectPassports(token, ids, reason) {
+  const res = await fetchClient(`${ADMIN_BASE}/batch-reject`, {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ ids, reason }),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.message || '批量退回失敗');
+  return data.data;
+}
+
 export async function adminFetchSubmissions(token, params = {}) {
   const qs = new URLSearchParams(params).toString();
   const res = await fetchClient(`${ADMIN_BASE}/submissions?${qs}`, { headers: authHeaders(token) });
@@ -432,6 +489,44 @@ export async function adminExportPassports(token, params = {}) {
   const disposition = res.headers.get('Content-Disposition') || '';
   const match = disposition.match(/filename="?([^"]+)"?/);
   return { blob, fileName: match ? match[1] : 'english-learning-passports.xlsx' };
+}
+
+function notifySiteContentUpdated() {
+  clearSiteContentCache();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('eears:site-content-updated'));
+  }
+}
+
+/** 學生端護照頁 UI 文案（site content：english_learning_passport） */
+export async function adminFetchElpPageUi(token) {
+  const res = await fetchClient(`${ADMIN_BASE}/page-ui`, { headers: authHeaders(token) });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.message || data.error || '載入失敗');
+  return data;
+}
+
+export async function adminUpsertElpPageUiText(token, payload) {
+  const res = await fetchClient(`${ADMIN_BASE}/page-ui/text`, {
+    method: 'PUT',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.message || data.error || '儲存失敗');
+  notifySiteContentUpdated();
+  return data.item;
+}
+
+export async function adminDeleteElpPageUiEntry(token, id) {
+  const res = await fetchClient(`${ADMIN_BASE}/page-ui/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.message || data.error || '刪除失敗');
+  notifySiteContentUpdated();
+  return data;
 }
 
 export const ELP_STATUS_LABELS = {

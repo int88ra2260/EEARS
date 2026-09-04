@@ -10,6 +10,9 @@ const studentNameRegex = /^[\u4E00-\u9FA5A-Za-z\s]+$/;
 // Email 驗證
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** 中山大學學生信箱網域（英語實踐歷程護照） */
+export const NSYSU_STUDENT_EMAIL_DOMAIN = 'student.nsysu.edu.tw';
+
 /**
  * 驗證學號格式
  * @param {string} studentId 學號
@@ -35,6 +38,15 @@ export function validateName(name) {
  */
 export function validateEmail(email) {
   return emailRegex.test(email);
+}
+
+/**
+ * 是否為中山大學學生信箱（@student.nsysu.edu.tw）
+ */
+export function validateNsysuStudentEmail(email) {
+  const value = String(email || '').trim().toLowerCase();
+  if (!validateEmail(value)) return false;
+  return value.endsWith(`@${NSYSU_STUDENT_EMAIL_DOMAIN}`);
 }
 
 /**
@@ -70,6 +82,21 @@ export function validateReservationFields(data) {
   return {
     isValid: Object.keys(fieldErrors).length === 0,
     fieldErrors,
+  };
+}
+
+/**
+ * 英語實踐歷程護照：同預約欄位，且 Email 必須為 @student.nsysu.edu.tw
+ */
+export function validateElpStudentFields(data) {
+  const result = validateReservationFields(data);
+  const email = String(data?.studentEmail || '').trim();
+  if (email && validateEmail(email) && !validateNsysuStudentEmail(email)) {
+    result.fieldErrors.studentEmail = '請使用中山大學學生信箱（@student.nsysu.edu.tw）';
+  }
+  return {
+    isValid: Object.keys(result.fieldErrors).length === 0,
+    fieldErrors: result.fieldErrors,
   };
 }
 

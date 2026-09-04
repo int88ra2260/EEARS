@@ -40,6 +40,7 @@ const SECTION_LEADS = {
   staff_faculty: '關於我們頁面的師資卡片。',
   staff_admin: '關於我們頁面的行政團隊卡片。',
   english_test_registration: '英檢報名流程中，在學名單比對不符時顯示的提示訊息。',
+  english_learning_passport: '編輯學生端／student/english-learning-passport 頁面標題、指南與申請相關文案。亦可於「英語學習護照」後台「學生頁面」分頁編輯。',
 };
 
 function emptyTextForm() {
@@ -1066,6 +1067,7 @@ export default function SiteContentManagementPage({ embedded = false } = {}) {
           saving={saving}
           onSave={handleSaveText}
           onSwitchToList={() => setTextEditMode('list')}
+          mediaToken={token}
         />
       ) : (
         <SiteContentTextPanel

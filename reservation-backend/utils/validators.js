@@ -11,6 +11,9 @@ const studentNameRegex = /^[\u4E00-\u9FA5A-Za-z\s]+$/;
 // Email 驗證
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** 中山大學學生信箱網域（英語實踐歷程護照等） */
+const NSYSU_STUDENT_EMAIL_DOMAIN = 'student.nsysu.edu.tw';
+
 /**
  * 驗證學號格式
  * @param {string} studentId 學號
@@ -36,6 +39,17 @@ function validateName(name) {
  */
 function validateEmail(email) {
   return emailRegex.test(email);
+}
+
+/**
+ * 是否為中山大學學生信箱（@student.nsysu.edu.tw）
+ * @param {string} email
+ * @returns {boolean}
+ */
+function validateNsysuStudentEmail(email) {
+  const value = String(email || '').trim().toLowerCase();
+  if (!validateEmail(value)) return false;
+  return value.endsWith(`@${NSYSU_STUDENT_EMAIL_DOMAIN}`);
 }
 
 /**
@@ -89,7 +103,9 @@ module.exports = {
   validateStudentId,
   validateName,
   validateEmail,
+  validateNsysuStudentEmail,
   validateReservationData,
+  NSYSU_STUDENT_EMAIL_DOMAIN,
   // 導出正則表達式供其他地方使用
   studentIdRegex,
   studentNameRegex,

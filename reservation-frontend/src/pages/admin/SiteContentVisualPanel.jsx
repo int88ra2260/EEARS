@@ -4,6 +4,7 @@ import React, {
 import { Form } from 'react-bootstrap';
 
 import PublicPreviewChrome from '../../components/layout/PublicPreviewChrome';
+import MediaPicker from '../../components/media/MediaPicker';
 import SiteContentPreviewShell from '../../context/SiteContentPreviewShell';
 import SiteContentPreviewLanguageProvider, {
   catalogRowsToOverrides,
@@ -16,7 +17,13 @@ import {
   labelForContentKey,
   mergeTextCatalog,
 } from '../../utils/siteContentCatalog';
+import {
+  fetchMediaLibraryAdmin,
+  uploadMediaLibraryAdmin,
+} from '../../services/mediaLibraryAdminApi';
+import useToast from '../../components/ui/useToast';
 import { VISUAL_SECTION_CONFIG } from './siteContentVisualConfig';
+import elpStudentGuideImage from '../../assets/elp-student-guide.png';
 
 function emptyDraft() {
   return {
@@ -41,6 +48,21 @@ function rowToDraft(row) {
   };
 }
 
+function isImageUrlKey(contentKey) {
+  return typeof contentKey === 'string' && /ImageUrl$/i.test(contentKey);
+}
+
+function resolveSidebarImagePreview(contentKey, url) {
+  const custom = String(url || '').trim();
+  if (/^https?:\/\//i.test(custom) || custom.startsWith('/')) {
+    return { src: custom, isDefault: false };
+  }
+  if (contentKey === 'elpPage.guideImageUrl') {
+    return { src: elpStudentGuideImage, isDefault: true };
+  }
+  return { src: '', isDefault: true };
+}
+
 function TextEditSidebar({
   draft,
   setDraft,
@@ -48,17 +70,77 @@ function TextEditSidebar({
   dirty,
   onSave,
   onClear,
+  mediaToken,
 }) {
+  const toast = useToast();
+  const imageMode = isImageUrlKey(draft.contentKey);
+  const [assets, setAssets] = useState([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (!imageMode || !mediaToken) {
+      setAssets([]);
+      return undefined;
+    }
+    let cancelled = false;
+    setMediaLoading(true);
+    fetchMediaLibraryAdmin(mediaToken, { mimePrefix: 'image/' })
+      .then((data) => {
+        if (!cancelled) setAssets(Array.isArray(data?.assets) ? data.assets : []);
+      })
+      .catch((e) => {
+        if (!cancelled) toast.error(e?.message || '載入媒體庫失敗');
+      })
+      .finally(() => {
+        if (!cancelled) setMediaLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [imageMode, mediaToken, toast]);
+
   if (!draft.contentKey) {
     return (
       <aside className="scm-visual__sidebar scm-visual__sidebar--empty">
         <p className="scm-visual__sidebar-title">編輯面板</p>
         <p className="scm-visual__sidebar-hint">
-          在左側畫面上點擊任一段文字，即可在此修改中文與英文內容。
+          在左側畫面上點擊任一段文字或圖片，即可在此修改內容。
         </p>
       </aside>
     );
   }
+
+  const preview = imageMode ? resolveSidebarImagePreview(draft.contentKey, draft.valueZh) : null;
+
+  const applyImageUrl = (url) => {
+    const next = String(url || '').trim();
+    setDraft((d) => ({
+      ...d,
+      valueZh: next,
+      valueEn: next,
+      isActive: true,
+    }));
+  };
+
+  const handleUpload = async (file) => {
+    if (!mediaToken) throw new Error('未登入');
+    setUploading(true);
+    try {
+      const asset = await uploadMediaLibraryAdmin(mediaToken, file, {
+        scope: 'elp',
+        label: file.name,
+      });
+      setAssets((cur) => [asset, ...cur.filter((x) => x.id !== asset.id)]);
+      toast.success('圖片已上傳');
+      return asset;
+    } catch (e) {
+      toast.error(e?.message || '上傳失敗');
+      throw e;
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <aside className="scm-visual__sidebar">
@@ -82,28 +164,79 @@ function TextEditSidebar({
           onSave();
         }}
       >
-        <Form.Group className="mb-3">
-          <Form.Label>中文</Form.Label>
-          <Form.Control
-            as="textarea"
-            rows={5}
-            value={draft.valueZh}
-            onChange={(e) => setDraft((d) => ({ ...d, valueZh: e.target.value }))}
-          />
-        </Form.Group>
-        <Form.Group className="mb-3">
-          <Form.Label>English</Form.Label>
-          <Form.Control
-            as="textarea"
-            rows={5}
-            value={draft.valueEn}
-            onChange={(e) => setDraft((d) => ({ ...d, valueEn: e.target.value }))}
-          />
-        </Form.Group>
+        {imageMode ? (
+          <>
+            <div className="scm-visual__image-preview">
+              {preview.src ? (
+                <img src={preview.src} alt="圖片預覽" />
+              ) : (
+                <div className="p-4 text-center text-muted small">尚未設定圖片</div>
+              )}
+            </div>
+            {preview.isDefault ? (
+              <p className="small text-muted mb-2">目前使用系統預設圖。選圖或上傳後會覆寫。</p>
+            ) : null}
+            {mediaToken ? (
+              <>
+                {mediaLoading ? (
+                  <p className="small text-muted mb-2">載入媒體庫…</p>
+                ) : null}
+                <MediaPicker
+                  value={{ url: draft.valueZh || '', mediaId: null }}
+                  assets={assets}
+                  onChange={(next) => applyImageUrl(next.url)}
+                  onUploadFile={handleUpload}
+                  uploading={uploading}
+                  emptyHint="媒體庫尚無圖片。可直接上傳新圖，或貼上網址。"
+                />
+              </>
+            ) : (
+              <Form.Group className="mb-3">
+                <Form.Label>圖片網址</Form.Label>
+                <Form.Control
+                  value={draft.valueZh}
+                  onChange={(e) => applyImageUrl(e.target.value)}
+                  placeholder="/uploads/media/… 或 https://…"
+                />
+              </Form.Group>
+            )}
+            <Form.Group className="mb-3 mt-3">
+              <Form.Label>圖片網址（可手動貼上）</Form.Label>
+              <Form.Control
+                value={draft.valueZh}
+                onChange={(e) => applyImageUrl(e.target.value)}
+                placeholder="空白＝恢復系統預設圖"
+              />
+            </Form.Group>
+          </>
+        ) : (
+          <>
+            <Form.Group className="mb-3">
+              <Form.Label>中文</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={5}
+                value={draft.valueZh}
+                onChange={(e) => setDraft((d) => ({ ...d, valueZh: e.target.value }))}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>English</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={5}
+                value={draft.valueEn}
+                onChange={(e) => setDraft((d) => ({ ...d, valueEn: e.target.value }))}
+              />
+            </Form.Group>
+          </>
+        )}
         <Form.Check
           type="switch"
           className="mb-3"
-          label="啟用（停用後學生端恢復預設文案）"
+          label={imageMode
+            ? '啟用自訂圖片（關閉後學生端恢復預設圖）'
+            : '啟用（停用後學生端恢復預設文案）'}
           checked={draft.isActive}
           onChange={(e) => setDraft((d) => ({ ...d, isActive: e.target.checked }))}
         />
@@ -124,6 +257,7 @@ export default function SiteContentVisualPanel({
   saving,
   onSave,
   onSwitchToList,
+  mediaToken = null,
 }) {
   const config = VISUAL_SECTION_CONFIG[section];
   const [previewLang, setPreviewLang] = useState('zh');
@@ -278,6 +412,7 @@ export default function SiteContentVisualPanel({
           dirty={dirty}
           onSave={handleSave}
           onClear={clearSelection}
+          mediaToken={mediaToken}
         />
       </div>
     </div>

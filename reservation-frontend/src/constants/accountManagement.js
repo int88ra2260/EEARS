@@ -33,6 +33,50 @@ export const STAFF_LEVEL_OPTIONS = [
   { value: 'deputy_manager', label: '副理' },
 ];
 
+export const WORKER_LEVEL_OPTIONS = [
+  { value: 'event_ops', label: '活動相關' },
+  { value: 'bestep_ops', label: '培力相關' },
+  { value: 'content_editor', label: '小編' },
+  { value: 'passport_ops', label: '實踐歷程檔案' },
+];
+
+export const WORKER_LEVEL_SUMMARY = {
+  event_ops: {
+    description: '負責活動預約、簽到、違規與 ET 分組檢視／匯出（不含帳號與系統設定）。',
+    permissions: [
+      '活動列表與管理',
+      '預約與簽到',
+      '合規與違規',
+      'ET 分組檢視／匯出',
+      '變更密碼',
+    ],
+  },
+  bestep_ops: {
+    description: '負責培力英檢報名審核、追蹤與 BESTEP 匯入匯出（不含帳號與系統設定）。',
+    permissions: [
+      '英檢報名與審核',
+      '英檢追蹤',
+      'BESTEP 匯入',
+      'BESTEP 匯出',
+      '變更密碼',
+    ],
+  },
+  content_editor: {
+    description: '負責公告、週報與學生端內容編輯（不含系統設定）。',
+    permissions: ['公告與週報', '學生端內容', '變更密碼'],
+  },
+  passport_ops: {
+    description: '負責英語實踐歷程護照檢視、管理、審核與匯出（不含規則設定）。',
+    permissions: [
+      '實踐歷程護照檢視',
+      '實踐歷程護照管理',
+      '繳交審核',
+      '匯出',
+      '變更密碼',
+    ],
+  },
+};
+
 export const STAFF_LEVEL_SUMMARY = {
   event_lead: {
     description: '負責活動預約、合規違規、護照、公告週報、學生端內容；帳號管理僅限 ET Leader。',
@@ -83,6 +127,11 @@ export const STAFF_LEVEL_FILTER_OPTIONS = [
   ...STAFF_LEVEL_OPTIONS,
 ];
 
+export const WORKER_LEVEL_FILTER_OPTIONS = [
+  { value: 'all', label: '全部工讀職務' },
+  ...WORKER_LEVEL_OPTIONS,
+];
+
 export const STATUS_FILTER_OPTIONS = [
   { value: 'all', label: '全部狀態' },
   { value: 'active', label: '啟用' },
@@ -126,6 +175,13 @@ export const STAFF_LEVEL_TABLE_LABEL = {
   deputy_manager: '副理',
 };
 
+export const WORKER_LEVEL_TABLE_LABEL = {
+  event_ops: '活動',
+  bestep_ops: '培力',
+  content_editor: '小編',
+  passport_ops: '歷程',
+};
+
 export const PERM_OVERRIDE_MODES = [
   { value: 'inherit', label: '沿用', title: '沿用角色與職務的預設權限', activeVariant: 'secondary' },
   { value: 'allow', label: '加開', title: '即使預設未包含，也強制允許此功能', activeVariant: 'success' },
@@ -160,6 +216,7 @@ export const DEFAULT_FILTERS = {
   role: 'all',
   teacherLevel: 'all',
   staffLevel: 'all',
+  workerLevel: 'all',
   status: 'all',
   mustResetPassword: 'all',
   systemOverride: 'all',
@@ -174,6 +231,7 @@ export const EMPTY_CREATE_FORM = {
   role: 'teacher',
   teacherLevel: 'regular',
   staffLevel: 'event_lead',
+  workerLevel: 'event_ops',
   department: '',
   phone: '',
   password: '',

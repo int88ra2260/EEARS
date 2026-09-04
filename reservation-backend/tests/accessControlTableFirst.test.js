@@ -22,6 +22,8 @@ describe('access control table-first', () => {
   it('RolePermissions 以 role+teacherLevel key 接管 base mapping', async () => {
     expect(normalizeRoleKey('teacher', 'et_manager')).toBe('teacher:et_manager');
     expect(normalizeRoleKey('office_staff', null, 'curriculum_lead')).toBe('office_staff:curriculum_lead');
+    expect(normalizeRoleKey('worker', null, null, 'content_editor')).toBe('worker:content_editor');
+    expect(normalizeRoleKey('worker')).toBe('worker:event_ops');
     mockRoleFindAll.mockResolvedValue([{ permission: 'can_view_surveys' }]);
     mockOverrideFindAll.mockResolvedValue([]);
     mockScopeFindAll.mockResolvedValue([]);
@@ -102,6 +104,24 @@ describe('access control table-first', () => {
       mode: 'table_first',
     });
     expect(result.basePermissions).toContain('can_view_classes');
+    expect(result.source).toBe('table_first');
+  });
+
+  it('worker + workerLevel 使用 role_permissions 複合鍵', async () => {
+    mockRoleFindAll.mockResolvedValue([{ permission: 'can_manage_announcements' }]);
+    mockOverrideFindAll.mockResolvedValue([]);
+    mockScopeFindAll.mockResolvedValue([]);
+    const result = await buildEffectiveAccessFromSources({
+      userId: 21,
+      role: 'worker',
+      teacherLevel: null,
+      workerLevel: 'content_editor',
+      mode: 'table_first',
+    });
+    expect(mockRoleFindAll).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { role: 'worker:content_editor' } })
+    );
+    expect(result.basePermissions).toContain('can_manage_announcements');
     expect(result.source).toBe('table_first');
   });
 });

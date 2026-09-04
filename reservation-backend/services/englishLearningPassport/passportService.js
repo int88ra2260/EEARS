@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const { Op } = require('sequelize');
 const {
   sequelize,
@@ -22,19 +24,39 @@ const {
   meetsDirectEnglishStandard,
 } = require('./pointValidationService');
 const { logElpAudit } = require('./auditService');
+const { validateReservationData, validateNsysuStudentEmail } = require('../../utils/validators');
+const elpEmailVerificationService = require('./elpEmailVerificationService');
 
 function normalizeStudentContext(ctx) {
   return {
-    studentId: String(ctx.studentId || '').trim(),
+    studentId: String(ctx.studentId || '').trim().toUpperCase(),
     studentName: String(ctx.studentName || '').trim(),
     studentEmail: String(ctx.studentEmail || '').trim().toLowerCase(),
   };
 }
 
+function assertValidStudentContext(ctx) {
+  const n = normalizeStudentContext(ctx);
+  const { isValid, errors } = validateReservationData(n);
+  if (!isValid) {
+    const err = new Error(errors[0] || '學生資料格式不正確');
+    err.status = 400;
+    err.code = 'INVALID_STUDENT_CONTEXT';
+    throw err;
+  }
+  if (!validateNsysuStudentEmail(n.studentEmail)) {
+    const err = new Error('請使用中山大學學生信箱（@student.nsysu.edu.tw）');
+    err.status = 400;
+    err.code = 'INVALID_STUDENT_EMAIL_DOMAIN';
+    throw err;
+  }
+  return n;
+}
+
 function assertStudentMatchesPassport(passport, ctx) {
   const n = normalizeStudentContext(ctx);
   if (
-    passport.studentId !== n.studentId ||
+    String(passport.studentId || '').trim().toUpperCase() !== n.studentId ||
     passport.studentName.trim() !== n.studentName ||
     passport.studentEmail.toLowerCase() !== n.studentEmail
   ) {
@@ -68,7 +90,7 @@ async function getPassportForStudent(ctx, transaction) {
   return passport;
 }
 
-async function recalculatePassportPoints(passportId, transaction) {
+async function recalculatePassportPoints(passportId, transaction, req = null) {
   const sum = await EnglishLearningSubmission.sum('pointsApproved', {
     where: { passportId, status: SUBMISSION_STATUS.APPROVED },
     transaction,
@@ -78,12 +100,56 @@ async function recalculatePassportPoints(passportId, transaction) {
     { totalApprovedPoints: total },
     { where: { id: passportId }, transaction },
   );
+  await maybeAutoCompleteCertification(passportId, total, transaction, req);
   return total;
+}
+
+/**
+ * 滿門檻後自動完成認證（不再經行政「最終認證」審核）
+ */
+async function maybeAutoCompleteCertification(passportId, total, transaction, req = null) {
+  if (total < CERTIFICATION_THRESHOLD) return null;
+
+  const passport = await EnglishLearningPassport.findByPk(passportId, {
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+  if (!passport) return null;
+  if (passport.certificationStatus === CERTIFICATION_STATUS.APPROVED) return passport;
+
+  const eligibleStatuses = new Set([PASSPORT_STATUS.ACTIVE, PASSPORT_STATUS.COMPLETED]);
+  if (!eligibleStatuses.has(passport.status)) return null;
+
+  const before = passportToPublic(passport);
+  const now = new Date();
+  await passport.update(
+    {
+      status: PASSPORT_STATUS.COMPLETED,
+      certificationStatus: CERTIFICATION_STATUS.APPROVED,
+      certificationRequestedAt: passport.certificationRequestedAt || now,
+      certificationReviewedAt: now,
+      completedAt: passport.completedAt || now,
+      certificationRejectionReason: null,
+    },
+    { transaction },
+  );
+
+  await logElpAudit({
+    req,
+    action: 'certification_auto_complete',
+    targetType: 'EnglishLearningPassport',
+    targetId: passport.id,
+    before,
+    after: passportToPublic(passport),
+  });
+
+  return passport;
 }
 
 function passportToPublic(passport) {
   if (!passport) return null;
   const p = passport.toJSON ? passport.toJSON() : passport;
+  const certified = p.certificationStatus === CERTIFICATION_STATUS.APPROVED;
   return {
     id: p.id,
     studentId: p.studentId,
@@ -100,11 +166,9 @@ function passportToPublic(passport) {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     threshold: CERTIFICATION_THRESHOLD,
-    canRequestCertification:
-      p.status === PASSPORT_STATUS.ACTIVE &&
-      p.totalApprovedPoints >= CERTIFICATION_THRESHOLD &&
-      p.certificationStatus !== CERTIFICATION_STATUS.PENDING &&
-      p.certificationStatus !== CERTIFICATION_STATUS.APPROVED,
+    /** 舊欄位：最終審核流程已移除，恆為 false */
+    canRequestCertification: false,
+    hasCompletedCertification: certified,
   };
 }
 
@@ -144,9 +208,26 @@ function submissionToPublic(sub, { includeAttachments = false } = {}) {
 }
 
 async function getStudentDashboard(ctx) {
-  const passport = await getPassportForStudent(ctx);
+  let passport = await getPassportForStudent(ctx);
   if (!passport) {
     return { passport: null, summary: null, submissions: [], rules: await listEnabledRules() };
+  }
+
+  // 既有「待最終審核／已滿點未認證」資料：讀取時自動完成
+  if (
+    passport.totalApprovedPoints >= CERTIFICATION_THRESHOLD
+    && passport.certificationStatus !== CERTIFICATION_STATUS.APPROVED
+    && (passport.status === PASSPORT_STATUS.ACTIVE || passport.status === PASSPORT_STATUS.COMPLETED)
+  ) {
+    await sequelize.transaction(async (transaction) => {
+      await maybeAutoCompleteCertification(
+        passport.id,
+        passport.totalApprovedPoints,
+        transaction,
+        null,
+      );
+    });
+    passport = await getPassportForStudent(ctx);
   }
 
   const submissions = await EnglishLearningSubmission.findAll({
@@ -197,14 +278,12 @@ async function listEnabledRules() {
   });
 }
 
-async function applyPassport(ctx, { applicationReason }, req) {
-  const n = normalizeStudentContext(ctx);
-  if (!n.studentId || !n.studentName || !n.studentEmail) {
-    const err = new Error('缺少必要欄位');
-    err.status = 400;
-    err.code = 'REQUIRED_FIELD_MISSING';
-    throw err;
-  }
+async function applyPassport(ctx, { applicationReason, emailVerificationToken }, req) {
+  const n = assertValidStudentContext(ctx);
+  elpEmailVerificationService.assertEmailVerifiedToken({
+    token: emailVerificationToken,
+    email: n.studentEmail,
+  });
 
   return sequelize.transaction(async (transaction) => {
     const existing = await findBlockingPassport(n.studentId, transaction);
@@ -571,40 +650,17 @@ async function requestCertification(ctx, req) {
       err.code = 'INSUFFICIENT_POINTS';
       throw err;
     }
-    if (passport.certificationStatus === CERTIFICATION_STATUS.PENDING) {
-      const err = new Error('已送出最終認證申請，請等候審核');
-      err.status = 409;
-      err.code = 'CERTIFICATION_ALREADY_PENDING';
-      throw err;
-    }
     if (passport.certificationStatus === CERTIFICATION_STATUS.APPROVED) {
-      const err = new Error('已通過最終認證');
-      err.status = 409;
-      err.code = 'CERTIFICATION_ALREADY_APPROVED';
-      throw err;
+      return passportToPublic(passport);
     }
 
-    const before = passportToPublic(passport);
-    await passport.update(
-      {
-        certificationStatus: CERTIFICATION_STATUS.PENDING,
-        certificationRequestedAt: new Date(),
-        certificationRejectionReason: null,
-      },
-      { transaction },
-    );
-
-    await logElpAudit({
+    const completed = await maybeAutoCompleteCertification(
+      passport.id,
+      passport.totalApprovedPoints,
+      transaction,
       req,
-      studentContext: normalizeStudentContext(ctx),
-      action: 'certification_request',
-      targetType: 'EnglishLearningPassport',
-      targetId: passport.id,
-      before,
-      after: passportToPublic(passport),
-    });
-
-    return passportToPublic(passport);
+    );
+    return passportToPublic(completed || passport);
   });
 }
 
@@ -754,6 +810,146 @@ async function rejectPassportAdmin(passportId, reviewerId, reason, req) {
   });
 }
 
+function resolveUploadAbsolutePath(relativePath) {
+  if (!relativePath) return null;
+  const normalized = String(relativePath).replace(/\\/g, '/').replace(/^\/+/, '');
+  if (normalized.includes('..')) return null;
+  return path.join(__dirname, '..', '..', 'uploads', normalized);
+}
+
+async function collectAttachmentPathsForPassports(passportIds, transaction) {
+  if (!passportIds.length) return [];
+  const submissions = await EnglishLearningSubmission.findAll({
+    where: { passportId: { [Op.in]: passportIds } },
+    attributes: ['id'],
+    transaction,
+  });
+  const submissionIds = submissions.map((s) => s.id);
+  if (!submissionIds.length) return [];
+  const attachments = await EnglishLearningAttachment.findAll({
+    where: { submissionId: { [Op.in]: submissionIds } },
+    attributes: ['filePath'],
+    transaction,
+  });
+  return attachments.map((a) => a.filePath).filter(Boolean);
+}
+
+async function unlinkAttachmentFiles(filePaths) {
+  for (const relative of filePaths) {
+    const abs = resolveUploadAbsolutePath(relative);
+    if (!abs) continue;
+    try {
+      if (fs.existsSync(abs)) fs.unlinkSync(abs);
+    } catch (_) {
+      // best-effort cleanup
+    }
+  }
+}
+
+/**
+ * 刪除護照（含 CASCADE 點數申請與附件紀錄），並盡力清除磁碟檔案。
+ * @param {{ allowActive?: boolean }} options 預設僅允許 pending/rejected；allowActive 時可刪除其他狀態
+ */
+async function deletePassportAdmin(passportId, req, options = {}) {
+  const allowActive = !!options.allowActive;
+  const result = await sequelize.transaction(async (transaction) => {
+    const passport = await EnglishLearningPassport.findByPk(passportId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!passport) {
+      const err = new Error('查無護照');
+      err.status = 404;
+      err.code = 'PASSPORT_NOT_FOUND';
+      throw err;
+    }
+
+    const deletable = new Set([PASSPORT_STATUS.PENDING, PASSPORT_STATUS.REJECTED]);
+    if (!allowActive && !deletable.has(passport.status)) {
+      const err = new Error('僅待審核或已退回的護照可直接刪除；已核准／已完成需勾選強制刪除');
+      err.status = 400;
+      err.code = 'PASSPORT_DELETE_NOT_ALLOWED';
+      throw err;
+    }
+
+    const before = passportToPublic(passport);
+    const filePaths = await collectAttachmentPathsForPassports([passport.id], transaction);
+    await passport.destroy({ transaction });
+    await logElpAudit({
+      req,
+      action: 'passport_delete',
+      targetType: 'EnglishLearningPassport',
+      targetId: passportId,
+      before,
+      after: null,
+    });
+    return { id: Number(passportId), filePaths };
+  });
+
+  await unlinkAttachmentFiles(result.filePaths);
+  return { id: result.id, deleted: true };
+}
+
+async function batchDeletePassportsAdmin(ids, req, options = {}) {
+  const list = Array.isArray(ids)
+    ? [...new Set(ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))]
+    : [];
+  if (!list.length) {
+    const err = new Error('請選擇要刪除的護照');
+    err.status = 400;
+    err.code = 'IDS_REQUIRED';
+    throw err;
+  }
+  if (list.length > 100) {
+    const err = new Error('單次最多刪除 100 筆');
+    err.status = 400;
+    err.code = 'BATCH_LIMIT_EXCEEDED';
+    throw err;
+  }
+
+  const results = { deleted: [], failed: [] };
+  for (const id of list) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await deletePassportAdmin(id, req, options);
+      results.deleted.push(id);
+    } catch (e) {
+      results.failed.push({ id, code: e.code || 'ERROR', message: e.message });
+    }
+  }
+  return results;
+}
+
+async function batchRejectPassportsAdmin(ids, reviewerId, reason, req) {
+  const list = Array.isArray(ids)
+    ? [...new Set(ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))]
+    : [];
+  if (!list.length) {
+    const err = new Error('請選擇要退回的護照');
+    err.status = 400;
+    err.code = 'IDS_REQUIRED';
+    throw err;
+  }
+  if (list.length > 100) {
+    const err = new Error('單次最多退回 100 筆');
+    err.status = 400;
+    err.code = 'BATCH_LIMIT_EXCEEDED';
+    throw err;
+  }
+
+  const results = { rejected: [], failed: [] };
+  for (const id of list) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await rejectPassportAdmin(id, reviewerId, reason, req);
+      results.rejected.push(id);
+    } catch (e) {
+      results.failed.push({ id, code: e.code || 'ERROR', message: e.message });
+    }
+  }
+  return results;
+}
+
 async function listSubmissionsAdmin(filters = {}) {
   const where = {};
   if (filters.status) where.status = filters.status;
@@ -860,7 +1056,7 @@ async function approveSubmissionAdmin(submissionId, reviewerId, pointsApproved, 
       { transaction },
     );
 
-    const total = await recalculatePassportPoints(submission.passportId, transaction);
+    const total = await recalculatePassportPoints(submission.passportId, transaction, req);
 
     await logElpAudit({
       req,
@@ -961,7 +1157,7 @@ async function updateSubmissionPointsAdmin(submissionId, reviewerId, pointsAppro
       },
       { transaction },
     );
-    const total = await recalculatePassportPoints(submission.passportId, transaction);
+    const total = await recalculatePassportPoints(submission.passportId, transaction, req);
 
     await logElpAudit({
       req,
@@ -979,14 +1175,11 @@ async function updateSubmissionPointsAdmin(submissionId, reviewerId, pointsAppro
 }
 
 async function listCertificationRequestsAdmin() {
-  const rows = await EnglishLearningPassport.findAll({
-    where: { certificationStatus: CERTIFICATION_STATUS.PENDING },
-    order: [['certificationRequestedAt', 'ASC']],
-  });
-  return rows.map(passportToPublic);
+  // 最終行政審核已移除：不再有待審佇列
+  return [];
 }
 
-async function approveCertificationAdmin(passportId, reviewerId, req) {
+async function approveCertificationAdmin(passportId, _reviewerId, req) {
   return sequelize.transaction(async (transaction) => {
     const passport = await EnglishLearningPassport.findByPk(passportId, {
       transaction,
@@ -996,12 +1189,6 @@ async function approveCertificationAdmin(passportId, reviewerId, req) {
       const err = new Error('查無護照');
       err.status = 404;
       err.code = 'PASSPORT_NOT_FOUND';
-      throw err;
-    }
-    if (passport.certificationStatus !== CERTIFICATION_STATUS.PENDING) {
-      const err = new Error('無待審核的最終認證申請');
-      err.status = 400;
-      err.code = 'INVALID_CERTIFICATION_STATUS';
       throw err;
     }
     if (passport.totalApprovedPoints < CERTIFICATION_THRESHOLD) {
@@ -1010,81 +1197,27 @@ async function approveCertificationAdmin(passportId, reviewerId, req) {
       err.code = 'INSUFFICIENT_POINTS';
       throw err;
     }
-
-    const before = passportToPublic(passport);
-    const now = new Date();
-    await passport.update(
-      {
-        status: PASSPORT_STATUS.COMPLETED,
-        certificationStatus: CERTIFICATION_STATUS.APPROVED,
-        certificationReviewedBy: reviewerId,
-        certificationReviewedAt: now,
-        completedAt: now,
-        certificationRejectionReason: null,
-      },
-      { transaction },
-    );
-
-    await logElpAudit({
-      req,
-      action: 'certification_approve',
-      targetType: 'EnglishLearningPassport',
-      targetId: passport.id,
-      before,
-      after: passportToPublic(passport),
-    });
-
-    return passportToPublic(passport);
-  });
-}
-
-async function rejectCertificationAdmin(passportId, reviewerId, reason, req) {
-  if (!reason || !String(reason).trim()) {
-    const err = new Error('退回原因為必填');
-    err.status = 400;
-    err.code = 'REJECTION_REASON_REQUIRED';
-    throw err;
-  }
-  return sequelize.transaction(async (transaction) => {
-    const passport = await EnglishLearningPassport.findByPk(passportId, {
+    const completed = await maybeAutoCompleteCertification(
+      passport.id,
+      passport.totalApprovedPoints,
       transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-    if (!passport) {
-      const err = new Error('查無護照');
-      err.status = 404;
-      err.code = 'PASSPORT_NOT_FOUND';
-      throw err;
-    }
-    if (passport.certificationStatus !== CERTIFICATION_STATUS.PENDING) {
-      const err = new Error('無待審核的最終認證申請');
+      req,
+    );
+    if (!completed && passport.certificationStatus !== CERTIFICATION_STATUS.APPROVED) {
+      const err = new Error('此護照狀態無法完成認證');
       err.status = 400;
       err.code = 'INVALID_CERTIFICATION_STATUS';
       throw err;
     }
-
-    const before = passportToPublic(passport);
-    await passport.update(
-      {
-        certificationStatus: CERTIFICATION_STATUS.REJECTED,
-        certificationReviewedBy: reviewerId,
-        certificationReviewedAt: new Date(),
-        certificationRejectionReason: String(reason).trim(),
-      },
-      { transaction },
-    );
-
-    await logElpAudit({
-      req,
-      action: 'certification_reject',
-      targetType: 'EnglishLearningPassport',
-      targetId: passport.id,
-      before,
-      after: passportToPublic(passport),
-    });
-
-    return passportToPublic(passport);
+    return passportToPublic(completed || passport);
   });
+}
+
+async function rejectCertificationAdmin() {
+  const err = new Error('最終認證行政審核已停用；滿 100 點後系統會自動完成認證');
+  err.status = 410;
+  err.code = 'CERTIFICATION_REVIEW_DISABLED';
+  throw err;
 }
 
 async function listRulesAdmin() {
@@ -1278,6 +1411,7 @@ async function listAuditLogsAdmin(filters = {}) {
 
 module.exports = {
   normalizeStudentContext,
+  assertValidStudentContext,
   getPassportForStudent,
   getStudentDashboard,
   listEnabledRules,
@@ -1294,6 +1428,9 @@ module.exports = {
   getPassportDetailAdmin,
   approvePassportAdmin,
   rejectPassportAdmin,
+  deletePassportAdmin,
+  batchDeletePassportsAdmin,
+  batchRejectPassportsAdmin,
   listSubmissionsAdmin,
   getSubmissionAdmin,
   approveSubmissionAdmin,

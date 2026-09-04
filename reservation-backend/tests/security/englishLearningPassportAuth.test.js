@@ -52,6 +52,9 @@ jest.mock('../../services/englishLearningPassport/passportService', () => ({
   createRuleAdmin: jest.fn().mockResolvedValue({ id: 99, code: 'NEW_RULE' }),
   updateRuleAdmin: jest.fn().mockResolvedValue({ id: 1, code: 'TUTOR_CONSULTATION' }),
   deleteRuleAdmin: jest.fn().mockResolvedValue({ id: 1, code: 'TUTOR_CONSULTATION' }),
+  batchDeletePassportsAdmin: jest.fn().mockResolvedValue({ deleted: [1], failed: [] }),
+  batchRejectPassportsAdmin: jest.fn().mockResolvedValue({ rejected: [1], failed: [] }),
+  deletePassportAdmin: jest.fn().mockResolvedValue({ id: 1, deleted: true }),
 }));
 
 jest.mock('../../services/englishLearningPassport/exportService', () => ({
@@ -62,8 +65,24 @@ jest.mock('../../services/englishLearningPassport/exportService', () => ({
   }),
 }));
 
+jest.mock('../../services/siteContentService', () => ({
+  listAdmin: jest.fn().mockResolvedValue({
+    section: 'english_learning_passport',
+    sectionLabel: '英語實踐歷程護照',
+    items: [],
+  }),
+  upsertTextEntry: jest.fn().mockResolvedValue({
+    id: 1,
+    contentKey: 'elpPage.heroTitle',
+    valueZh: '測試',
+  }),
+  deleteEntry: jest.fn().mockResolvedValue(true),
+  seedTextFromDefaults: jest.fn().mockResolvedValue({ seeded: 0, skipped: 0 }),
+}));
+
 const adminRouter = require('../../routes/adminEnglishLearningPassportRouter');
 const { P } = require('../../middlewares/auth');
+const siteContentService = require('../../services/siteContentService');
 
 function createApp() {
   const app = express();
@@ -154,5 +173,48 @@ describe('admin english learning passport auth', () => {
       .set('x-user-role', 'admin')
       .set('x-allow-permissions', P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS);
     expect(deleteOk.status).toBe(200);
+  });
+
+  it('批量刪除需 MANAGE 權限', async () => {
+    const app = createApp();
+    const denied = await request(app)
+      .post('/api/admin/english-learning-passports/batch-delete')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS)
+      .send({ ids: [1, 2] });
+    expect(denied.status).toBe(403);
+
+    const ok = await request(app)
+      .post('/api/admin/english-learning-passports/batch-delete')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS)
+      .send({ ids: [1, 2] });
+    expect(ok.status).toBe(200);
+    expect(ok.body.data.deleted).toEqual([1]);
+  });
+
+  it('學生頁面文案 page-ui 需 MANAGE 權限', async () => {
+    const app = createApp();
+    const denied = await request(app)
+      .get('/api/admin/english-learning-passports/page-ui')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS);
+    expect(denied.status).toBe(403);
+
+    const ok = await request(app)
+      .get('/api/admin/english-learning-passports/page-ui')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS);
+    expect(ok.status).toBe(200);
+    expect(siteContentService.listAdmin).toHaveBeenCalledWith({
+      section: 'english_learning_passport',
+    });
+
+    const upsert = await request(app)
+      .put('/api/admin/english-learning-passports/page-ui/text')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS)
+      .send({ contentKey: 'elpPage.heroTitle', valueZh: '測試', valueEn: 'Test' });
+    expect(upsert.status).toBe(200);
   });
 });

@@ -68,7 +68,7 @@ async function run() {
     process.exit(2);
   }
 
-  const roleKey = normalizeRoleKey(basic.role, basic.teacherLevel, basic.staffLevel);
+  const roleKey = normalizeRoleKey(basic.role, basic.teacherLevel, basic.staffLevel, basic.workerLevel);
   const [rolePermissionsRows, overrideRows, scopeRows, tableFirst, jsonFirst] = await Promise.all([
     getRolePermissions(roleKey),
     getUserOverrides(userId),
@@ -78,6 +78,7 @@ async function run() {
       role: basic.role,
       teacherLevel: basic.teacherLevel,
       staffLevel: basic.staffLevel,
+      workerLevel: basic.workerLevel,
       jsonPermissions: basic.permissions || null,
       jsonScopes: Array.isArray(basic.scopes) ? basic.scopes : null,
     }),
@@ -86,6 +87,7 @@ async function run() {
       role: basic.role,
       teacherLevel: basic.teacherLevel,
       staffLevel: basic.staffLevel,
+      workerLevel: basic.workerLevel,
       jsonPermissions: basic.permissions || null,
       jsonScopes: Array.isArray(basic.scopes) ? basic.scopes : null,
     }),
@@ -106,6 +108,7 @@ async function run() {
   kv('Role', basic.role);
   kv('TeacherLevel', basic.teacherLevel || 'regular');
   kv('StaffLevel', basic.staffLevel || '(null)');
+  kv('WorkerLevel', basic.workerLevel || '(null)');
   kv('RoleKey', roleKey);
   kv('AccessVersion(DB)', basic.accessVersion);
   if (tokenVersion != null) kv('TokenVersion(input)', tokenVersion);

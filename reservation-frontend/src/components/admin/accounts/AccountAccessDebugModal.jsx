@@ -46,6 +46,9 @@ export default function AccountAccessDebugModal({
                   {data.teacher?.staffLevel
                     ? `／職務：${data.teacher.staffLevel}`
                     : ''}
+                  {data.teacher?.workerLevel
+                    ? `／工讀職務：${data.teacher.workerLevel}`
+                    : ''}
                 </div>
                 <div>啟用：{data.teacher?.isActive ? '是' : '否'}；accessVersion：{data.teacher?.accessVersion}</div>
                 <div>最後登入：{data.teacher?.lastLoginAt ? new Date(data.teacher.lastLoginAt).toLocaleString('zh-TW') : '—'}</div>

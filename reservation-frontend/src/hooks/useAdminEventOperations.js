@@ -20,6 +20,8 @@ import {
   mapEventToCapacityFields,
 } from '../utils/eventCapacityFields';
 
+export const DEFAULT_EVENT_NOTES = '實踐歷程檔案';
+
 const EMPTY_ADD_FIELDS = {
   name: '',
   eventType: 'English Table',
@@ -27,6 +29,7 @@ const EMPTY_ADD_FIELDS = {
   startTime: '',
   endTime: '',
   location: '',
+  notes: DEFAULT_EVENT_NOTES,
   customEventType: '',
   customReservationRule: '',
   ...getDefaultCapacityFields('English Table'),
@@ -39,6 +42,7 @@ const createEmptyBatchRow = () => ({
   startTime: '',
   endTime: '',
   location: '',
+  notes: DEFAULT_EVENT_NOTES,
   customEventType: '',
   customReservationRule: '',
   ...getDefaultCapacityFields('English Table'),
@@ -52,6 +56,7 @@ const EMPTY_EDIT_FIELDS = {
   startTime: '',
   endTime: '',
   location: '',
+  notes: DEFAULT_EVENT_NOTES,
   customEventType: '',
   customReservationRule: '',
 };
@@ -137,6 +142,7 @@ export function useAdminEventOperations({
       startTime: addFields.startTime,
       endTime: addFields.endTime,
       location: addFields.location?.trim() || null,
+      notes: addFields.notes?.trim() || DEFAULT_EVENT_NOTES,
       ...buildCapacityRequestPayload(addFields, finalEventType),
     };
 
@@ -215,6 +221,7 @@ export function useAdminEventOperations({
         startTime: event.startTime,
         endTime: event.endTime,
         location: event.location?.trim() || null,
+        notes: event.notes?.trim() || DEFAULT_EVENT_NOTES,
         ...buildCapacityRequestPayload(event, event.eventType),
       });
     }
@@ -331,6 +338,7 @@ export function useAdminEventOperations({
       startTime: firstEvent.startTime,
       endTime: firstEvent.endTime,
       location: firstEvent.location || '',
+      notes: firstEvent.notes || DEFAULT_EVENT_NOTES,
       groupCount: firstEvent.groupCount,
       perGroupCapacity: firstEvent.perGroupCapacity,
       maxParticipants: firstEvent.maxParticipants,
@@ -408,6 +416,7 @@ export function useAdminEventOperations({
       startTime: event.startTime,
       endTime: event.endTime,
       location: event.location || '',
+      notes: event.notes || DEFAULT_EVENT_NOTES,
       ...capacityFields,
       customEventType: event.eventType === '其他' ? event.customEventType || '' : '',
       customReservationRule: event.customReservationRule || '',
@@ -449,6 +458,7 @@ export function useAdminEventOperations({
       eventType: finalEventType,
       customReservationRule: editFields.eventType === '其他' ? editFields.customReservationRule : null,
       location: editFields.location?.trim() || null,
+      notes: editFields.notes?.trim() || null,
       ...buildCapacityRequestPayload(editFields, finalEventType),
     }));
 

@@ -453,6 +453,45 @@ Center for EMI Teaching Excellence
     };
   },
 
+  // 英語實踐歷程護照申請信箱驗證碼
+  englishLearningPassportEmailVerification: (data) => {
+    const minutes = data.expiresInMinutes || 10;
+    const code = data.code || '------';
+    const studentId = data.studentId || '—';
+    return {
+      to: data.email,
+      subject: '【英語實踐歷程護照】信箱驗證碼 / ELP Email Verification Code',
+      text: `
+您好，
+
+您正在申請英語實踐歷程護照，請於頁面輸入以下驗證碼：
+
+驗證碼：${code}
+有效時間：${minutes} 分鐘
+學號：${studentId}
+
+若您未申請此驗證碼，請忽略本信件。請勿將驗證碼轉告知他人。
+
+全英語卓越教學中心 敬上
+📧 emicenter@mail.nsysu.edu.tw
+
+---
+
+Hello,
+
+You are verifying your email for the English Learning Passport application. Please enter this code on the page:
+
+Code: ${code}
+Valid for: ${minutes} minutes
+Student ID: ${studentId}
+
+If you did not request this code, please ignore this email.
+
+Center for EMI Teaching Excellence
+`
+    };
+  },
+
   // 培力英檢報名完成通知
   englishTestRegistrationSuccess: (data) => {
     // 格式化報名日期

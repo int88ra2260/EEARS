@@ -4,6 +4,8 @@ import {
   STATUS_FILTER_OPTIONS,
   TEACHER_LEVEL_OPTIONS,
   TEACHER_LEVEL_TABLE_LABEL,
+  WORKER_LEVEL_OPTIONS,
+  WORKER_LEVEL_TABLE_LABEL,
 } from '../constants/accountManagement';
 import { SYSTEM_ONLY_ASSIGNMENT_KEYS, pickPermissionLabel } from '../constants/permissionGroups';
 import { ALL_SCOPES } from '../constants/scopes';
@@ -42,7 +44,7 @@ function buildPermissionsPayload(editPermMode) {
 export function buildTeacherListParams(filters = {}) {
   const params = new URLSearchParams();
   params.set('pageSize', '500');
-  ['role', 'teacherLevel', 'staffLevel', 'status'].forEach((key) => {
+  ['role', 'teacherLevel', 'staffLevel', 'workerLevel', 'status'].forEach((key) => {
     if (filters[key] && filters[key] !== 'all') {
       params.set(key, filters[key]);
     }
@@ -101,6 +103,9 @@ export function buildFilterSummary(filters = {}, displayedCount = 0, totalCount 
   if (filters.staffLevel && filters.staffLevel !== 'all') {
     parts.push(`行政職務：${labelFromOptions(STAFF_LEVEL_OPTIONS, filters.staffLevel)}`);
   }
+  if (filters.workerLevel && filters.workerLevel !== 'all') {
+    parts.push(`工讀職務：${labelFromOptions(WORKER_LEVEL_OPTIONS, filters.workerLevel)}`);
+  }
   if (filters.status && filters.status !== 'all') {
     parts.push(`狀態：${labelFromOptions(STATUS_FILTER_OPTIONS, filters.status)}`);
   }
@@ -123,6 +128,7 @@ export function normalizeCreateTeacherBody(createForm) {
     role,
     teacherLevel: role === 'teacher' ? (createForm.teacherLevel || 'regular') : null,
     staffLevel: role === 'office_staff' ? (createForm.staffLevel || 'event_lead') : null,
+    workerLevel: role === 'worker' ? (createForm.workerLevel || 'event_ops') : null,
     studentId: role === 'leader' ? (cleanString(createForm.studentId || '') || null) : null,
     department: cleanString(createForm.department || '') || null,
     phone: cleanString(createForm.phone || '') || null,
@@ -141,6 +147,7 @@ export function serializeEditPayload(_editingAccount, editForm, editPermMode, sc
     role,
     teacherLevel: role === 'teacher' ? (editForm.teacherLevel || 'regular') : null,
     staffLevel: role === 'office_staff' ? (editForm.staffLevel || 'event_lead') : null,
+    workerLevel: role === 'worker' ? (editForm.workerLevel || 'event_ops') : null,
     studentId: role === 'leader' ? (cleanString(editForm.studentId || '') || null) : null,
     isActive: !!editForm.isActive,
     disabledReason: editForm.isActive ? null : (cleanString(editForm.disabledReason || '') || null),
@@ -190,6 +197,7 @@ export function exportAccountsToCsv(accounts = []) {
       '角色',
       '老師層級',
       '行政職務',
+      '工讀職務',
       '狀態',
       '須改密碼',
       '自訂覆寫',
@@ -205,6 +213,7 @@ export function exportAccountsToCsv(accounts = []) {
       ROLE_LABELS[account.role] || account.role,
       TEACHER_LEVEL_TABLE_LABEL[account.teacherLevel] || account.teacherLevel || '',
       STAFF_LEVEL_TABLE_LABEL[account.staffLevel] || account.staffLevel || '',
+      WORKER_LEVEL_TABLE_LABEL[account.workerLevel] || account.workerLevel || '',
       account.isActive ? '啟用' : '停用',
       account.mustResetPassword ? '是' : '否',
       accountHasCustomOverrides(account) ? '是' : '否',

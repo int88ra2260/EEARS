@@ -12,7 +12,7 @@ function sortUnique(list) {
 
 async function getUserBasicInfo(userId) {
   return Teacher.findByPk(userId, {
-    attributes: ['id', 'role', 'teacherLevel', 'staffLevel', 'permissions', 'scopes', 'accessVersion', 'isActive'],
+    attributes: ['id', 'role', 'teacherLevel', 'staffLevel', 'workerLevel', 'permissions', 'scopes', 'accessVersion', 'isActive'],
   });
 }
 
@@ -27,6 +27,7 @@ async function loadUserForAccessDebug(userId) {
       'role',
       'teacherLevel',
       'staffLevel',
+      'workerLevel',
       'permissions',
       'scopes',
       'accessVersion',
@@ -75,24 +76,26 @@ async function getJsonScopes(userId) {
   return t ? (Array.isArray(t.scopes) ? t.scopes : null) : null;
 }
 
-async function buildEffectiveAccessTableFirst({ userId, role, teacherLevel, staffLevel, jsonPermissions, jsonScopes }) {
+async function buildEffectiveAccessTableFirst({ userId, role, teacherLevel, staffLevel, workerLevel, jsonPermissions, jsonScopes }) {
   return buildEffectiveAccessFromSources({
     userId,
     role,
     teacherLevel,
     staffLevel: staffLevel != null ? staffLevel : null,
+    workerLevel: workerLevel != null ? workerLevel : null,
     jsonPermissions,
     jsonScopes,
     mode: 'table_first',
   });
 }
 
-async function buildEffectiveAccessJsonFirst({ userId, role, teacherLevel, staffLevel, jsonPermissions, jsonScopes }) {
+async function buildEffectiveAccessJsonFirst({ userId, role, teacherLevel, staffLevel, workerLevel, jsonPermissions, jsonScopes }) {
   return buildEffectiveAccessFromSources({
     userId,
     role,
     teacherLevel,
     staffLevel: staffLevel != null ? staffLevel : null,
+    workerLevel: workerLevel != null ? workerLevel : null,
     jsonPermissions,
     jsonScopes,
     mode: 'json_first',
@@ -160,7 +163,7 @@ async function buildAccessDebugApiPayload(userId) {
   if (!basic) return null;
 
   const plain = basic.get ? basic.get({ plain: true }) : basic;
-  const roleKey = normalizeRoleKey(plain.role, plain.teacherLevel, plain.staffLevel);
+  const roleKey = normalizeRoleKey(plain.role, plain.teacherLevel, plain.staffLevel, plain.workerLevel);
   const [rolePermissionsRows, overrideRows, scopeRows, tableFirst, jsonFirst] = await Promise.all([
     getRolePermissions(roleKey),
     getUserOverrides(uid),
@@ -170,6 +173,7 @@ async function buildAccessDebugApiPayload(userId) {
       role: plain.role,
       teacherLevel: plain.teacherLevel,
       staffLevel: plain.staffLevel,
+      workerLevel: plain.workerLevel,
       jsonPermissions: plain.permissions || null,
       jsonScopes: Array.isArray(plain.scopes) ? plain.scopes : null,
     }),
@@ -178,6 +182,7 @@ async function buildAccessDebugApiPayload(userId) {
       role: plain.role,
       teacherLevel: plain.teacherLevel,
       staffLevel: plain.staffLevel,
+      workerLevel: plain.workerLevel,
       jsonPermissions: plain.permissions || null,
       jsonScopes: Array.isArray(plain.scopes) ? plain.scopes : null,
     }),
@@ -188,6 +193,7 @@ async function buildAccessDebugApiPayload(userId) {
     role: plain.role,
     teacherLevel: plain.role === 'teacher' ? (plain.teacherLevel || 'regular') : null,
     staffLevel: plain.role === 'office_staff' ? (plain.staffLevel || 'event_lead') : null,
+    workerLevel: plain.role === 'worker' ? (plain.workerLevel || 'event_ops') : null,
     permissions: plain.permissions || null,
     scopes: Array.isArray(plain.scopes) ? plain.scopes : null,
   };
@@ -254,6 +260,7 @@ async function buildAccessDebugApiPayload(userId) {
       role: plain.role,
       teacherLevel: plain.teacherLevel || null,
       staffLevel: plain.staffLevel || null,
+      workerLevel: plain.workerLevel || null,
       isActive: !!plain.isActive,
       mustResetPassword: !!plain.mustResetPassword,
       accessVersion: Number(plain.accessVersion || 1),

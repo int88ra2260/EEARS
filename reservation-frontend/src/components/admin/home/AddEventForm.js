@@ -121,6 +121,16 @@ export default function AddEventForm({
             />
           </div>
           <div className="col-md-2">
+            <label className="form-label">備註</label>
+            <input
+              className="form-control"
+              placeholder="實踐歷程檔案"
+              maxLength={255}
+              value={fields.notes ?? ''}
+              onChange={(e) => setField('notes', e.target.value)}
+            />
+          </div>
+          <div className="col-md-2">
             <label className="form-label">&nbsp;</label>
             <button type="button" className="btn btn-success w-100" onClick={onOpenBatchAdd}>
               批量新增活動

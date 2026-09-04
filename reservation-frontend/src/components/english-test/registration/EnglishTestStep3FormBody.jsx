@@ -102,6 +102,7 @@ export default function EnglishTestStep3FormBody({
   handleChange,
   handleFileChange,
   checkB2Level,
+  onBack,
   onClose,
   formOptions = null,
 }) {
@@ -369,18 +370,34 @@ export default function EnglishTestStep3FormBody({
       </div>
 
       <div className="d-flex justify-content-between gap-2">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={onClose}
-          style={{
-            padding: '0.625rem 1.5rem',
-            fontSize: '1rem',
-            fontWeight: 'bold',
-          }}
-        >
-          取消
-        </button>
+        <div className="d-flex gap-2">
+          {onBack ? (
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={onBack}
+              style={{
+                padding: '0.625rem 1.5rem',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+              }}
+            >
+              ← 上一步
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onClose}
+            style={{
+              padding: '0.625rem 1.5rem',
+              fontSize: '1rem',
+              fontWeight: 'bold',
+            }}
+          >
+            取消
+          </button>
+        </div>
         <button
           type="submit"
           className="btn btn-primary"

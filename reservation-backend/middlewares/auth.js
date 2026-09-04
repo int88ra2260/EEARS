@@ -19,6 +19,7 @@ const { Teacher } = require('../models');
 const logger = require('../utils/logger');
 const { secretKey } = require('../config/jwtSecret');
 const auditLogService = require('../services/auditLogService');
+const { enforceDemoAccount, applyDemoResponseGuard, isDemoUser } = require('./demoAccountGuard');
 
 /** 權限拒絕時寫入稽核（避免洗版：僅高風險 permission） */
 const AUDIT_ON_DENIED_PERMISSIONS = new Set([
@@ -312,6 +313,7 @@ function authMiddleware(req, res, next) {
       } catch (e) {
         logError('TOKEN_INVALID', e, 'accessVersion check failed');
       }
+      if (enforceDemoAccount(req, res)) return undefined;
       return enforcePasswordResetMiddleware(req, res, next);
     });
   } catch (error) {
@@ -349,6 +351,9 @@ function optionalAuthMiddleware(req, res, next) {
         attachAccessProfile(req);
         if (gate.mismatch) {
           req.accessVersionMismatch = { token: gate.tokenVersion, current: gate.dbVersion, mode: 'observe' };
+        }
+        if (isDemoUser(req)) {
+          applyDemoResponseGuard(req, res);
         }
       }
       next();

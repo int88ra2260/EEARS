@@ -73,6 +73,21 @@ function baseScopesFromStaffLevel(staffLevel) {
   }
 }
 
+function baseScopesFromWorkerLevel(workerLevel) {
+  const level = workerLevel || 'event_ops';
+  switch (level) {
+    case 'event_ops':
+      return [SCOPE.ALL];
+    case 'bestep_ops':
+      return [SCOPE.ENGLISH_TEST, SCOPE.CLASS];
+    case 'content_editor':
+    case 'passport_ops':
+      return [];
+    default:
+      return [SCOPE.ALL];
+  }
+}
+
 /**
  * @param {Set<string>} set
  * @param {string[]} list
@@ -209,16 +224,57 @@ function buildBasePermissionSet(user) {
   }
 
   if (role === 'worker') {
-    addAll(perms, [
-      P.CAN_VIEW_EVENTS_ADMIN,
-      P.CAN_VIEW_RESERVATIONS,
-      P.CAN_EXPORT_RESERVATIONS,
-      P.CAN_CHECKIN_STUDENTS,
-      P.CAN_VIEW_BLACKLIST,
-      P.CAN_RECORD_VIOLATIONS,
-      P.CAN_MANAGE_VIOLATIONS,
-      P.CAN_VIEW_ENGLISH_TEST_METRICS,
-    ]);
+    const worker = (user && user.workerLevel) || 'event_ops';
+    if (worker === 'event_ops') {
+      addAll(perms, [
+        P.CAN_VIEW_EVENTS_ADMIN,
+        P.CAN_MANAGE_EVENTS,
+        P.CAN_VIEW_RESERVATIONS,
+        P.CAN_MANAGE_RESERVATIONS,
+        P.CAN_EXPORT_RESERVATIONS,
+        P.CAN_CHECKIN_STUDENTS,
+        P.CAN_VIEW_BLACKLIST,
+        P.CAN_RECORD_VIOLATIONS,
+        P.CAN_MANAGE_VIOLATIONS,
+        P.CAN_VIEW_ET_GROUPING,
+        P.CAN_EXPORT_ET_GROUPING,
+      ]);
+    } else if (worker === 'bestep_ops') {
+      addAll(perms, [
+        P.CAN_VIEW_ENGLISH_TEST_METRICS,
+        P.CAN_VIEW_ENGLISH_TESTS,
+        P.CAN_MANAGE_ENGLISH_TESTS,
+        P.CAN_REVIEW_ENGLISH_TEST_REGISTRATIONS,
+        P.CAN_EXPORT_ENGLISH_TEST_DATA,
+        P.CAN_VIEW_ENGLISH_TEST_TRACKING,
+        P.CAN_MANAGE_ENGLISH_TEST_TRACKING,
+        P.CAN_IMPORT_BESTEP,
+        P.CAN_EXPORT_BESTEP,
+      ]);
+    } else if (worker === 'content_editor') {
+      addAll(perms, [
+        P.CAN_MANAGE_ANNOUNCEMENTS,
+        P.CAN_MANAGE_SITE_CONTENT,
+      ]);
+    } else if (worker === 'passport_ops') {
+      addAll(perms, [
+        P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS,
+        P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS,
+        P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS,
+        P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
+      ]);
+    } else {
+      // 未知 level：保守沿用活動營運
+      addAll(perms, [
+        P.CAN_VIEW_EVENTS_ADMIN,
+        P.CAN_VIEW_RESERVATIONS,
+        P.CAN_EXPORT_RESERVATIONS,
+        P.CAN_CHECKIN_STUDENTS,
+        P.CAN_VIEW_BLACKLIST,
+        P.CAN_RECORD_VIOLATIONS,
+        P.CAN_MANAGE_VIOLATIONS,
+      ]);
+    }
     return perms;
   }
 
@@ -448,6 +504,7 @@ function buildAccessProfile(user) {
   const role = (user && user.role) || '';
   const teacherLevel = user && user.teacherLevel != null ? user.teacherLevel : 'regular';
   const staffLevel = user && user.staffLevel != null ? user.staffLevel : null;
+  const workerLevel = user && user.workerLevel != null ? user.workerLevel : null;
   const isAdmin = role === 'admin';
   const isExecutive = role === 'teacher' && teacherLevel === 'executive';
   const isWorker = role === 'worker';
@@ -456,12 +513,12 @@ function buildAccessProfile(user) {
   const isOfficeStaff = role === 'office_staff';
   const hasAdminRights = isAdmin || isExecutive;
 
-  // base scopes（role + teacherLevel / staffLevel）
+  // base scopes（role + teacherLevel / staffLevel / workerLevel）
   let baseScopes;
   if (isAdmin || isExecutive) {
     baseScopes = [SCOPE.ALL];
   } else if (isWorker) {
-    baseScopes = [SCOPE.ALL];
+    baseScopes = baseScopesFromWorkerLevel(workerLevel || 'event_ops');
   } else if (isLeader) {
     baseScopes = [SCOPE.ENGLISH_TABLE];
   } else if (isTeacher) {
@@ -496,7 +553,7 @@ function buildAccessProfile(user) {
     hasEffectiveBaseArray &&
     !emptyBaseMeansUseDefaults &&
     source === 'table_first' &&
-    (isTeacher || isOfficeStaff)
+    (isTeacher || isOfficeStaff || isWorker)
   ) {
     buildBasePermissionSet(user).forEach((perm) => basePermissionSet.add(perm));
   }
@@ -512,6 +569,8 @@ function buildAccessProfile(user) {
     role,
     teacherLevel: role === 'teacher' ? teacherLevel : null,
     staffLevel: isOfficeStaff ? (staffLevel || 'event_lead') : null,
+    workerLevel: isWorker ? (workerLevel || 'event_ops') : null,
+    isDemo: !!(user && (user.isDemo === true || user.isDemo === 1 || user.isDemo === 'true')),
     isAdmin,
     isExecutive,
     isWorker,
@@ -554,6 +613,7 @@ async function resolveEffectiveAccessSources(user) {
     role: user.role || null,
     teacherLevel: user.teacherLevel || null,
     staffLevel: user.staffLevel != null ? user.staffLevel : null,
+    workerLevel: user.workerLevel != null ? user.workerLevel : null,
     jsonPermissions: user.permissions || null,
     jsonScopes: Array.isArray(user.scopes) ? user.scopes : null,
     mode,
@@ -693,6 +753,7 @@ module.exports = {
   normalizeUserAccess,
   baseScopesFromTeacherLevel,
   baseScopesFromStaffLevel,
+  baseScopesFromWorkerLevel,
   buildBasePermissionSet,
   eventTypeToScope,
   isDeputyManagerUser,

@@ -7,6 +7,7 @@ import {
   STAFF_LEVEL_FILTER_OPTIONS,
   SYSTEM_OVERRIDE_FILTER_OPTIONS,
   TEACHER_LEVEL_FILTER_OPTIONS,
+  WORKER_LEVEL_FILTER_OPTIONS,
 } from '../../../constants/accountManagement';
 
 export default function AccountFiltersCard({
@@ -64,6 +65,19 @@ export default function AccountFiltersCard({
               style={{ minWidth: '160px' }}
             >
               {STAFF_LEVEL_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </Form.Select>
+          </div>
+          <div>
+            <Form.Label className="small text-muted mb-1">工讀職務</Form.Label>
+            <Form.Select
+              value={filters.workerLevel}
+              disabled={lockLeaderOnly}
+              onChange={(e) => setFilters((prev) => ({ ...prev, workerLevel: e.target.value }))}
+              style={{ minWidth: '160px' }}
+            >
+              {WORKER_LEVEL_FILTER_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </Form.Select>

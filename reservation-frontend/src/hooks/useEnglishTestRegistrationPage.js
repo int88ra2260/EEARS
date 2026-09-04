@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useToast from '../components/ui/useToast';
 import useAlert from '../components/ui/useAlert';
@@ -24,6 +24,11 @@ import {
   saveEnglishTestRegistrationDraft,
   stripStep3DataForDraft,
 } from '../utils/englishTestRegistrationDraft';
+import {
+  getEnglishTestNavigableMaxStep,
+  getEnglishTestStepGateBlockMessage,
+} from '../utils/englishTestRegistrationStepGates';
+import { useEnglishTestFormSchemaPublic } from './useEnglishTestFormSchemaPublic';
 
 import {
   ENGLISH_TEST_ANNOUNCEMENT_ACK_KEY,
@@ -34,8 +39,10 @@ export default function useEnglishTestRegistrationPage() {
   const toast = useToast();
   const { alert } = useAlert();
   const { confirm } = useConfirm();
+  const { schema } = useEnglishTestFormSchemaPublic();
 
   const [englishTestStep, setEnglishTestStep] = useState(0);
+  const [maxReachedStep, setMaxReachedStep] = useState(0);
   const [agreedToAnnouncement, setAgreedToAnnouncement] = useState(() => {
     try {
       return sessionStorage.getItem(ENGLISH_TEST_ANNOUNCEMENT_ACK_KEY) === '1';
@@ -71,12 +78,39 @@ export default function useEnglishTestRegistrationPage() {
   const [isCheckingRegistrationStatus, setIsCheckingRegistrationStatus] = useState(true);
   const [draftRestored, setDraftRestored] = useState(false);
 
+  const navigableMaxStep = useMemo(() => getEnglishTestNavigableMaxStep({
+    maxReachedStep,
+    schema,
+    agreedToAnnouncement,
+    agreedToPrivacyPolicy,
+    registrationEnabled,
+    hasStep3Data: Boolean(step3Data),
+  }), [
+    maxReachedStep,
+    schema,
+    agreedToAnnouncement,
+    agreedToPrivacyPolicy,
+    registrationEnabled,
+    step3Data,
+  ]);
+
+  const advanceToStep = useCallback((step) => {
+    setEnglishTestStep(step);
+    setMaxReachedStep((prev) => Math.max(prev, step));
+  }, []);
+
   const getProgressSnapshot = useCallback(() => ({
     englishTestStep,
+    maxReachedStep,
     agreedToPrivacyPolicy,
     step3Data,
     englishTestForm,
-  }), [englishTestStep, agreedToPrivacyPolicy, step3Data, englishTestForm]);
+  }), [englishTestStep, maxReachedStep, agreedToPrivacyPolicy, step3Data, englishTestForm]);
+
+  useEffect(() => {
+    if (englishTestStep <= navigableMaxStep) return;
+    setEnglishTestStep(navigableMaxStep);
+  }, [englishTestStep, navigableMaxStep]);
 
   useEffect(() => {
     const loadRegistrationStatus = async () => {
@@ -116,7 +150,12 @@ export default function useEnglishTestRegistrationPage() {
     }
 
     if (typeof draft.englishTestStep === 'number') {
-      setEnglishTestStep(draft.englishTestStep);
+      const restoredStep = draft.englishTestStep;
+      const restoredMax = typeof draft.maxReachedStep === 'number'
+        ? Math.max(draft.maxReachedStep, restoredStep)
+        : restoredStep;
+      setEnglishTestStep(restoredStep);
+      setMaxReachedStep(restoredMax);
     }
     if (draft.agreedToPrivacyPolicy) {
       setAgreedToPrivacyPolicy(true);
@@ -143,6 +182,7 @@ export default function useEnglishTestRegistrationPage() {
 
     saveEnglishTestRegistrationDraft({
       englishTestStep: snapshot.englishTestStep,
+      maxReachedStep: snapshot.maxReachedStep,
       agreedToPrivacyPolicy: snapshot.agreedToPrivacyPolicy,
       englishTestForm: snapshot.englishTestForm,
       step3Data: stripStep3DataForDraft(snapshot.step3Data),
@@ -171,9 +211,37 @@ export default function useEnglishTestRegistrationPage() {
     navigate('/');
   }, [confirm, getProgressSnapshot, navigate]);
 
+  const handleAnnouncementAgreeChange = useCallback((checked) => {
+    const next = Boolean(checked);
+    setAgreedToAnnouncement(next);
+    try {
+      if (next) {
+        sessionStorage.setItem(ENGLISH_TEST_ANNOUNCEMENT_ACK_KEY, '1');
+      } else {
+        sessionStorage.removeItem(ENGLISH_TEST_ANNOUNCEMENT_ACK_KEY);
+      }
+    } catch {
+      // ignore private browsing
+    }
+  }, []);
+
+  const handlePrivacyAgreeChange = useCallback((checked) => {
+    setAgreedToPrivacyPolicy(Boolean(checked));
+  }, []);
+
   const handleAnnouncementNext = useCallback(() => {
-    if (!agreedToAnnouncement) {
-      toast.warning('請先勾選已閱讀報名須知後才能繼續');
+    const block = getEnglishTestStepGateBlockMessage({
+      targetStep: 1,
+      schema,
+      agreedToAnnouncement,
+      agreedToPrivacyPolicy,
+      registrationEnabled,
+      hasStep3Data: Boolean(step3Data),
+      maxReachedStep: Math.max(maxReachedStep, 1),
+    });
+    if (block) {
+      if (block.tone === 'info') toast.info(block.message);
+      else toast.warning(block.message);
       return;
     }
     try {
@@ -181,16 +249,79 @@ export default function useEnglishTestRegistrationPage() {
     } catch {
       // ignore private browsing
     }
-    setEnglishTestStep(1);
-  }, [agreedToAnnouncement, toast]);
+    advanceToStep(1);
+  }, [
+    agreedToAnnouncement,
+    agreedToPrivacyPolicy,
+    schema,
+    registrationEnabled,
+    step3Data,
+    maxReachedStep,
+    toast,
+    advanceToStep,
+  ]);
 
   const handlePrivacyPolicyNext = useCallback(() => {
-    if (!agreedToPrivacyPolicy) {
-      toast.warning('請先勾選同意個資使用同意書後才能繼續');
+    const block = getEnglishTestStepGateBlockMessage({
+      targetStep: 2,
+      schema,
+      agreedToAnnouncement,
+      agreedToPrivacyPolicy,
+      registrationEnabled,
+      hasStep3Data: Boolean(step3Data),
+      maxReachedStep: Math.max(maxReachedStep, 2),
+    });
+    if (block) {
+      if (block.tone === 'info') toast.info(block.message);
+      else toast.warning(block.message);
       return;
     }
-    setEnglishTestStep(2);
-  }, [agreedToPrivacyPolicy, toast]);
+    advanceToStep(2);
+  }, [
+    agreedToAnnouncement,
+    agreedToPrivacyPolicy,
+    schema,
+    registrationEnabled,
+    step3Data,
+    maxReachedStep,
+    toast,
+    advanceToStep,
+  ]);
+
+  const handleStepBack = useCallback(() => {
+    setEnglishTestStep((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  const handleGoToStep = useCallback((targetStep) => {
+    if (typeof targetStep !== 'number' || targetStep < 0 || targetStep > 4) return;
+    if (targetStep === englishTestStep) return;
+
+    const block = getEnglishTestStepGateBlockMessage({
+      targetStep,
+      schema,
+      agreedToAnnouncement,
+      agreedToPrivacyPolicy,
+      registrationEnabled,
+      hasStep3Data: Boolean(step3Data),
+      maxReachedStep,
+    });
+    if (block) {
+      if (block.tone === 'info') toast.info(block.message);
+      else toast.warning(block.message);
+      return;
+    }
+
+    setEnglishTestStep(targetStep);
+  }, [
+    englishTestStep,
+    maxReachedStep,
+    schema,
+    agreedToAnnouncement,
+    agreedToPrivacyPolicy,
+    registrationEnabled,
+    step3Data,
+    toast,
+  ]);
 
   const handleViewEdit = useCallback(async () => {
     const errors = validateEnglishTestBasicForm(englishTestForm);
@@ -367,7 +498,7 @@ export default function useEnglishTestRegistrationPage() {
       }
 
       setStudentData(null);
-      setEnglishTestStep(3);
+      advanceToStep(3);
     } catch (error) {
       console.error('檢查報名狀態錯誤:', error);
       await alert({
@@ -378,7 +509,7 @@ export default function useEnglishTestRegistrationPage() {
     } finally {
       setIsLoadingStudent(false);
     }
-  }, [registrationEnabled, englishTestForm, toast, alert]);
+  }, [registrationEnabled, englishTestForm, toast, alert, advanceToStep]);
 
   const handleRegistrationClosedSubmitClick = useCallback(() => {
     toast.warning('報名時間已截止，無法進行新報名（可使用「檢視與修正」）。');
@@ -399,8 +530,8 @@ export default function useEnglishTestRegistrationPage() {
 
   const handleStep3Next = useCallback((step3FormData) => {
     setStep3Data(step3FormData);
-    setEnglishTestStep(4);
-  }, []);
+    advanceToStep(4);
+  }, [advanceToStep]);
 
   const handleStep4Back = useCallback(() => {
     setEnglishTestStep(3);
@@ -514,10 +645,12 @@ export default function useEnglishTestRegistrationPage() {
 
   return {
     englishTestStep,
+    maxReachedStep,
+    navigableMaxStep,
     agreedToAnnouncement,
-    setAgreedToAnnouncement,
+    setAgreedToAnnouncement: handleAnnouncementAgreeChange,
     agreedToPrivacyPolicy,
-    setAgreedToPrivacyPolicy,
+    setAgreedToPrivacyPolicy: handlePrivacyAgreeChange,
     englishTestForm,
     formErrors,
     studentData,
@@ -534,6 +667,8 @@ export default function useEnglishTestRegistrationPage() {
     handleCloseEnglishTestModal,
     handleAnnouncementNext,
     handlePrivacyPolicyNext,
+    handleStepBack,
+    handleGoToStep,
     handleViewEdit,
     handleEnglishTestFormChange,
     handleEnglishTestSubmit,

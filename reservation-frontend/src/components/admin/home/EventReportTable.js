@@ -283,6 +283,7 @@ export default function EventReportTable({
                 <th>日期</th>
                 <th>時間</th>
                 <th>活動地點</th>
+                <th>備註</th>
                 <th>狀態</th>
                 <th>預約人數</th>
                 <th>剩餘名額</th>
@@ -300,6 +301,7 @@ export default function EventReportTable({
                     <td>{evt.date}</td>
                     <td>{evt.startTime} – {evt.endTime}</td>
                     <td>{evt.location || '地點待公告'}</td>
+                    <td>{evt.notes || '實踐歷程檔案'}</td>
                     <td>
                       {statusBadges.length === 0 ? '—' : statusBadges.map((badge) => (
                         <span key={badge.label} className={`badge ${badge.className} me-1`}>
