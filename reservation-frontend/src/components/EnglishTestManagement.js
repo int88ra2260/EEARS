@@ -39,6 +39,7 @@ export default function EnglishTestManagement() {
 
   const {
     registrations, loading, currentPage, setCurrentPage, totalPages, total, limit,
+    pageSize, setPageSize,
     statusFilter, setStatusFilter, searchTerm, setSearchTerm, advancedFilters, setAdvancedFilters,
     sortConfig, setSortConfig, stats, todayNewCount, loadRegistrations,
   } = m.list;
@@ -206,7 +207,12 @@ export default function EnglishTestManagement() {
           canExportEnglishTestData={canExportEnglishTestData}
           canManageSettings={canToggleRegistrationSettings}
           onOpenQuickReview={handleOpenQuickReview}
-          onExport={() => handleExport(statusFilter)}
+          onExport={() => handleExport({
+            statusFilter,
+            searchTerm,
+            advancedFilters,
+            sortConfig,
+          })}
           onExportPhotos={handleExportPhotos}
           onSendStatusEmails={handleSendStatusEmails}
           sendingEmails={sendingEmails}
@@ -255,6 +261,8 @@ export default function EnglishTestManagement() {
           totalPages={totalPages}
           total={total}
           limit={limit}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
           onPageChange={setCurrentPage}
           onClearFilters={handleClearFilters}
         />

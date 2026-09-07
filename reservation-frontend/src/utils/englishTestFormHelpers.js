@@ -49,8 +49,8 @@ export function FormErrorMessage({ message, small = false }) {
 export function scrollToFirstError(getFieldRef, firstErrorField) {
   setTimeout(() => {
     if (!firstErrorField) return;
-    const fieldRef = getFieldRef(firstErrorField);
-    if (!fieldRef.current) return;
+    const fieldRef = typeof getFieldRef === 'function' ? getFieldRef(firstErrorField) : null;
+    if (!fieldRef?.current) return;
 
     fieldRef.current.scrollIntoView({
       behavior: 'smooth',

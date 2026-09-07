@@ -53,18 +53,27 @@ function assertValidStudentContext(ctx) {
   return n;
 }
 
-function assertStudentMatchesPassport(passport, ctx) {
+/**
+ * 舊申請若使用非中山學生信箱，允許在學號＋姓名相符時改綁 @student.nsysu.edu.tw。
+ */
+async function maybeMigratePassportEmailToNsysu(passport, ctx, transaction) {
   const n = normalizeStudentContext(ctx);
-  if (
-    String(passport.studentId || '').trim().toUpperCase() !== n.studentId ||
-    passport.studentName.trim() !== n.studentName ||
-    passport.studentEmail.toLowerCase() !== n.studentEmail
-  ) {
-    const err = new Error('學生身分驗證失敗');
-    err.status = 403;
-    err.code = 'STUDENT_MISMATCH';
-    throw err;
-  }
+  const storedEmail = String(passport.studentEmail || '').trim().toLowerCase();
+  if (storedEmail === n.studentEmail) return passport;
+  if (!validateNsysuStudentEmail(n.studentEmail)) return null;
+  if (validateNsysuStudentEmail(storedEmail)) return null;
+
+  await passport.update({ studentEmail: n.studentEmail }, { transaction });
+  await logElpAudit({
+    req: null,
+    studentContext: n,
+    action: 'passport_email_migrated_to_nsysu',
+    targetType: 'EnglishLearningPassport',
+    targetId: passport.id,
+    before: { studentEmail: storedEmail },
+    after: { studentEmail: n.studentEmail },
+  });
+  return passport;
 }
 
 async function findBlockingPassport(studentId, transaction) {
@@ -86,7 +95,29 @@ async function getPassportForStudent(ctx, transaction) {
     transaction,
   });
   if (!passport) return null;
-  assertStudentMatchesPassport(passport, n);
+
+  const storedName = String(passport.studentName || '').trim();
+  const storedEmail = String(passport.studentEmail || '').trim().toLowerCase();
+
+  if (storedName !== n.studentName) {
+    const err = new Error('學生身分驗證失敗：學號或姓名與既有護照不符，請確認後再試，或洽英語中心');
+    err.status = 403;
+    err.code = 'STUDENT_MISMATCH';
+    throw err;
+  }
+
+  if (storedEmail !== n.studentEmail) {
+    const migrated = await maybeMigratePassportEmailToNsysu(passport, n, transaction);
+    if (!migrated) {
+      const err = new Error(
+        '學生身分驗證失敗：此學號已用其他信箱申請護照，請使用原信箱進入，或洽英語中心更新信箱',
+      );
+      err.status = 403;
+      err.code = 'STUDENT_MISMATCH';
+      throw err;
+    }
+  }
+
   return passport;
 }
 
@@ -213,9 +244,41 @@ async function getStudentDashboard(ctx) {
     return { passport: null, summary: null, submissions: [], rules: await listEnabledRules() };
   }
 
+  // 既有「待行政核准護照」：讀取時自動啟用（申請後即可使用，不再經行政審核）
+  if (passport.status === PASSPORT_STATUS.PENDING) {
+    await sequelize.transaction(async (transaction) => {
+      const locked = await EnglishLearningPassport.findByPk(passport.id, {
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (locked && locked.status === PASSPORT_STATUS.PENDING) {
+        const before = passportToPublic(locked);
+        await locked.update(
+          {
+            status: PASSPORT_STATUS.ACTIVE,
+            reviewedAt: new Date(),
+            rejectionReason: null,
+          },
+          { transaction },
+        );
+        await logElpAudit({
+          req: null,
+          studentContext: normalizeStudentContext(ctx),
+          action: 'passport_auto_activate',
+          targetType: 'EnglishLearningPassport',
+          targetId: locked.id,
+          before,
+          after: passportToPublic(locked),
+        });
+      }
+    });
+    passport = await getPassportForStudent(ctx);
+  }
+
   // 既有「待最終審核／已滿點未認證」資料：讀取時自動完成
   if (
-    passport.totalApprovedPoints >= CERTIFICATION_THRESHOLD
+    passport
+    && passport.totalApprovedPoints >= CERTIFICATION_THRESHOLD
     && passport.certificationStatus !== CERTIFICATION_STATUS.APPROVED
     && (passport.status === PASSPORT_STATUS.ACTIVE || passport.status === PASSPORT_STATUS.COMPLETED)
   ) {
@@ -228,6 +291,10 @@ async function getStudentDashboard(ctx) {
       );
     });
     passport = await getPassportForStudent(ctx);
+  }
+
+  if (!passport) {
+    return { passport: null, summary: null, submissions: [], rules: await listEnabledRules() };
   }
 
   const submissions = await EnglishLearningSubmission.findAll({
@@ -299,10 +366,12 @@ async function applyPassport(ctx, { applicationReason, emailVerificationToken },
         studentId: n.studentId,
         studentName: n.studentName,
         studentEmail: n.studentEmail,
-        status: PASSPORT_STATUS.PENDING,
+        status: PASSPORT_STATUS.ACTIVE,
         applicationReason: applicationReason || null,
         totalApprovedPoints: 0,
         certificationStatus: CERTIFICATION_STATUS.NONE,
+        reviewedAt: new Date(),
+        rejectionReason: null,
       },
       { transaction },
     );
@@ -310,7 +379,7 @@ async function applyPassport(ctx, { applicationReason, emailVerificationToken },
     await logElpAudit({
       req,
       studentContext: n,
-      action: 'passport_apply',
+      action: 'passport_apply_auto_activate',
       targetType: 'EnglishLearningPassport',
       targetId: passport.id,
       after: passportToPublic(passport),

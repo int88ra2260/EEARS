@@ -36,16 +36,18 @@ function isBlankSemester(value) {
 }
 
 /**
- * 推斷報名紀錄所屬學期（優先 DB 欄位，其次 createdAt 區間，最後 fallback 目前學期）。
+ * 推斷報名紀錄所屬學期（優先 DB 欄位，其次 createdAt 區間）。
+ * 注意：查詢／比對舊資料時不可 fallback 到「目前學期」，否則會把上學期空 semester 誤判成本學期。
  */
-function inferRegistrationSemester(registration, { atDate = new Date() } = {}) {
+function inferRegistrationSemester(registration, { atDate = new Date(), allowActiveFallback = false } = {}) {
   if (!registration) return null;
   if (!isBlankSemester(registration.semester)) {
     return String(registration.semester).trim();
   }
   const fromCreated = getSemesterByDate(registration.createdAt || registration.updatedAt);
   if (fromCreated) return fromCreated;
-  return getActiveRegistrationSemester(atDate);
+  if (allowActiveFallback) return getActiveRegistrationSemester(atDate);
+  return null;
 }
 
 function registrationBelongsToSemester(registration, semester, { atDate = new Date() } = {}) {

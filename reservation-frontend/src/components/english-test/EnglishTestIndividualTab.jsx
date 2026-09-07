@@ -3,6 +3,7 @@ import AdvancedFilterPanel from './AdvancedFilterPanel';
 import StatsVisualization from './StatsVisualization';
 import BulkActionToolbar from './BulkActionToolbar';
 import EnhancedTable from './EnhancedTable';
+import { ENGLISH_TEST_PAGE_SIZE_OPTIONS, ENGLISH_TEST_ALL_PAGE_SIZE } from '../../hooks/useEnglishTestRegistrations';
 
 const SUB_TABS = [
   { key: 'all', label: '全部' },
@@ -81,6 +82,8 @@ export default function EnglishTestIndividualTab({
   totalPages,
   total,
   limit,
+  pageSize = 100,
+  onPageSizeChange,
   onPageChange,
   onClearFilters,
 }) {
@@ -89,6 +92,19 @@ export default function EnglishTestIndividualTab({
   const pageItems = useMemo(() => buildPageItems(currentPage, totalPages), [currentPage, totalPages]);
   const canExportPhotos = statusFilter === 'approved' || statusFilter === 'success';
   const exportScopeLabel = STATUS_LABEL[statusFilter] || '全部';
+  const semesterFilterLabel = advancedFilters?.semester
+    ? String(advancedFilters.semester).trim()
+    : '';
+  const exportExcelLabel = semesterFilterLabel
+    ? `${exportScopeLabel} · ${semesterFilterLabel}`
+    : exportScopeLabel;
+  const rangeStart = total === 0 ? 0 : (currentPage - 1) * limit + 1;
+  const rangeEnd = Math.min(currentPage * limit, total);
+  const rangeLabel = pageSize === 'all'
+    ? (total > ENGLISH_TEST_ALL_PAGE_SIZE
+      ? `顯示前 ${ENGLISH_TEST_ALL_PAGE_SIZE} 筆（共 ${total} 筆）`
+      : `顯示全部 ${total} 筆`)
+    : `第 ${rangeStart}–${rangeEnd} 筆，共 ${total} 筆`;
 
   const confirmToggle = (kind, nextEnabled, apply) => {
     const label = kind === 'individual' ? '個人報名' : '團體報名（學習有伴）';
@@ -157,14 +173,14 @@ export default function EnglishTestIndividualTab({
           <div className="card-body py-3">
             <div className="fw-semibold mb-1">匯出與通知</div>
             <p className="small text-muted mb-3 mb-md-2">
-              匯出範圍跟著上方狀態標籤：目前為「{exportScopeLabel}」。
+              匯出範圍與目前列表一致：狀態「{exportScopeLabel}」加下方進階篩選（含學期、日期、測驗類型等）。
               證件照僅「已通過／報名成功」可匯出；成功信／失敗信需切到對應狀態。
             </p>
             <div className="d-flex flex-wrap gap-2 align-items-center">
               {canExportEnglishTestData && (
                 <button type="button" className="btn btn-success btn-sm" onClick={onExport}>
                   <i className="fas fa-file-excel me-1" aria-hidden />
-                  匯出 Excel（{exportScopeLabel}）
+                  匯出 Excel（{exportExcelLabel}）
                 </button>
               )}
               {canExportEnglishTestData && (
@@ -330,10 +346,31 @@ export default function EnglishTestIndividualTab({
               onDragEnd={onDragEnd}
             />
             <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 gap-2">
-              <small className="text-muted">
-                第 {(currentPage - 1) * limit + 1}–{Math.min(currentPage * limit, total)} 筆，共 {total} 筆
-              </small>
-              {totalPages > 1 && (
+              <div className="d-flex flex-wrap align-items-center gap-2">
+                <small className="text-muted">{rangeLabel}</small>
+                {typeof onPageSizeChange === 'function' && (
+                  <label className="d-inline-flex align-items-center gap-1 mb-0 small text-muted">
+                    <span className="visually-hidden">每頁筆數</span>
+                    <select
+                      className="form-select form-select-sm"
+                      style={{ width: 'auto' }}
+                      value={String(pageSize)}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        onPageSizeChange(raw === 'all' ? 'all' : Number(raw));
+                      }}
+                      aria-label="每頁筆數"
+                    >
+                      {ENGLISH_TEST_PAGE_SIZE_OPTIONS.map((opt) => (
+                        <option key={String(opt.value)} value={String(opt.value)}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+              {totalPages > 1 && pageSize !== 'all' && (
                 <nav aria-label="分頁導覽">
                   <ul className="pagination pagination-sm mb-0">
                     <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>

@@ -6,6 +6,8 @@
  * system: false = 自訂題；若 fieldKey 不在報名主檔欄位，答案存 registrations.extraAnswers。
  */
 
+const { ENGLISH_TEST_DEFAULT_ADDRESS } = require('./englishTestDefaultAddress');
+
 const opt = (value, label = value) => ({ value, label });
 
 const ENGLISH_TEST_OFFICIAL_ANNOUNCEMENT_URL =
@@ -385,9 +387,10 @@ function buildDefaultEnglishTestFormSchema() {
         type: 'text',
         required: true,
         system: true,
-        helpText: '',
+        helpText: '預設為校本部全英語卓越教學中心，可依實際通訊地址修改',
         visible: true,
         options: [],
+        defaultValue: ENGLISH_TEST_DEFAULT_ADDRESS.postalCode,
       },
       {
         id: 'q_city',
@@ -398,9 +401,10 @@ function buildDefaultEnglishTestFormSchema() {
         type: 'text',
         required: true,
         system: true,
-        helpText: '',
+        helpText: '預設為校本部全英語卓越教學中心，可依實際通訊地址修改',
         visible: true,
         options: [],
+        defaultValue: ENGLISH_TEST_DEFAULT_ADDRESS.city,
       },
       {
         id: 'q_district',
@@ -411,9 +415,10 @@ function buildDefaultEnglishTestFormSchema() {
         type: 'text',
         required: true,
         system: true,
-        helpText: '',
+        helpText: '預設為校本部全英語卓越教學中心，可依實際通訊地址修改',
         visible: true,
         options: [],
+        defaultValue: ENGLISH_TEST_DEFAULT_ADDRESS.district,
       },
       {
         id: 'q_address',
@@ -424,9 +429,10 @@ function buildDefaultEnglishTestFormSchema() {
         type: 'text',
         required: true,
         system: true,
-        helpText: '',
+        helpText: '預設為校本部全英語卓越教學中心，可依實際通訊地址修改',
         visible: true,
         options: [],
+        defaultValue: ENGLISH_TEST_DEFAULT_ADDRESS.address,
       },
       {
         id: 'q_degreeLevel',
@@ -542,6 +548,7 @@ function buildDefaultEnglishTestFormSchema() {
         system: true,
         helpText: '',
         visible: true,
+        visibleWhen: { fieldKey: 'hasDisabilityCard', equals: '是' },
         options: [
           opt('輕度肢障'),
           opt('中度肢障'),
@@ -568,6 +575,7 @@ function buildDefaultEnglishTestFormSchema() {
         system: true,
         helpText: '',
         visible: true,
+        visibleWhen: { fieldKey: 'hasDisabilityCard', equals: '是' },
         options: [
           opt('提前 5 分鐘入場'),
           opt('安排在一樓教室或有電梯的大樓'),

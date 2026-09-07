@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
 const QUESTION_TYPES = [
   { value: 'text', label: '單行文字' },
@@ -60,6 +60,7 @@ function textToImages(text) {
 export default function FormQuestionEditorModal({
   question,
   sections,
+  allQuestions = [],
   readOnly,
   isNew,
   onClose,
@@ -77,9 +78,29 @@ export default function FormQuestionEditorModal({
     contentOfficialUrl: content.officialUrl || '',
     contentListText: Array.isArray(content.listItems) ? content.listItems.join('\n') : '',
     contentImagesText: imagesToText(content.images),
+    linkageEnabled: Boolean(question.visibleWhen?.fieldKey),
+    linkageFieldKey: question.visibleWhen?.fieldKey || '',
+    linkageEquals:
+      question.visibleWhen?.equals
+      || (Array.isArray(question.visibleWhen?.in) ? question.visibleWhen.in[0] : '')
+      || '是',
   }));
 
   const patch = (partial) => setDraft((prev) => ({ ...prev, ...partial }));
+
+  const triggerCandidates = useMemo(
+    () =>
+      (allQuestions || [])
+        .filter((q) => q && q.id !== question.id && q.fieldKey && q.fieldKey !== draft.fieldKey)
+        .slice()
+        .sort((a, b) => (a.order || 0) - (b.order || 0)),
+    [allQuestions, question.id, draft.fieldKey]
+  );
+
+  const triggerOptions = useMemo(() => {
+    const trigger = triggerCandidates.find((q) => q.fieldKey === draft.linkageFieldKey);
+    return Array.isArray(trigger?.options) ? trigger.options : [];
+  }, [triggerCandidates, draft.linkageFieldKey]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -109,6 +130,14 @@ export default function FormQuestionEditorModal({
       system: Boolean(draft.system),
       helpText: draft.helpText || '',
       visible: draft.visible !== false,
+      defaultValue: draft.defaultValue != null ? String(draft.defaultValue) : '',
+      visibleWhen:
+        draft.linkageEnabled && draft.linkageFieldKey
+          ? {
+              fieldKey: String(draft.linkageFieldKey).trim(),
+              equals: String(draft.linkageEquals || '').trim() || '是',
+            }
+          : null,
       options: textToOptions(draft.optionsText),
       content: {
         intro: draft.contentIntro || '',
@@ -224,6 +253,19 @@ export default function FormQuestionEditorModal({
                 />
               </div>
 
+              {!isContentBlock && !isConfirm && (
+                <div className="col-12">
+                  <label className="form-label">預設內容（學生端初始值，可再修改）</label>
+                  <input
+                    className="form-control"
+                    value={draft.defaultValue || ''}
+                    disabled={readOnly}
+                    onChange={(e) => patch({ defaultValue: e.target.value })}
+                    placeholder="例如：804"
+                  />
+                </div>
+              )}
+
               {needsOptions && (
                 <div className="col-12">
                   <label className="form-label">選項（每行一個）</label>
@@ -316,6 +358,88 @@ export default function FormQuestionEditorModal({
                   </div>
                 </>
               )}
+
+              <div className="col-12">
+                <div className="border rounded p-3" style={{ background: '#f8fafc' }}>
+                  <div className="form-check mb-2">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="q-linkage"
+                      checked={Boolean(draft.linkageEnabled)}
+                      disabled={readOnly}
+                      onChange={(e) =>
+                        patch({
+                          linkageEnabled: e.target.checked,
+                          linkageFieldKey:
+                            draft.linkageFieldKey
+                            || triggerCandidates.find((q) => q.fieldKey === 'hasDisabilityCard')?.fieldKey
+                            || triggerCandidates[0]?.fieldKey
+                            || '',
+                          linkageEquals: draft.linkageEquals || '是',
+                        })
+                      }
+                    />
+                    <label className="form-check-label" htmlFor="q-linkage">
+                      依其他題目答案顯示（連動收合）
+                    </label>
+                  </div>
+                  {draft.linkageEnabled ? (
+                    <div className="row g-2">
+                      <div className="col-md-7">
+                        <label className="form-label">當此題答案為…</label>
+                        <select
+                          className="form-select"
+                          value={draft.linkageFieldKey || ''}
+                          disabled={readOnly}
+                          onChange={(e) => patch({ linkageFieldKey: e.target.value })}
+                        >
+                          <option value="">請選擇觸發題</option>
+                          {triggerCandidates.map((q) => (
+                            <option key={q.id} value={q.fieldKey}>
+                              {q.label || q.fieldKey}（{q.fieldKey}）
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-md-5">
+                        <label className="form-label">等於</label>
+                        {triggerOptions.length > 0 ? (
+                          <select
+                            className="form-select"
+                            value={draft.linkageEquals || ''}
+                            disabled={readOnly}
+                            onChange={(e) => patch({ linkageEquals: e.target.value })}
+                          >
+                            {triggerOptions.map((opt) => {
+                              const value = typeof opt === 'string' ? opt : opt.value;
+                              const label = typeof opt === 'string' ? opt : (opt.label || opt.value);
+                              return (
+                                <option key={value} value={value}>
+                                  {label}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        ) : (
+                          <input
+                            className="form-control"
+                            value={draft.linkageEquals || ''}
+                            disabled={readOnly}
+                            onChange={(e) => patch({ linkageEquals: e.target.value })}
+                            placeholder="是"
+                          />
+                        )}
+                      </div>
+                      <div className="col-12">
+                        <div className="form-text mb-0">
+                          例：Q16／Q18 設為「是否有身心障礙手冊 = 是」時才展開。
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
 
               <div className="col-12 d-flex flex-wrap gap-3">
                 <div className="form-check">

@@ -74,6 +74,11 @@ export default function FormQuestionCard({
             {question.system ? <span className="et-form-chip et-form-chip--system">預設</span> : (
               <span className="et-form-chip et-form-chip--custom">自訂</span>
             )}
+            {question.visibleWhen?.fieldKey ? (
+              <span className="et-form-chip et-form-chip--custom" title={`當 ${question.visibleWhen.fieldKey} = ${question.visibleWhen.equals || (question.visibleWhen.in || []).join('/')}`}>
+                連動
+              </span>
+            ) : null}
             {hidden ? <span className="et-form-chip et-form-chip--hidden">已隱藏</span> : null}
           </div>
         </div>

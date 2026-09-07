@@ -6,9 +6,19 @@ import { getCurrentSemester } from '../utils/semesterUtils';
 import { fetchRegistrations } from '../services/englishTestApi';
 
 const SORT_CONFIG_KEY = 'englishTestSortConfig';
+const PAGE_SIZE_KEY = 'englishTestPageSize';
 const DEFAULT_SORT = { key: 'id', direction: 'ASC' };
-const LIMIT = 100;
+const DEFAULT_PAGE_SIZE = 100;
+/** 「顯示全部」時送給 API 的上限（避免一次拉過大） */
+export const ENGLISH_TEST_ALL_PAGE_SIZE = 5000;
+export const ENGLISH_TEST_PAGE_SIZE_OPTIONS = [
+  { value: 50, label: '50 筆' },
+  { value: 100, label: '100 筆' },
+  { value: 200, label: '200 筆' },
+  { value: 'all', label: '顯示全部' },
+];
 const VALID_STATUS = new Set(['all', 'pending', 'approved', 'success', 'revision', 'failed']);
+const VALID_PAGE_SIZES = new Set(ENGLISH_TEST_PAGE_SIZE_OPTIONS.map((o) => String(o.value)));
 
 const defaultStats = () => ({
   total: 0,
@@ -39,6 +49,24 @@ function getInitialSortConfig() {
   return DEFAULT_SORT;
 }
 
+function normalizePageSize(raw) {
+  const key = String(raw ?? '');
+  if (!VALID_PAGE_SIZES.has(key)) return DEFAULT_PAGE_SIZE;
+  return key === 'all' ? 'all' : Number(key);
+}
+
+function resolveApiLimit(pageSize) {
+  return pageSize === 'all' ? ENGLISH_TEST_ALL_PAGE_SIZE : pageSize;
+}
+
+function getInitialPageSize() {
+  try {
+    return normalizePageSize(localStorage.getItem(PAGE_SIZE_KEY));
+  } catch (e) {
+    return DEFAULT_PAGE_SIZE;
+  }
+}
+
 /**
  * @param {Object} options
  * @param {string} options.token
@@ -58,6 +86,7 @@ export function useEnglishTestRegistrations({
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [pageSize, setPageSizeState] = useState(() => getInitialPageSize());
   const [statusFilter, setStatusFilter] = useState(
     VALID_STATUS.has(initialStatusFilter) ? initialStatusFilter : 'all'
   );
@@ -67,11 +96,19 @@ export function useEnglishTestRegistrations({
   const [stats, setStats] = useState(defaultStats());
   const [todayNewCount, setTodayNewCount] = useState(0);
 
+  const apiLimit = resolveApiLimit(pageSize);
+
+  const setPageSize = useCallback((next) => {
+    const normalized = normalizePageSize(next);
+    setPageSizeState(normalized);
+    setCurrentPage(1);
+  }, []);
+
   const buildListParams = useCallback((pageOverride = null) => {
     const p = new URLSearchParams();
     const page = pageOverride !== null ? pageOverride : currentPage;
-    p.set('page', String(page));
-    p.set('limit', String(LIMIT));
+    p.set('page', String(pageSize === 'all' ? 1 : page));
+    p.set('limit', String(apiLimit));
     if (statusFilter && statusFilter !== 'all') p.set('status', statusFilter);
     if (searchTerm) p.set('search', searchTerm);
     if (mainTab === 'individual' && advancedFilters.dateFrom) p.set('dateFrom', advancedFilters.dateFrom);
@@ -85,7 +122,7 @@ export function useEnglishTestRegistrations({
       p.set('sortOrder', sortConfig.direction);
     }
     return p;
-  }, [currentPage, statusFilter, searchTerm, mainTab, advancedFilters, sortConfig]);
+  }, [currentPage, pageSize, apiLimit, statusFilter, searchTerm, mainTab, advancedFilters, sortConfig]);
 
   const loadRegistrations = useCallback(async () => {
     if (mainTab !== 'individual') {
@@ -129,8 +166,14 @@ export function useEnglishTestRegistrations({
     localStorage.setItem(SORT_CONFIG_KEY, JSON.stringify(sortConfig));
   }, [sortConfig]);
 
+  useEffect(() => {
+    localStorage.setItem(PAGE_SIZE_KEY, String(pageSize));
+  }, [pageSize]);
+
   return {
-    limit: LIMIT,
+    limit: apiLimit,
+    pageSize,
+    setPageSize,
     registrations,
     setRegistrations,
     loading,

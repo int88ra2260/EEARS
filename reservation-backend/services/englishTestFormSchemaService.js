@@ -80,7 +80,26 @@ function normalizeQuestion(raw, index) {
     visible: raw.visible === false ? false : true,
     options,
     content,
+    defaultValue: raw.defaultValue != null ? String(raw.defaultValue) : '',
+    visibleWhen: normalizeVisibleWhen(raw.visibleWhen),
   };
+}
+
+function normalizeVisibleWhen(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const fieldKey = String(raw.fieldKey || raw.field || '').trim();
+  if (!fieldKey) return null;
+  if (Array.isArray(raw.in) && raw.in.length > 0) {
+    return { fieldKey, in: raw.in.map((v) => String(v)) };
+  }
+  const equals =
+    raw.equals != null && String(raw.equals) !== ''
+      ? String(raw.equals)
+      : raw.value != null && String(raw.value) !== ''
+        ? String(raw.value)
+        : null;
+  if (equals == null) return null;
+  return { fieldKey, equals };
 }
 
 function normalizeContent(raw, type) {

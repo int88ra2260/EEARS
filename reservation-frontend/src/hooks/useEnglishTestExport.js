@@ -1,9 +1,10 @@
 /**
  * 培力英檢匯出：Excel / 證件照。
- * 匯出範圍由呼叫端傳入（與列表狀態篩選同步）。
+ * Excel 匯出範圍與列表一致（狀態＋進階篩選＋搜尋＋排序）。
  */
 import { useCallback } from 'react';
 import { exportRegistrationsExcel, exportRegistrationPhotos, downloadBlob } from '../services/englishTestApi';
+import { appendExportListParams } from '../utils/englishTestExportParams';
 
 const STATUS_FILE_LABEL = {
   pending: '待審核',
@@ -14,15 +15,33 @@ const STATUS_FILE_LABEL = {
 };
 
 export function useEnglishTestExport({ token, showToast }) {
-  const handleExport = useCallback(async (statusFilter = 'all') => {
+  const handleExport = useCallback(async (exportOptions = {}) => {
+    // 相容舊呼叫：handleExport('approved') 或 handleExport({ statusFilter, ... })
+    const options = typeof exportOptions === 'string'
+      ? { statusFilter: exportOptions }
+      : (exportOptions || {});
+
     try {
+      const {
+        statusFilter = 'all',
+        searchTerm = '',
+        advancedFilters = {},
+        sortConfig = null,
+      } = options;
+
       const params = new URLSearchParams();
-      if (statusFilter && statusFilter !== 'all') {
-        params.append('status', statusFilter);
-      }
+      appendExportListParams(params, {
+        statusFilter,
+        searchTerm,
+        advancedFilters,
+        sortConfig,
+      });
 
       const statusLabel = STATUS_FILE_LABEL[statusFilter];
       let fileName = statusLabel ? `培力英檢報名資料_${statusLabel}` : '培力英檢報名資料';
+      if (advancedFilters.semester) {
+        fileName += `_${advancedFilters.semester}`;
+      }
       fileName += `_${new Date().toISOString().split('T')[0]}.xlsx`;
 
       const blob = await exportRegistrationsExcel(token, params);

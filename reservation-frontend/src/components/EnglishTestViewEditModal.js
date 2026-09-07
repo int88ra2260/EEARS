@@ -10,12 +10,10 @@ import {
   scrollToFirstError,
   buildUpdateFormData,
 } from '../utils/englishTestFormHelpers';
-import { validateEnglishTestEditForm } from '../utils/englishTestFormValidation';
+import { validateEnglishTestEditForm, resolveScrollableErrorField } from '../utils/englishTestFormValidation';
 import { formatEnglishTestSemesterLabel } from '../utils/englishTestSemesterDisplay';
 import EnglishTestRegistrationFormBody from './english-test/registration/EnglishTestRegistrationFormBody';
-import EnglishTestExtraQuestions, {
-  validateExtraAnswers,
-} from './english-test/registration/EnglishTestExtraQuestions';
+import { validateExtraAnswers } from './english-test/registration/EnglishTestExtraQuestions';
 import { useEnglishTestFormSchemaPublic } from '../hooks/useEnglishTestFormSchemaPublic';
 import { buildFormOptionsFromMeta } from '../utils/englishTestFormSchemaMeta';
 
@@ -137,10 +135,10 @@ export default function EnglishTestViewEditModal({
       return;
     }
 
-    const validationResult = validateEnglishTestEditForm(formData, registration, fileInputs);
+    const validationResult = validateEnglishTestEditForm(formData, registration, fileInputs, formOptions);
     const nextErrors = {
       ...validationResult.errors,
-      ...validateExtraAnswers(customQuestions, formData.extraAnswers),
+      ...validateExtraAnswers(customQuestions, formData.extraAnswers, formData),
     };
 
     const nextEmail = normalizeEmail(formData.email);
@@ -155,9 +153,14 @@ export default function EnglishTestViewEditModal({
 
     const hasExtraErrors = Object.keys(nextErrors).some((k) => k.startsWith('extra.'));
     if (!validationResult.isValid || nextErrors.emailVerification || hasExtraErrors) {
-      scrollToFirstError(getFieldRef, validationResult.firstErrorField || Object.keys(nextErrors)[0] || 'email');
-      const errorCount = Object.keys(nextErrors).length;
-      toast.warning(`請修正表單錯誤後再提交（共 ${errorCount} 個欄位），已跳至第一個錯誤位置`);
+      const errorKeys = Object.keys(nextErrors);
+      const scrollField = resolveScrollableErrorField(
+        getFieldRef,
+        validationResult.firstErrorField || (nextErrors.emailVerification ? 'emailVerification' : null),
+        errorKeys
+      );
+      scrollToFirstError(getFieldRef, scrollField);
+      toast.warning(`請修正表單錯誤後再提交（共 ${errorKeys.length} 個欄位），已跳至第一個錯誤位置`);
       return;
     }
 
@@ -254,15 +257,8 @@ export default function EnglishTestViewEditModal({
                 verifiedEmail={verifiedEmail}
                 onEmailVerificationChange={handleEmailVerificationChange}
                 formOptions={formOptions}
-              />
-              <EnglishTestExtraQuestions
-                questions={customQuestions}
-                sections={schema?.sections || []}
-                extraAnswers={formData.extraAnswers || {}}
-                errors={errors}
-                disabled={cannotEdit}
-                getFieldRef={getFieldRef}
-                onChange={(next) => setFormData((prev) => ({ ...prev, extraAnswers: next }))}
+                customQuestions={customQuestions}
+                schemaSections={schema?.sections || []}
               />
               <div className="d-flex justify-content-end gap-2">
                 <button

@@ -112,6 +112,16 @@ function studentBody(student, extra = {}) {
   };
 }
 
+/** 組 query string；略過 null／undefined／空字串，避免出現 studentId=undefined */
+function toQueryString(params = {}) {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value == null || value === '') return;
+    qs.set(key, String(value));
+  });
+  return qs.toString();
+}
+
 // —— 學生端 ——
 
 export async function fetchElpDashboard(student, { force = false } = {}) {
@@ -303,8 +313,8 @@ export function openElpCertificationCertificate(student, { autoPrint = true } = 
 // —— 管理端 ——
 
 export async function adminFetchPassports(token, params = {}) {
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetchClient(`${ADMIN_BASE}?${qs}`, { headers: authHeaders(token) });
+  const qs = toQueryString(params);
+  const res = await fetchClient(`${ADMIN_BASE}${qs ? `?${qs}` : ''}`, { headers: authHeaders(token) });
   const data = await parseJson(res);
   if (!res.ok) throw new Error(data.message || '載入失敗');
   return data.data;
@@ -372,8 +382,8 @@ export async function adminBatchRejectPassports(token, ids, reason) {
 }
 
 export async function adminFetchSubmissions(token, params = {}) {
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetchClient(`${ADMIN_BASE}/submissions?${qs}`, { headers: authHeaders(token) });
+  const qs = toQueryString(params);
+  const res = await fetchClient(`${ADMIN_BASE}/submissions${qs ? `?${qs}` : ''}`, { headers: authHeaders(token) });
   const data = await parseJson(res);
   if (!res.ok) throw new Error(data.message || '載入失敗');
   return data.data;
@@ -482,8 +492,8 @@ export async function adminDeleteRule(token, id) {
 }
 
 export async function adminExportPassports(token, params = {}) {
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetchClient(`${ADMIN_BASE}/export/xlsx?${qs}`, { headers: authHeaders(token) });
+  const qs = toQueryString(params);
+  const res = await fetchClient(`${ADMIN_BASE}/export/xlsx${qs ? `?${qs}` : ''}`, { headers: authHeaders(token) });
   if (!res.ok) throw new Error('匯出失敗');
   const blob = await res.blob();
   const disposition = res.headers.get('Content-Disposition') || '';

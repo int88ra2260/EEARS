@@ -18,7 +18,7 @@ export default function ContactSection() {
 
   return (
 
-    <section id="contact" className="home-section home-section--bone" aria-labelledby="contact-title">
+    <section id="contact" className="home-section home-section--flat" aria-labelledby="contact-title">
 
       <div className="home-shell home-reveal">
 

@@ -57,6 +57,11 @@ const englishRegExportAuth = [authMiddleware, englishTestDomainMiddleware, requi
 const englishRegFormManageAuth = [authMiddleware, englishTestDomainMiddleware, requirePermission(P.CAN_MANAGE_ENGLISH_TESTS)];
 const { Op, Sequelize, QueryTypes } = require('sequelize');
 const ExcelJS = require('exceljs');
+const {
+  buildRegistrationListWhere,
+  buildRegistrationListOrder,
+  summarizeAppliedFilters,
+} = require('../utils/englishTestRegistrationListFilters');
 const emailLogService = require('../services/emailLogService');
 const logger = require('../utils/logger');
 const auditLogService = require('../services/auditLogService');
@@ -1270,9 +1275,17 @@ router.post('/english-test/register',
       // 處理唯一約束錯誤（重複報名）
       if (error.name === 'SequelizeUniqueConstraintError') {
         logger.error('唯一約束錯誤（可能重複報名）', error);
-        // 檢查是哪個欄位違反唯一約束
-        const field = error.errors && error.errors[0] ? error.errors[0].path : 'unknown';
-        if (field === 'studentId' || field === 'semester') {
+        const fields = (error.errors || []).map((e) => e.path).filter(Boolean);
+        const field = fields[0] || 'unknown';
+        // 殘留「僅學號」唯一鍵會誤擋跨學期報名；複合鍵才是同學期重複
+        const onlyStudentId = fields.length === 1 && fields[0] === 'studentId';
+        if (onlyStudentId) {
+          return res.status(409).json({
+            error: '系統偵測到跨學期報名受限（學號唯一約束）。請聯繫管理員確認資料庫約束是否已更新為「學號+學期」。',
+            code: 'LEGACY_STUDENT_ID_UNIQUE_CONSTRAINT',
+          });
+        }
+        if (field === 'studentId' || field === 'semester' || fields.includes('studentId')) {
           return res.status(409).json({ 
             error: '您本學期已經報名過了',
             code: 'DUPLICATE_REGISTRATION'
@@ -1567,7 +1580,7 @@ router.put('/english-test/registrations/:id/exemption-review', ...englishRegRevi
 router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res) => {
   try {
     // 舊版參數（保持相容）
-    const { page = 1, limit = 20, status, search } = req.query;
+    const { page = 1, limit = 20 } = req.query;
     
     // 新版參數（可選，向下相容）
     const {
@@ -1583,100 +1596,8 @@ router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res
     
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    const where = {};
-
-    // === 舊版邏輯（保持不變） ===
-    if (status && status !== 'all') {
-      where.status = status;
-    }
-    if (search) {
-      where[Op.or] = [
-        { studentId: { [Op.like]: `%${search}%` } },
-        { name: { [Op.like]: `%${search}%` } },
-        { email: { [Op.like]: `%${search}%` } }
-      ];
-    }
-
-    // === 新版邏輯（向下相容） ===
-    // 日期範圍篩選
-    if (dateFrom || dateTo) {
-      where.createdAt = {};
-      if (dateFrom) {
-        where.createdAt[Op.gte] = new Date(dateFrom);
-      }
-      if (dateTo) {
-        // 結束日期包含整天（23:59:59）
-        const endDate = new Date(dateTo);
-        endDate.setHours(23, 59, 59, 999);
-        where.createdAt[Op.lte] = endDate;
-      }
-    }
-
-    // 測驗類型篩選（支援陣列或逗號分隔字串）
-    // 特殊處理：'LR' 包含 'LR' 和 'LRSW'，'SW' 包含 'SW' 和 'LRSW'
-    if (examTypes) {
-      const examArray = Array.isArray(examTypes)
-        ? examTypes
-        : (typeof examTypes === 'string' ? examTypes.split(',').map(s => s.trim()).filter(Boolean) : [examTypes]);
-      if (examArray.length > 0) {
-        // 擴展篩選條件：LR 和 SW 需要包含 LRSW
-        const expandedArray = [];
-        examArray.forEach(type => {
-          if (type === 'LR') {
-            // 報名聽讀：包含 LR 和 LRSW
-            if (!expandedArray.includes('LR')) expandedArray.push('LR');
-            if (!expandedArray.includes('LRSW')) expandedArray.push('LRSW');
-          } else if (type === 'SW') {
-            // 報名說寫：包含 SW 和 LRSW
-            if (!expandedArray.includes('SW')) expandedArray.push('SW');
-            if (!expandedArray.includes('LRSW')) expandedArray.push('LRSW');
-          } else {
-            // 其他類型（如 NON, LRSW）直接加入
-            if (!expandedArray.includes(type)) expandedArray.push(type);
-          }
-        });
-        where.examType = { [Op.in]: expandedArray };
-      }
-    }
-
-    // 特殊身分篩選
-    if (isLowIncome) {
-      where.isLowIncome = isLowIncome;
-    }
-    if (hasDisabilityCard) {
-      where.hasDisabilityCard = hasDisabilityCard;
-    }
-    
-    // 學期篩選
-    if (semester) {
-      where.semester = semester;
-    }
-
-    // 排序（預設：報名時間最新優先，DESC）
-    let orderBy;
-    if (sortBy && sortOrder) {
-      // 新版排序
-      const validSortFields = ['id', 'studentId', 'name', 'email', 'college', 'status', 'createdAt', 'updatedAt', 'approvedAt', 'successSequence'];
-      const validSortOrder = ['ASC', 'DESC'];
-      
-      if (validSortFields.includes(sortBy) && validSortOrder.includes(sortOrder.toUpperCase())) {
-        if (sortBy === 'status') {
-          // 自訂狀態排序：pending -> approved -> revision -> success -> failed
-          orderBy = [[Sequelize.literal('CASE WHEN status = \'pending\' THEN 1 WHEN status = \'approved\' THEN 2 WHEN status = \'revision\' THEN 3 WHEN status = \'success\' THEN 4 WHEN status = \'failed\' THEN 5 ELSE 6 END'), sortOrder.toUpperCase()]];
-        } else if (sortBy === 'successSequence') {
-          // successSequence 排序：NULL 值排在最後
-          orderBy = [[Sequelize.literal('COALESCE("successSequence", 2147483647)'), sortOrder.toUpperCase()], ['approvedAt', 'ASC'], ['id', 'ASC']];
-        } else {
-          orderBy = [[sortBy, sortOrder.toUpperCase()]];
-        }
-      } else {
-        // 無效的排序參數，使用預設
-        orderBy = [['createdAt', 'DESC']];
-      }
-    } else {
-      // 預設排序：報名時間最新優先（DESC）
-      orderBy = [['createdAt', 'DESC']];
-    }
+    const where = buildRegistrationListWhere(req.query);
+    const orderBy = buildRegistrationListOrder(req.query);
 
     const { count, rows } = await EnglishTestRegistration.findAndCountAll({
       where,
@@ -2995,24 +2916,10 @@ router.delete('/english-test/registrations/:id', ...englishRegReviewAuth, async 
 // API: 匯出報名資料為 Excel
 router.get('/english-test/registrations/export/excel', ...englishRegExportAuth, async (req, res) => {
   try {
-    const { status } = req.query;
-    const where = status && status !== 'all' ? { status } : {};
-
-    // 排序邏輯
-    let orderBy = [['createdAt', 'DESC']];
-    if (status === 'approved') {
-      // 已通過狀態：按 approvedAt ASC（無則 createdAt ASC），再按 id ASC
-      orderBy = [
-        [Sequelize.literal('COALESCE("approvedAt", "createdAt")'), 'ASC'],
-        ['id', 'ASC']
-      ];
-    } else if (status === 'success') {
-      // 報名成功狀態：按 successSequence ASC（null 視為最大值），再按 approvedAt ASC
-      orderBy = [
-        [Sequelize.literal('COALESCE("successSequence", 2147483647)'), 'ASC'],
-        [Sequelize.literal('COALESCE("approvedAt", "createdAt")'), 'ASC']
-      ];
-    }
+    const { status, semester } = req.query;
+    // 與列表／進階篩選相同條件；未指定 sortBy 時保留已通過／報名成功的匯出排序
+    const where = buildRegistrationListWhere(req.query);
+    const orderBy = buildRegistrationListOrder(req.query, { preferExportStatusOrder: true });
 
     const registrations = await EnglishTestRegistration.findAll({
       where,
@@ -3219,6 +3126,9 @@ router.get('/english-test/registrations/export/excel', ...englishRegExportAuth, 
     } else if (status === 'failed') {
       fileName = '培力英檢報名資料_報名失敗';
     }
+    if (semester) {
+      fileName += `_${semester}`;
+    }
     fileName += `_${new Date().toISOString().split('T')[0]}.xlsx`;
     const encodedFileName = encodeURIComponent(fileName);
     
@@ -3231,7 +3141,7 @@ router.get('/english-test/registrations/export/excel', ...englishRegExportAuth, 
       action: 'english_test_export_excel',
       exportType: 'excel',
       rowCount: registrations.length,
-      filters: { status: status || 'all' },
+      filters: summarizeAppliedFilters(req.query),
     });
 
     res.end();

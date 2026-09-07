@@ -69,7 +69,7 @@ const studentCtx = {
 };
 
 function makePassport(overrides = {}) {
-  return {
+  const passport = {
     id: 1,
     studentId: studentCtx.studentId,
     studentName: studentCtx.studentName,
@@ -77,10 +77,16 @@ function makePassport(overrides = {}) {
     status: 'active',
     totalApprovedPoints: 0,
     certificationStatus: 'none',
-    toJSON() { return { ...this }; },
-    update: jest.fn(async (patch) => Object.assign(this, patch)),
     ...overrides,
   };
+  passport.update = jest.fn(async (patch) => {
+    Object.assign(passport, patch);
+    return passport;
+  });
+  passport.toJSON = function toJSON() {
+    return { ...this };
+  };
+  return passport;
 }
 
 function makeRule(code, overrides = {}) {
@@ -107,12 +113,15 @@ describe('englishLearningPassport passportService', () => {
 
   it('學生可申請護照', async () => {
     mockPassportFindOne.mockResolvedValue(null);
-    const created = makePassport({ status: 'pending', id: 10 });
+    const created = makePassport({ status: 'active', id: 10 });
     mockPassportCreate.mockResolvedValue(created);
 
     const result = await passportService.applyPassport(studentCtx, { applicationReason: 'test' }, {});
-    expect(result.status).toBe('pending');
-    expect(mockPassportCreate).toHaveBeenCalled();
+    expect(result.status).toBe('active');
+    expect(mockPassportCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'active' }),
+      expect.any(Object),
+    );
     expect(mockAuditCreate).toHaveBeenCalled();
   });
 
@@ -128,13 +137,55 @@ describe('englishLearningPassport passportService', () => {
     mockPassportFindOne.mockResolvedValue(makePassport({ status: 'pending' }));
     mockRuleFindOne.mockResolvedValue(makeRule('TUTOR_CONSULTATION'));
 
+    // dashboard 會先把 pending 自動啟用；createSubmission 仍要求 active
+    // 此測直接走 createSubmission：pending 護照不可提交
     await expect(
       passportService.createSubmission(studentCtx, { ruleCode: 'TUTOR_CONSULTATION' }, {}),
     ).rejects.toMatchObject({ code: 'PASSPORT_NOT_ACTIVE' });
   });
 
-  it('學生身分不符不可查看', async () => {
-    mockPassportFindOne.mockResolvedValue(makePassport({ studentEmail: 'other@example.com' }));
+  it('儀表板會將舊 pending 護照自動啟用', async () => {
+    const passport = makePassport({ status: 'pending' });
+    mockPassportFindOne
+      .mockResolvedValueOnce(passport) // initial getPassportForStudent
+      .mockResolvedValueOnce(makePassport({ status: 'active' })); // after heal
+    mockPassportFindByPk.mockResolvedValue(passport);
+    mockSubmissionFindAll.mockResolvedValue([]);
+    mockRuleFindAll.mockResolvedValue([]);
+
+    const dash = await passportService.getStudentDashboard(studentCtx);
+    expect(passport.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'active' }),
+      expect.any(Object),
+    );
+    expect(dash.passport.status).toBe('active');
+  });
+
+  it('舊非中山學生信箱可自動遷移至 @student.nsysu.edu.tw', async () => {
+    const passport = makePassport({ studentEmail: 'old@gmail.com' });
+    mockPassportFindOne.mockResolvedValue(passport);
+    mockSubmissionFindAll.mockResolvedValue([]);
+    mockRuleFindAll.mockResolvedValue([]);
+
+    const dash = await passportService.getStudentDashboard(studentCtx);
+    expect(passport.update).toHaveBeenCalledWith(
+      { studentEmail: studentCtx.studentEmail },
+      expect.any(Object),
+    );
+    expect(dash.passport.studentEmail).toBe(studentCtx.studentEmail);
+  });
+
+  it('學號相同但姓名不符不可查看', async () => {
+    mockPassportFindOne.mockResolvedValue(makePassport({ studentName: '其他人' }));
+    await expect(passportService.getStudentDashboard(studentCtx)).rejects.toMatchObject({
+      code: 'STUDENT_MISMATCH',
+    });
+  });
+
+  it('已是中山學生信箱但與輸入不同不可自動改綁', async () => {
+    mockPassportFindOne.mockResolvedValue(
+      makePassport({ studentEmail: 'b999999999@student.nsysu.edu.tw' }),
+    );
     await expect(passportService.getStudentDashboard(studentCtx)).rejects.toMatchObject({
       code: 'STUDENT_MISMATCH',
     });

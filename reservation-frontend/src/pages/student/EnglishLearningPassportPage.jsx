@@ -411,11 +411,11 @@ export default function EnglishLearningPassportPage() {
       )}
 
       {!loading && passport?.status === 'pending' && (
-        <Alert variant="warning">
-          護照申請審核中，核准後即可開始累積點數。等待期間仍可預約活動或先做 5 分鐘練習。
+        <Alert variant="info">
+          護照正在啟用中，請稍候重新整理頁面；啟用後即可開始累積點數。
           <div className="mt-2 d-flex flex-wrap gap-2">
-            <Link to="/events" className="btn btn-sm btn-outline-primary">查看本週場次</Link>
-            <Link to="/learning-resources" className="btn btn-sm btn-outline-secondary">現在就練</Link>
+            <Button size="sm" variant="outline-primary" onClick={() => loadDashboard(student)}>重新整理</Button>
+            <Link to="/events" className="btn btn-sm btn-outline-secondary">查看本週場次</Link>
           </div>
         </Alert>
       )}

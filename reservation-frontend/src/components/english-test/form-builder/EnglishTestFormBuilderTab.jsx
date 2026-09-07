@@ -606,6 +606,7 @@ export default function EnglishTestFormBuilderTab({ token, canManage }) {
         <FormQuestionEditorModal
           question={editingQuestion}
           sections={sections}
+          allQuestions={schema?.questions || []}
           readOnly={!canManage}
           isNew={isNewQuestion}
           onClose={() => {

@@ -10,7 +10,7 @@ export default function FAQSection() {
   const [openId, setOpenId] = useState(null);
 
   return (
-    <section id="faq" className="home-section home-section--flat" aria-labelledby="faq-title">
+    <section id="faq" className="home-section home-section--bone" aria-labelledby="faq-title">
       <div className="home-shell home-reveal">
         <header className="home-section__header">
           <ContentText k="homePage.faqKicker" as="p" className="home-kicker home-kicker--section" />

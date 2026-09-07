@@ -41,6 +41,8 @@ export function buildFormOptionsFromMeta(meta, { mode = 'create' } = {}) {
       optionPairsByFieldKey: {},
       sectionsById: {},
       questions: [],
+      typeByFieldKey: {},
+      defaultValueByFieldKey: {},
       schemaStrict: false,
     };
   }
@@ -57,6 +59,8 @@ export function buildFormOptionsFromMeta(meta, { mode = 'create' } = {}) {
   let visibleByFieldKey = { ...(meta.visibleByFieldKey || {}) };
   let helpTextByFieldKey = { ...(meta.helpTextByFieldKey || {}) };
   let optionPairsByFieldKey = { ...pairs };
+  let typeByFieldKey = { ...(meta.typeByFieldKey || {}) };
+  let defaultValueByFieldKey = { ...(meta.defaultValueByFieldKey || {}) };
 
   if (Array.isArray(meta.questions)) {
     for (const q of meta.questions) {
@@ -69,6 +73,10 @@ export function buildFormOptionsFromMeta(meta, { mode = 'create' } = {}) {
         visibleByFieldKey[q.fieldKey] = q.visible !== false;
       }
       if (q.helpText != null) helpTextByFieldKey[q.fieldKey] = q.helpText;
+      if (q.type != null) typeByFieldKey[q.fieldKey] = String(q.type);
+      if (q.defaultValue != null && String(q.defaultValue).trim() !== '') {
+        defaultValueByFieldKey[q.fieldKey] = String(q.defaultValue);
+      }
       if (!optionPairsByFieldKey[q.fieldKey] && Array.isArray(q.options) && q.options.length) {
         optionPairsByFieldKey[q.fieldKey] = toOptionPairs(q.options);
       }
@@ -95,6 +103,8 @@ export function buildFormOptionsFromMeta(meta, { mode = 'create' } = {}) {
     visibleByFieldKey,
     helpTextByFieldKey,
     optionPairsByFieldKey,
+    typeByFieldKey,
+    defaultValueByFieldKey,
     sectionsById,
     questions: meta.questions || [],
     /** 有載入 schema 題目時，學生端嚴格依 schema 決定顯示（刪題＝不顯示） */
@@ -128,6 +138,26 @@ export function fieldRequired(formOptions, fieldKey, fallback = false) {
 export function fieldHelp(formOptions, fieldKey, fallback = '') {
   const fromSchema = formOptions?.helpTextByFieldKey?.[fieldKey];
   return (fromSchema != null && String(fromSchema).trim() !== '') ? String(fromSchema) : fallback;
+}
+
+export function fieldType(formOptions, fieldKey, fallback = 'text') {
+  const fromMap = formOptions?.typeByFieldKey?.[fieldKey];
+  if (fromMap != null && String(fromMap).trim() !== '') return String(fromMap);
+  const fromQuestion = (formOptions?.questions || []).find((q) => q?.fieldKey === fieldKey);
+  if (fromQuestion?.type != null && String(fromQuestion.type).trim() !== '') {
+    return String(fromQuestion.type);
+  }
+  return fallback;
+}
+
+export function fieldDefaultValue(formOptions, fieldKey, fallback = '') {
+  const fromMap = formOptions?.defaultValueByFieldKey?.[fieldKey];
+  if (fromMap != null && String(fromMap).trim() !== '') return String(fromMap);
+  const fromQuestion = (formOptions?.questions || []).find((q) => q?.fieldKey === fieldKey);
+  if (fromQuestion?.defaultValue != null && String(fromQuestion.defaultValue).trim() !== '') {
+    return String(fromQuestion.defaultValue);
+  }
+  return fallback;
 }
 
 export function sectionTitleOf(formOptions, sectionId, fallback) {

@@ -14,17 +14,55 @@ import { FormErrorMessage, getDisabledStyle } from '../../../utils/englishTestFo
 import {
   fieldLabel,
   fieldRequired,
+  fieldType,
   fieldVisible,
   sectionTitleOf,
 } from '../../../utils/englishTestFormSchemaMeta';
 import EnglishTestEmailVerificationPanel from './EnglishTestEmailVerificationPanel';
 import SchemaFieldLabel from './SchemaFieldLabel';
 import SchemaContentBlock from './SchemaContentBlock';
+import SchemaAwareControl from './SchemaAwareControl';
+import EnglishTestExtraQuestions, {
+  ENGLISH_TEST_DETAIL_SECTION_IDS,
+} from './EnglishTestExtraQuestions';
+import {
+  buildSectionExtraSlots,
+  mergeSlotQuestions,
+} from '../../../utils/englishTestSectionQuestionOrder';
+import { isFieldVisibleWithLinkage } from '../../../utils/englishTestVisibleWhen';
 
 const SECTION_HEADER_STYLE = {
   color: '#FF6B6B',
   borderBottom: '2px solid #FF6B6B',
   paddingBottom: '0.5rem',
+};
+
+const ADDRESS_PART_FIELDS = [
+  { key: 'postalCode', placeholder: '郵遞區號', fallbackLabel: '郵遞區號', maxLength: 3 },
+  { key: 'city', placeholder: '縣市', fallbackLabel: '縣市' },
+  { key: 'district', placeholder: '行政區', fallbackLabel: '行政區' },
+  { key: 'address', placeholder: '詳細地址', fallbackLabel: '通訊地址' },
+];
+
+/** 各區塊硬編碼欄位順序（錨點）；自訂題依 schema.order 插在錨點之間 */
+const SECTION_BUILTIN_KEYS = {
+  contact: ['email', 'studentNameZh', 'lastNameEn', 'firstNameEn', 'birthDate'],
+  academic: [
+    'nationalId',
+    'phone',
+    'postalCode',
+    'city',
+    'district',
+    'address',
+    'addressConfirmed',
+    'degreeLevel',
+    'grade',
+    'college',
+    'department',
+  ],
+  special: ['isLowIncome', 'hasDisabilityCard', 'disabilityTypes', 'examAssistanceOptions'],
+  photo: ['idPhoto', 'idPhotoGuide', 'agreedToTerms'],
+  info: ['infoSource'],
 };
 
 const SECTION_TITLES = {
@@ -66,6 +104,8 @@ export default function EnglishTestRegistrationFormBody({
   verifiedEmail = null,
   onEmailVerificationChange,
   formOptions = null,
+  customQuestions = [],
+  schemaSections = [],
 }) {
   const isCreate = mode === 'create';
   const fallbackSections = SECTION_TITLES[mode];
@@ -144,6 +184,59 @@ export default function EnglishTestRegistrationFormBody({
     }
   };
 
+  const handleExtraAnswersChange = (next) => {
+    setFormData((prev) => ({ ...prev, extraAnswers: next }));
+  };
+
+  const schemaQuestions =
+    Array.isArray(formOptions?.questions) && formOptions.questions.length > 0
+      ? formOptions.questions
+      : customQuestions;
+  const sectionSlots = {
+    contact: buildSectionExtraSlots(schemaQuestions, 'contact', SECTION_BUILTIN_KEYS.contact),
+    academic: buildSectionExtraSlots(schemaQuestions, 'academic', SECTION_BUILTIN_KEYS.academic),
+    special: buildSectionExtraSlots(schemaQuestions, 'special', SECTION_BUILTIN_KEYS.special),
+    photo: buildSectionExtraSlots(schemaQuestions, 'photo', SECTION_BUILTIN_KEYS.photo),
+    info: buildSectionExtraSlots(schemaQuestions, 'info', SECTION_BUILTIN_KEYS.info),
+  };
+
+  const renderExtraList = (questions) => {
+    if (!questions || !questions.length) return null;
+    return (
+      <EnglishTestExtraQuestions
+        questions={questions}
+        sections={schemaSections}
+        showSectionTitles={false}
+        extraAnswers={formData.extraAnswers || {}}
+        formAnswers={formData}
+        errors={errors}
+        disabled={disabled}
+        getFieldRef={getFieldRef}
+        onChange={handleExtraAnswersChange}
+      />
+    );
+  };
+
+  const renderAfter = (sectionId, ...fieldKeys) =>
+    renderExtraList(mergeSlotQuestions(sectionSlots[sectionId], fieldKeys));
+
+  const renderBefore = (sectionId) => renderExtraList(sectionSlots[sectionId]?.before);
+
+  const renderTrailing = (sectionId) => renderExtraList(sectionSlots[sectionId]?.trailing);
+
+  const schemaQuestionList = formOptions?.questions || [];
+  const showDisabilityFollowUps = isFieldVisibleWithLinkage(
+    schemaQuestionList,
+    'disabilityTypes',
+    formData,
+    formData.hasDisabilityCard === '是'
+  ) || isFieldVisibleWithLinkage(
+    schemaQuestionList,
+    'examAssistanceOptions',
+    formData,
+    formData.hasDisabilityCard === '是'
+  );
+
   return (
     <>
       {/* A. 基本聯絡資訊 */}
@@ -151,6 +244,8 @@ export default function EnglishTestRegistrationFormBody({
         <h4 className="mb-3" style={SECTION_HEADER_STYLE}>
           {contactSectionTitle}
         </h4>
+
+        {renderBefore('contact')}
 
         {show('email') && (
         <div className="mb-3" ref={getFieldRef('email')}>
@@ -178,24 +273,26 @@ export default function EnglishTestRegistrationFormBody({
         </div>
         )}
 
-        <EnglishTestEmailVerificationPanel
-          email={formData.email}
-          studentId={formData.studentId}
-          disabled={disabled}
-          originalEmail={isCreate ? null : originalEmail}
-          emailVerificationToken={emailVerificationToken}
-          verifiedEmail={verifiedEmail}
-          onTokenChange={onEmailVerificationChange}
-          errorMessage={errors.emailVerification}
-        />
+        <div ref={getFieldRef('emailVerification')}>
+          <EnglishTestEmailVerificationPanel
+            email={formData.email}
+            studentId={formData.studentId}
+            disabled={disabled}
+            originalEmail={isCreate ? null : originalEmail}
+            emailVerificationToken={emailVerificationToken}
+            verifiedEmail={verifiedEmail}
+            onTokenChange={onEmailVerificationChange}
+            errorMessage={errors.emailVerification}
+          />
+        </div>
+        {renderAfter('contact', 'email')}
 
         {show('studentNameZh') && (
         <div className="mb-3" ref={getFieldRef('studentNameZh')}>
           {L('studentNameZh', 'Q2. 中文姓名', true)}
-          <input
-            type="text"
-            className="form-control"
-            name="studentNameZh"
+          <SchemaAwareControl
+            formOptions={formOptions}
+            fieldKey="studentNameZh"
             value={formData.studentNameZh}
             onChange={handleChange}
             readOnly={disabled}
@@ -205,21 +302,21 @@ export default function EnglishTestRegistrationFormBody({
           <FormErrorMessage message={errors.studentNameZh} />
         </div>
         )}
+        {renderAfter('contact', 'studentNameZh')}
 
         <div className="row mb-3">
           {show('lastNameEn') && (
         <div className="col-md-6" ref={getFieldRef('lastNameEn')}>
             {L('lastNameEn', 'Q3. 英文拼音姓', true)}
-            <input
-              type="text"
-              className="form-control"
-              name="lastNameEn"
+            <SchemaAwareControl
+              formOptions={formOptions}
+              fieldKey="lastNameEn"
               value={formData.lastNameEn}
               onChange={handleChange}
               readOnly={disabled}
               disabled={disabled}
-              style={inputStyle(disabled, errors, 'lastNameEn', getErrorStyle, { textTransform: 'uppercase' })}
               placeholder="大寫英文姓氏"
+              style={inputStyle(disabled, errors, 'lastNameEn', getErrorStyle, { textTransform: 'uppercase' })}
             />
             <FormErrorMessage message={errors.lastNameEn} />
           </div>
@@ -227,31 +324,32 @@ export default function EnglishTestRegistrationFormBody({
           {show('firstNameEn') && (
         <div className="col-md-6" ref={getFieldRef('firstNameEn')}>
             {L('firstNameEn', 'Q4. 英文拼音名', true)}
-            <input
-              type="text"
-              className="form-control"
-              name="firstNameEn"
+            <SchemaAwareControl
+              formOptions={formOptions}
+              fieldKey="firstNameEn"
               value={formData.firstNameEn}
               onChange={handleChange}
               readOnly={disabled}
               disabled={disabled}
-              style={inputStyle(disabled, errors, 'firstNameEn', getErrorStyle, { textTransform: 'uppercase' })}
               placeholder="大寫英文名字"
+              style={inputStyle(disabled, errors, 'firstNameEn', getErrorStyle, { textTransform: 'uppercase' })}
             />
             <FormErrorMessage message={errors.firstNameEn} />
           </div>
         )}
         </div>
+        {renderAfter('contact', 'lastNameEn', 'firstNameEn')}
 
         {show('birthDate') && (
         <div className="mb-3" ref={getFieldRef('birthDate')}>
           {L('birthDate', 'Q5. 出生年月日', true)}
-          <input
-            type="date"
-            className="form-control"
-            name="birthDate"
+          <SchemaAwareControl
+            formOptions={formOptions}
+            fieldKey="birthDate"
             value={formData.birthDate}
             onChange={handleChange}
+            inputType="date"
+            fallbackType="date"
             readOnly={disabled}
             disabled={disabled}
             style={inputStyle(disabled, errors, 'birthDate', getErrorStyle)}
@@ -259,6 +357,8 @@ export default function EnglishTestRegistrationFormBody({
           <FormErrorMessage message={errors.birthDate} />
         </div>
         )}
+        {renderAfter('contact', 'birthDate')}
+        {renderTrailing('contact')}
       </div>
 
       {/* B/C. 身分與學籍資料 */}
@@ -266,6 +366,8 @@ export default function EnglishTestRegistrationFormBody({
         <h4 className="mb-3" style={SECTION_HEADER_STYLE}>
           {sections.academic}
         </h4>
+
+        {renderBefore('academic')}
 
         {show('nationalId') && (
         <div className="mb-3">
@@ -280,18 +382,19 @@ export default function EnglishTestRegistrationFormBody({
           />
         </div>
         )}
+        {renderAfter('academic', 'nationalId')}
 
         {show('phone') && (
         <div className="mb-3" ref={getFieldRef('phone')}>
           {L('phone', 'Q7. 行動電話', true)}
-          <input
-            type="tel"
-            className="form-control"
-            name="phone"
+          <SchemaAwareControl
+            formOptions={formOptions}
+            fieldKey="phone"
             value={formData.phone}
             onChange={handleChange}
             placeholder={isCreate ? undefined : '09xxxxxxxx'}
-            maxLength="10"
+            maxLength={10}
+            inputType="tel"
             readOnly={disabled}
             disabled={disabled}
             style={inputStyle(disabled, errors, 'phone', getErrorStyle)}
@@ -299,73 +402,51 @@ export default function EnglishTestRegistrationFormBody({
           <FormErrorMessage message={errors.phone} />
         </div>
         )}
+        {renderAfter('academic', 'phone')}
 
-        {show('address') && (
+        {(ADDRESS_PART_FIELDS.some((f) => show(f.key))) && (
         <div className="mb-3" ref={getFieldRef('postalCode')}>
-          <label className="form-label">
-            {addressLabel}{fieldRequired(formOptions, 'address', true) ? <span style={{ color: 'red' }}> *</span> : null}
-          </label>
+          {ADDRESS_PART_FIELDS.some((f) => fieldType(formOptions, f.key, 'text') === 'select') ? null : (
+            <label className="form-label">
+              {addressLabel}{fieldRequired(formOptions, 'address', true) ? <span style={{ color: 'red' }}> *</span> : null}
+            </label>
+          )}
           <div className="row">
-            <div className="col-md-3 mb-2">
-              <input
-                type="text"
-                className="form-control"
-                name="postalCode"
-                value={formData.postalCode}
-                onChange={handleChange}
-                placeholder="郵遞區號"
-                maxLength="3"
-                readOnly={disabled}
-                disabled={disabled}
-                style={inputStyle(disabled, errors, 'postalCode', getErrorStyle)}
-              />
-              <FormErrorMessage message={errors.postalCode} small />
-            </div>
-            <div className="col-md-3 mb-2" ref={getFieldRef('city')}>
-              <input
-                type="text"
-                className="form-control"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                placeholder="縣市"
-                readOnly={disabled}
-                disabled={disabled}
-                style={inputStyle(disabled, errors, 'city', getErrorStyle)}
-              />
-              <FormErrorMessage message={errors.city} small />
-            </div>
-            <div className="col-md-3 mb-2" ref={getFieldRef('district')}>
-              <input
-                type="text"
-                className="form-control"
-                name="district"
-                value={formData.district}
-                onChange={handleChange}
-                placeholder="行政區"
-                readOnly={disabled}
-                disabled={disabled}
-                style={inputStyle(disabled, errors, 'district', getErrorStyle)}
-              />
-              <FormErrorMessage message={errors.district} small />
-            </div>
-            <div className="col-md-3 mb-2" ref={getFieldRef('address')}>
-              <input
-                type="text"
-                className="form-control"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                placeholder="詳細地址"
-                readOnly={disabled}
-                disabled={disabled}
-                style={inputStyle(disabled, errors, 'address', getErrorStyle)}
-              />
-              <FormErrorMessage message={errors.address} small />
-            </div>
+            {ADDRESS_PART_FIELDS.map((part) => (
+              show(part.key) ? (
+                <div
+                  key={part.key}
+                  className="col-md-3 mb-2"
+                  ref={part.key === 'postalCode' ? undefined : getFieldRef(part.key)}
+                >
+                  {fieldType(formOptions, part.key, 'text') === 'select' ? (
+                    <div className="mb-1">
+                      {L(part.key, part.fallbackLabel, fieldRequired(formOptions, part.key, true))}
+                    </div>
+                  ) : null}
+                  <SchemaAwareControl
+                    formOptions={formOptions}
+                    fieldKey={part.key}
+                    value={formData[part.key]}
+                    onChange={handleChange}
+                    placeholder={
+                      fieldType(formOptions, part.key, 'text') === 'select'
+                        ? '請選擇'
+                        : part.placeholder
+                    }
+                    maxLength={part.maxLength}
+                    readOnly={disabled}
+                    disabled={disabled}
+                    style={inputStyle(disabled, errors, part.key, getErrorStyle)}
+                  />
+                  <FormErrorMessage message={errors[part.key]} small />
+                </div>
+              ) : null
+            ))}
           </div>
         </div>
         )}
+        {renderAfter('academic', 'postalCode', 'city', 'district', 'address')}
 
         {isCreate && show('addressConfirmed') && (
           <div className="mb-3" ref={getFieldRef('addressConfirmed')}>
@@ -414,6 +495,7 @@ export default function EnglishTestRegistrationFormBody({
             <FormErrorMessage message={errors.addressConfirmed} />
           </div>
         )}
+        {renderAfter('academic', 'addressConfirmed')}
 
         <div className="row mb-3">
           {show('degreeLevel') && (
@@ -459,6 +541,7 @@ export default function EnglishTestRegistrationFormBody({
           </div>
         )}
         </div>
+        {renderAfter('academic', 'degreeLevel', 'grade')}
 
         <div className="mb-3">
           <label className="form-label">
@@ -532,6 +615,8 @@ export default function EnglishTestRegistrationFormBody({
           </div>
         )}
         </div>
+        {renderAfter('academic', 'college', 'department')}
+        {renderTrailing('academic')}
       </div>
 
       {/* C/E. 特殊身分與協助需求 */}
@@ -539,6 +624,8 @@ export default function EnglishTestRegistrationFormBody({
         <h4 className="mb-3" style={SECTION_HEADER_STYLE}>
           {sections.special}
         </h4>
+
+        {renderBefore('special')}
 
         {show('isLowIncome') && (
         <div className="mb-3" ref={getFieldRef('isLowIncome')}>
@@ -576,6 +663,7 @@ export default function EnglishTestRegistrationFormBody({
           <FormErrorMessage message={errors.isLowIncome} />
         </div>
         )}
+        {renderAfter('special', 'isLowIncome')}
 
         {show('hasDisabilityCard') && (
         <div className="mb-3" ref={getFieldRef('hasDisabilityCard')}>
@@ -614,8 +702,9 @@ export default function EnglishTestRegistrationFormBody({
         </div>
         )}
 
-        {formData.hasDisabilityCard === '是' && (
+        {showDisabilityFollowUps && (
           <>
+            {show('disabilityTypes') && (
             <div className="mb-3">
               {L('disabilityTypes', 'Q16. 身心障礙類別（可複選）', false)}
               <div className="row">
@@ -666,6 +755,8 @@ export default function EnglishTestRegistrationFormBody({
                 </div>
               )}
             </div>
+            )}
+            {renderAfter('special', 'disabilityTypes')}
 
             <div className="mb-3">
               <label className="form-label">Q17. 身心障礙證明正反面上傳</label>
@@ -717,6 +808,7 @@ export default function EnglishTestRegistrationFormBody({
               </div>
             </div>
 
+            {show('examAssistanceOptions') && (
             <div className="mb-3">
               {L('examAssistanceOptions', 'Q18. 需要的考試協助項目（可複選）', false)}
               <div className="row">
@@ -755,8 +847,12 @@ export default function EnglishTestRegistrationFormBody({
                 </div>
               )}
             </div>
+            )}
+            {renderAfter('special', 'examAssistanceOptions')}
           </>
         )}
+        {renderAfter('special', 'hasDisabilityCard')}
+        {renderTrailing('special')}
       </div>
 
       {/* D/F. 照片與同意事項 */}
@@ -764,6 +860,8 @@ export default function EnglishTestRegistrationFormBody({
         <h4 className="mb-3" style={SECTION_HEADER_STYLE}>
           {sections.photo}
         </h4>
+
+        {renderBefore('photo')}
 
         {show('idPhoto') && (
         <div className="mb-3" ref={getFieldRef('idPhoto')}>
@@ -869,6 +967,7 @@ export default function EnglishTestRegistrationFormBody({
           <FormErrorMessage message={errors.idPhoto} />
         </div>
         )}
+        {renderAfter('photo', 'idPhoto', 'idPhotoGuide')}
 
         <div className="mb-4" ref={getFieldRef('agreedToTerms')}>
           {isCreate ? (
@@ -1054,6 +1153,8 @@ export default function EnglishTestRegistrationFormBody({
             </div>
           )}
         </div>
+        {renderAfter('photo', 'agreedToTerms')}
+        {renderTrailing('photo')}
       </div>
 
       {/* E/G. 資訊來源 */}
@@ -1061,6 +1162,8 @@ export default function EnglishTestRegistrationFormBody({
         <h4 className="mb-3" style={SECTION_HEADER_STYLE}>
           {sections.info}
         </h4>
+
+        {renderBefore('info')}
 
         {show('infoSource') && (
         <div className="mb-3" ref={getFieldRef('infoSource')}>
@@ -1097,7 +1200,23 @@ export default function EnglishTestRegistrationFormBody({
           <FormErrorMessage message={errors.infoSource} />
         </div>
         )}
+        {renderAfter('info', 'infoSource')}
+        {renderTrailing('info')}
       </div>
+
+      {/* 自訂階段（非 A–E 內建區塊） */}
+      <EnglishTestExtraQuestions
+        questions={customQuestions}
+        sections={schemaSections}
+        excludeSectionIds={ENGLISH_TEST_DETAIL_SECTION_IDS}
+        showSectionTitles
+        extraAnswers={formData.extraAnswers || {}}
+        formAnswers={formData}
+        errors={errors}
+        disabled={disabled}
+        getFieldRef={getFieldRef}
+        onChange={handleExtraAnswersChange}
+      />
     </>
   );
 }

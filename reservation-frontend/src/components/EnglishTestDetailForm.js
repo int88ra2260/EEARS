@@ -10,12 +10,11 @@ import {
   scrollToFirstError,
   buildRegisterFormData,
 } from '../utils/englishTestFormHelpers';
-import { validateEnglishTestDetailForm } from '../utils/englishTestFormValidation';
+import { validateEnglishTestDetailForm, resolveScrollableErrorField } from '../utils/englishTestFormValidation';
 import EnglishTestRegistrationFormBody from './english-test/registration/EnglishTestRegistrationFormBody';
-import EnglishTestExtraQuestions, {
-  validateExtraAnswers,
-} from './english-test/registration/EnglishTestExtraQuestions';
+import { validateExtraAnswers } from './english-test/registration/EnglishTestExtraQuestions';
 import { useEnglishTestFormSchemaPublic } from '../hooks/useEnglishTestFormSchemaPublic';
+import { ENGLISH_TEST_DEFAULT_ADDRESS } from '../constants/englishTestDefaultAddress';
 import { buildFormOptionsFromMeta } from '../utils/englishTestFormSchemaMeta';
 
 function normalizeEmail(email) {
@@ -45,10 +44,10 @@ function buildInitialFormData(initialData, basicInfo, step3Data) {
     birthDate: initialData?.birthDate || '',
     nationalId: basicInfo.idNumber || '',
     phone: initialData?.phone || '',
-    postalCode: initialData?.postalCode || '',
-    city: initialData?.city || '',
-    district: initialData?.district || '',
-    address: initialData?.address || '',
+    postalCode: initialData?.postalCode || ENGLISH_TEST_DEFAULT_ADDRESS.postalCode,
+    city: initialData?.city || ENGLISH_TEST_DEFAULT_ADDRESS.city,
+    district: initialData?.district || ENGLISH_TEST_DEFAULT_ADDRESS.district,
+    address: initialData?.address || ENGLISH_TEST_DEFAULT_ADDRESS.address,
     degreeLevel: initialData?.degreeLevel || '',
     grade: initialData?.grade || '',
     college: initialData?.college || '',
@@ -102,10 +101,10 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
         studentNameZh: initialData.name || prev.studentNameZh,
         birthDate: initialData.birthDate || prev.birthDate,
         phone: initialData.phone || prev.phone,
-        postalCode: initialData.postalCode || prev.postalCode,
-        city: initialData.city || prev.city,
-        district: initialData.district || prev.district,
-        address: initialData.address || prev.address,
+        postalCode: initialData.postalCode || prev.postalCode || ENGLISH_TEST_DEFAULT_ADDRESS.postalCode,
+        city: initialData.city || prev.city || ENGLISH_TEST_DEFAULT_ADDRESS.city,
+        district: initialData.district || prev.district || ENGLISH_TEST_DEFAULT_ADDRESS.district,
+        address: initialData.address || prev.address || ENGLISH_TEST_DEFAULT_ADDRESS.address,
         degreeLevel: initialData.degreeLevel || prev.degreeLevel,
         grade: initialData.grade || prev.grade,
         college: initialData.college || prev.college,
@@ -122,8 +121,8 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const validationResult = validateEnglishTestDetailForm(formData);
-    const nextErrors = { ...validationResult.errors, ...validateExtraAnswers(customQuestions, formData.extraAnswers) };
+    const validationResult = validateEnglishTestDetailForm(formData, formOptions);
+    const nextErrors = { ...validationResult.errors, ...validateExtraAnswers(customQuestions, formData.extraAnswers, formData) };
 
     const email = normalizeEmail(formData.email);
     if (email && (!emailVerificationToken || normalizeEmail(verifiedEmail) !== email)) {
@@ -134,9 +133,14 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
 
     const hasExtraErrors = Object.keys(nextErrors).some((k) => k.startsWith('extra.'));
     if (!validationResult.isValid || nextErrors.emailVerification || hasExtraErrors) {
-      scrollToFirstError(getFieldRef, validationResult.firstErrorField || Object.keys(nextErrors)[0] || 'email');
-      const errorCount = Object.keys(nextErrors).length;
-      toast.warning(`請修正表單錯誤後再提交（共 ${errorCount} 個欄位），已跳至第一個錯誤位置`);
+      const errorKeys = Object.keys(nextErrors);
+      const scrollField = resolveScrollableErrorField(
+        getFieldRef,
+        validationResult.firstErrorField || (nextErrors.emailVerification ? 'emailVerification' : null),
+        errorKeys
+      );
+      scrollToFirstError(getFieldRef, scrollField);
+      toast.warning(`請修正表單錯誤後再提交（共 ${errorKeys.length} 個欄位），已跳至第一個錯誤位置`);
       return;
     }
 
@@ -197,14 +201,8 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
         verifiedEmail={verifiedEmail}
         onEmailVerificationChange={handleEmailVerificationChange}
         formOptions={formOptions}
-      />
-      <EnglishTestExtraQuestions
-        questions={customQuestions}
-        sections={schema?.sections || []}
-        extraAnswers={formData.extraAnswers || {}}
-        errors={errors}
-        getFieldRef={getFieldRef}
-        onChange={(next) => setFormData((prev) => ({ ...prev, extraAnswers: next }))}
+        customQuestions={customQuestions}
+        schemaSections={schema?.sections || []}
       />
       <div className="d-flex justify-content-between gap-2">
         <button
