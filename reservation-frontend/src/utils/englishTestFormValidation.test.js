@@ -92,8 +92,60 @@ describe('englishTestFormValidation schema awareness', () => {
 
   it('edit validation also skips hidden fields', () => {
     const result = validateEnglishTestEditForm(
-      filledVisible,
+      {
+        ...filledVisible,
+        examType: 'LRSW',
+        hasCEFRB2: '否',
+      },
       { idPhoto: '/uploads/x.jpg' },
+      {},
+      hiddenAddressAndIncome
+    );
+    expect(result.isValid).toBe(true);
+  });
+
+  it('edit allows changing examType and requires B2 scores when hasCEFRB2 is 是', () => {
+    const result = validateEnglishTestEditForm(
+      {
+        ...filledVisible,
+        examType: 'LR',
+        hasCEFRB2: '是',
+        listeningExamType: '',
+        b2CertificateFiles: [],
+      },
+      { idPhoto: '/uploads/x.jpg', b2CertificateFile: null },
+      {},
+      hiddenAddressAndIncome
+    );
+    expect(result.isValid).toBe(false);
+    expect(result.errors.listeningExamType).toBeTruthy();
+  });
+
+  it('edit accepts existing B2 certificate without re-upload', () => {
+    const result = validateEnglishTestEditForm(
+      {
+        ...filledVisible,
+        examType: 'LRSW',
+        hasCEFRB2: '是',
+        listeningExamType: 'IELTS',
+        listeningScore: '6.0',
+        b2CertificateFiles: [],
+      },
+      { idPhoto: '/uploads/x.jpg', b2CertificateFile: '/uploads/b2.pdf' },
+      {},
+      hiddenAddressAndIncome
+    );
+    expect(result.isValid).toBe(true);
+  });
+
+  it('edit NON without B2 only requires exam fields', () => {
+    const result = validateEnglishTestEditForm(
+      {
+        examType: 'NON',
+        hasCEFRB2: '否',
+        email: '',
+      },
+      { idPhoto: null },
       {},
       hiddenAddressAndIncome
     );

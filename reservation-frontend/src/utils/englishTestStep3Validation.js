@@ -58,10 +58,38 @@ export function validateScoreFormat(examType, score, skill) {
         return { isValid: false, error: '請輸入有效的數字' };
       }
       if (!Number.isInteger(toeflScore)) {
-        return { isValid: false, error: 'TOEFL 成績必須為整數' };
+        return { isValid: false, error: '舊制 TOEFL iBT 成績必須為整數' };
       }
       if (toeflScore < 0 || toeflScore > 30) {
-        return { isValid: false, error: 'TOEFL 成績範圍為 0-30 分' };
+        return { isValid: false, error: '舊制 TOEFL iBT 成績範圍為 0-30 分' };
+      }
+      return { isValid: true, error: null };
+    }
+
+    case 'TOEFL iBT 2026': {
+      const toeflNew = parseFloat(score);
+      if (isNaN(toeflNew)) {
+        return { isValid: false, error: '請輸入有效的數字' };
+      }
+      if (toeflNew < 1 || toeflNew > 6) {
+        return { isValid: false, error: '新制 TOEFL iBT 成績範圍為 1–6' };
+      }
+      return { isValid: true, error: null };
+    }
+
+    case 'TOEFL ITP': {
+      if (skill !== 'listening' && skill !== 'reading') {
+        return { isValid: false, error: 'TOEFL ITP 僅適用於聽力／閱讀成績' };
+      }
+      const itpScore = parseFloat(score);
+      if (isNaN(itpScore)) {
+        return { isValid: false, error: '請輸入有效的數字' };
+      }
+      if (!Number.isInteger(itpScore)) {
+        return { isValid: false, error: 'TOEFL ITP 成績必須為整數' };
+      }
+      if (itpScore < 31 || itpScore > 68) {
+        return { isValid: false, error: 'TOEFL ITP 成績範圍為 31–68 分' };
       }
       return { isValid: true, error: null };
     }
@@ -180,6 +208,20 @@ export function checkB2Level(examType, score, skill) {
       return null;
     }
 
+    case 'TOEFL iBT 2026': {
+      const toeflNew = parseFloat(score);
+      if (isNaN(toeflNew)) return null;
+      return toeflNew >= 4;
+    }
+
+    case 'TOEFL ITP': {
+      const itpScore = parseFloat(score);
+      if (isNaN(itpScore)) return null;
+      if (skill === 'listening') return itpScore >= 54;
+      if (skill === 'reading') return itpScore >= 56;
+      return null;
+    }
+
     case 'GEPT': {
       const geptLevels = ['中高級', '高級', '優級'];
       return geptLevels.includes(scoreStr);
@@ -232,16 +274,22 @@ export function checkB2Level(examType, score, skill) {
   }
 }
 
-export function validateEnglishTestStep3Form(formData) {
+/**
+ * @param {object} formData
+ * @param {{ existingB2Certificate?: boolean }} [options]
+ *   existingB2Certificate: 編輯時已有證明檔，可不重新上傳
+ */
+export function validateEnglishTestStep3Form(formData, options = {}) {
   const newErrors = {};
   const errorOrder = [];
+  const existingB2Certificate = Boolean(options.existingB2Certificate);
 
   if (!formData.examType) {
     newErrors.examType = '請選擇報考項目';
     errorOrder.push('examType');
   }
 
-  if (formData.hasCEFRB2 === '') {
+  if (formData.hasCEFRB2 === '' || formData.hasCEFRB2 == null) {
     newErrors.hasCEFRB2 = '請選擇是否曾取得 CEFR B2 以上成績';
     errorOrder.push('hasCEFRB2');
   }
@@ -307,11 +355,12 @@ export function validateEnglishTestStep3Form(formData) {
         }
       }
     }
-  }
 
-  if (formData.hasCEFRB2 === '是' && (!formData.b2CertificateFiles || formData.b2CertificateFiles.length === 0)) {
-    newErrors.b2CertificateFiles = '請上傳 B2 成績證明';
-    errorOrder.push('b2CertificateFiles');
+    const hasNewFiles = Array.isArray(formData.b2CertificateFiles) && formData.b2CertificateFiles.length > 0;
+    if (!hasNewFiles && !existingB2Certificate) {
+      newErrors.b2CertificateFiles = '請上傳 B2 成績證明';
+      errorOrder.push('b2CertificateFiles');
+    }
   }
 
   return {

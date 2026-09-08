@@ -23,13 +23,22 @@ export function useEnglishTestBulkActions({ token, showToast, loadRegistrations 
   const handleBulkReject = useCallback(async (reasons, other, status = 'revision') => {
     if (selectedRows.length === 0) return;
     try {
-      await bulkUpdateRegistrations(token, {
+      const result = await bulkUpdateRegistrations(token, {
         ids: selectedRows,
         status,
         rejectionReasons: reasons,
         rejectionOther: other
       });
-      showToast(`成功批量${status === 'revision' ? '請修正' : '設為審核中'} ${selectedRows.length} 筆記錄`, 'success');
+      const emailSent = result?.emailSent || 0;
+      const emailFailed = result?.emailFailed || 0;
+      const baseMsg = `成功批量${status === 'revision' ? '請修正' : '設為審核中'} ${selectedRows.length} 筆記錄`;
+      const emailMsg = status === 'revision'
+        ? `，已寄信 ${emailSent} 封${emailFailed > 0 ? `（失敗 ${emailFailed}）` : ''}`
+        : '';
+      showToast(
+        `${baseMsg}${emailMsg}`,
+        emailFailed > 0 ? 'warning' : 'success'
+      );
       setSelectedRows([]);
       loadRegistrations();
     } catch (error) {
@@ -54,13 +63,18 @@ export function useEnglishTestBulkActions({ token, showToast, loadRegistrations 
   const handleBulkSetFailed = useCallback(async (reasons, other) => {
     if (selectedRows.length === 0) return;
     try {
-      await bulkUpdateRegistrations(token, {
+      const result = await bulkUpdateRegistrations(token, {
         ids: selectedRows,
         status: 'failed',
         rejectionReasons: reasons,
         rejectionOther: other
       });
-      showToast(`已將 ${selectedRows.length} 筆設為「報名失敗」`, 'success');
+      const emailSent = result?.emailSent || 0;
+      const emailFailed = result?.emailFailed || 0;
+      showToast(
+        `已將 ${selectedRows.length} 筆設為「報名失敗」，已寄信 ${emailSent} 封${emailFailed > 0 ? `（失敗 ${emailFailed}）` : ''}`,
+        emailFailed > 0 ? 'warning' : 'success'
+      );
       setSelectedRows([]);
       loadRegistrations();
     } catch (error) {

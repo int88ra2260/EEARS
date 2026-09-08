@@ -73,3 +73,22 @@ export async function testSendEmailTemplate(token, key, payload) {
   const data = await parseOrThrow(res);
   return data.data;
 }
+
+/** 培力驗證碼 × 全站限流開關與用量 */
+export async function fetchEmailRateLimitGuard(token) {
+  const res = await fetchClient('/api/admin/email-templates/rate-limit-guard', {
+    headers: authHeaders(token),
+  });
+  const data = await parseOrThrow(res);
+  return data.data;
+}
+
+export async function updateEmailRateLimitGuard(token, skipGlobalForEnglishTestEmailOtp) {
+  const res = await fetchClient('/api/admin/email-templates/rate-limit-guard', {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify({ skipGlobalForEnglishTestEmailOtp }),
+  });
+  const data = await parseOrThrow(res);
+  return data.data;
+}

@@ -16,5 +16,11 @@ describe('semesterConstants', () => {
 
   it('prefers configured SEMESTER_RANGES when available', () => {
     expect(semesterIdFromDate('2026-04-20')).toBe('114-2');
+    expect(semesterIdFromDate('2026-08-15')).toBe('115-1');
+  });
+
+  it('matches shared/semesterConfig for 115-1 (starts August)', () => {
+    const { SEMESTER_RANGES } = require('../utils/semesterConstants');
+    expect(SEMESTER_RANGES['115-1']).toEqual({ start: '2026-08-01', end: '2027-01-31' });
   });
 });

@@ -1,8 +1,10 @@
 // components/english-test/DetailModalWithTabs.js
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import useDetailModalEdit from '../../hooks/useDetailModalEdit';
 import { useDetailModalStatusDropdown } from '../../hooks/useDetailModalStatusDropdown';
+import { useEnglishTestFormSchemaPublic } from '../../hooks/useEnglishTestFormSchemaPublic';
 import useMediaQuery from '../../hooks/useMediaQuery';
+import { buildFormOptionsFromMeta } from '../../utils/englishTestFormSchemaMeta';
 import useConfirm from '../ui/useConfirm';
 import DetailModalAcademicTab from './detail/DetailModalAcademicTab';
 import DetailModalBasicTab from './detail/DetailModalBasicTab';
@@ -34,6 +36,14 @@ export default function DetailModalWithTabs({
   const [activeTab, setActiveTab] = useState('basic');
   const [expandedSections, setExpandedSections] = useState(INITIAL_EXPANDED_SECTIONS);
   const statusDropdown = useDetailModalStatusDropdown();
+  const { schema, meta } = useEnglishTestFormSchemaPublic();
+  const formOptions = useMemo(
+    () => buildFormOptionsFromMeta(
+      meta ? { ...meta, questions: meta.questions || schema?.questions || [] } : schema,
+      { mode: 'edit' },
+    ),
+    [meta, schema],
+  );
 
   const {
     isEditing,
@@ -43,6 +53,7 @@ export default function DetailModalWithTabs({
     handleCancelEdit,
     handleSaveEdit,
     handleEditChange,
+    handleEditToggleArray,
     handleFileInputChange,
   } = useDetailModalEdit({ registration, onUpdateRegistration, onUploadRegistrationFiles, token });
 
@@ -56,7 +67,14 @@ export default function DetailModalWithTabs({
   };
 
   const renderActiveTab = () => {
-    const tabProps = { registration, isEditing, editData, handleEditChange };
+    const tabProps = {
+      registration,
+      isEditing,
+      editData,
+      handleEditChange,
+      handleEditToggleArray,
+      formOptions,
+    };
 
     if (activeTab === 'basic') return <DetailModalBasicTab {...tabProps} />;
     if (activeTab === 'academic') return <DetailModalAcademicTab {...tabProps} />;
@@ -111,6 +129,8 @@ export default function DetailModalWithTabs({
           isEditing,
           editData,
           handleEditChange,
+          handleEditToggleArray,
+          formOptions,
           editFileInputs,
           handleFileInputChange,
           onUploadRegistrationFiles,

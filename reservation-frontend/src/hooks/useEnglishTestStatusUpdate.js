@@ -3,6 +3,8 @@
  */
 import { useState, useCallback } from 'react';
 import { fetchRegistrationById, updateRegistration } from '../services/englishTestApi';
+import useConfirm from '../components/ui/useConfirm';
+import { getEnglishTestStatusEmailConfirm } from '../utils/englishTestStatusEmailConfirm';
 
 export function useEnglishTestStatusUpdate({
   token,
@@ -17,6 +19,7 @@ export function useEnglishTestStatusUpdate({
   handleViewDetail,
   onOpenRejectionModal
 }) {
+  const { confirm } = useConfirm();
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusUpdate, setStatusUpdate] = useState({ status: '', notes: '' });
   const [pendingStatusUpdate, setPendingStatusUpdate] = useState(null);
@@ -24,6 +27,11 @@ export function useEnglishTestStatusUpdate({
   const performStatusUpdate = useCallback(async (newStatus, reasons, other, targetId = null) => {
     const id = targetId || selectedRegistration?.id;
     if (!id) return;
+
+    if (newStatus === 'revision' || newStatus === 'failed') {
+      const ok = await confirm(getEnglishTestStatusEmailConfirm({ status: newStatus, count: 1 }));
+      if (!ok) return;
+    }
 
     try {
       const requestBody = {
@@ -37,7 +45,8 @@ export function useEnglishTestStatusUpdate({
 
       const result = await updateRegistration(token, id, requestBody);
       const statusText = { pending: '審核中', approved: '已通過', revision: '請修正', success: '報名成功', failed: '報名失敗' }[newStatus] || newStatus;
-      showToast(`狀態已更新為「${statusText}」`, 'success');
+      const emailHint = (newStatus === 'revision' || newStatus === 'failed') ? '，已寄送通知信' : '';
+      showToast(`狀態已更新為「${statusText}」${emailHint}`, 'success');
       if (selectedRegistration && selectedRegistration.id === id) {
         const updatedData = result.registration || result;
         setSelectedRegistration(updatedData);
@@ -53,7 +62,7 @@ export function useEnglishTestStatusUpdate({
       console.error('更新狀態錯誤:', error);
       showToast(error.message || '更新狀態時發生錯誤', 'danger');
     }
-  }, [token, selectedRegistration, setSelectedRegistration, showToast, setRegistrations, loadRegistrations, setSelectedRows, setShowRejectionModal]);
+  }, [token, selectedRegistration, setSelectedRegistration, showToast, setRegistrations, loadRegistrations, setSelectedRows, setShowRejectionModal, confirm]);
 
   const handleQuickStatusUpdate = useCallback(async (id, newStatus) => {
     const targetId = id || selectedRegistration?.id;

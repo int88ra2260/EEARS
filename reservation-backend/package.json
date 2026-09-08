@@ -21,6 +21,8 @@
     "lj:sync-ewl:backfill": "node scripts/sync-ewl-reservations.js --startDate=2024-01-01 --endDate=2026-12-31 --apply --rebuild",
     "lj:export-manager-report": "node scripts/export-manager-exam-activity-report.js",
     "test": "jest",
+    "semester:sync": "node ../scripts/sync-semester-config.js",
+    "semester:check": "node ../scripts/sync-semester-config.js --check",
     "test:coverage": "jest --coverage",
     "test:watch": "jest --watch",
     "lint": "eslint .",

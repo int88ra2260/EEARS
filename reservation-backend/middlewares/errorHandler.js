@@ -59,6 +59,20 @@ const errorHandler = (err, req, res, next) => {
     errorKey = 'RATE_LIMIT_EXCEEDED';
     logError('RATE_LIMIT_EXCEEDED', err);
   }
+  // multipart / busboy 解析失敗（未走路由層 upload error handler 時的後備）
+  else if (
+    typeof err.message === 'string'
+    && (
+      err.message.includes('Unexpected end of form')
+      || err.message.includes('Multipart: Boundary not found')
+      || err.message.includes('Unexpected end of multipart data')
+    )
+  ) {
+    statusCode = 400;
+    errorKey = 'REQUIRED_FIELD_MISSING';
+    details = '上傳資料不完整或格式錯誤，請重新整理頁面後再試一次';
+    logError('REQUIRED_FIELD_MISSING', err, details);
+  }
   // 輸入驗證錯誤
   else if (err.status === 400) {
     statusCode = 400;

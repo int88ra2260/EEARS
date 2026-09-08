@@ -1,4 +1,11 @@
 import React from 'react';
+import {
+  EXAM_TYPE_OPTIONS,
+  SCORE_EXAM_TYPE_OPTIONS,
+  YES_NO_OPTIONS,
+  ensureOptionPairInList,
+  getScoreExamTypeOptionsForSkill,
+} from '../../../utils/englishTestFormOptions';
 import { getExamTypeText } from './detailModalUtils';
 import DetailModalEditingAlert from './DetailModalEditingAlert';
 import { TabPanel } from './detailModalTabShell';
@@ -8,40 +15,50 @@ const SCORE_FIELDS = [
     typeField: 'listeningExamType',
     scoreField: 'listeningScore',
     title: '聽力成績',
+    skill: 'listening',
     borderClass: 'border-primary',
     headerClass: 'bg-primary text-white',
-    placeholder: '例如：TOEIC Listening & Reading',
   },
   {
     typeField: 'readingExamType',
     scoreField: 'readingScore',
     title: '閱讀成績',
+    skill: 'reading',
     borderClass: 'border-success',
     headerClass: 'bg-success text-white',
-    placeholder: '例如：TOEIC Listening & Reading',
   },
   {
     typeField: 'speakingExamType',
     scoreField: 'speakingScore',
     title: '口說成績',
+    skill: 'speaking',
     borderClass: 'border-warning',
     headerClass: 'bg-warning text-dark',
-    placeholder: '例如：TOEIC Speaking & Writing',
   },
   {
     typeField: 'writingExamType',
     scoreField: 'writingScore',
     title: '寫作成績',
+    skill: 'writing',
     borderClass: 'border-danger',
     headerClass: 'bg-danger text-white',
-    placeholder: '例如：TOEIC Speaking & Writing',
   },
 ];
 
-function ScoreCard({ config, registration, isEditing, editData, handleEditChange, forceEditing }) {
+function ScoreCard({
+  config,
+  registration,
+  isEditing,
+  editData,
+  handleEditChange,
+  forceEditing,
+  examTypeOptions,
+}) {
   const source = isEditing ? editData : registration;
   const examType = source[config.typeField];
   const score = source[config.scoreField];
+  const skillOptions = getScoreExamTypeOptionsForSkill(config.skill, examTypeOptions);
+  const options = ensureOptionPairInList(skillOptions, examType);
 
   return (
     <div className="col-md-6 mb-3">
@@ -53,13 +70,18 @@ function ScoreCard({ config, registration, isEditing, editData, handleEditChange
           <div className="mb-2">
             <strong>測驗類別：</strong>
             {isEditing ? (
-              <input
-                type="text"
-                className="form-control form-control-sm"
+              <select
+                className="form-select form-select-sm"
                 value={examType || ''}
                 onChange={(e) => handleEditChange(config.typeField, e.target.value)}
-                placeholder={forceEditing ? config.placeholder : undefined}
-              />
+              >
+                <option value="">請選擇測驗類別</option>
+                {options.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             ) : (
               <span>{examType || '未填寫'}</span>
             )}
@@ -89,6 +111,7 @@ export default function DetailModalExamTab({
   isEditing,
   editData,
   handleEditChange,
+  formOptions = null,
   embedded = false,
 }) {
   const source = isEditing ? editData : registration;
@@ -96,6 +119,15 @@ export default function DetailModalExamTab({
   const hasAnyScore = SCORE_FIELDS.some(
     ({ typeField, scoreField }) => source[typeField] || source[scoreField],
   );
+  const examTypeOptions = formOptions?.examTypeOptions?.length
+    ? formOptions.examTypeOptions
+    : EXAM_TYPE_OPTIONS;
+  const scoreExamOptions = formOptions?.scoreExamTypeOptions?.length
+    ? formOptions.scoreExamTypeOptions
+    : SCORE_EXAM_TYPE_OPTIONS;
+  const hasCefrOptions = formOptions?.hasCEFRB2Options?.length
+    ? formOptions.hasCEFRB2Options.map((o) => o.value || o)
+    : YES_NO_OPTIONS;
 
   return (
     <TabPanel embedded={embedded}>
@@ -114,10 +146,11 @@ export default function DetailModalExamTab({
                   onChange={(e) => handleEditChange('examType', e.target.value)}
                 >
                   <option value="">請選擇</option>
-                  <option value="LRSW">四項全考（LRSW）</option>
-                  <option value="LR">聽讀（LR）</option>
-                  <option value="SW">說寫（SW）</option>
-                  <option value="NON">不報考（NON）</option>
+                  {ensureOptionPairInList(examTypeOptions, editData.examType).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               ) : (
                 <div>
@@ -142,8 +175,11 @@ export default function DetailModalExamTab({
                   onChange={(e) => handleEditChange('hasCEFRB2', e.target.value)}
                 >
                   <option value="">請選擇</option>
-                  <option value="是">是</option>
-                  <option value="否">否</option>
+                  {hasCefrOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
                 </select>
               ) : (
                 <div>
@@ -169,6 +205,7 @@ export default function DetailModalExamTab({
                     isEditing={isEditing}
                     editData={editData}
                     handleEditChange={handleEditChange}
+                    examTypeOptions={scoreExamOptions}
                   />
                 ),
             )}
@@ -200,6 +237,7 @@ export default function DetailModalExamTab({
                       isEditing={isEditing}
                       editData={editData}
                       handleEditChange={handleEditChange}
+                      examTypeOptions={scoreExamOptions}
                       forceEditing
                     />
                   ),

@@ -70,6 +70,7 @@ export default function FormQuestionEditorModal({
   const content = question.content || {};
   const [draft, setDraft] = useState(() => ({
     ...question,
+    studentEditable: question.studentEditable !== false,
     optionsText: optionsToText(question.options),
     contentIntro: content.intro || '',
     contentImageUrl: content.imageUrl || '',
@@ -131,6 +132,7 @@ export default function FormQuestionEditorModal({
       helpText: draft.helpText || '',
       visible: draft.visible !== false,
       defaultValue: draft.defaultValue != null ? String(draft.defaultValue) : '',
+      studentEditable: draft.studentEditable !== false,
       visibleWhen:
         draft.linkageEnabled && draft.linkageFieldKey
           ? {
@@ -255,7 +257,7 @@ export default function FormQuestionEditorModal({
 
               {!isContentBlock && !isConfirm && (
                 <div className="col-12">
-                  <label className="form-label">預設內容（學生端初始值，可再修改）</label>
+                  <label className="form-label">預設答案（學生端初始值）</label>
                   <input
                     className="form-control"
                     value={draft.defaultValue || ''}
@@ -263,6 +265,9 @@ export default function FormQuestionEditorModal({
                     onChange={(e) => patch({ defaultValue: e.target.value })}
                     placeholder="例如：804"
                   />
+                  <div className="form-text">
+                    若下方取消勾選「學生可修改」，學生只能看到此預設／已帶入值，無法更改。
+                  </div>
                 </div>
               )}
 
@@ -468,6 +473,21 @@ export default function FormQuestionEditorModal({
                     顯示於學生表單
                   </label>
                 </div>
+                {!isContentBlock && (
+                  <div className="form-check">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="q-student-editable"
+                      checked={draft.studentEditable !== false}
+                      disabled={readOnly}
+                      onChange={(e) => patch({ studentEditable: e.target.checked })}
+                    />
+                    <label className="form-check-label" htmlFor="q-student-editable">
+                      學生可修改
+                    </label>
+                  </div>
+                )}
                 <div className="form-check">
                   <input
                     className="form-check-input"

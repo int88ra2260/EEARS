@@ -2,13 +2,17 @@
  * 培力英檢學生端 API 薄層
  */
 import { fetchClient } from '../utils/fetchClient';
-import { fetchEnglishTestRegistrationEnabledPublic } from './settingsAdminApi';
+import {
+  fetchEnglishTestRegistrationEnabledPublic,
+  fetchEnglishTestRegistrationGroupEnabledPublic,
+} from './settingsAdminApi';
 
 async function parseJson(res) {
   return res.json().catch(() => ({}));
 }
 
 export { fetchEnglishTestRegistrationEnabledPublic as fetchRegistrationEnabled };
+export { fetchEnglishTestRegistrationGroupEnabledPublic as fetchRegistrationGroupEnabled };
 
 export async function queryEnglishTestRegistration(body) {
   const res = await fetchClient('/api/english-test/registrations/query', {

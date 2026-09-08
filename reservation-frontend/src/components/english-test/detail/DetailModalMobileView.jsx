@@ -18,6 +18,8 @@ export default function DetailModalMobileView({
     isEditing,
     editData,
     handleEditChange,
+    handleEditToggleArray,
+    formOptions,
     editFileInputs,
     handleFileInputChange,
     onUploadRegistrationFiles,
@@ -55,6 +57,8 @@ export default function DetailModalMobileView({
               isEditing={isEditing}
               editData={editData}
               handleEditChange={handleEditChange}
+              handleEditToggleArray={handleEditToggleArray}
+              formOptions={formOptions}
               editFileInputs={editFileInputs}
               handleFileInputChange={handleFileInputChange}
               onUploadRegistrationFiles={onUploadRegistrationFiles}

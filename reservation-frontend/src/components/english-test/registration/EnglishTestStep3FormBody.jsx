@@ -1,6 +1,11 @@
 import React from 'react';
 import SchemaFieldLabel from './SchemaFieldLabel';
 import {
+  SCORE_EXAM_TYPE_OPTIONS,
+  EXAM_TYPE_OPTIONS,
+  getScoreExamTypeOptionsForSkill,
+} from '../../../utils/englishTestFormOptions';
+import {
   fieldHelp,
   fieldLabel,
   fieldOptionPairs,
@@ -8,26 +13,15 @@ import {
   sectionTitleOf,
 } from '../../../utils/englishTestFormSchemaMeta';
 
-const DEFAULT_EXAM_TYPE_OPTIONS = [
-  { value: 'TOEIC Listening & Reading', label: 'TOEIC Listening & Reading 多益聽讀' },
-  { value: 'TOEIC Speaking & Writing', label: 'TOEIC Speaking & Writing 多益說寫' },
-  { value: 'IELTS', label: 'IELTS 雅思' },
-  { value: 'TOEFL', label: 'TOEFL 托福' },
-  { value: 'GEPT', label: 'GEPT 全民英檢' },
-  { value: 'BESTEP', label: 'BESTEP 培力英檢' },
-  { value: 'FLPT', label: 'FLPT 外語能力測驗' },
-  {
-    value: 'Cambridge Assessment English',
-    label: 'Cambridge Assessment English 劍橋國際英語認證',
-  },
-];
+const DEFAULT_EXAM_TYPE_OPTIONS = SCORE_EXAM_TYPE_OPTIONS;
 
-const DEFAULT_EXAM_TYPE_RADIOS = [
-  { value: 'LRSW', label: '聽說讀寫（LRSW）' },
-  { value: 'LR', label: '聽讀（LR）' },
-  { value: 'SW', label: '說寫（SW）' },
-  { value: 'NON', label: '不報考（NON）- 作答完前四題即可送出表單。' },
-];
+const DEFAULT_EXAM_TYPE_RADIOS = EXAM_TYPE_OPTIONS.map((opt) => (
+  opt.value === 'NON'
+    ? { ...opt, label: '不報考（NON）- 作答完前四題即可送出表單。' }
+    : opt.value === 'LRSW'
+      ? { ...opt, label: '聽說讀寫（LRSW）' }
+      : opt
+));
 
 const B2_WARNING = '此成績未達B2，若是這學期有修習英文課，無法免考。若未選考，將無法獲得課堂成績5%';
 
@@ -43,6 +37,7 @@ function ScoreRow({
   checkB2Level,
   skill,
   examTypeOptions,
+  disabled = false,
 }) {
   return (
     <>
@@ -56,6 +51,7 @@ function ScoreRow({
             name={examTypeName}
             value={examTypeValue}
             onChange={handleChange}
+            disabled={disabled}
             style={getErrorStyle(examTypeName)}
           >
             <option value="">請選擇測驗類別</option>
@@ -74,6 +70,7 @@ function ScoreRow({
             value={scoreValue}
             onChange={handleChange}
             placeholder="請輸入成績"
+            disabled={disabled}
             style={getErrorStyle(scoreName)}
           />
         </div>
@@ -105,6 +102,9 @@ export default function EnglishTestStep3FormBody({
   onBack,
   onClose,
   formOptions = null,
+  showActions = true,
+  disabled = false,
+  existingB2Certificate = false,
 }) {
   const sectionTitle = sectionTitleOf(formOptions, 'eligibility', '英語能力與培力資格相關');
   const examTypeRadios = fieldOptionPairs(formOptions, 'examType', DEFAULT_EXAM_TYPE_RADIOS);
@@ -160,6 +160,7 @@ export default function EnglishTestStep3FormBody({
                     value={opt.value}
                     checked={formData.examType === opt.value}
                     onChange={handleChange}
+                    disabled={disabled}
                   />
                   <label
                     className="form-check-label"
@@ -206,6 +207,7 @@ export default function EnglishTestStep3FormBody({
                     value={opt.value}
                     checked={formData.hasCEFRB2 === opt.value}
                     onChange={handleChange}
+                    disabled={disabled}
                   />
                   <label className="form-check-label">{opt.label}</label>
                 </div>
@@ -251,7 +253,8 @@ export default function EnglishTestStep3FormBody({
                     handleChange={handleChange}
                     checkB2Level={checkB2Level}
                     skill="listening"
-                    examTypeOptions={scoreExamOptions}
+                    examTypeOptions={getScoreExamTypeOptionsForSkill('listening', scoreExamOptions)}
+                    disabled={disabled}
                   />
                 )}
 
@@ -267,7 +270,8 @@ export default function EnglishTestStep3FormBody({
                     handleChange={handleChange}
                     checkB2Level={checkB2Level}
                     skill="reading"
-                    examTypeOptions={scoreExamOptions}
+                    examTypeOptions={getScoreExamTypeOptionsForSkill('reading', scoreExamOptions)}
+                    disabled={disabled}
                   />
                 )}
 
@@ -283,7 +287,8 @@ export default function EnglishTestStep3FormBody({
                     handleChange={handleChange}
                     checkB2Level={checkB2Level}
                     skill="speaking"
-                    examTypeOptions={scoreExamOptions}
+                    examTypeOptions={getScoreExamTypeOptionsForSkill('speaking', scoreExamOptions)}
+                    disabled={disabled}
                   />
                 )}
 
@@ -299,7 +304,8 @@ export default function EnglishTestStep3FormBody({
                     handleChange={handleChange}
                     checkB2Level={checkB2Level}
                     skill="writing"
-                    examTypeOptions={scoreExamOptions}
+                    examTypeOptions={getScoreExamTypeOptionsForSkill('writing', scoreExamOptions)}
+                    disabled={disabled}
                   />
                 )}
 
@@ -335,12 +341,18 @@ export default function EnglishTestStep3FormBody({
                   onChange={handleFileChange}
                   accept=".pdf,.jpg,.jpeg,.png"
                   multiple
+                  disabled={disabled}
                   style={errors.b2CertificateFiles ? {
                     border: '3px solid #dc3545',
                     backgroundColor: '#fff5f5',
                   } : {}}
                 />
                 <small className="text-muted">支援格式：PDF, JPG, PNG（可選擇多個檔案）</small>
+                {existingB2Certificate && !(formData.b2CertificateFiles && formData.b2CertificateFiles.length > 0) && (
+                  <div className="alert alert-info py-2 mt-2 mb-0 small">
+                    已有上傳的 B2 成績證明；若要更換請重新選擇檔案。
+                  </div>
+                )}
                 {formData.b2CertificateFiles && formData.b2CertificateFiles.length > 0 && (
                   <div className="mt-2">
                     <small className="text-muted">已選擇 {formData.b2CertificateFiles.length} 個檔案：</small>
@@ -369,6 +381,7 @@ export default function EnglishTestStep3FormBody({
         )}
       </div>
 
+      {showActions ? (
       <div className="d-flex justify-content-between gap-2">
         <div className="d-flex gap-2">
           {onBack ? (
@@ -416,6 +429,7 @@ export default function EnglishTestStep3FormBody({
             : '下一步'}
         </button>
       </div>
+      ) : null}
     </>
   );
 }

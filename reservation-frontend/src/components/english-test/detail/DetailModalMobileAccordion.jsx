@@ -22,6 +22,8 @@ export default function DetailModalMobileAccordion({
   isEditing,
   editData,
   handleEditChange,
+  handleEditToggleArray,
+  formOptions,
   editFileInputs,
   handleFileInputChange,
   onUploadRegistrationFiles,
@@ -31,6 +33,8 @@ export default function DetailModalMobileAccordion({
     isEditing,
     editData,
     handleEditChange,
+    handleEditToggleArray,
+    formOptions,
     embedded: true,
   };
 

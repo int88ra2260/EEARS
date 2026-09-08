@@ -30,6 +30,7 @@ export default function EnglishTestRegistrationPage() {
     registrationTab,
     setRegistrationTab,
     registrationEnabled,
+    registrationGroupEnabled,
     isCheckingRegistrationStatus,
     handleCloseEnglishTestModal,
     handleAnnouncementNext,
@@ -79,6 +80,7 @@ export default function EnglishTestRegistrationPage() {
           onRegistrationTabChange={setRegistrationTab}
           onNavigateToGroupRegistration={handleNavigateToGroupRegistration}
           registrationEnabled={registrationEnabled}
+          registrationGroupEnabled={registrationGroupEnabled}
           englishTestForm={englishTestForm}
           formErrors={formErrors}
           onFormChange={handleEnglishTestFormChange}

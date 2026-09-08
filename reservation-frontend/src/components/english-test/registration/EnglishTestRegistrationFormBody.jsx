@@ -12,8 +12,10 @@ import {
 } from '../../../utils/englishTestFormOptions';
 import { FormErrorMessage, getDisabledStyle } from '../../../utils/englishTestFormHelpers';
 import {
+  fieldHelp,
   fieldLabel,
   fieldRequired,
+  fieldStudentEditable,
   fieldType,
   fieldVisible,
   sectionTitleOf,
@@ -103,6 +105,7 @@ export default function EnglishTestRegistrationFormBody({
   emailVerificationToken = null,
   verifiedEmail = null,
   onEmailVerificationChange,
+  emailVerificationRef = null,
   formOptions = null,
   customQuestions = [],
   schemaSections = [],
@@ -117,6 +120,11 @@ export default function EnglishTestRegistrationFormBody({
     || (isCreate ? EXAM_ASSISTANCE_OPTIONS : EXAM_ASSISTANCE_OPTIONS_EDIT);
   const infoSourceOptions = formOptions?.infoSourceOptions
     || (isCreate ? INFO_SOURCE_OPTIONS : INFO_SOURCE_OPTIONS_EDIT);
+
+  /** 通訊地址無標記時預設鎖定；其餘欄位預設可改 */
+  const isFieldLocked = (fieldKey, editableFallback = true) => (
+    Boolean(disabled) || !fieldStudentEditable(formOptions, fieldKey, editableFallback)
+  );
   const degreeLevelOptions = formOptions?.degreeLevelOptions || DEGREE_LEVEL_OPTIONS;
   const sections = {
     academic: sectionTitleOf(formOptions, 'academic', fallbackSections.academic),
@@ -275,6 +283,7 @@ export default function EnglishTestRegistrationFormBody({
 
         <div ref={getFieldRef('emailVerification')}>
           <EnglishTestEmailVerificationPanel
+            ref={emailVerificationRef}
             email={formData.email}
             studentId={formData.studentId}
             disabled={disabled}
@@ -395,9 +404,9 @@ export default function EnglishTestRegistrationFormBody({
             placeholder={isCreate ? undefined : '09xxxxxxxx'}
             maxLength={10}
             inputType="tel"
-            readOnly={disabled}
-            disabled={disabled}
-            style={inputStyle(disabled, errors, 'phone', getErrorStyle)}
+            readOnly={isFieldLocked('phone')}
+            disabled={isFieldLocked('phone')}
+            style={inputStyle(isFieldLocked('phone'), errors, 'phone', getErrorStyle)}
           />
           <FormErrorMessage message={errors.phone} />
         </div>
@@ -435,15 +444,24 @@ export default function EnglishTestRegistrationFormBody({
                         : part.placeholder
                     }
                     maxLength={part.maxLength}
-                    readOnly={disabled}
-                    disabled={disabled}
-                    style={inputStyle(disabled, errors, part.key, getErrorStyle)}
+                    readOnly={isFieldLocked(part.key, false)}
+                    disabled={isFieldLocked(part.key, false)}
+                    style={inputStyle(isFieldLocked(part.key, false), errors, part.key, getErrorStyle)}
                   />
                   <FormErrorMessage message={errors[part.key]} small />
                 </div>
               ) : null
             ))}
           </div>
+          {ADDRESS_PART_FIELDS.some((f) => show(f.key) && isFieldLocked(f.key, false)) ? (
+            <div className="form-text mb-0">
+              {fieldHelp(
+                formOptions,
+                'address',
+                '系統預設通訊地址（學生端不可修改）。若需開放修改，請管理員於表單設計調整。'
+              )}
+            </div>
+          ) : null}
         </div>
         )}
         {renderAfter('academic', 'postalCode', 'city', 'district', 'address')}

@@ -81,6 +81,8 @@ function normalizeQuestion(raw, index) {
     options,
     content,
     defaultValue: raw.defaultValue != null ? String(raw.defaultValue) : '',
+    /** 學生端可否修改；false＝僅顯示預設／既有值（唯讀） */
+    studentEditable: raw.studentEditable === false ? false : true,
     visibleWhen: normalizeVisibleWhen(raw.visibleWhen),
   };
 }
@@ -422,6 +424,9 @@ function extractOptionsMap(schema) {
   const requiredByFieldKey = {};
   const visibleByFieldKey = {};
   const helpTextByFieldKey = {};
+  const typeByFieldKey = {};
+  const defaultValueByFieldKey = {};
+  const studentEditableByFieldKey = {};
   const sectionsById = {};
 
   for (const section of schema?.sections || []) {
@@ -434,6 +439,11 @@ function extractOptionsMap(schema) {
     requiredByFieldKey[q.fieldKey] = Boolean(q.required);
     visibleByFieldKey[q.fieldKey] = q.visible !== false;
     helpTextByFieldKey[q.fieldKey] = q.helpText || '';
+    if (q.type != null) typeByFieldKey[q.fieldKey] = String(q.type);
+    if (q.defaultValue != null && String(q.defaultValue).trim() !== '') {
+      defaultValueByFieldKey[q.fieldKey] = String(q.defaultValue);
+    }
+    studentEditableByFieldKey[q.fieldKey] = q.studentEditable !== false;
     if (Array.isArray(q.options) && q.options.length > 0) {
       const pairs = q.options.map((o) => {
         if (typeof o === 'string') return { value: o, label: o };
@@ -454,6 +464,9 @@ function extractOptionsMap(schema) {
     requiredByFieldKey,
     visibleByFieldKey,
     helpTextByFieldKey,
+    typeByFieldKey,
+    defaultValueByFieldKey,
+    studentEditableByFieldKey,
     sectionsById,
     questions: schema?.questions || [],
     sections: schema?.sections || [],

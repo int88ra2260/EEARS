@@ -5,6 +5,7 @@ import useAlert from '../components/ui/useAlert';
 import useConfirm from '../components/ui/useConfirm';
 import {
   fetchRegistrationEnabled,
+  fetchRegistrationGroupEnabled,
   queryEnglishTestRegistration,
   registerEnglishTest,
 } from '../services/englishTestPublicApi';
@@ -75,6 +76,7 @@ export default function useEnglishTestRegistrationPage() {
   const [step3Data, setStep3Data] = useState(null);
   const [registrationTab, setRegistrationTab] = useState('individual');
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [registrationGroupEnabled, setRegistrationGroupEnabled] = useState(false);
   const [isCheckingRegistrationStatus, setIsCheckingRegistrationStatus] = useState(true);
   const [draftRestored, setDraftRestored] = useState(false);
 
@@ -115,11 +117,16 @@ export default function useEnglishTestRegistrationPage() {
   useEffect(() => {
     const loadRegistrationStatus = async () => {
       try {
-        const enabled = await fetchRegistrationEnabled();
+        const [enabled, groupEnabled] = await Promise.all([
+          fetchRegistrationEnabled(),
+          fetchRegistrationGroupEnabled(),
+        ]);
         setRegistrationEnabled(enabled);
+        setRegistrationGroupEnabled(groupEnabled);
       } catch (error) {
         console.error('載入報名狀態錯誤:', error);
         setRegistrationEnabled(true);
+        setRegistrationGroupEnabled(false);
       } finally {
         setIsCheckingRegistrationStatus(false);
       }
@@ -663,6 +670,7 @@ export default function useEnglishTestRegistrationPage() {
     registrationTab,
     setRegistrationTab,
     registrationEnabled,
+    registrationGroupEnabled,
     isCheckingRegistrationStatus,
     handleCloseEnglishTestModal,
     handleAnnouncementNext,

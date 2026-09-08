@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import useConfirm from '../ui/useConfirm';
 import useToast from '../ui/useToast';
 import { rejectionReasonOptions } from '../../constants/englishTestRejectionReasons';
+import { getEnglishTestStatusEmailConfirm } from '../../utils/englishTestStatusEmailConfirm';
 
 export default function BulkActionToolbar({
   selectedCount,
@@ -53,14 +54,25 @@ export default function BulkActionToolbar({
       toast.warning('選擇「其他」原因時，必須填寫說明');
       return;
     }
-    if (rejectionModalType === 'failed') {
-      onBulkSetFailed && onBulkSetFailed(rejectionReasons, rejectionOther);
-    } else {
-      onBulkReject && onBulkReject(rejectionReasons, rejectionOther);
-    }
-    setShowRejectionModal(false);
-    setRejectionReasons([]);
-    setRejectionOther('');
+
+    const reasonsSnapshot = [...rejectionReasons];
+    const otherSnapshot = rejectionOther;
+    const typeSnapshot = rejectionModalType;
+
+    confirm(getEnglishTestStatusEmailConfirm({
+      status: typeSnapshot === 'failed' ? 'failed' : 'revision',
+      count: selectedCount,
+    })).then((ok) => {
+      if (!ok) return;
+      if (typeSnapshot === 'failed') {
+        onBulkSetFailed && onBulkSetFailed(reasonsSnapshot, otherSnapshot);
+      } else {
+        onBulkReject && onBulkReject(reasonsSnapshot, otherSnapshot);
+      }
+      setShowRejectionModal(false);
+      setRejectionReasons([]);
+      setRejectionOther('');
+    });
   };
 
   if (selectedCount === 0) return null;
@@ -197,7 +209,7 @@ export default function BulkActionToolbar({
               </div>
               <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                 <div className="alert alert-warning">
-                  <strong>注意：</strong>您將批量{rejectionModalType === 'failed' ? '設為報名失敗' : '拒絕'} {selectedCount} 筆記錄，必須至少選擇一個原因。
+                  <strong>注意：</strong>您將批量{rejectionModalType === 'failed' ? '設為報名失敗' : '請修正'} {selectedCount} 筆記錄，必須至少選擇一個原因；確認後會寄送通知信給學生。
                 </div>
                 <div className="mb-3">
                   <label className="form-label fw-bold">

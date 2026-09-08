@@ -71,6 +71,10 @@ const {
 } = require('../utils/englishTestRegistrationApiMask');
 const { isIndividualRegistrationEnabled } = require('../services/registrationSettingsService');
 const englishTestFormSchemaService = require('../services/englishTestFormSchemaService');
+const { createMulterUploadErrorHandler } = require('../middlewares/multerUploadError');
+const englishTestUploadErrorHandler = createMulterUploadErrorHandler({
+  logLabel: '英檢報名 Multer 錯誤',
+});
 
 function parseExtraAnswersField(raw) {
   if (raw == null || raw === '') return null;
@@ -81,6 +85,37 @@ function parseExtraAnswersField(raw) {
   } catch {
     return null;
   }
+}
+
+/** 狀態變更通知信共用 payload（請修正／報名失敗） */
+function buildEnglishTestStatusEmailData(registration) {
+  return {
+    studentId: registration.studentId,
+    studentName: registration.name,
+    studentNameZh: registration.studentNameZh || registration.name,
+    lastNameEn: registration.lastNameEn || '',
+    firstNameEn: registration.firstNameEn || '',
+    name: registration.name,
+    idNumber: registration.idNumber || registration.nationalId,
+    nationalId: registration.nationalId || registration.idNumber,
+    email: registration.email,
+    phone: registration.phone || '',
+    registrationId: registration.id,
+    registrationDate: registration.createdAt,
+    status: registration.status,
+    examType: registration.examType,
+    hasCEFRB2: registration.hasCEFRB2 || '否',
+    listeningExamType: registration.listeningExamType,
+    listeningScore: registration.listeningScore,
+    readingExamType: registration.readingExamType,
+    readingScore: registration.readingScore,
+    speakingExamType: registration.speakingExamType,
+    speakingScore: registration.speakingScore,
+    writingExamType: registration.writingExamType,
+    writingScore: registration.writingScore,
+    rejectionReasons: registration.rejectionReasons,
+    rejectionOther: registration.rejectionOther,
+  };
 }
 
 /** 匯出稽核（metadata 經 sanitizeForAudit，不含完整 idNumber／email） */
@@ -202,8 +237,8 @@ const storage = multer.diskStorage({
     if (file.fieldname === 'idPhoto') {
       // 證件照
       cb(null, idPhotoDir);
-    } else if (file.fieldname === 'b2CertificateFile') {
-      // 成績證明（B2 證書）
+    } else if (file.fieldname === 'b2CertificateFile' || file.fieldname === 'b2CertificateFiles') {
+      // 成績證明（B2 證書；前端欄位為 b2CertificateFiles）
       cb(null, certificateDir);
     } else if (file.fieldname === 'disabilityCertFront' || file.fieldname === 'disabilityCertBack') {
       // 障礙證明（正面和反面）
@@ -286,7 +321,7 @@ const updateStorage = multer.diskStorage({
     // 根據檔案類型決定儲存位置
     if (file.fieldname === 'idPhoto') {
       cb(null, idPhotoDir);
-    } else if (file.fieldname === 'b2CertificateFile') {
+    } else if (file.fieldname === 'b2CertificateFile' || file.fieldname === 'b2CertificateFiles') {
       cb(null, certificateDir);
     } else if (file.fieldname === 'disabilityCertFront' || file.fieldname === 'disabilityCertBack') {
       cb(null, disabilityCertDir);
@@ -322,17 +357,20 @@ const updateUpload = multer({
 });
 
 // API: 更新報名資料（支援檔案上傳和覆蓋）
+// 注意：multipart 必須先經 multer 解析，normalize／lookup 守衛才能讀到 req.body
 router.put('/english-test/registrations/update',
   publicEnglishTestLookupRateLimit,
-  requireCaptchaIfEnabled,
-  normalizePublicLookupInput,
-  requireLookupMinimumFields({ requireStudentId: true, requireName: true, requireEmail: true }),
   updateUpload.fields([
-    { name: 'b2CertificateFile', maxCount: 1 },
+    { name: 'b2CertificateFile', maxCount: 10 },
+    { name: 'b2CertificateFiles', maxCount: 10 },
     { name: 'disabilityCertFront', maxCount: 1 },
     { name: 'disabilityCertBack', maxCount: 1 },
     { name: 'idPhoto', maxCount: 1 }
   ]),
+  requireCaptchaIfEnabled,
+  normalizePublicLookupInput,
+  // 身分驗證以學號／姓名／身分證為準；NON 等情境可能無 email
+  requireLookupMinimumFields({ requireStudentId: true, requireName: true, requireEmail: false }),
   async (req, res) => {
     try {
       logger.debug('收到更新報名請求', { body: req.body, files: req.files });
@@ -469,31 +507,19 @@ router.put('/english-test/registrations/update',
           }
         }
 
-        // B2 證書：如果上傳了新檔案，使用相同檔名覆蓋
-        if (files.b2CertificateFile && files.b2CertificateFile[0]) {
-          if (registration.b2CertificateFile && cleanIdNumber && cleanName) {
-            const oldFilePath = path.join(baseUploadPath, registration.b2CertificateFile);
-            if (fs.existsSync(oldFilePath)) {
-              fs.unlinkSync(oldFilePath);
-            }
-            const oldExt = path.extname(registration.b2CertificateFile);
-            const newFileName = `${cleanIdNumber}-${cleanName}-B2證書${oldExt}`;
-            const newFilePath = path.join(certificateDir, newFileName);
-            
-            if (fs.existsSync(files.b2CertificateFile[0].path)) {
-              if (!fs.existsSync(certificateDir)) {
-                fs.mkdirSync(certificateDir, { recursive: true });
-              }
-              if (fs.existsSync(newFilePath)) {
-                fs.unlinkSync(newFilePath);
-              }
-              fs.renameSync(files.b2CertificateFile[0].path, newFilePath);
-            }
-            filePaths.b2CertificateFile = path.relative(baseUploadPath, newFilePath).replace(/\\/g, '/');
-          } else {
-            const relativePath = path.relative(baseUploadPath, files.b2CertificateFile[0].path);
-            filePaths.b2CertificateFile = relativePath.replace(/\\/g, '/');
-          }
+        // B2 證書：支援多檔（b2CertificateFiles）或單檔（b2CertificateFile）
+        const b2Files = [
+          ...(files.b2CertificateFiles || []),
+          ...(files.b2CertificateFile || []),
+        ];
+        if (b2Files.length > 0) {
+          const b2Paths = b2Files.map((file) => {
+            const relativePath = path.relative(baseUploadPath, file.path);
+            return relativePath.replace(/\\/g, '/');
+          });
+          filePaths.b2CertificateFile = b2Paths.length === 1
+            ? b2Paths[0]
+            : JSON.stringify(b2Paths);
         }
 
         // 障礙證明正面：如果上傳了新檔案，使用相同檔名覆蓋
@@ -612,7 +638,7 @@ router.put('/english-test/registrations/update',
         extraAnswers: parseExtraAnswersField(formData.extraAnswers),
       };
 
-      // 只有在明確提供時才更新英語能力相關欄位（檢視與修正時通常不修改這些欄位）
+      // 英語能力相關欄位（報考項目／B2／成績）
       if (formData.examType !== undefined) {
         updateData.examType = formData.examType || null;
       }
@@ -631,41 +657,59 @@ router.put('/english-test/registrations/update',
       if (formData.b2SkillType !== undefined) {
         updateData.b2SkillType = formData.b2SkillType || null;
       }
-      // Q3: 各項成績（整合原 Q3 和 Q4）
-      if (formData.listeningExamType !== undefined) {
-        updateData.listeningExamType = formData.listeningExamType || null;
-      }
-      if (formData.listeningScore !== undefined) {
-        updateData.listeningScore = formData.listeningScore || null;
-      }
-      if (formData.readingExamType !== undefined) {
-        updateData.readingExamType = formData.readingExamType || null;
-      }
-      if (formData.readingScore !== undefined) {
-        updateData.readingScore = formData.readingScore || null;
-      }
-      if (formData.speakingExamType !== undefined) {
-        updateData.speakingExamType = formData.speakingExamType || null;
-      }
-      if (formData.speakingScore !== undefined) {
-        updateData.speakingScore = formData.speakingScore || null;
-      }
-      if (formData.writingExamType !== undefined) {
-        updateData.writingExamType = formData.writingExamType || null;
-      }
-      if (formData.writingScore !== undefined) {
-        updateData.writingScore = formData.writingScore || null;
+
+      const clearB2Scores = formData.hasCEFRB2 === '否'
+        || formData.clearB2Certificate === 'true'
+        || formData.clearB2Certificate === true;
+      if (clearB2Scores) {
+        updateData.listeningExamType = null;
+        updateData.listeningScore = null;
+        updateData.readingExamType = null;
+        updateData.readingScore = null;
+        updateData.speakingExamType = null;
+        updateData.speakingScore = null;
+        updateData.writingExamType = null;
+        updateData.writingScore = null;
+        updateData.b2CertificateFile = null;
+      } else {
+        if (formData.listeningExamType !== undefined) {
+          updateData.listeningExamType = formData.listeningExamType || null;
+        }
+        if (formData.listeningScore !== undefined) {
+          updateData.listeningScore = formData.listeningScore || null;
+        }
+        if (formData.readingExamType !== undefined) {
+          updateData.readingExamType = formData.readingExamType || null;
+        }
+        if (formData.readingScore !== undefined) {
+          updateData.readingScore = formData.readingScore || null;
+        }
+        if (formData.speakingExamType !== undefined) {
+          updateData.speakingExamType = formData.speakingExamType || null;
+        }
+        if (formData.speakingScore !== undefined) {
+          updateData.speakingScore = formData.speakingScore || null;
+        }
+        if (formData.writingExamType !== undefined) {
+          updateData.writingExamType = formData.writingExamType || null;
+        }
+        if (formData.writingScore !== undefined) {
+          updateData.writingScore = formData.writingScore || null;
+        }
       }
 
       // 如果有新檔案，更新檔案路徑
       if (filePaths.idPhoto) updateData.idPhoto = filePaths.idPhoto;
-      if (filePaths.b2CertificateFile) updateData.b2CertificateFile = filePaths.b2CertificateFile;
+      if (filePaths.b2CertificateFile && !clearB2Scores) {
+        updateData.b2CertificateFile = filePaths.b2CertificateFile;
+      }
       if (filePaths.disabilityCertFront) updateData.disabilityCertFront = filePaths.disabilityCertFront;
       if (filePaths.disabilityCertBack) updateData.disabilityCertBack = filePaths.disabilityCertBack;
 
-      // 學生從「請修正」修改後，狀態改回「審核中」，並寄送審核中信
-      const wasRevision = registration.status === 'revision';
-      if (wasRevision) {
+      // 依報考項目重算狀態（NON→revision，其餘→pending）；未帶 examType 時維持「請修正→審核中」
+      if (formData.examType !== undefined && formData.examType !== null && formData.examType !== '') {
+        updateData.status = englishTestRegistrationService.computeSubmissionStatus(formData.examType);
+      } else if (registration.status === 'revision') {
         updateData.status = 'pending';
       }
 
@@ -1326,25 +1370,8 @@ router.post('/english-test/register',
   }
 );
 
-// Multer 錯誤處理中間件
-router.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    logger.error('Multer 錯誤', error);
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: '檔案大小超過限制 (5MB)' });
-    }
-    if (error.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({ error: '檔案數量超過限制' });
-    }
-    return res.status(400).json({ error: `檔案上傳錯誤: ${error.message}` });
-  }
-  
-  if (error.message && error.message.includes('只允許上傳')) {
-    return res.status(400).json({ error: error.message });
-  }
-  
-  next(error);
-});
+// Multer 錯誤處理（含 busboy Unexpected end of form → 400）
+router.use(englishTestUploadErrorHandler);
 
 // API: 儀表板用 — 待審核報名筆數（不含清單內容）
 router.get('/english-test/registrations/metrics/pending-count', ...englishRegMetricsAuth, async (req, res) => {
@@ -1357,19 +1384,34 @@ router.get('/english-test/registrations/metrics/pending-count', ...englishRegMet
   }
 });
 
-async function queryRegistrationGroupStats(columnName) {
+async function queryRegistrationGroupStats(columnName, { semester } = {}) {
   const { sequelize } = require('../models');
   const allowed = new Set(['infoSource', 'department', 'grade']);
   if (!allowed.has(columnName)) {
     throw new Error(`不支援的統計欄位: ${columnName}`);
   }
+
+  const whereParts = [
+    `${columnName} IS NOT NULL`,
+    `TRIM(${columnName}) != ''`,
+  ];
+  const replacements = {};
+  const semesterFilter = String(semester || '').trim();
+  if (semesterFilter && semesterFilter !== 'all') {
+    whereParts.push('semester = :semester');
+    replacements.semester = semesterFilter;
+  }
+
   const rows = await sequelize.query(
     `SELECT ${columnName} AS label, COUNT(*) AS count
      FROM english_test_registrations
-     WHERE ${columnName} IS NOT NULL AND TRIM(${columnName}) != ''
+     WHERE ${whereParts.join(' AND ')}
      GROUP BY ${columnName}
      ORDER BY count DESC, label ASC`,
-    { type: QueryTypes.SELECT }
+    {
+      type: QueryTypes.SELECT,
+      replacements,
+    }
   );
   const data = (rows || []).map((r) => ({
     label: r.label,
@@ -1379,10 +1421,31 @@ async function queryRegistrationGroupStats(columnName) {
   return { data, total };
 }
 
+async function listRegistrationAnalyticsSemesters() {
+  const { sequelize } = require('../models');
+  const rows = await sequelize.query(
+    `SELECT TRIM(semester) AS semester, COUNT(*) AS count
+     FROM english_test_registrations
+     WHERE semester IS NOT NULL
+       AND TRIM(semester) != ''
+       AND TRIM(semester) != 'null'
+     GROUP BY TRIM(semester)
+     ORDER BY semester DESC`,
+    { type: QueryTypes.SELECT }
+  );
+  return (rows || [])
+    .map((r) => ({
+      semester: String(r.semester || '').trim(),
+      count: Number(r.count) || 0,
+    }))
+    .filter((r) => r.semester);
+}
+
 // API: 取得報名表單 Q21（從何得知培力英檢 / infoSource）統計（相容舊前端）
 router.get('/english-test/registrations/stats/info-source', ...englishRegViewAuth, async (req, res) => {
   try {
-    const result = await queryRegistrationGroupStats('infoSource');
+    const semester = String(req.query.semester || '').trim();
+    const result = await queryRegistrationGroupStats('infoSource', { semester });
     res.json(result);
   } catch (error) {
     logger.error('Q21 統計錯誤', error);
@@ -1390,15 +1453,41 @@ router.get('/english-test/registrations/stats/info-source', ...englishRegViewAut
   }
 });
 
-// API: 數據分析（Q21 宣傳來源、系所、年級）
+// API: 數據分析（Q21 宣傳來源、系所、年級；可依學期篩選）
 router.get('/english-test/registrations/stats/analytics', ...englishRegViewAuth, async (req, res) => {
   try {
+    const { getActiveRegistrationSemester } = require('../utils/englishTestRegistrationSemester');
+    const availableSemesterRows = await listRegistrationAnalyticsSemesters();
+    const availableSemesters = availableSemesterRows.map((r) => r.semester);
+    const semesterCounts = Object.fromEntries(
+      availableSemesterRows.map((r) => [r.semester, r.count])
+    );
+    const activeSemester = getActiveRegistrationSemester();
+    const requested = String(req.query.semester || '').trim();
+
+    let semester = requested;
+    if (!semester) {
+      // 預設目前學期（有資料時）；否則第一筆有資料學期；再否則目前學期代碼
+      semester = availableSemesters.includes(activeSemester)
+        ? activeSemester
+        : (availableSemesters[0] || activeSemester || 'all');
+    }
+
+    const filterSemester = semester === 'all' ? '' : semester;
     const [infoSource, department, grade] = await Promise.all([
-      queryRegistrationGroupStats('infoSource'),
-      queryRegistrationGroupStats('department'),
-      queryRegistrationGroupStats('grade'),
+      queryRegistrationGroupStats('infoSource', { semester: filterSemester }),
+      queryRegistrationGroupStats('department', { semester: filterSemester }),
+      queryRegistrationGroupStats('grade', { semester: filterSemester }),
     ]);
-    res.json({ infoSource, department, grade });
+    res.json({
+      infoSource,
+      department,
+      grade,
+      semester,
+      activeSemester,
+      availableSemesters,
+      semesterCounts,
+    });
   } catch (error) {
     logger.error('英檢數據分析統計錯誤', error);
     res.status(500).json({ error: '伺服器錯誤' });
@@ -2370,6 +2459,43 @@ router.post('/english-test/registrations/bulk-update', ...englishRegReviewAuth, 
       }
     }
 
+    let emailSent = 0;
+    let emailFailed = 0;
+
+    // 與單筆更新一致：改為「請修正／報名失敗」時寄通知信（僅寄狀態實際變更者）
+    if (status === 'revision' || status === 'failed') {
+      const idsNeedingEmail = registrationsBeforeUpdate
+        .filter((reg) => reg.status !== status)
+        .map((reg) => reg.id);
+
+      if (idsNeedingEmail.length > 0) {
+        const toNotify = await EnglishTestRegistration.findAll({
+          where: { id: { [Op.in]: idsNeedingEmail } },
+        });
+        const template = status === 'revision'
+          ? 'englishTestRegistrationRejected'
+          : 'englishTestRegistrationFinalFailure';
+
+        for (const reg of toNotify) {
+          try {
+            await emailLogService.sendEmailWithLog(
+              template,
+              buildEnglishTestStatusEmailData(reg),
+              {
+                requestId: req.requestId,
+                relatedEntityType: 'english_test',
+                relatedEntityId: reg.id,
+              }
+            );
+            emailSent += 1;
+          } catch (emailError) {
+            emailFailed += 1;
+            logger.error(`批量狀態更新寄信失敗 (ID: ${reg.id})`, emailError);
+          }
+        }
+      }
+    }
+
     auditLogService.logAuditAsync({
       module: 'english_test',
       action: 'bulk_update_status',
@@ -2380,6 +2506,8 @@ router.post('/english-test/registrations/bulk-update', ...englishRegReviewAuth, 
         idCount: ids.length,
         status,
         updatedCount,
+        emailSent,
+        emailFailed,
         sampleIds: ids.slice(0, 50),
         beforeStatuses: registrationsBeforeUpdate.map((r) => ({ id: r.id, status: r.status })),
       },
@@ -2390,6 +2518,8 @@ router.post('/english-test/registrations/bulk-update', ...englishRegReviewAuth, 
       success: true,
       updated: updatedCount,
       failed: ids.length - updatedCount,
+      emailSent,
+      emailFailed,
       errors: []
     });
   } catch (error) {
@@ -2669,39 +2799,10 @@ router.put('/english-test/registrations/:id', ...englishRegReviewAuth, async (re
     // 重新載入完整記錄以取得所有欄位
     const updatedRegistration = await EnglishTestRegistration.findByPk(req.params.id);
 
-    // 發送狀態更新通知郵件（非同步，不阻塞回應）
+    // 僅在狀態「變更為」請修正／報名失敗時寄信（避免編輯資料時重複寄出）
     try {
-      // 準備郵件資料
-      const emailData = {
-        studentId: updatedRegistration.studentId,
-        studentName: updatedRegistration.name,
-        studentNameZh: updatedRegistration.studentNameZh || updatedRegistration.name,
-        lastNameEn: updatedRegistration.lastNameEn || '',
-        firstNameEn: updatedRegistration.firstNameEn || '',
-        name: updatedRegistration.name,
-        idNumber: updatedRegistration.idNumber || updatedRegistration.nationalId,
-        nationalId: updatedRegistration.nationalId || updatedRegistration.idNumber,
-        email: updatedRegistration.email,
-        phone: updatedRegistration.phone || '',
-        registrationId: updatedRegistration.id,
-        registrationDate: updatedRegistration.createdAt,
-        status: updatedRegistration.status,
-        examType: updatedRegistration.examType,
-        hasCEFRB2: updatedRegistration.hasCEFRB2 || '否',
-        listeningExamType: updatedRegistration.listeningExamType,
-        listeningScore: updatedRegistration.listeningScore,
-        readingExamType: updatedRegistration.readingExamType,
-        readingScore: updatedRegistration.readingScore,
-        speakingExamType: updatedRegistration.speakingExamType,
-        speakingScore: updatedRegistration.speakingScore,
-        writingExamType: updatedRegistration.writingExamType,
-        writingScore: updatedRegistration.writingScore,
-        rejectionReasons: updatedRegistration.rejectionReasons,
-        rejectionOther: updatedRegistration.rejectionOther
-      };
-
-      // 根據狀態發送不同的郵件（請修正／報名失敗時寄出，內含原因）
-      if (status === 'revision') {
+      const emailData = buildEnglishTestStatusEmailData(updatedRegistration);
+      if (status === 'revision' && previousStatus !== 'revision') {
         await emailLogService.sendEmailWithLog(
           'englishTestRegistrationRejected',
           emailData,
@@ -2712,7 +2813,7 @@ router.put('/english-test/registrations/:id', ...englishRegReviewAuth, async (re
           }
         );
       }
-      if (status === 'failed') {
+      if (status === 'failed' && previousStatus !== 'failed') {
         await emailLogService.sendEmailWithLog(
           'englishTestRegistrationFinalFailure',
           emailData,
@@ -3390,23 +3491,6 @@ router.post('/english-test/registrations/reorder-success', ...englishRegReviewAu
 });
 
 // Multer 錯誤處理中間件（必須在所有路由之後）
-router.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    logger.error('Multer 錯誤', error);
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: '檔案大小超過限制 (5MB)' });
-    }
-    if (error.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({ error: '檔案數量超過限制' });
-    }
-    return res.status(400).json({ error: `檔案上傳錯誤: ${error.message}` });
-  }
-  
-  if (error.message && error.message.includes('只允許上傳')) {
-    return res.status(400).json({ error: error.message });
-  }
-  
-  next(error);
-});
+router.use(englishTestUploadErrorHandler);
 
 module.exports = router;

@@ -72,7 +72,21 @@ export default function useDetailModalEdit({
   };
 
   const handleEditChange = (field, value) => {
+    if (field && typeof field === 'object' && !Array.isArray(field)) {
+      setEditData((prev) => ({ ...prev, ...field }));
+      return;
+    }
     setEditData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleEditToggleArray = (field, value) => {
+    setEditData((prev) => {
+      const current = Array.isArray(prev[field]) ? prev[field] : [];
+      const next = current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value];
+      return { ...prev, [field]: next };
+    });
   };
 
   const handleFileInputChange = (field, file) => {
@@ -87,6 +101,7 @@ export default function useDetailModalEdit({
     handleCancelEdit,
     handleSaveEdit,
     handleEditChange,
+    handleEditToggleArray,
     handleFileInputChange,
   };
 }

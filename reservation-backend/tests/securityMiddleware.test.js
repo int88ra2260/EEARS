@@ -5,7 +5,14 @@ const {
   createSecurityHeadersMiddleware,
   createGlobalRateLimitMiddleware,
   getRequestBodyLimit,
+  getGlobalRateLimitAdminSnapshot,
 } = require('../config/httpSecurity');
+const {
+  resetCacheForTests,
+} = require('../services/englishTestEmailOtpRateLimitSettings');
+const {
+  resetObservabilityForTests,
+} = require('../services/globalRateLimitObservability');
 
 function buildTestApp(options = {}) {
   const app = express();
@@ -23,6 +30,7 @@ function buildTestApp(options = {}) {
   app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
   app.get('/api/admin/learning-journey-v3/semesters/1/b2-report', (req, res) => res.json({ ok: true }));
   app.get('/api/english-learning-passport/me', (req, res) => res.json({ ok: true }));
+  app.post('/api/english-test/email-verification/send', (req, res) => res.json({ ok: true }));
   app.post('/api/echo', (req, res) => res.json({ ok: true, body: req.body }));
   app.get('/api/error', () => {
     throw new Error('simulated failure');
@@ -36,6 +44,8 @@ describe('security middleware', () => {
 
   afterEach(() => {
     process.env = { ...prevEnv };
+    resetObservabilityForTests();
+    resetCacheForTests(true);
   });
 
   it('creates global rate limit middleware without ValidationError', () => {
@@ -68,6 +78,8 @@ describe('security middleware', () => {
       code: 'RATE_LIMIT_EXCEEDED',
       message: '請求次數過多，請稍後再試。',
     });
+    const snap = getGlobalRateLimitAdminSnapshot();
+    expect(snap.rejectedTotal).toBeGreaterThanOrEqual(1);
   });
 
   it('does not rate-limit /api/health when other routes are limited', async () => {
@@ -97,6 +109,26 @@ describe('security middleware', () => {
       const res = await request(app).get('/api/english-learning-passport/me');
       expect(res.status).toBe(200);
     }
+  });
+
+  it('skips ET email OTP path when skip setting is on', async () => {
+    resetCacheForTests(true);
+    const app = buildTestApp({ rateLimit: true, rateLimitMax: 1 });
+    await request(app).post('/api/echo').send({ a: 1 });
+    const blocked = await request(app).post('/api/echo').send({ a: 2 });
+    expect(blocked.status).toBe(429);
+    for (let i = 0; i < 5; i += 1) {
+      const res = await request(app).post('/api/english-test/email-verification/send').send({ email: 'a@b.com' });
+      expect(res.status).toBe(200);
+    }
+  });
+
+  it('rate-limits ET email OTP path when skip setting is off', async () => {
+    resetCacheForTests(false);
+    const app = buildTestApp({ rateLimit: true, rateLimitMax: 1 });
+    await request(app).post('/api/echo').send({ a: 1 });
+    const otp = await request(app).post('/api/english-test/email-verification/send').send({ email: 'a@b.com' });
+    expect(otp.status).toBe(429);
   });
 
   it('skips global rate limit when GLOBAL_RATE_LIMIT_ENABLED=false', async () => {

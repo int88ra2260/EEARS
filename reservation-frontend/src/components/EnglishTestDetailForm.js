@@ -1,5 +1,5 @@
 // components/EnglishTestDetailForm.js
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { registerEnglishTest } from '../services/englishTestPublicApi';
 import { useEnglishTestFormFields } from '../hooks/useEnglishTestFormFields';
 import useToast from './ui/useToast';
@@ -75,6 +75,7 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailVerificationToken, setEmailVerificationToken] = useState(null);
   const [verifiedEmail, setVerifiedEmail] = useState(null);
+  const emailVerificationRef = useRef(null);
   const { schema, meta, customQuestions } = useEnglishTestFormSchemaPublic();
   const formOptions = buildFormOptionsFromMeta(
     meta
@@ -124,9 +125,24 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
     const validationResult = validateEnglishTestDetailForm(formData, formOptions);
     const nextErrors = { ...validationResult.errors, ...validateExtraAnswers(customQuestions, formData.extraAnswers, formData) };
 
+    let tokenForSubmit = emailVerificationToken;
+    let verifiedForSubmit = verifiedEmail;
     const email = normalizeEmail(formData.email);
-    if (email && (!emailVerificationToken || normalizeEmail(verifiedEmail) !== email)) {
-      nextErrors.emailVerification = '請先完成信箱驗證碼驗證';
+    if (email) {
+      const needsVerify = !tokenForSubmit || normalizeEmail(verifiedForSubmit) !== email;
+      if (needsVerify) {
+        const ensure = emailVerificationRef.current?.ensureVerified
+          ? await emailVerificationRef.current.ensureVerified()
+          : { ok: false, error: '請先完成信箱驗證碼驗證' };
+        if (!ensure.ok) {
+          nextErrors.emailVerification = ensure.error || '請先完成信箱驗證碼驗證';
+        } else if (!ensure.skipped) {
+          tokenForSubmit = ensure.token;
+          verifiedForSubmit = ensure.verifiedEmail;
+          setEmailVerificationToken(tokenForSubmit);
+          setVerifiedEmail(verifiedForSubmit);
+        }
+      }
     }
 
     setErrors(nextErrors);
@@ -149,7 +165,7 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
     try {
       const submitData = buildRegisterFormData({
         ...formData,
-        emailVerificationToken,
+        emailVerificationToken: tokenForSubmit,
       });
       const { ok, data } = await registerEnglishTest(submitData);
 
@@ -200,6 +216,7 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
         emailVerificationToken={emailVerificationToken}
         verifiedEmail={verifiedEmail}
         onEmailVerificationChange={handleEmailVerificationChange}
+        emailVerificationRef={emailVerificationRef}
         formOptions={formOptions}
         customQuestions={customQuestions}
         schemaSections={schema?.sections || []}

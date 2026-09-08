@@ -4,6 +4,14 @@
 
 const helmet = require('helmet');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
+const {
+  createObservabilityStore,
+  recordRateLimitRejection,
+  getRateLimitUsageSnapshot,
+} = require('../services/globalRateLimitObservability');
+const {
+  shouldSkipGlobalRateLimitForEnglishTestEmailOtp,
+} = require('../services/englishTestEmailOtpRateLimitSettings');
 
 /** 全站限流在 auth 之前執行；從 Bearer token 解出 user id 作分桶（僅限流用，不授權） */
 function rateLimitKeyFromRequest(req) {
@@ -25,6 +33,16 @@ function rateLimitKeyFromRequest(req) {
   return ipKeyGenerator(req.ip);
 }
 
+function isEnglishTestEmailOtpPath(pathname) {
+  const p = pathname || '';
+  return (
+    p === '/english-test/email-verification/send'
+    || p === '/english-test/email-verification/verify'
+    || p.startsWith('/english-test/email-verification/send')
+    || p.startsWith('/english-test/email-verification/verify')
+  );
+}
+
 /** 已登入後台／內部 API 另有 auth + 權限，不應與公開流量共用 IP 桶 */
 function shouldSkipGlobalRateLimit(req) {
   if (req.method === 'OPTIONS') return true;
@@ -35,6 +53,10 @@ function shouldSkipGlobalRateLimit(req) {
   if (p.startsWith('/internal/')) return true;
   // 護照學生端另有 elpReadRateLimit / elpWriteRateLimit，避免與全站 IP 桶疊加
   if (p.startsWith('/english-learning-passport/')) return true;
+  // 培力驗證碼：可由管理端開關略過全站 IP 桶（仍走專用 OTP 限流）
+  if (isEnglishTestEmailOtpPath(p) && shouldSkipGlobalRateLimitForEnglishTestEmailOtp()) {
+    return true;
+  }
   return false;
 }
 
@@ -91,13 +113,17 @@ function createGlobalRateLimitMiddleware() {
     return (req, res, next) => next();
   }
 
+  const store = createObservabilityStore({ windowMs });
+
   return rateLimit({
     windowMs,
     max,
     standardHeaders: true,
     legacyHeaders: false,
+    store,
     skip: shouldSkipGlobalRateLimit,
     handler: (req, res) => {
+      recordRateLimitRejection(req);
       res.status(429).json({
         success: false,
         code: 'RATE_LIMIT_EXCEEDED',
@@ -108,6 +134,11 @@ function createGlobalRateLimitMiddleware() {
   });
 }
 
+function getGlobalRateLimitAdminSnapshot() {
+  const config = getGlobalRateLimitConfig();
+  return getRateLimitUsageSnapshot(config);
+}
+
 module.exports = {
   parseBool,
   getRequestBodyLimit,
@@ -115,6 +146,8 @@ module.exports = {
   applyTrustProxy,
   createSecurityHeadersMiddleware,
   createGlobalRateLimitMiddleware,
+  getGlobalRateLimitAdminSnapshot,
   rateLimitKeyFromRequest,
   shouldSkipGlobalRateLimit,
+  isEnglishTestEmailOtpPath,
 };

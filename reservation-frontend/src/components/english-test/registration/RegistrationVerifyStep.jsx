@@ -9,6 +9,7 @@ export default function RegistrationVerifyStep({
   onRegistrationTabChange,
   onNavigateToGroupRegistration,
   registrationEnabled,
+  registrationGroupEnabled = false,
   englishTestForm,
   formErrors,
   onFormChange,
@@ -33,9 +34,11 @@ export default function RegistrationVerifyStep({
   const showName = fieldVisible(formOptions, 'name');
   const showIdNumber = fieldVisible(formOptions, 'idNumber');
   const req = (key) => fieldRequired(formOptions, key, true);
+  const showGroupTab = Boolean(registrationGroupEnabled);
 
   return (
     <div>
+      {showGroupTab ? (
       <ul className="nav nav-tabs mb-4" role="tablist" style={{ borderBottom: '2px solid #dee2e6' }}>
         <li className="nav-item" role="presentation">
           <button
@@ -85,9 +88,10 @@ export default function RegistrationVerifyStep({
           </button>
         </li>
       </ul>
+      ) : null}
 
       <div className="tab-content">
-        {registrationTab === 'individual' && (
+        {(registrationTab === 'individual' || !showGroupTab) && (
           <form onSubmit={onSubmit}>
             {!registrationEnabled && <RegistrationClosedNotice />}
 

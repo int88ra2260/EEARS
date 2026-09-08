@@ -4,6 +4,7 @@
 require('dotenv').config();
 const { sequelize, Class, ClassMembership, Reservation, Event } = require('../models');
 const { formatTaipeiDate } = require('../utils/time');
+const { SEMESTER_RANGES } = require('../utils/semesterConstants');
 
 async function diagnoseClassStatsZero() {
   try {
@@ -11,11 +12,6 @@ async function diagnoseClassStatsZero() {
 
     // 1. 檢查學期日期範圍
     console.log('1. 檢查學期日期範圍配置...');
-    const SEMESTER_RANGES = {
-      '114-1': { start: '2025-08-01', end: '2026-01-31' },
-      '113-2': { start: '2025-02-01', end: '2025-07-31' },
-      '114-2': { start: '2026-02-01', end: '2026-07-31' }
-    };
     
     console.log('   114-1 學期範圍:', SEMESTER_RANGES['114-1']);
     console.log('   113-2 學期範圍:', SEMESTER_RANGES['113-2']);

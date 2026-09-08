@@ -3,23 +3,20 @@
  */
 import { useState, useCallback } from 'react';
 import { sendStatusEmails } from '../services/englishTestApi';
+import { getEnglishTestBatchEmailConfirm } from '../utils/englishTestStatusEmailConfirm';
 
 export function useEnglishTestEmails({ token, openConfirm, showToast }) {
   const [sendingEmails, setSendingEmails] = useState(false);
 
   const handleSendStatusEmails = useCallback((status) => {
     if (!['success', 'failed', 'group_promo'].includes(status)) return;
-    const msg = status === 'success'
-      ? '確定要對所有「報名成功」者發送通知信嗎？'
-      : status === 'failed'
-        ? '確定要對所有「報名失敗」者發送通知信嗎？'
-        : '確定要對所有「報名成功」且「四項皆報考」者發送團體推廣信嗎？';
+    const dialog = getEnglishTestBatchEmailConfirm(status);
 
     openConfirm({
-      title: '確認發送信件',
-      message: msg,
-      confirmLabel: '發送',
-      variant: 'primary',
+      title: dialog.title,
+      message: dialog.message,
+      confirmLabel: dialog.confirmLabel,
+      variant: dialog.variant,
       onConfirm: async () => {
         setSendingEmails(true);
         try {

@@ -61,6 +61,20 @@ export function useEnglishTestFormFields(initialFormData, options = {}) {
         }
         return newData;
       });
+    } else if (name === 'hasCEFRB2' && value === '否') {
+      setFormData((prev) => ({
+        ...prev,
+        hasCEFRB2: value,
+        listeningExamType: '',
+        listeningScore: '',
+        readingExamType: '',
+        readingScore: '',
+        speakingExamType: '',
+        speakingScore: '',
+        writingExamType: '',
+        writingScore: '',
+        b2CertificateFiles: [],
+      }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -77,6 +91,19 @@ export function useEnglishTestFormFields(initialFormData, options = {}) {
     if (readOnly) return;
 
     const { name } = e.target;
+    if (name === 'b2CertificateFiles') {
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
+      setFormData((prev) => ({ ...prev, b2CertificateFiles: files }));
+      setErrors((prev) => {
+        if (!prev.b2CertificateFiles) return prev;
+        const next = { ...prev };
+        delete next.b2CertificateFiles;
+        return next;
+      });
+      return;
+    }
+
     const file = e.target.files[0];
     if (!file) return;
 

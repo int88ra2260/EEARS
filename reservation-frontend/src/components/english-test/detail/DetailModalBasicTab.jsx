@@ -1,16 +1,28 @@
 import React from 'react';
 import { displayIdNumber } from '../../../utils/piiMask';
+import {
+  INFO_SOURCE_OPTIONS_EDIT,
+  ensureOptionInList,
+} from '../../../utils/englishTestFormOptions';
 import DetailModalEditingAlert from './DetailModalEditingAlert';
 import DetailModalRejectionReason from './DetailModalRejectionReason';
 import { TabPanel } from './detailModalTabShell';
+
+const selectStyle = { width: 'auto', minWidth: '12rem', maxWidth: '100%' };
 
 export default function DetailModalBasicTab({
   registration,
   isEditing,
   editData,
   handleEditChange,
+  formOptions = null,
   embedded = false,
 }) {
+  const infoSourceOptions = ensureOptionInList(
+    formOptions?.infoSourceOptions || INFO_SOURCE_OPTIONS_EDIT,
+    editData.infoSource,
+  );
+
   return (
     <TabPanel embedded={embedded}>
       {isEditing && <DetailModalEditingAlert />}
@@ -56,8 +68,10 @@ export default function DetailModalBasicTab({
               })()}
               placeholder="變更時請輸入完整身分證字號"
               onChange={(e) => {
-                handleEditChange('idNumber', e.target.value);
-                handleEditChange('nationalId', e.target.value);
+                handleEditChange({
+                  idNumber: e.target.value,
+                  nationalId: e.target.value,
+                });
               }}
             />
           ) : (
@@ -171,13 +185,19 @@ export default function DetailModalBasicTab({
         <div className="col-md-6 mb-3">
           <strong>資訊來源：</strong>{' '}
           {isEditing ? (
-            <input
-              type="text"
-              className="form-control form-control-sm d-inline-block"
-              style={{ width: 'auto' }}
+            <select
+              className="form-select form-select-sm d-inline-block"
+              style={selectStyle}
               value={editData.infoSource || ''}
               onChange={(e) => handleEditChange('infoSource', e.target.value)}
-            />
+            >
+              <option value="">請選擇</option>
+              {infoSourceOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           ) : (
             registration.infoSource
           )}

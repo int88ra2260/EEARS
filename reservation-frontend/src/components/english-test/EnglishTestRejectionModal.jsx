@@ -35,8 +35,8 @@ export default function EnglishTestRejectionModal({
             <div className="alert alert-warning">
               <strong>注意：</strong>
               {isFailed
-                ? '切換至「報名失敗」狀態時，必須至少選擇一個原因，通知信將一併附上原因。'
-                : '切換至「請修正」狀態時，必須至少選擇一個拒絕原因。'}
+                ? '切換至「報名失敗」時須選擇原因；確認後會立即寄送通知信給學生。'
+                : '切換至「請修正」時須選擇原因；確認後會立即寄送通知信給學生。'}
             </div>
             <div className="mb-3">
               <label className="form-label fw-bold">

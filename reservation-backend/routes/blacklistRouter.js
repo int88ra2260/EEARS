@@ -12,6 +12,8 @@ const {
   enqueueBlacklistNotificationEmails,
 } = require('../services/blacklistEnforcementService');
 const { assertCanAccessEvent } = require('../services/accessControl/eventScopeGuard');
+const { getSemesterInfo } = require('../utils/eventSemesterFromDate');
+const { getCurrentSemester } = require('../utils/semester');
 
 const VIOLATION_WRITE_PERMISSIONS = [
   P.CAN_MANAGE_VIOLATIONS,
@@ -305,42 +307,6 @@ router.post('/batchRecordViolations', authMiddleware, async (req, res) => {
   }
 });
 
-
-// 學期日期範圍判斷函數
-function getSemesterInfo(date) {
-  const eventDate = new Date(date);
-  const year = eventDate.getFullYear();
-  const month = eventDate.getMonth() + 1; // getMonth() 返回 0-11
-  
-  // 113-2學期: 2025/02/01 到 2025/07/31
-  if (year === 2025 && month >= 2 && month <= 7) {
-    return '113-2';
-  }
-  // 114-1學期: 2025/08/01 到 2026/01/31
-  if ((year === 2025 && month >= 8) || (year === 2026 && month <= 1)) {
-    return '114-1';
-  }
-  // 114-2學期: 2026/02/01 到 2026/07/31
-  if (year === 2026 && month >= 2 && month <= 7) {
-    return '114-2';
-  }
-  // 115-1學期: 2026/09/01 到 2027/01/31
-  if ((year === 2026 && month >= 9) || (year === 2027 && month <= 1)) {
-    return '115-1';
-  }
-  // 115-2學期: 2027/02/01 到 2027/07/31
-  if (year === 2027 && month >= 2 && month <= 7) {
-    return '115-2';
-  }
-  
-  return 'other';
-}
-
-// 取得當前學期
-function getCurrentSemester() {
-  const now = new Date();
-  return getSemesterInfo(now.toISOString().split('T')[0]);
-}
 
 // ========== 取得所有違規紀錄 ==========
 // GET /api/blacklist

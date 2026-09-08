@@ -25,7 +25,7 @@ export default function QuickReviewMode({
     }
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (rejectionReasons.length === 0) {
       try {
         window.dispatchEvent(new CustomEvent('eears:toast', { detail: { message: '請至少選擇一個拒絕原因', variant: 'warning' } }));
@@ -39,7 +39,7 @@ export default function QuickReviewMode({
       return;
     }
     if (onReject) {
-      onReject(rejectionReasons, rejectionOther);
+      await onReject(rejectionReasons, rejectionOther);
       if (autoNext && onNext) {
         setTimeout(() => onNext(), 500);
       }
@@ -232,6 +232,9 @@ export default function QuickReviewMode({
                       選擇拒絕原因（如需要）
                     </button>
                     <div id="rejectionPanel" style={{ display: 'none' }}>
+                      <div className="alert alert-warning py-2" style={{ fontSize: '0.95rem' }}>
+                        確認「拒絕(請修正)」後會寄送通知信給學生。
+                      </div>
                       <div className="mb-3">
                         <label className="form-label" style={{ fontSize: '1.15rem', fontWeight: 'bold' }}>拒絕原因（可複選）：</label>
                         <div className="row">

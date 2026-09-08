@@ -1,5 +1,5 @@
 // components/EnglishTestViewEditModal.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { updateEnglishTestRegistration } from '../services/englishTestPublicApi';
 import useToast from './ui/useToast';
 import useAlert from './ui/useAlert';
@@ -11,8 +11,11 @@ import {
   buildUpdateFormData,
 } from '../utils/englishTestFormHelpers';
 import { validateEnglishTestEditForm, resolveScrollableErrorField } from '../utils/englishTestFormValidation';
+import { checkB2Level } from '../utils/englishTestStep3Validation';
 import { formatEnglishTestSemesterLabel } from '../utils/englishTestSemesterDisplay';
 import EnglishTestRegistrationFormBody from './english-test/registration/EnglishTestRegistrationFormBody';
+import EnglishTestStep3FormBody from './english-test/registration/EnglishTestStep3FormBody';
+import StudentExemptionReviewStatusBanner from './english-test/registration/StudentExemptionReviewStatusBanner';
 import { validateExtraAnswers } from './english-test/registration/EnglishTestExtraQuestions';
 import { useEnglishTestFormSchemaPublic } from '../hooks/useEnglishTestFormSchemaPublic';
 import { buildFormOptionsFromMeta } from '../utils/englishTestFormSchemaMeta';
@@ -52,6 +55,17 @@ function buildInitialFormData(registration) {
     idPhoto: null,
     agreedToTerms: registration.agreedToTerms || false,
     infoSource: registration.infoSource || '',
+    examType: registration.examType || '',
+    hasCEFRB2: registration.hasCEFRB2 || '',
+    listeningExamType: registration.listeningExamType || '',
+    listeningScore: registration.listeningScore || '',
+    readingExamType: registration.readingExamType || '',
+    readingScore: registration.readingScore || '',
+    speakingExamType: registration.speakingExamType || '',
+    speakingScore: registration.speakingScore || '',
+    writingExamType: registration.writingExamType || '',
+    writingScore: registration.writingScore || '',
+    b2CertificateFiles: [],
     extraAnswers: registration.extraAnswers && typeof registration.extraAnswers === 'object'
       ? registration.extraAnswers
       : {},
@@ -76,6 +90,7 @@ export default function EnglishTestViewEditModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailVerificationToken, setEmailVerificationToken] = useState(null);
   const [verifiedEmail, setVerifiedEmail] = useState(null);
+  const emailVerificationRef = useRef(null);
   const originalEmail = registration.email || '';
   const { schema, meta, customQuestions } = useEnglishTestFormSchemaPublic();
   const formOptions = buildFormOptionsFromMeta(
@@ -143,9 +158,33 @@ export default function EnglishTestViewEditModal({
 
     const nextEmail = normalizeEmail(formData.email);
     const prevEmail = normalizeEmail(originalEmail);
-    if (nextEmail && nextEmail !== prevEmail) {
-      if (!emailVerificationToken || normalizeEmail(verifiedEmail) !== nextEmail) {
-        nextErrors.emailVerification = '信箱已變更，請先完成信箱驗證碼驗證';
+    const needsEmailForExam = formData.examType && formData.examType !== 'NON';
+    let tokenForSubmit = emailVerificationToken;
+    let verifiedForSubmit = verifiedEmail;
+
+    if (needsEmailForExam && nextEmail && nextEmail !== prevEmail) {
+      const ensure = emailVerificationRef.current?.ensureVerified
+        ? await emailVerificationRef.current.ensureVerified()
+        : { ok: false, error: '信箱已變更，請先完成信箱驗證碼驗證' };
+      if (!ensure.ok) {
+        nextErrors.emailVerification = ensure.error || '信箱已變更，請先完成信箱驗證碼驗證';
+      } else if (!ensure.skipped) {
+        tokenForSubmit = ensure.token;
+        verifiedForSubmit = ensure.verifiedEmail;
+        setEmailVerificationToken(tokenForSubmit);
+        setVerifiedEmail(verifiedForSubmit);
+      }
+    } else if (needsEmailForExam && !prevEmail && nextEmail) {
+      const ensure = emailVerificationRef.current?.ensureVerified
+        ? await emailVerificationRef.current.ensureVerified()
+        : { ok: false, error: '請先完成信箱驗證碼驗證' };
+      if (!ensure.ok) {
+        nextErrors.emailVerification = ensure.error || '請先完成信箱驗證碼驗證';
+      } else if (!ensure.skipped) {
+        tokenForSubmit = ensure.token;
+        verifiedForSubmit = ensure.verifiedEmail;
+        setEmailVerificationToken(tokenForSubmit);
+        setVerifiedEmail(verifiedForSubmit);
       }
     }
 
@@ -168,7 +207,7 @@ export default function EnglishTestViewEditModal({
 
     try {
       const submitData = buildUpdateFormData(
-        { ...formData, emailVerificationToken },
+        { ...formData, emailVerificationToken: tokenForSubmit },
         fileInputs
       );
       const { ok, data } = await updateEnglishTestRegistration(submitData);
@@ -234,32 +273,54 @@ export default function EnglishTestViewEditModal({
                 </div>
               </div>
             )}
+            <StudentExemptionReviewStatusBanner registration={registration} />
             <form onSubmit={handleSubmit}>
               <style>{ERROR_PULSE_STYLE}</style>
-              <EnglishTestRegistrationFormBody
+              <EnglishTestStep3FormBody
                 formData={formData}
-                setFormData={setFormData}
                 errors={errors}
                 getFieldRef={getFieldRef}
-                getErrorStyle={getErrorStyle}
+                getErrorStyle={(field) => getErrorStyle(errors, field)}
                 handleChange={handleChange}
                 handleFileChange={handleFileChange}
-                disabled={cannotEdit}
-                mode="edit"
-                existingFiles={{
-                  idPhoto: registration.idPhoto,
-                  disabilityCertFront: registration.disabilityCertFront,
-                  disabilityCertBack: registration.disabilityCertBack,
-                }}
-                previewUrls={previewUrls}
-                originalEmail={originalEmail}
-                emailVerificationToken={emailVerificationToken}
-                verifiedEmail={verifiedEmail}
-                onEmailVerificationChange={handleEmailVerificationChange}
+                checkB2Level={checkB2Level}
                 formOptions={formOptions}
-                customQuestions={customQuestions}
-                schemaSections={schema?.sections || []}
+                showActions={false}
+                disabled={cannotEdit}
+                existingB2Certificate={Boolean(registration.b2CertificateFile) && formData.hasCEFRB2 === '是'}
               />
+              {!(formData.examType === 'NON' && formData.hasCEFRB2 === '否') && (
+                <EnglishTestRegistrationFormBody
+                  formData={formData}
+                  setFormData={setFormData}
+                  errors={errors}
+                  getFieldRef={getFieldRef}
+                  getErrorStyle={getErrorStyle}
+                  handleChange={handleChange}
+                  handleFileChange={handleFileChange}
+                  disabled={cannotEdit}
+                  mode="edit"
+                  existingFiles={{
+                    idPhoto: registration.idPhoto,
+                    disabilityCertFront: registration.disabilityCertFront,
+                    disabilityCertBack: registration.disabilityCertBack,
+                  }}
+                  previewUrls={previewUrls}
+                  originalEmail={originalEmail}
+                  emailVerificationToken={emailVerificationToken}
+                  verifiedEmail={verifiedEmail}
+                  onEmailVerificationChange={handleEmailVerificationChange}
+                  emailVerificationRef={emailVerificationRef}
+                  formOptions={formOptions}
+                  customQuestions={customQuestions}
+                  schemaSections={schema?.sections || []}
+                />
+              )}
+              {formData.examType === 'NON' && formData.hasCEFRB2 === '否' && (
+                <div className="alert alert-warning mb-3">
+                  您選擇不報考且未取得 B2 成績，更新後僅保留報考項目與 B2 資格設定；詳細聯絡資料可稍後若改回正式報考再補齊。
+                </div>
+              )}
               <div className="d-flex justify-content-end gap-2">
                 <button
                   type="button"

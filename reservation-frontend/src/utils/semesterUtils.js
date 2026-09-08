@@ -1,5 +1,9 @@
 // utils/semesterUtils.js
-// 學期相關工具函數
+// 學期相關工具函數（區間來自 shared/semesterConfig，經 sync 產生）
+
+import { SEMESTER_RANGES, SEMESTER_ORDER } from '../config/semesterConfig';
+
+export { SEMESTER_RANGES, SEMESTER_ORDER };
 
 /**
  * 依民國學制月曆由日期推算學期（例：2022-07-31 → 110-2）。
@@ -45,8 +49,8 @@ export function semesterIdFromDate(date) {
 
 /**
  * 根據日期判斷學期
- * @param {Date|string} date - 日期物件或日期字串
- * @returns {string|null} 學期代碼（如 '114-1'），如果不在任何學期範圍內則返回 null
+ * @param {Date|string} date
+ * @returns {string|null}
  */
 export function getSemesterByDate(date) {
   return semesterIdFromDate(date);
@@ -54,31 +58,23 @@ export function getSemesterByDate(date) {
 
 /**
  * 取得當前學期
- * @returns {string|null} 當前學期代碼
+ * @returns {string|null}
  */
 export function getCurrentSemester() {
   return getSemesterByDate(new Date());
 }
 
+export function isValidSemester(str) {
+  return /^\d{3}-[12]$/.test(String(str || ''));
+}
+
 /**
- * 學期選項列表
+ * 學期選項列表（含「全部」；順序與 SEMESTER_ORDER 一致）
  */
 export const SEMESTER_OPTIONS = [
   { value: '', label: '全部學期' },
-  { value: '114-1', label: '114-1學期' },
-  { value: '113-2', label: '113-2學期' },
-  { value: '114-2', label: '114-2學期' },
-  { value: '115-1', label: '115-1學期' },
-  { value: '115-2', label: '115-2學期' }
+  ...SEMESTER_ORDER.map((value) => ({
+    value,
+    label: `${value}學期`,
+  })),
 ];
-
-/**
- * 學期日期範圍配置
- */
-export const SEMESTER_RANGES = {
-  '113-2': { start: '2025-02-01', end: '2025-07-31' },
-  '114-1': { start: '2025-08-01', end: '2026-01-31' },
-  '114-2': { start: '2026-02-01', end: '2026-07-31' },
-  '115-1': { start: '2026-09-01', end: '2027-01-31' },
-  '115-2': { start: '2027-02-01', end: '2027-07-31' }
-};

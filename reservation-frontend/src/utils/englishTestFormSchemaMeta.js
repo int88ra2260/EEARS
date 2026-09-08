@@ -43,6 +43,7 @@ export function buildFormOptionsFromMeta(meta, { mode = 'create' } = {}) {
       questions: [],
       typeByFieldKey: {},
       defaultValueByFieldKey: {},
+      studentEditableByFieldKey: {},
       schemaStrict: false,
     };
   }
@@ -61,6 +62,7 @@ export function buildFormOptionsFromMeta(meta, { mode = 'create' } = {}) {
   let optionPairsByFieldKey = { ...pairs };
   let typeByFieldKey = { ...(meta.typeByFieldKey || {}) };
   let defaultValueByFieldKey = { ...(meta.defaultValueByFieldKey || {}) };
+  let studentEditableByFieldKey = { ...(meta.studentEditableByFieldKey || {}) };
 
   if (Array.isArray(meta.questions)) {
     for (const q of meta.questions) {
@@ -76,6 +78,11 @@ export function buildFormOptionsFromMeta(meta, { mode = 'create' } = {}) {
       if (q.type != null) typeByFieldKey[q.fieldKey] = String(q.type);
       if (q.defaultValue != null && String(q.defaultValue).trim() !== '') {
         defaultValueByFieldKey[q.fieldKey] = String(q.defaultValue);
+      }
+      if (q.studentEditable !== undefined) {
+        studentEditableByFieldKey[q.fieldKey] = q.studentEditable !== false;
+      } else if (studentEditableByFieldKey[q.fieldKey] === undefined) {
+        studentEditableByFieldKey[q.fieldKey] = true;
       }
       if (!optionPairsByFieldKey[q.fieldKey] && Array.isArray(q.options) && q.options.length) {
         optionPairsByFieldKey[q.fieldKey] = toOptionPairs(q.options);
@@ -105,6 +112,7 @@ export function buildFormOptionsFromMeta(meta, { mode = 'create' } = {}) {
     optionPairsByFieldKey,
     typeByFieldKey,
     defaultValueByFieldKey,
+    studentEditableByFieldKey,
     sectionsById,
     questions: meta.questions || [],
     /** 有載入 schema 題目時，學生端嚴格依 schema 決定顯示（刪題＝不顯示） */
@@ -156,6 +164,20 @@ export function fieldDefaultValue(formOptions, fieldKey, fallback = '') {
   const fromQuestion = (formOptions?.questions || []).find((q) => q?.fieldKey === fieldKey);
   if (fromQuestion?.defaultValue != null && String(fromQuestion.defaultValue).trim() !== '') {
     return String(fromQuestion.defaultValue);
+  }
+  return fallback;
+}
+
+/**
+ * 學生端是否可修改此欄。
+ * @param {boolean} fallback 無 schema 標記時的預設（通訊地址建議傳 false）
+ */
+export function fieldStudentEditable(formOptions, fieldKey, fallback = true) {
+  const fromMap = formOptions?.studentEditableByFieldKey?.[fieldKey];
+  if (fromMap !== undefined) return fromMap !== false;
+  const fromQuestion = (formOptions?.questions || []).find((q) => q?.fieldKey === fieldKey);
+  if (fromQuestion && fromQuestion.studentEditable !== undefined) {
+    return fromQuestion.studentEditable !== false;
   }
   return fallback;
 }

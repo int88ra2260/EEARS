@@ -1,6 +1,6 @@
 /**
  * 培力英檢報名：通訊地址預設（西灣學院全英語卓越教學中心）
- * 學生端可改填；目的是減少多數考生重複輸入。
+ * 預設鎖定；管理員可於表單設計將 studentEditable 設為 true 開放修改。
  */
 const ENGLISH_TEST_DEFAULT_ADDRESS = Object.freeze({
   postalCode: '804',

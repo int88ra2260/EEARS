@@ -131,3 +131,71 @@ export const INFO_SOURCE_OPTIONS_EDIT = [
 ];
 
 export const DEGREE_LEVEL_OPTIONS = ['學士班', '碩士班', '博士班'];
+
+export const YES_NO_OPTIONS = ['是', '否'];
+
+export const LOW_INCOME_OPTIONS = ['否', '中低收入戶', '低收入戶'];
+
+/** 學生端 Step3 / 後台備考：成績測驗類別 */
+export const SCORE_EXAM_TYPE_OPTIONS = [
+  { value: 'TOEIC Listening & Reading', label: 'TOEIC Listening & Reading 多益聽讀' },
+  { value: 'TOEIC Speaking & Writing', label: 'TOEIC Speaking & Writing 多益說寫' },
+  { value: 'IELTS', label: 'IELTS 雅思' },
+  { value: 'TOEFL', label: '舊制TOEFL iBT(2026前)' },
+  { value: 'TOEFL iBT 2026', label: '新制TOEFL iBT(2026起)' },
+  { value: 'TOEFL ITP', label: 'TOEFL ITP' },
+  { value: 'GEPT', label: 'GEPT 全民英檢' },
+  { value: 'BESTEP', label: 'BESTEP 培力英檢' },
+  { value: 'FLPT', label: 'FLPT 外語能力測驗' },
+  {
+    value: 'Cambridge Assessment English',
+    label: 'Cambridge Assessment English 劍橋國際英語認證',
+  },
+  { value: '其他', label: '其他' },
+];
+
+/** TOEFL ITP 僅適用聽力／閱讀；口說／寫作下拉不顯示 */
+export function getScoreExamTypeOptionsForSkill(skill, options = SCORE_EXAM_TYPE_OPTIONS) {
+  const list = Array.isArray(options) ? options : SCORE_EXAM_TYPE_OPTIONS;
+  if (skill === 'speaking' || skill === 'writing') {
+    return list.filter((opt) => opt?.value !== 'TOEFL ITP');
+  }
+  return list;
+}
+
+/** 報考項目（後台 select / 學生端 radio 共用 value） */
+export const EXAM_TYPE_OPTIONS = [
+  { value: 'LRSW', label: '四項全考（LRSW）' },
+  { value: 'LR', label: '聽讀（LR）' },
+  { value: 'SW', label: '說寫（SW）' },
+  { value: 'NON', label: '不報考（NON）' },
+];
+
+export const B2_SKILL_TYPE_OPTIONS = [
+  '聽力',
+  '閱讀',
+  '口說',
+  '寫作',
+  '聽讀',
+  '說寫',
+  '聽說讀寫',
+];
+
+/** 若目前值不在選項中，插入以免後台編輯時遺失既有資料 */
+export function ensureOptionInList(options, current) {
+  const list = Array.isArray(options) ? [...options] : [];
+  const value = current == null ? '' : String(current).trim();
+  if (!value) return list;
+  if (list.some((item) => (typeof item === 'string' ? item === value : item?.value === value))) {
+    return list;
+  }
+  return [value, ...list];
+}
+
+export function ensureOptionPairInList(pairs, current) {
+  const list = Array.isArray(pairs) ? [...pairs] : [];
+  const value = current == null ? '' : String(current).trim();
+  if (!value) return list;
+  if (list.some((item) => item?.value === value)) return list;
+  return [{ value, label: value }, ...list];
+}

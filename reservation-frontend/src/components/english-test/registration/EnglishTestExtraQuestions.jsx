@@ -99,6 +99,10 @@ export default function EnglishTestExtraQuestions({
   const renderQuestion = (q) => {
     const value = extraAnswers[q.fieldKey];
     const errKey = `extra.${q.fieldKey}`;
+    const fieldDisabled = Boolean(disabled) || q.studentEditable === false;
+    const lockedStyle = fieldDisabled && !disabled
+      ? { backgroundColor: '#f5f5f5' }
+      : undefined;
 
     if (q.type === 'content_block') {
       return (
@@ -132,7 +136,9 @@ export default function EnglishTestExtraQuestions({
           <textarea
             className={`form-control ${errors[errKey] ? 'is-invalid' : ''}`}
             rows={3}
-            disabled={disabled}
+            disabled={fieldDisabled}
+            readOnly={fieldDisabled}
+            style={lockedStyle}
             value={value || ''}
             onChange={(e) => setAnswer(q.fieldKey, e.target.value)}
           />
@@ -142,7 +148,9 @@ export default function EnglishTestExtraQuestions({
           <input
             type={q.type === 'text' ? 'text' : q.type}
             className={`form-control ${errors[errKey] ? 'is-invalid' : ''}`}
-            disabled={disabled}
+            disabled={fieldDisabled}
+            readOnly={fieldDisabled}
+            style={lockedStyle}
             value={value || ''}
             onChange={(e) => setAnswer(q.fieldKey, e.target.value)}
           />
@@ -151,7 +159,8 @@ export default function EnglishTestExtraQuestions({
         {q.type === 'select' && (
           <select
             className={`form-select ${errors[errKey] ? 'is-invalid' : ''}`}
-            disabled={disabled}
+            disabled={fieldDisabled}
+            style={lockedStyle}
             value={value || ''}
             onChange={(e) => setAnswer(q.fieldKey, e.target.value)}
           >
@@ -175,7 +184,7 @@ export default function EnglishTestExtraQuestions({
                     type="radio"
                     name={`extra_${q.fieldKey}`}
                     id={`extra_${q.fieldKey}_${v}`}
-                    disabled={disabled}
+                    disabled={fieldDisabled}
                     checked={value === v}
                     onChange={() => setAnswer(q.fieldKey, v)}
                   />
@@ -199,7 +208,7 @@ export default function EnglishTestExtraQuestions({
                     className="form-check-input"
                     type="checkbox"
                     id={`extra_${q.fieldKey}_${v}`}
-                    disabled={disabled}
+                    disabled={fieldDisabled}
                     checked={checked}
                     onChange={(e) => toggleCheckbox(q.fieldKey, v, e.target.checked)}
                   />
@@ -218,7 +227,7 @@ export default function EnglishTestExtraQuestions({
               className="form-check-input"
               type="checkbox"
               id={`extra_${q.fieldKey}_agree`}
-              disabled={disabled}
+              disabled={fieldDisabled}
               checked={value === true || value === 'true'}
               onChange={(e) => setAnswer(q.fieldKey, e.target.checked)}
             />
@@ -235,7 +244,7 @@ export default function EnglishTestExtraQuestions({
               className="form-check-input"
               type="checkbox"
               id={`extra_${q.fieldKey}_confirm`}
-              disabled={disabled}
+              disabled={fieldDisabled}
               checked={value === true || value === 'true'}
               onChange={(e) => setAnswer(q.fieldKey, e.target.checked)}
               style={{ marginTop: '0.35rem' }}

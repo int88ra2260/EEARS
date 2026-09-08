@@ -316,4 +316,5 @@ module.exports = {
   registrationBelongsToSemester,
   assertStudentMayEditRegistration,
   isBlankSemester,
+  computeSubmissionStatus,
 };

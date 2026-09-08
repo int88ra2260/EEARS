@@ -92,6 +92,10 @@ export async function handleAuthSessionInvalidResponse(res) {
  */
 export async function fetchClient(input, init = {}) {
   const { headers } = mergeRequestIdHeaders(init);
+  // FormData 必須由瀏覽器自動帶 boundary；手動 Content-Type 會造成 Unexpected end of form
+  if (typeof FormData !== 'undefined' && init.body instanceof FormData) {
+    headers.delete('Content-Type');
+  }
   const nextInit = {
     ...init,
     headers,
@@ -109,6 +113,9 @@ export async function fetchClient(input, init = {}) {
  */
 export async function fetchClientThrow(input, init = {}) {
   const { headers, clientRequestId } = mergeRequestIdHeaders(init);
+  if (typeof FormData !== 'undefined' && init.body instanceof FormData) {
+    headers.delete('Content-Type');
+  }
   const nextInit = {
     ...init,
     headers,

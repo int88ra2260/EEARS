@@ -18,6 +18,30 @@ describe('englishTestFormSchemaService', () => {
     expect(schema.questions.filter((q) => q.system).length).toBeGreaterThan(5);
   });
 
+  test('default address questions are locked with defaultValue', () => {
+    const schema = buildDefaultEnglishTestFormSchema();
+    for (const key of ['postalCode', 'city', 'district', 'address']) {
+      const q = schema.questions.find((x) => x.fieldKey === key);
+      expect(q).toBeTruthy();
+      expect(q.studentEditable).toBe(false);
+      expect(String(q.defaultValue || '').length).toBeGreaterThan(0);
+    }
+  });
+
+  test('validateAndNormalizeSchema preserves studentEditable false', () => {
+    const base = buildDefaultEnglishTestFormSchema();
+    const next = {
+      ...base,
+      questions: base.questions.map((q) =>
+        q.fieldKey === 'phone' ? { ...q, studentEditable: false, defaultValue: '0912345678' } : q
+      ),
+    };
+    const normalized = validateAndNormalizeSchema(next, base);
+    const phone = normalized.questions.find((q) => q.fieldKey === 'phone');
+    expect(phone.studentEditable).toBe(false);
+    expect(phone.defaultValue).toBe('0912345678');
+  });
+
   test('default schema includes step 0 announcement and step 1/2', () => {
     const schema = buildDefaultEnglishTestFormSchema();
     const sectionIds = schema.sections.map((s) => s.id);

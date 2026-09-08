@@ -18,12 +18,17 @@ export default function QuickActionButtons({
   const status = registration.status;
 
   const runStatus = async (nextStatus, label) => {
+    // 請修正／報名失敗：先選原因，送出前由 performStatusUpdate 做寄信防呆
+    if (nextStatus === 'revision' || nextStatus === 'failed') {
+      onQuickStatusUpdate?.(registration.id, nextStatus);
+      return;
+    }
     const ok = await confirm({
       title: '確認更新狀態？',
       description: `確定要將此記錄設為「${label}」嗎？`,
       confirmText: '更新',
       cancelText: '取消',
-      variant: nextStatus === 'failed' || nextStatus === 'revision' ? 'warning' : 'primary',
+      variant: 'primary',
     });
     if (!ok) return;
     onQuickStatusUpdate?.(registration.id, nextStatus);

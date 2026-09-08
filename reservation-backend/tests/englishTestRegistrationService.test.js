@@ -23,6 +23,7 @@ const {
   findRegistrationForSemester,
   assertStudentMayEditRegistration,
   inferRegistrationSemester,
+  computeSubmissionStatus,
 } = require('../services/englishTestRegistrationService');
 
 function buildRegistration(overrides = {}) {
@@ -46,6 +47,15 @@ describe('englishTestRegistrationService — cross-semester', () => {
     jest.clearAllMocks();
     mockFindAll.mockResolvedValue([]);
     mockUpdate.mockResolvedValue(undefined);
+  });
+
+  describe('computeSubmissionStatus', () => {
+    it('maps NON to revision and other exam types to pending', () => {
+      expect(computeSubmissionStatus('NON')).toBe('revision');
+      expect(computeSubmissionStatus('LRSW')).toBe('pending');
+      expect(computeSubmissionStatus('LR')).toBe('pending');
+      expect(computeSubmissionStatus('SW')).toBe('pending');
+    });
   });
 
   describe('findRegistrationForSemester', () => {

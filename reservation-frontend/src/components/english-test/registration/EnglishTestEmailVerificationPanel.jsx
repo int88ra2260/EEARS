@@ -1,7 +1,15 @@
 /**
- * 培力英檢報名：信箱驗證碼 UI（寄送／輸入／驗證）
+ * 培力英檢報名：信箱驗證碼 UI（寄送／輸入）
+ * 驗證可於輸入滿 6 碼時自動進行，或由父層在「提交報名」時呼叫 ensureVerified()。
  */
-import React, { useEffect, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import {
   sendEnglishTestEmailVerificationCode,
   verifyEnglishTestEmailCode,
@@ -11,7 +19,7 @@ function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
-export default function EnglishTestEmailVerificationPanel({
+const EnglishTestEmailVerificationPanel = forwardRef(function EnglishTestEmailVerificationPanel({
   email,
   studentId,
   disabled = false,
@@ -21,13 +29,18 @@ export default function EnglishTestEmailVerificationPanel({
   verifiedEmail,
   onTokenChange,
   errorMessage,
-}) {
+}, ref) {
   const [code, setCode] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
   const [statusVariant, setStatusVariant] = useState('secondary');
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [cooldownSec, setCooldownSec] = useState(0);
+  const verifyInFlightRef = useRef(false);
+  const verifyPromiseRef = useRef(null);
+  const lastAutoAttemptRef = useRef('');
+  const onTokenChangeRef = useRef(onTokenChange);
+  onTokenChangeRef.current = onTokenChange;
 
   const normalizedEmail = normalizeEmail(email);
   const originalNormalized = originalEmail != null ? normalizeEmail(originalEmail) : null;
@@ -46,7 +59,86 @@ export default function EnglishTestEmailVerificationPanel({
   useEffect(() => {
     setCode('');
     setStatusMsg('');
+    lastAutoAttemptRef.current = '';
   }, [normalizedEmail]);
+
+  const runVerify = useCallback(async (rawCode) => {
+    const trimmed = String(rawCode || '').trim();
+    if (!normalizedEmail) {
+      return { ok: false, error: '請先填寫電子郵件' };
+    }
+    if (emailUnchanged) {
+      return { ok: true, token: null, verifiedEmail: normalizedEmail, skipped: true };
+    }
+    if (
+      emailVerificationToken
+      && normalizeEmail(verifiedEmail) === normalizedEmail
+    ) {
+      return {
+        ok: true,
+        token: emailVerificationToken,
+        verifiedEmail: normalizedEmail,
+      };
+    }
+    if (trimmed.length !== 6) {
+      return { ok: false, error: '請輸入信箱收到的 6 位驗證碼後再提交報名' };
+    }
+    if (verifyPromiseRef.current) {
+      return verifyPromiseRef.current;
+    }
+
+    const verifyPromise = (async () => {
+      verifyInFlightRef.current = true;
+      setVerifying(true);
+      setStatusMsg('');
+      try {
+        const { ok, data } = await verifyEnglishTestEmailCode({
+          email: normalizedEmail,
+          code: trimmed,
+        });
+        if (!ok) {
+          const err = data.error || data.message || '驗證失敗';
+          setStatusVariant('danger');
+          setStatusMsg(err);
+          return { ok: false, error: err };
+        }
+        const token = data.emailVerificationToken;
+        const nextEmail = data.email || normalizedEmail;
+        setStatusVariant('success');
+        setStatusMsg('信箱驗證成功');
+        if (typeof onTokenChangeRef.current === 'function') {
+          onTokenChangeRef.current({ token, verifiedEmail: nextEmail });
+        }
+        return { ok: true, token, verifiedEmail: nextEmail };
+      } catch (_e) {
+        const err = '驗證失敗，請稍後再試';
+        setStatusVariant('danger');
+        setStatusMsg(err);
+        return { ok: false, error: err };
+      } finally {
+        verifyInFlightRef.current = false;
+        setVerifying(false);
+        verifyPromiseRef.current = null;
+      }
+    })();
+
+    verifyPromiseRef.current = verifyPromise;
+    return verifyPromise;
+  }, [normalizedEmail, emailUnchanged, emailVerificationToken, verifiedEmail]);
+
+  useImperativeHandle(ref, () => ({
+    ensureVerified: () => runVerify(code),
+    getCode: () => String(code || '').trim(),
+  }), [runVerify, code]);
+
+  // 輸入滿 6 碼時自動驗證（同一組碼失敗不重試，避免迴圈）
+  useEffect(() => {
+    if (disabled || emailUnchanged || verifiedOk || verifying) return;
+    if (String(code).length !== 6) return;
+    if (lastAutoAttemptRef.current === code) return;
+    lastAutoAttemptRef.current = code;
+    void runVerify(code);
+  }, [code, disabled, emailUnchanged, verifiedOk, verifying, runVerify]);
 
   if (disabled) return null;
 
@@ -85,43 +177,15 @@ export default function EnglishTestEmailVerificationPanel({
       setStatusVariant('success');
       setStatusMsg(data.message || '驗證碼已寄出，請至信箱查收（含垃圾信件匣）');
       setCooldownSec(60);
-      if (typeof onTokenChange === 'function') {
-        onTokenChange({ token: null, verifiedEmail: null });
+      lastAutoAttemptRef.current = '';
+      if (typeof onTokenChangeRef.current === 'function') {
+        onTokenChangeRef.current({ token: null, verifiedEmail: null });
       }
     } catch (_e) {
       setStatusVariant('danger');
       setStatusMsg('寄送失敗，請稍後再試');
     } finally {
       setSending(false);
-    }
-  };
-
-  const handleVerify = async () => {
-    setVerifying(true);
-    setStatusMsg('');
-    try {
-      const { ok, data } = await verifyEnglishTestEmailCode({
-        email: normalizedEmail,
-        code: String(code || '').trim(),
-      });
-      if (!ok) {
-        setStatusVariant('danger');
-        setStatusMsg(data.error || data.message || '驗證失敗');
-        return;
-      }
-      setStatusVariant('success');
-      setStatusMsg('信箱驗證成功，可以繼續送出報名');
-      if (typeof onTokenChange === 'function') {
-        onTokenChange({
-          token: data.emailVerificationToken,
-          verifiedEmail: data.email || normalizedEmail,
-        });
-      }
-    } catch (_e) {
-      setStatusVariant('danger');
-      setStatusMsg('驗證失敗，請稍後再試');
-    } finally {
-      setVerifying(false);
     }
   };
 
@@ -141,27 +205,27 @@ export default function EnglishTestEmailVerificationPanel({
         </button>
         <span className="form-text mb-0">驗證碼將寄至：{normalizedEmail}</span>
       </div>
-      <div className="input-group" style={{ maxWidth: 420 }}>
-        <input
-          type="text"
-          className="form-control"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          placeholder="請輸入 6 位驗證碼"
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          disabled={verifiedOk}
-        />
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleVerify}
-          disabled={verifying || verifiedOk || String(code).length !== 6}
-        >
-          {verifiedOk ? '已驗證' : verifying ? '驗證中...' : '確認驗證'}
-        </button>
-      </div>
+      <input
+        type="text"
+        className="form-control"
+        style={{ maxWidth: 280 }}
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        maxLength={6}
+        placeholder="請輸入 6 位驗證碼"
+        value={code}
+        onChange={(e) => {
+          const next = e.target.value.replace(/\D/g, '').slice(0, 6);
+          if (next !== code) lastAutoAttemptRef.current = '';
+          setCode(next);
+        }}
+        disabled={verifiedOk || verifying}
+      />
+      {verifying ? (
+        <div className="text-muted mt-1" style={{ fontSize: '0.9rem' }}>
+          驗證中...
+        </div>
+      ) : null}
       {verifiedOk ? (
         <div className="text-success mt-1" style={{ fontSize: '0.9rem' }}>
           ✓ 信箱已驗證
@@ -173,8 +237,12 @@ export default function EnglishTestEmailVerificationPanel({
         </div>
       ) : null}
       <div className="form-text">
-        請至填寫的信箱收取驗證碼（約 10 分鐘內有效）。若未收到，請檢查垃圾信件匣後再重新寄送。若未完成驗證，無法送出此次報名。
+        請至填寫的信箱收取驗證碼（約 10 分鐘內有效）。輸入 6 位驗證碼後會自動驗證；
+        若尚未顯示「已驗證」，直接按頁面底部「提交報名／確認更新」也會一併完成驗證並送出。
+        若未收到，請檢查垃圾信件匣後再重新寄送。
       </div>
     </div>
   );
-}
+});
+
+export default EnglishTestEmailVerificationPanel;

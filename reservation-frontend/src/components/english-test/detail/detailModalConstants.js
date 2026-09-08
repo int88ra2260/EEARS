@@ -15,14 +15,14 @@ export const DETAIL_MODAL_STATUS_OPTIONS = [
     label: '報名成功',
     icon: 'flag-checkered',
     iconClass: 'text-success',
-    confirmDescription: '確定要將此筆設為「報名成功」嗎？',
+    confirmDescription: '確定要將此筆設為「報名成功」嗎？（不會自動寄信；請用「一鍵發信」寄送）',
   },
   {
     status: 'failed',
     label: '報名失敗',
     icon: 'times-circle',
     iconClass: 'text-secondary',
-    confirmDescription: '確定要將此筆設為「報名失敗」嗎？',
+    // 原因選擇後會再跳出寄信防呆，此處不重複確認
   },
 ];
 

@@ -1,4 +1,5 @@
 import { fieldRequired, fieldVisible } from './englishTestFormSchemaMeta';
+import { validateEnglishTestStep3Form } from './englishTestStep3Validation';
 
 function pushError(newErrors, errorOrder, field, message) {
   newErrors[field] = message;
@@ -129,16 +130,46 @@ export function validateEnglishTestDetailForm(formData, formOptions = null) {
 }
 
 export function validateEnglishTestEditForm(formData, registration, fileInputs, formOptions = null) {
+  const isNonExam = formData.examType === 'NON';
+  const isNonWithoutB2 = isNonExam && formData.hasCEFRB2 === '否';
+
+  // NON + 無 B2：只驗證報考項目／B2，不要求完整聯絡資料（對齊報名早退流程）
+  if (isNonWithoutB2) {
+    const step3 = validateEnglishTestStep3Form(formData, { existingB2Certificate: false });
+    return {
+      isValid: Object.keys(step3.errors).length === 0,
+      firstErrorField: step3.firstErrorField,
+      errors: step3.errors,
+    };
+  }
+
   const { newErrors, errorOrder } = validateCommonFields(formData, formOptions);
+
+  // NON 可不填／可清空 email；改為正式報考則必填
+  if (isNonExam) {
+    delete newErrors.email;
+    const emailIdx = errorOrder.indexOf('email');
+    if (emailIdx >= 0) errorOrder.splice(emailIdx, 1);
+  } else if (shouldCheck(formOptions, 'email') && isRequired(formOptions, 'email', true) && !formData.email) {
+    pushError(newErrors, errorOrder, 'email', '請填寫電子郵件');
+  }
 
   if (
     shouldCheck(formOptions, 'idPhoto')
     && isRequired(formOptions, 'idPhoto', true)
-    && !registration.idPhoto
+    && !registration?.idPhoto
     && !formData.idPhoto
     && !fileInputs?.idPhoto
   ) {
     pushError(newErrors, errorOrder, 'idPhoto', '請上傳證件照');
+  }
+
+  const step3 = validateEnglishTestStep3Form(formData, {
+    existingB2Certificate: Boolean(registration?.b2CertificateFile) && formData.hasCEFRB2 === '是',
+  });
+  Object.assign(newErrors, step3.errors);
+  for (const key of Object.keys(step3.errors || {})) {
+    if (!errorOrder.includes(key)) errorOrder.push(key);
   }
 
   return {

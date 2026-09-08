@@ -8,6 +8,7 @@ import {
   saveEmailTemplate,
   testSendEmailTemplate,
 } from '../../services/emailTemplatesAdminApi';
+import EmailRateLimitGuardPanel from '../../components/admin/EmailRateLimitGuardPanel';
 
 const CATEGORY_ORDER = [
   'reservation',
@@ -214,6 +215,8 @@ export default function AdminEmailTemplatesPage() {
           返回系統設定
         </Link>
       </div>
+
+      <EmailRateLimitGuardPanel token={token} toast={toast} />
 
       <div className="row g-3">
         <div className="col-lg-4">

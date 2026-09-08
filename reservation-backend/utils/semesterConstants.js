@@ -1,16 +1,41 @@
 /**
- * 學期日期範圍（與 adminClassesController 一致，供 analytics / evaluation 共用）
+ * 學期日期範圍與推算（analytics / evaluation / 英檢 / 問卷共用）。
+ * 區間唯一來源：repo root shared/semesterConfig.js
  */
-const SEMESTER_RANGES = {
-  '114-1': { start: '2025-08-01', end: '2026-01-31' },
-  '113-2': { start: '2025-02-01', end: '2025-07-31' },
-  '114-2': { start: '2026-02-01', end: '2026-07-31' },
-  '115-1': { start: '2026-09-01', end: '2027-01-31' },
-  '115-2': { start: '2027-02-01', end: '2027-07-31' }
-};
+'use strict';
 
-/** 顯示／排序用（由早到晚） */
-const SEMESTER_ORDER = ['113-2', '114-1', '114-2', '115-1', '115-2'];
+const {
+  SEMESTER_RANGES: SHARED_RANGES,
+  SEMESTER_ORDER: SHARED_ORDER,
+} = require('../../shared/semesterConfig');
+
+const SEMESTER_RANGES = SHARED_RANGES;
+const SEMESTER_ORDER = SHARED_ORDER;
+
+/**
+ * 轉成 Asia/Taipei 的 YYYY-MM-DD，避免 `new Date('YYYY-MM-DD')` UTC 午夜造成邊界誤判。
+ * @param {Date|string|number} date
+ * @returns {string|null}
+ */
+function toTaipeiDateOnly(date) {
+  if (date == null || date === '') return null;
+
+  if (typeof date === 'string') {
+    const trimmed = date.trim();
+    const m = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1];
+  }
+
+  const dateObj = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(dateObj.getTime())) return null;
+
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(dateObj);
+}
 
 /**
  * 依民國學制月曆由日期推算學期（例：2022-07-31 → 110-2）。
@@ -20,18 +45,10 @@ const SEMESTER_ORDER = ['113-2', '114-1', '114-2', '115-1', '115-2'];
  */
 function deriveSemesterIdFromDate(date) {
   if (!date) return null;
-  const raw = typeof date === 'string' ? String(date).trim().slice(0, 10) : null;
-  let year;
-  let month;
-  if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    year = Number(raw.slice(0, 4));
-    month = Number(raw.slice(5, 7));
-  } else {
-    const dateObj = date instanceof Date ? date : new Date(date);
-    if (Number.isNaN(dateObj.getTime())) return null;
-    year = dateObj.getFullYear();
-    month = dateObj.getMonth() + 1;
-  }
+  const day = toTaipeiDateOnly(date);
+  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const year = Number(day.slice(0, 4));
+  const month = Number(day.slice(5, 7));
   if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return null;
   if (month >= 8) return `${year - 1911}-1`;
   if (month === 1) return `${year - 1912}-1`;
@@ -40,16 +57,39 @@ function deriveSemesterIdFromDate(date) {
 
 /**
  * 先查 SEMESTER_RANGES，否則用學制月曆推算。
- * @param {string} dateStr YYYY-MM-DD
+ * @param {string|Date|number} date
  * @returns {string|null}
  */
-function semesterIdFromDate(dateStr) {
-  const d = String(dateStr || '').slice(0, 10);
+function semesterIdFromDate(date) {
+  const d = toTaipeiDateOnly(date);
   if (!d) return null;
   for (const [sem, range] of Object.entries(SEMESTER_RANGES)) {
     if (d >= range.start && d <= range.end) return sem;
   }
   return deriveSemesterIdFromDate(d);
+}
+
+/**
+ * 僅落在 SEMESTER_RANGES 內才回傳；空窗期為 null（不 fallback）。
+ * @param {string|Date|number} date
+ * @returns {string|null}
+ */
+function getSemesterByConfiguredRange(date) {
+  const d = toTaipeiDateOnly(date);
+  if (!d) return null;
+  for (const [sem, range] of Object.entries(SEMESTER_RANGES)) {
+    if (d >= range.start && d <= range.end) return sem;
+  }
+  return null;
+}
+
+/**
+ * 目前學期：優先 SEMESTER_RANGES，否則學制月曆推算。
+ * @param {Date|string|number} [atDate]
+ * @returns {string}
+ */
+function getCurrentSemester(atDate = new Date()) {
+  return semesterIdFromDate(atDate) || deriveSemesterIdFromDate(atDate) || '';
 }
 
 function compareSemester(a, b) {
@@ -61,10 +101,18 @@ function compareSemester(a, b) {
   return ia - ib;
 }
 
+function isValidSemester(str) {
+  return /^\d{3}-[12]$/.test(String(str || ''));
+}
+
 module.exports = {
   SEMESTER_RANGES,
   SEMESTER_ORDER,
   compareSemester,
   deriveSemesterIdFromDate,
   semesterIdFromDate,
+  getSemesterByConfiguredRange,
+  getCurrentSemester,
+  isValidSemester,
+  toTaipeiDateOnly,
 };

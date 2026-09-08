@@ -96,7 +96,7 @@ export async function fetchEnglishTestRegistrationEnabledPublic() {
 
 export async function fetchEnglishTestRegistrationGroupEnabledPublic() {
 
-  return fetchPublicBooleanSetting(PATHS.englishTestRegistrationGroup);
+  return fetchPublicBooleanSetting(PATHS.englishTestRegistrationGroup, false);
 
 }
 

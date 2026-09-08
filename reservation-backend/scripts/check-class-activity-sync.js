@@ -4,13 +4,7 @@
 require('dotenv').config();
 const { sequelize, Class, ClassMembership, Reservation, Event } = require('../models');
 const { Op } = require('sequelize');
-
-// 學期日期範圍配置（與 controller 一致）
-const SEMESTER_RANGES = {
-  '114-1': { start: '2025-08-01', end: '2026-01-31' },
-  '113-2': { start: '2025-02-01', end: '2025-07-31' },
-  '114-2': { start: '2026-02-01', end: '2026-07-31' }
-};
+const { SEMESTER_RANGES } = require('../utils/semesterConstants');
 
 // 清洗學號（轉大寫、去除空白）
 function cleanStudentId(str) {

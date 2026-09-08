@@ -1,15 +1,51 @@
 import React from 'react';
+import {
+  DISABILITY_TYPES,
+  EXAM_ASSISTANCE_OPTIONS_EDIT,
+  LOW_INCOME_OPTIONS,
+  YES_NO_OPTIONS,
+  ensureOptionInList,
+} from '../../../utils/englishTestFormOptions';
 import DetailModalEditingAlert from './DetailModalEditingAlert';
 import { TabPanel } from './detailModalTabShell';
+
+const selectStyle = { width: 'auto', minWidth: '12rem', maxWidth: '100%' };
 
 export default function DetailModalSpecialTab({
   registration,
   isEditing,
   editData,
   handleEditChange,
+  handleEditToggleArray,
+  formOptions = null,
   embedded = false,
 }) {
   const hasDisabilityCard = isEditing ? editData.hasDisabilityCard : registration.hasDisabilityCard;
+  const lowIncomeOptions = ensureOptionInList(
+    formOptions?.optionPairsByFieldKey?.isLowIncome?.length
+      ? formOptions.optionPairsByFieldKey.isLowIncome.map((o) => o.value)
+      : LOW_INCOME_OPTIONS,
+    editData.isLowIncome,
+  );
+  const disabilityTypes = (() => {
+    const base = [...(formOptions?.disabilityTypes || DISABILITY_TYPES), '其他'];
+    const current = Array.isArray(editData.disabilityTypes) ? editData.disabilityTypes : [];
+    current.forEach((value) => {
+      if (value && !base.includes(value)) base.push(value);
+    });
+    return base;
+  })();
+  const examOptions = (() => {
+    const base = [...(formOptions?.examAssistanceOptions || EXAM_ASSISTANCE_OPTIONS_EDIT)];
+    if (!base.includes('其他')) base.push('其他');
+    const current = Array.isArray(editData.examAssistanceOptions)
+      ? editData.examAssistanceOptions
+      : [];
+    current.forEach((value) => {
+      if (value && !base.includes(value)) base.push(value);
+    });
+    return base;
+  })();
 
   return (
     <TabPanel embedded={embedded}>
@@ -20,14 +56,16 @@ export default function DetailModalSpecialTab({
           {isEditing ? (
             <select
               className="form-select form-select-sm d-inline-block"
-              style={{ width: 'auto' }}
+              style={selectStyle}
               value={editData.isLowIncome || ''}
               onChange={(e) => handleEditChange('isLowIncome', e.target.value)}
             >
               <option value="">請選擇</option>
-              <option value="否">否</option>
-              <option value="中低收入戶">中低收入戶</option>
-              <option value="低收入戶">低收入戶</option>
+              {lowIncomeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
           ) : (
             registration.isLowIncome
@@ -38,13 +76,16 @@ export default function DetailModalSpecialTab({
           {isEditing ? (
             <select
               className="form-select form-select-sm d-inline-block"
-              style={{ width: 'auto' }}
+              style={selectStyle}
               value={editData.hasDisabilityCard || ''}
               onChange={(e) => handleEditChange('hasDisabilityCard', e.target.value)}
             >
               <option value="">請選擇</option>
-              <option value="是">是</option>
-              <option value="否">否</option>
+              {YES_NO_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
           ) : (
             registration.hasDisabilityCard
@@ -55,26 +96,27 @@ export default function DetailModalSpecialTab({
             <div className="col-12 mb-3">
               <strong>身心障礙類別：</strong>{' '}
               {isEditing ? (
-                <input
-                  type="text"
-                  className="form-control form-control-sm d-inline-block"
-                  style={{ width: 'auto' }}
-                  value={
-                    Array.isArray(editData.disabilityTypes)
-                      ? editData.disabilityTypes.join(', ')
-                      : editData.disabilityTypes || ''
-                  }
-                  onChange={(e) =>
-                    handleEditChange(
-                      'disabilityTypes',
-                      e.target.value
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter((s) => s),
-                    )
-                  }
-                  placeholder="以逗號分隔"
-                />
+                <div className="mt-2 row">
+                  {disabilityTypes.map((type) => (
+                    <div key={type} className="col-md-6 mb-1">
+                      <div className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id={`disability-type-${type}`}
+                          checked={
+                            Array.isArray(editData.disabilityTypes)
+                            && editData.disabilityTypes.includes(type)
+                          }
+                          onChange={() => handleEditToggleArray?.('disabilityTypes', type)}
+                        />
+                        <label className="form-check-label" htmlFor={`disability-type-${type}`}>
+                          {type}
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : registration.disabilityTypes && Array.isArray(registration.disabilityTypes) ? (
                 registration.disabilityTypes.join(', ')
               ) : (
@@ -84,26 +126,43 @@ export default function DetailModalSpecialTab({
             <div className="col-12 mb-3">
               <strong>考試協助項目：</strong>{' '}
               {isEditing ? (
-                <input
-                  type="text"
-                  className="form-control form-control-sm d-inline-block"
-                  style={{ width: 'auto' }}
-                  value={
-                    Array.isArray(editData.examAssistanceOptions)
-                      ? editData.examAssistanceOptions.join(', ')
-                      : editData.examAssistanceOptions || ''
-                  }
-                  onChange={(e) =>
-                    handleEditChange(
-                      'examAssistanceOptions',
-                      e.target.value
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter((s) => s),
-                    )
-                  }
-                  placeholder="以逗號分隔"
-                />
+                <div className="mt-2 row">
+                  {examOptions.map((option) => (
+                    <div key={option} className="col-md-6 mb-1">
+                      <div className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id={`exam-assist-${option}`}
+                          checked={
+                            Array.isArray(editData.examAssistanceOptions)
+                            && editData.examAssistanceOptions.includes(option)
+                          }
+                          onChange={() => handleEditToggleArray?.('examAssistanceOptions', option)}
+                        />
+                        <label
+                          className="form-check-label"
+                          htmlFor={`exam-assist-${option}`}
+                          style={{ fontSize: '0.9rem' }}
+                        >
+                          {option}
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                  {Array.isArray(editData.examAssistanceOptions)
+                    && editData.examAssistanceOptions.includes('其他') && (
+                    <div className="col-12 mt-2">
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={editData.examAssistanceOther || ''}
+                        onChange={(e) => handleEditChange('examAssistanceOther', e.target.value)}
+                        placeholder="請填寫其他考試協助項目"
+                      />
+                    </div>
+                  )}
+                </div>
               ) : registration.examAssistanceOptions &&
                 Array.isArray(registration.examAssistanceOptions) ? (
                 registration.examAssistanceOptions.join(', ')

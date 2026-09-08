@@ -10,6 +10,11 @@ const {
   resetEmailTemplateOverride,
   sendTestEmail,
 } = require('../services/emailTemplateService');
+const { getGlobalRateLimitAdminSnapshot } = require('../config/httpSecurity');
+const {
+  getSkipGlobalForEnglishTestEmailOtp,
+  setSkipGlobalForEnglishTestEmailOtp,
+} = require('../services/englishTestEmailOtpRateLimitSettings');
 
 const router = express.Router();
 
@@ -20,6 +25,60 @@ router.get('/', async (req, res, next) => {
   try {
     const templates = await listEmailTemplates();
     res.json({ success: true, data: templates });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * 培力驗證碼 × 全站限流：開關 + 目前用量（須在 /:key 之前）
+ * GET /api/admin/email-templates/rate-limit-guard
+ */
+router.get('/rate-limit-guard', async (req, res, next) => {
+  try {
+    const skipGlobalForEnglishTestEmailOtp = await getSkipGlobalForEnglishTestEmailOtp();
+    const usage = getGlobalRateLimitAdminSnapshot();
+    res.json({
+      success: true,
+      data: {
+        skipGlobalForEnglishTestEmailOtp,
+        usage,
+        otpDedicatedLimits: {
+          send: { windowMinutes: 10, max: 8, note: '依 email（無 email 則依 IP）' },
+          verify: { windowMinutes: 10, max: 20, note: '依 email（無 email 則依 IP）' },
+          resendCooldownSeconds: 60,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PUT /api/admin/email-templates/rate-limit-guard
+ * body: { skipGlobalForEnglishTestEmailOtp: boolean }
+ */
+router.put('/rate-limit-guard', async (req, res, next) => {
+  try {
+    if (typeof req.body?.skipGlobalForEnglishTestEmailOtp !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_PAYLOAD',
+        message: '請提供 skipGlobalForEnglishTestEmailOtp（boolean）',
+      });
+    }
+    const skipGlobalForEnglishTestEmailOtp = await setSkipGlobalForEnglishTestEmailOtp(
+      req.body.skipGlobalForEnglishTestEmailOtp
+    );
+    const usage = getGlobalRateLimitAdminSnapshot();
+    res.json({
+      success: true,
+      data: {
+        skipGlobalForEnglishTestEmailOtp,
+        usage,
+      },
+    });
   } catch (err) {
     next(err);
   }
