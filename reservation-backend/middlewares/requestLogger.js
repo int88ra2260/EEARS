@@ -18,6 +18,18 @@ function shouldSkipLog(req) {
   return false;
 }
 
+/** 終端機可讀的來源 IP（去掉 IPv4-mapped 前綴） */
+function resolveClientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  const raw =
+    (typeof fwd === 'string' && fwd.split(',')[0].trim()) ||
+    req.ip ||
+    (req.socket && req.socket.remoteAddress) ||
+    '';
+  const ip = String(raw).slice(0, 45);
+  return ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+}
+
 /**
  * 附加 requestId、記錄每筆 API 耗時與狀態（不記錄 body，避免密碼／大檔上傳外洩）
  */
@@ -34,12 +46,7 @@ function requestLogger(req, res, next) {
     const durationMs = Date.now() - start;
     const uid = req.user && req.user.id;
     const role = req.user && req.user.role;
-    const fwd = req.headers['x-forwarded-for'];
-    const ip =
-      (typeof fwd === 'string' && fwd.split(',')[0].trim()) ||
-      req.ip ||
-      (req.socket && req.socket.remoteAddress) ||
-      '';
+    const ip = resolveClientIp(req);
 
     const line = {
       type: 'http',
@@ -50,10 +57,14 @@ function requestLogger(req, res, next) {
       durationMs,
       userId: uid != null ? uid : null,
       role: role || null,
-      ip: String(ip).slice(0, 45),
+      ip,
     };
 
-    logger.info(`[request] ${req.method} ${line.path} ${res.statusCode} ${durationMs}ms`, line);
+    // IP 必須寫在 message 字串：logger INFO 不會展開 data metadata
+    logger.info(
+      `[request] ${req.method} ${line.path} ${res.statusCode} ${durationMs}ms ip=${ip || '-'}`,
+      line
+    );
     logBuffer.push(line);
     const pathForLog = req.originalUrl || req.url;
     if (
