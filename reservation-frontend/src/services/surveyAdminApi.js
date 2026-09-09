@@ -115,12 +115,13 @@ export async function exportSurveyData(token, surveyId) {
 export async function fetchSurveyAnalyticsBundle(token, queryParams) {
   const qs = queryParams instanceof URLSearchParams ? queryParams.toString() : new URLSearchParams(queryParams).toString();
   const base = `/api/admin/surveys/analytics`;
-  const [overviewRes, distRes, trendsRes, compRes, openRes] = await Promise.all([
+  const [overviewRes, distRes, trendsRes, compRes, openRes, sentimentRes] = await Promise.all([
     fetchClient(`${base}/overview?${qs}`, { headers: authHeaders(token) }),
     fetchClient(`${base}/distribution?${qs}`, { headers: authHeaders(token) }),
     fetchClient(`${base}/trends?${qs}`, { headers: authHeaders(token) }),
     fetchClient(`${base}/comparison?${qs}`, { headers: authHeaders(token) }),
     fetchClient(`${base}/open-text-summary?${qs}`, { headers: authHeaders(token) }),
+    fetchClient(`${base}/sentiment-summary?${qs}`, { headers: authHeaders(token) }),
   ]);
   return {
     overview: await throwIfNotOk(overviewRes, '載入總覽失敗'),
@@ -128,6 +129,7 @@ export async function fetchSurveyAnalyticsBundle(token, queryParams) {
     trends: await throwIfNotOk(trendsRes, '載入趨勢失敗'),
     comparison: await throwIfNotOk(compRes, '載入比較失敗'),
     openTextSummary: await throwIfNotOk(openRes, '載入開放題摘要失敗'),
+    sentimentSummary: await throwIfNotOk(sentimentRes, '載入情緒分析失敗'),
   };
 }
 

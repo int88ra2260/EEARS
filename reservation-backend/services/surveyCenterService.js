@@ -390,24 +390,16 @@ async function analyticsComparison(query = {}) {
 }
 
 async function analyticsOpenTextSummary(query = {}) {
-  const where = buildAnalyticsWhere(query);
-  const responseRows = await SurveyModuleResponse.findAll({ where, attributes: ['id'] });
-  const ids = responseRows.map((r) => r.id);
-  if (!ids.length) return { total: 0, rows: [], topTokens: [] };
-  const answerWhere = { responseId: { [Op.in]: ids } };
-  if (query.questionKey) answerWhere.questionKey = query.questionKey;
-  const rows = await SurveyResponseAnswer.findAll({
-    where: answerWhere,
-    attributes: ['responseId', 'questionKey', 'answerText', 'createdAt'],
-    limit: Math.min(Number(query.limit) || 50, 200),
-    order: [['createdAt', 'DESC']],
-    raw: true,
+  const surveySentimentService = require('./surveySentimentService');
+  const limit = Math.min(Number(query.limit) || 50, 200);
+  const { total, rows } = await surveySentimentService.collectOpenTextForAnalytics({
+    ...query,
+    limit,
   });
-  const filtered = rows.filter((r) => r.answerText && String(r.answerText).trim().length >= 2);
   const tokenCount = {};
-  filtered.forEach((r) => {
+  rows.forEach((r) => {
     String(r.answerText)
-      .split(/[\s,，。.!?！？;；:：()\[\]{}\/\\\n\r\t]+/)
+      .split(/[\s,，。.!?！？;；:：()\[\]{}/\\\n\r\t]+/)
       .map((x) => x.trim())
       .filter((x) => x.length >= 2)
       .forEach((x) => {
@@ -418,7 +410,22 @@ async function analyticsOpenTextSummary(query = {}) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 20)
     .map(([token, count]) => ({ token, count }));
-  return { total: filtered.length, rows: filtered, topTokens };
+  return {
+    total,
+    rows: rows.map((r) => ({
+      responseId: r.responseId,
+      questionKey: r.questionKey,
+      answerText: r.answerText,
+      createdAt: r.createdAt,
+      source: r.source,
+    })),
+    topTokens,
+  };
+}
+
+async function analyticsSentimentSummary(query = {}) {
+  const surveySentimentService = require('./surveySentimentService');
+  return surveySentimentService.analyticsSentimentSummary(query);
 }
 
 async function gatingEffectiveForReservation({ eventId, activityType }) {
@@ -739,12 +746,13 @@ async function exportSurveyAnalyticsXlsx(query, res, actorId) {
     endDate: query.endDate || '',
   }).forEach(([k, v]) => filtersWs.addRow({ key: k, value: v }));
 
-  const [overview, distribution, trends, comparison, openText] = await Promise.all([
+  const [overview, distribution, trends, comparison, openText, sentiment] = await Promise.all([
     analyticsOverview(query),
     analyticsDistribution(query),
     analyticsTrends(query),
     analyticsComparison(query),
     analyticsOpenTextSummary({ ...query, limit: Math.min(Number(query.limit) || 200, 200) }),
+    analyticsSentimentSummary({ ...query, limit: Math.min(Number(query.limit) || 200, 500) }),
   ]);
 
   const surveyHealthService = require('./surveyHealthService');
@@ -805,6 +813,47 @@ async function exportSurveyAnalyticsXlsx(query, res, actorId) {
   ];
   (openText?.topTokens || []).forEach((t) => tokenWs.addRow(t));
 
+  const sentOverviewWs = wb.addWorksheet('sentiment_overview');
+  sentOverviewWs.columns = [
+    { header: 'metric', key: 'metric', width: 28 },
+    { header: 'value', key: 'value', width: 20 },
+  ];
+  [
+    ['total', sentiment?.total],
+    ['positive', sentiment?.distribution?.positive],
+    ['neutral', sentiment?.distribution?.neutral],
+    ['negative', sentiment?.distribution?.negative],
+    ['positivePct', sentiment?.percentages?.positive],
+    ['neutralPct', sentiment?.percentages?.neutral],
+    ['negativePct', sentiment?.percentages?.negative],
+    ['averageScore', sentiment?.averageScore],
+    ['method', sentiment?.method],
+  ].forEach(([metric, value]) => sentOverviewWs.addRow({ metric, value: value == null ? '' : value }));
+
+  const sentSampleWs = wb.addWorksheet('sentiment_samples');
+  sentSampleWs.columns = [
+    { header: 'responseId', key: 'responseId', width: 12 },
+    { header: 'questionKey', key: 'questionKey', width: 24 },
+    { header: 'label', key: 'label', width: 12 },
+    { header: 'score', key: 'score', width: 10 },
+    { header: 'confidence', key: 'confidence', width: 12 },
+    { header: 'positiveHits', key: 'positiveHits', width: 28 },
+    { header: 'negativeHits', key: 'negativeHits', width: 28 },
+    { header: 'answerText', key: 'answerText', width: 80 },
+  ];
+  (sentiment?.samples || []).forEach((s) => {
+    sentSampleWs.addRow({
+      responseId: s.responseId,
+      questionKey: s.questionKey,
+      label: s.label,
+      score: s.score,
+      confidence: s.confidence,
+      positiveHits: (s.positiveHits || []).join('|'),
+      negativeHits: (s.negativeHits || []).join('|'),
+      answerText: s.answerText,
+    });
+  });
+
   const dqWs = wb.addWorksheet('data_quality');
   dqWs.columns = [
     { header: 'metric', key: 'metric', width: 32 },
@@ -818,7 +867,10 @@ async function exportSurveyAnalyticsXlsx(query, res, actorId) {
     'SurveyAnalytics',
     String(query.surveyId || 'all'),
     null,
-    { openTextRows: Number(openText?.total || 0) },
+    {
+      openTextRows: Number(openText?.total || 0),
+      sentimentTotal: Number(sentiment?.total || 0),
+    },
     'export survey analytics xlsx'
   );
 
@@ -842,6 +894,7 @@ module.exports = {
   analyticsTrends,
   analyticsComparison,
   analyticsOpenTextSummary,
+  analyticsSentimentSummary,
   gatingEffectiveForReservation,
   submitSurvey,
   myStatus,

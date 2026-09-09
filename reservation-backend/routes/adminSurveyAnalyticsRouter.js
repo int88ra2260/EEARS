@@ -97,6 +97,18 @@ router.get('/open-text-summary', authMiddleware, requirePermission(P.CAN_VIEW_SU
   }
 });
 
+router.get('/sentiment-summary', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_ANALYTICS), attachSurveyAnalyticsScope, async (req, res, next) => {
+  try {
+    const [data, dataQuality] = await Promise.all([
+      surveyCenterService.analyticsSentimentSummary(req.scopedSurveyQuery),
+      surveyHealthService.dataQualityForWhere(buildWhere(req.scopedSurveyQuery)),
+    ]);
+    res.json({ ...data, dataQuality });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/export/xlsx', authMiddleware, requirePermission(P.CAN_EXPORT_SURVEY_RESPONSES), attachSurveyAnalyticsScope, async (req, res, next) => {
   try {
     await surveyCenterService.exportSurveyAnalyticsXlsx(req.scopedSurveyQuery, res, req.user?.id);

@@ -1,11 +1,25 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import Card from 'react-bootstrap/Card';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
+import Badge from 'react-bootstrap/Badge';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts';
 import useToast from '../../components/ui/useToast';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
@@ -15,6 +29,35 @@ import {
   fetchSurveyAnalyticsBundle,
   fetchSurveyCenterOptions,
 } from '../../services/surveyAdminApi';
+
+const SENTIMENT_COLORS = {
+  positive: '#198754',
+  neutral: '#6c757d',
+  negative: '#dc3545',
+};
+
+const SENTIMENT_LABELS = {
+  positive: '正向',
+  neutral: '中性',
+  negative: '負向',
+};
+
+function sentimentBadge(label) {
+  const bg = label === 'positive' ? 'success' : label === 'negative' ? 'danger' : 'secondary';
+  return <Badge bg={bg}>{SENTIMENT_LABELS[label] || label}</Badge>;
+}
+
+const EMPTY_SENTIMENT = {
+  total: 0,
+  distribution: { positive: 0, neutral: 0, negative: 0 },
+  percentages: { positive: 0, neutral: 0, negative: 0 },
+  averageScore: 0,
+  byQuestion: [],
+  topPositiveTerms: [],
+  topNegativeTerms: [],
+  samples: [],
+  method: '',
+};
 
 export default function AdminSurveyAnalyticsPage() {
   const { surveyId } = useParams();
@@ -32,7 +75,14 @@ export default function AdminSurveyAnalyticsPage() {
   const [trends, setTrends] = useState([]);
   const [comparison, setComparison] = useState([]);
   const [openText, setOpenText] = useState({ total: 0, rows: [], topTokens: [] });
+  const [sentiment, setSentiment] = useState(EMPTY_SENTIMENT);
   const [dataQuality, setDataQuality] = useState(null);
+
+  const sentimentPieData = useMemo(() => ([
+    { name: '正向', key: 'positive', value: sentiment.distribution?.positive || 0 },
+    { name: '中性', key: 'neutral', value: sentiment.distribution?.neutral || 0 },
+    { name: '負向', key: 'negative', value: sentiment.distribution?.negative || 0 },
+  ]), [sentiment.distribution]);
 
   const loadOptions = useCallback(async () => {
     const data = await fetchSurveyCenterOptions(token);
@@ -49,14 +99,23 @@ export default function AdminSurveyAnalyticsPage() {
       setLoading(true);
       setError('');
       const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null)));
-      const { overview: oa, distribution: ob, trends: oc, comparison: od, openTextSummary: oe } =
-        await fetchSurveyAnalyticsBundle(token, q);
+      const {
+        overview: oa,
+        distribution: ob,
+        trends: oc,
+        comparison: od,
+        openTextSummary: oe,
+        sentimentSummary: os,
+      } = await fetchSurveyAnalyticsBundle(token, q);
       setOverview(oa);
       setDistribution(ob.questions || []);
       setTrends(oc.rows || []);
       setComparison(od.rows || []);
       setOpenText(oe || { total: 0, rows: [], topTokens: [] });
-      setDataQuality(oa.dataQuality || ob.dataQuality || oc.dataQuality || od.dataQuality || oe.dataQuality || null);
+      setSentiment(os || EMPTY_SENTIMENT);
+      setDataQuality(
+        oa.dataQuality || ob.dataQuality || oc.dataQuality || od.dataQuality || oe.dataQuality || os.dataQuality || null,
+      );
     } catch (err) {
       setError(err.message || '載入失敗');
     } finally {
@@ -98,7 +157,7 @@ export default function AdminSurveyAnalyticsPage() {
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
           <h2 className="h4 text-primary mb-1">問卷分析</h2>
-          <div className="text-muted small">MVP：KPI / 分布 / 趨勢 / 比較 / 開放題摘要</div>
+          <div className="text-muted small">KPI / 分布 / 趨勢 / 比較 / 開放題摘要 / 情緒分析</div>
         </div>
         <div className="d-flex gap-2">
           {canExport ? (
@@ -136,6 +195,7 @@ export default function AdminSurveyAnalyticsPage() {
             <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">平均滿意度</div><div className="h5 mb-0">{overview.averageSatisfaction}</div></Card.Body></Card></div>
             <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">活動覆蓋</div><div className="h5 mb-0">{overview.activityCoverage}</div></Card.Body></Card></div>
             <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">問卷覆蓋</div><div className="h5 mb-0">{overview.surveyCoverage}</div></Card.Body></Card></div>
+            <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">開放題情緒</div><div className="h5 mb-0">{sentiment.total ? `${sentiment.percentages.positive}% 正向` : '—'}</div></Card.Body></Card></div>
           </div>
 
           <div className="row g-3">
@@ -170,6 +230,98 @@ export default function AdminSurveyAnalyticsPage() {
               </Card>
             </div>
           </div>
+
+          <Card className="border-0 shadow-sm mt-3">
+            <Card.Header className="bg-white fw-semibold d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <span>開放題情緒分析</span>
+              <span className="small text-muted">詞典規則法（中英）· {sentiment.method || '—'}</span>
+            </Card.Header>
+            <Card.Body>
+              {sentiment.total === 0 ? (
+                <div className="text-muted small">目前篩選範圍沒有可分析的開放題文字（常見於僅有量表題的 ET 問卷）。</div>
+              ) : (
+                <>
+                  <div className="row g-3 mb-3">
+                    <div className="col-md-4">
+                      <div className="small text-muted">分析筆數</div>
+                      <div className="h5 mb-0">{sentiment.total}</div>
+                    </div>
+                    <div className="col-md-4">
+                      <div className="small text-muted">平均情緒分數</div>
+                      <div className="h5 mb-0">{sentiment.averageScore}</div>
+                      <div className="text-muted small">正值偏正向、負值偏負向</div>
+                    </div>
+                    <div className="col-md-4">
+                      <div className="small text-muted mb-1">分布</div>
+                      <div className="d-flex flex-wrap gap-2">
+                        <Badge bg="success">正向 {sentiment.distribution.positive}（{sentiment.percentages.positive}%）</Badge>
+                        <Badge bg="secondary">中性 {sentiment.distribution.neutral}（{sentiment.percentages.neutral}%）</Badge>
+                        <Badge bg="danger">負向 {sentiment.distribution.negative}（{sentiment.percentages.negative}%）</Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="row g-3">
+                    <div className="col-lg-5">
+                      <div style={{ height: 240 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={sentimentPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                              {sentimentPieData.map((entry) => (
+                                <Cell key={entry.key} fill={SENTIMENT_COLORS[entry.key]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    <div className="col-lg-7">
+                      <div className="small fw-semibold mb-1">正向關鍵詞</div>
+                      <div className="small text-muted mb-2">
+                        {(sentiment.topPositiveTerms || []).slice(0, 10).map((t) => `${t.term}(${t.count})`).join('、') || '—'}
+                      </div>
+                      <div className="small fw-semibold mb-1">負向關鍵詞</div>
+                      <div className="small text-muted mb-3">
+                        {(sentiment.topNegativeTerms || []).slice(0, 10).map((t) => `${t.term}(${t.count})`).join('、') || '—'}
+                      </div>
+                      {(sentiment.byQuestion || []).length > 0 ? (
+                        <div>
+                          <div className="small fw-semibold mb-1">依題目</div>
+                          {(sentiment.byQuestion || []).slice(0, 6).map((q) => (
+                            <div key={q.questionKey} className="small border-bottom py-1">
+                              <span className="font-monospace">{q.questionKey}</span>
+                              {' · '}
+                              正 {q.positive}／中 {q.neutral}／負 {q.negative}
+                              {' · '}
+                              avg {q.averageScore}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <div className="fw-semibold small mb-2">樣本標註（最多 30）</div>
+                    <div style={{ maxHeight: 280, overflow: 'auto' }}>
+                      {(sentiment.samples || []).map((s, idx) => (
+                        <div key={`${s.responseId}-${s.questionKey}-${idx}`} className="small border-bottom py-2">
+                          <div className="d-flex flex-wrap gap-2 align-items-center mb-1">
+                            {sentimentBadge(s.label)}
+                            <span className="text-muted">score {s.score}</span>
+                            <span className="text-muted">{s.questionKey} / #{s.responseId}</span>
+                          </div>
+                          <div style={{ whiteSpace: 'pre-wrap' }}>{s.answerText}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </Card.Body>
+          </Card>
 
           <Card className="border-0 shadow-sm mt-3">
             <Card.Header className="bg-white fw-semibold">Distribution（單選/多選/量表）</Card.Header>
