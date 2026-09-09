@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useLanguage } from '../../context/LanguageContext';
+import useMediaQuery from '../../hooks/useMediaQuery';
 import WordBridgeStyleSurvey from './WordBridgeStyleSurvey';
 import ActivityRecommendationList from './ActivityRecommendationList';
 import {
   buildPreferenceRecommendations,
   DEFAULT_WORD_BRIDGE_PREFERENCES,
 } from '../../utils/wordBridgeRecommendations';
+import { backdropMotion, sheetPanelMotion } from '../../utils/motionPresets';
 import './LearningStyleModal.css';
 
 /**
@@ -25,6 +28,10 @@ export default function LearningStyleModal({
   onComplete,
 }) {
   const { t } = useLanguage();
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const reduceMotion = useReducedMotion();
+  const backdropPresence = backdropMotion(reduceMotion);
+  const panelPresence = sheetPanelMotion(reduceMotion, isMobile);
   const [draft, setDraft] = useState(
     () => initialPrefs || DEFAULT_WORD_BRIDGE_PREFERENCES,
   );
@@ -62,68 +69,75 @@ export default function LearningStyleModal({
     onClose();
   }, [draft, onComplete, onClose]);
 
-  if (!open || typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div
-      className="learning-style-modal-backdrop"
-      onClick={onClose}
-      role="presentation"
-    >
-      <div
-        className="learning-style-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="learning-style-modal-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="learning-style-modal__header">
-          <div>
-            <p className="learning-style-modal__kicker">{t('activitiesPage.styleToolTitle')}</p>
-            <h2 id="learning-style-modal-title" className="learning-style-modal__title">
-              {t('wordBridge.surveyTitle')}
-            </h2>
-          </div>
-          <button
-            type="button"
-            className="learning-style-modal__close"
-            onClick={onClose}
-            aria-label={t('learningStyleModal.close')}
+    <AnimatePresence>
+      {open ? (
+        <motion.div
+          key="learning-style-modal"
+          className="learning-style-modal-backdrop"
+          onClick={onClose}
+          role="presentation"
+          {...backdropPresence}
+        >
+          <motion.div
+            className="learning-style-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="learning-style-modal-title"
+            onClick={(event) => event.stopPropagation()}
+            {...panelPresence}
           >
-            ×
-          </button>
-        </div>
+            <div className="learning-style-modal__header">
+              <div>
+                <p className="learning-style-modal__kicker">{t('activitiesPage.styleToolTitle')}</p>
+                <h2 id="learning-style-modal-title" className="learning-style-modal__title">
+                  {t('wordBridge.surveyTitle')}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="learning-style-modal__close"
+                onClick={onClose}
+                aria-label={t('learningStyleModal.close')}
+              >
+                ×
+              </button>
+            </div>
 
-        <div className="learning-style-modal__body">
-          <p className="learning-style-modal__lead">{t('activitiesPage.styleToolLead')}</p>
+            <div className="learning-style-modal__body">
+              <p className="learning-style-modal__lead">{t('activitiesPage.styleToolLead')}</p>
 
-          <WordBridgeStyleSurvey
-            embedded
-            t={t}
-            value={draft}
-            onChange={setDraft}
-          />
+              <WordBridgeStyleSurvey
+                embedded
+                t={t}
+                value={draft}
+                onChange={setDraft}
+              />
 
-          <p className="learning-style-modal__rec-label">{t('activitiesPage.recommendedActivities')}</p>
-          <ActivityRecommendationList
-            activities={recommendations.activities}
-            t={t}
-            compact
-            reasonPrefix="wordBridge.preferenceReason"
-          />
-        </div>
+              <p className="learning-style-modal__rec-label">{t('activitiesPage.recommendedActivities')}</p>
+              <ActivityRecommendationList
+                activities={recommendations.activities}
+                t={t}
+                compact
+                reasonPrefix="wordBridge.preferenceReason"
+              />
+            </div>
 
-        <div className="learning-style-modal__footer">
-          <button
-            type="button"
-            className="learning-style-modal__done"
-            onClick={handleComplete}
-          >
-            {t('learningStyleModal.done')}
-          </button>
-        </div>
-      </div>
-    </div>,
+            <div className="learning-style-modal__footer">
+              <button
+                type="button"
+                className="learning-style-modal__done"
+                onClick={handleComplete}
+              >
+                {t('learningStyleModal.done')}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>,
     document.body,
   );
 }

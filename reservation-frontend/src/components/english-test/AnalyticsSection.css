@@ -1,76 +1,4 @@
-/* 培力英檢數據分析圖表（Recharts + Bklit 風格參考） */
-
-.et-analytics-card {
-  border: 0;
-  box-shadow: 0 1px 2px rgba(47, 52, 55, 0.04), 0 8px 24px rgba(49, 95, 143, 0.06);
-  border-radius: 12px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.et-analytics-card__header {
-  background: transparent;
-  border-bottom: 0;
-  padding-top: 1.1rem;
-}
-
-.et-analytics-skeleton {
-  width: min(100%, 420px);
-  height: 160px;
-  border-radius: 12px;
-  background: linear-gradient(
-    110deg,
-    #eef2f6 25%,
-    #f7f9fb 37%,
-    #eef2f6 63%
-  );
-  background-size: 200% 100%;
-  animation: et-analytics-shimmer 1.2s ease-in-out infinite;
-}
-
-@keyframes et-analytics-shimmer {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .et-analytics-skeleton {
-    animation: none;
-  }
-}
-
-.et-analytics-tooltip {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.65rem 0.8rem;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(49, 95, 143, 0.12);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(47, 52, 55, 0.12);
-  backdrop-filter: blur(6px);
-  min-width: 9rem;
-}
-
-.et-analytics-tooltip__swatch {
-  width: 0.35rem;
-  align-self: stretch;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-
-.et-analytics-tooltip__label {
-  font-size: 0.8rem;
-  color: #6a7176;
-  line-height: 1.3;
-  max-width: 14rem;
-}
-
-.et-analytics-tooltip__value {
-  font-size: 0.95rem;
-  font-weight: 650;
-  color: #2f3437;
-}
+/* 培力英檢數據分析 — 圖表殼層改用共用 kit；此檔保留圓環 legend／donut 專用樣式 */
 
 .et-analytics-donut-value {
   font-size: 1.65rem;
@@ -81,15 +9,6 @@
 .et-analytics-donut-label {
   font-size: 0.78rem;
   fill: #6a7176;
-}
-
-.et-analytics-dot {
-  display: inline-block;
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 999px;
-  margin-right: 0.45rem;
-  vertical-align: middle;
 }
 
 .et-analytics-legend {
@@ -117,8 +36,8 @@
 
 .et-analytics-legend__item:hover,
 .et-analytics-legend__item.is-active {
-  background: #eef5fb;
-  border-color: rgba(49, 95, 143, 0.18);
+  background: #eaf1fc;
+  border-color: rgba(42, 93, 159, 0.18);
 }
 
 .et-analytics-legend__item.is-dimmed {

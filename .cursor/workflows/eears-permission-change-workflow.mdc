@@ -43,7 +43,7 @@ alwaysApply: false
 - `cd reservation-backend && npm test -- --runInBand`
 
 前端跑：
-- `cd reservation-frontend && npm test -- --watchAll=false && npm run lint && npm run build`
+- `cd reservation-frontend && npm test && npm run lint && npm run build`
 
 ## 5) Code review 步驟
 

@@ -9,11 +9,12 @@ export const STATUS_STYLES = {
 };
 
 export function highlightText(text, keyword) {
-  if (!keyword || !text) return text;
-  const regex = new RegExp(`(${keyword})`, 'gi');
+  if (!keyword || text == null || text === '') return text;
+  const safe = String(keyword).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${safe})`, 'gi');
   const parts = String(text).split(regex);
   return parts.map((part, index) =>
-    regex.test(part) ? (
+    part.toLowerCase() === String(keyword).toLowerCase() ? (
       <mark key={index} style={{ backgroundColor: '#ffeb3b', padding: '0' }}>
         {part}
       </mark>

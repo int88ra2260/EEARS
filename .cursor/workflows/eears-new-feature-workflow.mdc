@@ -42,7 +42,7 @@ alwaysApply: false
    - 視需要補測試到：
      - `tests/security/*Auth*.test.js` 或 `*ScopeGuard*`
 2. 前端：
-   - `cd reservation-frontend && npm test -- --watchAll=false`
+   - `cd reservation-frontend && npm test`
    - `npm run lint`
    - `npm run build`
 

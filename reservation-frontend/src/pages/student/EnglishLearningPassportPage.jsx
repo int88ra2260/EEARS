@@ -271,7 +271,7 @@ export default function EnglishLearningPassportPage() {
                       onChange={(e) => setForm({ ...form, studentEmail: e.target.value })}
                       isInvalid={!!fieldErrors.studentEmail}
                       aria-describedby={fieldErrors.studentEmail ? 'elp-student-email-error' : undefined}
-                      placeholder="學號@student.nsysu.edu.tw"
+                      placeholder="例：學號@student.nsysu.edu.tw"
                     />
                     <Form.Control.Feedback type="invalid" id="elp-student-email-error">
                       {fieldErrors.studentEmail}

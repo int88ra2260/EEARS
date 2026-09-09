@@ -18,7 +18,7 @@ EEARS（English Enhancement and Activity Reservation System）是成大英語中
 | 層級 | 技術 |
 |------|------|
 | 後端 | Node.js 20、Express 4、Sequelize 6、MySQL、Jest |
-| 前端 | React 18、CRA、React Router 7、Bootstrap 5、axios/fetch |
+| 前端 | React 18、Vite、React Router 7、Bootstrap 5、axios/fetch |
 | 部署 | Windows IIS + Node；SPA fallback |
 | CI | GitHub Actions（`.github/workflows/ci.yml`） |
 
@@ -99,7 +99,7 @@ EEARS/
 
 ### 修 CI 失敗
 
-1. 本機重現：`npm test -- --runInBand`（backend）或 `npm test -- --watchAll=false`（frontend）
+1. 本機重現：`npm test -- --runInBand`（backend）或 `npm test`（frontend）
 2. 修復後跑完整 CI 檢查鏈
 3. 勿跳過 pre-commit hooks
 

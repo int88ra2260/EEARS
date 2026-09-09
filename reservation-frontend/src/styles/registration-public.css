@@ -1,14 +1,14 @@
-/* 培力英檢／團體報名 — 公開頁學術風（無漸層、無大幅動畫） */
+/* 培力英檢／團體報名 — 公開頁學術藍（與 design-system / emi-brand 對齊） */
 
 .public-registration {
-  --reg-canvas: #fbfbfa;
-  --reg-surface: #ffffff;
-  --reg-border: #e3eaf3;
-  --reg-primary: #2a5d9f;
-  --reg-primary-dark: #1c3d6e;
-  --reg-primary-light: #eaf1fc;
-  --reg-text: #2f3437;
-  --reg-text-muted: #6c757d;
+  --reg-canvas: var(--color-bg-primary, #f7f9fc);
+  --reg-surface: var(--color-bg-paper, #ffffff);
+  --reg-border: var(--color-border, #d8e0ea);
+  --reg-primary: var(--color-primary, #2a5d9f);
+  --reg-primary-dark: var(--color-primary-dark, #1c3d6e);
+  --reg-primary-light: var(--color-primary-light, #eaf1fc);
+  --reg-text: var(--color-text-primary, #2f3437);
+  --reg-text-muted: var(--color-text-muted, #6a7176);
   min-height: 100dvh;
   background: var(--reg-canvas);
   padding: 1rem;

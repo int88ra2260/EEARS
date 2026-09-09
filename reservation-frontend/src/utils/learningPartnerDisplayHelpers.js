@@ -7,7 +7,7 @@ export const TEAM_STATUS_MAP = {
 
 export const TEAM_CARD_COLORS = [
   { header: '#17a2b8', bg: '#e7f3f5' },
-  { header: '#007bff', bg: '#e7f0ff' },
+  { header: '#2a5d9f', bg: '#e7f0ff' },
   { header: '#6f42c1', bg: '#f0e7ff' },
   { header: '#dc3545', bg: '#ffe7e7' },
   { header: '#fd7e14', bg: '#fff4e7' },

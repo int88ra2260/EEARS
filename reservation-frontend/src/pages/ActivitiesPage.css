@@ -1,13 +1,13 @@
 .activities-page {
-  --activities-canvas: #f9f4ec;
+  --activities-canvas: #f7f9fc;
   --activities-surface: #ffffff;
-  --activities-bone: #f7f6f3;
-  --activities-border: #eaeaea;
-  --activities-ink: #111111;
-  --activities-muted: #787774;
-  --activities-soft: #2f3437;
-  --activities-serif: 'Newsreader', 'Georgia', 'Times New Roman', serif;
-  --activities-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --activities-bone: #eef2f7;
+  --activities-border: #d8e0ea;
+  --activities-ink: #2f3437;
+  --activities-muted: #6a7176;
+  --activities-soft: #3d4450;
+  --activities-serif: 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif;
+  --activities-mono: 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
   max-width: 1120px;
   margin-inline: auto;
   padding: 0 1rem 3rem;
@@ -127,13 +127,13 @@
 }
 
 .activities-flow-link:hover {
-  border-color: #d4564a;
-  background: #fdf0ee;
-  color: #b8453a;
+  border-color: #2a5d9f;
+  background: #eaf1fc;
+  color: #1c3d6e;
 }
 
 .activities-flow-link:focus-visible {
-  outline: 2px solid #d4564a;
+  outline: 2px solid #2a5d9f;
   outline-offset: 2px;
 }
 

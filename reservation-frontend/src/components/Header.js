@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useLanguage } from '../context/LanguageContext';
 import { LANG_ZH, LANG_EN } from '../context/LanguageContext';
 import { useSiteContentPreview } from '../context/SiteContentPreviewShell';
 import useMediaQuery from '../hooks/useMediaQuery';
 import { fetchEnglishTestRegistrationEnabledPublic } from '../services/settingsAdminApi';
+import { backdropMotion, drawerPanelMotion } from '../utils/motionPresets';
 import './Header.css';
 
 /** 任務導覽：學生最常用的動作 */
@@ -31,6 +33,9 @@ export default function Header() {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [menuOpen, setMenuOpen] = useState(false);
   const [englishTestEnabled, setEnglishTestEnabled] = useState(true);
+  const reduceMotion = useReducedMotion();
+  const backdropPresence = backdropMotion(reduceMotion);
+  const drawerPresence = drawerPanelMotion(reduceMotion);
 
   const pathname = preview?.isPreview ? preview.previewPath : location.pathname;
   const isPublicSurface = preview?.isPreview
@@ -159,15 +164,24 @@ export default function Header() {
                 <span />
               </button>
             </div>
-            {menuOpen && (
-              <>
-                <button
+            <AnimatePresence>
+              {menuOpen ? (
+                <motion.button
+                  key="header-drawer-backdrop"
                   type="button"
                   className="header-drawer-backdrop"
                   aria-label={t('a11y.closeMenu')}
                   onClick={() => setMenuOpen(false)}
+                  {...backdropPresence}
                 />
-                <nav className="header-nav-mobile" aria-label={t('a11y.mainNavigation')}>
+              ) : null}
+              {menuOpen ? (
+                <motion.nav
+                  key="header-nav-mobile"
+                  className="header-nav-mobile"
+                  aria-label={t('a11y.mainNavigation')}
+                  {...drawerPresence}
+                >
                   <div className="nav-group-mobile nav-group-mobile--task" role="group" aria-label={t('nav.groupTask')}>
                     {renderLinks(TASK_NAV, true)}
                   </div>
@@ -176,9 +190,9 @@ export default function Header() {
                     {renderLinks(EXPLORE_NAV, true)}
                     {englishTestLink(true)}
                   </div>
-                </nav>
-              </>
-            )}
+                </motion.nav>
+              ) : null}
+            </AnimatePresence>
           </>
         ) : (
           <nav className="header-nav" aria-label={t('a11y.mainNavigation')}>

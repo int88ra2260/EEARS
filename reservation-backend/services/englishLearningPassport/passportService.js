@@ -24,7 +24,7 @@ const {
   meetsDirectEnglishStandard,
 } = require('./pointValidationService');
 const { logElpAudit } = require('./auditService');
-const { validateReservationData, validateNsysuStudentEmail } = require('../../utils/validators');
+const { validateReservationData, validateNsysuStudentEmail, nsysuAllowedEmailDomainsHint } = require('../../utils/validators');
 const elpEmailVerificationService = require('./elpEmailVerificationService');
 
 function normalizeStudentContext(ctx) {
@@ -45,7 +45,7 @@ function assertValidStudentContext(ctx) {
     throw err;
   }
   if (!validateNsysuStudentEmail(n.studentEmail)) {
-    const err = new Error('請使用中山大學學生信箱（@student.nsysu.edu.tw）');
+    const err = new Error(`請使用中山大學校內信箱（${nsysuAllowedEmailDomainsHint()}）`);
     err.status = 400;
     err.code = 'INVALID_STUDENT_EMAIL_DOMAIN';
     throw err;
@@ -54,7 +54,7 @@ function assertValidStudentContext(ctx) {
 }
 
 /**
- * 舊申請若使用非中山學生信箱，允許在學號＋姓名相符時改綁 @student.nsysu.edu.tw。
+ * 舊申請若使用非校內信箱，允許在學號＋姓名相符時改綁允許的中山大學校內信箱。
  */
 async function maybeMigratePassportEmailToNsysu(passport, ctx, transaction) {
   const n = normalizeStudentContext(ctx);

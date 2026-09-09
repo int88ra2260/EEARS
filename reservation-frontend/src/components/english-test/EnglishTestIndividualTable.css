@@ -1,0 +1,15 @@
+/* 個人報名列表：避免 overflow 捲動區把下拉選單高度算進去造成大片留白 */
+
+.et-individual-table-anchor {
+  /* 僅作捲動還原錨點／結構包裹，不要設 max-height + overflow */
+}
+
+.et-enhanced-table-x {
+  /* 僅橫向溢出時捲動；縱向交給頁面，避免 absolute 選單撐高 scrollHeight */
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.et-enhanced-table-x .dropdown-menu {
+  z-index: 1080;
+}

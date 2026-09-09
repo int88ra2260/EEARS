@@ -1,7 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import ToastMessage from './ToastMessage';
 import ConfirmDialog from './ConfirmDialog';
 import AlertDialog from './AlertDialog';
+import { toastMotion } from '../../utils/motionPresets';
 
 const ToastContext = createContext(null);
 const ConfirmContext = createContext(null);
@@ -22,6 +24,8 @@ function nextId() {
  * - window.dispatchEvent(new CustomEvent('eears:alert', { detail: { title, description, variant } }))
  */
 export default function ToastProvider({ children }) {
+  const reduceMotion = useReducedMotion();
+  const toastPresence = toastMotion(reduceMotion);
   const [toasts, setToasts] = useState([]);
 
   const pushToast = useCallback((message, variant = 'success', options = {}) => {
@@ -174,17 +178,25 @@ export default function ToastProvider({ children }) {
             aria-live="polite"
             aria-relevant="additions"
           >
-            {toasts.map((t) => (
-              <div key={t.id} className="mb-2">
-                <ToastMessage
-                  show={true}
-                  message={t.message}
-                  variant={t.variant}
-                  duration={t.duration}
-                  onClose={() => closeToast(t.id)}
-                />
-              </div>
-            ))}
+            <AnimatePresence initial={false}>
+              {toasts.map((t) => (
+                <motion.div
+                  key={t.id}
+                  className="mb-2"
+                  layout={!reduceMotion}
+                  {...toastPresence}
+                >
+                  <ToastMessage
+                    show={true}
+                    inline
+                    message={t.message}
+                    variant={t.variant}
+                    duration={t.duration}
+                    onClose={() => closeToast(t.id)}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </AlertContext.Provider>
       </ConfirmContext.Provider>

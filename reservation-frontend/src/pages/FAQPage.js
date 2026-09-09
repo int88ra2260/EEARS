@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useLanguage } from '../context/LanguageContext';
 import useFaqItems, { pickLocalizedText } from '../hooks/useFaqItems';
 import PageHeader from '../components/layout/PageHeader';
+import { accordionPanelMotion } from '../utils/motionPresets';
 import './FAQPage.css';
 
 export default function FAQPage() {
   const { t, lang } = useLanguage();
   const { faqItems } = useFaqItems();
   const [openId, setOpenId] = useState(null);
+  const reduceMotion = useReducedMotion();
+  const panelPresence = accordionPanelMotion(reduceMotion);
 
   const breadcrumbs = [
     { label: t('nav.home'), path: '/' },
@@ -36,15 +40,21 @@ export default function FAQPage() {
                 <span>{question}</span>
                 <span className="faq-page-icon" aria-hidden>{isOpen ? '-' : '+'}</span>
               </button>
-              <div
-                id={`faq-${itemId}-answer`}
-                role="region"
-                aria-labelledby={`faq-${itemId}-q`}
-                className="faq-page-answer"
-                hidden={!isOpen}
-              >
-                {answer}
-              </div>
+              <AnimatePresence initial={false}>
+                {isOpen ? (
+                  <motion.div
+                    key="answer"
+                    id={`faq-${itemId}-answer`}
+                    role="region"
+                    aria-labelledby={`faq-${itemId}-q`}
+                    className="faq-page-answer"
+                    style={{ overflow: 'hidden' }}
+                    {...panelPresence}
+                  >
+                    {answer}
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
             </div>
           );
         })}

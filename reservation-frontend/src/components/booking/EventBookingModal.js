@@ -4,8 +4,7 @@
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Modal, Button } from 'react-bootstrap';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
+import { animate, stagger } from 'motion';
 import useEventBooking from '../../hooks/useEventBooking';
 import EventBookingSummary from './EventBookingSummary';
 import EventBookingFormSection from './EventBookingFormSection';
@@ -18,7 +17,7 @@ import '../../styles/student-events.css';
 import BookingSuccessView from './BookingSuccessView';
 import { getEventBookingState } from '../../utils/eventBookingState';
 
-gsap.registerPlugin(useGSAP);
+const BOOKING_EASE = [0.16, 1, 0.3, 1];
 
 export default function EventBookingModal({ show, event, onClose }) {
   const { t, lang } = useLanguage();
@@ -149,118 +148,116 @@ export default function EventBookingModal({ show, event, onClose }) {
   const showStep1Form = bookingStep === 1 && (!isMobile || mobileSubStep === 'form');
   const isMobileSessionPanel = isMobile && bookingStep === 1 && mobileSubStep === 'session';
 
-  useGSAP(() => {
+  useEffect(() => {
     if (!show) {
       wasOpenRef.current = false;
       return undefined;
     }
 
+    const root = bodyScopeRef.current;
+    if (!root) return undefined;
+
     const isOpening = !wasOpenRef.current;
     wasOpenRef.current = true;
 
-    const mm = gsap.matchMedia();
-    mm.add(
-      { reduceMotion: '(prefers-reduced-motion: reduce)' },
-      (context) => {
-        const { reduceMotion } = context.conditions;
-        const duration = reduceMotion ? 0 : 0.42;
-        const stagger = reduceMotion ? 0 : 0.07;
-        const ease = 'power2.out';
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration = reduceMotion ? 0 : 0.42;
+    const staggerStep = reduceMotion ? 0 : 0.07;
+    const controls = [];
 
-        if (isOpening) {
-          gsap.from('[data-booking-intro]', {
-            autoAlpha: 0,
-            y: -10,
-            duration,
-            ease,
-          });
-          gsap.from('[data-booking-step-dot]', {
-            autoAlpha: 0,
-            scale: 0.85,
-            duration,
-            stagger,
-            ease,
-          });
-          gsap.from('[data-booking-summary]', {
-            autoAlpha: 0,
-            y: 14,
-            duration,
-            delay: reduceMotion ? 0 : 0.08,
-            ease,
-          });
-        }
+    if (isOpening) {
+      const intro = root.querySelector('[data-booking-intro]');
+      const dots = root.querySelectorAll('[data-booking-step-dot]');
+      const summary = root.querySelector('[data-booking-summary]');
 
-        const activePanel = bodyScopeRef.current?.querySelector(
-          `[data-booking-step="${bookingStep}"]`,
+      if (intro) {
+        controls.push(
+          animate(intro, { opacity: [0, 1], y: [-10, 0] }, { duration, ease: BOOKING_EASE }),
         );
-        if (activePanel) {
-          gsap.from(activePanel, {
-            autoAlpha: 0,
-            y: 18,
-            duration,
-            ease,
-          });
-        }
-
-        const activeDot = bodyScopeRef.current?.querySelector(
-          `[data-booking-step-dot="${bookingStep}"]`,
+      }
+      if (dots.length) {
+        controls.push(
+          animate(
+            dots,
+            { opacity: [0, 1], scale: [0.85, 1] },
+            { duration, delay: stagger(staggerStep), ease: BOOKING_EASE },
+          ),
         );
-        if (activeDot && duration > 0) {
-          gsap.fromTo(
-            activeDot,
-            { scale: 0.82 },
-            { scale: 1, duration: 0.34, ease: 'back.out(1.6)' },
-          );
+      }
+      if (summary) {
+        controls.push(
+          animate(
+            summary,
+            { opacity: [0, 1], y: [14, 0] },
+            { duration, delay: reduceMotion ? 0 : 0.08, ease: BOOKING_EASE },
+          ),
+        );
+      }
+    }
+
+    const activePanel = root.querySelector(`[data-booking-step="${bookingStep}"]`);
+    if (activePanel) {
+      controls.push(
+        animate(activePanel, { opacity: [0, 1], y: [18, 0] }, { duration, ease: BOOKING_EASE }),
+      );
+    }
+
+    const activeDot = root.querySelector(`[data-booking-step-dot="${bookingStep}"]`);
+    if (activeDot && duration > 0) {
+      controls.push(
+        animate(activeDot, { scale: [0.82, 1] }, { duration: 0.34, ease: [0.34, 1.56, 0.64, 1] }),
+      );
+    }
+
+    return () => {
+      controls.forEach((c) => {
+        try {
+          c?.stop?.();
+        } catch (_) {
+          /* ignore */
         }
+      });
+    };
+  }, [show, bookingStep]);
 
-        return undefined;
-      },
-      bodyScopeRef,
-    );
-
-    return () => mm.revert();
-  }, {
-    scope: bodyScopeRef,
-    dependencies: [show, bookingStep],
-    revertOnUpdate: true,
-  });
-
-  useGSAP(() => {
+  useEffect(() => {
     if (!blacklist?.showBlacklistModal) return undefined;
 
-    const mm = gsap.matchMedia();
-    mm.add(
-      { reduceMotion: '(prefers-reduced-motion: reduce)' },
-      (context) => {
-        const { reduceMotion } = context.conditions;
-        const duration = reduceMotion ? 0 : 0.38;
-        const ease = 'power2.out';
+    const root = blacklistScopeRef.current;
+    if (!root) return undefined;
 
-        gsap.from('[data-blacklist-intro]', {
-          autoAlpha: 0,
-          y: 16,
-          duration,
-          ease,
-        });
-        gsap.from('[data-blacklist-detail]', {
-          autoAlpha: 0,
-          y: 12,
-          duration,
-          stagger: reduceMotion ? 0 : 0.08,
-          ease,
-        });
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration = reduceMotion ? 0 : 0.38;
+    const controls = [];
 
-        return undefined;
-      },
-      blacklistScopeRef,
-    );
+    const intro = root.querySelector('[data-blacklist-intro]');
+    const details = root.querySelectorAll('[data-blacklist-detail]');
 
-    return () => mm.revert();
-  }, {
-    scope: blacklistScopeRef,
-    dependencies: [blacklist?.showBlacklistModal],
-    revertOnUpdate: true,
-  });
+    if (intro) {
+      controls.push(
+        animate(intro, { opacity: [0, 1], y: [16, 0] }, { duration, ease: BOOKING_EASE }),
+      );
+    }
+    if (details.length) {
+      controls.push(
+        animate(
+          details,
+          { opacity: [0, 1], y: [12, 0] },
+          { duration, delay: stagger(reduceMotion ? 0 : 0.08), ease: BOOKING_EASE },
+        ),
+      );
+    }
+
+    return () => {
+      controls.forEach((c) => {
+        try {
+          c?.stop?.();
+        } catch (_) {
+          /* ignore */
+        }
+      });
+    };
+  }, [blacklist?.showBlacklistModal]);
 
   if (!event) return null;
   const surveyKeyByEventType = event.eventType === 'English Club'

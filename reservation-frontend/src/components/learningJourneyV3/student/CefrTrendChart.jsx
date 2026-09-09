@@ -44,7 +44,7 @@ export default function CefrTrendChart({ trends, emptyReason }) {
           />
           <Tooltip formatter={(value) => CEFR_LABEL[value] || value} />
           <Legend />
-          <Line type="monotone" dataKey="listening" name="聽力" stroke="#0d6efd" connectNulls />
+          <Line type="monotone" dataKey="listening" name="聽力" stroke="#2a5d9f" connectNulls />
           <Line type="monotone" dataKey="reading" name="閱讀" stroke="#198754" connectNulls />
           <Line type="monotone" dataKey="speaking" name="口說" stroke="#fd7e14" connectNulls />
           <Line type="monotone" dataKey="writing" name="寫作" stroke="#6f42c1" connectNulls />

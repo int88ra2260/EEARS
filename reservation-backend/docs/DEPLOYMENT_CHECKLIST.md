@@ -65,7 +65,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\ops\deploy.ps1 -Inst
 
 ```bash
 cd reservation-backend && npm test -- --runInBand && npm run lint
-cd reservation-frontend && npm test -- --watchAll=false && npm run lint && npm run build
+cd reservation-frontend && npm test && npm run lint && npm run build
 ```
 
 若有 schema 變更：

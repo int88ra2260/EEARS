@@ -38,7 +38,7 @@ export default function SurveyChoicePage() {
   const renderEmpty = useCallback(() => (
     <div className="container mt-5">
       <EmptyState
-        icon="📋"
+        icon="list"
         title={t('page.surveyEmptyTitle')}
         description={t('page.surveyEmptyDesc')}
         actions={

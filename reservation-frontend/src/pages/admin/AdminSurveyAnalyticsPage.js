@@ -148,7 +148,7 @@ export default function AdminSurveyAnalyticsPage() {
                       <XAxis dataKey="day" />
                       <YAxis />
                       <Tooltip />
-                      <Line type="monotone" dataKey="count" stroke="#0d6efd" strokeWidth={2} />
+                      <Line type="monotone" dataKey="count" stroke="#2a5d9f" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
                 </Card.Body>

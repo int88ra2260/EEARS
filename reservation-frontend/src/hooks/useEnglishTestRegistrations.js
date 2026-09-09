@@ -9,13 +9,13 @@ const SORT_CONFIG_KEY = 'englishTestSortConfig';
 const PAGE_SIZE_KEY = 'englishTestPageSize';
 const DEFAULT_SORT = { key: 'id', direction: 'ASC' };
 const DEFAULT_PAGE_SIZE = 100;
-/** 「顯示全部」時送給 API 的上限（避免一次拉過大） */
-export const ENGLISH_TEST_ALL_PAGE_SIZE = 5000;
+/** 單次列表請求／畫面渲染上限（避免「全部」一次塞數千列） */
+export const ENGLISH_TEST_MAX_PAGE_SIZE = 500;
 export const ENGLISH_TEST_PAGE_SIZE_OPTIONS = [
   { value: 50, label: '50 筆' },
   { value: 100, label: '100 筆' },
   { value: 200, label: '200 筆' },
-  { value: 'all', label: '顯示全部' },
+  { value: 500, label: '500 筆（上限）' },
 ];
 const VALID_STATUS = new Set(['all', 'pending', 'approved', 'success', 'revision', 'failed']);
 const VALID_PAGE_SIZES = new Set(ENGLISH_TEST_PAGE_SIZE_OPTIONS.map((o) => String(o.value)));
@@ -50,13 +50,17 @@ function getInitialSortConfig() {
 }
 
 function normalizePageSize(raw) {
-  const key = String(raw ?? '');
-  if (!VALID_PAGE_SIZES.has(key)) return DEFAULT_PAGE_SIZE;
-  return key === 'all' ? 'all' : Number(key);
+  const key = String(raw ?? '').trim();
+  // 舊版「顯示全部」寫入 localStorage 的 all → 改回安全預設
+  if (key === 'all') return DEFAULT_PAGE_SIZE;
+  const n = Number(key);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_PAGE_SIZE;
+  if (VALID_PAGE_SIZES.has(String(n))) return n;
+  return Math.min(ENGLISH_TEST_MAX_PAGE_SIZE, Math.max(1, Math.floor(n)));
 }
 
 function resolveApiLimit(pageSize) {
-  return pageSize === 'all' ? ENGLISH_TEST_ALL_PAGE_SIZE : pageSize;
+  return Math.min(ENGLISH_TEST_MAX_PAGE_SIZE, Number(pageSize) || DEFAULT_PAGE_SIZE);
 }
 
 function getInitialPageSize() {
@@ -107,7 +111,7 @@ export function useEnglishTestRegistrations({
   const buildListParams = useCallback((pageOverride = null) => {
     const p = new URLSearchParams();
     const page = pageOverride !== null ? pageOverride : currentPage;
-    p.set('page', String(pageSize === 'all' ? 1 : page));
+    p.set('page', String(page));
     p.set('limit', String(apiLimit));
     if (statusFilter && statusFilter !== 'all') p.set('status', statusFilter);
     if (searchTerm) p.set('search', searchTerm);
@@ -122,7 +126,7 @@ export function useEnglishTestRegistrations({
       p.set('sortOrder', sortConfig.direction);
     }
     return p;
-  }, [currentPage, pageSize, apiLimit, statusFilter, searchTerm, mainTab, advancedFilters, sortConfig]);
+  }, [currentPage, apiLimit, statusFilter, searchTerm, mainTab, advancedFilters, sortConfig]);
 
   const loadRegistrations = useCallback(async () => {
     if (mainTab !== 'individual') {

@@ -16,9 +16,9 @@
   height: 100%;
   background: linear-gradient(
     90deg,
-    #d4564a 0%,
-    #d4564a 72%,
-    rgba(212, 86, 74, 0.25) 100%
+    #2a5d9f 0%,
+    #2a5d9f 72%,
+    rgba(42, 93, 159, 0.25) 100%
   );
   transform-origin: left center;
 }
@@ -133,13 +133,13 @@
 }
 
 .activity-flow-steps__link:hover {
-  border-color: #d4564a;
-  background: #fdf0ee;
-  color: #b8453a;
+  border-color: #2a5d9f;
+  background: #eaf1fc;
+  color: #1c3d6e;
 }
 
 .activity-flow-steps__link:focus-visible {
-  outline: 2px solid #d4564a;
+  outline: 2px solid #2a5d9f;
   outline-offset: 2px;
 }
 

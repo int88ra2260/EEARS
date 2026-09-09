@@ -20,7 +20,7 @@
 }
 
 .terms-page-section h2 {
-  font-family: var(--font-family-serif, 'Newsreader', serif);
+  font-family: var(--font-family-serif, 'IBM Plex Sans', 'Noto Sans TC', sans-serif);
   font-size: 1.3rem;
   font-weight: 500;
   margin-bottom: 0.5rem;

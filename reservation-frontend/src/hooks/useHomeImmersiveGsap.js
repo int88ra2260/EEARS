@@ -14,6 +14,9 @@ function chapterDistance() {
 
 /**
  * /hometest：Hero 進場 + 四島飛入切換（接近 B 的 dive 質感）+ 下方區塊 once 進場
+ *
+ * 【刻意保留 GSAP】依賴 ScrollTrigger pin + scrub 多場景切換與 scale 飛入；
+ * Motion 無法在不大幅改寫 DOM／犧牲手感下等價取代。
  */
 export default function useHomeImmersiveGsap() {
   const rootRef = useRef(null);
@@ -64,10 +67,10 @@ export default function useHomeImmersiveGsap() {
           panels.forEach((panel, i) => {
             panel.style.pointerEvents = i === index ? 'auto' : 'none';
           });
-          root.style.setProperty('--hit-accent', HOME_IMMERSIVE_JOURNEY[index]?.accent || '#D4564A');
+          root.style.setProperty('--hit-accent', HOME_IMMERSIVE_JOURNEY[index]?.accent || '#2a5d9f');
         };
 
-        root.style.setProperty('--hit-accent', HOME_IMMERSIVE_JOURNEY[0]?.accent || '#D4564A');
+        root.style.setProperty('--hit-accent', HOME_IMMERSIVE_JOURNEY[0]?.accent || '#2a5d9f');
 
         const tl = gsap.timeline({
           scrollTrigger: {

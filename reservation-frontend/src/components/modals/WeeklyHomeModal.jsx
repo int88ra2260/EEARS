@@ -1,9 +1,11 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import { useLanguage } from '../../context/LanguageContext';
 import { extractModalTeaser } from '../../constants/weeklyBlocks';
 import { scrollToPageTop } from '../../utils/scrollToPageTop';
+import { backdropMotion, modalPanelMotion } from '../../utils/motionPresets';
 import './WeeklyHomeModal.css';
 
 function formatMessage(t, key, vars = {}) {
@@ -32,6 +34,9 @@ export default function WeeklyHomeModal({ show, weekly, onClose }) {
   const { t, lang } = useLanguage();
   const dialogRef = useRef(null);
   const primaryRef = useRef(null);
+  const reduceMotion = useReducedMotion();
+  const backdropPresence = backdropMotion(reduceMotion);
+  const panelPresence = modalPanelMotion(reduceMotion, { y: 20 });
 
   const hasBlocks = Array.isArray(weekly?.blocks) && weekly.blocks.length > 0;
   const heroBlock = hasBlocks ? weekly.blocks.find((b) => b.type === 'hero') : null;
@@ -56,15 +61,17 @@ export default function WeeklyHomeModal({ show, weekly, onClose }) {
     ? (teaser.headline || heroProps.subtitle || t('weekly.defaultHeadline'))
     : (teaser.headline || weekly?.headline || t('weekly.defaultHeadline'));
 
+  const visible = Boolean(show && weekly);
+
   useLayoutEffect(() => {
-    if (!show) return;
+    if (!visible) return;
     const dialog = dialogRef.current;
     if (dialog) dialog.scrollTop = 0;
     scrollToPageTop();
-  }, [show, weekly?.issueKey]);
+  }, [visible, weekly?.issueKey]);
 
   useEffect(() => {
-    if (!show) return undefined;
+    if (!visible) return undefined;
 
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -96,75 +103,82 @@ export default function WeeklyHomeModal({ show, weekly, onClose }) {
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = prevOverflow;
     };
-  }, [show, onClose]);
+  }, [visible, onClose]);
 
-  if (!show || !weekly) return null;
-
-  const weekRange = formatWeekRange(weekly.weekStart, weekly.weekEnd, lang);
+  const weekRange = weekly
+    ? formatWeekRange(weekly.weekStart, weekly.weekEnd, lang)
+    : '';
 
   return (
-    <div
-      className="weekly-home-modal-backdrop"
-      role="presentation"
-      onClick={onClose}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="weekly-modal-title"
-        className="weekly-home-modal"
-        tabIndex={-1}
-        style={{
-          maxWidth: isSmallMobile ? '95%' : isMobile ? '92%' : '520px',
-          padding: isSmallMobile ? '1rem' : '1.35rem',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {heroProps.imageUrl ? (
-          <div className="weekly-home-modal__cover">
-            <img src={heroProps.imageUrl} alt={heroProps.imageAlt || ''} loading="eager" />
-          </div>
-        ) : null}
-
-        <p className="weekly-home-modal__kicker">
-          {heroProps.kicker || t('weekly.kicker')}
-        </p>
-        <h2 id="weekly-modal-title" className="weekly-home-modal__title">
-          {heroTitle}
-        </h2>
-
-        {weekRange ? (
-          <p className="weekly-home-modal__meta">
-            {formatMessage(t, 'weekly.issueLabel', { issue: weekly.issueKey })}
-            {' · '}
-            {weekRange}
-          </p>
-        ) : null}
-
-        <p className="weekly-home-modal__headline">{headline}</p>
-
-        {teaser.learningTip ? (
-          <div className="weekly-home-modal__tip">
-            <span className="weekly-home-modal__tip-label">{t('weekly.tipLabel')}</span>
-            <p>{teaser.learningTip}</p>
-          </div>
-        ) : null}
-
-        <div className="weekly-home-modal__actions">
-          <Link
-            ref={primaryRef}
-            to={`/weekly/${weekly.slug || weekly.issueKey}`}
-            className="btn btn-primary"
-            onClick={onClose}
+    <AnimatePresence>
+      {visible ? (
+        <motion.div
+          key="weekly-home-modal"
+          className="weekly-home-modal-backdrop"
+          role="presentation"
+          onClick={onClose}
+          {...backdropPresence}
+        >
+          <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="weekly-modal-title"
+            className="weekly-home-modal"
+            tabIndex={-1}
+            style={{
+              maxWidth: isSmallMobile ? '95%' : isMobile ? '92%' : '520px',
+              padding: isSmallMobile ? '1rem' : '1.35rem',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            {...panelPresence}
           >
-            {t('weekly.readFull')}
-          </Link>
-          <button type="button" className="btn btn-outline-secondary" onClick={onClose}>
-            {t('weekly.later')}
-          </button>
-        </div>
-      </div>
-    </div>
+            {heroProps.imageUrl ? (
+              <div className="weekly-home-modal__cover">
+                <img src={heroProps.imageUrl} alt={heroProps.imageAlt || ''} loading="eager" />
+              </div>
+            ) : null}
+
+            <p className="weekly-home-modal__kicker">
+              {heroProps.kicker || t('weekly.kicker')}
+            </p>
+            <h2 id="weekly-modal-title" className="weekly-home-modal__title">
+              {heroTitle}
+            </h2>
+
+            {weekRange ? (
+              <p className="weekly-home-modal__meta">
+                {formatMessage(t, 'weekly.issueLabel', { issue: weekly.issueKey })}
+                {' · '}
+                {weekRange}
+              </p>
+            ) : null}
+
+            <p className="weekly-home-modal__headline">{headline}</p>
+
+            {teaser.learningTip ? (
+              <div className="weekly-home-modal__tip">
+                <span className="weekly-home-modal__tip-label">{t('weekly.tipLabel')}</span>
+                <p>{teaser.learningTip}</p>
+              </div>
+            ) : null}
+
+            <div className="weekly-home-modal__actions">
+              <Link
+                ref={primaryRef}
+                to={`/weekly/${weekly.slug || weekly.issueKey}`}
+                className="btn btn-primary"
+                onClick={onClose}
+              >
+                {t('weekly.readFull')}
+              </Link>
+              <button type="button" className="btn btn-outline-secondary" onClick={onClose}>
+                {t('weekly.later')}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   );
 }

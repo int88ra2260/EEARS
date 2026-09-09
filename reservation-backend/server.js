@@ -157,7 +157,19 @@ app.use('/uploads', express.static(uploadsPath));
 
 // 提供前端靜態檔案（假設 React build 資料夾與 server.js 同層）
 const buildPath = path.join(__dirname, 'build');
-app.use(express.static(buildPath));
+app.use(express.static(buildPath, {
+  // Vite hashed assets 可長期快取；HTML 由 fallback 另設 no-cache
+  setHeaders(res, filePath) {
+    const normalized = String(filePath || '').replace(/\\/g, '/');
+    if (normalized.includes('/assets/')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return;
+    }
+    if (/\.(?:js|css|png|jpe?g|gif|webp|svg|woff2?|ico|map)$/i.test(normalized)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+  },
+}));
 
 // React Router fallback（支援 SPA 模式）；未匹配的 API 回 JSON，避免回傳 HTML 造成前端 JSON.parse 失敗
 app.get('*', (req, res) => {
@@ -170,6 +182,7 @@ app.get('*', (req, res) => {
       requestId: req.requestId || null,
     });
   }
+  res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(path.join(buildPath, 'index.html'));
 });
 

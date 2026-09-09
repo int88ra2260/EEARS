@@ -108,13 +108,13 @@
 }
 
 .activity-step1-tool__edit:hover {
-  border-color: #d4564a;
-  background: #fdf0ee;
-  color: #b8453a;
+  border-color: #2a5d9f;
+  background: #eaf1fc;
+  color: #1c3d6e;
 }
 
 .activity-step1-tool__edit:focus-visible {
-  outline: 2px solid #d4564a;
+  outline: 2px solid #2a5d9f;
   outline-offset: 2px;
 }
 

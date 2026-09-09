@@ -25,7 +25,7 @@
 .carousel-nav-btn:hover {
   background: rgba(255, 255, 255, 1) !important;
   transform: scale(1.1);
-  color: #007bff !important;
+  color: var(--color-primary, #2a5d9f) !important;
 }
 
 .carousel-nav-btn:disabled {
@@ -45,8 +45,8 @@
 }
 
 .carousel-indicator.active {
-  background-color: #007bff !important;
-  border-color: #007bff !important;
+  background-color: var(--color-primary, #2a5d9f) !important;
+  border-color: var(--color-primary, #2a5d9f) !important;
 }
 
 /* 圖片過渡動畫 */
@@ -214,7 +214,7 @@
   
   .fc-list-event-title {
     font-weight: 600;
-    color: #007bff;
+    color: var(--color-primary, #2a5d9f);
   }
   
   .fc-list-event-time {
@@ -244,8 +244,8 @@
 }
 
 .fc-button-primary {
-  background-color: #007bff;
-  border-color: #007bff;
+  background-color: var(--color-primary, #2a5d9f);
+  border-color: var(--color-primary, #2a5d9f);
 }
 
 .fc-button-primary:hover {

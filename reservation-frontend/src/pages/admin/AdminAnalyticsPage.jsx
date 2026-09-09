@@ -8,9 +8,9 @@ import {
   XAxis,
   YAxis,
   Tooltip as RechartsTooltip,
-  CartesianGrid,
   BarChart,
   Bar,
+  Cell,
 } from 'recharts';
 
 import dayjs from 'dayjs';
@@ -23,6 +23,17 @@ import {
   fetchReservationCapacityBreakdown,
   parseApiError,
 } from '../../services/reportsAdminApi';
+import {
+  CHART_SERIES,
+  CHART_ANIM,
+  CHART_AXIS_TICK,
+  CHART_AXIS_LABEL,
+  CHART_CURSOR_FILL,
+  CHART_MARGIN,
+  ChartCard,
+  ChartGrid,
+  ChartTooltip,
+} from '../../components/charts';
 
 function formatDateLabel(dateStr) {
   if (!dateStr) return '';
@@ -242,7 +253,7 @@ export default function AdminAnalyticsPage() {
           bdJson = retry.json;
         }
         const bdData = normalizeCapacityBreakdownPayload(bdJson) || overviewBreakdownData;
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           const keys = bdJson && typeof bdJson === 'object' && !Array.isArray(bdJson) ? Object.keys(bdJson) : [];
           console.debug('[EEARS Analytics] reservation-capacity-breakdown response', {
             status: bdRes.status,
@@ -631,86 +642,189 @@ export default function AdminAnalyticsPage() {
         </Card.Body>
       </Card>
 
-      {/* 圖表（預約營運） */}
-      <Card className="mb-4">
-        <Card.Header className="fw-semibold">活動趨勢與班級排行（預約營運）</Card.Header>
-        <Card.Body>
-          {chartsLoading && (
-            <div className="text-center py-3">
-              <Spinner animation="border" size="sm" />
-            </div>
-          )}
-          {chartsError && !chartsLoading && <Alert variant="danger">{chartsError}</Alert>}
-          {!chartsLoading && !chartsError && chartsNoData && (
-            <Alert variant="secondary" className="mb-0 small">
-              尚無足夠資料產生圖表（活動趨勢、出席趨勢或班級排行皆為空）。
-            </Alert>
-          )}
-          {!chartsLoading && !chartsError && !chartsNoData && (
-            <>
-              <div className="row g-3 mb-3">
-                <div className="col-12 col-lg-6">
-                  <Card className="h-100">
-                    <Card.Header className="small">活動趨勢（依活動日期）</Card.Header>
-                    <Card.Body style={{ height: 320 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={activityChartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" minTickGap={20} />
-                          <YAxis />
-                          <RechartsTooltip formatter={(v) => [`${v} 筆`, '預約數']} labelFormatter={() => ''} />
-                          <Line type="monotone" dataKey="reservationsCount" stroke="#0d6efd" dot={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </Card.Body>
-                  </Card>
-                </div>
+      {/* 圖表（預約營運）— 共用 chart kit */}
+      <div className="mb-4">
+        <div className="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+          <div>
+            <h5 className="mb-1">活動趨勢與班級排行</h5>
+            <p className="text-muted small mb-0">預約營運：活動趨勢、出席率與班級違規排行。</p>
+          </div>
+        </div>
 
-                <div className="col-12 col-lg-6">
-                  <Card className="h-100">
-                    <Card.Header className="small">出席率（依活動日期）</Card.Header>
-                    <Card.Body style={{ height: 320 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={attendanceChartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" minTickGap={20} />
-                          <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                          <RechartsTooltip formatter={(v) => [`${formatPct1(v)}`, '出席率']} labelFormatter={() => ''} />
-                          <Line type="monotone" dataKey="attendanceRate" stroke="#198754" dot={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </Card.Body>
-                  </Card>
-                </div>
-              </div>
-
-              <div className="row g-3">
-                <div className="col-12">
-                  <Card className="h-100">
-                    <Card.Header className="small">班級排行（Top 10，依違規率由高到低）</Card.Header>
-                    <Card.Body style={{ height: 340 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={classChartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="classKey" interval={0} tick={{ fontSize: 12 }} />
-                          <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                          <RechartsTooltip
-                            formatter={(v, name) => {
-                              const label = name === 'violationRate' ? '違規率' : name;
-                              return [`${formatPct1(v)}`, label];
-                            }}
+        {chartsLoading && (
+          <div className="row g-3">
+            <div className="col-12 col-lg-6"><ChartCard loading /></div>
+            <div className="col-12 col-lg-6"><ChartCard loading /></div>
+            <div className="col-12"><ChartCard loading /></div>
+          </div>
+        )}
+        {chartsError && !chartsLoading && <Alert variant="danger">{chartsError}</Alert>}
+        {!chartsLoading && !chartsError && chartsNoData && (
+          <ChartCard
+            empty
+            emptyHint="尚無足夠資料產生圖表（活動趨勢、出席趨勢或班級排行皆為空）。"
+          />
+        )}
+        {!chartsLoading && !chartsError && !chartsNoData && (
+          <>
+            <div className="row g-3 mb-3">
+              <div className="col-12 col-lg-6">
+                <ChartCard
+                  title="活動趨勢（依活動日期）"
+                  description="每日預約筆數變化"
+                  plotHeight={320}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={activityChartData} margin={CHART_MARGIN.line}>
+                      <ChartGrid vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        minTickGap={20}
+                        tick={CHART_AXIS_TICK}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={CHART_AXIS_TICK}
+                        axisLine={false}
+                        tickLine={false}
+                        allowDecimals={false}
+                      />
+                      <RechartsTooltip
+                        content={(tipProps) => (
+                          <ChartTooltip
+                            {...tipProps}
+                            formatName={() => '預約數'}
+                            formatValue={(v) => `${v} 筆`}
                           />
-                          <Bar dataKey="violationRate" fill="#dc3545" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </Card.Body>
-                  </Card>
-                </div>
+                        )}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="reservationsCount"
+                        name="預約數"
+                        stroke={CHART_SERIES.primary}
+                        strokeWidth={2.5}
+                        dot={false}
+                        activeDot={{ r: 4, strokeWidth: 0 }}
+                        isAnimationActive
+                        animationDuration={CHART_ANIM.duration}
+                        animationEasing={CHART_ANIM.easing}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartCard>
               </div>
-            </>
-          )}
-        </Card.Body>
-      </Card>
+
+              <div className="col-12 col-lg-6">
+                <ChartCard
+                  title="出席率（依活動日期）"
+                  description="每日出席率（%）"
+                  plotHeight={320}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={attendanceChartData} margin={CHART_MARGIN.line}>
+                      <ChartGrid vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        minTickGap={20}
+                        tick={CHART_AXIS_TICK}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        domain={[0, 100]}
+                        tick={CHART_AXIS_TICK}
+                        tickFormatter={(v) => `${v}%`}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <RechartsTooltip
+                        content={(tipProps) => (
+                          <ChartTooltip
+                            {...tipProps}
+                            formatName={() => '出席率'}
+                            formatValue={(v) => formatPct1(v)}
+                          />
+                        )}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="attendanceRate"
+                        name="出席率"
+                        stroke={CHART_SERIES.success}
+                        strokeWidth={2.5}
+                        dot={false}
+                        activeDot={{ r: 4, strokeWidth: 0 }}
+                        isAnimationActive
+                        animationDuration={CHART_ANIM.duration}
+                        animationEasing={CHART_ANIM.easing}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              </div>
+            </div>
+
+            <div className="row g-3">
+              <div className="col-12">
+                <ChartCard
+                  title="班級排行（Top 10，依違規率由高到低）"
+                  description="違規率越高越需關注"
+                  plotHeight={340}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={classChartData} margin={CHART_MARGIN.bar}>
+                      <ChartGrid vertical={false} />
+                      <XAxis
+                        dataKey="classKey"
+                        interval={0}
+                        tick={CHART_AXIS_LABEL}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        domain={[0, 100]}
+                        tick={CHART_AXIS_TICK}
+                        tickFormatter={(v) => `${v}%`}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <RechartsTooltip
+                        cursor={CHART_CURSOR_FILL}
+                        content={(tipProps) => (
+                          <ChartTooltip
+                            {...tipProps}
+                            formatName={() => '違規率'}
+                            formatValue={(v) => formatPct1(v)}
+                          />
+                        )}
+                      />
+                      <Bar
+                        dataKey="violationRate"
+                        name="違規率"
+                        radius={[10, 10, 0, 0]}
+                        maxBarSize={48}
+                        isAnimationActive
+                        animationDuration={CHART_ANIM.duration}
+                        animationEasing={CHART_ANIM.easing}
+                      >
+                        {(classChartData || []).map((_, index) => (
+                          <Cell
+                            key={`class-bar-${index}`}
+                            fill={CHART_SERIES.danger}
+                            fillOpacity={Math.max(0.4, 1 - index * 0.07)}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

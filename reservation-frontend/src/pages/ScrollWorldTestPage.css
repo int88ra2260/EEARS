@@ -56,14 +56,14 @@ body.swt-lock-scroll {
 }
 
 .app-wrapper--scrollworld .nav-link:hover {
-  color: #b8453a;
-  background: rgba(212, 86, 74, 0.1);
+  color: #1c3d6e;
+  background: rgba(42, 93, 159, 0.1);
 }
 
 .app-wrapper--scrollworld .nav-link--active {
-  color: #b8453a;
+  color: #1c3d6e;
   background: rgba(255, 255, 255, 0.88);
-  box-shadow: inset 0 -2px 0 #d4564a;
+  box-shadow: inset 0 -2px 0 #2a5d9f;
 }
 
 .app-wrapper--scrollworld .lang-toggle {
@@ -81,7 +81,7 @@ body.swt-lock-scroll {
   --swt-bg: #f5ede0;
   --swt-ink: #241d2b;
   --swt-ink-soft: #6a6072;
-  --swt-accent: #d4564a;
+  --swt-accent: #2a5d9f;
   --swt-font-display: ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif;
   --swt-font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
   position: relative;
@@ -139,7 +139,7 @@ body.swt-lock-scroll {
 }
 
 .swt-close:focus-visible {
-  outline: 2px solid #d4564a;
+  outline: 2px solid #2a5d9f;
   outline-offset: 2px;
 }
 

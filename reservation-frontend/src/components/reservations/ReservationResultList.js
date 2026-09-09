@@ -66,7 +66,7 @@ export default function ReservationResultList({
     return (
       <section className="reservation-result-list reservation-result-list--empty" aria-live="polite">
         <EmptyState
-          icon="🔎"
+          icon="search"
           description={t('page.reservationSearchHint')}
         />
       </section>
@@ -77,7 +77,7 @@ export default function ReservationResultList({
     return (
       <section className="reservation-result-list reservation-result-list--empty" aria-live="polite">
         <EmptyState
-          icon={searchError ? '⚠️' : '📭'}
+          icon={searchError ? 'warning' : 'inbox'}
           title={searchError ? '無法取得預約紀錄' : t('page.reservationNoRecords')}
           description={
             searchError ? (

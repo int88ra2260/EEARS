@@ -3,7 +3,7 @@
 .et-form-builder {
   --et-form-paper: #fffefb;
   --et-form-canvas: #eef2f6;
-  --et-form-accent: var(--color-primary, #315f8f);
+  --et-form-accent: var(--color-primary, #2a5d9f);
   --et-form-border: #d9dee5;
   display: flex;
   flex-direction: column;
@@ -66,11 +66,11 @@
 }
 
 .et-form-step:hover {
-  background: var(--color-primary-light, #eef5fb);
+  background: var(--color-primary-light, #eaf1fc);
 }
 
 .et-form-step.is-active {
-  background: var(--color-primary-light, #eef5fb);
+  background: var(--color-primary-light, #eaf1fc);
   border-color: var(--et-form-accent);
 }
 
@@ -185,7 +185,7 @@
 
 .et-form-qcard.is-selected {
   border-color: var(--et-form-accent);
-  box-shadow: 0 0 0 2px rgba(49, 95, 143, 0.2);
+  box-shadow: 0 0 0 2px rgba(42, 93, 159, 0.2);
 }
 
 .et-form-qcard.is-hidden {
@@ -264,8 +264,8 @@
 }
 
 .et-form-chip--system {
-  color: #1f4265;
-  background: #eef5fb;
+  color: #1c3d6e;
+  background: #eaf1fc;
   border-color: #c5d8eb;
 }
 

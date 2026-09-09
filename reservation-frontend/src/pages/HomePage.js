@@ -1,14 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import HomeHero from '../components/home/HomeHero';
 import HomePracticeNow from '../components/home/HomePracticeNow';
 import AnnouncementPreview from '../components/home/AnnouncementPreview';
 import FAQSection from '../components/home/FAQSection';
 import ContactSection from '../components/home/ContactSection';
-import useHomeGsap from '../hooks/useHomeGsap';
-import ScrollWorldTestPage from './ScrollWorldTestPage';
+import useHomeMotion from '../hooks/useHomeMotion';
 import '../styles/emi-brand.css';
 import '../components/home/home.css';
 import '../styles/magic-ui.css';
+
+// 僅桌機沉浸式 overlay 需要；行動版永不載入 GSAP / ScrollWorld chunk。
+const ScrollWorldTestPage = lazy(() => import('./ScrollWorldTestPage'));
 
 const DESKTOP_MQ = '(min-width: 861px)';
 export const HOME_SW_DISMISSED_KEY = 'eears-home-sw-dismissed';
@@ -28,7 +30,7 @@ function readDismissed() {
 }
 
 export default function HomePage() {
-  const rootRef = useHomeGsap();
+  const rootRef = useHomeMotion();
   const [isDesktop, setIsDesktop] = useState(readIsDesktop);
   const [dismissed, setDismissed] = useState(readDismissed);
   const showOverlay = isDesktop && !dismissed;
@@ -100,9 +102,11 @@ export default function HomePage() {
       </div>
 
       {showOverlay ? (
-        <div className="swt-home-overlay" role="dialog" aria-modal="true" aria-label="沉浸式首頁">
-          <ScrollWorldTestPage onClose={dismissOverlay} />
-        </div>
+        <Suspense fallback={null}>
+          <div className="swt-home-overlay" role="dialog" aria-modal="true" aria-label="沉浸式首頁">
+            <ScrollWorldTestPage onClose={dismissOverlay} />
+          </div>
+        </Suspense>
       ) : null}
     </>
   );

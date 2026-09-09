@@ -81,7 +81,7 @@ export default function PhotoViewer({
               top: magnifierPos.y + 20,
               width: '150px',
               height: '150px',
-              border: '3px solid #007bff',
+              border: '3px solid #2a5d9f',
               borderRadius: '50%',
               overflow: 'hidden',
               pointerEvents: 'none',

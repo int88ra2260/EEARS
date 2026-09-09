@@ -3,7 +3,7 @@ import AdvancedFilterPanel from './AdvancedFilterPanel';
 import StatsVisualization from './StatsVisualization';
 import BulkActionToolbar from './BulkActionToolbar';
 import EnhancedTable from './EnhancedTable';
-import { ENGLISH_TEST_PAGE_SIZE_OPTIONS, ENGLISH_TEST_ALL_PAGE_SIZE } from '../../hooks/useEnglishTestRegistrations';
+import { ENGLISH_TEST_PAGE_SIZE_OPTIONS } from '../../hooks/useEnglishTestRegistrations';
 
 const SUB_TABS = [
   { key: 'all', label: '全部' },
@@ -100,11 +100,7 @@ export default function EnglishTestIndividualTab({
     : exportScopeLabel;
   const rangeStart = total === 0 ? 0 : (currentPage - 1) * limit + 1;
   const rangeEnd = Math.min(currentPage * limit, total);
-  const rangeLabel = pageSize === 'all'
-    ? (total > ENGLISH_TEST_ALL_PAGE_SIZE
-      ? `顯示前 ${ENGLISH_TEST_ALL_PAGE_SIZE} 筆（共 ${total} 筆）`
-      : `顯示全部 ${total} 筆`)
-    : `第 ${rangeStart}–${rangeEnd} 筆，共 ${total} 筆`;
+  const rangeLabel = `第 ${rangeStart}–${rangeEnd} 筆，共 ${total} 筆`;
 
   const confirmToggle = (kind, nextEnabled, apply) => {
     const label = kind === 'individual' ? '個人報名' : '團體報名（學習有伴）';
@@ -309,7 +305,8 @@ export default function EnglishTestIndividualTab({
         />
       )}
 
-      <div ref={tableContainerRef} className="overflow-auto" style={{ maxHeight: 'min(70vh, 600px)' }}>
+      {/* 不再對列表設 maxHeight + overflow：內層捲動區會把「更多」絕對定位選單算進 scrollHeight，列數少時出現大片可捲動留白 */}
+      <div ref={tableContainerRef} className="et-individual-table-anchor">
         {loading ? (
           <div className="card">
             <div className="card-body py-5 text-center">
@@ -356,8 +353,7 @@ export default function EnglishTestIndividualTab({
                       style={{ width: 'auto' }}
                       value={String(pageSize)}
                       onChange={(e) => {
-                        const raw = e.target.value;
-                        onPageSizeChange(raw === 'all' ? 'all' : Number(raw));
+                        onPageSizeChange(Number(e.target.value));
                       }}
                       aria-label="每頁筆數"
                     >
@@ -370,7 +366,7 @@ export default function EnglishTestIndividualTab({
                   </label>
                 )}
               </div>
-              {totalPages > 1 && pageSize !== 'all' && (
+              {totalPages > 1 && (
                 <nav aria-label="分頁導覽">
                   <ul className="pagination pagination-sm mb-0">
                     <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>

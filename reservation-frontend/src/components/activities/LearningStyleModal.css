@@ -40,7 +40,7 @@
 
 .learning-style-modal__title {
   margin: 0;
-  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-family: var(--activities-serif, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--activities-ink, #111111);
@@ -116,7 +116,7 @@
 }
 
 .learning-style-modal__done:focus-visible {
-  outline: 2px solid #d4564a;
+  outline: 2px solid #2a5d9f;
   outline-offset: 2px;
 }
 

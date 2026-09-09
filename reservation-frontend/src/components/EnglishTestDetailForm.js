@@ -247,8 +247,8 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
               padding: '0.625rem 1.5rem',
               fontSize: '1rem',
               fontWeight: 'bold',
-              backgroundColor: '#FF6B6B',
-              borderColor: '#FF6B6B',
+              backgroundColor: '#b42318',
+              borderColor: '#b42318',
               opacity: isSubmitting ? 0.6 : 1,
             }}
           >

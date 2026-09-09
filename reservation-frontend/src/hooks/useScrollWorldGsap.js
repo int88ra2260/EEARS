@@ -7,6 +7,9 @@ import { buildScrollWorldSegments } from '../constants/scrollWorldTestConfig';
  * 40 幀隱喻：關鍵點 5 / 15 / 25 / 35；
  * 每個主題保留 FREE_FRAMES（3–5）幀供自由滾動。
  *
+ * 【刻意保留 GSAP】捲動 scrub 多段影片 seek、鄰近片段掛載、hop timeline——
+ * 屬 ScrollTrigger 級複雜度，Motion useScroll 無法維持同等效果與效能控制。
+ *
  * 效能：
  * - 背景用 still（不雙影片解碼）
  * - 只掛載鄰近片段 src

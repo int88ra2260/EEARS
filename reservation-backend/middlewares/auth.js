@@ -13,6 +13,7 @@ const {
   canAccessSurvey,
   isDeputyManagerUser,
   isBestepLeadUser,
+  isBestepOpsWorkerUser,
 } = require('../auth/accessProfile');
 const { P } = require('../auth/permissions');
 const { Teacher } = require('../models');
@@ -491,8 +492,8 @@ function adminExecutiveOrDeputyMiddleware(req, res, next) {
 }
 
 /**
- * 培力英檢網域：admin、executive、副理、或培力英檢行政。
- * 仍須搭配 requirePermission。
+ * 培力英檢網域：admin、executive、副理、培力英檢行政、或培力工讀生（bestep_ops）。
+ * 仍須搭配 requirePermission（實際可檢視／審核／匯出由權限鍵決定）。
  */
 function englishTestDomainMiddleware(req, res, next) {
   if (!req.user || !req.user.role) {
@@ -503,7 +504,8 @@ function englishTestDomainMiddleware(req, res, next) {
   if (profile.hasAdminRights) return next();
   if (isDeputyManagerUser(req.user)) return next();
   if (isBestepLeadUser(req.user)) return next();
-  return sendForbidden(res, '需要培力英檢管理權限（管理員、執行長、副理或培力英檢行政）');
+  if (isBestepOpsWorkerUser(req.user)) return next();
+  return sendForbidden(res, '需要培力英檢管理權限（管理員、執行長、副理、培力英檢行政或培力工讀生）');
 }
 
 function adminOrTeacherMiddleware(req, res, next) {

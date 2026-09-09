@@ -500,6 +500,11 @@ function isBestepLeadUser(user) {
   return !!(user && user.role === 'office_staff' && (user.staffLevel || 'event_lead') === 'bestep_lead');
 }
 
+/** 培力相關工讀生（workerLevel=bestep_ops） */
+function isBestepOpsWorkerUser(user) {
+  return !!(user && user.role === 'worker' && (user.workerLevel || 'event_ops') === 'bestep_ops');
+}
+
 function buildAccessProfile(user) {
   const role = (user && user.role) || '';
   const teacherLevel = user && user.teacherLevel != null ? user.teacherLevel : 'regular';
@@ -762,5 +767,6 @@ module.exports = {
   isJtManagerUser,
   isLeaderOnlyAccountManagerUser,
   isBestepLeadUser,
+  isBestepOpsWorkerUser,
   isExecutiveTeacherRecord,
 };

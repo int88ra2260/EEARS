@@ -37,7 +37,7 @@ flowchart LR
 ## PR 前檢查
 
 - [ ] `reservation-backend`: `npm test -- --runInBand && npm run lint`
-- [ ] `reservation-frontend`: `npm test -- --watchAll=false && npm run lint && npm run build`
+- [ ] `reservation-frontend`: `npm test && npm run lint && npm run build`
 - [ ] 新權限已同步前後端
 - [ ] migration 已測試 `up`/`down`
 - [ ] 無 `.env` 或 secret 被提交

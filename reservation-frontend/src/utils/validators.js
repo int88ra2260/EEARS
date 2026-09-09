@@ -10,8 +10,18 @@ const studentNameRegex = /^[\u4E00-\u9FA5A-Za-z\s]+$/;
 // Email 驗證
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** 中山大學學生信箱網域（英語實踐歷程護照） */
+/** 中山大學允許信箱網域（英語實踐歷程護照） */
 export const NSYSU_STUDENT_EMAIL_DOMAIN = 'student.nsysu.edu.tw';
+export const NSYSU_ALLOWED_EMAIL_DOMAINS = Object.freeze([
+  'student.nsysu.edu.tw',
+  'g-mail.nsysu.edu.tw',
+  'mail.nsysu.edu.tw',
+  'faculty.nsysu.edu.tw',
+]);
+
+export function nsysuAllowedEmailDomainsHint() {
+  return NSYSU_ALLOWED_EMAIL_DOMAINS.map((d) => `@${d}`).join('、');
+}
 
 /**
  * 驗證學號格式
@@ -41,12 +51,15 @@ export function validateEmail(email) {
 }
 
 /**
- * 是否為中山大學學生信箱（@student.nsysu.edu.tw）
+ * 是否為允許的中山大學校內信箱網域
  */
 export function validateNsysuStudentEmail(email) {
   const value = String(email || '').trim().toLowerCase();
   if (!validateEmail(value)) return false;
-  return value.endsWith(`@${NSYSU_STUDENT_EMAIL_DOMAIN}`);
+  const at = value.lastIndexOf('@');
+  if (at < 0) return false;
+  const domain = value.slice(at + 1);
+  return NSYSU_ALLOWED_EMAIL_DOMAINS.includes(domain);
 }
 
 /**
@@ -86,13 +99,13 @@ export function validateReservationFields(data) {
 }
 
 /**
- * 英語實踐歷程護照：同預約欄位，且 Email 必須為 @student.nsysu.edu.tw
+ * 英語實踐歷程護照：同預約欄位，且 Email 必須為允許的中山大學校內網域
  */
 export function validateElpStudentFields(data) {
   const result = validateReservationFields(data);
   const email = String(data?.studentEmail || '').trim();
   if (email && validateEmail(email) && !validateNsysuStudentEmail(email)) {
-    result.fieldErrors.studentEmail = '請使用中山大學學生信箱（@student.nsysu.edu.tw）';
+    result.fieldErrors.studentEmail = `請使用中山大學校內信箱（${nsysuAllowedEmailDomainsHint()}）`;
   }
   return {
     isValid: Object.keys(result.fieldErrors).length === 0,

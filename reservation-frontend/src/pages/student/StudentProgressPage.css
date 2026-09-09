@@ -41,7 +41,7 @@
 
 .progress-bar-fill {
   height: 100%;
-  background: var(--color-primary, #d4564a);
+  background: var(--color-primary, #2a5d9f);
   border-radius: 4px;
   transition: width 0.4s ease;
 }

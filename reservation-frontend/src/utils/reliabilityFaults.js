@@ -2,7 +2,7 @@
 // Production must not be affected.
 
 export function getReliabilityFault() {
-  if (process.env.NODE_ENV === 'production') return null;
+  if (import.meta.env.PROD) return null;
   if (typeof window === 'undefined') return null;
 
   try {
@@ -16,7 +16,7 @@ export function getReliabilityFault() {
 }
 
 export function clearReliabilityFault() {
-  if (process.env.NODE_ENV === 'production') return;
+  if (import.meta.env.PROD) return;
   try {
     window.localStorage.removeItem('reliabilityFault');
   } catch (_) {

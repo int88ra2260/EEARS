@@ -344,7 +344,7 @@ function EventList({ initialTab: initialTabProp }) {
     return (
       <div className="text-center py-4">
         <EmptyState
-          icon="⚠️"
+          icon="warning"
           title="載入活動失敗"
           description={loadError}
           actions={
@@ -400,7 +400,7 @@ function EventList({ initialTab: initialTabProp }) {
       {events.length === 0 && (
         <div className="event-list-empty border rounded-3 bg-light mb-3 p-3">
           <EmptyState
-            icon="📅"
+            icon="calendar"
             title={t('activities.noEventsTitle')}
             description={t('activities.noEventsDesc')}
             actions={
@@ -423,7 +423,7 @@ function EventList({ initialTab: initialTabProp }) {
       {events.length > 0 && filteredEvents.length === 0 && (
         <div className="event-list-empty border rounded-3 bg-light mb-3 p-3">
           <EmptyState
-            icon="🔍"
+            icon="search"
             title={t('activities.filterEmptyTitle')}
             description={t('activities.filterEmptyDesc')}
             actions={

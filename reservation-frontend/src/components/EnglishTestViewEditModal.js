@@ -338,8 +338,8 @@ export default function EnglishTestViewEditModal({
                     padding: '0.625rem 1.5rem',
                     fontSize: '1rem',
                     fontWeight: 'bold',
-                    backgroundColor: cannotEdit ? '#6c757d' : '#FF6B6B',
-                    borderColor: cannotEdit ? '#6c757d' : '#FF6B6B',
+                    backgroundColor: cannotEdit ? '#6c757d' : '#b42318',
+                    borderColor: cannotEdit ? '#6c757d' : '#b42318',
                     opacity: isSubmitting || cannotEdit ? 0.6 : 1,
                     cursor: cannotEdit ? 'not-allowed' : 'pointer',
                   }}

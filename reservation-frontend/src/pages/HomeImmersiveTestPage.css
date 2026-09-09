@@ -1,4 +1,4 @@
-/* A 方案首頁沉浸測試 — /hometest（不影響正式首頁） */
+/* A ?��?首�?沉浸測試 ??/hometest（�?影響�??首�?�?*/
 
 .public-site--hometest {
   max-width: none;
@@ -8,13 +8,13 @@
 }
 
 .hit-page {
-  --hit-accent: #d4564a;
+  --hit-accent: #2a5d9f;
   --hit-canvas: #f9f4ec;
   --hit-ink: #1a1410;
   --hit-ink-soft: #4a3f36;
   --hit-muted: #7a6b5f;
-  --hit-serif: 'Newsreader', 'Georgia', 'Times New Roman', serif;
-  --hit-sans: 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
+  --hit-serif: 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif;
+  --hit-sans: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
   --hit-shell: min(1120px, calc(100% - 2rem));
   --hit-ease: cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
@@ -136,7 +136,7 @@
   inset: 0;
   background:
     linear-gradient(165deg, #efe4d4 0%, #f9f4ec 42%, #e8d5c4 100%),
-    radial-gradient(ellipse 80% 60% at 70% 20%, rgba(212, 86, 74, 0.18), transparent 55%);
+    radial-gradient(ellipse 80% 60% at 70% 20%, rgba(42, 93, 159, 0.18), transparent 55%);
 }
 
 .hit-hero__glow {
@@ -256,13 +256,13 @@
   }
 }
 
-/* ---- Journey（四島 · B 質感） ---- */
+/* ---- Journey（�?�?· B 質�?�?---- */
 .hit-journey--islands {
   position: relative;
   margin: 0;
   background: #f5ede0;
   color: #241d2b;
-  --hit-accent: #d4564a;
+  --hit-accent: #2a5d9f;
 }
 
 .hit-journey__sky {
@@ -553,7 +553,7 @@
   transform: translateY(-50%) translateX(0);
 }
 
-/* legacy dark journey leftovers removed — islands theme above */
+/* legacy dark journey leftovers removed ??islands theme above */
 
 /* ---- Quick links ---- */
 .hit-quick {

@@ -38,8 +38,9 @@ alwaysApply: false
 ## API 呼叫
 
 - Base URL 使用相對路徑 `/api/...`。
-- 不使用 `REACT_APP_*` 取代現有 API base 慣例。
+- 不使用 `REACT_APP_*`／`VITE_*` 取代現有 API base 慣例（本機由 Vite proxy `/api` → `:3000`）。
 - 不得硬編完整網址，例如 `http://localhost:5000/api/...`。
+- 建置工具為 Vite（`vite.config.js`，`build.outDir = build`）；測試為 Vitest。
 - Auth 使用：
   - `Authorization: Bearer ${localStorage.getItem('token')}`
 - 401 `ACCESS_PROFILE_STALE`：
@@ -110,7 +111,7 @@ alwaysApply: false
 ## 禁止事項
 
 - 勿引入新的全域狀態庫，除非經討論。
-- 勿 eject CRA。
+- 勿改動 Vite 建置合約（`outDir: build`、相對路徑 `/api` proxy），除非任務明確要求。
 - 勿新增學生帳號登入流程。
 - 勿將預約或取消截止規則改為 24 小時。
 - 勿移除既有錯誤處理、權限提示、問卷 gating 或黑名單提示。

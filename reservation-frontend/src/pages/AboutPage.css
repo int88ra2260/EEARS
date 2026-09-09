@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap');
+/* About — Institutional Academic Blue（字型由 index.html 集中載入） */
 
 .public-site--about {
   max-width: none;
@@ -8,15 +8,15 @@
 }
 
 .about-page {
-  --about-canvas: #f7f3ec;
-  --about-ink: #1c1814;
-  --about-ink-soft: #3f3730;
-  --about-muted: #7a6f64;
-  --about-line: rgba(28, 24, 20, 0.1);
-  --about-accent: #c24b40;
-  --about-accent-deep: #9e3a32;
-  --about-serif: 'Newsreader', 'Noto Serif TC', Georgia, serif;
-  --about-sans: 'Helvetica Neue', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --about-canvas: #f7f9fc;
+  --about-ink: #2f3437;
+  --about-ink-soft: #3d4450;
+  --about-muted: #6a7176;
+  --about-line: rgba(28, 61, 110, 0.12);
+  --about-accent: #2a5d9f;
+  --about-accent-deep: #1c3d6e;
+  --about-serif: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', system-ui, sans-serif;
+  --about-sans: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
   --about-shell: min(1120px, calc(100% - 2.5rem));
   --about-ease: cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;

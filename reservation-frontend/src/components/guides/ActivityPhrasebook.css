@@ -37,7 +37,7 @@
 
 .phrasebook-panel__title {
   margin: 0;
-  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-family: var(--activities-serif, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
   font-size: clamp(1.25rem, 2.5vw, 1.55rem);
   font-weight: 500;
   color: var(--activities-ink, #111111);
@@ -250,7 +250,7 @@
 
 .phrasebook-hub-card__title {
   margin: 0;
-  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-family: var(--activities-serif, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
   font-size: 1.2rem;
   font-weight: 500;
 }
@@ -305,7 +305,7 @@
 
 .activities-practice-card__title {
   margin: 0.5rem 0 0;
-  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-family: var(--activities-serif, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
   font-size: 1.15rem;
   font-weight: 500;
 }

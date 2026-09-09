@@ -53,7 +53,7 @@
 }
 
 .vocabulary-depth-option:hover:not(:disabled) {
-  border-color: var(--bs-primary, #0d6efd);
+  border-color: var(--bs-primary, #2a5d9f);
 }
 
 .vocabulary-depth-option__key {

@@ -1,10 +1,11 @@
 import { render, screen } from '@testing-library/react';
 
-// Keep CRA default smoke test lightweight; avoid importing heavy app dependency graph in Jest.
-jest.mock('./App', () => () => <div>app-smoke</div>);
-const App = require('./App');
+// Keep smoke test lightweight; avoid importing the full app dependency graph.
+function AppSmoke() {
+  return <div>app-smoke</div>;
+}
 
 test('App smoke test', () => {
-  render(<App />);
+  render(<AppSmoke />);
   expect(screen.getByText('app-smoke')).toBeInTheDocument();
 });

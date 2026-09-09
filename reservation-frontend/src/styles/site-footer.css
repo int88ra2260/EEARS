@@ -4,11 +4,11 @@
   position: relative;
   z-index: 2;
   flex-shrink: 0;
-  background: #3d2e24;
-  color: #f5f0eb;
+  background: #1c3d6e;
+  color: #eaf1fc;
   padding: 2.5rem 1rem;
   margin-top: auto;
-  border-top: 1px solid #5a4538;
+  border-top: 1px solid #2a5d9f;
 }
 
 /* About 需要「沉浸式內容結束後立刻接頁尾」。
@@ -28,9 +28,9 @@
 }
 
 .home-footer-title {
-  font-family: 'Newsreader', 'Georgia', 'Times New Roman', serif;
+  font-family: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', system-ui, sans-serif;
   font-size: 1.125rem;
-  font-weight: 500;
+  font-weight: 600;
   margin: 0 0 0.25rem;
   color: #fff;
 }

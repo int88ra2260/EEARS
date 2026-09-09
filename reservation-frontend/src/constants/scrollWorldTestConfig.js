@@ -8,7 +8,7 @@ export const SCROLL_WORLD_SECTIONS = [
   {
     id: 'events',
     label: '活動',
-    accent: '#D4564A',
+    accent: '#2a5d9f',
     title: '預約中心活動，從這裡開始',
     body: '想參加中心活動，可直接預約時段、查看活動介紹，或查詢自己的預約紀錄；需要寫作輔導也可前往寫作工坊。',
     diorama: 'events',

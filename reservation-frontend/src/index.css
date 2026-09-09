@@ -25,8 +25,8 @@ body {
   font-family: var(--font-family-sans);
   color: var(--color-text-primary);
   background:
-    radial-gradient(circle at top left, rgba(212, 86, 74, 0.04), transparent 32rem),
-    linear-gradient(180deg, #fbfbfa 0%, #f7f3ed 100%);
+    radial-gradient(circle at top left, rgba(42, 93, 159, 0.05), transparent 32rem),
+    linear-gradient(180deg, #f7f9fc 0%, #eef2f7 100%);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -70,7 +70,7 @@ a:hover {
 }
 
 .app-wrapper--scrollworld {
-  background: #f5ede0;
+  background: #f0f4fa;
 }
 
 .app-wrapper--scrollworld .app-main {
@@ -92,9 +92,9 @@ a:hover {
   .app-wrapper--scrollworld .hamburger {
     width: 44px;
     height: 44px;
-    background: #3d2e24;
-    color: #fffefb;
-    border-color: #3d2e24;
+    background: #1c3d6e;
+    color: #f7f9fc;
+    border-color: #1c3d6e;
   }
 }
 

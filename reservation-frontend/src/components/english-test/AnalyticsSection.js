@@ -1,4 +1,4 @@
-// 數據分析：學期篩選 + Recharts（參考 Bklit bar／pie 質感）
+// 數據分析：學期篩選 + 共用 chart kit（Recharts / Bklit 質感）
 import React, { useMemo, useState } from 'react';
 import {
   BarChart,
@@ -8,40 +8,24 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  CartesianGrid,
   PieChart,
   Pie,
   Label,
 } from 'recharts';
 import { formatEnglishTestSemesterLabel } from '../../utils/englishTestSemesterDisplay';
+import {
+  CHART_ANIM,
+  CHART_AXIS_TICK,
+  CHART_AXIS_LABEL,
+  CHART_CURSOR_FILL,
+  CHART_MARGIN,
+  chartColor,
+  withChartFills,
+  ChartCard,
+  ChartGrid,
+  ChartTooltip,
+} from '../charts';
 import './AnalyticsSection.css';
-
-/** 偏學術藍白、接近 Bklit chart-1…5 的柔和色盤 */
-const CHART_PALETTE = [
-  '#315f8f',
-  '#4a8bc2',
-  '#6aa3d4',
-  '#8bb8de',
-  '#5b8f7a',
-  '#c4a35a',
-  '#c0725a',
-  '#7a6bb0',
-];
-
-const EASE = 'ease-out';
-const ANIM_MS = 900;
-
-function toChartData(data) {
-  return (data || []).map((row, i) => {
-    const label = String(row.label || '');
-    return {
-      name: label.length > 14 ? `${label.slice(0, 14)}…` : label,
-      fullName: label,
-      count: Number(row.count) || 0,
-      fill: CHART_PALETTE[i % CHART_PALETTE.length],
-    };
-  });
-}
 
 function exportCsv({ filePrefix, data, total, semester }) {
   if (!data || data.length === 0) return;
@@ -62,25 +46,6 @@ function exportCsv({ filePrefix, data, total, semester }) {
   URL.revokeObjectURL(url);
 }
 
-function ChartTooltipCard({ active, payload, label, isPie = false }) {
-  if (!active || !payload?.length) return null;
-  const item = payload[0];
-  const row = item?.payload || {};
-  const title = isPie ? (row.fullName || row.name) : (row.fullName || label);
-  const value = item?.value ?? row.count ?? 0;
-  const color = row.fill || item?.color || CHART_PALETTE[0];
-
-  return (
-    <div className="et-analytics-tooltip">
-      <div className="et-analytics-tooltip__swatch" style={{ backgroundColor: color }} />
-      <div>
-        <div className="et-analytics-tooltip__label">{title}</div>
-        <div className="et-analytics-tooltip__value">{value} 人</div>
-      </div>
-    </div>
-  );
-}
-
 function ChartCardShell({
   title,
   description,
@@ -92,50 +57,41 @@ function ChartCardShell({
   semester,
   children,
 }) {
-  if (loading) {
-    return (
-      <div className="card et-analytics-card mb-4">
-        <div className="card-body text-center py-5">
-          <div className="et-analytics-skeleton mx-auto mb-3" aria-hidden />
-          <p className="mt-2 text-muted small mb-0">載入統計資料中...</p>
-        </div>
-      </div>
-    );
-  }
+  const empty = !loading && (!data || data.length === 0);
 
-  if (!data || data.length === 0) {
+  if (loading || empty) {
     return (
-      <div className="card et-analytics-card mb-4">
-        <div className="card-header et-analytics-card__header">
-          <h5 className="mb-0">{title}</h5>
-        </div>
-        <div className="card-body text-center py-5">
-          <i className="fas fa-chart-pie fa-3x text-muted mb-3" aria-hidden />
-          <p className="text-muted mb-0">尚無統計資料</p>
-          <p className="small text-muted mb-0">{emptyHint}</p>
-        </div>
+      <div className="mb-4">
+        <ChartCard
+          title={title}
+          loading={loading}
+          empty={empty}
+          emptyHint={emptyHint}
+          emptyIcon="fa-chart-pie"
+        />
       </div>
     );
   }
 
   return (
-    <div className="card et-analytics-card mb-4">
-      <div className="card-header et-analytics-card__header d-flex justify-content-between align-items-start flex-wrap gap-2">
-        <div>
-          <h5 className="mb-1">{title}</h5>
-          <p className="text-muted small mb-0">
+    <div className="mb-4">
+      <ChartCard
+        title={title}
+        description={
+          <>
             {description}總計 <strong>{total}</strong> 筆
-          </p>
-        </div>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-success"
-          onClick={() => exportCsv({ filePrefix, data, total, semester })}
-        >
-          <i className="fas fa-file-csv me-1" /> 匯出 CSV
-        </button>
-      </div>
-      <div className="card-body pt-2">
+          </>
+        }
+        actions={(
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-success"
+            onClick={() => exportCsv({ filePrefix, data, total, semester })}
+          >
+            <i className="fas fa-file-csv me-1" /> 匯出 CSV
+          </button>
+        )}
+      >
         {children}
         <div className="table-responsive mt-3">
           <table className="table table-sm table-hover align-middle mb-0 et-analytics-table">
@@ -151,8 +107,8 @@ function ChartCardShell({
                 <tr key={`${row.label}-${i}`}>
                   <td>
                     <span
-                      className="et-analytics-dot"
-                      style={{ backgroundColor: CHART_PALETTE[i % CHART_PALETTE.length] }}
+                      className="eears-chart-dot"
+                      style={{ backgroundColor: chartColor(i) }}
                       aria-hidden
                     />
                     {row.label || ''}
@@ -164,7 +120,7 @@ function ChartCardShell({
             </tbody>
           </table>
         </div>
-      </div>
+      </ChartCard>
     </div>
   );
 }
@@ -187,7 +143,7 @@ function DonutCenterLabel({ viewBox, total, activeLabel, activeCount }) {
 }
 
 function PieStatCard(props) {
-  const chartData = toChartData(props.data);
+  const chartData = withChartFills(props.data);
   const [activeIndex, setActiveIndex] = useState(null);
   const active = activeIndex != null ? chartData[activeIndex] : null;
 
@@ -211,8 +167,8 @@ function PieStatCard(props) {
                 strokeWidth={3}
                 isAnimationActive
                 animationBegin={0}
-                animationDuration={ANIM_MS}
-                animationEasing={EASE}
+                animationDuration={CHART_ANIM.duration}
+                animationEasing={CHART_ANIM.easing}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
                 onMouseLeave={() => setActiveIndex(null)}
               >
@@ -228,7 +184,7 @@ function PieStatCard(props) {
                       transformOrigin: 'center',
                       transition: 'fill-opacity 180ms ease, transform 180ms ease',
                       filter: activeIndex === index
-                        ? 'drop-shadow(0 4px 10px rgba(49, 95, 143, 0.28))'
+                        ? 'drop-shadow(0 4px 10px rgba(42, 93, 159, 0.28))'
                         : 'none',
                       cursor: 'pointer',
                     }}
@@ -245,7 +201,16 @@ function PieStatCard(props) {
                   )}
                 />
               </Pie>
-              <Tooltip content={<ChartTooltipCard isPie />} />
+              <Tooltip
+                content={(tipProps) => (
+                  <ChartTooltip
+                    {...tipProps}
+                    preferFullName
+                    formatName={() => ''}
+                    formatValue={(v) => `${v} 人`}
+                  />
+                )}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -266,7 +231,7 @@ function PieStatCard(props) {
                   onBlur={() => setActiveIndex(null)}
                 >
                   <span className="et-analytics-legend__meta">
-                    <span className="et-analytics-dot" style={{ backgroundColor: row.fill }} aria-hidden />
+                    <span className="eears-chart-dot" style={{ backgroundColor: row.fill }} aria-hidden />
                     <span className="et-analytics-legend__name" title={row.fullName}>{row.fullName}</span>
                   </span>
                   <span className="et-analytics-legend__stats">
@@ -287,7 +252,7 @@ function PieStatCard(props) {
 }
 
 function BarStatCard({ layout = 'vertical', ...props }) {
-  const chartData = toChartData(props.data);
+  const chartData = withChartFills(props.data);
   const [activeIndex, setActiveIndex] = useState(null);
   const isHorizontal = layout === 'horizontal';
   const chartHeight = isHorizontal
@@ -301,26 +266,17 @@ function BarStatCard({ layout = 'vertical', ...props }) {
           <BarChart
             data={chartData}
             layout={isHorizontal ? 'vertical' : 'horizontal'}
-            margin={
-              isHorizontal
-                ? { top: 12, right: 28, left: 4, bottom: 8 }
-                : { top: 16, right: 12, left: 4, bottom: 56 }
-            }
+            margin={isHorizontal ? CHART_MARGIN.barHorizontal : { ...CHART_MARGIN.bar, bottom: 56 }}
             barCategoryGap="22%"
             onMouseLeave={() => setActiveIndex(null)}
           >
-            <CartesianGrid
-              strokeDasharray="4 6"
-              stroke="rgba(47, 52, 55, 0.08)"
-              vertical={!isHorizontal}
-              horizontal
-            />
+            <ChartGrid vertical={!isHorizontal} horizontal />
             {isHorizontal ? (
               <>
                 <XAxis
                   type="number"
                   allowDecimals={false}
-                  tick={{ fontSize: 12, fill: '#6a7176' }}
+                  tick={CHART_AXIS_TICK}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -328,7 +284,7 @@ function BarStatCard({ layout = 'vertical', ...props }) {
                   type="category"
                   dataKey="name"
                   width={132}
-                  tick={{ fontSize: 12, fill: '#2f3437' }}
+                  tick={CHART_AXIS_LABEL}
                   interval={0}
                   axisLine={false}
                   tickLine={false}
@@ -341,22 +297,29 @@ function BarStatCard({ layout = 'vertical', ...props }) {
                   angle={-28}
                   textAnchor="end"
                   height={64}
-                  tick={{ fontSize: 12, fill: '#2f3437' }}
+                  tick={CHART_AXIS_LABEL}
                   interval={0}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
                   allowDecimals={false}
-                  tick={{ fontSize: 12, fill: '#6a7176' }}
+                  tick={CHART_AXIS_TICK}
                   axisLine={false}
                   tickLine={false}
                 />
               </>
             )}
             <Tooltip
-              cursor={{ fill: 'rgba(49, 95, 143, 0.06)', radius: 8 }}
-              content={<ChartTooltipCard />}
+              cursor={CHART_CURSOR_FILL}
+              content={(tipProps) => (
+                <ChartTooltip
+                  {...tipProps}
+                  preferFullName
+                  formatName={() => ''}
+                  formatValue={(v) => `${v} 人`}
+                />
+              )}
             />
             <Bar
               dataKey="count"
@@ -365,8 +328,8 @@ function BarStatCard({ layout = 'vertical', ...props }) {
               maxBarSize={44}
               isAnimationActive
               animationBegin={0}
-              animationDuration={ANIM_MS}
-              animationEasing={EASE}
+              animationDuration={CHART_ANIM.duration}
+              animationEasing={CHART_ANIM.easing}
               onMouseEnter={(_, index) => setActiveIndex(index)}
             >
               {chartData.map((entry, index) => (

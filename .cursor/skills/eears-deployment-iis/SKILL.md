@@ -49,7 +49,7 @@ license: MIT
 
 - 檢查：
   - 後端：`npm run lint`、`npm test -- --runInBand`
-  - 前端：`npm run lint`、`npm test -- --watchAll=false`、`npm run build`
+  - 前端：`npm run lint`、`npm test`、`npm run build`
 - 準備：
   - 確保 `.env` 以 `.env.example` 為依據
 - 部署：

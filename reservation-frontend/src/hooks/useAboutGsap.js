@@ -1,3 +1,12 @@
+/**
+ * About 全頁沈浸：滾動 scrub 影片 + 敘事面板 pin/scrub
+ *
+ * 【刻意保留 GSAP】Motion 的 useScroll／sticky 無法等價取代：
+ * - ScrollTrigger `pin` + `scrub` 多面板交叉淡入
+ * - 與 scroll progress 同步的 video.currentTime seek
+ *
+ * 目前未掛載到路由；若重新啟用，請維持 GSAP，勿強改 Motion。
+ */
 import { useRef } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
@@ -19,9 +28,6 @@ function seekVideo(video, time) {
   video.currentTime = clamped;
 }
 
-/**
- * About 全頁沈浸：滾動 scrub 影片 + 敘事面板 pin/scrub
- */
 export default function useAboutGsap({ videoRef } = {}) {
   const rootRef = useRef(null);
 

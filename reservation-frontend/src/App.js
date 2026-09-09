@@ -14,34 +14,8 @@ import PublicLayout from './components/layout/PublicLayout';
 import ErrorBoundary from './components/system/ErrorBoundary';
 import ScrollToTop from './components/system/ScrollToTop';
 
+// 首頁維持 eager，避免行動版 PSI 在 `/` 先閃 RouteLoading。
 import HomePage from './pages/HomePage';
-import EventsPage from './pages/EventsPage';
-import ActivitiesPage from './pages/ActivitiesPage';
-import WordBridgePage from './pages/WordBridgePage';
-import ListeningLadderPage from './pages/ListeningLadderPage';
-import VocabularyDepthPage from './pages/VocabularyDepthPage';
-import VocabularySizePage from './pages/VocabularySizePage';
-import ActivityPhrasebookPage from './pages/ActivityPhrasebookPage';
-import WeeklyPage from './pages/WeeklyPage';
-import WeeklyPreviewPage from './pages/WeeklyPreviewPage';
-import ActivityDetailPage from './pages/ActivityDetailPage';
-import AnnouncementsPage from './pages/AnnouncementsPage';
-import AnnouncementDetailPage from './pages/AnnouncementDetailPage';
-import MyReservationsPage from './pages/MyReservationsPage';
-import NotificationPage from './pages/NotificationPage';
-import FAQPage from './pages/FAQPage';
-import AboutPage from './pages/AboutPage';
-import CourseGuidePage from './pages/CourseGuidePage';
-import HomeImmersiveTestPage from './pages/HomeImmersiveTestPage';
-import ContactPage from './pages/ContactPage';
-import LearningResourcesPage from './pages/LearningResourcesPage';
-import RegulationsFormsPage from './pages/RegulationsFormsPage';
-import PrivacyPage from './pages/PrivacyPage';
-import TermsPage from './pages/TermsPage';
-import ForbiddenPage from './pages/ForbiddenPage';
-import NotFoundPage from './pages/NotFoundPage';
-import AdminLayout from './components/AdminLayout';
-import LoginPage from './components/LoginPage';
 import RouteLoading from './components/ui/RouteLoading';
 import { fetchClient } from './utils/fetchClient';
 import { buildAccessProfile } from './utils/accessControl';
@@ -51,6 +25,34 @@ import ToastProvider from './components/ui/ToastProvider';
 import WeeklyHomeBanner from './components/layout/WeeklyHomeBanner';
 import { fetchCurrentWeeklyReport } from './services/weeklyReportApi';
 
+// 其餘公開／後台頁一律 code-split，避免主包一次下載 FullCalendar、練習遊戲、GSAP 等。
+const EventsPage = lazy(() => import('./pages/EventsPage'));
+const ActivitiesPage = lazy(() => import('./pages/ActivitiesPage'));
+const WordBridgePage = lazy(() => import('./pages/WordBridgePage'));
+const ListeningLadderPage = lazy(() => import('./pages/ListeningLadderPage'));
+const VocabularyDepthPage = lazy(() => import('./pages/VocabularyDepthPage'));
+const VocabularySizePage = lazy(() => import('./pages/VocabularySizePage'));
+const ActivityPhrasebookPage = lazy(() => import('./pages/ActivityPhrasebookPage'));
+const WeeklyPage = lazy(() => import('./pages/WeeklyPage'));
+const WeeklyPreviewPage = lazy(() => import('./pages/WeeklyPreviewPage'));
+const ActivityDetailPage = lazy(() => import('./pages/ActivityDetailPage'));
+const AnnouncementsPage = lazy(() => import('./pages/AnnouncementsPage'));
+const AnnouncementDetailPage = lazy(() => import('./pages/AnnouncementDetailPage'));
+const MyReservationsPage = lazy(() => import('./pages/MyReservationsPage'));
+const NotificationPage = lazy(() => import('./pages/NotificationPage'));
+const FAQPage = lazy(() => import('./pages/FAQPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const CourseGuidePage = lazy(() => import('./pages/CourseGuidePage'));
+const HomeImmersiveTestPage = lazy(() => import('./pages/HomeImmersiveTestPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const LearningResourcesPage = lazy(() => import('./pages/LearningResourcesPage'));
+const RegulationsFormsPage = lazy(() => import('./pages/RegulationsFormsPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
+const ForbiddenPage = lazy(() => import('./pages/ForbiddenPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const AdminLayout = lazy(() => import('./components/AdminLayout'));
+const LoginPage = lazy(() => import('./components/LoginPage'));
 const AdminHome = lazy(() => import('./components/AdminHome'));
 const ClassOverview = lazy(() => import('./components/ClassOverview'));
 const ViolationManagement = lazy(() => import('./components/ViolationManagement'));
@@ -124,10 +126,6 @@ const LearningAnalyticsInsightsPage = lazy(() => import('./pages/admin/LearningA
 const LearningAnalyticsModelRunsPage = lazy(() => import('./pages/admin/LearningAnalyticsModelRunsPage'));
 const ImportCenterPage = lazy(() => import('./pages/admin/ImportCenterPage'));
 const ImportRunHistoryPage = lazy(() => import('./pages/admin/ImportRunHistoryPage'));
-
-function LazyPublicRoute({ children }) {
-  return <Suspense fallback={<RouteLoading />}>{children}</Suspense>;
-}
 
 /** 舊版後台 URL → 現行入口，並附帶一次性 migrated 提示 */
 function AdminLegacyRedirect({ to, fromLabel }) {
@@ -355,7 +353,7 @@ function AppContent() {
     ? { background: '#f5ede0' }
     : {
         background:
-          'radial-gradient(circle at top left, rgba(212, 86, 74, 0.05), transparent 30rem), linear-gradient(180deg, #fbfbfa 0%, #f7f3ed 100%)',
+          'radial-gradient(circle at top left, rgba(42, 93, 159, 0.05), transparent 30rem), linear-gradient(180deg, #fbfbfa 0%, #f7f3ed 100%)',
       };
 
   return (
@@ -421,6 +419,7 @@ function AppContent() {
             ) : null
           }
         >
+          <Suspense fallback={<RouteLoading />}>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/hometest" element={<HomeImmersiveTestPage />} />
@@ -603,22 +602,23 @@ function AppContent() {
               <Route path="account" element={<AccountManagement />} />
               <Route path="account/reset" element={<ForceResetPassword />} />
             </Route>
-            <Route path="/survey/choice" element={<LazyPublicRoute><SurveyChoicePage /></LazyPublicRoute>} />
-            <Route path="/survey/:surveyId" element={<LazyPublicRoute><SurveyPage /></LazyPublicRoute>} />
-            <Route path="/register/english-test" element={<LazyPublicRoute><EnglishTestRegistrationPage /></LazyPublicRoute>} />
-            <Route path="/register/english-test/group" element={<LazyPublicRoute><LearningPartnerRegistrationPage /></LazyPublicRoute>} />
-            <Route path="/register/english-test/group/status/:teamId" element={<LazyPublicRoute><LearningPartnerStatusPage /></LazyPublicRoute>} />
-            <Route path="/register/english-test/group/approve" element={<LazyPublicRoute><LearningPartnerApprovePage /></LazyPublicRoute>} />
-            <Route path="/student/progress" element={<LazyPublicRoute><StudentProgressPage /></LazyPublicRoute>} />
-            <Route path="/student/english-learning-passport" element={<LazyPublicRoute><EnglishLearningPassportPage /></LazyPublicRoute>} />
-            <Route path="/student/english-learning-passport/submissions/:id" element={<LazyPublicRoute><EnglishLearningPassportSubmissionPage /></LazyPublicRoute>} />
-            <Route path="/student/english-learning-passport/certification" element={<LazyPublicRoute><EnglishLearningPassportCertificationPage /></LazyPublicRoute>} />
+            <Route path="/survey/choice" element={<SurveyChoicePage />} />
+            <Route path="/survey/:surveyId" element={<SurveyPage />} />
+            <Route path="/register/english-test" element={<EnglishTestRegistrationPage />} />
+            <Route path="/register/english-test/group" element={<LearningPartnerRegistrationPage />} />
+            <Route path="/register/english-test/group/status/:teamId" element={<LearningPartnerStatusPage />} />
+            <Route path="/register/english-test/group/approve" element={<LearningPartnerApprovePage />} />
+            <Route path="/student/progress" element={<StudentProgressPage />} />
+            <Route path="/student/english-learning-passport" element={<EnglishLearningPassportPage />} />
+            <Route path="/student/english-learning-passport/submissions/:id" element={<EnglishLearningPassportSubmissionPage />} />
+            <Route path="/student/english-learning-passport/certification" element={<EnglishLearningPassportCertificationPage />} />
             <Route
               path="/admin/classes/:classId/detail"
               element={<LegacyClassDetailRedirect token={token} />}
             />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
+          </Suspense>
         </PublicLayout>
       </div>
     </>

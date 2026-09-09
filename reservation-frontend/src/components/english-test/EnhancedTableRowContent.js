@@ -1,23 +1,20 @@
 import React, { memo, useCallback } from 'react';
 import QuickActionButtons from './QuickActionButtons';
-import useConfirm from '../ui/useConfirm';
 import { getStatusBadge, highlightText } from './englishTestTableHelpers';
 
 function EnhancedTableRowContent({
   row,
-  visibleColumns,
-  allColumns,
-  selectedRows,
-  onRowSelect,
+  visibleColumnDefs,
+  isSelected,
+  onToggleSelect,
   searchTerm,
   onViewDetail,
   onQuickStatusUpdate,
   onDelete,
   onClassBestep,
   enableDragSort,
+  confirm,
 }) {
-  const { confirm } = useConfirm();
-
   const handleDelete = useCallback(() => {
     confirm({
       title: '確認刪除報名資料？',
@@ -27,9 +24,19 @@ function EnhancedTableRowContent({
       variant: 'danger',
     }).then((ok) => {
       if (!ok) return;
-      onDelete && onDelete(row.id);
+      onDelete?.(row.id);
     });
   }, [confirm, onDelete, row.id]);
+
+  const handleView = useCallback(() => {
+    onViewDetail?.(row.id);
+  }, [onViewDetail, row.id]);
+
+  const handleSelectChange = useCallback((e) => {
+    onToggleSelect?.(row.id, e.target.checked);
+  }, [onToggleSelect, row.id]);
+
+  const hasSearch = Boolean(searchTerm);
 
   return (
     <>
@@ -52,60 +59,56 @@ function EnhancedTableRowContent({
       <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
         <input
           type="checkbox"
-          checked={selectedRows.includes(row.id)}
-          onChange={(e) => {
-            if (e.target.checked) {
-              onRowSelect && onRowSelect([...selectedRows, row.id]);
-            } else {
-              onRowSelect && onRowSelect(selectedRows.filter(id => id !== row.id));
-            }
-          }}
+          checked={isSelected}
+          onChange={handleSelectChange}
         />
       </td>
 
-      {visibleColumns
-        .map(key => allColumns.find(col => col.key === key))
-        .filter(col => col !== undefined)
-        .map(col => (
-          <td key={col.key} style={{ textAlign: 'left', verticalAlign: 'middle' }}>
-            {col.key === 'status' ? (
-              getStatusBadge(row[col.key])
-            ) : col.key === 'photo' ? (
-              row.idPhoto ? (
-                <img
-                  src={`/uploads/${row.idPhoto}`}
-                  alt="證件照"
-                  style={{
-                    width: '50px',
-                    height: '50px',
-                    objectFit: 'cover',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    border: '1px solid #ddd',
-                  }}
-                  onClick={() => window.open(`/uploads/${row.idPhoto}`, '_blank')}
-                  title="點擊放大"
-                />
-              ) : (
-                <span className="text-muted">無</span>
-              )
-            ) : col.key === 'createdAt' ? (
-              new Date(row[col.key]).toLocaleString('zh-TW')
-            ) : col.key === 'id' ? (
-              highlightText(
+      {visibleColumnDefs.map((col) => (
+        <td key={col.key} style={{ textAlign: 'left', verticalAlign: 'middle' }}>
+          {col.key === 'status' ? (
+            getStatusBadge(row[col.key])
+          ) : col.key === 'photo' ? (
+            row.idPhoto ? (
+              <img
+                src={`/uploads/${row.idPhoto}`}
+                alt="證件照"
+                loading="lazy"
+                style={{
+                  width: '50px',
+                  height: '50px',
+                  objectFit: 'cover',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  border: '1px solid #ddd',
+                }}
+                onClick={() => window.open(`/uploads/${row.idPhoto}`, '_blank')}
+                title="點擊放大"
+              />
+            ) : (
+              <span className="text-muted">無</span>
+            )
+          ) : col.key === 'createdAt' ? (
+            new Date(row[col.key]).toLocaleString('zh-TW')
+          ) : col.key === 'id' ? (
+            hasSearch
+              ? highlightText(
                 row.semesterSequence || (row.status === 'success' && row.successSequence) || row.id,
                 searchTerm
               )
-            ) : (
-              highlightText(row[col.key] || '-', searchTerm)
-            )}
-          </td>
-        ))}
+              : (row.semesterSequence || (row.status === 'success' && row.successSequence) || row.id)
+          ) : (
+            hasSearch
+              ? highlightText(row[col.key] || '-', searchTerm)
+              : (row[col.key] || '-')
+          )}
+        </td>
+      ))}
 
       <td style={{ textAlign: 'left', verticalAlign: 'middle' }}>
         <QuickActionButtons
           registration={row}
-          onView={() => onViewDetail && onViewDetail(row.id)}
+          onView={handleView}
           onQuickStatusUpdate={onQuickStatusUpdate}
           onClassBestep={onClassBestep}
           onDelete={handleDelete}
@@ -115,4 +118,20 @@ function EnhancedTableRowContent({
   );
 }
 
-export default memo(EnhancedTableRowContent);
+function rowPropsAreEqual(prev, next) {
+  return (
+    prev.row === next.row
+    && prev.isSelected === next.isSelected
+    && prev.searchTerm === next.searchTerm
+    && prev.enableDragSort === next.enableDragSort
+    && prev.visibleColumnDefs === next.visibleColumnDefs
+    && prev.onToggleSelect === next.onToggleSelect
+    && prev.onViewDetail === next.onViewDetail
+    && prev.onQuickStatusUpdate === next.onQuickStatusUpdate
+    && prev.onDelete === next.onDelete
+    && prev.onClassBestep === next.onClassBestep
+    && prev.confirm === next.confirm
+  );
+}
+
+export default memo(EnhancedTableRowContent, rowPropsAreEqual);

@@ -8,11 +8,11 @@ const NAV_BTN_STYLE = {
   width: '50px',
   height: '50px',
   borderRadius: '50%',
-  border: '3px solid #007bff',
+  border: '3px solid #2a5d9f',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: '#007bff',
+  backgroundColor: '#2a5d9f',
   boxShadow: '0 4px 12px rgba(0,123,255,0.4)',
   cursor: 'pointer',
   transition: 'all 0.2s',
@@ -33,8 +33,8 @@ function NavArrowButton({ side, onClick, title }) {
         e.target.style.boxShadow = '0 6px 16px rgba(0,123,255,0.6)';
       }}
       onMouseLeave={(e) => {
-        e.target.style.backgroundColor = '#007bff';
-        e.target.style.borderColor = '#007bff';
+        e.target.style.backgroundColor = '#2a5d9f';
+        e.target.style.borderColor = '#2a5d9f';
         e.target.style.transform = 'translateY(-50%) scale(1)';
         e.target.style.boxShadow = '0 4px 12px rgba(0,123,255,0.4)';
       }}

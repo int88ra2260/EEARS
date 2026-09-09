@@ -39,7 +39,7 @@ alwaysApply: false
    - 跑相關測試檔（至少確保整體 `npm test -- --runInBand` 走過）
    - 若新增 bug 相關契約，補對應 unit/integration test
 2. 前端：
-   - `npm test -- --watchAll=false` + `npm run lint` + `npm run build`
+   - `npm test` + `npm run lint` + `npm run build`
 
 ## 5) Code review 步驟
 

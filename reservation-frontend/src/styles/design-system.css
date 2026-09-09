@@ -3,51 +3,51 @@
 /* ============================================ */
 
 :root {
-  --font-family-sans: 'Helvetica Neue', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-family-serif: 'Newsreader', 'Noto Serif TC', Georgia, serif;
-  --font-family-mono: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+  /* Institutional Academic Blue — 學生端與後台共用單一主色來源 */
+  --font-family-sans: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-family-serif: 'IBM Plex Sans', 'Noto Sans TC', Georgia, serif;
+  --font-family-mono: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Consolas, monospace;
 
-  /* 主色調（後台預設；學生端公開頁由 emi-brand.css 覆寫為 EMI 暖色） */
-  --color-primary: #315f8f;
-  --color-primary-light: #eef5fb;
-  --color-primary-dark: #1f4265;
-  --color-secondary: #f7f6f3;
-  --color-accent: #8b5a3c;
+  --color-primary: #2a5d9f;
+  --color-primary-light: #eaf1fc;
+  --color-primary-dark: #1c3d6e;
+  --color-secondary: #f7f9fc;
+  --color-accent: #1c3d6e;
   
-  /* 背景色 */
-  --color-bg-primary: #fffefb;
-  --color-bg-secondary: #f7f6f3;
-  --color-bg-paper: #fffbf2;
-  --color-bg-paper-light: #F9F4EC;
-  --color-bg-paper-hover: #F5ECD9;
+  /* 背景色（冷中性畫布，避免暖米色範本感） */
+  --color-bg-primary: #f7f9fc;
+  --color-bg-secondary: #eef2f7;
+  --color-bg-paper: #ffffff;
+  --color-bg-paper-light: #f0f4fa;
+  --color-bg-paper-hover: #e4ebf5;
   
   /* 文字顏色 */
   --color-text-primary: #2f3437;
-  --color-text-secondary: #66615c;
-  --color-text-muted: #8b8580;
+  --color-text-secondary: #5a6169;
+  --color-text-muted: #6a7176;
   --color-text-white: #ffffff;
   
   /* 狀態顏色 */
-  --color-success: #28a745;
-  --color-success-light: #d4edda;
-  --color-warning: #ffc107;
-  --color-warning-light: #fff3cd;
-  --color-danger: #dc3545;
-  --color-danger-light: #f8d7da;
-  --color-info: #17a2b8;
-  --color-info-light: #d1ecf1;
+  --color-success: #2f6f4e;
+  --color-success-light: #e3f2ea;
+  --color-warning: #9a6700;
+  --color-warning-light: #fff4ce;
+  --color-danger: #b42318;
+  --color-danger-light: #fdeceb;
+  --color-info: #2a5d9f;
+  --color-info-light: #eaf1fc;
   
   /* 邊框顏色 */
-  --color-border: #e4e0da;
-  --color-border-light: #efebe5;
-  --color-border-soft: #e8ddd0;
-  --color-border-dark: #cfc7bd;
+  --color-border: #d8e0ea;
+  --color-border-light: #e8eef5;
+  --color-border-soft: #d0d9e6;
+  --color-border-dark: #b8c4d4;
   
-  /* 陰影 */
-  --shadow-sm: 0 1px 3px rgba(61, 46, 36, 0.06);
-  --shadow-md: 0 6px 18px rgba(61, 46, 36, 0.08);
-  --shadow-lg: 0 14px 34px rgba(61, 46, 36, 0.1);
-  --shadow-xl: 0 22px 56px rgba(61, 46, 36, 0.14);
+  /* 陰影（冷灰藍調） */
+  --shadow-sm: 0 1px 3px rgba(28, 61, 110, 0.06);
+  --shadow-md: 0 6px 18px rgba(28, 61, 110, 0.08);
+  --shadow-lg: 0 14px 34px rgba(28, 61, 110, 0.1);
+  --shadow-xl: 0 22px 56px rgba(28, 61, 110, 0.14);
   
   /* 邊角 */
   --radius-sm: 4px;
@@ -508,7 +508,7 @@ dd {
 .btn-primary:focus {
   background-color: var(--color-primary-dark);
   border-color: var(--color-primary-dark);
-  box-shadow: 0 8px 20px rgba(49, 95, 143, 0.12);
+  box-shadow: 0 8px 20px rgba(42, 93, 159, 0.12);
 }
 
 .btn-outline-primary {
@@ -557,7 +557,7 @@ dd {
 .form-control:focus,
 .form-select:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(49, 95, 143, 0.12);
+  box-shadow: 0 0 0 3px rgba(42, 93, 159, 0.12);
 }
 
 .form-label {

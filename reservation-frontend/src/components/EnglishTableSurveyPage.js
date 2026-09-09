@@ -222,7 +222,7 @@ export default function EnglishTableSurveyPage() {
                 onChange={() => handleLikertChange(question.id, option.value)}
                 className="mx-1"
                 style={{ 
-                  backgroundColor: likertResponses[question.id] === option.value ? '#007bff' : 'transparent',
+                  backgroundColor: likertResponses[question.id] === option.value ? '#2a5d9f' : 'transparent',
                   color: likertResponses[question.id] === option.value ? 'white' : 'inherit'
                 }}
               />

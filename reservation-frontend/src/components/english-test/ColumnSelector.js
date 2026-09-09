@@ -1,26 +1,45 @@
 // components/english-test/ColumnSelector.js
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-export default function ColumnSelector({ 
-  allColumns, 
-  visibleColumns, 
-  onColumnsChange 
+export default function ColumnSelector({
+  allColumns,
+  visibleColumns,
+  onColumnsChange,
 }) {
   const [localVisible, setLocalVisible] = useState(visibleColumns);
   const [draggedIndex, setDraggedIndex] = useState(null);
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
 
   useEffect(() => {
     setLocalVisible(visibleColumns);
   }, [visibleColumns]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
   const handleToggle = (columnKey) => {
     const newVisible = localVisible.includes(columnKey)
-      ? localVisible.filter(key => key !== columnKey)
+      ? localVisible.filter((key) => key !== columnKey)
       : [...localVisible, columnKey];
     setLocalVisible(newVisible);
     onColumnsChange && onColumnsChange(newVisible);
-    
-    // 儲存到 localStorage
+
     localStorage.setItem('englishTestTableColumns', JSON.stringify(newVisible));
   };
 
@@ -38,52 +57,53 @@ export default function ColumnSelector({
       return;
     }
 
-    // 根據 localVisible 的順序建立欄位定義陣列（用於拖曳排序）
     const orderedVisibleColumnDefs = localVisible
-      .map(key => allColumns.find(col => col.key === key))
-      .filter(col => col !== undefined);
+      .map((key) => allColumns.find((col) => col.key === key))
+      .filter((col) => col !== undefined);
 
-    // 執行拖曳排序
     const draggedColumn = orderedVisibleColumnDefs[draggedIndex];
     const newOrderedDefs = [...orderedVisibleColumnDefs];
     newOrderedDefs.splice(draggedIndex, 1);
     newOrderedDefs.splice(dropIndex, 0, draggedColumn);
-    
-    // 提取新的欄位 key 順序
-    const newVisible = newOrderedDefs.map(col => col.key);
-    
+
+    const newVisible = newOrderedDefs.map((col) => col.key);
+
     setLocalVisible(newVisible);
     onColumnsChange && onColumnsChange(newVisible);
     localStorage.setItem('englishTestTableColumns', JSON.stringify(newVisible));
     setDraggedIndex(null);
   };
 
-  // 只顯示已選擇的欄位（按照 localVisible 的順序排列，用於拖曳排序）
   const visibleColumnDefs = localVisible
-    .map(key => allColumns.find(col => col.key === key))
-    .filter(col => col !== undefined);
+    .map((key) => allColumns.find((col) => col.key === key))
+    .filter((col) => col !== undefined);
 
   return (
-    <div className="dropdown">
+    <div className={`dropdown${open ? ' show' : ''}`} ref={rootRef}>
       <button
         className="btn btn-sm btn-outline-secondary dropdown-toggle"
         type="button"
-        data-bs-toggle="dropdown"
-        aria-expanded="false"
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={() => setOpen((prev) => !prev)}
       >
         <i className="fas fa-cog me-1"></i>
         顯示欄位 ({localVisible.length}/{allColumns.length})
       </button>
-      <ul className="dropdown-menu" style={{ minWidth: '250px', padding: '0.5rem' }}>
+      <ul
+        className={`dropdown-menu${open ? ' show' : ''}`}
+        style={{ minWidth: '250px', padding: '0.5rem' }}
+      >
         <li>
           <div className="dropdown-item-text">
             <strong>選擇顯示欄位：</strong>
           </div>
         </li>
-        <li><hr className="dropdown-divider" /></li>
-        
-        {/* 所有欄位選擇 */}
-        {allColumns.map(col => (
+        <li>
+          <hr className="dropdown-divider" />
+        </li>
+
+        {allColumns.map((col) => (
           <li key={col.key}>
             <div className="dropdown-item-text">
               <div className="form-check">
@@ -102,9 +122,10 @@ export default function ColumnSelector({
           </li>
         ))}
 
-        <li><hr className="dropdown-divider" /></li>
-        
-        {/* 已選擇欄位排序（拖曳） */}
+        <li>
+          <hr className="dropdown-divider" />
+        </li>
+
         {visibleColumnDefs.length > 0 && (
           <>
             <li>
@@ -139,7 +160,7 @@ export default function ColumnSelector({
                     opacity: draggedIndex === index ? 0.6 : 1,
                     borderLeft: draggedIndex === index ? '3px solid #2196F3' : '3px solid transparent',
                     paddingLeft: '0.5rem',
-                    transition: 'all 0.2s'
+                    transition: 'all 0.2s',
                   }}
                 >
                   <i className="fas fa-grip-vertical me-2 text-muted"></i>

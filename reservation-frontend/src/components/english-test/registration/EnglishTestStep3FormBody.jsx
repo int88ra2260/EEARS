@@ -133,7 +133,7 @@ export default function EnglishTestStep3FormBody({
   return (
     <>
       <div className="mb-4">
-        <h4 className="mb-3" style={{ color: '#FF6B6B', borderBottom: '2px solid #FF6B6B', paddingBottom: '0.5rem' }}>
+        <h4 className="mb-3" style={{ color: '#2a5d9f', borderBottom: '2px solid #2a5d9f', paddingBottom: '0.5rem' }}>
           {sectionTitle}
         </h4>
 
@@ -418,8 +418,8 @@ export default function EnglishTestStep3FormBody({
             padding: '0.625rem 1.5rem',
             fontSize: '1rem',
             fontWeight: 'bold',
-            backgroundColor: '#FF6B6B',
-            borderColor: '#FF6B6B',
+            backgroundColor: '#b42318',
+            borderColor: '#b42318',
           }}
         >
           {formData.examType === 'NON' && formData.hasCEFRB2 === '否'

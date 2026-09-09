@@ -34,8 +34,8 @@ import {
 import { isFieldVisibleWithLinkage } from '../../../utils/englishTestVisibleWhen';
 
 const SECTION_HEADER_STYLE = {
-  color: '#FF6B6B',
-  borderBottom: '2px solid #FF6B6B',
+  color: '#2a5d9f',
+  borderBottom: '2px solid #2a5d9f',
   paddingBottom: '0.5rem',
 };
 
@@ -1007,7 +1007,7 @@ export default function EnglishTestRegistrationFormBody({
             >
               <div style={{ fontSize: '1rem', color: '#333', lineHeight: '1.8' }}>
                 <div style={{ marginBottom: '1rem' }}>
-                  <strong style={{ color: '#d9534f', fontSize: '1.1rem' }}>【個人資料保護聲明】</strong>
+                  <strong style={{ color: '#1c3d6e', fontSize: '1.1rem' }}>【個人資料保護聲明】</strong>
                   <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
                     <li>本人同意國立中山大學西灣學院（以下簡稱「本單位」）為辦理培力英檢報名及相關業務，得蒐集、處理及利用本人之個人資料（包括但不限於姓名、學號、身分證字號、聯絡方式、學籍資料、英語能力證明等）。</li>
                     <li>本人了解本單位將依個人資料保護法及相關法規，妥善保管及使用本人之個人資料，並僅用於培力英檢報名、考試安排、成績通知、相關行政作業及統計分析等目的。</li>
@@ -1015,7 +1015,7 @@ export default function EnglishTestRegistrationFormBody({
                   </ul>
                 </div>
                 <div style={{ marginBottom: '1rem' }}>
-                  <strong style={{ color: '#d9534f', fontSize: '1.1rem' }}>【報名規範與注意事項】</strong>
+                  <strong style={{ color: '#1c3d6e', fontSize: '1.1rem' }}>【報名規範與注意事項】</strong>
                   <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
                     <li>報名資料一經提交，即視為完成報名程序，除因系統錯誤或不可抗力因素外，不得要求取消報名。</li>
                     <li>報名時所填寫之各項資料（包括但不限於姓名、學號、聯絡方式、英語能力證明等）必須真實、正確且完整，如有虛偽不實或錯誤，本單位得取消報名資格或考試成績，且不負任何損害賠償責任。</li>
@@ -1117,7 +1117,7 @@ export default function EnglishTestRegistrationFormBody({
               </label>
               <div className="mt-3" style={{ fontSize: '1rem', color: '#333', lineHeight: '1.8', marginLeft: '2.5rem' }}>
                 <div style={{ marginBottom: '1rem' }}>
-                  <strong style={{ color: '#d9534f', fontSize: '1.1rem' }}>【個人資料保護聲明】</strong>
+                  <strong style={{ color: '#1c3d6e', fontSize: '1.1rem' }}>【個人資料保護聲明】</strong>
                   <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
                     <li>本人同意國立中山大學西灣學院（以下簡稱「本單位」）為辦理培力英檢報名及相關業務，得蒐集、處理及利用本人之個人資料（包括但不限於姓名、學號、身分證字號、聯絡方式、學籍資料、英語能力證明等）。</li>
                     <li>本人了解本單位將依個人資料保護法及相關法規，妥善保管及使用本人之個人資料，並僅用於培力英檢報名、考試安排、成績通知、相關行政作業及統計分析等目的。</li>
@@ -1125,7 +1125,7 @@ export default function EnglishTestRegistrationFormBody({
                   </ul>
                 </div>
                 <div style={{ marginBottom: '1rem' }}>
-                  <strong style={{ color: '#d9534f', fontSize: '1.1rem' }}>【報名規範與注意事項】</strong>
+                  <strong style={{ color: '#1c3d6e', fontSize: '1.1rem' }}>【報名規範與注意事項】</strong>
                   <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
                     <li>報名資料一經提交，即視為完成報名程序，除因系統錯誤或不可抗力因素外，不得要求修改或取消報名。</li>
                     <li>報名時所填寫之各項資料（包括但不限於姓名、學號、聯絡方式、英語能力證明等）必須真實、正確且完整，如有虛偽不實或錯誤，本單位得取消報名資格或考試成績，且不負任何責任。</li>

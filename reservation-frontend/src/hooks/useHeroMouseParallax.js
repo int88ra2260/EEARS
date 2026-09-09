@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import gsap from 'gsap';
+import { animate } from 'motion';
 
 /**
- * Hero 大卡：滑鼠跟隨光暈位移 + 輕微 3D 傾斜（觸控／減少動態時停用）
+ * Hero 大卡：滑鼠跟隨光暈 + 輕微 3D 傾斜（Motion；觸控／減少動態時停用）
  */
 export default function useHeroMouseParallax(panelRef) {
   useEffect(() => {
@@ -24,24 +24,27 @@ export default function useHeroMouseParallax(panelRef) {
     let rafId = 0;
     let targetX = 0;
     let targetY = 0;
+    let glowAnim;
+    let panelAnim;
 
     const applyMotion = () => {
       rafId = 0;
-      gsap.to(glow, {
-        x: targetX * 28,
-        y: targetY * 18,
-        duration: 0.85,
-        ease: 'power2.out',
-        overwrite: 'auto',
-      });
-      gsap.to(panel, {
-        rotateX: targetY * -2.5,
-        rotateY: targetX * 3,
-        duration: 0.85,
-        ease: 'power2.out',
-        transformPerspective: 1000,
-        overwrite: 'auto',
-      });
+      glowAnim?.stop?.();
+      panelAnim?.stop?.();
+      glowAnim = animate(
+        glow,
+        { x: targetX * 28, y: targetY * 18 },
+        { duration: 0.85, ease: [0.16, 1, 0.3, 1] },
+      );
+      panelAnim = animate(
+        panel,
+        {
+          rotateX: targetY * -2.5,
+          rotateY: targetX * 3,
+          transformPerspective: 1000,
+        },
+        { duration: 0.85, ease: [0.16, 1, 0.3, 1] },
+      );
     };
 
     const onMove = (event) => {
@@ -61,6 +64,7 @@ export default function useHeroMouseParallax(panelRef) {
       }
     };
 
+    panel.style.transformStyle = 'preserve-3d';
     panel.addEventListener('mousemove', onMove);
     panel.addEventListener('mouseleave', onLeave);
 
@@ -68,7 +72,10 @@ export default function useHeroMouseParallax(panelRef) {
       panel.removeEventListener('mousemove', onMove);
       panel.removeEventListener('mouseleave', onLeave);
       if (rafId) window.cancelAnimationFrame(rafId);
-      gsap.set([panel, glow], { clearProps: 'transform' });
+      glowAnim?.stop?.();
+      panelAnim?.stop?.();
+      glow.style.transform = '';
+      panel.style.transform = '';
     };
   }, [panelRef]);
 }

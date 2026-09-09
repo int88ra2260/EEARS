@@ -36,7 +36,7 @@ alwaysApply: false
 
 1. 自動：
    - 後端：`npm test -- --runInBand` + `npm run lint`
-   - 前端：`npm test -- --watchAll=false` + `npm run lint` + `npm run build`
+   - 前端：`npm test` + `npm run lint` + `npm run build`
 2. 手動 smoke（建議最少 6 步）
    - 預約頁面可打開
    - 預約時觸發 2hr 或未達時是否回正確提示

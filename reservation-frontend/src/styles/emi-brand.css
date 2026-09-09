@@ -1,56 +1,55 @@
 /**
- * EMI 中心官網對齊 — 暖色紙質／珊瑚主色（僅學生端公開頁）
- * 覆寫藍白學術風 token，不影響 .admin-layout-root
+ * EMI / EEARS 公開頁品牌 — Institutional Academic Blue
+ * 與 design-system 主色 #2a5d9f 對齊；不影響 .admin-layout-root
  */
 
 .public-site,
 .home-page {
-  --color-primary: #d4564a;
-  --color-primary-dark: #b8453a;
-  --color-primary-light: #fdf0ee;
-  --color-text-primary: #3d2e24;
-  --color-text-secondary: #6b5c52;
-  --color-border-light: #e8ddd0;
-  --color-bg-secondary: #fffefb;
-  --color-bg-paper: #fffbf2;
+  --color-primary: #2a5d9f;
+  --color-primary-dark: #1c3d6e;
+  --color-primary-light: #eaf1fc;
+  --color-text-primary: #2f3437;
+  --color-text-secondary: #5a6169;
+  --color-border-light: #e8eef5;
+  --color-bg-secondary: #f7f9fc;
+  --color-bg-paper: #ffffff;
 
-  --pub-canvas: #fffefb;
-  --pub-surface: #fffefb;
-  --pub-surface-muted: #e2d6c4;
-  --pub-border: #d9cfc0;
-  --pub-text: #3d2e24;
-  --pub-text-body: #4a3f36;
-  --pub-text-muted: #7a6b5f;
-  --pub-primary: #d4564a;
-  --pub-primary-dark: #b8453a;
-  --pub-primary-light: #fdf0ee;
-  --pub-info-bg: #f3ebe4;
-  --pub-info-text: #8b5a3c;
-  --pub-shadow: 0 2px 12px rgba(61, 46, 36, 0.06);
+  --pub-canvas: #f7f9fc;
+  --pub-surface: #ffffff;
+  --pub-surface-muted: #eef2f7;
+  --pub-border: #d8e0ea;
+  --pub-text: #2f3437;
+  --pub-text-body: #3d4450;
+  --pub-text-muted: #6a7176;
+  --pub-primary: #2a5d9f;
+  --pub-primary-dark: #1c3d6e;
+  --pub-primary-light: #eaf1fc;
+  --pub-info-bg: #eaf1fc;
+  --pub-info-text: #1c3d6e;
+  --pub-shadow: 0 2px 12px rgba(28, 61, 110, 0.06);
 
-  /* 拉大畫布／骨色明度差，滾動時才有「換區塊」感 */
-  --home-canvas: #fffefb;
-  --home-bone: #e2d6c4;
-  --home-wash: #f3ebe0;
-  --home-border: #d9cfc0;
-  --home-primary: #d4564a;
-  --home-primary-dark: #b8453a;
-  --home-primary-soft: #fdf0ee;
-  --home-ink: #3d2e24;
-  --home-ink-soft: #4a3f36;
-  --home-muted: #7a6b5f;
-  --home-pastel-blue: #f3ebe4;
-  --home-pastel-blue-text: #8b5a3c;
+  --home-canvas: #f7f9fc;
+  --home-bone: #eef2f7;
+  --home-wash: #eaf1fc;
+  --home-border: #d8e0ea;
+  --home-primary: #2a5d9f;
+  --home-primary-dark: #1c3d6e;
+  --home-primary-soft: #eaf1fc;
+  --home-ink: #2f3437;
+  --home-ink-soft: #3d4450;
+  --home-muted: #6a7176;
+  --home-pastel-blue: #eaf1fc;
+  --home-pastel-blue-text: #1c3d6e;
 }
 
 .public-site .form-control:focus,
 .public-site .form-select:focus {
   border-color: var(--pub-primary);
-  box-shadow: 0 0 0 3px rgba(212, 86, 74, 0.14);
+  box-shadow: 0 0 0 3px rgba(42, 93, 159, 0.14);
 }
 
 .site-header {
-  background: rgba(255, 251, 242, 0.94);
-  border-bottom-color: rgba(212, 86, 74, 0.14);
-  box-shadow: 0 4px 20px rgba(61, 46, 36, 0.06);
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom-color: rgba(42, 93, 159, 0.12);
+  box-shadow: 0 4px 20px rgba(28, 61, 110, 0.06);
 }

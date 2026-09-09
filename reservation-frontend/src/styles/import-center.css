@@ -1,9 +1,7 @@
-/* 資料匯入中心 — Premium Utilitarian Minimalism / Editorial */
-
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap');
+/* 資料匯入中心 — 對齊 design-system 字型 */
 
 .import-center-page {
-  --ic-serif: 'Newsreader', 'Georgia', 'Times New Roman', serif;
+  --ic-serif: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', system-ui, sans-serif;
   --ic-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --ic-reveal-delay: 0ms;
 
@@ -12,13 +10,10 @@
   padding: 1.5rem 0 2.5rem;
 }
 
-/* ---- Scroll reveal ---- */
+/* ---- Scroll reveal（進場由 Motion useScrollReveal 驅動） ---- */
 .import-center-reveal {
   opacity: 0;
-  transform: translateY(12px);
-  transition:
-    opacity 600ms var(--ic-ease) var(--reveal-delay, var(--ic-reveal-delay)),
-    transform 600ms var(--ic-ease) var(--reveal-delay, var(--ic-reveal-delay));
+  transform: translateY(20px);
   will-change: transform, opacity;
 }
 

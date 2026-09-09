@@ -1,12 +1,24 @@
 // components/english-test/QuickActionButtons.js
-import React from 'react';
+import React, { memo } from 'react';
+import { Dropdown } from 'react-bootstrap';
 import useConfirm from '../ui/useConfirm';
 import useToast from '../ui/useToast';
 
+/** 避免列表 overflow-auto 裁切選單（與帳號管理列操作一致） */
+const MORE_MENU_POPPER = {
+  strategy: 'fixed',
+  placement: 'bottom-end',
+  modifiers: [
+    { name: 'preventOverflow', options: { boundary: 'viewport', padding: 8 } },
+    { name: 'flip', options: { fallbackPlacements: ['top-end', 'bottom-start'] } },
+  ],
+};
+
 /**
  * 精簡列上操作：主動作依目前狀態顯示，其餘收進「更多」。
+ * 注意：不要 renderOnMount，否則每列都會掛 Popper，列表一多會明顯卡頓。
  */
-export default function QuickActionButtons({
+function QuickActionButtons({
   registration,
   onView,
   onQuickStatusUpdate,
@@ -18,7 +30,6 @@ export default function QuickActionButtons({
   const status = registration.status;
 
   const runStatus = async (nextStatus, label) => {
-    // 請修正／報名失敗：先選原因，送出前由 performStatusUpdate 做寄信防呆
     if (nextStatus === 'revision' || nextStatus === 'failed') {
       onQuickStatusUpdate?.(registration.id, nextStatus);
       return;
@@ -99,72 +110,55 @@ export default function QuickActionButtons({
         </button>
       ))}
 
-      <div className="btn-group">
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-secondary dropdown-toggle"
-          data-bs-toggle="dropdown"
-          aria-expanded="false"
+      <Dropdown align="end">
+        <Dropdown.Toggle
+          variant="outline-secondary"
+          size="sm"
+          id={`et-more-actions-${registration.id}`}
           aria-label="更多操作"
         >
           更多
-        </button>
-        <ul className="dropdown-menu dropdown-menu-end">
+        </Dropdown.Toggle>
+        <Dropdown.Menu popperConfig={MORE_MENU_POPPER} style={{ zIndex: 1080 }}>
           {status !== 'pending' && (
-            <li>
-              <button type="button" className="dropdown-item" onClick={() => runStatus('pending', '審核中')}>
-                設為審核中
-              </button>
-            </li>
+            <Dropdown.Item onClick={() => runStatus('pending', '審核中')}>
+              設為審核中
+            </Dropdown.Item>
           )}
           {status !== 'approved' && (
-            <li>
-              <button type="button" className="dropdown-item" onClick={() => runStatus('approved', '已通過')}>
-                設為已通過
-              </button>
-            </li>
+            <Dropdown.Item onClick={() => runStatus('approved', '已通過')}>
+              設為已通過
+            </Dropdown.Item>
           )}
           {status !== 'revision' && (
-            <li>
-              <button type="button" className="dropdown-item" onClick={() => runStatus('revision', '請修正')}>
-                設為請修正
-              </button>
-            </li>
+            <Dropdown.Item onClick={() => runStatus('revision', '請修正')}>
+              設為請修正
+            </Dropdown.Item>
           )}
           {status !== 'success' && (
-            <li>
-              <button type="button" className="dropdown-item" onClick={() => runStatus('success', '報名成功')}>
-                設為報名成功
-              </button>
-            </li>
+            <Dropdown.Item onClick={() => runStatus('success', '報名成功')}>
+              設為報名成功
+            </Dropdown.Item>
           )}
           {status !== 'failed' && (
-            <li>
-              <button type="button" className="dropdown-item" onClick={() => runStatus('failed', '報名失敗')}>
-                設為報名失敗
-              </button>
-            </li>
+            <Dropdown.Item onClick={() => runStatus('failed', '報名失敗')}>
+              設為報名失敗
+            </Dropdown.Item>
           )}
-          <li><hr className="dropdown-divider" /></li>
-          <li>
-            <button type="button" className="dropdown-item" onClick={copyLink}>
-              複製詳情連結
-            </button>
-          </li>
-          {onClassBestep && (
-            <li>
-              <button type="button" className="dropdown-item" onClick={() => onClassBestep(registration.id)}>
-                前往班級 BESTEP
-              </button>
-            </li>
-          )}
-          <li>
-            <button type="button" className="dropdown-item text-danger" onClick={() => onDelete?.()}>
-              刪除
-            </button>
-          </li>
-        </ul>
-      </div>
+          <Dropdown.Divider />
+          <Dropdown.Item onClick={copyLink}>複製詳情連結</Dropdown.Item>
+          {onClassBestep ? (
+            <Dropdown.Item onClick={() => onClassBestep(registration.id)}>
+              前往班級 BESTEP
+            </Dropdown.Item>
+          ) : null}
+          <Dropdown.Item className="text-danger" onClick={() => onDelete?.()}>
+            刪除
+          </Dropdown.Item>
+        </Dropdown.Menu>
+      </Dropdown>
     </div>
   );
 }
+
+export default memo(QuickActionButtons);

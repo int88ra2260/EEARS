@@ -125,7 +125,7 @@ export default function LearningJourneyStudentProfilePage() {
       getLearningJourneyV3StudentTrends(token, sid, semesterId)
     ])
       .then(([profileRes, trendsRes]) => {
-        if (process.env.NODE_ENV !== 'production') {
+        if (!import.meta.env.PROD) {
           console.debug('[LearningJourneyStudentProfile] student detail response', profileRes);
         }
         setData(profileRes || null);

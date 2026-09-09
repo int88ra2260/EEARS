@@ -6,7 +6,7 @@ export const HOME_IMMERSIVE_JOURNEY = [
   {
     id: 'events',
     diorama: 'events',
-    accent: '#D4564A',
+    accent: '#2a5d9f',
     eyebrow: { zh: 'Activities', en: 'Activities' },
     label: { zh: '活動', en: 'Events' },
     title: { zh: '從預約到簽到，一站完成', en: 'From booking to check-in' },

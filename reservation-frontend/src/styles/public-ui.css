@@ -1,25 +1,25 @@
-/* EEARS 學生端／公開頁 — EMI 暖色品牌（詳見 emi-brand.css 覆寫） */
+/* EEARS 學生端／公開頁 — Institutional Academic Blue（與 emi-brand / design-system 對齊） */
 
 .public-site {
-  --pub-canvas: #f9f4ec;
-  --pub-canvas-deep: #f4ede3;
-  --pub-surface: #fffefb;
-  --pub-surface-muted: #f5efe6;
-  --pub-border: #e5d9cc;
-  --pub-text: #3d2e24;
-  --pub-text-body: #4a3f36;
-  --pub-text-muted: #7a6b5f;
-  --pub-primary: #d4564a;
-  --pub-primary-dark: #b8453a;
-  --pub-primary-light: #fdf0ee;
-  --pub-success-bg: #edf3ec;
-  --pub-success-text: #346538;
-  --pub-warning-bg: #fbf3db;
-  --pub-warning-text: #956400;
-  --pub-danger-bg: #fdebec;
-  --pub-danger-text: #9f2f2d;
-  --pub-info-bg: #e1f3fe;
-  --pub-info-text: #1f6c9f;
+  --pub-canvas: #f7f9fc;
+  --pub-canvas-deep: #eef2f7;
+  --pub-surface: #ffffff;
+  --pub-surface-muted: #eef2f7;
+  --pub-border: #d8e0ea;
+  --pub-text: #2f3437;
+  --pub-text-body: #3d4450;
+  --pub-text-muted: #6a7176;
+  --pub-primary: #2a5d9f;
+  --pub-primary-dark: #1c3d6e;
+  --pub-primary-light: #eaf1fc;
+  --pub-success-bg: #e3f2ea;
+  --pub-success-text: #2f6f4e;
+  --pub-warning-bg: #fff4ce;
+  --pub-warning-text: #9a6700;
+  --pub-danger-bg: #fdeceb;
+  --pub-danger-text: #b42318;
+  --pub-info-bg: #eaf1fc;
+  --pub-info-text: #1c3d6e;
   --pub-radius: 8px;
   --pub-radius-lg: 12px;
   --pub-shadow: 0 1px 3px rgba(28, 61, 110, 0.06);
@@ -29,9 +29,9 @@
 .app-main.public-site {
   width: 100%;
   background:
-    radial-gradient(circle at 12% 0%, rgba(212, 86, 74, 0.045), transparent 28rem),
-    linear-gradient(rgba(251, 250, 247, 0.82), rgba(251, 250, 247, 0.82)),
-    linear-gradient(180deg, var(--pub-canvas) 0%, #fbfbfa 42%, var(--pub-canvas-deep) 100%);
+    radial-gradient(circle at 12% 0%, rgba(42, 93, 159, 0.05), transparent 28rem),
+    linear-gradient(rgba(247, 249, 252, 0.92), rgba(247, 249, 252, 0.92)),
+    linear-gradient(180deg, var(--pub-canvas) 0%, #f7f9fc 42%, var(--pub-canvas-deep) 100%);
   background-size: auto, auto, auto;
   color: var(--pub-text-body);
 }
@@ -42,13 +42,10 @@
   margin-top: 1.25rem !important;
   margin-bottom: 2rem !important;
   padding: clamp(1rem, 2vw, 1.75rem);
-  border: 1px solid rgba(229, 217, 204, 0.72);
+  border: 1px solid var(--pub-border);
   border-radius: 12px;
-  background:
-    linear-gradient(rgba(255, 254, 251, 0.96), rgba(255, 254, 251, 0.96)),
-    url('../assets/paper_texture.png');
-  background-size: auto, 360px;
-  box-shadow: 0 8px 30px rgba(61, 46, 36, 0.055);
+  background: var(--pub-surface);
+  box-shadow: 0 8px 30px rgba(28, 61, 110, 0.055);
 }
 
 .public-site .app-main,
@@ -74,7 +71,7 @@
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  background: #f5ede0;
+  background: #eef2f7;
   min-height: 0;
   overflow-x: clip;
 }
@@ -121,7 +118,7 @@
   border: 1px solid #e5d9cc;
   border-radius: 6px;
   background: #fffefb;
-  color: #3d2e24;
+  color: #2f3437;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -130,7 +127,7 @@
 }
 
 a.announcement-ticker__label:hover {
-  color: #3d2e24;
+  color: #2f3437;
   background: #fbfbfa;
 }
 
@@ -178,7 +175,7 @@ a.announcement-ticker__label:hover {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #d4564a;
+  background: #2a5d9f;
   transform: translateY(-50%);
   opacity: 0.45;
 }
@@ -189,7 +186,7 @@ a.announcement-ticker__label:hover {
 
 .announcement-ticker__item:focus-visible,
 .announcement-ticker__label:focus-visible {
-  outline: 2px solid #d4564a;
+  outline: 2px solid #2a5d9f;
   outline-offset: 2px;
 }
 

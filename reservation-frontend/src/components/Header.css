@@ -3,7 +3,7 @@
   background: rgba(255, 251, 242, 0.94);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(212, 86, 74, 0.14);
+  border-bottom: 1px solid rgba(42, 93, 159, 0.14);
   box-shadow: 0 1px 0 rgba(61, 46, 36, 0.04);
   position: sticky;
   top: 0;
@@ -58,7 +58,7 @@
 
 .header-nav-group--primary {
   padding: 0.2rem;
-  border: 1px solid rgba(212, 86, 74, 0.1);
+  border: 1px solid rgba(42, 93, 159, 0.1);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.42);
 }
@@ -275,9 +275,9 @@
   gap: 6px;
   width: 44px;
   height: 44px;
-  background: #3d2e24;
-  color: #fffefb;
-  border: 1px solid #3d2e24;
+  background: #1c3d6e;
+  color: #f7f9fc;
+  border: 1px solid #1c3d6e;
   border-radius: 10px;
   cursor: pointer;
   padding: 8px;

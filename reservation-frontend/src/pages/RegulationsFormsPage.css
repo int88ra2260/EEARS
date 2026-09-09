@@ -1,17 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600&display=swap');
+/* 規章表單 — 對齊公開頁 academic blue token */
 
 .regulations-forms-page {
-  --rf-canvas: var(--pub-canvas, #f9f4ec);
-  --rf-surface: var(--pub-surface, #fffefb);
-  --rf-surface-muted: var(--pub-surface-muted, #f5efe6);
-  --rf-border: var(--pub-border, #e5d9cc);
-  --rf-ink: var(--pub-text, #3d2e24);
-  --rf-ink-soft: var(--pub-text-body, #4a3f36);
-  --rf-muted: var(--pub-text-muted, #7a6b5f);
-  --rf-primary: var(--pub-primary, #d4564a);
-  --rf-primary-light: var(--pub-primary-light, #fdf0ee);
-  --rf-serif: 'Newsreader', 'Georgia', 'Times New Roman', serif;
-  --rf-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --rf-canvas: var(--pub-canvas, #f7f9fc);
+  --rf-surface: var(--pub-surface, #ffffff);
+  --rf-surface-muted: var(--pub-surface-muted, #eef2f7);
+  --rf-border: var(--pub-border, #d8e0ea);
+  --rf-ink: var(--pub-text, #2f3437);
+  --rf-ink-soft: var(--pub-text-body, #3d4450);
+  --rf-muted: var(--pub-text-muted, #6a7176);
+  --rf-primary: var(--pub-primary, #2a5d9f);
+  --rf-primary-light: var(--pub-primary-light, #eaf1fc);
+  --rf-serif: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', system-ui, sans-serif;
+  --rf-mono: 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
   --rf-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   max-width: 960px;
@@ -132,7 +132,7 @@
 }
 
 .regulations-forms-toolbar__btn:hover:not(:disabled) {
-  border-color: rgba(212, 86, 74, 0.35);
+  border-color: rgba(42, 93, 159, 0.35);
   background: var(--rf-primary-light);
   color: var(--rf-primary);
 }
@@ -173,7 +173,7 @@
 }
 
 .regulations-forms-accordion-item.is-open {
-  border-color: rgba(212, 86, 74, 0.28);
+  border-color: rgba(42, 93, 159, 0.28);
   box-shadow: var(--pub-shadow, 0 2px 12px rgba(61, 46, 36, 0.06));
 }
 
@@ -278,7 +278,7 @@
 
 .regulations-forms-accordion-item.is-open .regulations-forms-accordion-icon {
   background: var(--rf-primary-light);
-  border-color: rgba(212, 86, 74, 0.25);
+  border-color: rgba(42, 93, 159, 0.25);
 }
 
 .regulations-forms-accordion-item.is-open .regulations-forms-accordion-icon::after {
@@ -338,7 +338,7 @@
 }
 
 .regulations-forms-card:hover {
-  border-color: rgba(212, 86, 74, 0.35);
+  border-color: rgba(42, 93, 159, 0.35);
   background: var(--rf-surface);
   transform: translateY(-1px);
   color: inherit;
@@ -353,7 +353,7 @@
   align-self: flex-start;
   padding: 0.18rem 0.42rem;
   border-radius: 5px;
-  background: rgba(212, 86, 74, 0.1);
+  background: rgba(42, 93, 159, 0.1);
   color: var(--rf-primary);
   font-family: var(--rf-mono);
   font-size: 0.64rem;

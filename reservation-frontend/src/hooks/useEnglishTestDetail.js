@@ -27,9 +27,7 @@ export function useEnglishTestDetail({
   const [currentRegistrationIndex, setCurrentRegistrationIndex] = useState(-1);
 
   const handleViewDetail = useCallback(async (id, index = null) => {
-    if (tableContainerRef?.current) {
-      scrollPositionRef.current = tableContainerRef.current.scrollTop ?? 0;
-    }
+    scrollPositionRef.current = window.scrollY || document.documentElement.scrollTop || 0;
     try {
       const data = await fetchRegistrationById(token, id);
       setSelectedRegistration(data);
@@ -44,7 +42,7 @@ export function useEnglishTestDetail({
       console.error('載入詳細資料錯誤:', error);
       if (showToast) showToast('載入詳細資料時發生錯誤', 'danger');
     }
-  }, [token, registrations, scrollPositionRef, tableContainerRef, showToast]);
+  }, [token, registrations, scrollPositionRef, showToast]);
 
   const fetchPageAndOpenAt = useCallback(async (page, indexInPage) => {
     setLoading(true);
@@ -100,11 +98,12 @@ export function useEnglishTestDetail({
     setShowDetailModal(false);
     setCurrentRegistrationIndex(-1);
     requestAnimationFrame(() => {
-      if (tableContainerRef?.current && scrollPositionRef?.current !== undefined) {
-        tableContainerRef.current.scrollTop = scrollPositionRef.current;
+      const y = scrollPositionRef?.current;
+      if (typeof y === 'number') {
+        window.scrollTo(0, y);
       }
     });
-  }, [tableContainerRef, scrollPositionRef]);
+  }, [scrollPositionRef]);
 
   return {
     selectedRegistration,

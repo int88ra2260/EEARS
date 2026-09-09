@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const { EnglishLearningPassportEmailVerification } = require('../../models');
-const { validateNsysuStudentEmail } = require('../../utils/validators');
+const { validateNsysuStudentEmail, nsysuAllowedEmailDomainsHint } = require('../../utils/validators');
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 const TOKEN_TTL_SEC = 30 * 60;
@@ -23,7 +23,7 @@ function isValidEmailFormat(email) {
 function assertNsysuStudentEmail(email) {
   const normalized = normalizeEmail(email);
   if (!isValidEmailFormat(normalized)) {
-    const err = new Error('請使用中山大學學生信箱（@student.nsysu.edu.tw）');
+    const err = new Error(`請使用中山大學校內信箱（${nsysuAllowedEmailDomainsHint()}）`);
     err.code = 'INVALID_STUDENT_EMAIL_DOMAIN';
     err.status = 400;
     throw err;

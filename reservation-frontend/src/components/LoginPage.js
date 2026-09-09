@@ -14,7 +14,7 @@ function LoginPage({ onLoginSuccess }) {
     e.preventDefault();
     try {
       const { ok, status, data } = await loginApi(username, password);
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
         console.info(`[Login] HTTP ${status} ${ok ? 'success' : 'failure'}`);
       }

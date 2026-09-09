@@ -63,7 +63,7 @@
   }
   
   .event-booking-modal.modal .form-control:focus {
-    border-color: #0d6efd;
+    border-color: var(--color-primary, #2a5d9f);
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
   }
   

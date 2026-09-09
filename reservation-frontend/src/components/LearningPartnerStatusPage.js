@@ -115,7 +115,7 @@ export default function LearningPartnerStatusPage() {
 
         <div className="card shadow-lg" style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div className="card-body p-4">
-            <h2 className="mb-4" style={{ color: '#FF6B6B', fontWeight: 'bold' }}>
+            <h2 className="mb-4" style={{ color: '#2a5d9f', fontWeight: 'bold' }}>
               🎓 團體報名狀態
             </h2>
 

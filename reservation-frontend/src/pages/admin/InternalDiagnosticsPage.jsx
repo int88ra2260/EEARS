@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { fetchClientThrow } from '../../utils/fetchClient';
 
-function Sparkline({ data = [], color = '#0d6efd' }) {
+function Sparkline({ data = [], color = '#2a5d9f' }) {
   const points = useMemo(() => {
     if (!data.length) return '';
     const max = Math.max(...data, 1);
@@ -150,7 +150,7 @@ export default function InternalDiagnosticsPage() {
                   <div className="border rounded p-3 h-100">
                     <div className="text-muted small">P95 回應時間</div>
                     <div className="fs-4 fw-bold">{data.sli.p95ResponseTimeMs ?? '-'} ms</div>
-                    <Sparkline data={data.sli?.sparklines?.p95ResponseTimeMs || []} color="#0d6efd" />
+                    <Sparkline data={data.sli?.sparklines?.p95ResponseTimeMs || []} color="#2a5d9f" />
                   </div>
                 </div>
                 <div className="col-md-6">

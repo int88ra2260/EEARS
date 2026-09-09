@@ -14,7 +14,8 @@ alwaysApply: false
 
 ## 1) 風格與設計系統
 
-- 以 `reservation-frontend/src/styles/design-system.css` 既有 CSS 變數為準（藍白學術風）。
+- 以 `reservation-frontend/src/styles/design-system.css` 既有 CSS 變數為準（Institutional Academic Blue，主色 `#2a5d9f`）。
+- 公開頁 `emi-brand.css` / `public-ui.css` 應與主色對齊，勿再引入暖珊瑚／米色範本主色。
 - 不要引入新的全域樣式方案取代既有變數。
 
 ## 2) loading / error / empty state

@@ -76,7 +76,7 @@ export default function StatsVisualization({
   const shouldShowProgress = reviewProgress !== null;
 
   const CARD_COLORS = {
-    total: { border: '#0d6efd', text: '#0d6efd', bar: '#0d6efd' },
+    total: { border: '#2a5d9f', text: '#2a5d9f', bar: '#2a5d9f' },
     pending: { border: '#ffc107', text: '#856404', bar: '#ffc107', bg: '#fff9e6' },
     approved: { border: '#0dcaf0', text: '#087990', bar: '#0dcaf0' },
     revision: { border: '#6f42c1', text: '#6f42c1', bar: '#6f42c1' },

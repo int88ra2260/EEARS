@@ -1669,7 +1669,13 @@ router.put('/english-test/registrations/:id/exemption-review', ...englishRegRevi
 router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res) => {
   try {
     // 舊版參數（保持相容）
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1 } = req.query;
+    const rawLimit = parseInt(req.query.limit, 10);
+    // 與前端 ENGLISH_TEST_MAX_PAGE_SIZE 對齊，避免一次載入過大 payload
+    const MAX_LIST_LIMIT = 500;
+    const limitNum = Number.isFinite(rawLimit)
+      ? Math.min(MAX_LIST_LIMIT, Math.max(1, rawLimit))
+      : 20;
     
     // 新版參數（可選，向下相容）
     const {
@@ -1683,65 +1689,90 @@ router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res
       sortOrder            // 排序方向（預設：DESC）
     } = req.query;
     
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (parseInt(page, 10) - 1) * limitNum;
 
     const where = buildRegistrationListWhere(req.query);
     const orderBy = buildRegistrationListOrder(req.query);
 
+    // 列表／快速審核／表格欄位所需；詳情另走 GET /:id
+    const LIST_ATTRIBUTES = [
+      'id',
+      'studentId',
+      'name',
+      'email',
+      'phone',
+      'college',
+      'department',
+      'status',
+      'createdAt',
+      'updatedAt',
+      'approvedAt',
+      'idPhoto',
+      'examType',
+      'successSequence',
+      'semester',
+      'idNumber',
+    ];
+
     const { count, rows } = await EnglishTestRegistration.findAndCountAll({
       where,
+      attributes: LIST_ATTRIBUTES,
       order: orderBy,
-      limit: parseInt(limit),
-      offset: offset
+      limit: limitNum,
+      offset,
     });
 
     // 為每筆記錄計算按學期的編號（semesterSequence）
-    // 使用 SQL 窗口函數計算每筆記錄在該學期內的序號（按 createdAt ASC, id ASC 排序）
-    // 重要：semesterSequence 必須基於該學期的「所有記錄」計算，而不是當前查詢結果
-    // 這樣才能確保在不同篩選條件下，同一筆記錄的 semesterSequence 保持一致
     const rowIds = rows.map(row => row.id);
     let semesterSequenceMap = {};
     
     if (rowIds.length > 0) {
-      // 取得 sequelize 實例（用於執行原始 SQL 查詢）
       const { sequelize } = require('../models');
-      
-      // 取得所有記錄的學期資訊（用於計算 semesterSequence）
       const semesters = [...new Set(rows.map(row => row.semester).filter(Boolean))];
-      
-      // 如果有學期篩選條件，使用該學期；否則使用所有記錄的學期
       const targetSemester = semester || (semesters.length === 1 ? semesters[0] : null);
-      
-      // 使用 SQL 窗口函數計算序號（基於該學期的所有記錄，不限制於當前查詢結果）
-      // 這樣可以確保無論如何篩選，同一筆記錄的 semesterSequence 都一致
-      let sequenceQuery = `
-        SELECT 
-          id,
-          ROW_NUMBER() OVER (
-            PARTITION BY semester 
-            ORDER BY createdAt ASC, id ASC
-          ) as semesterSequence
-        FROM english_test_registrations
-      `;
-      
-      const replacements = {};
-      
-      // 如果有學期篩選，只計算該學期的記錄；否則計算所有學期
+      const replacements = { rowIds };
+
+      // 序號必須相對「該學期全部報名」計算；結果只回本頁 id
+      let sequenceQuery;
       if (targetSemester) {
-        sequenceQuery += ` WHERE semester = :targetSemester`;
+        sequenceQuery = `
+          SELECT ranked.id, ranked.semesterSequence
+          FROM (
+            SELECT
+              id,
+              ROW_NUMBER() OVER (
+                PARTITION BY semester
+                ORDER BY createdAt ASC, id ASC
+              ) AS semesterSequence
+            FROM english_test_registrations
+            WHERE semester = :targetSemester
+          ) ranked
+          WHERE ranked.id IN (:rowIds)
+        `;
         replacements.targetSemester = targetSemester;
+      } else {
+        sequenceQuery = `
+          SELECT ranked.id, ranked.semesterSequence
+          FROM (
+            SELECT
+              id,
+              ROW_NUMBER() OVER (
+                PARTITION BY semester
+                ORDER BY createdAt ASC, id ASC
+              ) AS semesterSequence
+            FROM english_test_registrations
+          ) ranked
+          WHERE ranked.id IN (:rowIds)
+        `;
       }
-      
+
       const sequenceResults = await sequelize.query(sequenceQuery, {
         replacements,
         type: QueryTypes.SELECT
       });
       
-      // 建立 id -> 序號的映射（只包含當前查詢結果中的記錄）
-      sequenceResults.forEach(result => {
-        if (rowIds.includes(result.id)) {
-          semesterSequenceMap[result.id] = result.semesterSequence;
-        }
+      sequenceResults.forEach((result) => {
+        semesterSequenceMap[result.id] = result.semesterSequence;
       });
     }
     
@@ -1868,9 +1899,9 @@ router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res
     // 回應（新增 meta 欄位，不影響舊版）
     const response = {
       total: count,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil(count / parseInt(limit)),
+      page: parseInt(page, 10) || 1,
+      limit: limitNum,
+      totalPages: Math.ceil(count / limitNum) || 1,
       data: maskEnglishTestRegistrationListForAdminApi(rowsWithSequence),
       stats: stats
     };

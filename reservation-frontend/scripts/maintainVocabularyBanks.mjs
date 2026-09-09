@@ -45,7 +45,8 @@ if (!skipAudit && !checkOnly) {
 }
 
 console.log('\nDone. 建議接著執行：');
-console.log('  npm test -- --watchAll=false --testPathPattern="vocabulary|wordBridge|listeningLadder"');
+console.log('  npm run vocab:verify');
+// or: vitest run vocabulary wordBridgeGlossary listeningLadder
 if (!checkOnly) {
   console.log('  npm run lint');
 }

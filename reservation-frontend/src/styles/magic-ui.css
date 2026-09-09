@@ -93,19 +93,19 @@
   min-height: 48px;
   padding: 0.7rem 1.75rem;
   border-radius: 12px;
-  background: #d4564a;
+  background: #2a5d9f;
   font-size: 1rem;
   font-weight: 600;
-  box-shadow: 0 4px 14px rgba(212, 86, 74, 0.28);
+  box-shadow: 0 4px 14px rgba(42, 93, 159, 0.28);
 }
 
 .magic-shimmer-button--hero:hover {
-  background: #b8453a;
+  background: #1c3d6e;
   color: #fff;
 }
 
 .magic-shimmer-button--hero:focus-visible {
-  outline: 2px solid #b8453a;
+  outline: 2px solid #1c3d6e;
   outline-offset: 3px;
 }
 
@@ -125,7 +125,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(212, 86, 74, 0.18);
+  box-shadow: 0 2px 8px rgba(42, 93, 159, 0.18);
 }
 
 @keyframes magic-shimmer-pass {
@@ -166,15 +166,14 @@
   position: relative;
   z-index: 1;
   /* 不支援 background-clip:text 時的保底色 */
-  color: #3d2e24;
+  color: #1c3d6e;
   background-image: linear-gradient(
     105deg,
-    #3d2e24 0%,
-    #b8453a 24%,
-    #d4564a 42%,
-    #c97a45 58%,
-    #b8453a 72%,
-    #3d2e24 100%
+    #1c3d6e 0%,
+    #2a5d9f 28%,
+    #4a8bc2 50%,
+    #2a5d9f 72%,
+    #1c3d6e 100%
   );
   background-size: 220% auto;
   background-position: 0% center;

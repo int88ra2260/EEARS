@@ -1,0 +1,36 @@
+---
+description: 前端分層：Bootstrap 排版、CSS 靜態、Motion 動態；GSAP 僅限 pin/scrub 例外
+globs: reservation-frontend/**/*.{js,jsx,css}
+alwaysApply: false
+---
+
+# EEARS 前端樣式／動畫分層
+
+## 職責
+
+| 層級 | 負責 | 不要做 |
+|------|------|--------|
+| **Bootstrap** | 排版、RWD、基礎元件外觀（Modal／Button／Grid／Collapse 殼） | 當成主要動畫系統 |
+| **CSS** | 靜態樣式（色、字、背景、邊距、layout tokens） | 進場、accordion 高度、scroll reveal、複雜 hover 位移 |
+| **Motion** | 動態：進出場、hover／tap、輕量 `whileInView`／`inView`、modal／toast | 靜態顏色／排版 |
+
+## CSS 允許的例外
+
+- **≤150ms** 的 `color`／`background`／`border-color`／`box-shadow` 微過渡可留在 CSS。
+- `prefers-reduced-motion: reduce` 時關閉或縮短動畫。
+
+## GSAP 例外（不可強改 Motion）
+
+僅限 **ScrollTrigger pin + scrub**、多段 **video seek**、複雜 hop timeline：
+
+- `hooks/useScrollWorldGsap.js`（首頁沉浸 overlay）
+- `hooks/useHomeImmersiveGsap.js`（`/hometest`）
+- `hooks/useAboutGsap.js`（未掛載的 pin／影片 scrub 原型）
+
+新功能預設用 **Motion**（`motion/react` 或 `motion` 的 `animate`／`inView`）。勿新增 GSAP 除非符合上列例外並註解原因。
+
+## 慣例
+
+- 共用 timing：`utils/motionPresets.js`
+- 尊重 `useReducedMotion`／`prefers-reduced-motion`
+- 勿與 Bootstrap Modal 自帶 fade 雙動畫；優先動內容區或自訂殼

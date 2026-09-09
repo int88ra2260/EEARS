@@ -1,9 +1,7 @@
-/* 學習歷程資料匯入 — Premium Utilitarian Minimalism */
-
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap');
+/* 學習歷程資料匯入 — 對齊 design-system 字型 */
 
 .lj-import-page {
-  --lj-serif: 'Newsreader', 'Georgia', 'Times New Roman', serif;
+  --lj-serif: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', system-ui, sans-serif;
   --lj-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   max-width: 1180px;
@@ -11,13 +9,10 @@
   padding: 1.25rem 0 2.5rem;
 }
 
-/* ---- Reveal ---- */
+/* ---- Reveal（進場由 Motion useScrollReveal 驅動） ---- */
 .lj-import-reveal {
   opacity: 0;
-  transform: translateY(12px);
-  transition:
-    opacity 600ms var(--lj-ease) var(--reveal-delay, 0ms),
-    transform 600ms var(--lj-ease) var(--reveal-delay, 0ms);
+  transform: translateY(20px);
   will-change: transform, opacity;
 }
 

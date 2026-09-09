@@ -241,7 +241,7 @@ export default function TrendDashboardPage() {
                               type="monotone"
                               dataKey="participationRate"
                               name="參與率"
-                              stroke="#0d6efd"
+                              stroke="#2a5d9f"
                               strokeWidth={2}
                               dot
                               connectNulls

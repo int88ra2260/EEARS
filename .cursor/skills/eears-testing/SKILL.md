@@ -23,8 +23,8 @@ license: MIT
     - 測試環境會設 `GLOBAL_RATE_LIMIT_ENABLED=false`（避免影響整合）
 - CI：
   - backend：`npm test -- --runInBand` + `npm run lint`
-  - frontend：`npm test -- --watchAll=false` + `npm run lint` + `npm run build`
-- 前端：目前主要是 CRA smoke（`reservation-frontend/src/App.test.js`），E2E（Playwright/Cypress）未建立
+  - frontend：`npm test` + `npm run lint` + `npm run build`
+- 前端：Vitest（`reservation-frontend`，含 `App.test.js` smoke 與 utils／資料庫單元測試）；E2E（Playwright/Cypress）未建立
 
 ## Hard Constraints（重要）
 

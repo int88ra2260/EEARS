@@ -13,7 +13,7 @@
 
 .word-bridge-section-heading h2 {
   margin: 0;
-  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-family: var(--activities-serif, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
   font-size: clamp(1.65rem, 3.5vw, 2.1rem);
   font-weight: 500;
   line-height: 1.12;
@@ -42,7 +42,7 @@
 
 .word-bridge-title {
   margin: 0;
-  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-family: var(--activities-serif, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
   font-size: clamp(1.35rem, 2.8vw, 1.75rem);
   font-weight: 500;
   color: var(--activities-ink, #111111);
@@ -156,17 +156,17 @@
 .word-bridge-swap-btn {
   color: #c44a3f;
   border-color: #e8b4ae;
-  background: #fdf0ee;
+  background: #eaf1fc;
 }
 
 .word-bridge-swap-btn:hover {
-  color: #b8453a;
-  border-color: #d4564a;
+  color: #1c3d6e;
+  border-color: #2a5d9f;
   background: #fce8e4;
 }
 
 .word-bridge-swap-btn:focus-visible {
-  outline: 2px solid #d4564a;
+  outline: 2px solid #2a5d9f;
   outline-offset: 2px;
 }
 
@@ -229,7 +229,7 @@
   margin: 0.45rem 0 0;
   font-size: 0.92rem;
   font-weight: 650;
-  color: #b8453a;
+  color: #1c3d6e;
 }
 
 .word-bridge-timer {
@@ -242,8 +242,8 @@
 }
 
 .word-bridge-timer.is-urgent {
-  border-color: #d4564a;
-  background: #fdf0ee;
+  border-color: #2a5d9f;
+  background: #eaf1fc;
 }
 
 .word-bridge-timer__value {
@@ -256,7 +256,7 @@
 }
 
 .word-bridge-timer.is-urgent .word-bridge-timer__value {
-  color: #d4564a;
+  color: #2a5d9f;
 }
 
 .word-bridge-timer__label {
@@ -281,7 +281,7 @@
 .word-bridge-timer__bar {
   display: block;
   height: 100%;
-  background: #d4564a;
+  background: #2a5d9f;
   transition: width 1s linear;
 }
 
@@ -304,7 +304,7 @@
   width: 0.62rem;
   height: 0.62rem;
   border-radius: 999px;
-  background: #d4564a;
+  background: #2a5d9f;
   opacity: 0.22;
   transition: opacity 180ms ease, transform 180ms ease;
 }
@@ -414,14 +414,14 @@
 }
 
 .word-bridge-tile.is-selected {
-  border-color: #d4564a;
+  border-color: #2a5d9f;
   background: #ffe2c4;
-  box-shadow: 0 0 0 2px rgba(212, 86, 74, 0.14);
+  box-shadow: 0 0 0 2px rgba(42, 93, 159, 0.14);
   transform: translateY(-1px);
 }
 
 .word-bridge-tile:focus-visible {
-  outline: 2px solid #d4564a;
+  outline: 2px solid #2a5d9f;
   outline-offset: 2px;
 }
 
@@ -456,10 +456,10 @@
 
 .word-bridge-result-hero__level {
   margin: 0.35rem 0 0;
-  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-family: var(--activities-serif, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
   font-size: clamp(2.4rem, 8vw, 3.2rem);
   line-height: 1;
-  color: #d4564a;
+  color: #2a5d9f;
 }
 
 .word-bridge-result-hero__stats {
@@ -502,7 +502,7 @@
 .word-bridge-rec--blue { border-top: 3px solid #7ab8d9; }
 .word-bridge-rec--green { border-top: 3px solid #8ab58f; }
 .word-bridge-rec--yellow { border-top: 3px solid #d9b44a; }
-.word-bridge-rec--red { border-top: 3px solid #d4564a; }
+.word-bridge-rec--red { border-top: 3px solid #2a5d9f; }
 .word-bridge-rec--purple { border-top: 3px solid #9b7ec8; }
 
 .word-bridge-level-picker {
@@ -682,7 +682,7 @@
 
 .word-bridge-modal__title {
   margin: 0;
-  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-family: var(--activities-serif, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
   font-size: 1.15rem;
   color: var(--activities-ink, #111111);
 }
@@ -817,7 +817,7 @@
 
 .word-bridge-match-complete__title {
   margin: 0 0 0.35rem;
-  font-family: var(--activities-serif, 'Newsreader', Georgia, serif);
+  font-family: var(--activities-serif, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
   font-size: 1.1rem;
   color: var(--activities-ink, #111111);
 }
@@ -859,7 +859,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #d4564a;
+  background: #2a5d9f;
   transition: width 280ms ease;
 }
 
@@ -939,9 +939,9 @@
 }
 
 .word-bridge-match-card.is-selected {
-  border-color: #d4564a;
+  border-color: #2a5d9f;
   background: #ffe2c4;
-  box-shadow: 0 0 0 2px rgba(212, 86, 74, 0.14);
+  box-shadow: 0 0 0 2px rgba(42, 93, 159, 0.14);
   transform: translateY(-1px);
 }
 

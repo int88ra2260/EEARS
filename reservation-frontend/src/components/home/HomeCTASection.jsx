@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from '../ui/AppIcon';
 import './home.css';
 
 const CTA_ITEMS = [
@@ -23,14 +24,7 @@ const CTA_ITEMS = [
   },
 ];
 
-const ICON_MAP = {
-  search: '🔍',
-  clipboard: '📝',
-  warning: '⚠️',
-};
-
 function CTACard({ item }) {
-  const iconChar = ICON_MAP[item.icon] || '•';
   return (
     <Link
       to={item.link}
@@ -38,7 +32,7 @@ function CTACard({ item }) {
       aria-labelledby={`cta-title-${item.icon}`}
     >
       <div className="home-cta-card__icon" aria-hidden>
-        {iconChar}
+        <AppIcon name={item.icon} size="md" />
       </div>
       <h3 id={`cta-title-${item.icon}`} className="home-cta-card__title">
         {item.title}

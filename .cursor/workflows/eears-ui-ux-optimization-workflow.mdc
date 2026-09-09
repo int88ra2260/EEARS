@@ -33,7 +33,7 @@ alwaysApply: false
 ## 4) 測試步驟
 
 1. 前端：
-   - `npm test -- --watchAll=false`
+   - `npm test`
    - `npm run lint`
    - `npm run build`
 2. 手動：

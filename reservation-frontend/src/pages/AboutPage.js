@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useGSAP } from '@gsap/react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { animate, inView } from 'motion';
 import { useLanguage } from '../context/LanguageContext';
 import ContentText from '../components/siteContent/ContentText';
 import { EMI_MAIN_PHONE } from '../data/emiCenterStaff';
@@ -11,7 +9,7 @@ import useStaffMembers from '../hooks/useStaffMembers';
 import useFaqItems, { pickLocalizedText } from '../hooks/useFaqItems';
 import './AboutPage.css';
 
-gsap.registerPlugin(useGSAP, ScrollTrigger);
+const ABOUT_REVEAL_EASE = [0.16, 1, 0.3, 1];
 
 const ABOUT_UI_COPY = {
   zh: {
@@ -224,31 +222,42 @@ export default function AboutPage() {
     [t]
   );
 
-  useGSAP(
-    () => {
-      const root = pageRef.current;
-      if (!root) return undefined;
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+  useEffect(() => {
+    const root = pageRef.current;
+    if (!root) return undefined;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
 
-      const reveals = gsap.utils.toArray('[data-about-reveal]', root);
-      reveals.forEach((el) => {
-        gsap.from(el, {
-          autoAlpha: 0,
-          y: 28,
-          duration: 0.85,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: el,
-            start: 'top 88%',
-            toggleActions: 'play none none none',
-          },
-        });
+    const reveals = root.querySelectorAll('[data-about-reveal]');
+    const stops = [];
+
+    reveals.forEach((el) => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(28px)';
+      const stop = inView(
+        el,
+        () => {
+          animate(
+            el,
+            { opacity: 1, y: 0 },
+            { duration: 0.85, ease: ABOUT_REVEAL_EASE },
+          );
+          stop();
+        },
+        { margin: '0px 0px -12% 0px', amount: 0.1 },
+      );
+      stops.push(stop);
+    });
+
+    return () => {
+      stops.forEach((stop) => {
+        try {
+          stop?.();
+        } catch (_) {
+          /* ignore */
+        }
       });
-
-      return undefined;
-    },
-    { scope: pageRef }
-  );
+    };
+  }, []);
 
   useEffect(() => {
     const hash = location.hash?.replace('#', '');

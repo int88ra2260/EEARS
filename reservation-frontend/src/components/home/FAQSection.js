@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useLanguage } from '../../context/LanguageContext';
 import ContentText from '../siteContent/ContentText';
 import useFaqItems, { pickLocalizedText } from '../../hooks/useFaqItems';
+import { accordionPanelMotion } from '../../utils/motionPresets';
 import './home.css';
 
 export default function FAQSection() {
   const { lang } = useLanguage();
   const { faqItems } = useFaqItems();
   const [openId, setOpenId] = useState(null);
+  const reduceMotion = useReducedMotion();
+  const panelPresence = accordionPanelMotion(reduceMotion);
 
   return (
     <section id="faq" className="home-section home-section--bone" aria-labelledby="faq-title">
@@ -38,15 +42,21 @@ export default function FAQSection() {
                     {isOpen ? '-' : '+'}
                   </span>
                 </button>
-                <div
-                  id={`${itemId}-answer`}
-                  role="region"
-                  aria-labelledby={`${itemId}-q`}
-                  className="home-faq__panel"
-                  hidden={!isOpen}
-                >
-                  {answer}
-                </div>
+                <AnimatePresence initial={false}>
+                  {isOpen ? (
+                    <motion.div
+                      key="answer"
+                      id={`${itemId}-answer`}
+                      role="region"
+                      aria-labelledby={`${itemId}-q`}
+                      className="home-faq__panel"
+                      style={{ overflow: 'hidden' }}
+                      {...panelPresence}
+                    >
+                      {answer}
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
             );
           })}

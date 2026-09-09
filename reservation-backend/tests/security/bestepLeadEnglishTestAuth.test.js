@@ -36,6 +36,17 @@ describe('englishTestDomainMiddleware', () => {
     expect(nextCalled).toBe(true);
   });
 
+  it('allows worker bestep_ops', () => {
+    const { nextCalled } = runMiddleware({ role: 'worker', workerLevel: 'bestep_ops' });
+    expect(nextCalled).toBe(true);
+  });
+
+  it('denies worker event_ops', () => {
+    const { nextCalled, res } = runMiddleware({ role: 'worker', workerLevel: 'event_ops' });
+    expect(nextCalled).toBe(false);
+    expect(res.statusCode).toBe(403);
+  });
+
   it('denies office_staff event_lead even with english permissions in profile', () => {
     const { nextCalled, res } = runMiddleware({ role: 'office_staff', staffLevel: 'event_lead' });
     expect(nextCalled).toBe(false);

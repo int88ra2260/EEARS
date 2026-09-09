@@ -280,7 +280,7 @@ export default function EnglishTestExtraQuestions({
         <div key={sectionId} className="mb-4">
           <h4
             className="mb-3"
-            style={{ color: '#FF6B6B', borderBottom: '2px solid #FF6B6B', paddingBottom: '0.5rem' }}
+            style={{ color: '#2a5d9f', borderBottom: '2px solid #2a5d9f', paddingBottom: '0.5rem' }}
           >
             {sectionTitle(sectionId)}
           </h4>

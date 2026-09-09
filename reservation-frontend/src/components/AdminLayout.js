@@ -142,7 +142,7 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
     }
   }, [token, handleTokenExpired]);
 
-  if (process.env.NODE_ENV === 'development') {
+  if (import.meta.env.DEV) {
     console.log('AdminLayout', location.pathname, navContext);
     if (routeDenied?.code === 'missing_rule') {
       console.warn('[EEARS] Missing admin route access rule:', location.pathname);

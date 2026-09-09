@@ -1,32 +1,30 @@
-/* EEARS 首頁 — Premium Utilitarian Minimalism / Editorial */
-
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap');
+/* EEARS 首頁 — Institutional Academic Blue（字型由 index.html 集中載入） */
 
 .home-page {
-  --home-canvas: #fffefb;
-  --home-bone: #e2d6c4;
-  --home-wash: #f3ebe0;
+  --home-canvas: #f7f9fc;
+  --home-bone: #eef2f7;
+  --home-wash: #eaf1fc;
   --home-surface: #ffffff;
-  --home-border: #d9cfc0;
-  --home-ink: #111111;
-  --home-ink-soft: #2f3437;
-  --home-muted: #787774;
-  --home-primary: #d4564a;
-  --home-primary-dark: #b8453a;
-  --home-primary-soft: #fdf0ee;
-  --home-serif: 'Newsreader', 'Georgia', 'Times New Roman', serif;
-  --home-sans: 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
-  --home-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
-  --home-pastel-blue: #e1f3fe;
-  --home-pastel-blue-text: #1f6c9f;
-  --home-pastel-green: #edf3ec;
-  --home-pastel-green-text: #346538;
-  --home-pastel-yellow: #fbf3db;
-  --home-pastel-yellow-text: #956400;
-  --home-pastel-red: #fdebec;
-  --home-pastel-red-text: #9f2f2d;
-  --home-pastel-neutral: #f3f3f2;
-  --home-pastel-neutral-text: #5c5c5a;
+  --home-border: #d8e0ea;
+  --home-ink: #2f3437;
+  --home-ink-soft: #3d4450;
+  --home-muted: #6a7176;
+  --home-primary: #2a5d9f;
+  --home-primary-dark: #1c3d6e;
+  --home-primary-soft: #eaf1fc;
+  --home-serif: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', system-ui, sans-serif;
+  --home-sans: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
+  --home-mono: 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
+  --home-pastel-blue: #eaf1fc;
+  --home-pastel-blue-text: #1c3d6e;
+  --home-pastel-green: #e3f2ea;
+  --home-pastel-green-text: #2f6f4e;
+  --home-pastel-yellow: #fff4ce;
+  --home-pastel-yellow-text: #9a6700;
+  --home-pastel-red: #fdeceb;
+  --home-pastel-red-text: #b42318;
+  --home-pastel-neutral: #eef2f7;
+  --home-pastel-neutral-text: #5a6169;
   --home-shell: min(1120px, calc(100% - 2rem));
   --home-ease: cubic-bezier(0.16, 1, 0.3, 1);
   background: var(--home-canvas);
@@ -46,7 +44,7 @@
   margin-inline: auto;
 }
 
-/* ---- Reveal（預設可見；進場由 GSAP ScrollTrigger 處理） ---- */
+/* ---- Reveal（預設可見；進場由 Motion useHomeMotion 處理） ---- */
 .home-reveal {
   will-change: transform, opacity;
 }
@@ -78,7 +76,7 @@
   line-height: 1.2;
   color: var(--home-primary-dark);
   background: var(--home-primary-soft);
-  border: 1px solid rgba(212, 86, 74, 0.22);
+  border: 1px solid rgba(42, 93, 159, 0.22);
   border-radius: 4px;
 }
 
@@ -188,7 +186,7 @@
 
 .home-btn--outline:hover {
   background: var(--home-surface);
-  border-color: rgba(212, 86, 74, 0.45);
+  border-color: rgba(42, 93, 159, 0.45);
   color: var(--home-ink);
 }
 
@@ -467,7 +465,7 @@
   bottom: 1.25rem;
   width: 4px;
   border-radius: 0 3px 3px 0;
-  background: linear-gradient(180deg, var(--home-primary) 0%, rgba(212, 86, 74, 0.2) 100%);
+  background: linear-gradient(180deg, var(--home-primary) 0%, rgba(42, 93, 159, 0.2) 100%);
 }
 
 /* 公告區：較深骨色底 + 線框卡片（編輯感） */
@@ -488,7 +486,7 @@
   background: linear-gradient(
     90deg,
     var(--home-primary) 0%,
-    rgba(212, 86, 74, 0.35) 28%,
+    rgba(42, 93, 159, 0.35) 28%,
     rgba(61, 46, 36, 0.08) 70%,
     transparent 100%
   );
@@ -749,7 +747,7 @@
 }
 
 .home-announce-card-link--featured:hover .home-announce-card {
-  border-color: rgba(212, 86, 74, 0.35);
+  border-color: rgba(42, 93, 159, 0.35);
   box-shadow: 0 12px 28px rgba(61, 46, 36, 0.1);
 }
 
@@ -1033,11 +1031,11 @@
 }
 
 .home-practice-now__card:hover {
-  border-color: rgba(212, 86, 74, 0.4);
+  border-color: rgba(42, 93, 159, 0.4);
   transform: translateY(-3px);
   box-shadow:
     0 1px 0 rgba(61, 46, 36, 0.04),
-    0 18px 36px rgba(212, 86, 74, 0.14);
+    0 18px 36px rgba(42, 93, 159, 0.14);
   color: inherit;
 }
 
@@ -1080,8 +1078,8 @@
 .home-practice-now__card--more {
   justify-content: flex-start;
   background: var(--home-primary-soft);
-  border-color: rgba(212, 86, 74, 0.28);
-  box-shadow: 0 8px 22px rgba(212, 86, 74, 0.1);
+  border-color: rgba(42, 93, 159, 0.28);
+  box-shadow: 0 8px 22px rgba(42, 93, 159, 0.1);
 }
 
 .home-practice-now__card--more::before {

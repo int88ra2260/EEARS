@@ -1,47 +1,50 @@
 import React from 'react';
+import AppIcon from '../components/ui/AppIcon';
 
 export const ERROR_PULSE_STYLE = `
   @keyframes errorPulse {
-    0%, 100% { box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25); }
-    50% { box-shadow: 0 0 0 0.5rem rgba(220, 53, 69, 0.5); }
+    0%, 100% { box-shadow: 0 0 0 0.2rem rgba(180, 35, 24, 0.25); }
+    50% { box-shadow: 0 0 0 0.5rem rgba(180, 35, 24, 0.45); }
   }
 `;
 
 export function getErrorStyle(errors, fieldName) {
   return errors[fieldName]
     ? {
-        border: '3px solid #dc3545',
-        backgroundColor: '#fff5f5',
-        boxShadow: '0 0 0 0.2rem rgba(220, 53, 69, 0.25)',
+        border: '3px solid #b42318',
+        backgroundColor: '#fdeceb',
+        boxShadow: '0 0 0 0.2rem rgba(180, 35, 24, 0.25)',
         animation: 'errorPulse 0.5s ease-in-out',
       }
     : {};
 }
 
 export function getDisabledStyle(disabled) {
-  return disabled ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {};
+  return disabled ? { backgroundColor: '#eef2f7', cursor: 'not-allowed' } : {};
 }
 
 export function FormErrorMessage({ message, small = false }) {
   if (!message) return null;
   if (small) {
     return (
-      <div className="text-danger mt-1 small" style={{ fontWeight: 'bold' }}>
-        ⚠️ {message}
+      <div className="text-danger mt-1 small d-flex align-items-start gap-1" style={{ fontWeight: 'bold' }}>
+        <AppIcon name="warning" size="sm" />
+        <span>{message}</span>
       </div>
     );
   }
   return (
     <div
-      className="text-danger mt-2 p-2 rounded"
+      className="text-danger mt-2 p-2 rounded d-flex align-items-start gap-2"
       style={{
-        backgroundColor: '#f8d7da',
-        border: '1px solid #f5c6cb',
+        backgroundColor: '#fdeceb',
+        border: '1px solid #f5c2c0',
         fontWeight: 'bold',
         fontSize: '1rem',
       }}
     >
-      ⚠️ {message}
+      <AppIcon name="warning" size="md" />
+      <span>{message}</span>
     </div>
   );
 }
