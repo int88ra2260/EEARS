@@ -488,7 +488,23 @@ async function createVersion(surveyId, payload, actorId) {
     order: [['versionNumber', 'DESC']],
   });
   const nextNum = maxRow ? maxRow.versionNumber + 1 : 1;
-  const schema = payload.schemaJson != null ? payload.schemaJson : { id: survey.surveyKey, title: survey.name, questions: [] };
+
+  let schema = payload.schemaJson;
+  if (schema == null) {
+    // 新建草稿預設複製「目前發布版」；若無則複製最新一版，避免從空白卷重做。
+    let source = null;
+    if (survey.currentPublishedVersionId) {
+      source = await SurveyVersion.findByPk(survey.currentPublishedVersionId);
+    }
+    if (!source) {
+      source = maxRow;
+    }
+    const cloned = normalizeSchema(source?.schemaJson);
+    schema = cloned
+      ? JSON.parse(JSON.stringify(cloned))
+      : { id: survey.surveyKey, title: survey.name, questions: [] };
+  }
+
   const ver = await SurveyVersion.create({
     surveyId,
     versionNumber: nextNum,

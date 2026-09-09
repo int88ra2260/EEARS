@@ -1,0 +1,95 @@
+.survey-question-editor {
+  --sqe-accent: var(--color-primary, #2a5d9f);
+}
+
+.survey-question-editor__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 991.98px) {
+  .survey-question-editor__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .survey-question-editor__preview-col {
+    position: static !important;
+  }
+}
+
+.survey-question-editor__preview-col {
+  position: sticky;
+  top: 0.5rem;
+  max-height: min(78vh, 900px);
+  overflow: auto;
+}
+
+.survey-question-editor__type-chip {
+  border: 1px solid var(--color-border-light, #dee2e6);
+  background: #fff;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  color: var(--color-text-primary, #212529);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.survey-question-editor__type-chip:hover,
+.survey-question-editor__type-chip:focus-visible {
+  border-color: var(--sqe-accent);
+  background: rgba(42, 93, 159, 0.06);
+  box-shadow: 0 0 0 2px rgba(42, 93, 159, 0.12);
+  outline: none;
+}
+
+.survey-question-editor .accordion-button {
+  font-size: 0.9rem;
+}
+
+.survey-question-editor .accordion-button:not(.collapsed) {
+  background: rgba(42, 93, 159, 0.06);
+  color: inherit;
+  box-shadow: none;
+}
+
+.survey-question-editor .accordion-item {
+  border-color: var(--color-border-light, #dee2e6);
+  margin-bottom: 0.35rem;
+  border-radius: 0.5rem !important;
+  overflow: hidden;
+}
+
+.survey-question-editor .options-editor .input-group-text {
+  min-width: 2rem;
+  justify-content: center;
+}
+
+.survey-student-preview__frame {
+  border: 1px solid var(--color-border-light, #dee2e6);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 35, 60, 0.06);
+}
+
+.survey-student-preview__header {
+  background: linear-gradient(135deg, var(--color-primary, #2a5d9f) 0%, var(--color-primary-dark, #1e4478) 100%);
+  color: #fff;
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.survey-student-preview__body {
+  padding: 1rem;
+  background: var(--color-bg-secondary, #f5f7fa);
+  max-height: min(68vh, 720px);
+  overflow: auto;
+}
+
+.survey-student-preview .survey-question {
+  background: #fff;
+}

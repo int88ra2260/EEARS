@@ -126,7 +126,7 @@ export default function SurveyAdminModulePage({ embedded = false }) {
                 <>
                   <div className="fw-semibold mb-1">尚無問卷</div>
                   <div className="small">
-                    請按右上角「新增問卷」建立第一份問卷；建立後請用「編輯與發布」新增草稿並發布，再到
+                    請按右上角「新增問卷」建立第一份問卷；建立後請用「編輯題目與發布」開啟視覺化編輯器並發布，再到
                     {' '}
                     <Link to="/admin/survey-rules">啟用規則</Link>
                     {' '}
