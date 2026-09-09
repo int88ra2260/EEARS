@@ -3,6 +3,7 @@ const router = express.Router();
 const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
 const surveyCenterService = require('../services/surveyCenterService');
 const surveyHealthService = require('../services/surveyHealthService');
+const surveyEmotionAnalysisService = require('../services/surveyEmotionAnalysisService');
 const {
   buildSurveyResponseScopeWhere,
   mergeWhereWithScope,
@@ -100,6 +101,28 @@ router.get('/open-text-summary', authMiddleware, requirePermission(P.CAN_VIEW_SU
 router.get('/export/xlsx', authMiddleware, requirePermission(P.CAN_EXPORT_SURVEY_RESPONSES), attachSurveyAnalyticsScope, async (req, res, next) => {
   try {
     await surveyCenterService.exportSurveyAnalyticsXlsx(req.scopedSurveyQuery, res, req.user?.id);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * 問卷情緒分析 API
+ * GET /api/admin/survey-analytics/emotion
+ * 回傳：情緒分布、關鍵詞、主題、代表性樣本
+ */
+router.get('/emotion', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_ANALYTICS), attachSurveyAnalyticsScope, async (req, res, next) => {
+  try {
+    const query = req.scopedSurveyQuery;
+    const limit = Math.min(Number(req.query.limit) || 100, 500);
+    const useAI = req.query.useAI !== 'false';
+
+    const result = await surveyEmotionAnalysisService.analyzeResponsesEmotion(query, { useAI, limit });
+
+    res.json({
+      success: true,
+      data: result,
+    });
   } catch (e) {
     next(e);
   }

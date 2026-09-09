@@ -137,6 +137,15 @@ export async function exportSurveyAnalyticsXlsx(token, queryParams) {
   return throwBlobIfNotOk(res, '匯出失敗');
 }
 
+export async function fetchSurveyEmotionAnalysis(token, queryParams, options = {}) {
+  const params = queryParams instanceof URLSearchParams ? new URLSearchParams(queryParams) : new URLSearchParams(queryParams);
+  if (options.useAI !== undefined) params.set('useAI', options.useAI);
+  if (options.limit) params.set('limit', options.limit);
+  const qs = params.toString();
+  const res = await fetchClient(`/api/admin/surveys/analytics/emotion?${qs}`, { headers: authHeaders(token) });
+  return throwIfNotOk(res, '載入情緒分析失敗');
+}
+
 // --- 填答紀錄 ---
 export async function fetchSurveyResponses(token, queryParams) {
   const qs = queryParams instanceof URLSearchParams ? queryParams.toString() : new URLSearchParams(queryParams).toString();

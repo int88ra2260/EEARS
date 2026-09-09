@@ -5,7 +5,8 @@ import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
+import Badge from 'react-bootstrap/Badge';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts';
 import useToast from '../../components/ui/useToast';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
@@ -14,7 +15,22 @@ import {
   exportSurveyAnalyticsXlsx,
   fetchSurveyAnalyticsBundle,
   fetchSurveyCenterOptions,
+  fetchSurveyEmotionAnalysis,
 } from '../../services/surveyAdminApi';
+
+const EMOTION_COLORS = {
+  positive: '#28a745',
+  negative: '#dc3545',
+  neutral: '#6c757d',
+  mixed: '#ffc107',
+};
+
+const EMOTION_LABELS = {
+  positive: '正面',
+  negative: '負面',
+  neutral: '中性',
+  mixed: '混合',
+};
 
 export default function AdminSurveyAnalyticsPage() {
   const { surveyId } = useParams();
@@ -33,6 +49,8 @@ export default function AdminSurveyAnalyticsPage() {
   const [comparison, setComparison] = useState([]);
   const [openText, setOpenText] = useState({ total: 0, rows: [], topTokens: [] });
   const [dataQuality, setDataQuality] = useState(null);
+  const [emotionAnalysis, setEmotionAnalysis] = useState(null);
+  const [emotionLoading, setEmotionLoading] = useState(false);
 
   const loadOptions = useCallback(async () => {
     const data = await fetchSurveyCenterOptions(token);
@@ -63,6 +81,19 @@ export default function AdminSurveyAnalyticsPage() {
       setLoading(false);
     }
   }, [filters, token]);
+
+  const loadEmotionAnalysis = useCallback(async () => {
+    try {
+      setEmotionLoading(true);
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null)));
+      const result = await fetchSurveyEmotionAnalysis(token, q, { limit: 100 });
+      setEmotionAnalysis(result.data || null);
+    } catch (err) {
+      toast.danger(err.message || '情緒分析載入失敗');
+    } finally {
+      setEmotionLoading(false);
+    }
+  }, [filters, token, toast]);
 
   const exportXlsx = useCallback(async () => {
     try {
@@ -196,6 +227,184 @@ export default function AdminSurveyAnalyticsPage() {
                   </div>
                 ))}
               </div>
+            </Card.Body>
+          </Card>
+
+          {/* 情緒分析區塊 */}
+          <Card className="border-0 shadow-sm mt-3">
+            <Card.Header className="bg-white fw-semibold d-flex justify-content-between align-items-center">
+              <span>🎭 情緒分析</span>
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={loadEmotionAnalysis}
+                disabled={emotionLoading}
+              >
+                {emotionLoading ? <Spinner animation="border" size="sm" /> : '分析'}
+              </Button>
+            </Card.Header>
+            <Card.Body>
+              {!emotionAnalysis && !emotionLoading ? (
+                <div className="text-center text-muted py-4">
+                  <div className="mb-2">點擊「分析」按鈕來分析開放式回答的情緒傾向</div>
+                  <small>分析將使用 AI 或本地詞典判斷回答的情緒（正面/負面/中性/混合）</small>
+                </div>
+              ) : null}
+
+              {emotionLoading ? (
+                <div className="text-center py-4">
+                  <Spinner animation="border" />
+                  <div className="mt-2 text-muted small">分析中，請稍候...</div>
+                </div>
+              ) : null}
+
+              {emotionAnalysis && !emotionLoading ? (
+                <>
+                  <div className="row mb-3">
+                    <div className="col-md-3">
+                      <div className="small text-muted">分析模式</div>
+                      <Badge bg={emotionAnalysis.analysisMode === 'ai' ? 'primary' : 'secondary'}>
+                        {emotionAnalysis.analysisMode === 'ai' ? 'AI 分析' : '本地詞典'}
+                      </Badge>
+                    </div>
+                    <div className="col-md-3">
+                      <div className="small text-muted">分析數量</div>
+                      <div className="fw-semibold">{emotionAnalysis.analyzed} / {emotionAnalysis.total}</div>
+                    </div>
+                    <div className="col-md-3">
+                      <div className="small text-muted">平均信心度</div>
+                      <div className="fw-semibold">{Math.round(emotionAnalysis.averageConfidence * 100)}%</div>
+                    </div>
+                  </div>
+
+                  <div className="row g-3">
+                    {/* 情緒分布圓餅圖 */}
+                    <div className="col-lg-4">
+                      <div className="small text-muted mb-2 fw-semibold">情緒分布</div>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie
+                            data={Object.entries(emotionAnalysis.distribution || {})
+                              .filter(([, count]) => count > 0)
+                              .map(([emotion, count]) => ({
+                                name: EMOTION_LABELS[emotion] || emotion,
+                                value: count,
+                                emotion,
+                              }))}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={70}
+                            dataKey="value"
+                            label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`}
+                            labelLine={false}
+                          >
+                            {Object.entries(emotionAnalysis.distribution || {})
+                              .filter(([, count]) => count > 0)
+                              .map(([emotion]) => (
+                                <Cell key={emotion} fill={EMOTION_COLORS[emotion] || '#999'} />
+                              ))}
+                          </Pie>
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* 關鍵詞 */}
+                    <div className="col-lg-4">
+                      <div className="small text-muted mb-2 fw-semibold">情緒關鍵詞</div>
+                      <div className="d-flex flex-wrap gap-1">
+                        {(emotionAnalysis.topKeywords || []).map((kw, idx) => (
+                          <Badge
+                            key={kw.keyword}
+                            bg="light"
+                            text="dark"
+                            className="border"
+                            style={{
+                              fontSize: `${Math.max(0.7, 1 - idx * 0.05)}rem`,
+                              fontWeight: idx < 3 ? 600 : 400,
+                            }}
+                          >
+                            {kw.keyword} ({kw.count})
+                          </Badge>
+                        ))}
+                        {(emotionAnalysis.topKeywords || []).length === 0 ? (
+                          <span className="text-muted small">無關鍵詞</span>
+                        ) : null}
+                      </div>
+
+                      {(emotionAnalysis.topTopics || []).length > 0 ? (
+                        <>
+                          <div className="small text-muted mb-2 mt-3 fw-semibold">討論主題</div>
+                          <div className="d-flex flex-wrap gap-1">
+                            {emotionAnalysis.topTopics.map((t) => (
+                              <Badge key={t.topic} bg="info" className="fw-normal">
+                                {t.topic} ({t.count})
+                              </Badge>
+                            ))}
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+
+                    {/* 情緒長條圖 */}
+                    <div className="col-lg-4">
+                      <div className="small text-muted mb-2 fw-semibold">情緒統計</div>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart
+                          data={Object.entries(emotionAnalysis.distribution || {}).map(([emotion, count]) => ({
+                            emotion: EMOTION_LABELS[emotion] || emotion,
+                            count,
+                            fill: EMOTION_COLORS[emotion] || '#999',
+                          }))}
+                          layout="vertical"
+                        >
+                          <XAxis type="number" />
+                          <YAxis type="category" dataKey="emotion" width={50} />
+                          <Tooltip />
+                          <Bar dataKey="count" fill="#8884d8">
+                            {Object.entries(emotionAnalysis.distribution || {}).map(([emotion]) => (
+                              <Cell key={emotion} fill={EMOTION_COLORS[emotion] || '#999'} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* 代表性樣本 */}
+                  {(emotionAnalysis.samples || []).length > 0 ? (
+                    <div className="mt-3">
+                      <div className="small text-muted mb-2 fw-semibold">代表性回答樣本</div>
+                      <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                        {emotionAnalysis.samples.map((sample, idx) => (
+                          <div key={`${sample.answerId}-${idx}`} className="border rounded p-2 mb-2">
+                            <div className="d-flex justify-content-between align-items-start mb-1">
+                              <Badge
+                                bg="light"
+                                style={{
+                                  color: EMOTION_COLORS[sample.emotion],
+                                  border: `1px solid ${EMOTION_COLORS[sample.emotion]}`,
+                                }}
+                              >
+                                {EMOTION_LABELS[sample.emotion]} ({Math.round(sample.confidence * 100)}%)
+                              </Badge>
+                              <small className="text-muted">{sample.questionKey}</small>
+                            </div>
+                            <div className="small" style={{ whiteSpace: 'pre-wrap' }}>
+                              {sample.text}
+                            </div>
+                            {sample.summary ? (
+                              <div className="small text-info mt-1 fst-italic">
+                                💡 {sample.summary}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
             </Card.Body>
           </Card>
         </>
