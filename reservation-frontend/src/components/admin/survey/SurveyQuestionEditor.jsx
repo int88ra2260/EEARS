@@ -2,7 +2,7 @@
  * 視覺化問卷編輯器
  * 讓管理員不需要編輯 JSON，直接用 UI 新增/編輯/排序題目
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Accordion,
   Badge,
@@ -229,7 +229,7 @@ function QuestionItem({ question, index, total, onChange, onDelete, onMove }) {
 export default function SurveyQuestionEditor({ schema, onChange }) {
   const [activeKey, setActiveKey] = useState(null);
 
-  const questions = schema?.questions || [];
+  const questions = useMemo(() => schema?.questions || [], [schema?.questions]);
 
   const handleSchemaFieldChange = useCallback((field, value) => {
     onChange({ ...schema, [field]: value });
