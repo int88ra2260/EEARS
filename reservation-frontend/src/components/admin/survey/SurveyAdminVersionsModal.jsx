@@ -1,8 +1,126 @@
-import React from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
-  Alert, Badge, Button, Card, Form, Modal, Spinner, Table,
+  Alert, Badge, Button, ButtonGroup, Card, Form, Modal, Spinner, Table,
 } from 'react-bootstrap';
 import { labelSurveyStatus } from '../../../constants/surveyAdminUx';
+import SurveyQuestionEditor from './SurveyQuestionEditor';
+
+function VersionEditor({ versionsUi, onFieldChange, onCancelEdit, onSave }) {
+  const [editorMode, setEditorMode] = useState('visual');
+  const [jsonError, setJsonError] = useState('');
+
+  const schemaObject = useMemo(() => {
+    try {
+      const parsed = JSON.parse(versionsUi.schemaText || '{}');
+      setJsonError('');
+      return parsed;
+    } catch (e) {
+      setJsonError('JSON 格式錯誤：' + e.message);
+      return null;
+    }
+  }, [versionsUi.schemaText]);
+
+  const handleSchemaChange = useCallback((newSchema) => {
+    try {
+      const jsonStr = JSON.stringify(newSchema, null, 2);
+      onFieldChange('schemaText', jsonStr);
+      setJsonError('');
+    } catch (e) {
+      setJsonError('無法轉換為 JSON：' + e.message);
+    }
+  }, [onFieldChange]);
+
+  const handleJsonTextChange = useCallback((text) => {
+    onFieldChange('schemaText', text);
+    try {
+      JSON.parse(text);
+      setJsonError('');
+    } catch (e) {
+      setJsonError('JSON 格式錯誤：' + e.message);
+    }
+  }, [onFieldChange]);
+
+  return (
+    <Card className="border-0 shadow-sm mt-3">
+      <Card.Header className="bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span className="fw-semibold">
+          編輯版本 v{versionsUi.editing.versionNumber}（{versionsUi.editing.status}）
+        </span>
+        <ButtonGroup size="sm">
+          <Button
+            variant={editorMode === 'visual' ? 'primary' : 'outline-primary'}
+            onClick={() => setEditorMode('visual')}
+          >
+            📝 視覺化編輯
+          </Button>
+          <Button
+            variant={editorMode === 'json' ? 'primary' : 'outline-primary'}
+            onClick={() => setEditorMode('json')}
+          >
+            {'{ }'} JSON 編輯
+          </Button>
+        </ButtonGroup>
+      </Card.Header>
+      <Card.Body>
+        <div className="mb-3">
+          <Form.Label>本次變更說明</Form.Label>
+          <Form.Control
+            value={versionsUi.changeSummary}
+            onChange={(e) => onFieldChange('changeSummary', e.target.value)}
+            placeholder="例：新增滿意度題目、調整選項順序"
+          />
+        </div>
+
+        {jsonError && editorMode === 'visual' ? (
+          <Alert variant="warning" className="small">
+            ⚠️ {jsonError}
+            <br />
+            <span className="text-muted">請切換到 JSON 編輯模式修正格式。</span>
+          </Alert>
+        ) : null}
+
+        {editorMode === 'visual' && schemaObject ? (
+          <SurveyQuestionEditor
+            schema={schemaObject}
+            onChange={handleSchemaChange}
+          />
+        ) : null}
+
+        {editorMode === 'json' ? (
+          <div>
+            {jsonError ? (
+              <Alert variant="danger" className="small py-2">{jsonError}</Alert>
+            ) : null}
+            <Form.Control
+              as="textarea"
+              rows={16}
+              value={versionsUi.schemaText}
+              onChange={(e) => handleJsonTextChange(e.target.value)}
+              placeholder='{"id":"your_survey_key","title":"...","questions":[]}'
+              className="font-monospace small"
+              style={{ fontSize: '12px' }}
+            />
+            <Form.Text className="text-muted">
+              進階使用者可直接編輯 JSON；格式須正確才能切換回視覺化編輯。
+            </Form.Text>
+          </div>
+        ) : null}
+
+        <div className="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
+          <Button variant="outline-secondary" onClick={onCancelEdit} disabled={versionsUi.saving}>
+            取消
+          </Button>
+          <Button
+            onClick={onSave}
+            disabled={versionsUi.saving || (editorMode === 'json' && !!jsonError)}
+          >
+            {versionsUi.saving ? '儲存中…' : '儲存'}
+          </Button>
+        </div>
+      </Card.Body>
+    </Card>
+  );
+}
 
 export default function SurveyAdminVersionsModal({
   versionsUi,
@@ -16,7 +134,7 @@ export default function SurveyAdminVersionsModal({
   onPublish,
 }) {
   return (
-    <Modal show={versionsUi.show} onHide={onHide} centered size="lg">
+    <Modal show={versionsUi.show} onHide={onHide} centered size="xl" fullscreen="lg-down">
       <Modal.Header closeButton>
         <Modal.Title>
           編輯題目與發布 {versionsUi.survey ? `— ${versionsUi.survey.name}` : ''}
@@ -100,41 +218,12 @@ export default function SurveyAdminVersionsModal({
               </Table>
             </div>
             {versionsUi.editing ? (
-              <Card className="border-0 shadow-sm mt-3">
-                <Card.Header className="bg-white fw-semibold">
-                  編輯版本 v{versionsUi.editing.versionNumber}（{versionsUi.editing.status}）
-                </Card.Header>
-                <Card.Body className="row g-2">
-                  <div className="col-12">
-                    <Form.Label>本次變更說明</Form.Label>
-                    <Form.Control
-                      value={versionsUi.changeSummary}
-                      onChange={(e) => onFieldChange('changeSummary', e.target.value)}
-                    />
-                  </div>
-                  <div className="col-12">
-                    <Form.Label>題目結構（JSON，進階）</Form.Label>
-                    <Form.Control
-                      as="textarea"
-                      rows={12}
-                      value={versionsUi.schemaText}
-                      onChange={(e) => onFieldChange('schemaText', e.target.value)}
-                      placeholder='{"id":"your_survey_key","title":"...","questions":[]}'
-                    />
-                    <Form.Text className="text-muted">
-                      題目與選項以此 JSON 定義；若不熟悉格式，請洽系統管理員或參考已發布版本複製修改。已發布版本請新建草稿再改。
-                    </Form.Text>
-                  </div>
-                  <div className="col-12 d-flex justify-content-end gap-2">
-                    <Button variant="outline-secondary" onClick={onCancelEdit} disabled={versionsUi.saving}>
-                      取消
-                    </Button>
-                    <Button onClick={onSave} disabled={versionsUi.saving}>
-                      {versionsUi.saving ? '儲存中…' : '儲存'}
-                    </Button>
-                  </div>
-                </Card.Body>
-              </Card>
+              <VersionEditor
+                versionsUi={versionsUi}
+                onFieldChange={onFieldChange}
+                onCancelEdit={onCancelEdit}
+                onSave={onSave}
+              />
             ) : null}
           </>
         ) : null}
