@@ -6,6 +6,7 @@ import {
   getLearningJourneyStudentReport,
   getLearningJourneyStudentReportHtml,
 } from '../../services/learningJourneyApi';
+import LearningRiskPredictionPanel from '../../components/learningJourneyV3/student/LearningRiskPredictionPanel';
 
 const EMPTY = '—';
 
@@ -260,6 +261,14 @@ export default function LearningJourneyStudentPage() {
                 </div>
               )}
             </Section>
+          </div>
+
+          <div className="col-lg-6">
+            <LearningRiskPredictionPanel
+              studentId={student.studentId || studentId}
+              semester={profile.currentSemester?.semesterId || semesterId}
+              token={token}
+            />
           </div>
 
           <div className="col-lg-6">

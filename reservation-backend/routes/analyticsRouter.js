@@ -124,6 +124,25 @@ router.get(
   requireAnalyticsStudentParamScope,
   analyticsController.predictRisk
 );
+
+router.get(
+  '/analytics/learning-risk/predict/:studentId',
+  requirePermission(P.CAN_VIEW_ANALYTICS),
+  requireAnalyticsStudentParamScope,
+  analyticsController.getLearningRiskPrediction
+);
+router.get(
+  '/analytics/learning-risk/summary',
+  requireFullCenterAnalytics,
+  analyticsController.getLearningRiskSummary
+);
+router.get(
+  '/analytics/micro-learning/:studentId',
+  requirePermission(P.CAN_VIEW_ANALYTICS),
+  requireAnalyticsStudentParamScope,
+  analyticsController.getMicroLearningInsights
+);
+
 router.get(
   '/analytics/teachers/:teacherId/dashboard',
   requireTeacherDashboardAccess,

@@ -1,0 +1,235 @@
+/* LearningRiskPredictionPanel.css */
+
+.learning-risk-panel {
+  border-radius: 0.75rem;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.learning-risk-panel .card-header {
+  background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+  padding: 0.875rem 1rem;
+}
+
+/* Risk Level Badge */
+.risk-level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+}
+
+.risk-level-icon {
+  font-size: 1rem;
+}
+
+/* Confidence Badge */
+.confidence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Trend Badge */
+.trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.trend-icon {
+  font-size: 0.9rem;
+}
+
+/* Risk Summary Row */
+.risk-summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+}
+
+.risk-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.risk-summary-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.risk-score {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--bs-body-color, #212529);
+}
+
+/* Risk Factors List */
+.risk-factors-list {
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.risk-factor-item {
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.risk-factor-item:last-child {
+  border-bottom: none;
+}
+
+.contribution-badge {
+  font-family: var(--bs-font-monospace);
+  font-size: 0.8rem;
+}
+
+/* Insights Sections */
+.insights-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--bs-body-color, #212529);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+@media (min-width: 576px) {
+  .insights-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.insight-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  text-align: center;
+}
+
+.insight-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--bs-primary, #0d6efd);
+}
+
+.insight-label {
+  font-size: 0.7rem;
+  color: var(--bs-secondary-color, #6c757d);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Game Breakdown */
+.game-breakdown-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.game-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.game-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.game-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--bs-body-color, #212529);
+}
+
+/* Suggestions Section */
+.suggestions-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--bs-body-color, #212529);
+  margin-bottom: 0.5rem;
+}
+
+.suggestion-item {
+  padding: 0.65rem 0.5rem;
+}
+
+/* Current Risk Note */
+.current-risk-note {
+  font-size: 0.85rem;
+}
+
+/* Accordion Customization */
+.learning-risk-panel .accordion-button {
+  padding: 0.65rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.learning-risk-panel .accordion-button:not(.collapsed) {
+  background-color: rgba(var(--bs-primary-rgb), 0.05);
+  color: var(--bs-primary, #0d6efd);
+}
+
+.learning-risk-panel .accordion-body {
+  padding: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .risk-summary-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .risk-score {
+    font-size: 1.25rem;
+  }
+
+  .insight-value {
+    font-size: 1.1rem;
+  }
+
+  .learning-risk-panel .accordion-button {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .learning-risk-panel .accordion-body {
+    padding: 0.75rem;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .learning-risk-panel,
+  .risk-level-badge,
+  .trend-badge {
+    transition: none;
+  }
+}

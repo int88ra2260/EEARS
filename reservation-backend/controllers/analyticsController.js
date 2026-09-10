@@ -10,6 +10,7 @@ const analyticsService = require('../services/analyticsService');
 const teacherEvaluationService = require('../services/teacherEvaluationService');
 const riskDetectionService = require('../services/riskDetectionService');
 const trendAnalysisService = require('../services/trendAnalysisService');
+const learningRiskPredictionService = require('../services/learningRiskPredictionService');
 
 /**
  * 教師儀表板：避免以 CAN_VIEW_ANALYTICS 橫向查詢任意 teacherId。
@@ -335,6 +336,78 @@ async function getReservationCapacityBreakdown(req, res, next) {
   }
 }
 
+async function getLearningRiskPrediction(req, res, next) {
+  try {
+    const { studentId } = req.params;
+    const { semester } = req.query;
+    if (!semester) return res.status(400).json({ error: '請提供 query: semester' });
+    
+    const data = await learningRiskPredictionService.predictLearningRisk(
+      String(studentId).trim(),
+      String(semester).trim()
+    );
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    if (err.message === 'studentId is required' || err.message === 'semester is required') {
+      return res.status(400).json({ error: err.message });
+    }
+    next(err);
+  }
+}
+
+async function getLearningRiskSummary(req, res, next) {
+  try {
+    const { semester, studentIds } = req.query;
+    if (!semester) return res.status(400).json({ error: '請提供 query: semester' });
+    
+    let sids = [];
+    if (studentIds) {
+      sids = String(studentIds).split(',').map(s => s.trim()).filter(Boolean);
+    }
+    
+    if (sids.length === 0) {
+      return res.status(400).json({ error: '請提供 query: studentIds（逗號分隔）' });
+    }
+    
+    const data = await learningRiskPredictionService.getLearningRiskSummary(
+      sids,
+      String(semester).trim()
+    );
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getMicroLearningInsights(req, res, next) {
+  try {
+    const { studentId } = req.params;
+    const { days } = req.query;
+    
+    const daysBack = days ? parseInt(days, 10) : 90;
+    if (isNaN(daysBack) || daysBack < 1 || daysBack > 365) {
+      return res.status(400).json({ error: 'days 必須在 1-365 之間' });
+    }
+    
+    const data = await learningRiskPredictionService.getMicroLearningStats(
+      String(studentId).trim(),
+      daysBack
+    );
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getStudentProfile,
   getClassEvaluation,
@@ -349,4 +422,8 @@ module.exports = {
   getReservationClasses,
   getReservationEvents,
   getReservationCapacityBreakdown,
+  // 學習風險預測
+  getLearningRiskPrediction,
+  getLearningRiskSummary,
+  getMicroLearningInsights,
 };

@@ -139,3 +139,21 @@ export async function fetchTrendByClass(token, classId, fromSemester, toSemester
 export async function readJsonResponse(res) {
   return parseJson(res);
 }
+
+export async function fetchLearningRiskPrediction(token, studentId, semester) {
+  const { json } = await fetchJsonOrThrow(
+    `/api/analytics/learning-risk/predict/${encodeURIComponent(studentId)}?semester=${encodeURIComponent(semester)}`,
+    { headers: authHeaders(token) },
+    '載入學習風險預測失敗',
+  );
+  return json;
+}
+
+export async function fetchMicroLearningInsights(token, studentId, days = 90) {
+  const { json } = await fetchJsonOrThrow(
+    `/api/analytics/micro-learning/${encodeURIComponent(studentId)}?days=${days}`,
+    { headers: authHeaders(token) },
+    '載入微學習洞察失敗',
+  );
+  return json;
+}
