@@ -124,6 +124,7 @@ const LearningAnalyticsRawDataPage = lazy(() => import('./pages/admin/LearningAn
 const LearningAnalyticsSettingsPage = lazy(() => import('./pages/admin/LearningAnalyticsSettingsPage'));
 const LearningAnalyticsInsightsPage = lazy(() => import('./pages/admin/LearningAnalyticsInsightsPage'));
 const LearningAnalyticsModelRunsPage = lazy(() => import('./pages/admin/LearningAnalyticsModelRunsPage'));
+const LearningAnalyticsKpiReportPage = lazy(() => import('./pages/admin/LearningAnalyticsKpiReportPage'));
 const ImportCenterPage = lazy(() => import('./pages/admin/ImportCenterPage'));
 const ImportRunHistoryPage = lazy(() => import('./pages/admin/ImportRunHistoryPage'));
 
@@ -522,7 +523,9 @@ function AppContent() {
               <Route path="survey-module" element={<SurveyAdminModulePage />} />
               <Route path="survey-center" element={<AdminSurveyCenterPage />} />
               <Route path="survey-rules" element={<AdminSurveyRulesPage />} />
+              <Route path="survey-responses" element={<AdminSurveyResponsesPage />} />
               <Route path="survey-responses/:surveyId" element={<AdminSurveyResponsesPage />} />
+              <Route path="survey-analytics" element={<AdminSurveyAnalyticsPage />} />
               <Route path="survey-analytics/:surveyId" element={<AdminSurveyAnalyticsPage />} />
               <Route path="survey-health" element={<AdminSurveyDataHealthPage />} />
               <Route path="survey-answer-mappings" element={<AdminSurveyAnswerMappingPage />} />
@@ -533,7 +536,7 @@ function AppContent() {
                     title="Legacy 問卷管理已封存"
                     replacementPath="/admin/survey-center"
                     replacementLabel="問卷中心"
-                    note="舊問卷管理頁僅保留歷史資料脈絡；正式問卷請使用問卷中心、問卷規則與作答管理。"
+                    note="請勿再於此建立或維護新問卷。正式流程：問卷中心（建立／發布）→ 啟用規則 → 作答紀錄／統計分析。舊頁僅保留歷史脈絡。"
                   />
                 )}
               />
@@ -578,6 +581,7 @@ function AppContent() {
               <Route path="learning-analytics" element={<LearningAnalyticsLayout />}>
                 <Route index element={<Navigate to="overview" replace />} />
                 <Route path="overview" element={<LearningAnalyticsOverviewPage />} />
+                <Route path="kpi-report" element={<LearningAnalyticsKpiReportPage />} />
                 <Route path="cohorts" element={<LearningAnalyticsCohortsPage />} />
                 <Route path="offerings" element={<LearningAnalyticsOfferingsPage />} />
                 <Route path="resources" element={<LearningAnalyticsResourcesPage />} />

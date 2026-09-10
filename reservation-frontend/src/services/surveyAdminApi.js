@@ -52,6 +52,15 @@ export async function createAdminSurvey(token, payload) {
   return throwIfNotOk(res, '建立問卷失敗');
 }
 
+export async function deleteAdminSurvey(token, surveyId, body = {}) {
+  const res = await fetchClient(`/api/admin/surveys/${surveyId}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  return throwIfNotOk(res, '刪除問卷失敗');
+}
+
 export async function fetchSurveyVersions(token, surveyId) {
   const res = await fetchClient(`/api/admin/surveys/${surveyId}/versions`, { headers: authHeaders(token) });
   return throwIfNotOk(res, '載入版本失敗');
@@ -73,6 +82,14 @@ export async function updateSurveyVersion(token, surveyId, versionId, body) {
     body: JSON.stringify(body),
   });
   return throwIfNotOk(res, '更新版本失敗');
+}
+
+export async function deleteSurveyVersion(token, surveyId, versionId) {
+  const res = await fetchClient(`/api/admin/surveys/${surveyId}/versions/${versionId}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  return throwIfNotOk(res, '刪除版本失敗');
 }
 
 export async function publishSurveyVersion(token, surveyId, versionId) {

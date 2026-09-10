@@ -1,12 +1,15 @@
 /** 與後端 learningAnalyticsFilterUtils QUERY_PARAM_KEYS 對齊（LA 群體分析篩選） */
 export const FILTER_PARAM_KEYS = [
   'semester',
+  'academic_year',
   'snapshot_version',
+  'student_id',
   'cohort',
   'college',
   'department',
   'baseline_level',
   'exposure_level',
+  'has_valid_exam',
   'retest_flag',
   'is_b2plus',
   'instrument',
@@ -17,12 +20,15 @@ export const FILTER_PARAM_KEYS = [
 
 export const DEFAULT_LA_FILTERS = Object.freeze({
   semester: '',
+  academic_year: '',
+  student_id: '',
   cohort: '',
   department: '',
   college: '',
   snapshot_version: '',
   baseline_level: '',
   exposure_level: '',
+  has_valid_exam: '',
   retest_flag: '',
   is_b2plus: '',
   instrument: '',
@@ -33,12 +39,15 @@ export const DEFAULT_LA_FILTERS = Object.freeze({
 
 export const FILTER_LABELS = Object.freeze({
   semester: '學期',
+  academic_year: '學年度',
   snapshot_version: '資料版本',
+  student_id: '學號',
   cohort: '入學年度',
   college: '學院',
   department: '系所',
   baseline_level: '起始英語能力',
   exposure_level: '英語資源參與量',
+  has_valid_exam: '有有效英檢',
   retest_flag: '曾重測英檢',
   is_b2plus: 'B2+ 達標',
   instrument: '英檢工具',
@@ -49,13 +58,16 @@ export const FILTER_LABELS = Object.freeze({
 
 /** 篩選欄位說明（以標籤旁驚嘆號提示顯示） */
 export const FILTER_FIELD_HINTS = Object.freeze({
-  semester: '多數圖表依分析快照全體（不受學期）。學期主要影響「B2+ 認證通過率」等學期名冊區塊；細項分析頁則用學期篩課程／活動。',
-  snapshot_version: '分析摘要的資料版本。請優先選最新「全域」分析；課程匯入／學期重建產生的舊版可能人數重複或偏少。',
-  cohort: '選項來自分析資料中的入學年度，以及模組設定中手動新增的項目。',
+  semester: '圖表頁：多數圖表不受學期影響，學期主要影響認證等名冊區塊。原始資料匯出頁：會依「入學學期 enrollment_term」過濾學生。',
+  academic_year: '匯出／預覽用：符合「入學年度（級）=該年」或「入學學期以該年開頭（如 114-1）」的學生。例：選 114 會含 114 級與入學學期 114-*。',
+  snapshot_version: '分析摘要的資料版本。請優先選最新「全域分析」；課程匯入／手動部分重建人數可能偏少或重複。',
+  student_id: '精確學號（不分大小寫）。填寫後只匯出／預覽該生。',
+  cohort: '選項來自分析資料中的入學年度（級），例如 113、114。',
   college: '選項來自分析資料中的學院，以及模組設定中手動新增的項目。',
   department: '選項來自分析資料中的系所，以及模組設定中手動新增的項目。',
   baseline_level: '依學生基線英語能力（CEFR 等級）篩選群體。',
   exposure_level: '依考前累積的英語課程與活動參與時數分級。',
+  has_valid_exam: '是否有納入分析的有效英檢成績。',
   retest_flag: '是否曾有前後測可計算成長的英檢紀錄。',
   is_b2plus: '是否已達 B2 以上認證（依分析快照計算，非單一學期名冊）。',
   instrument: '篩選特定英檢工具之成績紀錄。',
@@ -66,6 +78,24 @@ export const FILTER_FIELD_HINTS = Object.freeze({
 
 /** 標準 LA 頁（非細項分析）篩選列說明 */
 export const LA_FILTER_INTRO_COHORT = '學期大多只影響認證等「學期名冊」區塊；其餘圖表依資料版本與學生條件篩選分析快照。';
+
+/** 原始資料匯出頁：篩選會真正縮小匯出範圍 */
+export const LA_FILTER_INTRO_RAW_EXPORT = '此頁篩選會套用到預覽與匯出。若只要某學年度學生，請用「學年度」或「入學年度（級）」；「入學學期」對應 enrollment_term（如 114-2）。資料版本請選「建議｜全域分析」。';
+
+/** 原始資料頁顯示的篩選鍵（匯出導向，非圖表共用語意） */
+export const RAW_EXPORT_FILTER_KEYS = [
+  'snapshot_version',
+  'academic_year',
+  'semester',
+  'cohort',
+  'college',
+  'department',
+  'student_id',
+  'has_valid_exam',
+  'is_b2plus',
+  'instrument',
+  'skill',
+];
 
 /** 使用者可讀的指標說明 */
 export const LA_TERM_HELP = Object.freeze({

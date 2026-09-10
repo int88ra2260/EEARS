@@ -9,6 +9,7 @@ const {
   buildExamWhere,
   applyEvidenceQualityFilter,
   stripEmptyQueryParams,
+  hasStudentScopeFilters,
 } = require('./learningAnalyticsFilterUtils');
 const {
   buildStudentPrePostExportRow,
@@ -105,29 +106,7 @@ const EVENT_EXPORT_COLUMNS = [
   { key: 'sourceRecordId', header: '來源紀錄 ID', width: 18 },
 ];
 
-const STUDENT_SCOPE_KEYS = new Set([
-  'cohort',
-  'college',
-  'department',
-  'admission_type',
-  'baseline_level',
-  'exposure_level',
-  'is_overseas_student',
-  'has_valid_exam',
-  'retest_flag',
-  'is_b2plus',
-  'include_reason_code',
-  'exclude_reason_code',
-  'reason_code_include',
-  'reason_code_exclude',
-  'evidence_quality',
-  'student_id',
-  'studentId',
-]);
-
-function hasStudentScopeFilters(query = {}) {
-  return [...STUDENT_SCOPE_KEYS].some((key) => query[key] != null && query[key] !== '');
-}
+const RAW_STUDENT_WHERE_OPTS = { forRawExport: true };
 
 function formatCellValue(value) {
   if (value == null) return '';
@@ -156,7 +135,7 @@ function appendRows(worksheet, items, definitions) {
 
 async function resolveScopedStudentIds(query, snapshotVersion) {
   let students = await LjAnalyticStudent.findAll({
-    where: buildStudentWhere(query, snapshotVersion),
+    where: buildStudentWhere(query, snapshotVersion, RAW_STUDENT_WHERE_OPTS),
     attributes: [
       'studentId',
       'retestFlag',
@@ -190,7 +169,7 @@ async function loadExamsByStudentMap(snapshotVersion, studentIds) {
 async function fetchStudentsForExport(query, snapshotVersion) {
   // 不走 queryAnalyticStudents：該 API 單次 limit 上限 500，僅供頁面預覽
   let rows = await LjAnalyticStudent.findAll({
-    where: buildStudentWhere(query, snapshotVersion),
+    where: buildStudentWhere(query, snapshotVersion, RAW_STUDENT_WHERE_OPTS),
     order: [['studentId', 'ASC']],
   });
   rows = applyEvidenceQualityFilter(rows, query);
@@ -294,7 +273,8 @@ async function fetchEventsForExport(query, snapshotVersion, dataset) {
  */
 function buildExportFileName(dataset, filters = {}, snapshotVersion = '', ext = 'xlsx') {
   const stamp = formatTimestampForFilename();
-  const sem = sanitizeFilenameSegment(filters.semester || 'all', 'all');
+  const yearOrSem = filters.academic_year || filters.academicYear || filters.semester || 'all';
+  const sem = sanitizeFilenameSegment(yearOrSem, 'all');
   const ds = ['students', 'exams', 'courses', 'activities', 'events'].includes(dataset)
     ? dataset
     : 'students';

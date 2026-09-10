@@ -136,9 +136,10 @@ export const IMPORT_CENTER_CARDS = [
     statusTier: IMPORT_STATUS_TIER.ENABLED,
     hideHistoryButton: true,
     description:
-      '匯入 BESTEP 出席（LR/SW）與成績（聽讀說寫、CEFR），以及團體名次計算；供培力英檢管理與班級 BESTEP 檢視。',
-    impactModules: ['培力英檢管理', '班級 BESTEP', '學習歷程投影'],
-    riskHint: '僅「報名成功」學生會寫入；請分場次匯入 LR 與 SW 出席資料。',
+      '匯入 BESTEP 出席（LR/SW）與成績（聽讀說寫、CEFR），以及團體名次計算；供培力英檢管理與班級 BESTEP 檢視。成績匯入成功後會自動同步至學習歷程 exam_attempts，並排程重建學習分析投影。',
+    impactModules: ['培力英檢管理', '班級 BESTEP', '學習歷程投影', '學習成效分析'],
+    riskHint:
+      '僅「報名成功」學生會寫入出席；成績匯入後請稍候再查學習分析頁。若需補寫舊學期，可執行 npm run lj:promote-bestep。',
     routeAccess: '/admin/english-test/import',
     importPath: '/admin/english-test/import',
     templateOnTarget: true,

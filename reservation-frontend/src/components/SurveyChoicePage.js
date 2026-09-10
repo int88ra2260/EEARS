@@ -91,12 +91,12 @@ export default function SurveyChoicePage() {
         <Card.Header className="bg-primary text-white">
           <h4 className="mb-0">
             <i className="fas fa-clipboard-list me-2" />
-            活動問卷 / Activity Survey
+            本學期問卷 / Surveys
           </h4>
         </Card.Header>
         <Card.Body>
           <p className="text-muted mb-4">
-            請選擇要填寫的問卷（期中考後參加 English Table 或 English Club 活動需先填寫對應問卷才能預約）。
+            請選擇要填寫的問卷。活動相關問卷（English Table／English Club）於預約前可能為必填；獨立問卷可直接填寫。
           </p>
           <div className="d-flex flex-column flex-md-row gap-3 flex-wrap">
             {list.map((item) => (
@@ -114,7 +114,11 @@ export default function SurveyChoicePage() {
                     </h5>
                     {getEventTypeLabel(item.relatedEventTypes, t) ? (
                       <small className="text-muted">{getEventTypeLabel(item.relatedEventTypes, t)}</small>
-                    ) : null}
+                    ) : (
+                      <small className="text-muted">
+                        {item.channel === 'standalone' ? '獨立／首頁問卷' : ''}
+                      </small>
+                    )}
                   </Card.Body>
                 </Card>
               </Link>

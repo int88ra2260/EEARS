@@ -259,3 +259,122 @@ export async function getLearningAnalyticsStudentJourney(token, studentId, param
   );
   return parseEnvelope(res);
 }
+
+export async function listLearningAnalyticsKpiPolicies(token, params = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/kpi/policies${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function getLearningAnalyticsKpiPolicy(token, id, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/kpi/policies/${encodeURIComponent(id)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function cloneLearningAnalyticsKpiPolicy(token, id, body = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/kpi/policies/${encodeURIComponent(id)}/clone`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function createLearningAnalyticsKpiPolicy(token, body = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/kpi/policies`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function updateLearningAnalyticsKpiPolicy(token, id, body = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/kpi/policies/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function archiveLearningAnalyticsKpiPolicy(token, id, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/kpi/policies/${encodeURIComponent(id)}/archive`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function unarchiveLearningAnalyticsKpiPolicy(token, id, options = {}) {
+  return updateLearningAnalyticsKpiPolicy(token, id, { isArchived: false }, options);
+}
+
+export async function runLearningAnalyticsKpiReport(token, body = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/kpi/report`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function exportLearningAnalyticsKpiReport(token, params = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/kpi/report/export${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    let msg = json.error || json.message || `HTTP ${res.status}`;
+    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
+      msg = '您沒有匯出 KPI 報表的權限。';
+    }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const fallback = `EEARS_KPI_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
+  return { blob, fileName: match ? match[1] : fallback };
+}
+
+export async function runLearningAnalyticsKpiGaps(token, body = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/kpi/gaps`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function exportLearningAnalyticsKpiGaps(token, params = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/kpi/gaps/export${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    let msg = json.error || json.message || `HTTP ${res.status}`;
+    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
+      msg = '您沒有匯出缺口名單的權限。';
+    }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const fallback = `EEARS_KPI_GAPS_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
+  return { blob, fileName: match ? match[1] : fallback };
+}

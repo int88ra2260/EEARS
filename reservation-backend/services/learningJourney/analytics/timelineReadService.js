@@ -1,5 +1,6 @@
 'use strict';
 
+const { Op } = require('sequelize');
 const {
   LjStudentEvent,
   LjAnalyticStudent,
@@ -46,7 +47,18 @@ function buildBadges(ev, exposureRelation) {
   return badges;
 }
 
+/**
+ * Prefer newest global-* snapshot so partial rebuilds (manual-/course-import-)
+ * do not silently become the default read model.
+ */
 async function resolveLatestSnapshotVersion() {
+  const globalRow = await LjAnalyticStudent.findOne({
+    attributes: ['snapshotVersion'],
+    where: { snapshotVersion: { [Op.like]: 'global-%' } },
+    order: [['derivedAt', 'DESC']],
+  });
+  if (globalRow?.snapshotVersion) return globalRow.snapshotVersion;
+
   const row = await LjAnalyticStudent.findOne({
     attributes: ['snapshotVersion'],
     order: [['derivedAt', 'DESC']],

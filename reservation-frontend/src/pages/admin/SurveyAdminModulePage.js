@@ -17,6 +17,7 @@ import { P } from '../../constants/permissions';
 import { labelSurveyStatus } from '../../constants/surveyAdminUx';
 import { surveyModuleStatusToVariant } from '../../utils/statusBadgeUtils';
 import useToast from '../../components/ui/useToast';
+import useConfirm from '../../components/ui/useConfirm';
 import { useSurveyAdminModule } from '../../hooks/useSurveyAdminModule';
 import {
   formatShortUpdatedAt,
@@ -29,6 +30,7 @@ import './surveyAdminModule.css';
 
 export default function SurveyAdminModulePage({ embedded = false }) {
   const toast = useToast();
+  const { confirm } = useConfirm();
   const { token, userRole, accessProfile: ctxProfile } = useOutletContext();
   const accessProfile = ctxProfile || buildAccessProfile(token || '', userRole || '');
   const canView = hasPermission(accessProfile, P.CAN_VIEW_SURVEYS);
@@ -62,13 +64,17 @@ export default function SurveyAdminModulePage({ embedded = false }) {
     updateVersionsField,
     saveVersion,
     publishVersion,
+    deleteVersion,
+    deleteSurvey,
     exportSurveyJson,
+    copyPublicSurveyLink,
   } = useSurveyAdminModule({
     token,
     canView,
     canPublish,
     role: accessProfile.role,
     toast,
+    confirm,
   });
 
   const pageWrapClass = embedded ? 'survey-admin-module' : 'container py-4';
@@ -180,6 +186,9 @@ export default function SurveyAdminModulePage({ embedded = false }) {
                             <Dropdown.Item href={`/survey/${r.surveyKey}`} target="_blank" rel="noreferrer">
                               學生端預覽
                             </Dropdown.Item>
+                            <Dropdown.Item onClick={() => copyPublicSurveyLink(r)}>
+                              複製公開填答連結
+                            </Dropdown.Item>
                             {canManage ? (
                               <Dropdown.Item onClick={() => openVersions(r)}>
                                 編輯題目與發布
@@ -209,6 +218,19 @@ export default function SurveyAdminModulePage({ embedded = false }) {
                                 資料匯入中心（匯出說明）
                               </Dropdown.Item>
                             ) : null}
+                            {canManage ? (
+                              <>
+                                <Dropdown.Divider />
+                                <Dropdown.Item
+                                  className="text-danger"
+                                  onClick={() => deleteSurvey(r)}
+                                >
+                                  {r.status === 'archived' || Number(r.responseCount || 0) === 0
+                                    ? '刪除問卷'
+                                    : '封存／刪除問卷'}
+                                </Dropdown.Item>
+                              </>
+                            ) : null}
                           </Dropdown.Menu>
                         </Dropdown>
                       </td>
@@ -233,6 +255,7 @@ export default function SurveyAdminModulePage({ embedded = false }) {
       <SurveyAdminVersionsModal
         versionsUi={versionsUi}
         canPublish={canPublish}
+        canManage={canManage}
         onHide={closeVersions}
         onCreateDraft={createDraftVersion}
         onStartEdit={startEditVersion}
@@ -240,6 +263,7 @@ export default function SurveyAdminModulePage({ embedded = false }) {
         onFieldChange={updateVersionsField}
         onSave={saveVersion}
         onPublish={publishVersion}
+        onDeleteVersion={deleteVersion}
       />
     </div>
   );

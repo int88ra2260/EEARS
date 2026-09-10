@@ -114,6 +114,26 @@ router.put('/:id(\\d+)', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), requi
   }
 });
 
+router.delete('/:id(\\d+)', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
+  try {
+    const result = await surveyModuleService.deleteSurvey(
+      Number(req.params.id),
+      {
+        forceHard: req.query.force === '1' || req.body?.forceHard === true,
+        confirmPhrase: req.body?.confirmPhrase || req.query.confirmPhrase || null,
+      },
+      req.user?.id
+    );
+    if (!result) return res.status(404).json({ error: '找不到問卷' });
+    res.json(result);
+  } catch (e) {
+    if (e.statusCode === 400) {
+      return res.status(400).json({ error: e.message, code: e.code || 'BAD_REQUEST' });
+    }
+    next(e);
+  }
+});
+
 router.get('/:id(\\d+)/versions', ...auth, requirePermission(P.CAN_VIEW_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
   try {
     const list = await surveyModuleService.listVersions(Number(req.params.id));
@@ -146,6 +166,23 @@ router.put('/:id(\\d+)/versions/:versionId(\\d+)', ...auth, requirePermission(P.
   } catch (e) {
     if (e.statusCode === 400) {
       return res.status(400).json({ error: e.message });
+    }
+    next(e);
+  }
+});
+
+router.delete('/:id(\\d+)/versions/:versionId(\\d+)', ...auth, requirePermission(P.CAN_MANAGE_SURVEYS), requireSurveyRecordScope, async (req, res, next) => {
+  try {
+    const result = await surveyModuleService.deleteVersion(
+      Number(req.params.id),
+      Number(req.params.versionId),
+      req.user?.id
+    );
+    if (!result) return res.status(404).json({ error: '找不到版本' });
+    res.json(result);
+  } catch (e) {
+    if (e.statusCode === 400) {
+      return res.status(400).json({ error: e.message, code: e.code || 'BAD_REQUEST' });
     }
     next(e);
   }

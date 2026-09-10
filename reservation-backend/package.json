@@ -12,6 +12,7 @@
     "lj:daily-governance": "node scripts/learning-journey-daily-governance.js",
     "lj:reconcile-semester": "node scripts/learning-journey-reconcile-semester.js",
     "lj:rebuild-analytics": "node scripts/learning-journey-rebuild-analytics.js",
+    "lj:promote-bestep": "node scripts/promote-bestep-to-learning-analytics.js",
     "lj:recompute-gse-episodes": "node scripts/learning-journey-recompute-gse-episodes.js",
     "lj:prune-analytics-snapshots:dry": "node scripts/learning-journey-prune-analytics-snapshots.js --dry-run",
     "lj:prune-analytics-snapshots:apply": "node scripts/learning-journey-prune-analytics-snapshots.js --apply",

@@ -14,7 +14,7 @@ import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../
 import LearningAnalyticsRawDataPreview from '../../components/learningAnalytics/LearningAnalyticsRawDataPreview';
 import { DATASET_OPTIONS } from '../../components/learningAnalytics/learningAnalyticsRawDataColumns';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
-import { LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import { LA_FILTER_INTRO_RAW_EXPORT, RAW_EXPORT_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { downloadBlob } from '../../utils/learningJourneyOperationsHelpers';
 import { P } from '../../constants/permissions';
@@ -36,7 +36,7 @@ export default function LearningAnalyticsRawDataPage() {
     ready,
     apiParams,
     token,
-  } = useLearningAnalyticsBootstrap();
+  } = useLearningAnalyticsBootstrap({ scopeKeys: RAW_EXPORT_FILTER_KEYS });
   const [dataset, setDataset] = useState('students');
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [offset, setOffset] = useState(0);
@@ -131,7 +131,9 @@ export default function LearningAnalyticsRawDataPage() {
         snapshotVersion={appliedFilters.snapshot_version}
       />
 
-      <p className="small text-muted mb-3">預覽或匯出底層摘要。預覽最多 100 筆，完整資料請匯出。</p>
+      <p className="small text-muted mb-3">
+        預覽或匯出學習成效分析快照底層資料（非全系統原始檔）。調整條件後請按「套用篩選」，再匯出；預覽最多 100 筆。
+      </p>
 
       <LearningAnalyticsFilters
         filters={filters}
@@ -142,12 +144,20 @@ export default function LearningAnalyticsRawDataPage() {
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
         snapshotOptions={meta?.snapshots}
-        filterTitle="篩選條件"
+        filterTitle="匯出篩選條件"
         submitLabel="套用篩選"
         showAdvanced={false}
-        intro={LA_FILTER_INTRO_COHORT}
+        visibleKeys={RAW_EXPORT_FILTER_KEYS}
+        groupSnapshots
+        intro={LA_FILTER_INTRO_RAW_EXPORT}
+        emptyHint="未套用條件時會匯出建議資料版本內的全部學生"
       />
-      <LearningAnalyticsActiveFilters filters={appliedFilters} />
+      <LearningAnalyticsActiveFilters
+        filters={appliedFilters}
+        visibleKeys={RAW_EXPORT_FILTER_KEYS}
+        semesterScope="full"
+        showSnapshot
+      />
 
       <div className="la-panel mt-3 mb-3">
         <Row className="g-3 align-items-end">

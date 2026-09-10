@@ -356,7 +356,10 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
         setSortConfig({ key: 'successSequence', direction: 'ASC' });
       }
     } else if (filterType === 'examType') {
+      // 測驗類型卡片統計跨狀態；不報考（NON）寫入後 status 會是 revision，
+      // 若仍停在「審核中」等狀態分頁會篩不到。
       setAdvancedFilters(prev => ({ ...prev, examTypes: [filterValue] }));
+      setStatusFilter('all');
       setCurrentPage(1);
     }
   }, [setStatusFilter, setCurrentPage, setSortConfig, setAdvancedFilters]);

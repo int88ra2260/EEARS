@@ -55,4 +55,15 @@ router.get('/raw-data', ...ljView, controller.getRawData);
 router.get('/export', ...ljExport, controller.getExport);
 router.post('/snapshots/prune', ...ljManage, controller.postPruneSnapshots);
 
+router.get('/kpi/policies', ...ljView, controller.getKpiPolicies);
+router.get('/kpi/policies/:id', ...ljView, controller.getKpiPolicy);
+router.post('/kpi/policies', ...ljSettings, controller.postKpiPolicy);
+router.post('/kpi/policies/:id/clone', ...ljSettings, controller.postCloneKpiPolicy);
+router.put('/kpi/policies/:id', ...ljSettings, controller.putKpiPolicy);
+router.post('/kpi/policies/:id/archive', ...ljSettings, controller.postArchiveKpiPolicy);
+router.post('/kpi/report', ...ljView, controller.postKpiReport);
+router.get('/kpi/report/export', ...ljExport, controller.getKpiReportExport);
+router.post('/kpi/gaps', ...ljView, controller.postKpiGaps);
+router.get('/kpi/gaps/export', ...ljExport, controller.getKpiGapsExport);
+
 module.exports = router;

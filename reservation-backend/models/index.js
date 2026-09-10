@@ -95,6 +95,7 @@ const StudentResourceExposure = require('./StudentResourceExposure');
 const ResourceSkillProfile = require('./ResourceSkillProfile');
 const LearningAnalyticsFilterReference = require('./LearningAnalyticsFilterReference');
 const LearningAnalyticsLvaConfig = require('./LearningAnalyticsLvaConfig');
+const LearningAnalyticsKpiPolicy = require('./LearningAnalyticsKpiPolicy');
 const JobRun = require('./JobRun');
 const ImportRollbackManifest = require('./ImportRollbackManifest');
 const EventWaitlistEntry = require('./EventWaitlistEntry');
@@ -409,6 +410,7 @@ module.exports = {
   ResourceSkillProfile,
   LearningAnalyticsFilterReference,
   LearningAnalyticsLvaConfig,
+  LearningAnalyticsKpiPolicy,
   JobRun,
   ImportRollbackManifest,
   EventWaitlistEntry,

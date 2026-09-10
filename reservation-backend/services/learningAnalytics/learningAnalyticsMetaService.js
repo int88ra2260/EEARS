@@ -40,7 +40,9 @@ async function listSnapshotVersions() {
     snapshotVersion: row.snapshotVersion,
     studentCount: Number(row.studentCount) || 0,
     derivedAt: row.derivedAt,
-    label: summarizeSnapshotLabel(row.snapshotVersion),
+    scope: snapshotScope(row.snapshotVersion),
+    recommended: false,
+    label: summarizeSnapshotLabel(row.snapshotVersion, { studentCount: row.studentCount }),
   }));
 }
 
@@ -54,11 +56,28 @@ async function countAnalyticRowsForSnapshot(snapshotVersion) {
   return { students, exams };
 }
 
-function summarizeSnapshotLabel(snapshotVersion) {
+function snapshotScope(snapshotVersion) {
   const raw = String(snapshotVersion || '');
-  if (raw.startsWith('global-')) return `全域分析（${raw.split('|')[0]}）`;
-  if (raw.startsWith('course-import-')) return `課程匯入批次（${raw.split('|')[0]}）`;
-  return raw.split('|')[0] || raw;
+  if (raw.startsWith('global-')) return 'global';
+  if (raw.startsWith('course-import-')) return 'course-import';
+  if (raw.startsWith('manual-')) return 'manual';
+  if (raw.startsWith('baseline-import-')) return 'baseline-import';
+  if (raw.startsWith('ewl-')) return 'ewl';
+  return 'other';
+}
+
+function summarizeSnapshotLabel(snapshotVersion, { studentCount } = {}) {
+  const short = String(snapshotVersion || '').split('|')[0] || '';
+  const n = studentCount != null && studentCount !== ''
+    ? `｜${Number(studentCount).toLocaleString('zh-TW')} 人`
+    : '';
+  const scope = snapshotScope(short);
+  if (scope === 'global') return `全域分析｜${short}${n}`;
+  if (scope === 'course-import') return `課程匯入暫存｜${short}${n}`;
+  if (scope === 'manual') return `手動／部分重建｜${short}${n}`;
+  if (scope === 'baseline-import') return `基線匯入｜${short}${n}`;
+  if (scope === 'ewl') return `EWL 批次｜${short}${n}`;
+  return `${short}${n}`;
 }
 
 function pickRecommendedSnapshot(snapshots) {
@@ -84,6 +103,12 @@ async function getLearningAnalyticsMeta() {
   const recommendedSnapshotVersion = pickRecommendedSnapshot(snapshots);
   const recommendedCounts = await countAnalyticRowsForSnapshot(recommendedSnapshotVersion);
   const recommendedRow = snapshots.find((s) => s.snapshotVersion === recommendedSnapshotVersion);
+  if (recommendedRow) {
+    recommendedRow.recommended = true;
+    recommendedRow.label = `建議｜${summarizeSnapshotLabel(recommendedSnapshotVersion, {
+      studentCount: recommendedCounts.students,
+    })}`;
+  }
   const filterOptions = await getFilterOptions(recommendedSnapshotVersion);
   await ensureLvaConfigLoaded();
   const matchingCaliperDefault = getLvaConfig().matchingCaliper;
@@ -112,12 +137,12 @@ async function getLearningAnalyticsMeta() {
   }
   if (snapshotVersionCount > 1) {
     warnings.push(
-      `偵測到 ${snapshotVersionCount} 個資料版本；圖表請選「資料版本」中的最新全域分析。`
-      + ' 舊版（課程匯入、學期重建等）可至「學習歷程維運」清理，避免人數統計混淆。'
+      `偵測到 ${snapshotVersionCount} 個資料版本；請優先選「全域分析」。`
+      + ' 課程匯入／手動部分重建等舊版人數可能偏少或重複，可至「學習歷程維運」清理。'
     );
   }
   if (recommendedSnapshotVersion && latestDerived !== recommendedSnapshotVersion) {
-    warnings.push('系統預設最新版本與建議使用的全域分析版本不同，請在篩選器確認「資料版本」。');
+    warnings.push('系統已改為優先使用全域分析版本；若畫面仍顯示其他版本，請在篩選器改回建議版本。');
   }
   if (snapshotVersionCount > 1 && recommendedCounts.students > 0 && analyticStudents > recommendedCounts.students) {
     warnings.push(

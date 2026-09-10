@@ -1,5 +1,6 @@
 'use strict';
 
+const { Op } = require('sequelize');
 const {
   LjStudentEvent,
   LjAnalyticStudent,
@@ -13,6 +14,13 @@ const { projectAllEvents, normSid } = require('./eventProjectorService');
 const { rebuildAnalytics } = require('./analyticRebuildService');
 
 async function resolveLatestSnapshotVersion() {
+  const globalRow = await LjAnalyticStudent.findOne({
+    attributes: ['snapshotVersion'],
+    where: { snapshotVersion: { [Op.like]: 'global-%' } },
+    order: [['derivedAt', 'DESC']],
+  });
+  if (globalRow?.snapshotVersion) return globalRow.snapshotVersion;
+
   const row = await LjAnalyticStudent.findOne({
     attributes: ['snapshotVersion'],
     order: [['derivedAt', 'DESC']],

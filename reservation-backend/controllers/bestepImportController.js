@@ -4,6 +4,46 @@ const path = require('path');
 const fs = require('fs');
 const { importAttendanceData, importScoreData, generateErrorReport } = require('../services/bestepImportService');
 const auditLogService = require('../services/auditLogService');
+const { runSync } = require('../services/learningJourney/syncService');
+const { BestepExamScore } = require('../models');
+const { rebuildAnalyticsInBatches } = require('../services/learningJourney/analytics/analyticRebuildService');
+
+function scheduleBestepScoreAnalyticsPromote(semester, importBatchId) {
+  setImmediate(async () => {
+    try {
+      const syncResult = await runSync({
+        semesterId: semester,
+        sections: ['bestep_scores'],
+        dryRun: false,
+      });
+      const rows = await BestepExamScore.findAll({
+        where: importBatchId
+          ? { semester, importBatchId }
+          : { semester },
+        attributes: ['studentId'],
+      });
+      const studentIds = [...new Set(rows.map((r) => String(r.studentId || '').trim().toUpperCase()).filter(Boolean))];
+      let rebuildResult = null;
+      if (studentIds.length) {
+        rebuildResult = await rebuildAnalyticsInBatches({
+          scope: 'manual',
+          studentIds,
+          batchSize: 50,
+          dryRun: false,
+        });
+      }
+      console.log('[bestep] score→analytics promote done', {
+        semester,
+        importBatchId,
+        sync: syncResult?.results?.bestep_scores || null,
+        studentCount: studentIds.length,
+        snapshotVersion: rebuildResult?.snapshotVersion || null,
+      });
+    } catch (err) {
+      console.error('[bestep] score→analytics promote failed:', err && err.message ? err.message : err);
+    }
+  });
+}
 
 // 設定 multer 用於檔案上傳
 const storage = multer.diskStorage({
@@ -190,9 +230,16 @@ async function importScores(req, res, next) {
         skipped: result.skipped,
         errorCount: result.errors.length,
         errorFileUrl,
+        analyticsPromoteScheduled: true,
       },
       req,
     });
+
+    // 成績寫入 bestep_exam_scores 後，自動同步 exam_attempts 並重建學習分析投影
+    // （避免只進培力表、學習分析頁看不到的落差）
+    if (Number(result.imported) > 0) {
+      scheduleBestepScoreAnalyticsPromote(semester, result.importBatchId);
+    }
 
     res.json({
       success: true,
@@ -201,7 +248,12 @@ async function importScores(req, res, next) {
       imported: result.imported,
       skipped: result.skipped,
       errors: result.errors,
-      errorFileUrl
+      errorFileUrl,
+      analyticsPromoteScheduled: Number(result.imported) > 0,
+      analyticsPromoteHint:
+        '已排程：BESTEP → exam_attempts sync + 學習分析 rebuild。若需補寫 et_exam_attempts，可另跑 npm run lj:promote-bestep -- --semesterId=' +
+        semester +
+        ' --apply --skip-sync',
     });
   } catch (error) {
     auditLogService.logAuditAsync({

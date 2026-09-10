@@ -67,6 +67,10 @@ export default function AdminSurveyResponsesPage() {
   const [gapExporting, setGapExporting] = useState(false);
   const [responseExporting, setResponseExporting] = useState(false);
 
+  useEffect(() => {
+    setFilters((f) => ({ ...f, surveyId: params.surveyId || '' }));
+  }, [params.surveyId]);
+
   const loadOptions = useCallback(async () => {
     const data = await fetchSurveyCenterOptions(token);
     setOptions({

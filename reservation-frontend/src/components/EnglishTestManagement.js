@@ -227,7 +227,14 @@ export default function EnglishTestManagement() {
           onToggleRegistration={handleToggleRegistration}
           onToggleRegistrationGroup={handleToggleRegistrationGroup}
           advancedFilters={advancedFilters}
-          onAdvancedFiltersChange={(filters) => { setAdvancedFilters(filters); setCurrentPage(1); }}
+          onAdvancedFiltersChange={(filters) => {
+            setAdvancedFilters(filters);
+            setCurrentPage(1);
+            // 不報考（NON）對應 status=revision；若仍停在其他狀態分頁會篩不到
+            if ((filters.examTypes || []).includes('NON') && statusFilter !== 'all') {
+              setStatusFilter('all');
+            }
+          }}
           sortConfig={sortConfig}
           onSortChange={(nextSort) => { setSortConfig(nextSort); setCurrentPage(1); }}
           searchTerm={searchTerm}

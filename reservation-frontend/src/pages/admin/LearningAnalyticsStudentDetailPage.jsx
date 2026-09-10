@@ -1,22 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
-import Col from 'react-bootstrap/Col';
-import Row from 'react-bootstrap/Row';
+import Form from 'react-bootstrap/Form';
 import Spinner from 'react-bootstrap/Spinner';
 import Table from 'react-bootstrap/Table';
 import StatusBadge from '../../components/ui/StatusBadge';
 import GrowthEpisodeTable from '../../components/learningAnalytics/GrowthEpisodeTable';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
+import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
+import LaFold from '../../components/learningAnalytics/LaFold';
+import StudentCoachingSummaryCard from '../../components/learningAnalytics/StudentCoachingSummaryCard';
+import StudentRecommendationsPanel from '../../components/learningAnalytics/StudentRecommendationsPanel';
+import EtStudentParticipationPanel from '../../components/etGrouping/EtStudentParticipationPanel';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 import {
   getLearningAnalyticsSkills,
   getLearningAnalyticsStudentJourney,
   getLearningAnalyticsStudentRecommendations,
 } from '../../services/learningAnalyticsService';
-import StudentRecommendationsPanel from '../../components/learningAnalytics/StudentRecommendationsPanel';
-import EtStudentParticipationPanel from '../../components/etGrouping/EtStudentParticipationPanel';
+import { pushRecentStudent } from '../../utils/learningAnalyticsRecentStudents';
 import { P } from '../../constants/permissions';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 
@@ -28,8 +31,11 @@ const LANE_LABELS = {
   other: '其他',
 };
 
+const DEFAULT_LANES = new Set(['exam', 'course', 'activity', 'baseline']);
+
 export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }) {
   const { studentId: rawStudentId } = useParams();
+  const [searchParams] = useSearchParams();
   const studentId = String(rawStudentId || '').trim().toUpperCase();
   const {
     meta,
@@ -44,9 +50,16 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
   const [journey, setJourney] = useState(null);
   const [skills, setSkills] = useState(null);
   const [recommendations, setRecommendations] = useState(null);
+  const [showAllTimeline, setShowAllTimeline] = useState(false);
+
   const accessProfile = buildAccessProfile(token);
   const canViewEtGrouping = hasPermission(accessProfile, P.CAN_VIEW_ET_GROUPING)
     || hasPermission(accessProfile, P.CAN_MANAGE_ET_GROUPING);
+
+  const semesterId = appliedFilters.semester
+    || searchParams.get('semester')
+    || apiParams()?.semester
+    || '';
 
   const load = useCallback(async () => {
     if (!ready || !studentId) return;
@@ -68,6 +81,10 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
       setJourney(journeyData);
       setSkills(skillsData);
       setRecommendations(recData);
+      pushRecentStudent({
+        studentId,
+        name: journeyData?.student?.name || null,
+      });
     } catch (e) {
       setJourney(null);
       setSkills(null);
@@ -87,7 +104,14 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
     [skills, studentId]
   );
 
+  const timelineRows = useMemo(() => {
+    const rows = journey?.timeline || [];
+    if (showAllTimeline) return rows;
+    return rows.filter((ev) => DEFAULT_LANES.has(ev.lane));
+  }, [journey?.timeline, showAllTimeline]);
+
   const backTo = focus === 'skills' ? '/admin/learning-analytics/skills' : '/admin/learning-analytics/students';
+  const fromGap = searchParams.get('from') === 'kpi' || searchParams.get('from') === 'gap';
 
   if (!studentId) {
     return <Alert variant="warning">請提供有效學號。</Alert>;
@@ -104,9 +128,14 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
         <Button as={Link} to={backTo} variant="outline-secondary" size="sm">
           ← 返回{focus === 'skills' ? '技能成長' : '學習軌跡'}
         </Button>
+        {fromGap ? (
+          <Button as={Link} to="/admin/learning-analytics/kpi-report" variant="outline-secondary" size="sm">
+            ← 返回 KPI／缺口
+          </Button>
+        ) : null}
         <Button
           as={Link}
-          to={`/admin/learning-journey/students/${encodeURIComponent(studentId)}?semesterId=${encodeURIComponent(apiParams()?.semester || '')}`}
+          to={`/admin/learning-journey/students/${encodeURIComponent(studentId)}?semesterId=${encodeURIComponent(semesterId || '')}`}
           variant="outline-primary"
           size="sm"
         >
@@ -129,74 +158,46 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
 
       {!loading && journey ? (
         <>
-          <div className="la-panel mb-3">
-            <div className="la-panel-title">
-              {journey.student?.name || studentId}
-              <span className="text-muted fw-normal ms-2 font-monospace small">{studentId}</span>
-            </div>
-            <Row className="g-2 small">
-              <Col md={3}>
-                <span className="text-muted">系所</span>
-                <div>{journey.student?.department || '—'}</div>
-              </Col>
-              <Col md={3}>
-                <span className="text-muted">入學屆</span>
-                <div>{journey.student?.cohort || '—'}</div>
-              </Col>
-              <Col md={3}>
-                <span className="text-muted">基準 CEFR</span>
-                <div>{journey.student?.baseline?.cefr || '—'}</div>
-              </Col>
-              <Col md={3}>
-                <span className="text-muted">最佳 CEFR</span>
-                <div>
-                  {journey.student?.currentStatus?.bestCefr || '—'}
-                  {journey.student?.currentStatus?.isB2plus ? (
-                    <StatusBadge variant="success" size="sm" className="ms-1">B2+</StatusBadge>
-                  ) : null}
-                </div>
-              </Col>
-            </Row>
-            {(journey.meta?.warnings || []).map((warning) => (
-              <Alert key={warning.code} variant="warning" className="mt-3 mb-0 small py-2">
-                {warning.message}
-              </Alert>
-            ))}
-          </div>
+          <StudentCoachingSummaryCard
+            journey={journey}
+            studentId={studentId}
+            semesterId={semesterId}
+          />
 
-          {recommendations ? (
-            <StudentRecommendationsPanel data={recommendations} />
-          ) : null}
-
-          {canViewEtGrouping ? (
-            <div className="la-panel mb-3">
-              <div className="la-panel-title">English Table 參與</div>
-              <EtStudentParticipationPanel
-                token={token}
-                studentId={studentId}
-                showRecommendations
-                compact
-              />
-            </div>
-          ) : null}
+          {(journey.meta?.warnings || []).map((warning) => (
+            <Alert key={warning.code} variant="warning" className="mb-3 small py-2">
+              {warning.message}
+            </Alert>
+          ))}
 
           {(focus === 'skills' || studentEpisodes.length > 0) ? (
             <div className="la-panel mb-3">
-              <div className="la-panel-title">前後測進步明細</div>
-              <p className="small text-muted">
-                時數只算考試前的課程／活動。
-              </p>
+              <LearningAnalyticsPanelHeader
+                title="前後測進步明細"
+                lead="時數只算考試前的課程／活動。同測請看原始分進步。"
+              />
               <GrowthEpisodeTable episodes={studentEpisodes} />
             </div>
           ) : null}
 
-          <div className="la-panel">
-            <div className="la-panel-title">時間線</div>
-            <p className="small text-muted mb-2">
-              快照：{journey.meta?.snapshotVersion || '—'}
-              {journey.meta?.derivedAt ? ` · 衍生於 ${String(journey.meta.derivedAt).slice(0, 10)}` : ''}
-            </p>
-            {!journey.timeline?.length ? (
+          <div className="la-panel mb-3">
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+              <LearningAnalyticsPanelHeader
+                title="時間線"
+                lead={`快照：${journey.meta?.snapshotVersion || '—'}${journey.meta?.derivedAt ? ` · 衍生於 ${String(journey.meta.derivedAt).slice(0, 10)}` : ''}`}
+              />
+              <Form.Check
+                type="switch"
+                id="la-student-timeline-all"
+                label="顯示全部事件"
+                checked={showAllTimeline}
+                onChange={(e) => setShowAllTimeline(e.target.checked)}
+              />
+            </div>
+            {!showAllTimeline ? (
+              <p className="small text-muted mb-2">預設只顯示基準／英檢／修課／活動。</p>
+            ) : null}
+            {!timelineRows.length ? (
               <p className="small text-muted mb-0">尚無可顯示事件。</p>
             ) : (
               <div className="table-responsive">
@@ -211,7 +212,7 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
                     </tr>
                   </thead>
                   <tbody>
-                    {journey.timeline.map((event) => (
+                    {timelineRows.map((event) => (
                       <tr key={event.eventId}>
                         <td>{event.eventDate || '—'}</td>
                         <td>{LANE_LABELS[event.lane] || event.lane}</td>
@@ -241,6 +242,28 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
               </div>
             )}
           </div>
+
+          <LaFold label="建議資源與通過機會（實驗，預設收合）" className="mb-3">
+            {recommendations ? (
+              <StudentRecommendationsPanel data={recommendations} />
+            ) : (
+              <p className="small text-muted mb-0">尚無建議資料。</p>
+            )}
+          </LaFold>
+
+          {canViewEtGrouping ? (
+            <LaFold label="English Table 參與（預設收合）" className="mb-3">
+              <div className="la-panel mb-0">
+                <div className="la-panel-title">English Table 參與</div>
+                <EtStudentParticipationPanel
+                  token={token}
+                  studentId={studentId}
+                  showRecommendations
+                  compact
+                />
+              </div>
+            </LaFold>
+          ) : null}
         </>
       ) : null}
 

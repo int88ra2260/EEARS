@@ -7,13 +7,13 @@ const {
   buildStudentWhere,
   buildExamWhere,
   applyEvidenceQualityFilter,
+  hasStudentScopeFilters,
   parseBool,
-  parseList,
 } = require('../../learningAnalytics/learningAnalyticsFilterUtils');
 
-async function resolveScopedStudentIds(query = {}) {
+async function resolveScopedStudentIds(query = {}, options = {}) {
   const snapshotVersion = query.snapshot_version || query.snapshotVersion || await resolveLatestSnapshotVersion();
-  const where = buildStudentWhere(query, snapshotVersion);
+  const where = buildStudentWhere(query, snapshotVersion, options);
   const rows = await LjAnalyticStudent.findAll({ where, attributes: ['studentId'] });
   const filtered = applyEvidenceQualityFilter(rows, query);
   return {
@@ -22,9 +22,9 @@ async function resolveScopedStudentIds(query = {}) {
   };
 }
 
-async function queryAnalyticStudents(query = {}) {
+async function queryAnalyticStudents(query = {}, options = {}) {
   const snapshotVersion = query.snapshot_version || query.snapshotVersion || await resolveLatestSnapshotVersion();
-  const where = buildStudentWhere(query, snapshotVersion);
+  const where = buildStudentWhere(query, snapshotVersion, options);
 
   const limit = Math.min(Math.max(Number(query.limit) || 50, 1), 500);
   const offset = Math.max(Number(query.offset) || 0, 0);
@@ -51,7 +51,7 @@ async function queryAnalyticStudents(query = {}) {
   };
 }
 
-async function queryAnalyticExams(query = {}) {
+async function queryAnalyticExams(query = {}, options = {}) {
   const snapshotVersion = query.snapshot_version || query.snapshotVersion || await resolveLatestSnapshotVersion();
   const where = buildExamWhere(query, snapshotVersion);
   if (query.exam_seq) where.examSeq = Number(query.exam_seq);
@@ -68,6 +68,11 @@ async function queryAnalyticExams(query = {}) {
   }
   if (query.activity_hours_before_exam_max != null) {
     where.activityHoursBeforeExam = { ...(where.activityHoursBeforeExam || {}), [Op.lte]: Number(query.activity_hours_before_exam_max) };
+  }
+
+  if (options.forRawExport && hasStudentScopeFilters(query)) {
+    const { studentIds } = await resolveScopedStudentIds(query, options);
+    where.studentId = studentIds.length ? { [Op.in]: studentIds } : '__none__';
   }
 
   const limit = Math.min(Math.max(Number(query.limit) || 50, 1), 500);
@@ -95,10 +100,10 @@ const EVENT_DATASET_TYPES = {
   events: ['course_event', 'activity_event'],
 };
 
-async function queryAnalyticEvents(query = {}) {
+async function queryAnalyticEvents(query = {}, options = {}) {
   const dataset = String(query.dataset || 'events').toLowerCase();
   const eventTypes = EVENT_DATASET_TYPES[dataset] || EVENT_DATASET_TYPES.events;
-  const { snapshotVersion, studentIds } = await resolveScopedStudentIds(query);
+  const { snapshotVersion, studentIds } = await resolveScopedStudentIds(query, options);
 
   const where = {
     eventType: { [Op.in]: eventTypes },

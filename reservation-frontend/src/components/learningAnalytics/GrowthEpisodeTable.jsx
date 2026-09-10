@@ -2,6 +2,7 @@ import React from 'react';
 import Table from 'react-bootstrap/Table';
 import { Link } from 'react-router-dom';
 import EvidenceQualityBadge from './EvidenceQualityBadge';
+import StudentTrajectoryLink from './StudentTrajectoryLink';
 
 function formatHours(value) {
   const n = Number(value);
@@ -41,7 +42,9 @@ export default function GrowthEpisodeTable({ episodes = [] }) {
             const resourceHours = exposure.resourceHoursBeforeExam ?? episode.exposureBeforeExam?.resourceHours;
             return (
               <tr key={key}>
-                <td className="font-monospace">{episode.studentId}</td>
+                <td>
+                  <StudentTrajectoryLink studentId={episode.studentId} />
+                </td>
                 <td>{episode.skillLabel || episode.skill}</td>
                 <td>{episode.instrument}</td>
                 <td>{episode.examDate || '—'}</td>
@@ -54,12 +57,9 @@ export default function GrowthEpisodeTable({ episodes = [] }) {
                   <EvidenceQualityBadge level={episode.evidenceQuality} />
                 </td>
                 <td>
-                  <Link
-                    to={`/admin/learning-analytics/students/${encodeURIComponent(episode.studentId)}`}
-                    className="small me-2"
-                  >
+                  <StudentTrajectoryLink studentId={episode.studentId} className="small me-2">
                     軌跡
-                  </Link>
+                  </StudentTrajectoryLink>
                   <Link
                     to={`/admin/learning-analytics/skills/${encodeURIComponent(episode.studentId)}`}
                     className="small"

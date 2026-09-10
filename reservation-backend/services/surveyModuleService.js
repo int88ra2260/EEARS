@@ -7,9 +7,12 @@ const {
   SurveyVersion,
   SurveyRule,
   SurveyModuleResponse,
+  SurveyResponseAnswer,
+  SurveyAnswerMapping,
   SurveyAdminAuditLog,
   EnglishTableSurveyResponse,
   EnglishClubSurveyResponse,
+  sequelize,
 } = require('../models');
 const { validateSurveyData, processSurveyData } = require('../utils/surveyFormValidation');
 const { getCurrentSemester, isValidSemester } = require('../utils/semester');
@@ -17,6 +20,10 @@ const { ruleTimeAllows, legacyModelForSurveyKey } = require('./surveyGateService
 const { mergeWhereWithScope } = require('./accessControl/surveyScopeGuard');
 
 const surveysJsonPath = path.join(__dirname, '..', 'surveys.json');
+const PRODUCT_SURVEY_KEYS = new Set([
+  'english_table_feedback_114_1',
+  'english_club_feedback_114_1',
+]);
 const STUDENT_SURVEY_COPY = {
   english_table_feedback_114_1: {
     title: 'English Table Feedback Questionnaire',
@@ -473,6 +480,155 @@ async function updateSurvey(id, payload, actorId) {
   return row;
 }
 
+async function countSurveyResponses(surveyId, surveyKey) {
+  const moduleCount = await SurveyModuleResponse.count({ where: { surveyId } }).catch(() => 0);
+  const Legacy = legacyModelForSurveyKey(surveyKey);
+  let legacyCount = 0;
+  if (Legacy) {
+    legacyCount = await Legacy.count().catch(() => 0);
+  }
+  return { moduleCount, legacyCount, total: moduleCount + legacyCount };
+}
+
+async function archiveSurvey(survey, actorId) {
+  const before = survey.toJSON();
+  await survey.update({
+    status: 'archived',
+    currentPublishedVersionId: null,
+    currentVersionId: null,
+    updatedBy: actorId || null,
+  });
+  const rule = await SurveyRule.findOne({ where: { surveyId: survey.id } });
+  if (rule) {
+    await rule.update({ isEnabled: false, isRequired: false });
+  }
+  await writeAudit(
+    actorId,
+    'archive',
+    'Survey',
+    survey.id,
+    before,
+    survey.toJSON(),
+    `archive survey ${survey.surveyKey}`
+  );
+  return { mode: 'archived', survey };
+}
+
+async function hardDeleteSurvey(survey, actorId) {
+  const surveyId = survey.id;
+  const before = survey.toJSON();
+  const t = await sequelize.transaction();
+  try {
+    // 先清掉自我參照，避免 FK 擋住版本刪除
+    await survey.update(
+      { currentPublishedVersionId: null, currentVersionId: null },
+      { transaction: t }
+    );
+
+    const responseIds = (
+      await SurveyModuleResponse.findAll({
+        where: { surveyId },
+        attributes: ['id'],
+        transaction: t,
+        raw: true,
+      })
+    ).map((r) => r.id);
+
+    if (responseIds.length) {
+      await SurveyResponseAnswer.destroy({
+        where: { responseId: { [Op.in]: responseIds } },
+        transaction: t,
+      });
+      await SurveyModuleResponse.destroy({ where: { surveyId }, transaction: t });
+    }
+
+    await SurveyAnswerMapping.destroy({ where: { surveyId }, transaction: t }).catch(() => 0);
+    await SurveyRule.destroy({ where: { surveyId }, transaction: t });
+    await SurveyVersion.destroy({ where: { surveyId }, transaction: t });
+    await Survey.destroy({ where: { id: surveyId }, transaction: t });
+    await t.commit();
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
+
+  await writeAudit(
+    actorId,
+    'delete',
+    'Survey',
+    surveyId,
+    before,
+    null,
+    `hard delete survey ${before.surveyKey}`
+  );
+  return { mode: 'deleted', surveyId, surveyKey: before.surveyKey };
+}
+
+/**
+ * 刪除問卷：
+ * - 已封存、或無作答 → 永久刪除
+ * - 有作答／已發布 → 改為封存（停用規則、取消發布），保留資料
+ * - ET/EC 產品問卷有作答時不可永久刪除（僅能封存）
+ */
+async function deleteSurvey(id, options = {}, actorId) {
+  const survey = await Survey.findByPk(id);
+  if (!survey) return null;
+
+  const { total: responseCount } = await countSurveyResponses(survey.id, survey.surveyKey);
+  const forceHard = !!options.forceHard;
+  const isProduct = PRODUCT_SURVEY_KEYS.has(survey.surveyKey);
+  const alreadyArchived = survey.status === 'archived';
+
+  const shouldHardDelete =
+    forceHard ||
+    alreadyArchived ||
+    responseCount === 0;
+
+  if (shouldHardDelete) {
+    if (isProduct && responseCount > 0) {
+      const err = new Error('ET/EC 產品問卷已有作答，僅能封存、不可永久刪除');
+      err.statusCode = 400;
+      err.code = 'PRODUCT_SURVEY_HAS_RESPONSES';
+      throw err;
+    }
+    if (forceHard && options.confirmPhrase !== survey.surveyKey && responseCount > 0) {
+      const err = new Error(`永久刪除需在 confirmPhrase 輸入問卷代碼：${survey.surveyKey}`);
+      err.statusCode = 400;
+      err.code = 'CONFIRM_PHRASE_REQUIRED';
+      throw err;
+    }
+    return hardDeleteSurvey(survey, actorId);
+  }
+
+  return archiveSurvey(survey, actorId);
+}
+
+async function deleteVersion(surveyId, versionId, actorId) {
+  const survey = await Survey.findByPk(surveyId);
+  const ver = await SurveyVersion.findOne({ where: { id: versionId, surveyId } });
+  if (!survey || !ver) return null;
+
+  if (ver.status === 'published' || survey.currentPublishedVersionId === ver.id) {
+    const err = new Error('已發布／學生端使用中的版本不可刪除；請先發布其他版本或封存問卷');
+    err.statusCode = 400;
+    err.code = 'PUBLISHED_VERSION_LOCKED';
+    throw err;
+  }
+
+  const before = ver.toJSON();
+  await ver.destroy();
+  await writeAudit(
+    actorId,
+    'delete_version',
+    'SurveyVersion',
+    versionId,
+    before,
+    null,
+    `delete draft v${before.versionNumber}`
+  );
+  return { deleted: true, versionId, versionNumber: before.versionNumber };
+}
+
 async function listVersions(surveyId) {
   return SurveyVersion.findAll({
     where: { surveyId },
@@ -774,9 +930,11 @@ module.exports = {
   listSurveysAdmin,
   createSurvey,
   updateSurvey,
+  deleteSurvey,
   listVersions,
   createVersion,
   updateVersion,
+  deleteVersion,
   publishVersion,
   getRules,
   putRules,

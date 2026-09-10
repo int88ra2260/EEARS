@@ -127,6 +127,7 @@ function VersionEditor({ versionsUi, onFieldChange, onCancelEdit, onSave }) {
 export default function SurveyAdminVersionsModal({
   versionsUi,
   canPublish,
+  canManage = false,
   onHide,
   onCreateDraft,
   onStartEdit,
@@ -134,6 +135,7 @@ export default function SurveyAdminVersionsModal({
   onFieldChange,
   onSave,
   onPublish,
+  onDeleteVersion,
 }) {
   const isEditing = !!versionsUi.editing;
 
@@ -224,6 +226,25 @@ export default function SurveyAdminVersionsModal({
                             ) : (
                               <span className="btn btn-sm btn-outline-secondary disabled">發布</span>
                             )}
+                            {canManage ? (
+                              <Button
+                                size="sm"
+                                variant="outline-danger"
+                                disabled={
+                                  versionsUi.saving
+                                  || v.status === 'published'
+                                  || versionsUi.survey?.currentPublishedVersionId === v.id
+                                }
+                                title={
+                                  v.status === 'published' || versionsUi.survey?.currentPublishedVersionId === v.id
+                                    ? '已發布版本不可刪除'
+                                    : '刪除此草稿'
+                                }
+                                onClick={() => onDeleteVersion?.(v)}
+                              >
+                                刪除
+                              </Button>
+                            ) : null}
                           </td>
                         </tr>
                       ))}

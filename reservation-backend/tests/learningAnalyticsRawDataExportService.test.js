@@ -26,7 +26,30 @@ describe('learningAnalyticsRawDataExportService', () => {
 
   it('detects student-scope filters', () => {
     expect(hasStudentScopeFilters({ cohort: '113' })).toBe(true);
+    expect(hasStudentScopeFilters({ semester: '114-2' })).toBe(true);
+    expect(hasStudentScopeFilters({ academic_year: '114' })).toBe(true);
     expect(hasStudentScopeFilters({ instrument: 'TOEIC' })).toBe(false);
+  });
+
+  it('applies semester as enrollment_term for student export', async () => {
+    LjAnalyticStudent.findAll.mockResolvedValue([
+      { toJSON: () => ({ studentId: 'A001', cohort: '114', enrollmentTerm: '114-2' }) },
+    ]);
+
+    await buildRawDataExportWorkbook({
+      dataset: 'students',
+      snapshot_version: 'global-test|rules:v1',
+      semester: '114-2',
+    });
+
+    expect(LjAnalyticStudent.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          snapshotVersion: 'global-test|rules:v1',
+          enrollmentTerm: '114-2',
+        }),
+      })
+    );
   });
 
   it('builds students workbook with metadata sheet', async () => {

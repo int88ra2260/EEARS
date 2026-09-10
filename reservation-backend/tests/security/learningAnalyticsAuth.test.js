@@ -59,6 +59,16 @@ jest.mock('../../controllers/learningAnalyticsController', () => ({
   getModelRun: (_req, res) => res.json({ success: true, data: { ok: true } }),
   postModelRun: (_req, res) => res.json({ success: true, data: { ok: true } }),
   postPruneSnapshots: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  getKpiPolicies: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  getKpiPolicy: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  postKpiPolicy: (_req, res) => res.status(201).json({ success: true, data: { ok: true } }),
+  postCloneKpiPolicy: (_req, res) => res.status(201).json({ success: true, data: { ok: true } }),
+  putKpiPolicy: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  postArchiveKpiPolicy: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  postKpiReport: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  getKpiReportExport: (_req, res) => res.status(200).send('xlsx'),
+  postKpiGaps: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  getKpiGapsExport: (_req, res) => res.status(200).send('xlsx'),
 }));
 
 const learningAnalyticsRouter = require('../../routes/learningAnalyticsRouter');
@@ -201,5 +211,46 @@ describe('learning analytics API auth boundary', () => {
       .set('x-allow-permissions', P.CAN_RUN_LEARNING_ANALYTICS_MODEL);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+  });
+
+  it('kpi policies list requires view permission', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/kpi/policies')
+      .set('x-user-role', 'teacher')
+      .set('x-allow-permissions', '');
+    expect(res.status).toBe(403);
+    expect(res.body.permission).toBe(P.CAN_VIEW_LEARNING_ANALYTICS);
+  });
+
+  it('authorized kpi policies list returns 200', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/kpi/policies')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  it('kpi policy create requires manage settings permission', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .post('/api/admin/learning-analytics/kpi/policies')
+      .send({ name: 'test' })
+      .set('x-user-role', 'teacher')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(res.status).toBe(403);
+    expect(res.body.permission).toBe(P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS);
+  });
+
+  it('kpi report export requires export permission', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/kpi/report/export')
+      .set('x-user-role', 'teacher')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(res.status).toBe(403);
+    expect(res.body.permission).toBe(P.CAN_EXPORT_LEARNING_ANALYTICS);
   });
 });

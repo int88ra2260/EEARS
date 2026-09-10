@@ -23,6 +23,18 @@ const {
 } = require('../services/learningJourney/analytics/lvaModelRunService');
 const { logExportAudit } = require('../utils/exportAudit');
 const { assertCanAccessStudent, sendStudentScopeDenied } = require('../services/accessControl/studentScopeGuard');
+const {
+  listKpiPolicies,
+  getKpiPolicyById,
+  createKpiPolicy,
+  cloneKpiPolicy,
+  updateKpiPolicy,
+  archiveKpiPolicy,
+} = require('../services/learningAnalytics/kpiPolicyService');
+const { runKpiReport } = require('../services/learningAnalytics/kpiReportService');
+const { buildKpiReportWorkbook } = require('../services/learningAnalytics/kpiReportExportService');
+const { runKpiGapReport } = require('../services/learningAnalytics/kpiGapService');
+const { buildKpiGapWorkbook } = require('../services/learningAnalytics/kpiGapExportService');
 
 async function requireStudentScope(req, res, next) {
   try {
@@ -238,13 +250,14 @@ async function postResetLvaConfig(req, res) {
 async function getRawData(req, res) {
   try {
     const dataset = String(req.query.dataset || 'students').toLowerCase();
+    const rawOpts = { forRawExport: true };
     let data;
     if (dataset === 'exams') {
-      data = await queryAnalyticExams(req.query || {});
+      data = await queryAnalyticExams(req.query || {}, rawOpts);
     } else if (['courses', 'activities', 'events'].includes(dataset)) {
-      data = await queryAnalyticEvents(req.query || {});
+      data = await queryAnalyticEvents(req.query || {}, rawOpts);
     } else {
-      data = await queryAnalyticStudents(req.query || {});
+      data = await queryAnalyticStudents(req.query || {}, rawOpts);
     }
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
@@ -386,6 +399,177 @@ async function postModelRun(req, res) {
   }
 }
 
+async function getKpiPolicies(req, res) {
+  try {
+    const includeArchived = String(req.query.includeArchived || '') === '1'
+      || String(req.query.include_archived || '') === 'true';
+    const data = await listKpiPolicies({ includeArchived });
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function getKpiPolicy(req, res) {
+  try {
+    const data = await getKpiPolicyById(req.params.id);
+    if (!data) {
+      return res.status(404).json({ success: false, error: '找不到政策', requestId: req.requestId });
+    }
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function postKpiPolicy(req, res) {
+  try {
+    const data = await createKpiPolicy(req.body || {}, { user: req.user });
+    return res.status(201).json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function postCloneKpiPolicy(req, res) {
+  try {
+    const data = await cloneKpiPolicy(req.params.id, req.body || {}, { user: req.user });
+    return res.status(201).json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function putKpiPolicy(req, res) {
+  try {
+    const data = await updateKpiPolicy(req.params.id, req.body || {}, { user: req.user });
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function postArchiveKpiPolicy(req, res) {
+  try {
+    const data = await archiveKpiPolicy(req.params.id, { user: req.user });
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function postKpiReport(req, res) {
+  try {
+    const body = req.body || {};
+    const data = await runKpiReport({
+      policyId: body.policyId,
+      policyKey: body.policyKey,
+      semesterId: body.semesterId || body.semester,
+      academicYear: body.academicYear,
+      dateFrom: body.dateFrom,
+      dateTo: body.dateTo,
+      includeRows: body.includeRows !== false,
+    });
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function getKpiReportExport(req, res) {
+  try {
+    const q = req.query || {};
+    const { workbook, fileName } = await buildKpiReportWorkbook({
+      policyId: q.policyId,
+      policyKey: q.policyKey,
+      semesterId: q.semesterId || q.semester,
+      academicYear: q.academicYear,
+      dateFrom: q.dateFrom,
+      dateTo: q.dateTo,
+    });
+    const buffer = await workbook.xlsx.writeBuffer();
+    logExportAudit(req, {
+      module: 'learning_analytics',
+      action: 'export_kpi_report_xlsx',
+      entityType: 'LearningAnalyticsKpiReport',
+      entityId: String(q.policyId || q.policyKey || ''),
+      exportType: 'xlsx',
+      reportType: 'kpi_report',
+      rowCount: null,
+      filters: {
+        policyId: q.policyId,
+        policyKey: q.policyKey,
+        semesterId: q.semesterId || q.semester,
+      },
+    });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    return res.send(Buffer.from(buffer));
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function postKpiGaps(req, res) {
+  try {
+    const body = req.body || {};
+    const data = await runKpiGapReport({
+      policyId: body.policyId,
+      policyKey: body.policyKey,
+      semesterId: body.semesterId || body.semester,
+      academicYear: body.academicYear,
+      dateFrom: body.dateFrom,
+      dateTo: body.dateTo,
+      includeRows: body.includeRows !== false,
+    });
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function getKpiGapsExport(req, res) {
+  try {
+    const q = req.query || {};
+    const { workbook, fileName, report } = await buildKpiGapWorkbook({
+      policyId: q.policyId,
+      policyKey: q.policyKey,
+      semesterId: q.semesterId || q.semester,
+      academicYear: q.academicYear,
+      dateFrom: q.dateFrom,
+      dateTo: q.dateTo,
+    });
+    const buffer = await workbook.xlsx.writeBuffer();
+    logExportAudit(req, {
+      module: 'learning_analytics',
+      action: 'export_kpi_gaps_xlsx',
+      entityType: 'LearningAnalyticsKpiGaps',
+      entityId: String(q.policyId || q.policyKey || ''),
+      exportType: 'xlsx',
+      reportType: 'kpi_gaps',
+      rowCount: report?.gaps?.summary?.notAttainedCount ?? null,
+      filters: {
+        policyId: q.policyId,
+        policyKey: q.policyKey,
+        semesterId: q.semesterId || q.semester,
+      },
+    });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    return res.send(Buffer.from(buffer));
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
 module.exports = {
   requireStudentScope,
   getMeta,
@@ -411,4 +595,14 @@ module.exports = {
   listModelRuns,
   getModelRun,
   postModelRun,
+  getKpiPolicies,
+  getKpiPolicy,
+  postKpiPolicy,
+  postCloneKpiPolicy,
+  putKpiPolicy,
+  postArchiveKpiPolicy,
+  postKpiReport,
+  getKpiReportExport,
+  postKpiGaps,
+  getKpiGapsExport,
 };

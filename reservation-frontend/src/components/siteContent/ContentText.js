@@ -1,9 +1,11 @@
 import React from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useSiteContentVisualEdit } from '../../context/SiteContentVisualEditContext';
+import './ContentText.css';
 
 /**
  * 學生端文案節點；在後台視覺編輯模式下可點擊選取並修改。
+ * 若文案含換行字元，以 pre-wrap 保留編輯時的段落換行。
  */
 export default function ContentText({
   k,
@@ -15,10 +17,16 @@ export default function ContentText({
   const { t } = useLanguage();
   const visual = useSiteContentVisualEdit();
   const text = children ?? t(k);
+  const hasLineBreaks = typeof text === 'string' && /[\r\n]/.test(text);
+
+  const baseClasses = [
+    className,
+    hasLineBreaks ? 'scm-content-text--prewrap' : '',
+  ].filter(Boolean).join(' ');
 
   if (!visual?.enabled || !visual.isEditable(k)) {
     return (
-      <Tag className={className} {...rest}>
+      <Tag className={baseClasses || undefined} {...rest}>
         {text}
       </Tag>
     );
@@ -26,7 +34,7 @@ export default function ContentText({
 
   const isActive = visual.activeKey === k;
   const classes = [
-    className,
+    baseClasses,
     'scm-visual-editable',
     isActive ? 'is-active' : '',
   ].filter(Boolean).join(' ');

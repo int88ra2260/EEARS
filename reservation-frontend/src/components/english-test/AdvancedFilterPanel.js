@@ -218,6 +218,11 @@ export default function AdvancedFilterPanel({
                 </div>
               ))}
             </div>
+            {filters.examTypes.includes('NON') && (
+              <div className="form-text mt-1">
+                不報考紀錄狀態為「請修正」；勾選後會自動切到「全部」狀態標籤以便列出。
+              </div>
+            )}
           </div>
 
           {/* 學期篩選 */}

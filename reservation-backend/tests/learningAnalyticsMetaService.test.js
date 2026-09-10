@@ -18,5 +18,7 @@ describe('learningAnalyticsMetaService', () => {
   it('summarizes snapshot labels for UI', () => {
     expect(summarizeSnapshotLabel('global-20260615-v1|rules:x')).toContain('全域分析');
     expect(summarizeSnapshotLabel('course-import-20260615-v1|rules:x')).toContain('課程匯入');
+    expect(summarizeSnapshotLabel('manual-20260910-v1|rules:x', { studentCount: 654 })).toContain('654');
+    expect(summarizeSnapshotLabel('manual-20260910-v1|rules:x')).toContain('手動');
   });
 });

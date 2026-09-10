@@ -78,6 +78,10 @@ export default function AdminSurveyAnalyticsPage() {
   const [sentiment, setSentiment] = useState(EMPTY_SENTIMENT);
   const [dataQuality, setDataQuality] = useState(null);
 
+  useEffect(() => {
+    setFilters((f) => ({ ...f, surveyId: surveyId || '' }));
+  }, [surveyId]);
+
   const sentimentPieData = useMemo(() => ([
     { name: '正向', key: 'positive', value: sentiment.distribution?.positive || 0 },
     { name: '中性', key: 'neutral', value: sentiment.distribution?.neutral || 0 },

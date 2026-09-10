@@ -7,6 +7,8 @@ const {
   Student,
   EtExamAttempt,
   EtExamAttemptSkillScore,
+  ExamAttempt,
+  ExamAttemptSkillScore,
   ActivityParticipation,
   CourseEnrollment,
   Course,
@@ -128,6 +130,107 @@ async function loadEnrollmentMeta(studentIds) {
   return map;
 }
 
+function examEventDedupeKey(row) {
+  const instrument = String(row.instrument || '').toUpperCase();
+  const semesterHint = row.rawPayload?.semesterId || row.academicTerm || '';
+  // BESTEP 以學期去重，避免出席日／匯入日不一致造成雙寫
+  if (instrument === 'BESTEP' && semesterHint) {
+    return [
+      normSid(row.studentId),
+      instrument,
+      String(semesterHint),
+      String(row.skill || ''),
+    ].join('|');
+  }
+  return [
+    normSid(row.studentId),
+    instrument,
+    String(row.eventDate || ''),
+    String(row.skill || ''),
+  ].join('|');
+}
+
+function pushExamAttemptRows(rows, {
+  sid,
+  examDate,
+  instrument,
+  enrollmentTerm,
+  status,
+  skillRows,
+  sourceSystem,
+  sourceRecordIdBase,
+  rawPayloadBase,
+  cefrField = 'cefr',
+}) {
+  const academicTerm = semesterFromDate(examDate);
+  const semIndex = computeSemIndex(enrollmentTerm, academicTerm);
+  const timing = inferExamTiming(semIndex);
+
+  if (!skillRows.length) {
+    const statusMeta = mapExamStatus(status, false);
+    rows.push({
+      studentId: sid,
+      eventType: EVENT_TYPES.EXAM,
+      eventDate: examDate,
+      academicYear: parseSemesterId(academicTerm)?.year || null,
+      academicTerm,
+      semIndex,
+      sourceSystem,
+      sourceRecordId: String(sourceRecordIdBase),
+      status: statusMeta.status,
+      excludeFlag: statusMeta.excludeFlag,
+      reasonCode: statusMeta.reasonCode,
+      timing,
+      instrument,
+      skill: SKILL_UNSPECIFIED,
+      rawScore: null,
+      cefrLevel: null,
+      hours: null,
+      title: `${instrument} 英檢`,
+      subtitle: '未出分',
+      ruleVersion: RULE_VERSION,
+      rawPayload: { ...rawPayloadBase, status },
+    });
+    return;
+  }
+
+  for (const scoreRow of skillRows) {
+    const skill = scoreRow.skill;
+    if (!SKILLS.includes(skill)) continue;
+    const rawScore = scoreRow.rawScore != null ? Number(scoreRow.rawScore) : null;
+    const hasScore = rawScore != null && !Number.isNaN(rawScore);
+    const statusMeta = mapExamStatus(status, hasScore);
+    const cefr = normalizeCefr(scoreRow[cefrField] || scoreRow.cefrLevel || scoreRow.rawLevel) || null;
+    rows.push({
+      studentId: sid,
+      eventType: EVENT_TYPES.EXAM,
+      eventDate: examDate,
+      academicYear: parseSemesterId(academicTerm)?.year || null,
+      academicTerm,
+      semIndex,
+      sourceSystem,
+      sourceRecordId: `${sourceRecordIdBase}:${skill}`,
+      status: statusMeta.status,
+      excludeFlag: statusMeta.excludeFlag,
+      reasonCode: statusMeta.reasonCode,
+      timing,
+      instrument,
+      skill,
+      rawScore: hasScore ? rawScore : null,
+      cefrLevel: cefr,
+      hours: null,
+      title: `${instrument} ${skill}`,
+      subtitle: hasScore ? String(rawScore) : '未出分',
+      ruleVersion: RULE_VERSION,
+      rawPayload: { ...rawPayloadBase, skillScoreId: scoreRow.id },
+    });
+  }
+}
+
+/**
+ * 合併 et_exam_attempts 與 exam_attempts（BESTEP sync）。
+ * 同學生＋工具＋日期＋技能時優先保留 et（既有學習歷程匯入），避免雙寫重複。
+ */
 async function projectExamEvents(studentIds, enrollmentMap) {
   const where = studentIds.length ? { studentId: { [Op.in]: studentIds } } : {};
   const attempts = await EtExamAttempt.findAll({
@@ -141,72 +244,61 @@ async function projectExamEvents(studentIds, enrollmentMap) {
     const sid = normSid(att.studentId);
     const examDate = String(att.testDate || att.examDate || '').slice(0, 10) || null;
     const instrument = String(att.testType || att.examType || att.sourceType || 'UNKNOWN').trim().toUpperCase();
-    const enrollmentTerm = enrollmentMap.get(sid)?.enrollmentTerm || null;
-    const academicTerm = semesterFromDate(examDate);
-    const semIndex = computeSemIndex(enrollmentTerm, academicTerm);
-    const timing = inferExamTiming(semIndex);
-    const skillRows = att.skillScores || [];
+    pushExamAttemptRows(rows, {
+      sid,
+      examDate,
+      instrument,
+      enrollmentTerm: enrollmentMap.get(sid)?.enrollmentTerm || null,
+      status: att.status,
+      skillRows: att.skillScores || [],
+      sourceSystem: 'et_exam_attempts',
+      sourceRecordIdBase: String(att.id),
+      rawPayloadBase: { attemptId: att.id },
+      cefrField: 'cefr',
+    });
+  }
 
-    if (!skillRows.length) {
-      const statusMeta = mapExamStatus(att.status, false);
-      rows.push({
-        studentId: sid,
-        eventType: EVENT_TYPES.EXAM,
-        eventDate: examDate,
-        academicYear: parseSemesterId(academicTerm)?.year || null,
-        academicTerm,
-        semIndex,
-        sourceSystem: 'et_exam_attempts',
-        sourceRecordId: String(att.id),
-        status: statusMeta.status,
-        excludeFlag: statusMeta.excludeFlag,
-        reasonCode: statusMeta.reasonCode,
-        timing,
-        instrument,
-        skill: SKILL_UNSPECIFIED,
-        rawScore: null,
-        cefrLevel: null,
-        hours: null,
-        title: `${instrument} 英檢`,
-        subtitle: '未出分',
-        ruleVersion: RULE_VERSION,
-        rawPayload: { attemptId: att.id, status: att.status },
-      });
-      continue;
-    }
+  const canonicalWhere = {
+    status: 'valid',
+    ...(studentIds.length ? { studentId: { [Op.in]: studentIds } } : {}),
+  };
+  const canonicalAttempts = await ExamAttempt.findAll({
+    where: canonicalWhere,
+    include: [{ model: ExamAttemptSkillScore, as: 'skillScores', required: false }],
+    order: [['id', 'ASC']],
+  });
 
-    for (const scoreRow of skillRows) {
-      const skill = scoreRow.skill;
-      if (!SKILLS.includes(skill)) continue;
-      const rawScore = scoreRow.rawScore != null ? Number(scoreRow.rawScore) : null;
-      const hasScore = rawScore != null && !Number.isNaN(rawScore);
-      const statusMeta = mapExamStatus(att.status, hasScore);
-      const cefr = normalizeCefr(scoreRow.cefr) || null;
-      rows.push({
-        studentId: sid,
-        eventType: EVENT_TYPES.EXAM,
-        eventDate: examDate,
-        academicYear: parseSemesterId(academicTerm)?.year || null,
-        academicTerm,
-        semIndex,
-        sourceSystem: 'et_exam_attempts',
-        sourceRecordId: `${att.id}:${skill}`,
-        status: statusMeta.status,
-        excludeFlag: statusMeta.excludeFlag,
-        reasonCode: statusMeta.reasonCode,
-        timing,
-        instrument,
-        skill,
-        rawScore: hasScore ? rawScore : null,
-        cefrLevel: cefr,
-        hours: null,
-        title: `${instrument} ${skill}`,
-        subtitle: hasScore ? String(rawScore) : '未出分',
-        ruleVersion: RULE_VERSION,
-        rawPayload: { attemptId: att.id, skillScoreId: scoreRow.id },
-      });
+  const seen = new Set(rows.map(examEventDedupeKey));
+  for (const att of canonicalAttempts) {
+    const sid = normSid(att.studentId);
+    const examDate = String(att.examDate || '').slice(0, 10) || null;
+    const instrument = String(att.examVendor || att.sourceType || 'UNKNOWN').trim().toUpperCase();
+    const before = rows.length;
+    pushExamAttemptRows(rows, {
+      sid,
+      examDate,
+      instrument,
+      enrollmentTerm: enrollmentMap.get(sid)?.enrollmentTerm || null,
+      status: att.status,
+      skillRows: att.skillScores || [],
+      sourceSystem: 'exam_attempts',
+      sourceRecordIdBase: `canonical:${att.id}`,
+      rawPayloadBase: {
+        attemptId: att.id,
+        sourceType: att.sourceType,
+        sourceRef: att.sourceRef,
+        semesterId: att.semesterId,
+      },
+      cefrField: 'cefrLevel',
+    });
+    // 與 et 重複的技能列移除（保留先寫入的 et）
+    for (let i = rows.length - 1; i >= before; i -= 1) {
+      const key = examEventDedupeKey(rows[i]);
+      if (seen.has(key)) rows.splice(i, 1);
+      else seen.add(key);
     }
   }
+
   return rows;
 }
 
@@ -552,6 +644,7 @@ async function projectAllEvents(opts = {}) {
   let studentIds = (opts.studentIds || []).map(normSid).filter(Boolean);
   if (!studentIds.length) {
     const fromExams = await EtExamAttempt.findAll({ attributes: ['studentId'], group: ['studentId'], raw: true });
+    const fromCanonicalExams = await ExamAttempt.findAll({ attributes: ['studentId'], group: ['studentId'], raw: true });
     const fromActivities = await ActivityParticipation.findAll({ attributes: ['studentId'], group: ['studentId'], raw: true });
     const fromCourses = await CourseEnrollment.findAll({ attributes: ['studentId'], group: ['studentId'], raw: true });
     const fromReservations = await sequelize.query(
@@ -560,6 +653,7 @@ async function projectAllEvents(opts = {}) {
     );
     const set = new Set([
       ...fromExams.map((r) => normSid(r.studentId)),
+      ...fromCanonicalExams.map((r) => normSid(r.studentId)),
       ...fromActivities.map((r) => normSid(r.studentId)),
       ...fromCourses.map((r) => normSid(r.studentId)),
       ...fromReservations.map((r) => normSid(r.studentId)),

@@ -9,12 +9,14 @@ const {
   EnglishTestRegistration,
   ExamRegistration,
   BestepExamScore,
+  BestepAttendance,
   ExamAttempt,
   ExamAttemptSkillScore,
   ActivityParticipation
 } = require('../../models');
 const { isValidSemesterId } = require('./reconciliationService');
 const { buildSemesterEventFilter } = require('./utils/semesterEventFilter');
+const { normalizeCefr } = require('./utils/cefr');
 
 const SYNC_SOURCE_REF_RESERVATION = 'lj_sync_reservation';
 
@@ -32,6 +34,27 @@ function normStudentId(s) {
 
 function shaDedupe(parts) {
   return crypto.createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 64);
+}
+
+async function resolveBestepExamDate(row, semesterId, transaction) {
+  if (row.examDate) return String(row.examDate).slice(0, 10);
+  const sid = normStudentId(row.studentId);
+  if (sid) {
+    const attendance = await BestepAttendance.findAll({
+      where: { semester: semesterId, studentId: sid },
+      attributes: ['examType', 'examDate'],
+      transaction,
+    });
+    const lr = attendance.find((a) => String(a.examType || '').toUpperCase() === 'LR' && a.examDate);
+    if (lr?.examDate) return String(lr.examDate).slice(0, 10);
+    const dated = attendance
+      .map((a) => (a.examDate ? String(a.examDate).slice(0, 10) : null))
+      .filter(Boolean)
+      .sort();
+    if (dated.length) return dated[dated.length - 1];
+  }
+  if (row.importedAt) return new Date(row.importedAt).toISOString().slice(0, 10);
+  return '1970-01-01';
 }
 
 function mapEnglishStatusToExamReg(s) {
@@ -68,9 +91,7 @@ function mapCheckinToAttendance(status) {
 }
 
 function cefrOrNull(level) {
-  const L = String(level || '').toUpperCase();
-  if (['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(L)) return L;
-  return null;
+  return normalizeCefr(level);
 }
 
 /**
@@ -327,9 +348,13 @@ async function syncBestepScoresToExamAttempts({ semesterId, dryRun }) {
       const dedupeKey = shaDedupe(['bestep_exam_score', semesterId, sid, String(row.id)]);
       try {
         const existing = await ExamAttempt.findOne({ where: { dedupeKey }, transaction });
+        const examDate = await resolveBestepExamDate(row, semesterId, transaction);
         if (existing) {
           if (existing.rawPayload && existing.rawPayload.syncManualLock === true) {
             stats.skipped += 1;
+          } else if (!dryRun && existing.examDate !== examDate) {
+            await existing.update({ examDate }, { transaction });
+            stats.updated += 1;
           } else {
             stats.skipped += 1;
           }
@@ -337,10 +362,6 @@ async function syncBestepScoresToExamAttempts({ semesterId, dryRun }) {
         }
 
         const { student, wouldCreateStudent } = await loadOrPrepareStudent(sid, sid, dryRun, transaction);
-        const examDate =
-          row.examDate ||
-          (row.importedAt ? new Date(row.importedAt).toISOString().slice(0, 10) : null) ||
-          '1970-01-01';
 
         if (dryRun && wouldCreateStudent) {
           stats.inserted += 1;

@@ -21,8 +21,21 @@ import {
   countActiveFilters,
 } from './learningAnalyticsFilterConstants';
 
-/** 完整學生群體篩選（預設） */
-const ALL_VISIBLE_KEYS = FILTER_PARAM_KEYS.filter((k) => k !== 'snapshot_version');
+/** 完整學生群體篩選（預設；不含匯出專用欄位） */
+const ALL_VISIBLE_KEYS = [
+  'semester',
+  'cohort',
+  'college',
+  'department',
+  'baseline_level',
+  'exposure_level',
+  'retest_flag',
+  'is_b2plus',
+  'instrument',
+  'skill',
+  'evidence_quality',
+  'matching_caliper',
+];
 
 function buildSelectOptions(items = [], emptyLabel = '全部') {
   const list = Array.isArray(items) ? items : [];
@@ -77,13 +90,29 @@ function SelectField({
   onChange,
   options,
   disabled,
+  groupedOptions = null,
 }) {
   return (
     <FilterField label={label} hint={hint} hintId={hintId}>
       <Form.Select value={value} onChange={onChange} disabled={disabled}>
-        {options.map((opt) => (
-          <option key={opt.value || '__all__'} value={opt.value}>{opt.label}</option>
-        ))}
+        {groupedOptions?.length ? (
+          <>
+            {options.filter((o) => !o.value).map((opt) => (
+              <option key={opt.value || '__all__'} value={opt.value}>{opt.label}</option>
+            ))}
+            {groupedOptions.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </>
+        ) : (
+          options.map((opt) => (
+            <option key={opt.value || '__all__'} value={opt.value}>{opt.label}</option>
+          ))
+        )}
       </Form.Select>
     </FilterField>
   );
@@ -118,6 +147,8 @@ export default function LearningAnalyticsFilters({
   /** meta.snapshots：資料版本選項 */
   snapshotOptions = null,
   emptyHint = '未套用額外條件（顯示全部納入分析的學生）',
+  /** 資料版本下拉是否依 scope 分組（全域 vs 其他） */
+  groupSnapshots = false,
 }) {
   const multiSnapshot = (snapshotOptions || []).length > 1;
   const keys = visibleKeys?.length ? visibleKeys : ALL_VISIBLE_KEYS;
@@ -135,19 +166,28 @@ export default function LearningAnalyticsFilters({
     filterOptions?.semesters?.length ? filterOptions.semesters : SEMESTER_OPTIONS.filter((o) => o.value),
     '全部／不篩學期'
   );
+  const academicYearOptions = buildSelectOptions(
+    (filterOptions?.academicYears?.length
+      ? filterOptions.academicYears
+      : (filterOptions?.cohorts || []).map((c) => ({
+        value: c.value,
+        label: `${c.value} 學年度`,
+      }))),
+    '全部學年度'
+  );
   const cohortOptions = buildSelectOptions(filterOptions?.cohorts, '全部入學年度');
   const collegeOptions = buildSelectOptions(filterOptions?.colleges, '全部學院');
   const departmentOptions = buildSelectOptions(filterOptions?.departments, '全部系所');
+
+  const snapshotFlat = (snapshotOptions || []).map((s) => ({
+    value: s.snapshotVersion || s.value,
+    label: s.label || s.snapshotVersion || s.value,
+    scope: s.scope || (String(s.snapshotVersion || '').startsWith('global-') ? 'global' : 'other'),
+    recommended: Boolean(s.recommended),
+  }));
   const snapshotSelectOptions = [
-    ...buildSelectOptions(
-      (snapshotOptions || []).map((s) => ({
-        value: s.snapshotVersion || s.value,
-        label: s.label || s.snapshotVersion || s.value,
-      })),
-      '系統建議'
-    ),
+    ...buildSelectOptions(snapshotFlat, '系統建議'),
   ];
-  // 若已套用具體版本，確保選項內有該值（避免只顯示「系統建議」空白）
   if (filters.snapshot_version
     && !snapshotSelectOptions.some((o) => o.value === filters.snapshot_version)) {
     snapshotSelectOptions.push({
@@ -155,6 +195,16 @@ export default function LearningAnalyticsFilters({
       label: filters.snapshot_version,
     });
   }
+  const snapshotGrouped = groupSnapshots && snapshotFlat.length ? [
+    {
+      label: '建議使用（全域分析）',
+      options: snapshotFlat.filter((s) => s.scope === 'global'),
+    },
+    {
+      label: '其他版本（匯入／部分重建，通常勿選）',
+      options: snapshotFlat.filter((s) => s.scope !== 'global'),
+    },
+  ].filter((g) => g.options.length) : null;
   const activeCount = countActiveFilters(filters, {
     keys: show('snapshot_version') ? [...new Set([...keys, 'snapshot_version'])] : keys,
     includeSnapshot: show('snapshot_version'),
@@ -195,6 +245,19 @@ export default function LearningAnalyticsFilters({
               />
             </Col>
           ) : null}
+          {show('academic_year') ? (
+            <Col xs={12} sm={6} lg={2}>
+              <SelectField
+                label={FILTER_LABELS.academic_year}
+                hint={hint('academic_year')}
+                hintId="la-filter-hint-academic-year"
+                value={filters.academic_year}
+                onChange={(e) => patch({ academic_year: e.target.value })}
+                options={academicYearOptions}
+                disabled={loading}
+              />
+            </Col>
+          ) : null}
           {show('snapshot_version') ? (
             <Col xs={12} sm={6} lg={isCompact ? 4 : 3}>
               <SelectField
@@ -204,8 +267,25 @@ export default function LearningAnalyticsFilters({
                 value={filters.snapshot_version}
                 onChange={(e) => patch({ snapshot_version: e.target.value })}
                 options={snapshotSelectOptions}
+                groupedOptions={snapshotGrouped}
                 disabled={loading}
               />
+            </Col>
+          ) : null}
+          {show('student_id') ? (
+            <Col xs={12} sm={6} lg={2}>
+              <FilterField
+                label={FILTER_LABELS.student_id}
+                hint={hint('student_id')}
+                hintId="la-filter-hint-student-id"
+              >
+                <Form.Control
+                  value={filters.student_id || ''}
+                  onChange={(e) => patch({ student_id: e.target.value.trim() })}
+                  placeholder="例：B122020027"
+                  disabled={loading}
+                />
+              </FilterField>
             </Col>
           ) : null}
           {show('cohort') ? (
@@ -250,7 +330,7 @@ export default function LearningAnalyticsFilters({
         </Row>
 
         {(show('baseline_level') || show('exposure_level') || show('retest_flag')
-          || show('is_b2plus') || show('instrument') || show('skill')
+          || show('has_valid_exam') || show('is_b2plus') || show('instrument') || show('skill')
           || show('evidence_quality') || (showAdvanced && show('matching_caliper'))) ? (
           <Row className="g-2 la-filter-row mt-1">
             {show('baseline_level') ? (
@@ -275,6 +355,19 @@ export default function LearningAnalyticsFilters({
                   value={filters.exposure_level}
                   onChange={(e) => patch({ exposure_level: e.target.value })}
                   options={EXPOSURE_LEVEL_OPTIONS}
+                  disabled={loading}
+                />
+              </Col>
+            ) : null}
+            {show('has_valid_exam') ? (
+              <Col md={2} sm={6}>
+                <SelectField
+                  label={FILTER_LABELS.has_valid_exam}
+                  hint={hint('has_valid_exam')}
+                  hintId="la-filter-hint-has-exam"
+                  value={filters.has_valid_exam}
+                  onChange={(e) => patch({ has_valid_exam: e.target.value })}
+                  options={TRI_STATE_OPTIONS}
                   disabled={loading}
                 />
               </Col>
@@ -381,7 +474,7 @@ export default function LearningAnalyticsFilters({
             重設
           </Button>
           <span className="small text-muted align-self-center">
-            調整條件後請按「{submitLabel}」；圖表與數字會依<strong>已套用</strong>的條件更新（修改選項時不會自動重算）。
+            調整條件後請按「{submitLabel}」；預覽與匯出會依<strong>已套用</strong>的條件更新（修改選項時不會自動重算）。
           </span>
         </div>
       </Form>
@@ -404,7 +497,7 @@ export function LearningAnalyticsActiveFilters({
   }).map((key) => {
     const raw = filters[key];
     let display = raw;
-    if (key === 'retest_flag' || key === 'is_b2plus') {
+    if (key === 'retest_flag' || key === 'is_b2plus' || key === 'has_valid_exam') {
       display = raw === 'true' ? '是' : raw === 'false' ? '否' : raw;
     }
     if (key === 'exposure_level') {
@@ -421,6 +514,12 @@ export function LearningAnalyticsActiveFilters({
     }
     if (key === 'semester' && semesterScope === 'certification') {
       display = `${display}（僅認證等學期區塊）`;
+    }
+    if (key === 'semester' && semesterScope === 'full') {
+      display = `${display}（入學學期）`;
+    }
+    if (key === 'academic_year') {
+      display = `${display} 學年度`;
     }
     if (key === 'snapshot_version') {
       display = String(raw);

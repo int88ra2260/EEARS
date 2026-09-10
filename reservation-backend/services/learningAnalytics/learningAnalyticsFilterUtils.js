@@ -38,7 +38,43 @@ function evidenceQualityForStudent(student) {
   return 'low';
 }
 
-function buildStudentWhere(query, snapshotVersion) {
+/**
+ * 學年度／入學學期範圍（僅 raw-export 等明確 opt-in 時套用）。
+ * - academic_year=115 → cohort=115 OR enrollment_term LIKE 115-%
+ * - enrollment_term / semester=114-2 → enrollment_term 精確比對
+ * 圖表頁的「學期」刻意不走此邏輯（多數圖表依快照全體）。
+ */
+function applyEnrollmentScopeToStudentWhere(where, query = {}) {
+  const enrollmentTerm = String(query.enrollment_term || query.enrollmentTerm || '').trim();
+  const semester = String(query.semester || '').trim();
+  const academicYear = String(query.academic_year || query.academicYear || '').trim();
+
+  if (enrollmentTerm) {
+    where.enrollmentTerm = enrollmentTerm;
+    return where;
+  }
+  if (semester) {
+    where.enrollmentTerm = semester;
+    return where;
+  }
+  if (academicYear) {
+    const year = academicYear.replace(/[^0-9]/g, '');
+    if (year) {
+      where[Op.and] = [
+        ...(where[Op.and] || []),
+        {
+          [Op.or]: [
+            { cohort: year },
+            { enrollmentTerm: { [Op.like]: `${year}-%` } },
+          ],
+        },
+      ];
+    }
+  }
+  return where;
+}
+
+function buildStudentWhere(query, snapshotVersion, options = {}) {
   const where = { snapshotVersion };
   const scopedStudentId = String(query.student_id || query.studentId || '').trim();
   if (scopedStudentId) where.studentId = scopedStudentId.toUpperCase();
@@ -57,6 +93,9 @@ function buildStudentWhere(query, snapshotVersion) {
   const b2 = parseBool(query.is_b2plus);
   if (b2 !== undefined) where.isB2plus = b2;
   addReasonFilters(where, query);
+  if (options.forRawExport) {
+    applyEnrollmentScopeToStudentWhere(where, query);
+  }
   return where;
 }
 
@@ -95,6 +134,10 @@ function buildExamWhere(query, snapshotVersion, studentIds) {
 
 const QUERY_PARAM_KEYS = [
   'semester',
+  'academic_year',
+  'academicYear',
+  'enrollment_term',
+  'enrollmentTerm',
   'snapshot_version',
   'snapshotVersion',
   'student_id',
@@ -123,6 +166,36 @@ const QUERY_PARAM_KEYS = [
   'groupBy',
 ];
 
+/** 會縮小學生母體的篩選鍵（raw export / exams 預覽用） */
+const STUDENT_SCOPE_KEYS = [
+  'cohort',
+  'college',
+  'department',
+  'admission_type',
+  'baseline_level',
+  'exposure_level',
+  'is_overseas_student',
+  'has_valid_exam',
+  'retest_flag',
+  'is_b2plus',
+  'include_reason_code',
+  'exclude_reason_code',
+  'reason_code_include',
+  'reason_code_exclude',
+  'evidence_quality',
+  'student_id',
+  'studentId',
+  'semester',
+  'academic_year',
+  'academicYear',
+  'enrollment_term',
+  'enrollmentTerm',
+];
+
+function hasStudentScopeFilters(query = {}) {
+  return STUDENT_SCOPE_KEYS.some((key) => query[key] != null && query[key] !== '');
+}
+
 function stripEmptyQueryParams(query = {}) {
   const out = {};
   for (const key of QUERY_PARAM_KEYS) {
@@ -137,9 +210,12 @@ module.exports = {
   parseList,
   buildStudentWhere,
   buildExamWhere,
+  applyEnrollmentScopeToStudentWhere,
   applyEvidenceQualityFilter,
   evidenceQualityForStudent,
   applyBaselineLevelFilter,
   stripEmptyQueryParams,
+  hasStudentScopeFilters,
   QUERY_PARAM_KEYS,
+  STUDENT_SCOPE_KEYS,
 };

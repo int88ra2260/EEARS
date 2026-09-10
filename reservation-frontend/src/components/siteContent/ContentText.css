@@ -1,0 +1,4 @@
+/* 後台文案編輯若輸入換行，學生端／預覽需保留 */
+.scm-content-text--prewrap {
+  white-space: pre-wrap;
+}
