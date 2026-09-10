@@ -1,0 +1,254 @@
+/**
+ * MicroLearningBreak - 關卡間休息提示樣式
+ * 
+ * 設計原則：
+ * - 柔和的視覺過渡減少認知切換
+ * - 正向的色彩傳達鼓勵
+ * - 適當的留白讓使用者喘息
+ */
+
+/* === 休息提示基礎 === */
+.ml-break {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.ml-break__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 28rem;
+  animation: ml-break-fade-in 0.5s ease-out;
+}
+
+.ml-break--animating .ml-break__content {
+  animation: ml-break-scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* === 圖示 === */
+.ml-break__icon {
+  font-size: 3rem;
+  line-height: 1;
+  animation: ml-break-bounce 0.6s ease-out 0.2s both;
+}
+
+/* === 文字 === */
+.ml-break__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--activities-ink, #111);
+}
+
+.ml-break__message {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--activities-muted, #787774);
+  line-height: 1.5;
+}
+
+/* === 下一關卡預告 === */
+.ml-break__next {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--activities-bone, #f7f6f3);
+  border-radius: 999px;
+}
+
+.ml-break__next-label {
+  font-size: 0.8rem;
+  color: var(--activities-muted, #787774);
+}
+
+.ml-break__next-level {
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.ml-break__next-level--a1 { background: #e1f3fe; color: #1f4f66; }
+.ml-break__next-level--a2 { background: #edf3ec; color: #2f4a33; }
+.ml-break__next-level--b1 { background: #fbf3db; color: #6a4f12; }
+.ml-break__next-level--b2 { background: #fdebec; color: #6f2f35; }
+.ml-break__next-level--c1 { background: #f3ebe4; color: #5c3d2e; }
+.ml-break__next-level--c2 { background: #ebe8f0; color: #3d3550; }
+
+/* === 進度資訊 === */
+.ml-break__progress-info {
+  font-size: 0.85rem;
+  color: var(--activities-muted, #787774);
+}
+
+/* === 倒數計時 === */
+.ml-break__countdown {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: rgba(37, 99, 235, 0.08);
+  border-radius: 8px;
+}
+
+.ml-break__countdown-number {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #2563eb;
+}
+
+.ml-break__countdown-label {
+  font-size: 0.85rem;
+  color: var(--activities-muted, #787774);
+}
+
+/* === 前進按鈕 === */
+.ml-break__advance-btn {
+  margin-top: 1rem;
+  min-width: 120px;
+  min-height: 44px;
+  font-weight: 600;
+}
+
+/* === 類型變體 === */
+.ml-break--milestone .ml-break__title {
+  color: #d97706;
+}
+
+.ml-break--pause {
+  background: var(--activities-bone, #f7f6f3);
+  border-radius: 12px;
+}
+
+/* === 學習小提示 === */
+.ml-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.ml-tip--info {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.ml-tip--success {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.ml-tip--warning {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.ml-tip__icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.ml-tip__text {
+  flex: 1;
+}
+
+.ml-tip__dismiss {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: currentColor;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: opacity 0.15s;
+}
+
+.ml-tip__dismiss:hover {
+  opacity: 1;
+}
+
+/* === 動畫 === */
+@keyframes ml-break-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ml-break-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ml-break-bounce {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* === 響應式 === */
+@media (max-width: 576px) {
+  .ml-break {
+    min-height: 240px;
+    padding: 1.5rem 1rem;
+  }
+
+  .ml-break__icon {
+    font-size: 2.5rem;
+  }
+
+  .ml-break__title {
+    font-size: 1.25rem;
+  }
+
+  .ml-break__message {
+    font-size: 0.9rem;
+  }
+
+  .ml-break__advance-btn {
+    width: 100%;
+  }
+}
+
+/* === 無障礙：減少動態 === */
+@media (prefers-reduced-motion: reduce) {
+  .ml-break__content,
+  .ml-break--animating .ml-break__content,
+  .ml-break__icon {
+    animation: none;
+  }
+}

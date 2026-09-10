@@ -1,3 +1,7 @@
+/* =====================================================
+   Vocabulary Size Game - 認知負荷優化版
+   ===================================================== */
+
 .vocabulary-size-actions {
   margin-top: 1.5rem;
 }
@@ -8,12 +12,14 @@
   color: var(--bs-secondary-color, #6c757d);
 }
 
+/* ----- 遊戲面板 ----- */
 .vocabulary-size-board {
   max-width: 32rem;
   margin: 0 auto;
   padding: 1rem 0 2rem;
 }
 
+/* 舊版進度條（保留相容性） */
 .vocabulary-size-progress {
   display: flex;
   justify-content: space-between;
@@ -27,13 +33,26 @@
   font-weight: 600;
 }
 
+/* 新版進度條整合 */
+.vocabulary-size-progress-bar {
+  margin-bottom: 1.5rem;
+}
+
+/* ----- 單字卡片 ----- */
 .vocabulary-size-word-card {
   text-align: center;
   padding: 2.5rem 1.5rem;
   border-radius: 1rem;
-  background: var(--bs-light, #f8f9fa);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(135deg, #fff9e6 0%, #fff5cc 100%);
+  border: 1px solid rgba(255, 193, 7, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   margin-bottom: 1.5rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vocabulary-size-word-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .vocabulary-size-word-card__hint {
@@ -47,47 +66,170 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   margin: 0;
+  color: #1a1a2e;
+  animation: wordFadeIn 0.3s ease-out;
 }
 
+@keyframes wordFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ----- 回應按鈕 ----- */
 .vocabulary-size-responses {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
 }
 
-.vocabulary-size-responses__know {
-  background: #2d6a4f;
-  border-color: #2d6a4f;
-  color: #fff;
+.vocabulary-size-responses__know,
+.vocabulary-size-responses__unknown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  min-height: 4.5rem;
 }
 
-.vocabulary-size-responses__know:hover {
-  background: #1b4332;
-  border-color: #1b4332;
+.vocabulary-size-responses__icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.vocabulary-size-responses__know {
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%);
+  border: none;
   color: #fff;
+  box-shadow: 0 2px 8px rgba(45, 106, 79, 0.25);
+}
+
+.vocabulary-size-responses__know:hover,
+.vocabulary-size-responses__know:focus {
+  background: linear-gradient(135deg, #1b4332 0%, #0d261a 100%);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(45, 106, 79, 0.35);
+}
+
+.vocabulary-size-responses__know:active {
+  transform: translateY(0);
 }
 
 .vocabulary-size-responses__unknown {
   background: #fff;
   border: 2px solid #dee2e6;
   color: #495057;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.vocabulary-size-responses__unknown:hover {
+.vocabulary-size-responses__unknown:hover,
+.vocabulary-size-responses__unknown:focus {
   background: #f8f9fa;
   border-color: #adb5bd;
   color: #212529;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
+.vocabulary-size-responses__unknown:active {
+  transform: translateY(0);
+}
+
+/* ----- 響應式：手機版 ----- */
+@media (max-width: 576px) {
+  .vocabulary-size-board {
+    padding: 0.75rem 0 1.5rem;
+  }
+
+  .vocabulary-size-word-card {
+    padding: 2rem 1rem;
+    border-radius: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .vocabulary-size-word-card__hint {
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .vocabulary-size-word-card__word {
+    font-size: clamp(1.75rem, 10vw, 2.25rem);
+  }
+
+  .vocabulary-size-responses {
+    gap: 0.625rem;
+  }
+
+  .vocabulary-size-responses__know,
+  .vocabulary-size-responses__unknown {
+    padding: 0.875rem 1rem;
+    font-size: 0.9375rem;
+    min-height: 4rem;
+  }
+
+  .vocabulary-size-responses__icon {
+    font-size: 1.25rem;
+  }
+}
+
+/* ----- 減少動態效果 ----- */
+@media (prefers-reduced-motion: reduce) {
+  .vocabulary-size-word-card,
+  .vocabulary-size-responses__know,
+  .vocabulary-size-responses__unknown {
+    transition: none;
+  }
+
+  .vocabulary-size-word-card:hover {
+    transform: none;
+  }
+
+  .vocabulary-size-responses__know:hover,
+  .vocabulary-size-responses__know:focus,
+  .vocabulary-size-responses__unknown:hover,
+  .vocabulary-size-responses__unknown:focus {
+    transform: none;
+  }
+
+  .vocabulary-size-word-card__word {
+    animation: none;
+  }
+}
+
+/* ----- 結果頁面 ----- */
 .vocabulary-size-result {
   max-width: 36rem;
   margin: 0 auto;
   padding: 1rem 0 2rem;
+  animation: resultFadeIn 0.4s ease-out;
+}
+
+@keyframes resultFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .vocabulary-size-result__title {
   font-size: 1.35rem;
   margin-bottom: 0.75rem;
+  color: #1a1a2e;
 }
 
 .vocabulary-size-result__size {
@@ -95,12 +237,21 @@
   font-weight: 700;
   color: #1d3557;
   margin-bottom: 0.35rem;
+  background: linear-gradient(135deg, #1d3557 0%, #457b9d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .vocabulary-size-result__level {
   font-size: 1.15rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #e8f4fd;
+  border-radius: 1rem;
+  color: #1d3557;
 }
 
 .vocabulary-size-result__meta,
@@ -118,9 +269,45 @@
 
 .vocabulary-size-result__activities {
   margin-top: 1.25rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 0.75rem;
 }
 
 .vocabulary-size-result__activities ul {
   margin: 0;
   padding-left: 1.25rem;
+}
+
+/* ----- 結果頁面響應式 ----- */
+@media (max-width: 576px) {
+  .vocabulary-size-result {
+    padding: 0.75rem 0 1.5rem;
+  }
+
+  .vocabulary-size-result__title {
+    font-size: 1.2rem;
+  }
+
+  .vocabulary-size-result__level {
+    font-size: 1rem;
+  }
+
+  .vocabulary-size-result__actions {
+    flex-direction: column;
+  }
+
+  .vocabulary-size-result__actions .btn {
+    width: 100%;
+  }
+
+  .vocabulary-size-result__activities {
+    padding: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vocabulary-size-result {
+    animation: none;
+  }
 }

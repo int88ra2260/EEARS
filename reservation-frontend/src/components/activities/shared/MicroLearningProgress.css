@@ -1,0 +1,277 @@
+/**
+ * MicroLearningProgress - 認知負荷優化進度指示器樣式
+ * 
+ * 設計原則：
+ * - 最小視覺干擾，專注於進度資訊
+ * - 柔和的色彩減少視覺疲勞
+ * - 平滑過渡動畫提供連續感
+ */
+
+/* === 進度條基礎 === */
+.ml-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ml-progress__info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* === 關卡標籤（CEFR） === */
+.ml-progress__level {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ml-progress__level--a1 { background: #e1f3fe; color: #1f4f66; }
+.ml-progress__level--a2 { background: #edf3ec; color: #2f4a33; }
+.ml-progress__level--b1 { background: #fbf3db; color: #6a4f12; }
+.ml-progress__level--b2 { background: #fdebec; color: #6f2f35; }
+.ml-progress__level--c1 { background: #f3ebe4; color: #5c3d2e; }
+.ml-progress__level--c2 { background: #ebe8f0; color: #3d3550; }
+
+/* === 計數器 === */
+.ml-progress__count {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ml-progress__current {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--activities-ink, #111);
+}
+
+.ml-progress__separator {
+  font-size: 0.85rem;
+  color: var(--activities-muted, #787774);
+}
+
+.ml-progress__total {
+  font-size: 0.9rem;
+  color: var(--activities-muted, #787774);
+}
+
+/* === 進度條軌道 === */
+.ml-progress__track {
+  position: relative;
+  height: 6px;
+  background: var(--activities-border, #eaeaea);
+  border-radius: 999px;
+  overflow: visible;
+}
+
+.ml-progress__bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #4f8cff 0%, #2d6a4f 100%);
+  border-radius: inherit;
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 關卡標記點 */
+.ml-progress__marker {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+
+/* === 色調變體 === */
+.ml-progress--blue .ml-progress__bar {
+  background: linear-gradient(90deg, #60a5fa 0%, #2563eb 100%);
+}
+
+.ml-progress--green .ml-progress__bar {
+  background: linear-gradient(90deg, #6ee7b7 0%, #059669 100%);
+}
+
+.ml-progress--purple .ml-progress__bar {
+  background: linear-gradient(90deg, #c4b5fd 0%, #7c3aed 100%);
+}
+
+.ml-progress--yellow .ml-progress__bar {
+  background: linear-gradient(90deg, #fcd34d 0%, #d97706 100%);
+}
+
+/* === 尺寸變體 === */
+.ml-progress--compact {
+  gap: 0.35rem;
+}
+
+.ml-progress--compact .ml-progress__track {
+  height: 4px;
+}
+
+.ml-progress--compact .ml-progress__level {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.72rem;
+}
+
+.ml-progress--compact .ml-progress__current {
+  font-size: 0.95rem;
+}
+
+.ml-progress--large .ml-progress__track {
+  height: 8px;
+}
+
+.ml-progress--large .ml-progress__current {
+  font-size: 1.25rem;
+}
+
+/* === 階段式進度指示器 === */
+.ml-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0.5rem 0;
+}
+
+.ml-steps__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  position: relative;
+  z-index: 1;
+}
+
+.ml-steps__dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: all 0.25s ease;
+}
+
+.ml-steps__step--pending .ml-steps__dot {
+  background: var(--activities-bone, #f7f6f3);
+  color: var(--activities-muted, #787774);
+  border: 2px solid var(--activities-border, #eaeaea);
+}
+
+.ml-steps__step--current .ml-steps__dot {
+  background: #2563eb;
+  color: #fff;
+  border: 2px solid #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  transform: scale(1.1);
+}
+
+.ml-steps__step--completed .ml-steps__dot {
+  background: #059669;
+  color: #fff;
+  border: 2px solid #059669;
+}
+
+.ml-steps__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--activities-muted, #787774);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.ml-steps__step--current .ml-steps__label {
+  color: #2563eb;
+}
+
+.ml-steps__step--completed .ml-steps__label {
+  color: #059669;
+}
+
+.ml-steps__connector {
+  flex: 1;
+  height: 2px;
+  min-width: 1.5rem;
+  max-width: 4rem;
+  background: var(--activities-border, #eaeaea);
+  transition: background 0.3s ease;
+}
+
+.ml-steps__connector--active {
+  background: #059669;
+}
+
+/* === 響應式 === */
+@media (max-width: 576px) {
+  .ml-progress__info {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .ml-progress__level {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.72rem;
+  }
+
+  .ml-progress__current {
+    font-size: 1rem;
+  }
+
+  .ml-steps {
+    gap: 0;
+    overflow-x: auto;
+    padding: 0.5rem 0.25rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ml-steps__dot {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.72rem;
+  }
+
+  .ml-steps__label {
+    font-size: 0.65rem;
+    max-width: 4rem;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ml-steps__connector {
+    min-width: 1rem;
+    max-width: 2rem;
+  }
+}
+
+/* === 無障礙：減少動態 === */
+@media (prefers-reduced-motion: reduce) {
+  .ml-progress__bar {
+    transition: none;
+  }
+
+  .ml-steps__dot {
+    transition: none;
+  }
+
+  .ml-steps__connector {
+    transition: none;
+  }
+}

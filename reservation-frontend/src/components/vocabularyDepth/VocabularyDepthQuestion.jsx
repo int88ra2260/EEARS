@@ -1,4 +1,6 @@
 import React from 'react';
+import MicroLearningProgress from '../activities/shared/MicroLearningProgress';
+import '../activities/shared/MicroLearningProgress.css';
 
 export default function VocabularyDepthQuestion({
   t,
@@ -13,23 +15,24 @@ export default function VocabularyDepthQuestion({
 
   return (
     <div className="vocabulary-depth-board">
-      <div className="vocabulary-depth-progress" aria-live="polite">
-        <span className="vocabulary-depth-progress__level">
-          {t('vocabularyDepth.levelLabel')}: <strong>{progress.levelLabel}</strong>
-        </span>
-        <span className="vocabulary-depth-progress__count">
-          {t('vocabularyDepth.questionProgress', {
-            current: progress.current,
-            total: progress.total,
-          })}
-        </span>
-      </div>
+      {/* 優化的進度指示器 */}
+      <MicroLearningProgress
+        current={progress.current}
+        total={progress.total}
+        level={progress.levelLabel}
+        levelLabel={`${t('vocabularyDepth.levelLabel')}: ${progress.levelLabel}`}
+        showBar={true}
+        showCount={true}
+        tone="purple"
+        size="normal"
+        className="vocabulary-depth-progress-bar"
+      />
 
       <fieldset className="vocabulary-depth-question" disabled={disabled}>
         <legend className="vocabulary-depth-question__prompt">{prompt}</legend>
         <div className="vocabulary-depth-options">
           {question.options.map((opt, index) => {
-            const label = opt.text;
+            const label = lang === 'en' ? opt.text : (opt.textZh || opt.text);
             const isSelected = lastFeedback?.selectedOptionId === opt.id;
             const isCorrectOption = opt.id === question.correctOptionId;
             let optionClass = 'vocabulary-depth-option';
@@ -46,9 +49,10 @@ export default function VocabularyDepthQuestion({
                 className={optionClass}
                 onClick={() => onSelect(opt.id)}
                 disabled={disabled}
+                aria-pressed={isSelected}
               >
                 <span className="vocabulary-depth-option__key" aria-hidden="true">{index + 1}</span>
-                <span>{label}</span>
+                <span className="vocabulary-depth-option__text">{label}</span>
               </button>
             );
           })}
@@ -59,16 +63,24 @@ export default function VocabularyDepthQuestion({
         <div
           className={`vocabulary-depth-feedback ${lastFeedback.isCorrect ? 'vocabulary-depth-feedback--ok' : 'vocabulary-depth-feedback--miss'}`}
           role="status"
+          aria-live="polite"
         >
-          {lastFeedback.isCorrect
-            ? t('vocabularyDepth.feedbackCorrect')
-            : t('vocabularyDepth.feedbackIncorrect')}
-          {question.explanationZh && lang !== 'en' ? (
-            <p className="vocabulary-depth-feedback__explain">{question.explanationZh}</p>
-          ) : null}
-          {question.explanationEn && lang === 'en' ? (
-            <p className="vocabulary-depth-feedback__explain">{question.explanationEn}</p>
-          ) : null}
+          <span className="vocabulary-depth-feedback__icon" aria-hidden="true">
+            {lastFeedback.isCorrect ? '✓' : '→'}
+          </span>
+          <div className="vocabulary-depth-feedback__content">
+            <span className="vocabulary-depth-feedback__text">
+              {lastFeedback.isCorrect
+                ? t('vocabularyDepth.feedbackCorrect')
+                : t('vocabularyDepth.feedbackIncorrect')}
+            </span>
+            {question.explanationZh && lang !== 'en' ? (
+              <p className="vocabulary-depth-feedback__explain">{question.explanationZh}</p>
+            ) : null}
+            {question.explanationEn && lang === 'en' ? (
+              <p className="vocabulary-depth-feedback__explain">{question.explanationEn}</p>
+            ) : null}
+          </div>
         </div>
       )}
     </div>
