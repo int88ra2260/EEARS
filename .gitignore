@@ -19,6 +19,9 @@ reservation-backend/uploads/
 reservation-backend/exports/
 reservation-frontend/exports/
 
+# CodeGraph local index (MCP knowledge graph; per-machine)
+.codegraph/
+
 # Local generation / scratch workspace
 scroll-world-work/
 .tmp-ux-audit/

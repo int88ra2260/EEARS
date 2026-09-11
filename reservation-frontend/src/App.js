@@ -44,6 +44,7 @@ const FAQPage = lazy(() => import('./pages/FAQPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const CourseGuidePage = lazy(() => import('./pages/CourseGuidePage'));
 const HomeImmersiveTestPage = lazy(() => import('./pages/HomeImmersiveTestPage'));
+const CampusJourneyDraftPage = lazy(() => import('./pages/CampusJourneyDraftPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const LearningResourcesPage = lazy(() => import('./pages/LearningResourcesPage'));
 const RegulationsFormsPage = lazy(() => import('./pages/RegulationsFormsPage'));
@@ -329,7 +330,8 @@ function AppContent() {
     location.pathname.startsWith('/admin') ||
     location.pathname === '/login' ||
     location.pathname === '/forbidden';
-  const isScrollWorldPage = location.pathname === '/scrollworldtest';
+  const isScrollWorldPage =
+    location.pathname === '/scrollworldtest' || location.pathname === '/campus-journey-draft';
   const [isDesktopHome, setIsDesktopHome] = useState(() => {
     if (typeof window === 'undefined') return true;
     return window.matchMedia('(min-width: 861px)').matches;
@@ -351,7 +353,7 @@ function AppContent() {
   const showWeekly = showWeeklyHomeModal && !isDesktopHome;
 
   const publicShellBackground = isScrollWorldPage
-    ? { background: '#f5ede0' }
+    ? { background: location.pathname === '/campus-journey-draft' ? '#f7f9fc' : '#f5ede0' }
     : {
         background:
           'radial-gradient(circle at top left, rgba(42, 93, 159, 0.05), transparent 30rem), linear-gradient(180deg, #fbfbfa 0%, #f7f3ed 100%)',
@@ -389,7 +391,7 @@ function AppContent() {
         `}
       </style>
       <div
-        className={`app-wrapper${location.pathname === '/' || location.pathname === '/hometest' ? ' app-wrapper--home' : ''}${location.pathname === '/about' ? ' app-wrapper--about' : ''}${location.pathname === '/scrollworldtest' ? ' app-wrapper--scrollworld' : ''}`}
+        className={`app-wrapper${location.pathname === '/' || location.pathname === '/hometest' ? ' app-wrapper--home' : ''}${location.pathname === '/about' ? ' app-wrapper--about' : ''}${isScrollWorldPage ? ' app-wrapper--scrollworld' : ''}`}
         style={{
           minHeight: '100vh',
           display: 'flex',
@@ -450,6 +452,7 @@ function AppContent() {
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/scrollworldtest" element={<Navigate to="/" replace />} />
+            <Route path="/campus-journey-draft" element={<CampusJourneyDraftPage />} />
             <Route path="/course-guide" element={<CourseGuidePage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />

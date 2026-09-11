@@ -273,6 +273,13 @@ async function getStudentDashboard(ctx) {
       }
     });
     passport = await getPassportForStudent(ctx);
+    try {
+      const { flushPendingEventPassportPointsForStudent } = require('./eventPassportPointsService');
+      await flushPendingEventPassportPointsForStudent(passport.studentId, { req: null });
+      passport = await getPassportForStudent(ctx);
+    } catch (err) {
+      console.error('[elp] flush pending event passport points after auto-activate failed:', err.message || err);
+    }
   }
 
   // 既有「待最終審核／已滿點未認證」資料：讀取時自動完成
@@ -385,7 +392,16 @@ async function applyPassport(ctx, { applicationReason, emailVerificationToken },
       after: passportToPublic(passport),
     });
 
-    return passportToPublic(passport);
+    const publicPassport = passportToPublic(passport);
+    return publicPassport;
+  }).then(async (publicPassport) => {
+    try {
+      const { flushPendingEventPassportPointsForStudent } = require('./eventPassportPointsService');
+      await flushPendingEventPassportPointsForStudent(publicPassport.studentId, { req });
+    } catch (err) {
+      console.error('[elp] flush pending event passport points failed:', err.message || err);
+    }
+    return publicPassport;
   });
 }
 
@@ -829,7 +845,16 @@ async function approvePassportAdmin(passportId, reviewerId, req) {
       before,
       after: passportToPublic(passport),
     });
-    return passportToPublic(passport);
+    const publicPassport = passportToPublic(passport);
+    return publicPassport;
+  }).then(async (publicPassport) => {
+    try {
+      const { flushPendingEventPassportPointsForStudent } = require('./eventPassportPointsService');
+      await flushPendingEventPassportPointsForStudent(publicPassport.studentId, { req, actorUserId: reviewerId });
+    } catch (err) {
+      console.error('[elp] flush pending event passport points after approve failed:', err.message || err);
+    }
+    return publicPassport;
   });
 }
 
@@ -1485,6 +1510,7 @@ module.exports = {
   getStudentDashboard,
   listEnabledRules,
   applyPassport,
+  recalculatePassportPoints,
   createSubmission,
   getSubmissionForStudent,
   updateSubmission,

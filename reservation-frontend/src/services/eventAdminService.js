@@ -4,7 +4,6 @@
 import { fetchClient } from '../utils/fetchClient';
 
 const API_EVENTS = '/api/events';
-const API_ADMIN_EVENTS = '/api/admin/events';
 const API_ADMIN_RESERVATIONS = '/api/admin/reservations';
 const API_RESERVATIONS = '/api/reservations';
 
@@ -16,14 +15,6 @@ async function parseJson(res) {
   return res.json().catch(() => ({}));
 }
 
-async function throwIfNotOk(res, fallback = '請求失敗') {
-  if (res.ok) return;
-  const data = await parseJson(res);
-  const err = new Error(data.error || data.message || fallback);
-  err.status = res.status;
-  err.data = data;
-  throw err;
-}
 
 export async function fetchEventReservations(token, eventId) {
   const res = await fetchClient(`${API_EVENTS}/${eventId}/reservations`, {
@@ -47,20 +38,11 @@ export async function fetchEventViolations(token, eventId) {
   return Array.isArray(data) ? data : [];
 }
 
-export async function fetchEventWaitlist(token, eventId) {
-  const res = await fetchClient(`${API_ADMIN_EVENTS}/${eventId}/waitlist`, {
-    headers: authHeaders(token),
-  });
-  const data = await parseJson(res);
-  await throwIfNotOk(res, '載入候補名單失敗');
-  return Array.isArray(data.items) ? data.items : [];
-}
-
-export async function checkinEventReservation(token, eventId, reservationId) {
+export async function checkinEventReservation(token, eventId, reservationId, { countsTowardPassport = false } = {}) {
   const res = await fetchClient(`${API_EVENTS}/${eventId}/checkin`, {
     method: 'POST',
     headers: authHeaders(token, { 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ reservationId }),
+    body: JSON.stringify({ reservationId, countsTowardPassport: !!countsTowardPassport }),
   });
   const data = await parseJson(res);
   if (!res.ok) {

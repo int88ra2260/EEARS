@@ -98,6 +98,7 @@ export default function EnglishTestStep3FormBody({
   getErrorStyle,
   handleChange,
   handleFileChange,
+  removeB2CertificateFile,
   checkB2Level,
   onBack,
   onClose,
@@ -347,7 +348,9 @@ export default function EnglishTestStep3FormBody({
                     backgroundColor: '#fff5f5',
                   } : {}}
                 />
-                <small className="text-muted">支援格式：PDF, JPG, PNG（可選擇多個檔案）</small>
+                <small className="text-muted">
+                  支援格式：PDF, JPG, PNG（可一次選多個，或分次選擇；分次選擇會累加，不會覆蓋）
+                </small>
                 {existingB2Certificate && !(formData.b2CertificateFiles && formData.b2CertificateFiles.length > 0) && (
                   <div className="alert alert-info py-2 mt-2 mb-0 small">
                     已有上傳的 B2 成績證明；若要更換請重新選擇檔案。
@@ -356,10 +359,20 @@ export default function EnglishTestStep3FormBody({
                 {formData.b2CertificateFiles && formData.b2CertificateFiles.length > 0 && (
                   <div className="mt-2">
                     <small className="text-muted">已選擇 {formData.b2CertificateFiles.length} 個檔案：</small>
-                    <ul className="list-unstyled mt-1">
+                    <ul className="list-unstyled mt-1 mb-0">
                       {formData.b2CertificateFiles.map((file, index) => (
-                        <li key={index} className="text-muted small">
-                          • {file.name}
+                        <li key={`${file.name}-${file.size}-${file.lastModified}-${index}`} className="text-muted small d-flex align-items-center gap-2">
+                          <span>• {file.name}</span>
+                          {!disabled && typeof removeB2CertificateFile === 'function' && (
+                            <button
+                              type="button"
+                              className="btn btn-link btn-sm p-0 text-danger"
+                              onClick={() => removeB2CertificateFile(index)}
+                              aria-label={`移除 ${file.name}`}
+                            >
+                              移除
+                            </button>
+                          )}
                         </li>
                       ))}
                     </ul>

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EEARS 專題提案摘要｜陳竑仰</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 14mm 14mm 16mm;
+    }
+
+    :root {
+      --ink: #1a2332;
+      --muted: #5b6573;
+      --line: #d8dee6;
+      --accent: #1f4f82;
+      --soft: #f3f6fa;
+      --chip: #e8eef5;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.55;
+      background: #fff;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 180mm;
+      margin: 0 auto;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 48px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--accent);
+      margin-bottom: 14px;
+    }
+
+    header img.logo {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+    }
+
+    .title-block h1 {
+      margin: 0;
+      font-size: 15pt;
+      letter-spacing: 0.02em;
+      color: var(--accent);
+    }
+
+    .title-block p {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 9.5pt;
+    }
+
+    .meta {
+      text-align: right;
+      font-size: 9pt;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .meta strong {
+      color: var(--ink);
+      display: block;
+      font-size: 10.5pt;
+      margin-bottom: 2px;
+    }
+
+    .request {
+      background: var(--soft);
+      border-left: 4px solid var(--accent);
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }
+
+    .request strong { color: var(--accent); }
+
+    h2 {
+      margin: 16px 0 8px;
+      font-size: 11.5pt;
+      color: var(--accent);
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 3px;
+    }
+
+    p { margin: 0 0 8px; }
+
+    ul {
+      margin: 0 0 8px;
+      padding-left: 1.2em;
+    }
+
+    li { margin-bottom: 3px; }
+
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      margin: 8px 0 4px;
+      font-size: 9pt;
+    }
+
+    .links a {
+      color: var(--accent);
+      text-decoration: none;
+      word-break: break-all;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0 2px;
+    }
+
+    .chip {
+      background: var(--chip);
+      color: var(--ink);
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 8.5pt;
+    }
+
+    .shots {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .shot {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .shot.full {
+      grid-column: 1 / -1;
+    }
+
+    .shot img {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      background: #f0f3f7;
+    }
+
+    .shot figcaption {
+      padding: 6px 8px;
+      font-size: 8.5pt;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      background: #fafbfc;
+    }
+
+    .shot figcaption strong {
+      color: var(--ink);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .box {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+
+    .box h3 {
+      margin: 0 0 6px;
+      font-size: 10pt;
+      color: var(--accent);
+    }
+
+    .timeline {
+      font-size: 9.5pt;
+    }
+
+    .timeline div {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .timeline span {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    footer {
+      margin-top: 16px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      font-size: 8.5pt;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .note {
+      font-size: 8.5pt;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      a { color: var(--accent); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <img class="logo" src="../../../reservation-frontend/public/images/og-home.jpg" alt="EEARS" />
+      <div class="title-block">
+        <h1>EEARS 畢業專題提案摘要</h1>
+        <p>校園英語學習支援系統 × 教育資料科學／學習分析</p>
+      </div>
+      <div class="meta">
+        <strong>陳竑仰</strong>
+        逢甲大學 資訊工程學系<br />
+        學號 D0786893<br />
+        2026 年 9 月
+      </div>
+    </header>
+
+    <div class="request">
+      <strong>請求：</strong>懇請劉明機教授考慮擔任大學畢業專題指導教授。
+      系統已上線運作；至 12 月發表前，希望在老師指導下完成題目界定、去識別化學習分析與論文化發表。
+    </div>
+
+    <h2>一、系統簡介</h2>
+    <p>
+      <strong>EEARS</strong>（English Enhancement and Activity Reservation System）是供
+      <strong>國立中山大學英語中心</strong>使用的英語學習支援平台，整合活動預約與取消、問卷門檻、英檢報名、學習歷程，以及管理端成效分析與維運。
+      技術棧為 Node.js／Express＋React，並已完成正式環境部署。
+    </p>
+    <div class="links">
+      <span>正式站：<a href="https://emieears-siwan.nsysu.edu.tw/">https://emieears-siwan.nsysu.edu.tw/</a></span>
+      <span>GitHub：<a href="https://github.com/int88ra2260/EEARS">https://github.com/int88ra2260/EEARS</a></span>
+    </div>
+    <div class="chips">
+      <span class="chip">創新學習軟體（真實教學現場）</span>
+      <span class="chip">學習歷程整合（BESTEP／CEFR／活動）</span>
+      <span class="chip">成效分析 KPI／技能成長</span>
+      <span class="chip">問卷門檻與參與行為資料</span>
+    </div>
+
+    <h2>二、與指導方向的對齊</h2>
+    <p>
+      本專題希望對齊老師專長中的<strong>創新學習軟體設計</strong>與<strong>教育資料科學／學習分析</strong>：
+      EEARS 不僅是預約系統，更可持續累積活動參與、問卷完成與學習歷程資料，作為描述性學習分析與成效觀察的基礎
+      （分析採去識別化彙總；不主張未經設計的因果推論）。
+    </p>
+
+    <h2>三、代表性畫面（著重成效／歷程）</h2>
+    <div class="shots">
+      <figure class="shot">
+        <img src="screenshots/01-learning-analytics.svg" alt="英語學習成效分析" />
+        <figcaption><strong>圖 1｜英語學習成效分析總覽</strong>：納入分析人數、B2+ 達標率、前後測樣本與技能成長入口。</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="screenshots/02-student-profile.svg" alt="學生學習歷程" />
+        <figcaption><strong>圖 2｜學生學習歷程</strong>：CEFR／英檢與活動參與、活動×能力對照（個資已遮罩）。</figcaption>
+      </figure>
+      <figure class="shot full">
+        <img src="screenshots/03-student-portal.svg" alt="學生端正式環境" />
+        <figcaption><strong>圖 3｜正式環境學生端</strong>：證明系統已上線服務真實使用者（輔助證據，非本專題主軸）。</figcaption>
+      </figure>
+    </div>
+    <p class="note">截圖請優先使用真實管理端畫面，並遮罩學號、姓名、證件與可識別資訊。若仍見灰色示意框，表示尚未替換為 PNG。</p>
+
+    <h2>四、至 12 月發表的工作重點</h2>
+    <div class="two-col">
+      <div class="box">
+        <h3>計畫內容</h3>
+        <ul>
+          <li>將已上線系統整理為可發表之專題題目與貢獻敘述</li>
+          <li>規劃去識別化之參與／學習歷程分析指標</li>
+          <li>補強評測方式、書面與口頭發表品質</li>
+        </ul>
+      </div>
+      <div class="box timeline">
+        <h3>粗估時程</h3>
+        <div><span>9–10 月</span>題目確認、文獻／指標設計、資料盤點</div>
+        <div><span>10–11 月</span>分析實作、結果解釋、系統補強</div>
+        <div><span>11–12 月</span>報告書／簡報定稿與發表</div>
+      </div>
+    </div>
+
+    <h2>五、希望向老師學習</h2>
+    <ul>
+      <li>如何用教育資料科學視角界定「可回答」的研究問題</li>
+      <li>學習分析指標選擇、結果解釋與研究倫理（個資／去識別）</li>
+      <li>如何把工程實作轉成清楚、可被檢視的專題貢獻</li>
+    </ul>
+
+    <footer>
+      <div>聯絡人：陳竑仰（D0786893）｜可另約 15–20 分鐘線上／当面 demo（不於本文件提供正式站帳密）</div>
+      <div>第 1／1 頁</div>
+    </footer>
+  </div>
+</body>
+</html>

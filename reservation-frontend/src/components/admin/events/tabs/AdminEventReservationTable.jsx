@@ -1,5 +1,6 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
 import dayjs from 'dayjs';
 import { EVENT_DETAIL_COPY } from '../../../../constants/adminEventDetailCopy';
 
@@ -22,8 +23,15 @@ function AdminEventReservationTable({
   onOpenCancel,
   showCheckinActions = true,
 }) {
+  const [passportFlags, setPassportFlags] = useState(() => ({}));
   const checkedInCount = rows.filter((r) => r.checkinStatus === '已簽到').length;
   const uncheckedCount = rows.filter((r) => r.checkinStatus === '未簽到').length;
+
+  const canShowCheckin = (reservation) =>
+    showCheckinActions &&
+    canCheckinStudents &&
+    reservation.checkinStatus === '未簽到' &&
+    (isEventToday(currentEventDate) || canManageEvents);
 
   return (
     <>
@@ -62,7 +70,8 @@ function AdminEventReservationTable({
         </div>
       </div>
       <p className="small text-muted mb-2">
-        此分頁以<strong>完整名單</strong>為主；簽到請優先使用「簽到管理」。違規／批次未到請至最後一分頁，避免誤觸。
+        此分頁以<strong>完整名單</strong>為主；簽到／補簽到前若學生要累計護照點數，請先勾「計入護照」。
+        違規／批次未到請至最後一分頁，避免誤觸。
       </p>
       <div className="table-responsive">
         <table className="table table-bordered table-sm align-middle">
@@ -72,7 +81,7 @@ function AdminEventReservationTable({
               <th>姓名</th>
               {currentEventType === 'English Table' && <th>組別</th>}
               <th>簽到狀態</th>
-              <th style={{ minWidth: '200px' }}>操作</th>
+              <th style={{ minWidth: '280px' }}>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -107,18 +116,59 @@ function AdminEventReservationTable({
                     {reservation.checkinTime && (
                       <div className="small text-muted">{dayjs(reservation.checkinTime).format('HH:mm')}</div>
                     )}
+                    {reservation.countsTowardPassport && (
+                      <div className="mt-1">
+                        <span
+                          className={`badge ${
+                            reservation.passportPointsStatus === 'granted'
+                              ? 'bg-primary'
+                              : reservation.passportPointsStatus === 'pending'
+                                ? 'bg-secondary'
+                                : reservation.passportPointsStatus === 'blocked_limit'
+                                  ? 'bg-danger'
+                                  : 'bg-light text-dark border'
+                          }`}
+                          title="英語增能活動護照點數"
+                        >
+                          {reservation.passportPointsStatus === 'granted'
+                            ? '護照已入點'
+                            : reservation.passportPointsStatus === 'pending'
+                              ? '護照待補發'
+                              : reservation.passportPointsStatus === 'blocked_limit'
+                                ? '護照已滿額'
+                                : '計入護照'}
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td>
-                    <div className="d-flex gap-1 flex-wrap align-items-center">
-                      {showCheckinActions &&
-                        canCheckinStudents &&
-                        reservation.checkinStatus === '未簽到' &&
-                        (isEventToday(currentEventDate) || canManageEvents) && (
+                    <div className="d-flex gap-2 flex-wrap align-items-center">
+                      {canShowCheckin(reservation) && (
+                        <>
+                          <Form.Check
+                            type="checkbox"
+                            id={`elp-resv-flag-${reservation.id}`}
+                            className="mb-0"
+                            label="計入護照"
+                            checked={!!passportFlags[reservation.id]}
+                            disabled={!!checkinLoading[reservation.id]}
+                            onChange={(e) =>
+                              setPassportFlags((prev) => ({
+                                ...prev,
+                                [reservation.id]: e.target.checked,
+                              }))
+                            }
+                            title="學生聲明累計護照點數（與課堂加分擇一）"
+                          />
                           <Button
                             variant="success"
                             size="sm"
                             className="fw-semibold"
-                            onClick={() => onCheckin(reservation.id)}
+                            onClick={() =>
+                              onCheckin(reservation.id, {
+                                countsTowardPassport: !!passportFlags[reservation.id],
+                              })
+                            }
                             disabled={checkinLoading[reservation.id]}
                             title={
                               !isEventToday(currentEventDate) && canManageEvents ? '補簽到（管理員）' : '簽到'
@@ -130,7 +180,8 @@ function AdminEventReservationTable({
                                 ? '補簽到'
                                 : '簽到'}
                           </Button>
-                        )}
+                        </>
+                      )}
                       {reservation.checkinStatus === '未簽到' &&
                         !isEventToday(currentEventDate) &&
                         !canManageEvents && (

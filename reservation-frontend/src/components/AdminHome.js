@@ -80,16 +80,7 @@ function AdminHome() {
     batchAddLoading,
     batchAddError,
     batchAddResult,
-    showBatchDatePicker,
-    batchSelectedDates,
     handleBatchAddEvents,
-    handleBatchDateSelect,
-    applyBatchDates,
-    addDateToBatch,
-    removeDateFromBatch,
-    closeBatchDatePicker,
-    clearBatchSelectedDates,
-    handleParseBatchDates,
     openBatchAddModal,
     closeBatchAddModal,
     handleExport,
@@ -215,15 +206,6 @@ function AdminHome() {
         result={batchAddResult}
         onClose={closeBatchAddModal}
         onSubmit={handleBatchAddEvents}
-        showDatePicker={showBatchDatePicker}
-        selectedDates={batchSelectedDates}
-        onOpenDatePicker={handleBatchDateSelect}
-        onCloseDatePicker={closeBatchDatePicker}
-        onAddDate={addDateToBatch}
-        onRemoveDate={removeDateFromBatch}
-        onClearDates={clearBatchSelectedDates}
-        onApplyDates={applyBatchDates}
-        onParseAndAddDates={(text) => handleParseBatchDates({ value: text })}
       />
     </>
   );

@@ -47,7 +47,23 @@ export const RULE_FORM_FIELDS = {
   SELF_LEARNING_ACTIVITY: [
     { key: 'activityDate', label: '日期', type: 'date', required: true },
     { key: 'activityName', label: '活動名稱', type: 'text', required: true, metaKey: 'activityName', titleKey: true },
-    { key: 'activityType', label: '活動類型', type: 'select', required: true, metaKey: 'activityType', options: ['自學園', '西灣沙龍', '英語寫作工作坊'] },
+    {
+      key: 'activityType',
+      label: '活動類型',
+      type: 'select',
+      required: true,
+      metaKey: 'activityType',
+      options: [
+        'English Table',
+        'English Club',
+        'International Forum',
+        'Job Talk',
+        '自學園',
+        '西灣沙龍',
+        '英語寫作工作坊',
+        '其他',
+      ],
+    },
     { key: 'attachment', label: '證明附件', type: 'file', optional: true },
     { key: 'description', label: '備註', type: 'textarea' },
   ],
@@ -67,7 +83,7 @@ export const RULE_LIMIT_HINTS = {
   ENGLISH_COURSE: '每門 60 點',
   ENGLISH_COMPETITION: '參賽 20 點 · 得獎 50 點',
   EXTERNAL_EXAM: '有效成績 20 點 · 達門檻 40 點 · 僅採計一次',
-  SELF_LEARNING_ACTIVITY: '每次 5 點',
+  SELF_LEARNING_ACTIVITY: '每次 5 點 · 最多 12 次共 60 點',
   COLLEGE_ENGLISH_CORNER: '每次 5 點 · 此類別最多 30 點',
 };
 

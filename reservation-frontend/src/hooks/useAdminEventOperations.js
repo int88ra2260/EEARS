@@ -19,6 +19,7 @@ import {
   buildCapacityRequestPayload,
   mapEventToCapacityFields,
 } from '../utils/eventCapacityFields';
+import { saveCapacityPrefs } from '../utils/eventCapacityPrefs';
 
 export const DEFAULT_EVENT_NOTES = '實踐歷程檔案';
 
@@ -34,19 +35,6 @@ const EMPTY_ADD_FIELDS = {
   customReservationRule: '',
   ...getDefaultCapacityFields('English Table'),
 };
-
-const createEmptyBatchRow = () => ({
-  name: '',
-  eventType: 'English Table',
-  date: '',
-  startTime: '',
-  endTime: '',
-  location: '',
-  notes: DEFAULT_EVENT_NOTES,
-  customEventType: '',
-  customReservationRule: '',
-  ...getDefaultCapacityFields('English Table'),
-});
 
 const EMPTY_EDIT_FIELDS = {
   eventId: '',
@@ -92,12 +80,10 @@ export function useAdminEventOperations({
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [showBatchAddModal, setShowBatchAddModal] = useState(false);
-  const [batchEvents, setBatchEvents] = useState(() => [createEmptyBatchRow()]);
+  const [batchEvents, setBatchEvents] = useState(() => []);
   const [batchAddLoading, setBatchAddLoading] = useState(false);
   const [batchAddError, setBatchAddError] = useState('');
   const [batchAddResult, setBatchAddResult] = useState(null);
-  const [showBatchDatePicker, setShowBatchDatePicker] = useState(false);
-  const [batchSelectedDates, setBatchSelectedDates] = useState([]);
 
   const refreshSummary = () => {
     fetchSummary(selectedSemester, selectedEventType);
@@ -153,7 +139,11 @@ export function useAdminEventOperations({
     const result = await safeAPICall(async () => createEvent(token, requestData));
 
     if (result.success) {
-      setAddFields(EMPTY_ADD_FIELDS);
+      setAddFields({
+        ...EMPTY_ADD_FIELDS,
+        ...getDefaultCapacityFields('English Table'),
+      });
+      saveCapacityPrefs({ ...requestData, eventType: finalEventType, maxParticipants: requestData.maxCapacity });
       refreshSummary();
       showErrorMessage('活動新增成功！');
     } else {
@@ -256,7 +246,15 @@ export function useAdminEventOperations({
       }
 
       if (data.failureCount === 0 && data.successCount > 0) {
-        setBatchEvents([createEmptyBatchRow()]);
+        if (validEvents[0]) {
+          saveCapacityPrefs({
+            eventType: validEvents[0].eventType,
+            groupCount: validEvents[0].groupCount,
+            perGroupCapacity: validEvents[0].perGroupCapacity,
+            maxParticipants: validEvents[0].maxCapacity,
+          });
+        }
+        setBatchEvents([]);
       }
     } else {
       setBatchAddError(result.error || '批量新增活動失敗');
@@ -266,7 +264,7 @@ export function useAdminEventOperations({
   };
 
   const openBatchAddModal = () => {
-    setBatchEvents([createEmptyBatchRow()]);
+    setBatchEvents([]);
     setBatchAddError('');
     setBatchAddResult(null);
     setShowBatchAddModal(true);
@@ -277,120 +275,12 @@ export function useAdminEventOperations({
     setShowBatchAddModal(false);
     setBatchAddError('');
     setBatchAddResult(null);
-    setShowBatchDatePicker(false);
-    setBatchSelectedDates([]);
   };
 
   const cancelBatchAddModal = () => {
     setShowBatchAddModal(false);
     setBatchAddError('');
     setBatchAddResult(null);
-  };
-
-  const addBatchEventRow = () => {
-    setBatchEvents((current) => [...current, createEmptyBatchRow()]);
-  };
-
-  const removeBatchEventRow = (index) => {
-    setBatchEvents((current) => {
-      if (current.length <= 1) return current;
-      return current.filter((_, i) => i !== index);
-    });
-  };
-
-  const updateBatchEvent = (index, field, value) => {
-    setBatchEvents((current) => {
-      const updated = [...current];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
-
-  const handleBatchDateSelect = () => {
-    if (batchEvents.length === 0) {
-      showErrorMessage('請先填寫活動基本資訊');
-      return;
-    }
-
-    const firstEvent = batchEvents[0];
-    if (!firstEvent.name.trim() || !firstEvent.startTime || !firstEvent.endTime) {
-      showErrorMessage('請先填寫活動名稱、開始時間和結束時間');
-      return;
-    }
-
-    setShowBatchDatePicker(true);
-  };
-
-  const applyBatchDates = () => {
-    if (batchSelectedDates.length === 0) {
-      showErrorMessage('請至少選擇一個日期');
-      return;
-    }
-
-    const firstEvent = {
-      ...getDefaultCapacityFields(batchEvents[0]?.eventType || 'English Table'),
-      ...batchEvents[0],
-    };
-    const newEvents = batchSelectedDates.map((date) => ({
-      name: firstEvent.name,
-      eventType: firstEvent.eventType,
-      date,
-      startTime: firstEvent.startTime,
-      endTime: firstEvent.endTime,
-      location: firstEvent.location || '',
-      notes: firstEvent.notes || DEFAULT_EVENT_NOTES,
-      groupCount: firstEvent.groupCount,
-      perGroupCapacity: firstEvent.perGroupCapacity,
-      maxParticipants: firstEvent.maxParticipants,
-      customEventType: '',
-      customReservationRule: '',
-    }));
-
-    setBatchEvents(newEvents);
-    setShowBatchDatePicker(false);
-    setBatchSelectedDates([]);
-    showSuccessMessage(`已為 ${batchSelectedDates.length} 個日期創建活動`);
-  };
-
-  const addDateToBatch = (date) => {
-    if (!date) return;
-    const dateStr = dayjs(date).format('YYYY-MM-DD');
-    setBatchSelectedDates((current) => {
-      if (current.includes(dateStr)) return current;
-      return [...current, dateStr].sort();
-    });
-  };
-
-  const removeDateFromBatch = (date) => {
-    setBatchSelectedDates((current) => current.filter((d) => d !== date));
-  };
-
-  const closeBatchDatePicker = () => {
-    setShowBatchDatePicker(false);
-    setBatchSelectedDates([]);
-  };
-
-  const clearBatchSelectedDates = () => {
-    setBatchSelectedDates([]);
-  };
-
-  const handleParseBatchDates = (textarea) => {
-    if (!textarea || !textarea.value) return;
-
-    const dates = parseDateString(textarea.value);
-    if (dates.length > 0) {
-      setBatchSelectedDates((current) => [...new Set([...current, ...dates])].sort());
-      textarea.value = '';
-      showSuccessMessage(`已添加 ${dates.length} 個日期`);
-    } else {
-      showErrorMessage('無法解析日期，請檢查格式');
-    }
-  };
-
-  const handleAddSingleBatchDate = (input) => {
-    if (!input || !input.value) return;
-    addDateToBatch(input.value);
-    input.value = '';
   };
 
   const handleExport = async (eventId) => {
@@ -586,28 +476,12 @@ export function useAdminEventOperations({
     setBatchAddError,
     batchAddResult,
     setBatchAddResult,
-    showBatchDatePicker,
-    setShowBatchDatePicker,
-    batchSelectedDates,
-    setBatchSelectedDates,
     handleBatchAddEvents,
-    addBatchEventRow,
-    removeBatchEventRow,
-    updateBatchEvent,
-    handleBatchDateSelect,
-    applyBatchDates,
-    addDateToBatch,
-    removeDateFromBatch,
-    closeBatchDatePicker,
-    clearBatchSelectedDates,
-    handleParseBatchDates,
-    handleAddSingleBatchDate,
     openBatchAddModal,
     closeBatchAddModal,
     cancelBatchAddModal,
     handleExport,
     handleExportAll,
-    parseDateString,
     isEventToday,
   };
 }

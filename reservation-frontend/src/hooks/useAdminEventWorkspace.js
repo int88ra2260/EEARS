@@ -17,7 +17,6 @@ import {
   checkinEventReservation,
   createEventViolation,
   deleteAdminReservation,
-  fetchEventWaitlist,
   importEventCardExcel,
   runEventAutoCheck,
 } from '../services/eventAdminService';
@@ -91,9 +90,6 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
   const canImportExcel = canCheckinStudents && canManageEvents;
 
   const currentEventId = meta.eventId;
-  const [waitlistItems, setWaitlistItems] = useState([]);
-  const [waitlistLoading, setWaitlistLoading] = useState(false);
-  const [waitlistError, setWaitlistError] = useState('');
 
   const currentEventName = resv.loaded && resv.eventName ? resv.eventName : meta.name;
   const currentEventDate = resv.loaded && resv.eventDate ? resv.eventDate : meta.date;
@@ -101,21 +97,6 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
   const currentEventType = resv.loaded && resv.eventType ? resv.eventType : meta.eventType;
   const canAccessCurrentEvent = canAccessEventType(accessProfile, currentEventType);
   const currentEventAutoCheckCompleted = resv.loaded ? resv.autoCheckCompleted : meta.autoCheckCompleted;
-
-  const fetchWaitlist = useCallback(async () => {
-    if (!currentEventId || !canViewReservations || !canAccessCurrentEvent || !token) return;
-    setWaitlistLoading(true);
-    setWaitlistError('');
-    try {
-      const items = await fetchEventWaitlist(token, currentEventId);
-      setWaitlistItems(items);
-    } catch (e) {
-      setWaitlistError(e.message || '載入候補名單失敗');
-      setWaitlistItems([]);
-    } finally {
-      setWaitlistLoading(false);
-    }
-  }, [currentEventId, token, canViewReservations, canAccessCurrentEvent]);
 
   const reservationData = resv.reservations;
 
@@ -133,13 +114,7 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     return dayjs().format('YYYY-MM-DD') === dateStr;
   }, []);
 
-  useEffect(() => {
-    if (activeTab !== 'reservations') return;
-    if (!meta.ready || !canViewReservations || !canAccessCurrentEvent || !currentEventId) return;
-    fetchWaitlist();
-  }, [activeTab, meta.ready, canViewReservations, canAccessCurrentEvent, currentEventId, fetchWaitlist, resv.loaded]);
-
-  const handleCheckin = useCallback(async (reservationId) => {
+  const handleCheckin = useCallback(async (reservationId, options = {}) => {
     if (!currentEventId) return;
     if (!canCheckinStudents || !canAccessCurrentEvent) {
       showErrorMessage('您沒有簽到權限');
@@ -160,16 +135,38 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       if (!ok) return;
     }
 
+    const countsTowardPassport = !!options.countsTowardPassport;
     setCheckinLoading((prev) => ({ ...prev, [reservationId]: true }));
     try {
-      const data = await checkinEventReservation(token, currentEventId, reservationId);
-      showSuccessMessage('簽到成功');
+      const data = await checkinEventReservation(token, currentEventId, reservationId, {
+        countsTowardPassport,
+      });
+      const grant = data.passportGrant;
+      if (grant?.status === 'granted') {
+        showSuccessMessage(grant.message || '簽到成功，已累計護照點數');
+      } else if (grant?.status === 'pending') {
+        showSuccessMessage(grant.message || '簽到成功；護照點數已暫存待補發');
+      } else if (grant?.status === 'blocked_limit') {
+        showErrorMessage(grant.message || '簽到成功，但護照此類別已達上限（12 次／60 點）');
+      } else if (grant?.requested && grant?.status === 'failed') {
+        showErrorMessage(grant.message || '簽到成功，但護照入點失敗');
+      } else {
+        showSuccessMessage('簽到成功');
+      }
       resv.setPayload((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
           reservations: (prev.reservations || []).map((r) =>
-            r.id === reservationId ? { ...r, checkinStatus: '已簽到', checkinTime: data.checkinTime } : r
+            r.id === reservationId
+              ? {
+                  ...r,
+                  checkinStatus: '已簽到',
+                  checkinTime: data.checkinTime,
+                  countsTowardPassport: !!data.countsTowardPassport,
+                  passportPointsStatus: data.passportPointsStatus || null,
+                }
+              : r
           ),
         };
       });
@@ -216,14 +213,13 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       showSuccessMessage('已成功刪除預約紀錄');
       await resv.refresh();
       await meta.reload();
-      await fetchWaitlist();
       return true;
     } catch (error) {
       console.error('刪除預約錯誤:', error);
       showErrorMessage(error.message || '刪除預約失敗');
       return false;
     }
-  }, [canAccessCurrentEvent, canManageEvents, fetchWaitlist, meta, resv, token]);
+  }, [canAccessCurrentEvent, canManageEvents, meta, resv, token]);
 
   const handleImportFileChange = useCallback((event) => {
     const file = event?.target?.files?.[0] || null;
@@ -523,11 +519,8 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     if (activeTab === 'violations') {
       await vio.load(true);
     }
-    if (activeTab === 'reservations') {
-      await fetchWaitlist();
-    }
     debugEventDetail('workspace:reload:done', { activeTab });
-  }, [activeTab, meta, resv, vio, fetchWaitlist]);
+  }, [activeTab, meta, resv, vio]);
 
   const eventViolations = vio.list;
 
@@ -556,10 +549,6 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       handleCheckin,
       isEventToday,
       currentEventDate,
-      waitlistItems,
-      waitlistLoading,
-      waitlistError,
-      refreshWaitlist: fetchWaitlist,
       handleDeleteReservation,
     }),
     [
@@ -579,10 +568,6 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       handleCheckin,
       isEventToday,
       currentEventDate,
-      waitlistItems,
-      waitlistLoading,
-      waitlistError,
-      fetchWaitlist,
       handleDeleteReservation,
     ],
   );
@@ -756,11 +741,6 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     violationsLoading: vio.loading,
     violationsLoaded: vio.loaded,
     violationsError: vio.error,
-
-    waitlistItems,
-    waitlistLoading,
-    waitlistError,
-    refreshWaitlist: fetchWaitlist,
 
     currentEventName,
     currentEventDate,

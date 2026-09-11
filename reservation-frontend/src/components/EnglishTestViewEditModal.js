@@ -108,6 +108,7 @@ export default function EnglishTestViewEditModal({
     previewUrls,
     handleChange,
     handleFileChange,
+    removeB2CertificateFile,
     getFieldRef,
     fileInputs,
   } = useEnglishTestFormFields(buildInitialFormData(registration), {
@@ -283,6 +284,7 @@ export default function EnglishTestViewEditModal({
                 getErrorStyle={(field) => getErrorStyle(errors, field)}
                 handleChange={handleChange}
                 handleFileChange={handleFileChange}
+                removeB2CertificateFile={removeB2CertificateFile}
                 checkB2Level={checkB2Level}
                 formOptions={formOptions}
                 showActions={false}

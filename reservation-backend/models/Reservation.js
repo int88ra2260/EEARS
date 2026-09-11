@@ -42,7 +42,26 @@ const Reservation = sequelize.define('Reservation', {
     type: DataTypes.STRING,
     allowNull: true,
     comment: '取消預約驗證碼'
-  }
+  },
+  countsTowardPassport: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    field: 'counts_toward_passport',
+    comment: '學生聲明此預約要累計英語實踐歷程護照點數（與課堂加分擇一）',
+  },
+  passportPointsStatus: {
+    type: DataTypes.STRING(32),
+    allowNull: true,
+    field: 'passport_points_status',
+    comment: 'null|pending|granted|blocked_limit|failed',
+  },
+  passportSubmissionId: {
+    type: DataTypes.INTEGER.UNSIGNED,
+    allowNull: true,
+    field: 'passport_submission_id',
+    comment: '對應 english_learning_submissions.id',
+  },
 }, {
   timestamps: false,
   tableName: 'reservations'  // 明確指定表名為 reservations（複數），確保使用正確的資料表

@@ -45,8 +45,8 @@ export default function EnglishTestManagement() {
   } = m.list;
 
   const {
-    registrationEnabled, registrationGroupEnabled, isUpdatingSetting,
-    handleToggleRegistration, handleToggleRegistrationGroup,
+    registrationEnabled, registrationGroupEnabled, registrationEditEnabled, isUpdatingSetting,
+    handleToggleRegistration, handleToggleRegistrationGroup, handleToggleRegistrationEdit,
   } = m.settings;
 
   const { infoSourceStats, departmentStats, gradeStats, analyticsLoading, analyticsError, semester, setSemester, availableSemesters, semesterCounts, activeSemester } = m.analytics;
@@ -223,9 +223,11 @@ export default function EnglishTestManagement() {
           sendingEmails={sendingEmails}
           registrationEnabled={registrationEnabled}
           registrationGroupEnabled={registrationGroupEnabled}
+          registrationEditEnabled={registrationEditEnabled}
           isUpdatingSetting={isUpdatingSetting}
           onToggleRegistration={handleToggleRegistration}
           onToggleRegistrationGroup={handleToggleRegistrationGroup}
+          onToggleRegistrationEdit={handleToggleRegistrationEdit}
           advancedFilters={advancedFilters}
           onAdvancedFiltersChange={(filters) => {
             setAdvancedFilters(filters);

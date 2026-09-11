@@ -11,7 +11,7 @@
  * @type {Record<string, string[]>}
  */
 export const ADMIN_NAV_SEARCH_GLOSSARY = {
-  events: ['活動營運', '場次', '預約', '候補'],
+  events: ['活動營運', '場次', '預約'],
   'events-list': [
     '新增活動',
     '修改活動',
@@ -21,8 +21,6 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '刷卡',
     'check-in',
     '預約名單',
-    '候補',
-    'waitlist',
     '匯出名單',
     'English Table',
     'English Club',
@@ -246,6 +244,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '系統開關',
     '英檢個人報名開關',
     '英檢報名開關',
+    '檢視與修正開關',
     '個人報名',
     '團體報名',
     'Learning Partner',

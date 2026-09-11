@@ -8,8 +8,10 @@ const {
   KEYS,
   isIndividualRegistrationEnabled,
   isGroupRegistrationEnabled,
+  isRegistrationEditEnabled,
   setIndividualRegistrationEnabled,
   setGroupRegistrationEnabled,
+  setRegistrationEditEnabled,
 } = require('../services/registrationSettingsService');
 
 /** 具 can_manage_settings 者可變更系統設定（含行政職員職務範本） */
@@ -67,6 +69,57 @@ router.put('/english-test-registration-enabled', ...manageEnglishRegistrationAut
     });
   } catch (error) {
     console.error('更新 english_test_registration_enabled 設定失敗：', error);
+    return res.status(500).json({ error: '伺服器錯誤' });
+  }
+});
+
+// GET /api/settings/english-test-registration-edit-enabled（檢視與修正開關）
+router.get('/english-test-registration-edit-enabled', async (req, res) => {
+  try {
+    const enabled = await isRegistrationEditEnabled();
+    return res.json({ enabled });
+  } catch (error) {
+    console.error('取得 english_test_registration_edit_enabled 設定失敗：', error);
+    return res.status(500).json({ error: '伺服器錯誤' });
+  }
+});
+
+// PUT /api/settings/english-test-registration-edit-enabled（檢視與修正開關）
+router.put('/english-test-registration-edit-enabled', ...manageEnglishRegistrationAuth, async (req, res) => {
+  try {
+    const { enabled } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled 必須為布林值' });
+    }
+
+    const prev = await Settings.findOne({ where: { key: KEYS.EDIT } });
+    const before = prev
+      ? prev.valueBool !== null
+        ? prev.valueBool
+        : prev.value === 'true'
+      : null;
+
+    await setRegistrationEditEnabled(enabled);
+
+    auditLogService.logAuditAsync({
+      module: 'settings',
+      action: 'english_test_registration_edit_enabled_update',
+      entityType: 'Settings',
+      entityId: KEYS.EDIT,
+      targetSummary: `檢視與修正開關: ${before} → ${enabled}`,
+      beforeData: { enabled: before },
+      afterData: { enabled },
+      changedFields: auditLogService.diffShallow({ enabled: before }, { enabled }),
+      req,
+    });
+
+    return res.json({
+      message: '設定已更新',
+      enabled,
+    });
+  } catch (error) {
+    console.error('更新 english_test_registration_edit_enabled 設定失敗：', error);
     return res.status(500).json({ error: '伺服器錯誤' });
   }
 });

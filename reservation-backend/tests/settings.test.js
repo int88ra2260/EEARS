@@ -114,6 +114,37 @@ describe('Settings API', () => {
       expect(response.body.enabled).toBe(false);
     });
   });
+
+  describe('PUT /api/settings/english-test-registration-edit-enabled', () => {
+    const adminToken = 'admin-token';
+
+    it('管理員應該能夠更新檢視與修正開關', async () => {
+      mockSetting.findOne.mockResolvedValue({ value: 'true', valueBool: true });
+      const mockSettingInstance = { update: jest.fn() };
+      mockSetting.findOrCreate.mockResolvedValue([mockSettingInstance, false]);
+
+      const response = await request(app)
+        .put('/api/settings/english-test-registration-edit-enabled')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ enabled: false });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        message: '設定已更新',
+        enabled: false
+      });
+    });
+
+    it('GET 應回傳 enabled', async () => {
+      mockSetting.findOne.mockResolvedValue({ value: 'false', valueBool: false });
+
+      const response = await request(app)
+        .get('/api/settings/english-test-registration-edit-enabled');
+
+      expect(response.status).toBe(200);
+      expect(response.body.enabled).toBe(false);
+    });
+  });
 });
 
 

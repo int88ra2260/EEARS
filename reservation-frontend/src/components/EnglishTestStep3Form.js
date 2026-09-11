@@ -23,6 +23,7 @@ export default function EnglishTestStep3Form({ basicInfo, initialData, onNext, o
     getErrorStyle,
     handleChange,
     handleFileChange,
+    removeB2CertificateFile,
     handleSubmit,
   } = useEnglishTestStep3Form({
     onNext,
@@ -42,6 +43,7 @@ export default function EnglishTestStep3Form({ basicInfo, initialData, onNext, o
         getErrorStyle={getErrorStyle}
         handleChange={handleChange}
         handleFileChange={handleFileChange}
+        removeB2CertificateFile={removeB2CertificateFile}
         checkB2Level={checkB2Level}
         onBack={onBack}
         onClose={onClose}

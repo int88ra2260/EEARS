@@ -468,6 +468,9 @@ router.get(
           timestamp: r.timestamp,
           checkinStatus: r.checkinStatus || '未簽到',
           checkinTime: r.checkinTime,
+          countsTowardPassport: !!r.countsTowardPassport,
+          passportPointsStatus: r.passportPointsStatus || null,
+          passportSubmissionId: r.passportSubmissionId || null,
           group: null,
         }));
 
@@ -1003,11 +1006,41 @@ router.post(
     const before = {
       checkinStatus: reservation.checkinStatus || null,
       checkinTime: reservation.checkinTime || null,
+      countsTowardPassport: !!reservation.countsTowardPassport,
+      passportPointsStatus: reservation.passportPointsStatus || null,
     };
+    const countsTowardPassport = req.body?.countsTowardPassport === true
+      || req.body?.countsTowardPassport === 'true'
+      || req.body?.countsTowardPassport === 1
+      || req.body?.countsTowardPassport === '1';
+
     await reservation.update({
       checkinStatus: '已簽到',
-      checkinTime: new Date()
+      checkinTime: new Date(),
+      countsTowardPassport: !!countsTowardPassport,
     });
+
+    let passportGrant = null;
+    try {
+      const {
+        tryGrantPassportPointsForReservation,
+      } = require('../services/englishLearningPassport/eventPassportPointsService');
+      passportGrant = await tryGrantPassportPointsForReservation({
+        reservation,
+        event,
+        countsTowardPassport,
+        actorUserId: req.user?.id || null,
+        req,
+      });
+      await reservation.reload();
+    } catch (grantErr) {
+      console.error('[elp] event checkin passport grant failed:', grantErr.message || grantErr);
+      passportGrant = {
+        requested: !!countsTowardPassport,
+        status: 'failed',
+        message: grantErr.message || '護照點數入點失敗',
+      };
+    }
 
     auditLogService.logAuditAsync({
       module: 'events',
@@ -1019,13 +1052,19 @@ router.post(
       afterData: {
         checkinStatus: '已簽到',
         checkinTime: reservation.checkinTime || null,
+        countsTowardPassport: !!reservation.countsTowardPassport,
+        passportPointsStatus: reservation.passportPointsStatus || null,
+        passportGrant,
       },
       req,
     });
 
     res.json({ 
       message: "簽到成功",
-      checkinTime: reservation.checkinTime
+      checkinTime: reservation.checkinTime,
+      countsTowardPassport: !!reservation.countsTowardPassport,
+      passportPointsStatus: reservation.passportPointsStatus || null,
+      passportGrant,
     });
   } catch (err) {
     next(err);

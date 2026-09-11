@@ -23,6 +23,32 @@ export function getDisabledStyle(disabled) {
   return disabled ? { backgroundColor: '#eef2f7', cursor: 'not-allowed' } : {};
 }
 
+/** Stable identity for browser File objects (name + size + lastModified). */
+export function getFileIdentityKey(file) {
+  if (!file) return '';
+  return `${file.name}::${file.size}::${file.lastModified}`;
+}
+
+/**
+ * Append newly picked files without replacing prior selections.
+ * Native <input type="file" multiple> only exposes the latest dialog pick.
+ */
+export function appendUniqueFiles(existingFiles = [], incomingFiles = []) {
+  const existing = Array.isArray(existingFiles) ? existingFiles : [];
+  const incoming = Array.isArray(incomingFiles) ? incomingFiles : [];
+  if (incoming.length === 0) return existing;
+
+  const seen = new Set(existing.map(getFileIdentityKey));
+  const merged = [...existing];
+  for (const file of incoming) {
+    const key = getFileIdentityKey(file);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(file);
+  }
+  return merged;
+}
+
 export function FormErrorMessage({ message, small = false }) {
   if (!message) return null;
   if (small) {

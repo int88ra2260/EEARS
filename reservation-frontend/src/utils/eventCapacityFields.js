@@ -1,3 +1,5 @@
+import { loadCapacityPrefs } from './eventCapacityPrefs';
+
 export const DEFAULT_ET_GROUP_COUNT = 9;
 export const DEFAULT_ET_PER_GROUP_CAPACITY = 4;
 export const MAX_GROUP_COUNT = 20;
@@ -17,17 +19,27 @@ export function computeTotalCapacity(groupCount, perGroupCapacity) {
 }
 
 export function getDefaultCapacityFields(eventType) {
+  const prefs = loadCapacityPrefs();
   if (isEnglishTableEventType(eventType)) {
+    const groupCount = Number.isFinite(Number(prefs.groupCount)) && Number(prefs.groupCount) >= 1
+      ? Number(prefs.groupCount)
+      : DEFAULT_ET_GROUP_COUNT;
+    const perGroupCapacity = Number.isFinite(Number(prefs.perGroupCapacity)) && Number(prefs.perGroupCapacity) >= 1
+      ? Number(prefs.perGroupCapacity)
+      : DEFAULT_ET_PER_GROUP_CAPACITY;
     return {
-      groupCount: DEFAULT_ET_GROUP_COUNT,
-      perGroupCapacity: DEFAULT_ET_PER_GROUP_CAPACITY,
-      maxParticipants: DEFAULT_ET_GROUP_COUNT * DEFAULT_ET_PER_GROUP_CAPACITY,
+      groupCount,
+      perGroupCapacity,
+      maxParticipants: groupCount * perGroupCapacity,
     };
   }
+  const maxParticipants = Number.isFinite(Number(prefs.maxParticipants)) && Number(prefs.maxParticipants) >= 1
+    ? Number(prefs.maxParticipants)
+    : 30;
   return {
     groupCount: '',
     perGroupCapacity: '',
-    maxParticipants: 30,
+    maxParticipants,
   };
 }
 

@@ -350,15 +350,17 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
 
   const handleStatsCardClick = useCallback((filterType, filterValue) => {
     if (filterType === 'status') {
+      // 狀態與報考項目是不同維度：切狀態時清掉測驗類型，避免進階篩選殘留造成「點了卻對不上」
       setStatusFilter(filterValue);
+      setAdvancedFilters((prev) => ({ ...prev, examTypes: [] }));
       setCurrentPage(1);
       if (filterValue === 'success') {
         setSortConfig({ key: 'successSequence', direction: 'ASC' });
       }
     } else if (filterType === 'examType') {
-      // 測驗類型卡片統計跨狀態；不報考（NON）寫入後 status 會是 revision，
-      // 若仍停在「審核中」等狀態分頁會篩不到。
-      setAdvancedFilters(prev => ({ ...prev, examTypes: [filterValue] }));
+      // 測驗類型卡片統計跨狀態；不報考（NON）寫入後 status 應為 revision，
+      // 歷史資料也可能是 approved+NON，故切到「全部」才能找齊。
+      setAdvancedFilters((prev) => ({ ...prev, examTypes: [filterValue] }));
       setStatusFilter('all');
       setCurrentPage(1);
     }

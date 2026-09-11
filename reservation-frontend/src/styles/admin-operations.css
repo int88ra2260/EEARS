@@ -340,3 +340,74 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 批量新增：月曆多選 */
+.batch-date-calendar {
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fff;
+}
+
+.batch-date-calendar__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.batch-date-calendar__weekdays,
+.batch-date-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+
+.batch-date-calendar__weekday {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--admin-text-muted, #787774);
+  padding: 0.2rem 0;
+}
+
+.batch-date-calendar__cell {
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.8125rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.batch-date-calendar__cell.is-empty {
+  cursor: default;
+  visibility: hidden;
+}
+
+.batch-date-calendar__cell.is-today {
+  border-color: #2a5d9f;
+}
+
+.batch-date-calendar__cell.is-selected {
+  background: #2a5d9f;
+  color: #fff;
+  font-weight: 600;
+}
+
+.batch-date-calendar__cell:not(.is-empty):hover {
+  background: #e8eef6;
+}
+
+.batch-date-calendar__cell.is-selected:hover {
+  background: #1f4a82;
+}
+
+.batch-add-setup {
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  background: #fafbfc;
+}

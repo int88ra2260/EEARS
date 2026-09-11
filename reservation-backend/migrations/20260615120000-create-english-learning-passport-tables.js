@@ -83,7 +83,7 @@ module.exports = {
         { code: 'ENGLISH_COURSE', name: '英語相關課程', description: '以英語授課之選修課程及格，每門 60 點', base_points: 60, max_points_per_week: null, max_points_total: null, is_once_only: false, requires_attachment: true, is_enabled: true, sort_order: 4, created_at: now, updated_at: now },
         { code: 'ENGLISH_COMPETITION', name: '英語文相關競賽', description: '參賽 20 點；得獎 50 點', base_points: 20, max_points_per_week: null, max_points_total: null, is_once_only: false, requires_attachment: true, is_enabled: true, sort_order: 5, created_at: now, updated_at: now },
         { code: 'EXTERNAL_EXAM', name: '校外英檢考試', description: '有效成績 20 點；達加碼門檻 40 點；僅採計一次', base_points: 20, max_points_per_week: null, max_points_total: null, is_once_only: true, requires_attachment: true, is_enabled: true, sort_order: 6, created_at: now, updated_at: now },
-        { code: 'SELF_LEARNING_ACTIVITY', name: '英語自學園活動', description: '自學園、西灣沙龍、英語寫作工作坊，每次 5 點', base_points: 5, max_points_per_week: null, max_points_total: null, is_once_only: false, requires_attachment: false, is_enabled: true, sort_order: 7, created_at: now, updated_at: now },
+        { code: 'SELF_LEARNING_ACTIVITY', name: '英語增能活動', description: 'EEARS 活動簽到或相關增能活動，每次 5 點，最多 12 次共 60 點', base_points: 5, max_points_per_week: null, max_points_total: 60, is_once_only: false, requires_attachment: false, is_enabled: true, sort_order: 7, created_at: now, updated_at: now },
         { code: 'COLLEGE_ENGLISH_CORNER', name: '學院英語學習角落活動', description: '每次 5 點，此類別最多採計 30 點', base_points: 5, max_points_per_week: null, max_points_total: 30, is_once_only: false, requires_attachment: true, is_enabled: true, sort_order: 8, created_at: now, updated_at: now },
       ]);
     }

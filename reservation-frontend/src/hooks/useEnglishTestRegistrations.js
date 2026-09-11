@@ -28,6 +28,7 @@ const defaultStats = () => ({
   success: 0,
   failed: 0,
   nonExam: 0,
+  nonExamInconsistent: 0,
   listeningReading: 0,
   speakingWriting: 0
 });

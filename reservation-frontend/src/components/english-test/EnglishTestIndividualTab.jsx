@@ -51,9 +51,11 @@ export default function EnglishTestIndividualTab({
   sendingEmails,
   registrationEnabled,
   registrationGroupEnabled,
+  registrationEditEnabled = true,
   isUpdatingSetting,
   onToggleRegistration,
   onToggleRegistrationGroup,
+  onToggleRegistrationEdit,
   advancedFilters,
   onAdvancedFiltersChange,
   sortConfig,
@@ -103,9 +105,17 @@ export default function EnglishTestIndividualTab({
   const rangeLabel = `第 ${rangeStart}–${rangeEnd} 筆，共 ${total} 筆`;
 
   const confirmToggle = (kind, nextEnabled, apply) => {
-    const label = kind === 'individual' ? '個人報名' : '團體報名（學習有伴）';
+    const labels = {
+      individual: '個人報名',
+      group: '團體報名（學習有伴）',
+      edit: '檢視與修正',
+    };
+    const label = labels[kind] || kind;
     const action = nextEnabled ? '啟用' : '停用';
-    if (!window.confirm(`確定要${action}「${label}」嗎？\n這會立即影響學生端能否報名。`)) {
+    const impact = kind === 'edit'
+      ? '這會立即影響學生端能否使用「檢視與修正」。'
+      : '這會立即影響學生端能否報名。';
+    if (!window.confirm(`確定要${action}「${label}」嗎？\n${impact}`)) {
       return;
     }
     apply(nextEnabled);
@@ -236,7 +246,7 @@ export default function EnglishTestIndividualTab({
           <div className="card-body py-3">
             <div className="fw-semibold text-warning-emphasis mb-1">報名窗口設定（高風險）</div>
             <p className="small text-muted mb-3">
-              開關會立即影響學生端。個人與團體截止時間不同，請分開控制。
+              開關會立即影響學生端。個人報名、團體報名與「檢視與修正」可分開控制，方便報名截止後仍開放修正一段時間。
             </p>
             <div className="d-flex flex-column flex-sm-row gap-3 flex-wrap">
               <div className="d-flex align-items-center gap-2">
@@ -271,6 +281,22 @@ export default function EnglishTestIndividualTab({
                   </label>
                 </div>
               </div>
+              <div className="d-flex align-items-center gap-2">
+                <span className="small">檢視與修正</span>
+                <div className="form-check form-switch mb-0">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="registrationEditEnabled"
+                    checked={registrationEditEnabled}
+                    onChange={(e) => confirmToggle('edit', e.target.checked, onToggleRegistrationEdit)}
+                    disabled={isUpdatingSetting}
+                  />
+                  <label className="form-check-label small" htmlFor="registrationEditEnabled">
+                    {registrationEditEnabled ? '已啟用' : '已停用'}
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -291,6 +317,7 @@ export default function EnglishTestIndividualTab({
         onFilterClick={onStatsCardClick}
         todayNewCount={todayNewCount}
         currentStatusFilter={statusFilter}
+        currentExamTypes={advancedFilters?.examTypes || []}
       />
 
       {canReviewEnglishTests && (

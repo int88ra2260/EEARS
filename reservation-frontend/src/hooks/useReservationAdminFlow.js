@@ -260,7 +260,7 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
   }, [setCurrentEventAutoCheckCompleted, resetSearchAndSort]);
 
   // Checkin：單筆簽到 / 補簽到
-  const handleCheckin = useCallback(async (reservationId) => {
+  const handleCheckin = useCallback(async (reservationId, options = {}) => {
     const eventDate = currentEvent?.date;
     const eventId = currentEvent?.id;
     const isToday = typeof isEventToday === 'function' ? isEventToday(eventDate) : false;
@@ -287,14 +287,30 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
       return;
     }
 
+    const countsTowardPassport = !!options.countsTowardPassport;
     setCheckinLoading(prev => ({ ...prev, [reservationId]: true }));
     try {
-      const data = await checkinEventReservation(token, eventId, reservationId);
-      if (showSuccessMessage) showSuccessMessage('簽到成功！');
+      const data = await checkinEventReservation(token, eventId, reservationId, {
+        countsTowardPassport,
+      });
+      const grant = data.passportGrant;
+      if (grant?.status === 'blocked_limit') {
+        if (showErrorMessage) showErrorMessage(grant.message || '簽到成功，但護照此類別已達上限');
+      } else if (grant?.message) {
+        if (showSuccessMessage) showSuccessMessage(grant.message);
+      } else if (showSuccessMessage) {
+        showSuccessMessage('簽到成功！');
+      }
       setReservationData((prev) =>
         prev.map((r) =>
           r.id === reservationId
-            ? { ...r, checkinStatus: '已簽到', checkinTime: data.checkinTime }
+            ? {
+                ...r,
+                checkinStatus: '已簽到',
+                checkinTime: data.checkinTime,
+                countsTowardPassport: !!data.countsTowardPassport,
+                passportPointsStatus: data.passportPointsStatus || null,
+              }
             : r
         )
       );
@@ -304,7 +320,7 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
     } finally {
       setCheckinLoading(prev => ({ ...prev, [reservationId]: false }));
     }
-  }, [token, currentEvent?.id, currentEvent?.date, isEventToday, hasAdminRights, showSuccessMessage, showErrorMessage]);
+  }, [token, currentEvent?.id, currentEvent?.date, isEventToday, hasAdminRights, showSuccessMessage, showErrorMessage, confirm]);
 
   // 刪除預約（管理員功能）
   const handleDeleteReservation = useCallback(async (reservationId, studentId, studentName) => {

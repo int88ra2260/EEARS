@@ -5,6 +5,7 @@ import { fetchClient } from '../utils/fetchClient';
 import {
   fetchEnglishTestRegistrationEnabledPublic,
   fetchEnglishTestRegistrationGroupEnabledPublic,
+  fetchEnglishTestRegistrationEditEnabledPublic,
 } from './settingsAdminApi';
 
 async function parseJson(res) {
@@ -13,6 +14,7 @@ async function parseJson(res) {
 
 export { fetchEnglishTestRegistrationEnabledPublic as fetchRegistrationEnabled };
 export { fetchEnglishTestRegistrationGroupEnabledPublic as fetchRegistrationGroupEnabled };
+export { fetchEnglishTestRegistrationEditEnabledPublic as fetchRegistrationEditEnabled };
 
 export async function queryEnglishTestRegistration(body) {
   const res = await fetchClient('/api/english-test/registrations/query', {

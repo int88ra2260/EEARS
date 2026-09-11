@@ -73,6 +73,28 @@ export default function AdvancedFilterPanel({
     onFilterChange && onFilterChange(emptyFilters);
   };
 
+  // 與父層進階篩選同步（統計卡片點選會改 parent，需反映到勾選狀態）
+  const examTypesKey = Array.isArray(initialFilters.examTypes)
+    ? initialFilters.examTypes.join(',')
+    : '';
+  useEffect(() => {
+    setFilters({
+      dateFrom: initialFilters.dateFrom || '',
+      dateTo: initialFilters.dateTo || '',
+      examTypes: examTypesKey ? examTypesKey.split(',') : [],
+      isLowIncome: initialFilters.isLowIncome || '',
+      hasDisabilityCard: initialFilters.hasDisabilityCard || '',
+      semester: initialFilters.semester || '',
+    });
+  }, [
+    initialFilters.dateFrom,
+    initialFilters.dateTo,
+    initialFilters.isLowIncome,
+    initialFilters.hasDisabilityCard,
+    initialFilters.semester,
+    examTypesKey,
+  ]);
+
   // 搜尋建議（簡單實作，可擴展為從 API 取得）
   useEffect(() => {
     if (searchTerm && searchTerm.length >= 2) {
@@ -101,7 +123,7 @@ export default function AdvancedFilterPanel({
     );
   };
 
-  const statusLabelMap = { pending: '審核中', approved: '已通過', success: '報名成功', revision: '請修正', failed: '報名失敗' };
+  const statusLabelMap = { all: '全部', pending: '審核中', approved: '已通過', success: '報名成功', revision: '請修正', failed: '報名失敗' };
   const currentLabel = statusLabelMap[currentStatusFilter] || currentStatusFilter;
 
   return (
@@ -121,7 +143,14 @@ export default function AdvancedFilterPanel({
             <i className={`fas fa-chevron-${collapsed ? 'down' : 'up'} me-2`} aria-hidden />
             進階篩選
             {currentStatusFilter && (
-              <span className="badge bg-light text-dark ms-2">目前標籤：{currentLabel}</span>
+              <span className="badge bg-light text-dark ms-2">狀態：{currentLabel}</span>
+            )}
+            {filters.examTypes.length > 0 && (
+              <span className="badge bg-info text-dark ms-1">
+                測驗類型：{filters.examTypes.map((t) =>
+                  examTypeOptions.find((o) => o.value === t)?.label || t
+                ).join('、')}
+              </span>
             )}
           </button>
           <div className="d-flex gap-2">

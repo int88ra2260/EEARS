@@ -6,6 +6,7 @@ import { fetchClient } from '../utils/fetchClient';
 const BASE = '/api/english-test/registrations';
 const SETTINGS_INDIVIDUAL = '/api/settings/english-test-registration-enabled';
 const SETTINGS_GROUP = '/api/settings/english-test-registration-group-enabled';
+const SETTINGS_EDIT = '/api/settings/english-test-registration-edit-enabled';
 
 function authHeaders(token, extra = {}) {
   return { Authorization: `Bearer ${token}`, ...extra };
@@ -185,6 +186,13 @@ export async function fetchGroupRegistrationEnabled(token) {
   return data.enabled !== false;
 }
 
+export async function fetchRegistrationEditEnabled(token) {
+  const res = await fetchClient(SETTINGS_EDIT, { headers: authHeaders(token) });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '載入設定失敗');
+  return data.enabled !== false;
+}
+
 export async function updateIndividualRegistrationEnabled(token, enabled) {
   const res = await fetchClient(SETTINGS_INDIVIDUAL, {
     method: 'PUT',
@@ -198,6 +206,17 @@ export async function updateIndividualRegistrationEnabled(token, enabled) {
 
 export async function updateGroupRegistrationEnabled(token, enabled) {
   const res = await fetchClient(SETTINGS_GROUP, {
+    method: 'PUT',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ enabled }),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '更新設定失敗');
+  return enabled;
+}
+
+export async function updateRegistrationEditEnabled(token, enabled) {
+  const res = await fetchClient(SETTINGS_EDIT, {
     method: 'PUT',
     headers: authHeaders(token, { 'Content-Type': 'application/json' }),
     body: JSON.stringify({ enabled }),

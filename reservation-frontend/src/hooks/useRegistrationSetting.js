@@ -1,27 +1,32 @@
 /**
- * 培力英檢報名開關：個人報名、團體報名啟用狀態與切換。
+ * 培力英檢報名開關：個人報名、團體報名、檢視與修正啟用狀態與切換。
  */
 import { useState, useCallback, useEffect } from 'react';
 import {
   fetchIndividualRegistrationEnabled,
   fetchGroupRegistrationEnabled,
+  fetchRegistrationEditEnabled,
   updateIndividualRegistrationEnabled,
   updateGroupRegistrationEnabled,
+  updateRegistrationEditEnabled,
 } from '../services/englishTestApi';
 
 export function useRegistrationSetting({ token, showToast }) {
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [registrationGroupEnabled, setRegistrationGroupEnabled] = useState(true);
+  const [registrationEditEnabled, setRegistrationEditEnabled] = useState(true);
   const [isUpdatingSetting, setIsUpdatingSetting] = useState(false);
 
   const loadRegistrationSetting = useCallback(async () => {
     try {
-      const [ind, group] = await Promise.all([
+      const [ind, group, edit] = await Promise.all([
         fetchIndividualRegistrationEnabled(token),
         fetchGroupRegistrationEnabled(token),
+        fetchRegistrationEditEnabled(token),
       ]);
       setRegistrationEnabled(ind);
       setRegistrationGroupEnabled(group);
+      setRegistrationEditEnabled(edit);
     } catch (error) {
       console.error('載入報名開關設定錯誤:', error);
     }
@@ -55,6 +60,20 @@ export function useRegistrationSetting({ token, showToast }) {
     }
   }, [token, showToast]);
 
+  const handleToggleRegistrationEdit = useCallback(async (enabled) => {
+    setIsUpdatingSetting(true);
+    try {
+      const next = await updateRegistrationEditEnabled(token, enabled);
+      setRegistrationEditEnabled(next);
+      if (showToast) showToast('檢視與修正開關已更新', 'success');
+    } catch (error) {
+      console.error('更新檢視與修正開關設定錯誤:', error);
+      if (showToast) showToast(error.message || '更新設定時發生錯誤', 'danger');
+    } finally {
+      setIsUpdatingSetting(false);
+    }
+  }, [token, showToast]);
+
   useEffect(() => {
     if (token) loadRegistrationSetting();
   }, [token, loadRegistrationSetting]);
@@ -62,9 +81,11 @@ export function useRegistrationSetting({ token, showToast }) {
   return {
     registrationEnabled,
     registrationGroupEnabled,
+    registrationEditEnabled,
     isUpdatingSetting,
     loadRegistrationSetting,
     handleToggleRegistration,
-    handleToggleRegistrationGroup
+    handleToggleRegistrationGroup,
+    handleToggleRegistrationEdit,
   };
 }

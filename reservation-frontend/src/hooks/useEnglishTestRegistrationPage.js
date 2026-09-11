@@ -6,6 +6,7 @@ import useConfirm from '../components/ui/useConfirm';
 import {
   fetchRegistrationEnabled,
   fetchRegistrationGroupEnabled,
+  fetchRegistrationEditEnabled,
   queryEnglishTestRegistration,
   registerEnglishTest,
 } from '../services/englishTestPublicApi';
@@ -77,6 +78,7 @@ export default function useEnglishTestRegistrationPage() {
   const [registrationTab, setRegistrationTab] = useState('individual');
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [registrationGroupEnabled, setRegistrationGroupEnabled] = useState(false);
+  const [registrationEditEnabled, setRegistrationEditEnabled] = useState(true);
   const [isCheckingRegistrationStatus, setIsCheckingRegistrationStatus] = useState(true);
   const [draftRestored, setDraftRestored] = useState(false);
 
@@ -117,16 +119,19 @@ export default function useEnglishTestRegistrationPage() {
   useEffect(() => {
     const loadRegistrationStatus = async () => {
       try {
-        const [enabled, groupEnabled] = await Promise.all([
+        const [enabled, groupEnabled, editEnabled] = await Promise.all([
           fetchRegistrationEnabled(),
           fetchRegistrationGroupEnabled(),
+          fetchRegistrationEditEnabled(),
         ]);
         setRegistrationEnabled(enabled);
         setRegistrationGroupEnabled(groupEnabled);
+        setRegistrationEditEnabled(editEnabled);
       } catch (error) {
         console.error('載入報名狀態錯誤:', error);
         setRegistrationEnabled(true);
         setRegistrationGroupEnabled(false);
+        setRegistrationEditEnabled(true);
       } finally {
         setIsCheckingRegistrationStatus(false);
       }
@@ -331,6 +336,15 @@ export default function useEnglishTestRegistrationPage() {
   ]);
 
   const handleViewEdit = useCallback(async () => {
+    if (!registrationEditEnabled) {
+      await alert({
+        title: '無法修改',
+        description: '報名結束已過，無法修改報名資料',
+        variant: 'warning',
+      });
+      return;
+    }
+
     const errors = validateEnglishTestBasicForm(englishTestForm);
     setFormErrors(errors);
 
@@ -397,7 +411,7 @@ export default function useEnglishTestRegistrationPage() {
     } finally {
       setIsLoadingRegistration(false);
     }
-  }, [englishTestForm, toast, alert]);
+  }, [englishTestForm, toast, alert, registrationEditEnabled]);
 
   const handleEnglishTestFormChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -671,6 +685,7 @@ export default function useEnglishTestRegistrationPage() {
     setRegistrationTab,
     registrationEnabled,
     registrationGroupEnabled,
+    registrationEditEnabled,
     isCheckingRegistrationStatus,
     handleCloseEnglishTestModal,
     handleAnnouncementNext,

@@ -6,6 +6,8 @@ const KEYS = Object.freeze({
   INDIVIDUAL: 'english_test_registration_enabled',
   GROUP: 'english_test_registration_group_enabled',
   LEARNING_PARTNER: 'learning_partner_enabled',
+  /** 學生端「檢視與修正」；與個人報名開關分開，方便報名截止後仍開放修正一段時間 */
+  EDIT: 'english_test_registration_edit_enabled',
 });
 
 function parseSettingBool(setting, defaultValue) {
@@ -55,6 +57,10 @@ async function isGroupRegistrationEnabled() {
   return readSettingBool(KEYS.LEARNING_PARTNER, true);
 }
 
+async function isRegistrationEditEnabled() {
+  return readSettingBool(KEYS.EDIT, true);
+}
+
 async function setIndividualRegistrationEnabled(enabled) {
   await upsertSettingBool(KEYS.INDIVIDUAL, enabled);
   return enabled;
@@ -69,11 +75,18 @@ async function setGroupRegistrationEnabled(enabled) {
   return enabled;
 }
 
+async function setRegistrationEditEnabled(enabled) {
+  await upsertSettingBool(KEYS.EDIT, enabled);
+  return enabled;
+}
+
 module.exports = {
   KEYS,
   parseSettingBool,
   isIndividualRegistrationEnabled,
   isGroupRegistrationEnabled,
+  isRegistrationEditEnabled,
   setIndividualRegistrationEnabled,
   setGroupRegistrationEnabled,
+  setRegistrationEditEnabled,
 };

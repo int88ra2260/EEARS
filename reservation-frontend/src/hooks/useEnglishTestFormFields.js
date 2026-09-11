@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getCityDistrictByPostalCode } from '../utils/postalCodeMap';
+import { appendUniqueFiles } from '../utils/englishTestFormHelpers';
 
 export function useEnglishTestFormFields(initialFormData, options = {}) {
   const { readOnly = false, trackFileInputs = false } = options;
@@ -94,13 +95,18 @@ export function useEnglishTestFormFields(initialFormData, options = {}) {
     if (name === 'b2CertificateFiles') {
       const files = Array.from(e.target.files || []);
       if (files.length === 0) return;
-      setFormData((prev) => ({ ...prev, b2CertificateFiles: files }));
+      setFormData((prev) => ({
+        ...prev,
+        b2CertificateFiles: appendUniqueFiles(prev.b2CertificateFiles, files),
+      }));
       setErrors((prev) => {
         if (!prev.b2CertificateFiles) return prev;
         const next = { ...prev };
         delete next.b2CertificateFiles;
         return next;
       });
+      // Allow re-picking the same file after remove / another dialog.
+      e.target.value = '';
       return;
     }
 
@@ -130,6 +136,14 @@ export function useEnglishTestFormFields(initialFormData, options = {}) {
     }
   }, [readOnly, trackFileInputs]);
 
+  const removeB2CertificateFile = useCallback((index) => {
+    if (readOnly) return;
+    setFormData((prev) => ({
+      ...prev,
+      b2CertificateFiles: (prev.b2CertificateFiles || []).filter((_, i) => i !== index),
+    }));
+  }, [readOnly]);
+
   useEffect(() => {
     return () => {
       Object.values(previewUrls).forEach((url) => {
@@ -148,6 +162,7 @@ export function useEnglishTestFormFields(initialFormData, options = {}) {
     previewUrls,
     handleChange,
     handleFileChange,
+    removeB2CertificateFile,
     fieldRefs,
     getFieldRef,
   };

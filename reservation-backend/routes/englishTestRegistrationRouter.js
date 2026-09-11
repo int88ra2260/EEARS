@@ -69,7 +69,10 @@ const {
   maskEnglishTestRegistrationForAdminApi,
   maskEnglishTestRegistrationListForAdminApi,
 } = require('../utils/englishTestRegistrationApiMask');
-const { isIndividualRegistrationEnabled } = require('../services/registrationSettingsService');
+const {
+  isIndividualRegistrationEnabled,
+  isRegistrationEditEnabled,
+} = require('../services/registrationSettingsService');
 const englishTestFormSchemaService = require('../services/englishTestFormSchemaService');
 const { createMulterUploadErrorHandler } = require('../middlewares/multerUploadError');
 const englishTestUploadErrorHandler = createMulterUploadErrorHandler({
@@ -374,6 +377,14 @@ router.put('/english-test/registrations/update',
   async (req, res) => {
     try {
       logger.debug('收到更新報名請求', { body: req.body, files: req.files });
+
+      const editOpen = await isRegistrationEditEnabled();
+      if (!editOpen) {
+        return res.status(403).json({
+          error: '報名結束已過，無法修改報名資料',
+          code: 'ENGLISH_TEST_REGISTRATION_EDIT_CLOSED',
+        });
+      }
       
       const formData = req.body;
       const files = req.files;
@@ -1873,6 +1884,7 @@ router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res
         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
         SUM(CASE WHEN examType = 'NON' THEN 1 ELSE 0 END) as nonExam,
+        SUM(CASE WHEN examType = 'NON' AND status IN ('approved', 'success') THEN 1 ELSE 0 END) as nonExamInconsistent,
         SUM(CASE WHEN examType IN ('LRSW', 'LR') THEN 1 ELSE 0 END) as listeningReading,
         SUM(CASE WHEN examType IN ('LRSW', 'SW') THEN 1 ELSE 0 END) as speakingWriting
       FROM english_test_registrations
@@ -1892,6 +1904,7 @@ router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res
       success: parseInt(globalStatsResult[0]?.success) || 0,
       failed: parseInt(globalStatsResult[0]?.failed) || 0,
       nonExam: parseInt(globalStatsResult[0]?.nonExam) || 0,
+      nonExamInconsistent: parseInt(globalStatsResult[0]?.nonExamInconsistent) || 0,
       listeningReading: parseInt(globalStatsResult[0]?.listeningReading) || 0,
       speakingWriting: parseInt(globalStatsResult[0]?.speakingWriting) || 0
     };
@@ -2662,6 +2675,20 @@ router.put('/english-test/registrations/:id', ...englishRegReviewAuth, async (re
     
     // 英語能力與培力資格
     if (examType !== undefined) updateData.examType = examType || null;
+
+    // 不報考不可同時為已通過／審核中／報名成功（歷史資料曾造成「不報考卡片找不到」）
+    {
+      const nextExamType = examType !== undefined ? (examType || null) : registration.examType;
+      const nextStatus = updateData.status !== undefined ? updateData.status : registration.status;
+      if (nextExamType === 'NON' && ['pending', 'approved', 'success'].includes(nextStatus)) {
+        if (status === 'failed') {
+          updateData.status = 'failed';
+        } else {
+          updateData.status = 'revision';
+        }
+      }
+    }
+
     if (hasTakenBESTEP !== undefined) updateData.hasTakenBESTEP = hasTakenBESTEP || '否';
     if (hasCEFRB2 !== undefined) updateData.hasCEFRB2 = hasCEFRB2;
     if (passedExamTypes !== undefined) {

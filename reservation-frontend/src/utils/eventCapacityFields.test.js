@@ -2,22 +2,28 @@ import {
   applyCapacityFieldChange,
   getDefaultCapacityFields,
   computeTotalCapacity,
+  DEFAULT_ET_GROUP_COUNT,
+  DEFAULT_ET_PER_GROUP_CAPACITY,
 } from './eventCapacityFields';
 
 describe('applyCapacityFieldChange (ET 組/人 輸入)', () => {
-  const base = getDefaultCapacityFields('English Table');
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  const base = () => getDefaultCapacityFields('English Table');
 
   test('預設為 9 × 4 = 36', () => {
-    expect(base).toEqual({
-      groupCount: 9,
-      perGroupCapacity: 4,
-      maxParticipants: 36,
+    expect(base()).toEqual({
+      groupCount: DEFAULT_ET_GROUP_COUNT,
+      perGroupCapacity: DEFAULT_ET_PER_GROUP_CAPACITY,
+      maxParticipants: DEFAULT_ET_GROUP_COUNT * DEFAULT_ET_PER_GROUP_CAPACITY,
     });
-    expect(computeTotalCapacity(base.groupCount, base.perGroupCapacity)).toBe(36);
+    expect(computeTotalCapacity(base().groupCount, base().perGroupCapacity)).toBe(36);
   });
 
   test('可輸入組數（模擬鍵盤）', () => {
-    let next = applyCapacityFieldChange(base, 'groupCount', '', 'English Table');
+    let next = applyCapacityFieldChange(base(), 'groupCount', '', 'English Table');
     expect(next.groupCount).toBe('');
 
     next = applyCapacityFieldChange(next, 'groupCount', '1', 'English Table');
@@ -29,13 +35,13 @@ describe('applyCapacityFieldChange (ET 組/人 輸入)', () => {
   });
 
   test('可輸入每組人數（模擬鍵盤）', () => {
-    let next = applyCapacityFieldChange(base, 'perGroupCapacity', '5', 'English Table');
+    let next = applyCapacityFieldChange(base(), 'perGroupCapacity', '5', 'English Table');
     expect(next.perGroupCapacity).toBe(5);
     expect(next.maxParticipants).toBe(45);
   });
 
   test('可使用箭頭加減（模擬 spinner onChange）', () => {
-    let next = applyCapacityFieldChange(base, 'groupCount', '10', 'English Table');
+    let next = applyCapacityFieldChange(base(), 'groupCount', '10', 'English Table');
     expect(next.groupCount).toBe(10);
 
     next = applyCapacityFieldChange(next, 'groupCount', '9', 'English Table');
@@ -47,7 +53,7 @@ describe('applyCapacityFieldChange (ET 組/人 輸入)', () => {
   });
 
   test('超出上限會被夾住，但仍可輸入', () => {
-    const next = applyCapacityFieldChange(base, 'groupCount', '99', 'English Table');
+    const next = applyCapacityFieldChange(base(), 'groupCount', '99', 'English Table');
     expect(next.groupCount).toBe(20);
   });
 

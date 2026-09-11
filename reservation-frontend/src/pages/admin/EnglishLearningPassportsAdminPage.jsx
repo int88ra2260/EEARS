@@ -84,7 +84,7 @@ export default function EnglishLearningPassportsAdminPage() {
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    status: searchParams.get('status') || 'pending',
+    status: searchParams.get('status') || '',
     studentId: '',
     studentName: '',
     studentEmail: '',
@@ -144,7 +144,7 @@ export default function EnglishLearningPassportsAdminPage() {
     setTab(next);
     setSelectedIds(new Set());
     if (next === 'passports' && !['pending', 'active', 'rejected', 'completed', 'revoked', ''].includes(filters.status)) {
-      setFilters((f) => ({ ...f, status: 'pending' }));
+      setFilters((f) => ({ ...f, status: '' }));
     }
     if (next === 'submissions' && !['submitted', 'approved', 'rejected', 'draft', ''].includes(filters.status)) {
       setFilters((f) => ({ ...f, status: 'submitted' }));

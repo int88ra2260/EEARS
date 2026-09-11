@@ -42,6 +42,9 @@ function mapReservationRow(reservation, group) {
     timestamp: reservation.timestamp,
     checkinStatus: reservation.checkinStatus || '未簽到',
     checkinTime: reservation.checkinTime,
+    countsTowardPassport: !!reservation.countsTowardPassport,
+    passportPointsStatus: reservation.passportPointsStatus || null,
+    passportSubmissionId: reservation.passportSubmissionId || null,
     group,
   };
 }

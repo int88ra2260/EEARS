@@ -10,6 +10,7 @@ export default function RegistrationVerifyStep({
   onNavigateToGroupRegistration,
   registrationEnabled,
   registrationGroupEnabled = false,
+  registrationEditEnabled = true,
   englishTestForm,
   formErrors,
   onFormChange,
@@ -93,7 +94,9 @@ export default function RegistrationVerifyStep({
       <div className="tab-content">
         {(registrationTab === 'individual' || !showGroupTab) && (
           <form onSubmit={onSubmit}>
-            {!registrationEnabled && <RegistrationClosedNotice />}
+            {!registrationEnabled && (
+              <RegistrationClosedNotice registrationEditEnabled={registrationEditEnabled} />
+            )}
 
             {showStudentId && (
             <div className="mb-4">

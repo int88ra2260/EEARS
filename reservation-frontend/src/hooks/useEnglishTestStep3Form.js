@@ -4,6 +4,7 @@ import {
   validateEnglishTestStep3Form,
 } from '../utils/englishTestStep3Validation';
 import {
+  appendUniqueFiles,
   getErrorStyle as getFieldErrorStyle,
   scrollToFirstError,
 } from '../utils/englishTestFormHelpers';
@@ -108,17 +109,33 @@ export function useEnglishTestStep3Form({ onNext, onClose, onSubmitNonExam, toas
 
   const handleFileChange = useCallback((e) => {
     const { name } = e.target;
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      if (name === 'b2CertificateFiles') {
-        setFormData((prev) => ({
-          ...prev,
-          [name]: files,
-        }));
-      } else {
-        setFormData((prev) => ({ ...prev, [name]: files[0] }));
-      }
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (name === 'b2CertificateFiles') {
+      setFormData((prev) => ({
+        ...prev,
+        b2CertificateFiles: appendUniqueFiles(prev.b2CertificateFiles, files),
+      }));
+      setErrors((prev) => {
+        if (!prev.b2CertificateFiles) return prev;
+        const next = { ...prev };
+        delete next.b2CertificateFiles;
+        return next;
+      });
+      // Allow re-picking the same file after remove / another dialog.
+      e.target.value = '';
+      return;
     }
+
+    setFormData((prev) => ({ ...prev, [name]: files[0] }));
+  }, []);
+
+  const removeB2CertificateFile = useCallback((index) => {
+    setFormData((prev) => ({
+      ...prev,
+      b2CertificateFiles: (prev.b2CertificateFiles || []).filter((_, i) => i !== index),
+    }));
   }, []);
 
   const handleSubmit = useCallback((e) => {
@@ -200,6 +217,7 @@ export function useEnglishTestStep3Form({ onNext, onClose, onSubmitNonExam, toas
     getErrorStyle,
     handleChange,
     handleFileChange,
+    removeB2CertificateFile,
     handleSubmit,
   };
 }

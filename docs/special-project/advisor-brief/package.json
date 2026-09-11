@@ -1,0 +1,12 @@
+{
+  "name": "advisor-brief",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EEARS advisor outreach one-pager PDF",
+  "scripts": {
+    "pdf": "node generate-pdf.js"
+  },
+  "dependencies": {
+    "pdfkit": "^0.17.2"
+  }
+}
