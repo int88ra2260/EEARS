@@ -1,6 +1,7 @@
 // middlewares/checkSurvey.js
 const { Event } = require('../models');
 const { resolveGateContext, hasCompletedForGate, ruleTimeAllows } = require('../services/surveyGateService');
+const { isEnglishTableEventType, isEnglishClubEventType } = require('../utils/eventCapacity');
 
 /**
  * 預約前問卷 Gate：僅依 survey_rules（後台「啟用規則」）判定
@@ -67,12 +68,11 @@ async function checkSurvey(req, res, next) {
     }
 
     const surveyName = (rule.settingsJson && rule.settingsJson.surveyName) || survey.name || event.eventType;
-    const errorCode =
-      event.eventType === 'English Table'
-        ? 'ENGLISH_TABLE_SURVEY_REQUIRED'
-        : event.eventType === 'English Club'
-          ? 'ENGLISH_CLUB_SURVEY_REQUIRED'
-          : 'SURVEY_REQUIRED';
+    const errorCode = isEnglishTableEventType(event.eventType)
+      ? 'ENGLISH_TABLE_SURVEY_REQUIRED'
+      : isEnglishClubEventType(event.eventType)
+        ? 'ENGLISH_CLUB_SURVEY_REQUIRED'
+        : 'SURVEY_REQUIRED';
 
     return res.status(409).json({
       error: `請先完成${surveyName}問卷調查才能進行預約`,

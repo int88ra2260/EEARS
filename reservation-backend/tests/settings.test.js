@@ -118,8 +118,13 @@ describe('Settings API', () => {
   describe('PUT /api/settings/english-test-registration-edit-enabled', () => {
     const adminToken = 'admin-token';
 
-    it('管理員應該能夠更新檢視與修正開關', async () => {
-      mockSetting.findOne.mockResolvedValue({ value: 'true', valueBool: true });
+    it('管理員應該能夠更新檢視與修正開關（個人報名已關）', async () => {
+      mockSetting.findOne.mockImplementation(({ where }) => {
+        if (where?.key === 'english_test_registration_enabled') {
+          return Promise.resolve({ value: 'false', valueBool: false });
+        }
+        return Promise.resolve({ value: 'true', valueBool: true });
+      });
       const mockSettingInstance = { update: jest.fn() };
       mockSetting.findOrCreate.mockResolvedValue([mockSettingInstance, false]);
 
@@ -133,6 +138,42 @@ describe('Settings API', () => {
         message: '設定已更新',
         enabled: false
       });
+    });
+
+    it('個人報名仍開啟時不可關閉檢視與修正', async () => {
+      mockSetting.findOne.mockImplementation(({ where }) => {
+        if (where?.key === 'english_test_registration_enabled') {
+          return Promise.resolve({ value: 'true', valueBool: true });
+        }
+        return Promise.resolve({ value: 'true', valueBool: true });
+      });
+
+      const response = await request(app)
+        .put('/api/settings/english-test-registration-edit-enabled')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ enabled: false });
+
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe('INVALID_REGISTRATION_WINDOW_PAIR');
+      expect(mockSetting.findOrCreate).not.toHaveBeenCalled();
+    });
+
+    it('檢視與修正關閉時不可只開個人報名', async () => {
+      mockSetting.findOne.mockImplementation(({ where }) => {
+        if (where?.key === 'english_test_registration_edit_enabled') {
+          return Promise.resolve({ value: 'false', valueBool: false });
+        }
+        return Promise.resolve({ value: 'false', valueBool: false });
+      });
+
+      const response = await request(app)
+        .put('/api/settings/english-test-registration-enabled')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ enabled: true });
+
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe('INVALID_REGISTRATION_WINDOW_PAIR');
+      expect(mockSetting.findOrCreate).not.toHaveBeenCalled();
     });
 
     it('GET 應回傳 enabled', async () => {

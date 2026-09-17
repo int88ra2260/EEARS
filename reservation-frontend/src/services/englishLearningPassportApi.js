@@ -320,6 +320,17 @@ export async function adminFetchPassports(token, params = {}) {
   return data.data;
 }
 
+export async function adminCreatePassport(token, payload) {
+  const res = await fetchClient(ADMIN_BASE, {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.message || '新增護照失敗');
+  return data.data;
+}
+
 export async function adminFetchPassportDetail(token, id) {
   const res = await fetchClient(`${ADMIN_BASE}/${id}`, { headers: authHeaders(token) });
   const data = await parseJson(res);

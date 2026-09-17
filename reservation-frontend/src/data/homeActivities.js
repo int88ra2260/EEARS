@@ -26,16 +26,6 @@ export const HOME_ACTIVITIES = [
     cta: 'reserve',
   },
   {
-    id: 'international-forum',
-    slug: 'international-forum',
-    tag: 'IF',
-    tagTone: 'yellow',
-    type: EVENT_TYPES.INTERNATIONAL_FORUM,
-    titleKey: 'activities.internationalForum',
-    introKey: 'activities.ifDesc',
-    cta: 'reserve',
-  },
-  {
     id: 'job-talk',
     slug: 'job-talk',
     tag: 'JT',

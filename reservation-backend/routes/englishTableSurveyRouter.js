@@ -143,12 +143,13 @@ router.post('/english-table', async (req, res, next) => {
       }
     }
 
-    // 自動計算參加次數（114-1學年度English Table活動的簽到次數）
+    // 自動計算參加次數（114-1學年度 English Table 活動的簽到次數）
+    const { ENGLISH_TABLE_EVENT_TYPE_ALIASES } = require('../utils/eventCapacity');
     const attendanceCount = await Reservation.count({
       include: [{
         model: Event,
         where: {
-          eventType: 'English Table',
+          eventType: { [require('sequelize').Op.in]: ENGLISH_TABLE_EVENT_TYPE_ALIASES },
           date: {
             [require('sequelize').Op.between]: ['2025-08-01', '2026-01-31'] // 114-1學年度
           }

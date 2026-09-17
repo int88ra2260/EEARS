@@ -1,12 +1,12 @@
 import React from 'react';
 import {
-  isEnglishTableEventType,
+  isGroupedCapacityEventType,
   applyCapacityFieldChange,
   computeTotalCapacity,
 } from '../../../utils/eventCapacityFields';
 
 /**
- * 活動名額欄位：ET 顯示組數／每組人數／總人數；其他類型僅總人數。
+ * 活動名額欄位：grouped 類型顯示組數／每組人數／總人數；其他僅總人數。
  */
 function displayNumberValue(value) {
   return value == null || value === '' ? '' : value;
@@ -14,25 +14,26 @@ function displayNumberValue(value) {
 
 export default function EventCapacityFields({
   eventType,
+  typeConfig = null,
   fields,
   onFieldsChange,
   size = 'default',
   layout = 'inline',
 }) {
-  const isET = isEnglishTableEventType(eventType);
-  const total = isET
+  const isGrouped = isGroupedCapacityEventType(eventType, typeConfig);
+  const total = isGrouped
     ? computeTotalCapacity(fields.groupCount, fields.perGroupCapacity)
     : fields.maxParticipants;
 
   const setCapacityField = (key, value) => {
-    onFieldsChange(applyCapacityFieldChange(fields, key, value, eventType));
+    onFieldsChange(applyCapacityFieldChange(fields, key, value, eventType, typeConfig));
   };
 
   const inputClass = size === 'sm' ? 'form-control form-control-sm' : 'form-control';
   // Keep enough width for digits + native spinner arrows (too narrow = arrows look present but unusable).
   const compactInputStyle = { minWidth: '4.5rem', width: '4.5rem', flex: '0 0 auto' };
 
-  if (!isET) {
+  if (!isGrouped) {
     if (layout === 'compact') {
       return (
         <input

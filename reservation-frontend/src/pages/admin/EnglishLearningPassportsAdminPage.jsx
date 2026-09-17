@@ -18,6 +18,7 @@ import {
   adminDeletePassport,
   adminBatchDeletePassports,
   adminBatchRejectPassports,
+  adminCreatePassport,
 } from '../../services/englishLearningPassportApi';
 import '../../components/englishLearningPassport/elp.css';
 import EnglishLearningRuleEditModal from '../../components/englishLearningPassport/EnglishLearningRuleEditModal';
@@ -61,6 +62,102 @@ function RejectModal({ show, onHide, onConfirm, title }) {
   );
 }
 
+const EMPTY_CREATE_FORM = {
+  studentId: '',
+  studentName: '',
+  studentEmail: '',
+  applicationReason: '',
+};
+
+function CreatePassportModal({ show, onHide, onSubmit, busy }) {
+  const [form, setForm] = useState(EMPTY_CREATE_FORM);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!show) return;
+    setForm(EMPTY_CREATE_FORM);
+    setError('');
+  }, [show]);
+
+  const handleSubmit = async () => {
+    setError('');
+    if (!form.studentId.trim() || !form.studentName.trim() || !form.studentEmail.trim()) {
+      setError('請填寫學號、姓名與 Email');
+      return;
+    }
+    try {
+      await onSubmit({
+        studentId: form.studentId.trim(),
+        studentName: form.studentName.trim(),
+        studentEmail: form.studentEmail.trim(),
+        applicationReason: form.applicationReason.trim(),
+      });
+    } catch (e) {
+      setError(e.message || '新增失敗');
+    }
+  };
+
+  return (
+    <Modal show={show} onHide={busy ? undefined : onHide}>
+      <Modal.Header closeButton={!busy}>
+        <Modal.Title>手動新增護照</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <p className="small text-muted mb-3">
+          適用於學生無法收到驗證信、或無法自行完成申請時，由管理員代建並直接啟用護照。
+          Email 需為中山大學校內信箱（如 @student.nsysu.edu.tw）。
+        </p>
+        {error && <div className="alert alert-danger py-2 small">{error}</div>}
+        <Form.Group className="mb-2">
+          <Form.Label>學號 <span className="text-danger">*</span></Form.Label>
+          <Form.Control
+            value={form.studentId}
+            onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))}
+            placeholder="例：B123456789"
+            disabled={busy}
+            autoFocus
+          />
+        </Form.Group>
+        <Form.Group className="mb-2">
+          <Form.Label>姓名 <span className="text-danger">*</span></Form.Label>
+          <Form.Control
+            value={form.studentName}
+            onChange={(e) => setForm((f) => ({ ...f, studentName: e.target.value }))}
+            disabled={busy}
+          />
+        </Form.Group>
+        <Form.Group className="mb-2">
+          <Form.Label>Email <span className="text-danger">*</span></Form.Label>
+          <Form.Control
+            type="email"
+            value={form.studentEmail}
+            onChange={(e) => setForm((f) => ({ ...f, studentEmail: e.target.value }))}
+            placeholder="例：b123456789@student.nsysu.edu.tw"
+            disabled={busy}
+          />
+        </Form.Group>
+        <Form.Group>
+          <Form.Label>代建原因／備註</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={2}
+            value={form.applicationReason}
+            onChange={(e) => setForm((f) => ({ ...f, applicationReason: e.target.value }))}
+            placeholder="例：驗證信無法收信，現場確認身分後代建"
+            disabled={busy}
+          />
+        </Form.Group>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onHide} disabled={busy}>取消</Button>
+        <Button variant="primary" onClick={handleSubmit} disabled={busy}>
+          {busy ? '新增中…' : '確認新增並啟用'}
+        </Button>
+      </Modal.Footer>
+    </Modal>
+  );
+}
+
 export default function EnglishLearningPassportsAdminPage() {
   const { token, userRole, accessProfile: ctxProfile } = useOutletContext();
   const accessProfile = ctxProfile || buildAccessProfile(token || '', userRole || '');
@@ -96,6 +193,8 @@ export default function EnglishLearningPassportsAdminPage() {
   const [reviewSub, setReviewSub] = useState(null);
   const [editingRule, setEditingRule] = useState(null);
   const [creatingRule, setCreatingRule] = useState(false);
+  const [showCreatePassport, setShowCreatePassport] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
 
   const passportQuery = useMemo(() => ({
     status: filters.status || undefined,
@@ -256,6 +355,21 @@ export default function EnglishLearningPassportsAdminPage() {
     setReviewSub(submission);
   };
 
+  const handleCreatePassport = async (payload) => {
+    setCreateBusy(true);
+    try {
+      const created = await adminCreatePassport(token, payload);
+      toast.success(`已新增並啟用護照：${created.studentId}`);
+      setShowCreatePassport(false);
+      reload();
+    } catch (e) {
+      toast.error(e.message || '新增護照失敗');
+      throw e;
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+
   const handleExport = async () => {
     try {
       const { blob, fileName } = await adminExportPassports(token, passportQuery);
@@ -289,6 +403,11 @@ export default function EnglishLearningPassportsAdminPage() {
   return (
     <div className="container-fluid py-3">
       <div className="d-flex flex-wrap justify-content-end align-items-center mb-3 gap-2">
+        {canManage && tab === 'passports' && (
+          <Button variant="primary" size="sm" onClick={() => setShowCreatePassport(true)}>
+            手動新增護照
+          </Button>
+        )}
         {canExport && tab !== 'page-ui' && (
           <Button variant="outline-success" size="sm" onClick={handleExport}>匯出 Excel</Button>
         )}
@@ -521,6 +640,13 @@ export default function EnglishLearningPassportsAdminPage() {
           </Tab.Content>
         )}
       </Tab.Container>
+
+      <CreatePassportModal
+        show={showCreatePassport}
+        onHide={() => !createBusy && setShowCreatePassport(false)}
+        onSubmit={handleCreatePassport}
+        busy={createBusy}
+      />
 
       <RejectModal
         show={!!rejectTarget}

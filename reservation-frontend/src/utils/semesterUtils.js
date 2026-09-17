@@ -64,6 +64,36 @@ export function getCurrentSemester() {
   return getSemesterByDate(new Date());
 }
 
+/**
+ * 取得上一學期（例：115-1 → 114-2）。
+ * @param {string|null|undefined} semesterId
+ * @returns {string|null}
+ */
+export function getPreviousSemester(semesterId = getCurrentSemester()) {
+  const sem = String(semesterId || '').trim();
+  if (!isValidSemester(sem)) return null;
+
+  const idx = SEMESTER_ORDER.indexOf(sem);
+  if (idx > 0) return SEMESTER_ORDER[idx - 1];
+  if (idx === 0) return null;
+
+  const m = sem.match(/^(\d{3})-([12])$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const term = Number(m[2]);
+  if (term === 2) return `${year}-1`;
+  return `${year - 1}-2`;
+}
+
+/**
+ * 學習有伴成效／名次預設學期。
+ * 當前學期培力英檢往往尚未開考或尚無成績，預設看上一學期（例：現在 115-1 → 114-2）。
+ * @returns {string|null}
+ */
+export function getDefaultLearningPartnerOpsSemester() {
+  return getPreviousSemester(getCurrentSemester()) || getCurrentSemester() || null;
+}
+
 export function isValidSemester(str) {
   return /^\d{3}-[12]$/.test(String(str || ''));
 }

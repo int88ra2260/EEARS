@@ -142,11 +142,13 @@ router.post('/events/:id/grouping/generate', manageGroupingAuth, async (req, res
   try {
     const force = Boolean(req.body?.force);
     const groupSlots = Array.isArray(req.body?.groupSlots) ? req.body.groupSlots : null;
-    const groupingLayout = req.body?.groupingLayout === 'band_tables' ? 'band_tables' : 'physical_slots';
+    const groupingStrategy = req.body?.groupingStrategy
+      || req.body?.groupingLayout
+      || null;
     const data = await etGroupingService.generateGrouping(req.params.id, {
       force,
       groupSlots,
-      groupingLayout,
+      groupingStrategy,
       userId: req.user?.id,
     });
     auditLogService.logAuditAsync({
@@ -157,7 +159,7 @@ router.post('/events/:id/grouping/generate', manageGroupingAuth, async (req, res
       targetSummary: `eventId=${req.params.id}`,
       afterData: {
         force,
-        groupingLayout,
+        groupingStrategy: data.plan?.groupingStrategy || groupingStrategy,
         groupSlots: data.plan?.abilityGroupSlots || [],
         studentCount: data.students?.length || 0,
       },

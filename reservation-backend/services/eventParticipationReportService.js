@@ -2,12 +2,12 @@ const { Reservation, Event } = require('../models');
 const { canAccessEventType } = require('../auth/accessProfile');
 const { getSemesterInfo } = require('../utils/eventSemesterFromDate');
 const { compareSemester } = require('../utils/semesterConstants');
-
-const EVENT_TYPE_SORT = ['English Table', 'English Club', 'International Forum', 'Job Talk'];
+const eventTypeService = require('./eventTypeService');
 
 function eventTypeSortKey(t) {
-  const i = EVENT_TYPE_SORT.indexOf(t);
-  return i === -1 ? EVENT_TYPE_SORT.length : i;
+  const cfg = eventTypeService.resolveTypeConfigSync(t, { fallbackDefault: false });
+  if (cfg && Number.isFinite(Number(cfg.sortOrder))) return Number(cfg.sortOrder);
+  return 1000;
 }
 
 /**
@@ -15,6 +15,7 @@ function eventTypeSortKey(t) {
  * @param {{ user: object, eventScopeWhere?: object }} opts
  */
 async function getParticipationCheckinBySemesterAndType({ user, eventScopeWhere }) {
+  await eventTypeService.refreshCatalogCache();
   const rows = await Reservation.findAll({
     where: { checkinStatus: '已簽到' },
     include: [
@@ -34,7 +35,7 @@ async function getParticipationCheckinBySemesterAndType({ user, eventScopeWhere 
   for (const r of rows) {
     const ev = r.Event;
     if (!ev || !ev.date) continue;
-    const eventType = ev.eventType || 'English Table';
+    const eventType = eventTypeService.coerceEventTypeCode(ev.eventType);
     if (user && user.role === 'teacher' && !canAccessEventType(user, eventType)) {
       continue;
     }

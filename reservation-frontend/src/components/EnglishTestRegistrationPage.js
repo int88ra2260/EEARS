@@ -63,6 +63,8 @@ export default function EnglishTestRegistrationPage() {
           agreedToAnnouncement={agreedToAnnouncement}
           onAgreedChange={setAgreedToAnnouncement}
           onNext={handleAnnouncementNext}
+          registrationEnabled={registrationEnabled}
+          registrationEditEnabled={registrationEditEnabled}
         />
       )}
 

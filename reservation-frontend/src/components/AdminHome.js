@@ -29,11 +29,6 @@ function AdminHome() {
   const canExportReservations = hasPermission(accessProfile, P.CAN_EXPORT_RESERVATIONS);
   const canManageEtGrouping = hasPermission(accessProfile, P.CAN_MANAGE_ET_GROUPING);
   const [operationsTab, setOperationsTab] = useState('events');
-  const eventTypeOptions = getEventTypeOptions().filter((opt) => {
-    if (opt.value === 'all' || opt.value === '其他') return true;
-    return canAccessEventType(accessProfile, opt.value);
-  });
-
   const {
     summary,
     loading,
@@ -86,6 +81,9 @@ function AdminHome() {
     handleExport,
     handleExportAll,
     isEventToday,
+    eventTypeSelectOptions,
+    eventTypeFilterOptions,
+    resolveTypeConfig,
   } = useAdminEventOperations({
     token,
     canViewEventsAdmin,
@@ -93,6 +91,22 @@ function AdminHome() {
     canExportReports,
     canExportReservations,
     confirm,
+  });
+
+  const eventTypeOptions = (eventTypeFilterOptions.length > 1
+    ? eventTypeFilterOptions
+    : getEventTypeOptions()
+  ).filter((opt) => {
+    if (opt.value === 'all' || opt.value === '其他') return true;
+    return canAccessEventType(accessProfile, opt.value);
+  });
+
+  const selectableEventTypes = (eventTypeSelectOptions.length
+    ? eventTypeSelectOptions
+    : getEventTypeOptions().filter((o) => o.value !== 'all')
+  ).filter((opt) => {
+    if (opt.value === '其他') return true;
+    return canAccessEventType(accessProfile, opt.value);
   });
 
   useEffect(() => {
@@ -109,6 +123,8 @@ function AdminHome() {
       error={addError}
       onSubmit={handleAddEvent}
       onOpenBatchAdd={openBatchAddModal}
+      eventTypeOptions={selectableEventTypes}
+      resolveTypeConfig={resolveTypeConfig}
     />
   ) : null;
 
@@ -185,6 +201,8 @@ function AdminHome() {
         onClose={() => setEditModalShow(false)}
         onSubmit={handleEditSubmit}
         onFieldsChange={setEditFields}
+        eventTypeOptions={selectableEventTypes}
+        resolveTypeConfig={resolveTypeConfig}
       />
 
       <DeleteEventConfirmModal
@@ -206,6 +224,8 @@ function AdminHome() {
         result={batchAddResult}
         onClose={closeBatchAddModal}
         onSubmit={handleBatchAddEvents}
+        eventTypeOptions={selectableEventTypes.filter((o) => o.value !== '其他')}
+        resolveTypeConfig={resolveTypeConfig}
       />
     </>
   );

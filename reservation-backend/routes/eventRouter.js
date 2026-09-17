@@ -28,6 +28,8 @@ const waitlistService = require('../services/waitlistService');
 const { getPublishedAssignmentMap } = require('../services/etGrouping/etGroupingService');
 const { buildReservationGroupsForDisplay } = require('../services/etGrouping/etReservationGroupDisplayService');
 const { normalizeEventCapacityInput, formatCapacityPayload } = require('../utils/eventCapacity');
+const eventTypeService = require('../services/eventTypeService');
+const { DEFAULT_EVENT_TYPE_CODE } = require('../constants/eventTypeCatalog');
 const {
   assertCanAccessEvent,
   buildEventScopeWhere,
@@ -99,10 +101,17 @@ function normalizeNotes(value, opts = {}) {
   return trimmed.slice(0, 255);
 }
 
+function isStudentVisibleEventType(raw) {
+  const cfg = eventTypeService.resolveTypeConfigSync(raw, { fallbackDefault: false });
+  return Boolean(cfg && cfg.isActive !== false);
+}
+
 // 1) GET /api/events - 前台取得全部活動 (無需 Token)
 router.get('/events', async (req, res, next) => {
   try {
-    const events = await Event.findAll();
+    const events = (await Event.findAll()).filter((e) =>
+      isStudentVisibleEventType(e.eventType || DEFAULT_EVENT_TYPE_CODE)
+    );
     
     // 使用共用函數取得準確的預約統計
     const eventIds = events.map(e => e.id);
@@ -128,7 +137,7 @@ router.get('/events', async (req, res, next) => {
         endTime: e.endTime,
         maxCapacity: maxCapacity,
         ...formatCapacityPayload(e),
-        eventType: e.eventType || 'English Table',
+        eventType: e.eventType || DEFAULT_EVENT_TYPE_CODE,
         customReservationRule: e.customReservationRule,
         location: e.location,
         notes: e.notes || DEFAULT_EVENT_NOTES,
@@ -184,7 +193,7 @@ router.get(
       endTime: event.endTime,
       maxCapacity,
       ...formatCapacityPayload(event),
-      eventType: event.eventType || 'English Table',
+      eventType: event.eventType || DEFAULT_EVENT_TYPE_CODE,
       customReservationRule: event.customReservationRule,
       location: event.location,
       notes: event.notes || DEFAULT_EVENT_NOTES,
@@ -268,7 +277,7 @@ router.get(
       startTime: event.startTime,
       endTime: event.endTime,
       maxCapacity,
-      eventType: event.eventType || 'English Table',
+      eventType: event.eventType || DEFAULT_EVENT_TYPE_CODE,
       customReservationRule: event.customReservationRule,
       location: event.location,
       notes: event.notes || DEFAULT_EVENT_NOTES,
@@ -315,8 +324,8 @@ router.get('/reports/summary', authMiddleware, requirePermission(P.CAN_VIEW_EVEN
     const eventScopeWhere = buildScopedEventQuery(req, res);
     if (eventScopeWhere === null) return;
 
-    // 明確類型查詢時，先做 permission+scope 驗證（worker 例外：維持營運視角）
-    if (eventType && eventType !== 'all' && eventType !== 'other' && userRole !== 'worker') {
+    // 明確類型查詢時，先做 permission+scope 驗證（含 worker）
+    if (eventType && eventType !== 'all' && eventType !== 'other') {
       if (!canAccessEventType(req.user, eventType)) {
         return res.status(403).json({ error: '無權限查詢該活動類型' });
       }
@@ -328,16 +337,11 @@ router.get('/reports/summary', authMiddleware, requirePermission(P.CAN_VIEW_EVEN
       include: { model: Reservation, attributes: ['id'] }
     });
 
-    // 工讀生只能看到當天的活動
-    if (userRole === 'worker') {
-      const today = dayjs().format('YYYY-MM-DD');
-      events = events.filter(event => event.date === today);
-    }
-
-    // 根據老師層級過濾活動類型
-    if (userRole === 'teacher') {
+    // 依帳號 scope 過濾活動類型（teacher／worker 等非 admin）
+    // 工讀生不再強制「僅當天」：仍受 scopes／篩選條件限制；簽到動作另有當天檢查
+    if (userRole === 'teacher' || userRole === 'worker') {
       events = events.filter(event => {
-        const currentEventType = event.eventType || 'English Table';
+        const currentEventType = event.eventType || DEFAULT_EVENT_TYPE_CODE;
         return canAccessEventType(req.user, currentEventType);
       });
     }
@@ -354,12 +358,18 @@ router.get('/reports/summary', authMiddleware, requirePermission(P.CAN_VIEW_EVEN
     // 對於老師，活動類型已經根據層級過濾，這裡只處理管理員和工讀生
     if (eventType && eventType !== 'all' && userRole !== 'teacher') {
       events = events.filter(event => {
-        const currentEventType = event.eventType || 'English Table';
+        const currentEventType = event.eventType || DEFAULT_EVENT_TYPE_CODE;
         if (eventType === 'other') {
-          // 其他類型：不屬於預設的四種類型
-          return !['English Table', 'Job Talk', 'English Club', 'International Forum'].includes(currentEventType);
+          // 其他類型：不屬於目錄中的類型
+          const known = new Set(
+            eventTypeService.getCatalogSync().list.map((r) => r.code)
+              .concat(['english_table', 'job_talk', 'english_club', 'international_forum',
+                'English Table', 'Job Talk', 'English Club', 'International Forum'])
+          );
+          return !known.has(currentEventType);
         } else {
-          return currentEventType === eventType;
+          return eventTypeService.coerceEventTypeCode(currentEventType)
+            === eventTypeService.coerceEventTypeCode(eventType);
         }
       });
     }
@@ -412,7 +422,7 @@ router.get('/reports/summary', authMiddleware, requirePermission(P.CAN_VIEW_EVEN
         endTime: evt.endTime,
         maxCapacity: maxCapacity,
         ...formatCapacityPayload(evt),
-        eventType: evt.eventType || 'English Table',
+        eventType: evt.eventType || DEFAULT_EVENT_TYPE_CODE,
         customReservationRule: evt.customReservationRule,
         location: evt.location,
         notes: evt.notes || DEFAULT_EVENT_NOTES,
@@ -455,8 +465,8 @@ router.get(
     });
     if (!event) return res.status(404).json({ error: "活動不存在" });
 
-    const eventType = event.eventType || 'English Table';
-    const shouldGroup = eventType === 'English Table';
+    const eventType = eventTypeService.coerceEventTypeCode(event.eventType);
+    const shouldGroup = eventTypeService.isGroupedCapacityMode(eventType);
     const assignmentMap = shouldGroup ? await getPublishedAssignmentMap(event.id) : null;
     const reservations = shouldGroup
       ? await buildReservationGroupsForDisplay(event, event.Reservations, { assignmentMap })
@@ -504,8 +514,8 @@ router.get(
     const worksheet = workbook.addWorksheet(`${event.name}-報名名單`);
 
     // 根據活動類型決定是否包含組別欄位
-    const eventType = event.eventType || 'English Table';
-    const shouldGroup = eventType === 'English Table';
+    const eventType = eventTypeService.coerceEventTypeCode(event.eventType);
+    const shouldGroup = eventTypeService.isGroupedCapacityMode(eventType);
     
     // 設定工作表欄位
     const columns = [
@@ -516,7 +526,7 @@ router.get(
       { header: '預約時間', key: 'timestamp', width: 20 }
     ];
     
-    // 只有 English Table 活動類型才加入組別欄位
+    // grouped 容量模式才加入組別欄位
     if (shouldGroup) {
       columns.push({ header: '組別', key: 'group', width: 10 });
     }
@@ -567,7 +577,7 @@ router.get(
       targetSummary: `eventId=${event.id}`,
       afterData: {
         reservationCount: event.Reservations ? event.Reservations.length : null,
-        eventType: event.eventType || 'English Table',
+        eventType: event.eventType || DEFAULT_EVENT_TYPE_CODE,
       },
       req,
     });
@@ -618,7 +628,7 @@ router.get('/reports/export', authMiddleware, requirePermission(P.CAN_EXPORT_REP
       worksheet.addRow({
         id: event.id,
         name: event.name,
-        eventType: event.eventType || 'English Table',
+        eventType: event.eventType || DEFAULT_EVENT_TYPE_CODE,
         date: event.date,
         startTime: event.startTime,
         endTime: event.endTime,
@@ -659,8 +669,15 @@ router.post('/events', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), a
       return res.status(400).json({ error: "缺少必要欄位" });
     }
 
+    await eventTypeService.refreshCatalogCache();
+    const typeKey = String(eventType || '').trim();
+    const typeHit = eventTypeService.resolveTypeConfigSync(typeKey, { fallbackDefault: false });
+    if (!typeHit && eventTypeService.CODE_PATTERN.test(typeKey)) {
+      return res.status(400).json({ error: `未知的活動類型：${typeKey}` });
+    }
+    const resolvedType = typeHit?.code || eventTypeService.coerceEventTypeCode(eventType);
     const capacity = normalizeEventCapacityInput({
-      eventType: eventType || 'English Table',
+      eventType: resolvedType,
       groupCount,
       perGroupCapacity,
       maxCapacity,
@@ -677,7 +694,7 @@ router.post('/events', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), a
       maxCapacity: capacity.maxCapacity,
       groupCount: capacity.groupCount,
       perGroupCapacity: capacity.perGroupCapacity,
-      eventType: eventType || 'English Table',
+      eventType: resolvedType,
       customReservationRule: customReservationRule || null,
       location: normalizeLocation(location),
       notes: normalizeNotes(notes, { useDefault: true }),
@@ -723,6 +740,7 @@ router.post('/events/batch', authMiddleware, requirePermission(P.CAN_MANAGE_EVEN
     const transaction = await Event.sequelize.transaction();
 
     try {
+      await eventTypeService.refreshCatalogCache();
       for (let i = 0; i < events.length; i++) {
         const eventData = events[i];
         
@@ -734,8 +752,16 @@ router.post('/events/batch', authMiddleware, requirePermission(P.CAN_MANAGE_EVEN
             continue;
           }
 
+          const typeKey = String(eventData.eventType || '').trim();
+          const typeHit = eventTypeService.resolveTypeConfigSync(typeKey, { fallbackDefault: false });
+          if (!typeHit && eventTypeService.CODE_PATTERN.test(typeKey)) {
+            results.failureCount++;
+            results.errors.push(`第 ${i + 1} 個活動：未知的活動類型：${typeKey}`);
+            continue;
+          }
+          const resolvedType = typeHit?.code || eventTypeService.coerceEventTypeCode(eventData.eventType);
           const capacity = normalizeEventCapacityInput({
-            eventType: eventData.eventType || 'English Table',
+            eventType: resolvedType,
             groupCount: eventData.groupCount,
             perGroupCapacity: eventData.perGroupCapacity,
             maxCapacity: eventData.maxCapacity,
@@ -754,7 +780,7 @@ router.post('/events/batch', authMiddleware, requirePermission(P.CAN_MANAGE_EVEN
             maxCapacity: capacity.maxCapacity,
             groupCount: capacity.groupCount,
             perGroupCapacity: capacity.perGroupCapacity,
-            eventType: eventData.eventType || 'English Table',
+            eventType: resolvedType,
             customReservationRule: eventData.customReservationRule || null,
             location: normalizeLocation(eventData.location),
             notes: normalizeNotes(eventData.notes, { useDefault: true }),
@@ -907,14 +933,22 @@ const updateEventHandler = async (req, res, next) => {
     if (date !== undefined) event.date = date;
     if (startTime !== undefined) event.startTime = startTime;
     if (endTime !== undefined) event.endTime = endTime;
-    if (eventType !== undefined) event.eventType = eventType;
+    if (eventType !== undefined) {
+      await eventTypeService.refreshCatalogCache();
+      const typeKey = String(eventType || '').trim();
+      const typeHit = eventTypeService.resolveTypeConfigSync(typeKey, { fallbackDefault: false });
+      if (!typeHit && eventTypeService.CODE_PATTERN.test(typeKey)) {
+        return res.status(400).json({ error: `未知的活動類型：${typeKey}` });
+      }
+      event.eventType = typeHit?.code || eventTypeService.coerceEventTypeCode(eventType);
+    }
     if (customReservationRule !== undefined) event.customReservationRule = customReservationRule;
     if (location !== undefined) event.location = normalizeLocation(location);
     if (notes !== undefined) event.notes = normalizeNotes(notes);
 
-    if (maxCapacity !== undefined || groupCount !== undefined || perGroupCapacity !== undefined) {
+    if (maxCapacity !== undefined || groupCount !== undefined || perGroupCapacity !== undefined || eventType !== undefined) {
       const capacity = normalizeEventCapacityInput({
-        eventType: eventType !== undefined ? eventType : event.eventType,
+        eventType: event.eventType,
         groupCount: groupCount !== undefined ? groupCount : event.groupCount,
         perGroupCapacity: perGroupCapacity !== undefined ? perGroupCapacity : event.perGroupCapacity,
         maxCapacity: maxCapacity !== undefined ? maxCapacity : event.maxCapacity,

@@ -1,11 +1,14 @@
 /**
- * 培力英檢 Excel 匯出 query：與列表 buildListParams 語意對齊（不含 page/limit）。
+ * 培力英檢 Excel／證件照匯出 query：與列表 buildListParams 語意對齊（不含 page/limit）。
  */
+import { appendSortQueryParams } from './englishTestSortConfig';
+
 export function appendExportListParams(params, {
   statusFilter = 'all',
   searchTerm = '',
   advancedFilters = {},
   sortConfig = null,
+  orderedIds = null,
 } = {}) {
   if (statusFilter && statusFilter !== 'all') {
     params.append('status', statusFilter);
@@ -21,9 +24,11 @@ export function appendExportListParams(params, {
   if (advancedFilters.hasDisabilityCard) {
     params.append('hasDisabilityCard', advancedFilters.hasDisabilityCard);
   }
-  if (sortConfig?.key) {
-    params.append('sortBy', sortConfig.key);
-    params.append('sortOrder', sortConfig.direction || 'DESC');
+  if (sortConfig?.key || sortConfig?.levels?.length) {
+    appendSortQueryParams(params, sortConfig);
+  }
+  if (Array.isArray(orderedIds) && orderedIds.length > 0) {
+    params.set('orderedIds', orderedIds.map((id) => Number(id)).filter((n) => Number.isInteger(n) && n > 0).join(','));
   }
   return params;
 }

@@ -892,6 +892,18 @@ async function changeOwnPassword(req, res, next) {
       return res.status(404).json({ error: '帳號不存在或已停用' });
     }
 
+    // 活動工讀帳密由中心固定維護，禁止自行變更以免造成現場帳密漂移
+    if (
+      teacher.role === 'worker'
+      && (teacher.workerLevel || 'event_ops') === 'event_ops'
+    ) {
+      return res.status(403).json({
+        success: false,
+        code: 'PASSWORD_CHANGE_DENIED',
+        error: '此帳號不可變更密碼，請洽系統管理員。',
+      });
+    }
+
     if (!newPassword) {
       return res.status(400).json({ success: false, code: 'PASSWORD_REQUIRED', error: '請輸入新密碼' });
     }

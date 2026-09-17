@@ -22,7 +22,7 @@ const {
   publicLookupAudit,
 } = require('../middlewares/publicAccessGuard');
 const { checkSurvey } = require('../middlewares/checkSurvey');
-const { calculateReservationTime } = require('../utils/reservationTime');
+const { calculateReservationTimeAsync } = require('../utils/reservationTime');
 const { validateStudentId, validateName } = require('../utils/validators');
 const { Op } = require('sequelize');
 const auditLogService = require('../services/auditLogService');
@@ -404,8 +404,8 @@ router.post('/reservations', checkSurvey, async (req, res) => {
       return res.status(404).json({ error: "活動不存在" });
     }
 
-    // 根據活動類型計算預約開放時間
-    const { openStart, openEnd } = calculateReservationTime(event);
+    // 根據活動類型計算預約開放時間（刷新目錄後再解析，支援動態類型）
+    const { openStart, openEnd } = await calculateReservationTimeAsync(event);
     const now = dayjs();
 
     if (now.isBefore(openStart) || now.isAfter(openEnd)) {

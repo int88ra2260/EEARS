@@ -1,5 +1,5 @@
 // components/EnglishTestManagement.js
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useEnglishTestManagement } from '../hooks/useEnglishTestManagement';
 import DetailModalWithTabs from './english-test/DetailModalWithTabs';
@@ -17,9 +17,14 @@ import EnglishTestRejectionModal from './english-test/EnglishTestRejectionModal'
 import EnglishTestFormBuilderTab from './english-test/form-builder/EnglishTestFormBuilderTab';
 import { buildAccessProfile, hasPermission } from '../utils/accessControl';
 import { P } from '../constants/permissions';
+import { createPrimarySortConfig, normalizeSortConfig } from '../utils/englishTestSortConfig';
+import { ENGLISH_TEST_MAX_PAGE_SIZE } from '../hooks/useEnglishTestRegistrations';
+import { moveIdInExportOrder } from '../utils/englishTestExportOrder';
+import useLearningPartnerOpsAttention from '../hooks/useLearningPartnerOpsAttention';
+import UnreadAttentionDot from './learning-partner/UnreadAttentionDot';
 
 export default function EnglishTestManagement() {
-  const { token, userRole, accessProfile: ctxProfile } = useOutletContext();
+  const { token, userRole, accessProfile: ctxProfile, username } = useOutletContext();
   const accessProfile = ctxProfile || buildAccessProfile(token || '', userRole || '');
   const canViewEnglishTests = hasPermission(accessProfile, P.CAN_VIEW_ENGLISH_TESTS);
   const canReviewEnglishTests = hasPermission(accessProfile, P.CAN_REVIEW_ENGLISH_TEST_REGISTRATIONS);
@@ -28,6 +33,7 @@ export default function EnglishTestManagement() {
   const canManageEnglishTests = hasPermission(accessProfile, P.CAN_MANAGE_ENGLISH_TESTS);
   const canManageLearningPartner = hasPermission(accessProfile, P.CAN_MANAGE_LEARNING_PARTNER_ADMIN);
   const canToggleRegistrationSettings = canManageSettings || canManageEnglishTests;
+  const { showAttention: showLpOpsAttention } = useLearningPartnerOpsAttention(accessProfile, username);
 
   const m = useEnglishTestManagement({ token, canViewEnglishTests });
 
@@ -50,7 +56,7 @@ export default function EnglishTestManagement() {
   } = m.settings;
 
   const { infoSourceStats, departmentStats, gradeStats, analyticsLoading, analyticsError, semester, setSemester, availableSemesters, semesterCounts, activeSemester } = m.analytics;
-  const { handleExport, handleExportPhotos } = m.exportOps;
+  const { handleExport, handleExportPhotos, exportingExcel, exportingPhotos } = m.exportOps;
   const {
     selectedRows, setSelectedRows, handleBulkApprove, handleBulkReject,
     handleBulkDelete, handleBulkSetSuccess, handleBulkSetFailed,
@@ -80,11 +86,132 @@ export default function EnglishTestManagement() {
     handleOpenQuickReview, handleQuickReviewNext, handleQuickReviewApprove, handleQuickReviewReject,
   } = m.quickReview;
 
+  const [exportArrangeMode, setExportArrangeMode] = useState(false);
+  const [orderedIds, setOrderedIds] = useState([]);
+
+  const clearExportArrange = useCallback((notify = false) => {
+    setExportArrangeMode(false);
+    setOrderedIds([]);
+    if (notify) {
+      setToast({
+        show: true,
+        message: '篩選或排序已變更，已關閉匯出順序微調',
+        variant: 'info',
+      });
+    }
+  }, [setToast]);
+
+  const arrangeScopeKey = useMemo(() => JSON.stringify({
+    statusFilter,
+    searchTerm,
+    advancedFilters,
+    sortBy: sortConfig?.levels || [{ key: sortConfig?.key, direction: sortConfig?.direction }],
+  }), [statusFilter, searchTerm, advancedFilters, sortConfig]);
+
+  const arrangeScopeKeyRef = useRef(arrangeScopeKey);
+  useEffect(() => {
+    if (!exportArrangeMode) {
+      arrangeScopeKeyRef.current = arrangeScopeKey;
+      return;
+    }
+    if (arrangeScopeKeyRef.current !== arrangeScopeKey) {
+      arrangeScopeKeyRef.current = arrangeScopeKey;
+      clearExportArrange(true);
+    }
+  }, [arrangeScopeKey, exportArrangeMode, clearExportArrange]);
+
+  const displayRegistrations = useMemo(() => {
+    if (!exportArrangeMode || orderedIds.length === 0) return registrations;
+    const byId = new Map(registrations.map((row) => [row.id, row]));
+    const used = new Set();
+    const ordered = [];
+    orderedIds.forEach((id) => {
+      const row = byId.get(id);
+      if (!row || used.has(id)) return;
+      ordered.push(row);
+      used.add(id);
+    });
+    registrations.forEach((row) => {
+      if (!used.has(row.id)) ordered.push(row);
+    });
+    return ordered;
+  }, [exportArrangeMode, orderedIds, registrations]);
+
+  const handleToggleExportArrange = useCallback(() => {
+    if (exportArrangeMode) {
+      clearExportArrange(false);
+      return;
+    }
+    if (total === 0) {
+      setToast({ show: true, message: '目前沒有可微調的資料', variant: 'warning' });
+      return;
+    }
+    if (total > ENGLISH_TEST_MAX_PAGE_SIZE) {
+      setToast({
+        show: true,
+        message: `符合條件共 ${total} 筆，超過一次載入上限 ${ENGLISH_TEST_MAX_PAGE_SIZE}。請先縮小篩選後再開啟微調。`,
+        variant: 'warning',
+      });
+      return;
+    }
+    if (registrations.length < total) {
+      setPageSize(Math.min(ENGLISH_TEST_MAX_PAGE_SIZE, Math.max(total, pageSize)));
+      setCurrentPage(1);
+      setToast({
+        show: true,
+        message: '已調整每頁筆數以載入全部符合條件的資料，請待列表更新後再按一次「匯出順序微調」。',
+        variant: 'info',
+      });
+      return;
+    }
+    setOrderedIds(registrations.map((row) => row.id));
+    setExportArrangeMode(true);
+    setToast({
+      show: true,
+      message: '已開啟匯出順序微調：可拖曳，或用 ↑↓／輸入序號精確調整單筆位置後再匯出',
+      variant: 'success',
+    });
+  }, [
+    exportArrangeMode,
+    clearExportArrange,
+    total,
+    registrations,
+    setPageSize,
+    pageSize,
+    setCurrentPage,
+    setToast,
+  ]);
+
+  const handleArrangeDragEnd = useCallback((activeId, overId) => {
+    if (activeId === overId) return;
+    setOrderedIds((prev) => {
+      const base = prev.length
+        ? prev.slice()
+        : registrations.map((row) => row.id);
+      const oldIndex = base.indexOf(Number(activeId));
+      const newIndex = base.indexOf(Number(overId));
+      if (oldIndex < 0 || newIndex < 0) return prev;
+      const next = base.slice();
+      const [moved] = next.splice(oldIndex, 1);
+      next.splice(newIndex, 0, moved);
+      return next;
+    });
+  }, [registrations]);
+
+  const handleArrangeMove = useCallback((id, action, targetOneBased) => {
+    setOrderedIds((prev) => {
+      const base = prev.length
+        ? prev
+        : registrations.map((row) => row.id);
+      return moveIdInExportOrder(base, id, action, targetOneBased);
+    });
+  }, [registrations]);
+
   const handleStatusFilterChange = (key) => {
     setStatusFilter(key);
     setCurrentPage(1);
     if (key === 'success') {
-      setSortConfig({ key: 'successSequence', direction: 'ASC' });
+      setSortConfig(createPrimarySortConfig('successSequence', 'ASC'));
     }
   };
 
@@ -113,7 +240,7 @@ export default function EnglishTestManagement() {
           </button>
         )}
         <button
-          className={`nav-link fw-semibold flex-shrink-0 ${mainTab === 'group' ? 'active' : ''}`}
+          className={`nav-link fw-semibold flex-shrink-0 d-inline-flex align-items-center ${mainTab === 'group' ? 'active' : ''}`}
           onClick={() => setMainTab('group')}
           role="tab"
           aria-selected={mainTab === 'group'}
@@ -121,6 +248,9 @@ export default function EnglishTestManagement() {
           title={!canManageLearningPartner ? '您沒有團體報名管理權限' : undefined}
         >
           團體報名
+          {showLpOpsAttention && canManageLearningPartner ? (
+            <UnreadAttentionDot className="lp-ops-attention-dot--inline" label="請查看學習有伴營運成效" />
+          ) : null}
         </button>
         {canViewEnglishTests && (
           <button
@@ -181,7 +311,7 @@ export default function EnglishTestManagement() {
       )}
 
       {canManageLearningPartner && mainTab === 'group' && (
-        <LearningPartnerManagement token={token} />
+        <LearningPartnerManagement token={token} accessProfile={accessProfile} />
       )}
 
       {!canManageLearningPartner && mainTab === 'group' && (
@@ -217,10 +347,22 @@ export default function EnglishTestManagement() {
             searchTerm,
             advancedFilters,
             sortConfig,
+            orderedIds: exportArrangeMode ? orderedIds : null,
           })}
-          onExportPhotos={handleExportPhotos}
+          onExportPhotos={() => handleExportPhotos({
+            statusFilter,
+            searchTerm,
+            advancedFilters,
+            sortConfig,
+            orderedIds: exportArrangeMode ? orderedIds : null,
+          })}
           onSendStatusEmails={handleSendStatusEmails}
           sendingEmails={sendingEmails}
+          exportingExcel={exportingExcel}
+          exportingPhotos={exportingPhotos}
+          exportArrangeMode={exportArrangeMode}
+          onToggleExportArrange={handleToggleExportArrange}
+          onArrangeMove={handleArrangeMove}
           registrationEnabled={registrationEnabled}
           registrationGroupEnabled={registrationGroupEnabled}
           registrationEditEnabled={registrationEditEnabled}
@@ -232,13 +374,9 @@ export default function EnglishTestManagement() {
           onAdvancedFiltersChange={(filters) => {
             setAdvancedFilters(filters);
             setCurrentPage(1);
-            // 不報考（NON）對應 status=revision；若仍停在其他狀態分頁會篩不到
-            if ((filters.examTypes || []).includes('NON') && statusFilter !== 'all') {
-              setStatusFilter('all');
-            }
           }}
           sortConfig={sortConfig}
-          onSortChange={(nextSort) => { setSortConfig(nextSort); setCurrentPage(1); }}
+          onSortChange={(nextSort) => { setSortConfig(normalizeSortConfig(nextSort)); setCurrentPage(1); }}
           searchTerm={searchTerm}
           onSearchChange={(value) => { setSearchTerm(value); setCurrentPage(1); }}
           selectedRows={selectedRows}
@@ -251,9 +389,12 @@ export default function EnglishTestManagement() {
           onStatsCardClick={handleStatsCardClick}
           tableContainerRef={tableContainerRef}
           loading={loading}
-          registrations={registrations}
-          onSort={(key, direction) => {
-            setSortConfig({ key, direction });
+          registrations={displayRegistrations}
+          onSort={(nextConfig, meta = {}) => {
+            if (meta.capped) {
+              setToast({ show: true, message: '排序最多五層，請先移除一層再疊加', variant: 'warning' });
+            }
+            setSortConfig(normalizeSortConfig(nextConfig));
             setCurrentPage(1);
             setTimeout(() => loadRegistrations(), 100);
           }}
@@ -262,15 +403,18 @@ export default function EnglishTestManagement() {
           onQuickStatusUpdate={handleQuickStatusUpdate}
           onDelete={handleDelete}
           onClassBestep={handleGoToClassBestep}
-          onDragEnd={async (activeId, overId) => {
-            if (activeId === overId) return;
-            const overIndex = registrations.findIndex((r) => r.id === parseInt(overId, 10));
-            if (overIndex === -1) return;
-            const targetSequence = registrations[overIndex].successSequence;
-            if (targetSequence) {
-              await handleAdjustSequence(parseInt(activeId, 10), 'move', targetSequence);
-            }
-          }}
+          onDragEnd={exportArrangeMode
+            ? handleArrangeDragEnd
+            : async (activeId, overId) => {
+              if (activeId === overId) return;
+              const overIndex = registrations.findIndex((r) => r.id === parseInt(overId, 10));
+              if (overIndex === -1) return;
+              const targetSequence = registrations[overIndex].successSequence;
+              if (targetSequence) {
+                await handleAdjustSequence(parseInt(activeId, 10), 'move', targetSequence);
+              }
+            }}
+          enableDragSort={exportArrangeMode || statusFilter === 'success'}
           currentPage={currentPage}
           totalPages={totalPages}
           total={total}

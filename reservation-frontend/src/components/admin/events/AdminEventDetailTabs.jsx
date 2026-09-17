@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import Badge from 'react-bootstrap/Badge';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import AdminEventDetailModals from './AdminEventDetailModals';
@@ -8,14 +9,30 @@ import AdminEventReservationsTab from './tabs/AdminEventReservationsTab';
 import AdminEventViolationsTab from './tabs/AdminEventViolationsTab';
 import AdminEventGroupingTab from './tabs/AdminEventGroupingTab';
 import AdminEventTaskMarksTab from './tabs/AdminEventTaskMarksTab';
+import { EVENT_DETAIL_COPY } from '../../../constants/adminEventDetailCopy';
+
+function TabTitle({ label, count, variant = 'secondary' }) {
+  return (
+    <span className="d-inline-flex align-items-center gap-1">
+      {label}
+      {count > 0 ? (
+        <Badge bg={variant} pill className="fw-normal">
+          {count}
+        </Badge>
+      ) : null}
+    </span>
+  );
+}
 
 /**
- * 活動明細：預約 → 簽到 → 匯入／匯出 → 違規／未到（現場流程優先）
- * 各分頁以 memo + 分組 props 降低 re-render 範圍。
+ * 活動明細分頁：
+ * 預約 →（ET）能力分組 → 簽到 →（ET）任務成效 → 匯入／匯出 → 違規／未到
  */
 export default function AdminEventDetailTabs({
   activeKey,
   onSelect,
+  pendingCheckinCount = 0,
+  violationRecordCount = null,
   reservationsTabProps,
   checkinTabProps,
   importExportTabProps,
@@ -23,6 +40,9 @@ export default function AdminEventDetailTabs({
   groupingTabProps,
   taskMarksTabProps,
   violationModalProps,
+  showCheckin = true,
+  showImportExport = true,
+  showViolations = true,
 }) {
   const [internalKey, setInternalKey] = useState('reservations');
   const tabKey = activeKey !== undefined ? activeKey : internalKey;
@@ -32,6 +52,9 @@ export default function AdminEventDetailTabs({
   const [cancelVerificationCode, setCancelVerificationCode] = useState('');
   const [cancelCodeError, setCancelCodeError] = useState('');
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
+
+  const showGrouping = Boolean(groupingTabProps?.visible);
+  const showTaskMarks = Boolean(taskMarksTabProps?.visible);
 
   const openCancelReservationModal = useCallback((reservation) => {
     setCancelTarget(reservation);
@@ -77,10 +100,14 @@ export default function AdminEventDetailTabs({
     [setTabKey, violationsTabProps],
   );
 
+  const goCheckinTab = useCallback(() => setTabKey('checkin'), [setTabKey]);
+
   return (
     <>
       <p className="text-muted small mb-2">
-        建議流程：確認「預約名單」→ 現場「簽到管理」→ 活動後「違規與未到處理」。
+        {showGrouping || showTaskMarks
+          ? EVENT_DETAIL_COPY.tabFlowHintEt
+          : EVENT_DETAIL_COPY.tabFlowHint}
       </p>
       <Tabs
         activeKey={tabKey}
@@ -94,32 +121,54 @@ export default function AdminEventDetailTabs({
             tabProps={reservationsTabProps}
             onOpenViolationTab={handleOpenViolationTab}
             onOpenCancel={openCancelReservationModal}
+            onGoCheckinTab={goCheckinTab}
           />
         </Tab>
 
-        <Tab eventKey="checkin" title="簽到管理">
-          <AdminEventCheckinTab tabProps={checkinTabProps} />
-        </Tab>
-
-        {groupingTabProps?.visible ? (
+        {showGrouping ? (
           <Tab eventKey="grouping" title="能力分組">
             <AdminEventGroupingTab tabProps={groupingTabProps} />
           </Tab>
         ) : null}
 
-        {taskMarksTabProps?.visible ? (
+        {showCheckin ? (
+          <Tab
+            eventKey="checkin"
+            title={<TabTitle label="簽到管理" count={pendingCheckinCount} variant="danger" />}
+          >
+            <AdminEventCheckinTab tabProps={checkinTabProps} />
+          </Tab>
+        ) : null}
+
+        {showTaskMarks ? (
           <Tab eventKey="taskMarks" title="任務成效">
             <AdminEventTaskMarksTab tabProps={taskMarksTabProps} />
           </Tab>
         ) : null}
 
-        <Tab eventKey="importExport" title="匯入與匯出">
-          <AdminEventImportExportTab tabProps={importExportTabProps} />
-        </Tab>
+        {showImportExport ? (
+          <Tab eventKey="importExport" title="匯入與匯出">
+            <AdminEventImportExportTab
+              tabProps={importExportTabProps}
+              onGoCheckinTab={goCheckinTab}
+            />
+          </Tab>
+        ) : null}
 
-        <Tab eventKey="violations" title="違規與未到處理">
-          <AdminEventViolationsTab tabProps={violationsTabProps} />
-        </Tab>
+        {showViolations ? (
+          <Tab
+            eventKey="violations"
+            title={(
+              <TabTitle
+                label="違規與未到處理"
+                count={violationRecordCount || 0}
+                variant="danger"
+              />
+            )}
+          >
+            <AdminEventViolationsTab tabProps={violationsTabProps} />
+          </Tab>
+        ) : null}
       </Tabs>
 
       <AdminEventDetailModals

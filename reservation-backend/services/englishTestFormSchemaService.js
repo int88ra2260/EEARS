@@ -5,6 +5,7 @@ const {
   buildDefaultEnglishTestFormSchema,
   ALLOWED_QUESTION_TYPES,
 } = require('../data/englishTestFormDefaultSchema');
+const { normalizeExamTypeOptions } = require('../utils/englishTestExamType');
 
 function cloneSchema(schema) {
   return JSON.parse(JSON.stringify(schema || buildDefaultEnglishTestFormSchema()));
@@ -61,9 +62,16 @@ function normalizeQuestion(raw, index) {
     throw err;
   }
 
-  const options = Array.isArray(raw.options)
+  let options = Array.isArray(raw.options)
     ? raw.options.map(normalizeOption).filter(Boolean)
     : [];
+
+  // examType：強制 value 為 LRSW/LR/SW/NON，避免表單編輯器把中文 label 寫成 value
+  if (fieldKey === 'examType') {
+    const defaultExamType = (buildDefaultEnglishTestFormSchema().questions || [])
+      .find((q) => q.fieldKey === 'examType');
+    options = normalizeExamTypeOptions(options, defaultExamType?.options || []);
+  }
 
   const content = normalizeContent(raw.content, type);
 

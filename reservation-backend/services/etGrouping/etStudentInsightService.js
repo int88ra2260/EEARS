@@ -5,23 +5,15 @@
 const { Op } = require('sequelize');
 
 const {
-
   Reservation,
-
   Event,
-
   EtEventGroupAssignment,
-
   EtSessionTaskMark,
-
 } = require('../../models');
-
 const { getGseSnapshotForStudent } = require('./etGseSnapshotService');
-
 const { listTaskTemplate } = require('./etTaskTemplateService');
-
 const { filterTasksForBand } = require('./etTaskScope');
-
+const { ENGLISH_TABLE_EVENT_TYPE_ALIASES } = require('../../utils/eventCapacity');
 
 
 async function countTaskCompletion(eventId, reservationId, bandCode, semesterId) {
@@ -78,7 +70,7 @@ async function getStudentEtInsights(studentId) {
 
       required: true,
 
-      where: { eventType: 'English Table' },
+      where: { eventType: { [Op.in]: ENGLISH_TABLE_EVENT_TYPE_ALIASES } },
 
       attributes: ['id', 'name', 'date', 'startTime', 'endTime', 'semesterId', 'groupingMode'],
 

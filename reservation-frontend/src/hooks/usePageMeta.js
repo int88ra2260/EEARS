@@ -19,7 +19,10 @@ const PAGE_META = {
     zh: { title: '關於我們 | EEARS', desc: '中心介紹、聯絡資訊與常見問題。' },
     en: { title: 'About | EEARS', desc: 'About the Center, contact information, and FAQ.' },
   },
-  '/contact': { zh: { title: '聯絡我們 | EEARS', desc: 'EMI Center 聯絡方式與服務時間。' }, en: { title: 'Contact | EEARS', desc: 'EMI Center contact and hours.' } },
+  '/contact': {
+    zh: { title: '關於我們 | EEARS', desc: '中心介紹、聯絡資訊與常見問題。' },
+    en: { title: 'About | EEARS', desc: 'About the Center, contact information, and FAQ.' },
+  },
   '/privacy': { zh: { title: '隱私權政策 | EEARS', desc: 'EEARS 隱私權政策與個人資料保護說明。' }, en: { title: 'Privacy Policy | EEARS', desc: 'EEARS privacy policy and data protection.' } },
   '/terms': { zh: { title: '使用條款 | EEARS', desc: 'EEARS 使用條款與服務規範。' }, en: { title: 'Terms of Use | EEARS', desc: 'EEARS terms of use and service rules.' } },
   '/login': { zh: { title: '登入 | EEARS', desc: '管理員／教師登入。' }, en: { title: 'Login | EEARS', desc: 'Admin / teacher login.' } },

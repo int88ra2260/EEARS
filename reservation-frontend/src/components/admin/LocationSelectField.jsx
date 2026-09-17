@@ -4,7 +4,8 @@ export const LOCATION_OPTIONS = [
   '中山貨櫃創業基地 1樓－角落討論室',
   '圖資大樓 10樓 西灣廣場',
   '綜合大樓 3樓 - GE3013',
-  '圖資大樓 10樓 - SW1008',
+  '圖資大樓 10樓 - SW1008 TED教室',
+  '活動中心三樓',
 ];
 
 export const LOCATION_OTHER = '__OTHER__';

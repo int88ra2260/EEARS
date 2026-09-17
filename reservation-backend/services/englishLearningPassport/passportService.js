@@ -405,6 +405,70 @@ async function applyPassport(ctx, { applicationReason, emailVerificationToken },
   });
 }
 
+/**
+ * 管理員代建護照（略過 Email 驗證信），供驗證信無法收信等情境。
+ */
+async function createPassportAdmin(payload, reviewerId, req) {
+  const n = assertValidStudentContext({
+    studentId: payload?.studentId,
+    studentName: payload?.studentName,
+    studentEmail: payload?.studentEmail,
+  });
+
+  const reasonRaw = String(payload?.applicationReason || payload?.adminNote || '').trim();
+  const applicationReason = reasonRaw
+    ? `【管理員代建】${reasonRaw}`
+    : '【管理員代建】學生無法自行完成 Email 驗證申請';
+
+  return sequelize.transaction(async (transaction) => {
+    const existing = await findBlockingPassport(n.studentId, transaction);
+    if (existing) {
+      const err = new Error(`學號 ${n.studentId} 已有進行中或已完成的護照（狀態：${existing.status}）`);
+      err.status = 409;
+      err.code = 'PASSPORT_ALREADY_EXISTS';
+      throw err;
+    }
+
+    const passport = await EnglishLearningPassport.create(
+      {
+        studentId: n.studentId,
+        studentName: n.studentName,
+        studentEmail: n.studentEmail,
+        status: PASSPORT_STATUS.ACTIVE,
+        applicationReason,
+        totalApprovedPoints: 0,
+        certificationStatus: CERTIFICATION_STATUS.NONE,
+        reviewedBy: reviewerId || null,
+        reviewedAt: new Date(),
+        rejectionReason: null,
+      },
+      { transaction },
+    );
+
+    await logElpAudit({
+      req,
+      studentContext: n,
+      action: 'passport_admin_create',
+      targetType: 'EnglishLearningPassport',
+      targetId: passport.id,
+      after: passportToPublic(passport),
+    });
+
+    return passportToPublic(passport);
+  }).then(async (publicPassport) => {
+    try {
+      const { flushPendingEventPassportPointsForStudent } = require('./eventPassportPointsService');
+      await flushPendingEventPassportPointsForStudent(publicPassport.studentId, {
+        req,
+        actorUserId: reviewerId,
+      });
+    } catch (err) {
+      console.error('[elp] flush pending event passport points after admin create failed:', err.message || err);
+    }
+    return publicPassport;
+  });
+}
+
 async function requireActivePassport(ctx, transaction) {
   const passport = await getPassportForStudent(ctx, transaction);
   if (!passport) {
@@ -1510,6 +1574,7 @@ module.exports = {
   getStudentDashboard,
   listEnabledRules,
   applyPassport,
+  createPassportAdmin,
   recalculatePassportPoints,
   createSubmission,
   getSubmissionForStudent,

@@ -3,6 +3,7 @@ import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import dayjs from 'dayjs';
 import { EVENT_DETAIL_COPY } from '../../../../constants/adminEventDetailCopy';
+import { isEnglishTableEventType } from '../../../../utils/eventCapacityFields';
 
 function AdminEventReservationTable({
   rows,
@@ -26,6 +27,7 @@ function AdminEventReservationTable({
   const [passportFlags, setPassportFlags] = useState(() => ({}));
   const checkedInCount = rows.filter((r) => r.checkinStatus === '已簽到').length;
   const uncheckedCount = rows.filter((r) => r.checkinStatus === '未簽到').length;
+  const isEt = isEnglishTableEventType(currentEventType);
 
   const canShowCheckin = (reservation) =>
     showCheckinActions &&
@@ -70,8 +72,9 @@ function AdminEventReservationTable({
         </div>
       </div>
       <p className="small text-muted mb-2">
-        此分頁以<strong>完整名單</strong>為主；簽到／補簽到前若學生要累計護照點數，請先勾「計入護照」。
-        違規／批次未到請至最後一分頁，避免誤觸。
+        {showCheckinActions
+          ? '簽到／補簽到前若學生要累計護照點數，請先勾「計入護照」。違規／批次未到請至「違規與未到處理」。'
+          : EVENT_DETAIL_COPY.reservationsRole}
       </p>
       <div className="table-responsive">
         <table className="table table-bordered table-sm align-middle">
@@ -79,7 +82,7 @@ function AdminEventReservationTable({
             <tr>
               <th>學號</th>
               <th>姓名</th>
-              {currentEventType === 'English Table' && <th>組別</th>}
+              {isEt && <th>組別</th>}
               <th>簽到狀態</th>
               <th style={{ minWidth: '280px' }}>操作</th>
             </tr>
@@ -87,7 +90,7 @@ function AdminEventReservationTable({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={currentEventType === 'English Table' ? 5 : 4} className="text-center text-muted">
+                <td colSpan={isEt ? 5 : 4} className="text-center text-muted">
                   {reservationSearchTerm ? '沒有符合搜尋條件的預約' : EVENT_DETAIL_COPY.emptyReservations}
                 </td>
               </tr>
@@ -96,7 +99,7 @@ function AdminEventReservationTable({
                 <tr key={reservation.id || index}>
                   <td>{reservation.studentId}</td>
                   <td>{reservation.studentName || reservation.name}</td>
-                  {currentEventType === 'English Table' && (
+                  {isEt && (
                     <td>
                       <span className="badge bg-info">{reservation.group}</span>
                     </td>

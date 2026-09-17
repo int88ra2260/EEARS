@@ -535,7 +535,15 @@ async function postEnrollmentImport(req, res) {
         errorMessage: e.message
       }).catch(() => {});
     }
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    const status = e.code === 'ENROLLMENT_SEMESTER_FK' || e.code === 'ENROLLMENT_DATA_TOO_LONG'
+      ? 400
+      : 500;
+    return res.status(status).json({
+      success: false,
+      error: e.message || '名冊匯入失敗',
+      code: e.code || 'IMPORT_ENROLLMENT_FAILED',
+      requestId: req.requestId,
+    });
   }
 }
 

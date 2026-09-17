@@ -5,7 +5,10 @@ import { bootstrapBgToStatusVariant } from '../../utils/statusBadgeUtils';
 import { Link, useOutletContext } from 'react-router-dom';
 import ImportTaskCard from '../../components/admin/import/ImportTaskCard';
 import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
-import { getImportCenterSections } from '../../constants/importCenterCards';
+import {
+  getImportCenterSections,
+  IMPORT_CENTER_TASK_GUIDES,
+} from '../../constants/importCenterCards';
 import {
   IMPORT_STATUS_BADGE,
   IMPORT_STATUS_LABEL,
@@ -24,16 +27,16 @@ const STATUS_LEGEND_ORDER = [
 
 const GUIDE_POINTS = [
   {
-    label: '集中入口',
-    text: '匯入、同步與匯出功能由此一次找到，不必在各模組間來回搜尋。',
+    label: '先對照資料',
+    text: '每張卡片都標示「匯入什麼」：要準備哪種 Excel／來源，以及是否需選學期。',
   },
   {
-    label: '原頁操作',
-    text: '實際上傳、預覽與寫入仍在各功能頁完成；本頁僅提供導覽與說明。',
+    label: '再確認影響',
+    text: '「會影響什麼」說明寫入後哪些報表、名單或統計會變；避免選錯入口。',
   },
   {
-    label: '流程不變',
-    text: '未重構後端 API，既有匯入邏輯與權限檢查維持原樣。',
+    label: '再到原頁上傳',
+    text: '本頁只做導覽；實際上傳、預覽與寫入仍在各功能頁完成。',
   },
 ];
 
@@ -80,7 +83,7 @@ export default function ImportCenterPage() {
           <StatusLegend />
         </div>
         <p className="import-center-page__lede">
-          行政人員的匯入與同步起點。選擇下方項目後，將導向既有功能頁完成操作。
+          先確認要匯入哪種資料、會影響哪些報表，再進入對應頁上傳。本頁不直接收檔。
         </p>
       </header>
 
@@ -92,6 +95,31 @@ export default function ImportCenterPage() {
           </div>
         ))}
       </div>
+
+      <aside
+        className="import-center-task-guide import-center-reveal"
+        style={{ '--reveal-delay': '90ms' }}
+        aria-label="常見任務導引"
+      >
+        <div className="import-center-task-guide__head">
+          <span className="import-center-task-guide__eyebrow">常見任務</span>
+          <p className="import-center-task-guide__intro">
+            不確定該點哪張卡片時，可先對照目標再選入口。
+          </p>
+        </div>
+        <ul className="import-center-task-guide__list">
+          {IMPORT_CENTER_TASK_GUIDES.map((task) => (
+            <li key={task.id} className="import-center-task-guide__item">
+              <p className="import-center-task-guide__goal">{task.goal}</p>
+              <ol className="import-center-task-guide__steps">
+                {task.steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </li>
+          ))}
+        </ul>
+      </aside>
 
       <aside
         className="import-center-runs-banner import-center-reveal"

@@ -24,6 +24,26 @@ const excelUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
+function handleExcelUpload(req, res, next) {
+  excelUpload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        error: '檔案過大，名冊 Excel 上限為 10MB。請縮小檔案後再上傳。',
+        code: 'FILE_TOO_LARGE',
+        requestId: req.requestId,
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      error: err.message || '上傳失敗',
+      code: 'UPLOAD_FAILED',
+      requestId: req.requestId,
+    });
+  });
+}
+
 /** 讀取學習歷程 V3（儀表板、學生、趨勢、匯入紀錄列表） */
 const ljRead = requireAnyPermission(
   [P.CAN_VIEW_ENGLISH_TEST_TRACKING, P.CAN_MANAGE_ENGLISH_TEST_TRACKING],
@@ -65,9 +85,9 @@ router.get('/operation-runs/:id', ljRead, controller.getOperationRunDetail);
 router.get('/import/histories', ljRead, controller.getImportHistories);
 router.delete('/import/histories/:id', ljManage, controller.deleteImportHistory);
 
-router.post('/import/enrollment', ljManage, excelUpload.single('file'), controller.postEnrollmentImport);
-router.post('/import/exam', ljManage, excelUpload.single('file'), controller.postExamImport);
-router.post('/import/baseline', ljManage, excelUpload.single('file'), controller.postBaselineImport);
+router.post('/import/enrollment', ljManage, handleExcelUpload, controller.postEnrollmentImport);
+router.post('/import/exam', ljManage, handleExcelUpload, controller.postExamImport);
+router.post('/import/baseline', ljManage, handleExcelUpload, controller.postBaselineImport);
 router.post('/sync/ewl', ljManage, controller.postEwlSync);
 
 module.exports = router;

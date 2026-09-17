@@ -1,0 +1,19 @@
+.lp-ops-attention-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc3545;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.lp-ops-attention-dot--inline {
+  margin-left: 0.35rem;
+}
+
+.admin-sidebar__section-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}

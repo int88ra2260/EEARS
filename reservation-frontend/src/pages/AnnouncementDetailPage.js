@@ -12,6 +12,11 @@ import {
   parseAnnouncementBodyBlocks,
   renderLinesWithBreaks,
 } from '../utils/parseAnnouncementBodyBlocks';
+import {
+  isAnnouncementHtmlContent,
+  sanitizeAnnouncementHtml,
+  stripCoverImageFromHtml,
+} from '../utils/sanitizeAnnouncementHtml';
 
 function ProseParagraph({ text }) {
   const lines = renderLinesWithBreaks(text);
@@ -27,7 +32,7 @@ function ProseParagraph({ text }) {
   );
 }
 
-function AnnouncementBody({ content, summary }) {
+function AnnouncementBodyLegacy({ content, summary }) {
   const blocks = parseAnnouncementBodyBlocks(content || summary || '');
   if (!blocks.length) return null;
 
@@ -90,6 +95,23 @@ function AnnouncementBody({ content, summary }) {
       })}
     </div>
   );
+}
+
+function AnnouncementBody({ content, summary, coverImage }) {
+  const raw = content || summary || '';
+  if (isAnnouncementHtmlContent(raw)) {
+    const withoutCover = stripCoverImageFromHtml(raw, coverImage);
+    const safe = sanitizeAnnouncementHtml(withoutCover);
+    if (!safe) return null;
+    return (
+      <div
+        className="announcement-detail-body announcement-detail-prose announcement-prose-html"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: safe }}
+      />
+    );
+  }
+  return <AnnouncementBodyLegacy content={content} summary={summary} />;
 }
 
 export default function AnnouncementDetailPage() {
@@ -316,7 +338,11 @@ export default function AnnouncementDetailPage() {
           </div>
         ) : null}
 
-        <AnnouncementBody content={item.content} summary={item.summary} />
+        <AnnouncementBody
+          content={item.content}
+          summary={item.summary}
+          coverImage={item.coverImage}
+        />
 
         <div className="announcement-detail-actions d-flex flex-wrap gap-2 align-items-center">
           <Link to="/announcements" className="btn btn-outline-secondary">

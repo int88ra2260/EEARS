@@ -5,7 +5,10 @@ import { useLanguage } from '../context/LanguageContext';
 import { LANG_ZH, LANG_EN } from '../context/LanguageContext';
 import { useSiteContentPreview } from '../context/SiteContentPreviewShell';
 import useMediaQuery from '../hooks/useMediaQuery';
-import { fetchEnglishTestRegistrationEnabledPublic } from '../services/settingsAdminApi';
+import {
+  fetchEnglishTestRegistrationEnabledPublic,
+  fetchEnglishTestRegistrationEditEnabledPublic,
+} from '../services/settingsAdminApi';
 import { backdropMotion, drawerPanelMotion } from '../utils/motionPresets';
 import './Header.css';
 
@@ -32,7 +35,15 @@ export default function Header() {
   const { t, lang, setLang } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [englishTestEnabled, setEnglishTestEnabled] = useState(true);
+  /**
+   * 允許狀態：
+   * - 個人報名 + 檢視與修正皆開 → 顯示「考試報名」
+   * - 僅檢視與修正開 → 顯示「資料修正」
+   * - 皆關 → 不顯示
+   */
+  const [englishTestRegistrationEnabled, setEnglishTestRegistrationEnabled] = useState(false);
+  const [englishTestEditEnabled, setEnglishTestEditEnabled] = useState(false);
+  const [englishTestNavReady, setEnglishTestNavReady] = useState(false);
   const reduceMotion = useReducedMotion();
   const backdropPresence = backdropMotion(reduceMotion);
   const drawerPresence = drawerPanelMotion(reduceMotion);
@@ -41,7 +52,10 @@ export default function Header() {
   const isPublicSurface = preview?.isPreview
     ? true
     : location.pathname !== '/login' && !location.pathname.startsWith('/admin');
-  const showEnglishTest = isPublicSurface && englishTestEnabled;
+  const showEnglishTest = isPublicSurface && englishTestNavReady && englishTestEditEnabled;
+  const englishTestLabelKey = englishTestRegistrationEnabled
+    ? 'nav.englishTest'
+    : 'nav.englishTestEdit';
 
   const isActive = (path) => {
     if (path === '/') return pathname === '/';
@@ -50,12 +64,22 @@ export default function Header() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchEnglishTestRegistrationEnabledPublic()
-      .then((enabled) => {
-        if (!cancelled) setEnglishTestEnabled(enabled);
+    Promise.all([
+      fetchEnglishTestRegistrationEnabledPublic(),
+      fetchEnglishTestRegistrationEditEnabledPublic(),
+    ])
+      .then(([registrationEnabled, editEnabled]) => {
+        if (cancelled) return;
+        setEnglishTestRegistrationEnabled(registrationEnabled);
+        setEnglishTestEditEnabled(editEnabled);
+        setEnglishTestNavReady(true);
       })
       .catch(() => {
-        if (!cancelled) setEnglishTestEnabled(true);
+        if (cancelled) return;
+        // 失敗時保守顯示考試報名（與後端預設皆開一致）
+        setEnglishTestRegistrationEnabled(true);
+        setEnglishTestEditEnabled(true);
+        setEnglishTestNavReady(true);
       });
     return () => {
       cancelled = true;
@@ -114,13 +138,14 @@ export default function Header() {
 
   const englishTestLink = (mobile) => {
     if (!showEnglishTest) return null;
+    const label = t(englishTestLabelKey);
     const className = mobile
       ? `nav-link-mobile nav-link-mobile--service${isActive('/register/english-test') ? ' nav-link-mobile--active' : ''}`
       : `nav-link nav-link--service nav-link--service-muted${isActive('/register/english-test') ? ' nav-link--active' : ''}`;
     if (preview?.isPreview) {
       return (
         <span className={className} aria-disabled="true">
-          {t('nav.englishTest')}
+          {label}
         </span>
       );
     }
@@ -130,7 +155,7 @@ export default function Header() {
         className={className}
         onClick={() => setMenuOpen(false)}
       >
-        {t('nav.englishTest')}
+        {label}
       </Link>
     );
   };

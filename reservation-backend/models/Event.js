@@ -39,7 +39,8 @@ const Event = sequelize.define('Event', {
   eventType: {
     type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'English Table'
+    defaultValue: 'english_table',
+    comment: '活動類型 code（對應 event_types.code）',
   },
   semesterId: {
     type: DataTypes.INTEGER.UNSIGNED,

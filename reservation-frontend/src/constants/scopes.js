@@ -12,3 +12,24 @@ export const SCOPE = {
 
 export const ALL_SCOPES = Object.freeze(Object.values(SCOPE));
 
+/** 非活動類型的系統業務 scope（帳號編輯「其他業務」區） */
+export const SYSTEM_SCOPES = Object.freeze([
+  SCOPE.ALL,
+  SCOPE.CLASS,
+  SCOPE.SURVEY_ENGLISH_TABLE,
+  SCOPE.SURVEY_ENGLISH_CLUB,
+  SCOPE.ENGLISH_TEST,
+]);
+
+const SYSTEM_SCOPE_SET = new Set(SYSTEM_SCOPES);
+
+export function isSystemScope(scope) {
+  return SYSTEM_SCOPE_SET.has(String(scope || '').trim());
+}
+
+/** 活動類型 scope：snake_case 且非系統 scope */
+export function isEventActivityScope(scope) {
+  const key = String(scope || '').trim();
+  if (!key || isSystemScope(key)) return false;
+  return /^[a-z][a-z0-9_]{1,63}$/.test(key);
+}

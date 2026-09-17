@@ -20,6 +20,7 @@ const DATA_QUALITY_LABELS = {
 const SOURCE_LABELS = {
   auto: '能力分組',
   legacy: '預約順序',
+  random: '亂數',
   manual: '手動調整',
 };
 

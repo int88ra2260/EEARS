@@ -4,7 +4,7 @@
  */
 
 import { P } from '../constants/permissions';
-import { SCOPE, ALL_SCOPES } from '../constants/scopes';
+import { SCOPE, ALL_SCOPES, isEventActivityScope } from '../constants/scopes';
 import { parseJwtPayload } from './jwtPayload';
 
 function addAll(set, list) {
@@ -107,18 +107,10 @@ function buildBasePermissionSet(user) {
   if (role === 'worker') {
     const worker = (user && user.workerLevel) || 'event_ops';
     if (worker === 'event_ops') {
+      // 活動工讀：僅可檢視活動列表與預約名單（不可新增／簽到／匯出／違規／改密）
       addAll(perms, [
         P.CAN_VIEW_EVENTS_ADMIN,
-        P.CAN_MANAGE_EVENTS,
         P.CAN_VIEW_RESERVATIONS,
-        P.CAN_MANAGE_RESERVATIONS,
-        P.CAN_EXPORT_RESERVATIONS,
-        P.CAN_CHECKIN_STUDENTS,
-        P.CAN_VIEW_BLACKLIST,
-        P.CAN_RECORD_VIOLATIONS,
-        P.CAN_MANAGE_VIOLATIONS,
-        P.CAN_VIEW_ET_GROUPING,
-        P.CAN_EXPORT_ET_GROUPING,
       ]);
     } else if (worker === 'bestep_ops') {
       addAll(perms, [
@@ -364,8 +356,11 @@ function normalizeScopes(scopes) {
   const set = new Set();
   for (const s of scopes) {
     if (typeof s !== 'string') continue;
-    if (!ALL_SCOPES.includes(s)) continue;
-    set.add(s);
+    const key = s.trim();
+    if (!key) continue;
+    if (ALL_SCOPES.includes(key) || isEventActivityScope(key)) {
+      set.add(key);
+    }
   }
   return Array.from(set);
 }
@@ -547,20 +542,22 @@ export function hasAllPermissions(profile, permissions) {
 
 export function canAccessEventType(profile, eventType) {
   if (profile.isAdmin) return true;
-  if (profile.isWorker) return true;
   if (profile.isLeader) {
-    const t = String(eventType || '').trim();
-    if (t !== 'English Table') return false;
+    const raw = String(eventType || '').trim().toLowerCase().replace(/\s+/g, '_');
+    const isEt = raw === 'english_table' || raw === 'et';
+    if (!isEt) return false;
     return profile.finalScopes.includes(SCOPE.ENGLISH_TABLE) || profile.finalScopes.includes(SCOPE.ALL);
   }
   if (!profile.permissionSet.has(P.CAN_VIEW_EVENTS_ADMIN)) return false;
 
-  const t = String(eventType || '').trim();
+  const raw = String(eventType || '').trim();
   let scope = null;
-  if (t === 'English Table') scope = SCOPE.ENGLISH_TABLE;
-  else if (t === 'International Forum') scope = SCOPE.INTERNATIONAL_FORUM;
-  else if (t === 'Job Talk') scope = SCOPE.JOB_TALK;
-  else if (t === 'English Club') scope = SCOPE.ENGLISH_CLUB;
+  const lower = raw.toLowerCase().replace(/\s+/g, '_');
+  if (raw === 'English Table' || lower === 'english_table' || lower === 'et') scope = SCOPE.ENGLISH_TABLE;
+  else if (raw === 'International Forum' || lower === 'international_forum' || lower === 'if') scope = SCOPE.INTERNATIONAL_FORUM;
+  else if (raw === 'Job Talk' || lower === 'job_talk' || lower === 'jt') scope = SCOPE.JOB_TALK;
+  else if (raw === 'English Club' || lower === 'english_club' || lower === 'ec') scope = SCOPE.ENGLISH_CLUB;
+  else if (/^[a-z][a-z0-9_]{1,63}$/.test(raw)) scope = raw;
   else scope = null;
   if (!scope) return false;
   if (profile.finalScopes.includes(SCOPE.ALL)) return true;

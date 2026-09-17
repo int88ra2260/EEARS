@@ -98,11 +98,11 @@ export default function StatsVisualization({
     nonExam: { border: '#212529', text: '#212529' },
     examLR: { border: '#dee2e6', text: '#212529', bg: '#fff' },
     examSW: { border: '#dee2e6', text: '#212529', bg: '#fff' },
+    examLRSW: { border: '#0d6efd', text: '#0d6efd', bg: '#fff' },
   };
 
   const ratio = (n) => (stats.total > 0 ? n / stats.total : undefined);
   const examActive = (value) => Array.isArray(currentExamTypes) && currentExamTypes.includes(value);
-  const examTypesActive = Array.isArray(currentExamTypes) && currentExamTypes.length > 0;
 
   return (
     <div className="mb-4">
@@ -113,13 +113,13 @@ export default function StatsVisualization({
         <div className="row">
           <SectionHeader
             title="審核狀態"
-            hint="互斥分類 · 點選會切換上方狀態分頁，並清除「測驗類型」篩選"
+            hint="數字會套用目前進階篩選（含測驗類型／學期／日期／搜尋等）· 點選切換狀態分頁，可與測驗類型同時使用"
           />
 
           <StatCard
             title="總報名人數"
             value={stats.total}
-            active={currentStatusFilter === 'all' && !examTypesActive}
+            active={currentStatusFilter === 'all'}
             borderColor={CARD_COLORS.total.border}
             textColor={CARD_COLORS.total.text}
             onActivate={() => handleCardClick('status', 'all')}
@@ -134,7 +134,7 @@ export default function StatsVisualization({
           <StatCard
             title="審核中"
             value={stats.pending}
-            active={currentStatusFilter === 'pending' && !examTypesActive}
+            active={currentStatusFilter === 'pending'}
             borderColor={CARD_COLORS.pending.border}
             textColor={CARD_COLORS.pending.text}
             backgroundColor={
@@ -152,7 +152,7 @@ export default function StatsVisualization({
           <StatCard
             title="已通過"
             value={stats.approved}
-            active={currentStatusFilter === 'approved' && !examTypesActive}
+            active={currentStatusFilter === 'approved'}
             borderColor={CARD_COLORS.approved.border}
             textColor={CARD_COLORS.approved.text}
             barColor={CARD_COLORS.approved.bar}
@@ -163,7 +163,7 @@ export default function StatsVisualization({
           <StatCard
             title="請修正"
             value={stats.revision ?? 0}
-            active={currentStatusFilter === 'revision' && !examTypesActive}
+            active={currentStatusFilter === 'revision'}
             borderColor={CARD_COLORS.revision.border}
             textColor={CARD_COLORS.revision.text}
             barColor={CARD_COLORS.revision.bar}
@@ -174,7 +174,7 @@ export default function StatsVisualization({
           <StatCard
             title="報名成功"
             value={stats.success ?? 0}
-            active={currentStatusFilter === 'success' && !examTypesActive}
+            active={currentStatusFilter === 'success'}
             borderColor={CARD_COLORS.success.border}
             textColor={CARD_COLORS.success.text}
             barColor={CARD_COLORS.success.bar}
@@ -185,7 +185,7 @@ export default function StatsVisualization({
           <StatCard
             title="報名失敗"
             value={stats.failed ?? 0}
-            active={currentStatusFilter === 'failed' && !examTypesActive}
+            active={currentStatusFilter === 'failed'}
             borderColor={CARD_COLORS.failed.border}
             textColor={CARD_COLORS.failed.text}
             barColor={CARD_COLORS.failed.bar}
@@ -232,7 +232,7 @@ export default function StatsVisualization({
         <div className="row">
           <SectionHeader
             title="報考項目"
-            hint="可重疊（四項全考會同時計入聽讀與說寫）· 點選會套用進階「測驗類型」並切到「全部」狀態"
+            hint="聽讀／說寫可重疊（含四項全考）；數字會套用目前狀態與進階篩選 · 點選會套用對應測驗類型（可與狀態同時使用）"
           />
 
           <StatCard
@@ -262,6 +262,16 @@ export default function StatsVisualization({
             textColor={CARD_COLORS.examSW.text}
             backgroundColor={CARD_COLORS.examSW.bg}
             onActivate={() => handleCardClick('examType', 'SW')}
+          />
+
+          <StatCard
+            title="四項全考（LRSW）"
+            value={stats.lrsw ?? 0}
+            active={examActive('LRSW')}
+            borderColor={examActive('LRSW') ? '#0d6efd' : CARD_COLORS.examLRSW.border}
+            textColor={CARD_COLORS.examLRSW.text}
+            backgroundColor={CARD_COLORS.examLRSW.bg}
+            onActivate={() => handleCardClick('examType', 'LRSW')}
           />
 
           {inconsistentNon > 0 && (

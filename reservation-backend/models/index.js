@@ -3,6 +3,7 @@
 const sequelize = require('../db');
 const User = require('./User');
 const Event = require('./Event');
+const EventType = require('./EventType');
 const Reservation = require('./Reservation');
 const BlackListRecord = require('./BlackListRecord');
 const Settings = require('./Settings');
@@ -319,6 +320,7 @@ module.exports = {
   sequelize,
   User,
   Event,
+  EventType,
   Reservation,
   BlackListRecord,
   Settings,

@@ -57,6 +57,10 @@ jest.mock('../services/auditLogService', () => ({
   logAuditAsync: jest.fn(),
 }));
 
+jest.mock('../services/englishLearningPassport/eventPassportPointsService', () => ({
+  flushPendingEventPassportPointsForStudent: jest.fn().mockResolvedValue({ flushed: 0 }),
+}));
+
 const passportService = require('../services/englishLearningPassport/passportService');
 const pointValidation = require('../services/englishLearningPassport/pointValidationService');
 
@@ -133,6 +137,40 @@ describe('englishLearningPassport passportService', () => {
     });
   });
 
+  it('管理員可代建護照並略過驗證信', async () => {
+    mockPassportFindOne.mockResolvedValue(null);
+    const created = makePassport({ status: 'active', id: 20, applicationReason: '【管理員代建】驗證信無法收信' });
+    mockPassportCreate.mockResolvedValue(created);
+
+    const result = await passportService.createPassportAdmin(
+      { ...studentCtx, applicationReason: '驗證信無法收信' },
+      7,
+      {},
+    );
+    expect(result.status).toBe('active');
+    expect(mockPassportCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'active',
+        reviewedBy: 7,
+        applicationReason: expect.stringContaining('管理員代建'),
+      }),
+      expect.any(Object),
+    );
+    expect(mockAuditCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'passport_admin_create' }),
+    );
+  });
+
+  it('管理員代建不可覆蓋既有護照', async () => {
+    mockPassportFindOne.mockResolvedValue(makePassport({ status: 'active' }));
+    await expect(
+      passportService.createPassportAdmin(studentCtx, 1, {}),
+    ).rejects.toMatchObject({
+      code: 'PASSPORT_ALREADY_EXISTS',
+      status: 409,
+    });
+  });
+
   it('未 active 不可提交點數', async () => {
     mockPassportFindOne.mockResolvedValue(makePassport({ status: 'pending' }));
     mockRuleFindOne.mockResolvedValue(makeRule('TUTOR_CONSULTATION'));
@@ -148,7 +186,8 @@ describe('englishLearningPassport passportService', () => {
     const passport = makePassport({ status: 'pending' });
     mockPassportFindOne
       .mockResolvedValueOnce(passport) // initial getPassportForStudent
-      .mockResolvedValueOnce(makePassport({ status: 'active' })); // after heal
+      .mockResolvedValueOnce(makePassport({ status: 'active' })) // after heal
+      .mockResolvedValueOnce(makePassport({ status: 'active' })); // after flush pending points
     mockPassportFindByPk.mockResolvedValue(passport);
     mockSubmissionFindAll.mockResolvedValue([]);
     mockRuleFindAll.mockResolvedValue([]);

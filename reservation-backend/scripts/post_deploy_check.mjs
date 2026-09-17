@@ -135,14 +135,17 @@ async function checkStudentIdValidation() {
 
 // 3. 問卷 Gate 流程檢查
 async function checkSurveyGate() {
-  // 這個檢查需要實際的資料庫和測試資料
-  // 這裡僅檢查 API 端點是否存在
+  // /api/surveys/config 已封存（410 Gone）；改檢查現行公開問卷列表。
   try {
-    const response = await httpRequest(`${API_BASE_URL}/api/surveys/config`);
+    const response = await httpRequest(`${API_BASE_URL}/api/surveys/enabled`);
+    const ok = response.status === 200 && Array.isArray(response.data);
     return {
-      passed: response.status === 200,
-      message: response.status === 200 ? '問卷配置 API 正常' : '問卷配置 API 異常',
-      details: { status: response.status }
+      passed: ok,
+      message: ok ? '問卷公開列表 API 正常' : '問卷公開列表 API 異常',
+      details: {
+        status: response.status,
+        count: Array.isArray(response.data) ? response.data.length : null
+      }
     };
   } catch (error) {
     return {

@@ -29,3 +29,41 @@
 .admin-event-grouping-tab__intro {
   background: #f8f9fa;
 }
+
+.admin-event-grouping-tab__stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-event-grouping-tab__step {
+  border: 1px solid var(--admin-border, #eaeaea);
+  background: #fff;
+  color: #495057;
+  border-radius: 6px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.admin-event-grouping-tab__step.is-active {
+  border-color: #2a5d9f;
+  background: #f3f7fc;
+  color: #2a5d9f;
+}
+
+.admin-event-grouping-tab__step.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-event-grouping-tab__view-pills .nav-link {
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.admin-event-grouping-tab__board-card {
+  border: 1px solid var(--admin-border, #eaeaea);
+  box-shadow: none;
+}

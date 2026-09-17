@@ -16,6 +16,11 @@ import '../EventDetail.css';
 import '../../styles/student-events.css';
 import BookingSuccessView from './BookingSuccessView';
 import { getEventBookingState } from '../../utils/eventBookingState';
+import {
+  isEnglishClubEventType,
+  isEnglishTableEventType,
+} from '../../utils/eventCapacityFields';
+import { fetchPublicEventTypes } from '../../services/eventTypeApi';
 
 const BOOKING_EASE = [0.16, 1, 0.3, 1];
 
@@ -29,6 +34,11 @@ export default function EventBookingModal({ show, event, onClose }) {
   const bodyScopeRef = useRef(null);
   const blacklistScopeRef = useRef(null);
   const wasOpenRef = useRef(false);
+
+  useEffect(() => {
+    if (!show) return;
+    fetchPublicEventTypes().catch(() => {});
+  }, [show]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -65,7 +75,7 @@ export default function EventBookingModal({ show, event, onClose }) {
   }, [event]);
 
   const surveyMayBeRequired =
-    event?.eventType === 'English Table' || event?.eventType === 'English Club';
+    isEnglishTableEventType(event?.eventType) || isEnglishClubEventType(event?.eventType);
 
   // Step 2：若內建問卷 modal 開啟，就高亮 Step 2
   useEffect(() => {
@@ -260,7 +270,7 @@ export default function EventBookingModal({ show, event, onClose }) {
   }, [blacklist?.showBlacklistModal]);
 
   if (!event) return null;
-  const surveyKeyByEventType = event.eventType === 'English Club'
+  const surveyKeyByEventType = isEnglishClubEventType(event.eventType)
     ? 'english_club_feedback_114_1'
     : 'english_table_feedback_114_1';
 

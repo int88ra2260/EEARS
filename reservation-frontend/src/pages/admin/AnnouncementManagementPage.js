@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Button, Pagination, Modal, Dropdown } from 'react-bootstrap';
 import {
   fetchAdminAnnouncements,
-  createAdminAnnouncement,
-  updateAdminAnnouncement,
   deleteAdminAnnouncement,
   patchPin,
   postPublishAnnouncement,
@@ -16,7 +14,6 @@ import {
 import AnnouncementFilters from '../../components/admin/announcements/AnnouncementFilters';
 import AnnouncementTable from '../../components/admin/announcements/AnnouncementTable';
 import AnnouncementWorkflowGuide from '../../components/admin/announcements/AnnouncementWorkflowGuide';
-import AnnouncementFormModal from '../../components/admin/announcements/AnnouncementFormModal';
 import {
   getAnnouncementPublishAction,
   getArchiveConfirmCopy,
@@ -31,7 +28,8 @@ const limit = 20;
 
 export default function AnnouncementManagementPage() {
   const { token } = useOutletContext();
-  const confirm = useConfirm();
+  const navigate = useNavigate();
+  const { confirm } = useConfirm();
 
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('all');
@@ -62,8 +60,6 @@ export default function AnnouncementManagementPage() {
   const [toast, setToast] = useState('');
   const [selectedIds, setSelectedIds] = useState(() => new Set());
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleteRow, setDeleteRow] = useState(null);
   const [actionBusyId, setActionBusyId] = useState(null);
@@ -139,37 +135,11 @@ export default function AnnouncementManagementPage() {
   };
 
   const openCreate = () => {
-    setEditing(null);
-    setModalOpen(true);
+    navigate('/admin/announcements/new');
   };
 
   const openEdit = (row) => {
-    setEditing(row);
-    setModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setModalOpen(false);
-    setEditing(null);
-  };
-
-  const handleFormSubmit = async (payload) => {
-    setSaving(true);
-    try {
-      if (editing) {
-        await updateAdminAnnouncement(token, editing.id, payload);
-        setToast('已更新公告');
-      } else {
-        await createAdminAnnouncement(token, payload);
-        setToast('已建立公告');
-      }
-      closeModal();
-      await load();
-    } catch (e) {
-      setToast(e.message || '儲存失敗');
-    } finally {
-      setSaving(false);
-    }
+    navigate(`/admin/announcements/${row.id}/edit`);
   };
 
   const handleDelete = async () => {
@@ -511,15 +481,6 @@ export default function AnnouncementManagementPage() {
           />
         </Pagination>
       )}
-
-      <AnnouncementFormModal
-        show={modalOpen}
-        onHide={closeModal}
-        initial={editing}
-        onSubmit={handleFormSubmit}
-        saving={saving}
-        token={token}
-      />
 
       <Modal show={!!deleteRow} onHide={() => !saving && setDeleteRow(null)} centered>
         <Modal.Header closeButton>

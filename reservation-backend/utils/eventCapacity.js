@@ -1,5 +1,10 @@
 'use strict';
 
+const eventTypeService = require('../services/eventTypeService');
+const {
+  DEFAULT_EVENT_TYPE_CODE,
+} = require('../constants/eventTypeCatalog');
+
 const DEFAULT_ET_GROUP_COUNT = 9;
 const DEFAULT_ET_PER_GROUP_CAPACITY = 4;
 const MAX_GROUP_COUNT = 20;
@@ -7,8 +12,38 @@ const MAX_PER_GROUP_CAPACITY = 30;
 const MAX_TOTAL_CAPACITY = 300;
 const MAX_NON_ET_CAPACITY = 100;
 
+/** Sequelize where／相容查詢用：code + legacy 顯示名 */
+const ENGLISH_TABLE_EVENT_TYPE_ALIASES = Object.freeze(['english_table', 'English Table', 'ET']);
+const ENGLISH_CLUB_EVENT_TYPE_ALIASES = Object.freeze(['english_club', 'English Club', 'EC']);
+
+function matchesAliasList(eventType, aliases) {
+  const raw = String(eventType || '').trim();
+  if (!raw) return false;
+  const lower = raw.toLowerCase();
+  return aliases.some((alias) => String(alias).toLowerCase() === lower);
+}
+
+/**
+ * 是否為 English Table（相容 code `english_table` 與 legacy 顯示名）。
+ * 別名比對優先，避免 DB catalog／快取未暖機時誤判。
+ */
 function isEnglishTableEventType(eventType) {
-  return (eventType || 'English Table') === 'English Table';
+  if (matchesAliasList(eventType, ENGLISH_TABLE_EVENT_TYPE_ALIASES)) return true;
+  try {
+    return eventTypeService.matchesEventTypeCode(eventType, 'english_table');
+  } catch {
+    return false;
+  }
+}
+
+/** 是否為 English Club（相容 code `english_club` 與 legacy 顯示名） */
+function isEnglishClubEventType(eventType) {
+  if (matchesAliasList(eventType, ENGLISH_CLUB_EVENT_TYPE_ALIASES)) return true;
+  try {
+    return eventTypeService.matchesEventTypeCode(eventType, 'english_club');
+  } catch {
+    return false;
+  }
 }
 
 function toPositiveInt(value) {
@@ -18,22 +53,29 @@ function toPositiveInt(value) {
 }
 
 /**
- * 正規化活動名額欄位；ET 以 組數×每組人數=總人數 為準。
- * @returns {{ groupCount: number|null, perGroupCapacity: number|null, maxCapacity: number, error?: string }}
+ * 正規化活動名額欄位；grouped 模式以 組數×每組人數=總人數 為準。
  */
 function normalizeEventCapacityInput({
   eventType,
   groupCount,
   perGroupCapacity,
   maxCapacity,
+  typeConfig,
 } = {}) {
-  const isET = isEnglishTableEventType(eventType);
+  const cfg = typeConfig || eventTypeService.resolveTypeConfigSync(eventType || DEFAULT_EVENT_TYPE_CODE);
+  const isGrouped = eventTypeService.isGroupedCapacityMode(cfg);
+  const maxGroupedTotal = cfg.maxCapacityCap || MAX_TOTAL_CAPACITY;
+  const maxSimple = cfg.maxCapacityCap || MAX_NON_ET_CAPACITY;
+  const maxGroups = cfg.maxGroupCount || MAX_GROUP_COUNT;
+  const maxPerGroup = cfg.maxPerGroup || MAX_PER_GROUP_CAPACITY;
+  const defaultGc = cfg.defaultGroupCount || DEFAULT_ET_GROUP_COUNT;
+  const defaultPgc = cfg.defaultPerGroupCapacity || DEFAULT_ET_PER_GROUP_CAPACITY;
 
-  if (!isET) {
+  if (!isGrouped) {
     const cap = toPositiveInt(maxCapacity);
-    if (!cap) return { error: '請輸入有效的總人數（1-100）' };
-    if (cap > MAX_NON_ET_CAPACITY) {
-      return { error: `非 English Table 活動總人數不可超過 ${MAX_NON_ET_CAPACITY}` };
+    if (!cap) return { error: `請輸入有效的總人數（1-${maxSimple}）` };
+    if (cap > maxSimple) {
+      return { error: `此活動類型總人數不可超過 ${maxSimple}` };
     }
     return { groupCount: null, perGroupCapacity: null, maxCapacity: cap };
   }
@@ -42,25 +84,24 @@ function normalizeEventCapacityInput({
   let pgc = toPositiveInt(perGroupCapacity);
   const mcInput = toPositiveInt(maxCapacity);
 
-  if (!gc) gc = DEFAULT_ET_GROUP_COUNT;
-  if (!pgc) pgc = DEFAULT_ET_PER_GROUP_CAPACITY;
+  if (!gc) gc = defaultGc;
+  if (!pgc) pgc = defaultPgc;
 
-  if (gc > MAX_GROUP_COUNT) {
-    return { error: `組數不可超過 ${MAX_GROUP_COUNT}` };
+  if (gc > maxGroups) {
+    return { error: `組數不可超過 ${maxGroups}` };
   }
-  if (pgc > MAX_PER_GROUP_CAPACITY) {
-    return { error: `每組人數不可超過 ${MAX_PER_GROUP_CAPACITY}` };
+  if (pgc > maxPerGroup) {
+    return { error: `每組人數不可超過 ${maxPerGroup}` };
   }
 
-  let mc = gc * pgc;
+  const mc = gc * pgc;
 
-  // 若前端一併傳入總人數，需與乘積一致
   if (mcInput && mcInput !== mc) {
     return { error: `總人數須等於組數×每組人數（${gc}×${pgc}=${mc}）` };
   }
 
-  if (mc > MAX_TOTAL_CAPACITY) {
-    return { error: `總人數不可超過 ${MAX_TOTAL_CAPACITY}` };
+  if (mc > maxGroupedTotal) {
+    return { error: `總人數不可超過 ${maxGroupedTotal}` };
   }
 
   return { groupCount: gc, perGroupCapacity: pgc, maxCapacity: mc };
@@ -79,7 +120,7 @@ function formatCapacityPayload(event) {
     groupCount: event.groupCount ?? null,
     perGroupCapacity: event.perGroupCapacity ?? null,
   };
-  if (isEnglishTableEventType(event.eventType) && base.groupCount && base.perGroupCapacity) {
+  if (eventTypeService.isGroupedCapacityMode(event.eventType) && base.groupCount && base.perGroupCapacity) {
     base.totalCapacity = base.groupCount * base.perGroupCapacity;
   }
   return base;
@@ -92,7 +133,11 @@ module.exports = {
   MAX_PER_GROUP_CAPACITY,
   MAX_TOTAL_CAPACITY,
   MAX_NON_ET_CAPACITY,
+  ENGLISH_TABLE_EVENT_TYPE_ALIASES,
+  ENGLISH_CLUB_EVENT_TYPE_ALIASES,
   isEnglishTableEventType,
+  isEnglishClubEventType,
+  toPositiveInt,
   normalizeEventCapacityInput,
   resolveLegacyGroupCount,
   formatCapacityPayload,

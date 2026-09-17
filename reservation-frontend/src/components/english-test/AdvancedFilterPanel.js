@@ -1,6 +1,12 @@
 // components/english-test/AdvancedFilterPanel.js
 import React, { useState, useEffect } from 'react';
 import { getCurrentSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
+import {
+  MAX_SORT_LEVELS,
+  ENGLISH_TEST_SORT_FIELD_OPTIONS,
+  normalizeSortConfig,
+  createSortConfigFromLevels,
+} from '../../utils/englishTestSortConfig';
 
 export default function AdvancedFilterPanel({ 
   onFilterChange, 
@@ -32,14 +38,9 @@ export default function AdvancedFilterPanel({
     { value: 'NON', label: '不報考' }
   ];
 
-  const sortFieldOptions = [
-    { value: 'id', label: '報名編號' },
-    { value: 'successSequence', label: '報名成功序號' },
-    { value: 'status', label: '狀態' },
-    { value: 'studentId', label: '學號' },
-    { value: 'name', label: '姓名' },
-    { value: 'createdAt', label: '報名時間' }
-  ];
+  const sortFieldOptions = ENGLISH_TEST_SORT_FIELD_OPTIONS;
+  const normalizedSort = normalizeSortConfig(sortConfig);
+  const sortLevels = normalizedSort.levels;
 
   // 使用共用的學期選項
   const semesterOptions = SEMESTER_OPTIONS;
@@ -57,6 +58,28 @@ export default function AdvancedFilterPanel({
       ? filters.examTypes.filter(t => t !== value)
       : [...filters.examTypes, value];
     handleFilterChange('examTypes', newTypes);
+  };
+
+  const emitSortLevels = (levels) => {
+    onSortChange && onSortChange(createSortConfigFromLevels(levels));
+  };
+
+  const handleSortLevelChange = (index, patch) => {
+    const next = sortLevels.map((level, i) => (i === index ? { ...level, ...patch } : level));
+    emitSortLevels(next);
+  };
+
+  const handleAddSortLevel = () => {
+    if (sortLevels.length >= MAX_SORT_LEVELS) return;
+    const used = new Set(sortLevels.map((l) => l.key));
+    const nextKey = sortFieldOptions.find((o) => !used.has(o.value))?.value;
+    if (!nextKey) return;
+    emitSortLevels([...sortLevels, { key: nextKey, direction: 'ASC' }]);
+  };
+
+  const handleRemoveSortLevel = (index) => {
+    if (sortLevels.length <= 1) return;
+    emitSortLevels(sortLevels.filter((_, i) => i !== index));
   };
 
   // 重置篩選
@@ -247,9 +270,9 @@ export default function AdvancedFilterPanel({
                 </div>
               ))}
             </div>
-            {filters.examTypes.includes('NON') && (
+            {filters.examTypes.length > 0 && (
               <div className="form-text mt-1">
-                不報考紀錄狀態為「請修正」；勾選後會自動切到「全部」狀態標籤以便列出。
+                可與上方狀態分頁同時使用（例如「已通過」+「只考說寫」）。不報考資料多半在「請修正」。
               </div>
             )}
           </div>
@@ -298,36 +321,87 @@ export default function AdvancedFilterPanel({
             </select>
           </div>
 
-          {/* 排序選項 */}
-          <div className="col-md-3">
-            <label className="form-label">排序依據</label>
-            <select
-              className="form-select"
-              value={sortConfig.key}
-              onChange={(e) => {
-                onSortChange && onSortChange({ ...sortConfig, key: e.target.value });
-              }}
-            >
-              {sortFieldOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="col-md-3">
-            <label className="form-label">排序方向</label>
-            <select
-              className="form-select"
-              value={sortConfig.direction}
-              onChange={(e) => {
-                onSortChange && onSortChange({ ...sortConfig, direction: e.target.value });
-              }}
-            >
-              <option value="ASC">由小到大</option>
-              <option value="DESC">由大到小</option>
-            </select>
+          {/* 排序選項（最多五層） */}
+          <div className="col-12">
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+              <label className="form-label mb-0">排序依據（最多 {MAX_SORT_LEVELS} 層）</label>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary"
+                disabled={sortLevels.length >= MAX_SORT_LEVELS}
+                onClick={handleAddSortLevel}
+              >
+                <i className="fas fa-plus me-1" aria-hidden />
+                新增排序層
+              </button>
+            </div>
+            <div className="form-text mb-2">
+              先依第 1 層，相同時再依後層（最多 {MAX_SORT_LEVELS} 層）。表格欄位：一般點選重設為單層；按住 Shift 點選可疊加。
+            </div>
+            <div className="d-flex flex-column gap-2">
+              {sortLevels.map((level, index) => {
+                const usedByOthers = new Set(
+                  sortLevels.filter((_, i) => i !== index).map((l) => l.key)
+                );
+                const availableOptions = sortFieldOptions.filter(
+                  (o) => o.value === level.key || !usedByOthers.has(o.value)
+                );
+                const canRemove = sortLevels.length > 1;
+                return (
+                  <div key={`sort-level-${index}`} className="row g-2 align-items-end">
+                    <div className="col-auto">
+                      <span className="badge text-bg-light border">第 {index + 1} 層</span>
+                    </div>
+                    <div className="col-md-4 col-lg-3">
+                      {index === 0 && <label className="form-label small text-muted">欄位</label>}
+                      <select
+                        className="form-select"
+                        value={level.key}
+                        aria-label={`第 ${index + 1} 層排序欄位`}
+                        onChange={(e) => handleSortLevelChange(index, { key: e.target.value })}
+                      >
+                        {availableOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-3 col-lg-2">
+                      {index === 0 && <label className="form-label small text-muted">方向</label>}
+                      <select
+                        className="form-select"
+                        value={level.direction}
+                        aria-label={`第 ${index + 1} 層排序方向`}
+                        onChange={(e) => handleSortLevelChange(index, { direction: e.target.value })}
+                      >
+                        <option value="ASC">由小到大</option>
+                        <option value="DESC">由大到小</option>
+                      </select>
+                    </div>
+                    <div className="col-auto">
+                      {index === 0 && canRemove && (
+                        <label className="form-label small text-muted d-block">&nbsp;</label>
+                      )}
+                      {canRemove ? (
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => handleRemoveSortLevel(index)}
+                        >
+                          <i className="fas fa-trash-alt me-1" aria-hidden />
+                          刪除
+                        </button>
+                      ) : (
+                        index === 0 && (
+                          <span className="form-text d-inline-block">至少保留一層</span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 

@@ -1059,17 +1059,14 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
   let lastAttendAt = null;
   let totalHours = 0;
 
-  // 活動類型時數對應表（根據資料庫中的實際活動類型名稱）
+  // 活動類型時數對應表（相容 code + legacy 顯示名）
+  const eventTypeService = require('../services/eventTypeService');
   const getEventTypeHours = (eventType) => {
-    if (eventType === 'English Table') return 0.5;
-    if (eventType === 'English Club') return 1;
-    if (eventType === 'Job Talk') return 1;
-    if (eventType === 'International Forum') return 1;
-    // 處理可能的變體名稱
-    if (eventType === 'EnglishTable') return 0.5;
-    if (eventType === 'EnglishClub') return 1;
-    if (eventType === 'JobTalk') return 1;
-    if (eventType === 'InternationalForum') return 1;
+    const code = eventTypeService.coerceEventTypeCode(eventType, { fallback: '' });
+    if (code === 'english_table') return 0.5;
+    if (code === 'english_club') return 1;
+    if (code === 'job_talk') return 1;
+    if (code === 'international_forum') return 1;
     return 0;
   };
 
@@ -1078,19 +1075,17 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
     attendedCountTotal += count;
     
     const eventType = stat.eventType;
+    const code = eventTypeService.coerceEventTypeCode(eventType, { fallback: '' });
     if (attendedByType.hasOwnProperty(eventType)) {
       attendedByType[eventType] = count;
-    } else {
-      // 處理可能的活動類型名稱變體
-      if (eventType === 'English Table') {
-        attendedByType.EnglishTable = count;
-      } else if (eventType === 'English Club') {
-        attendedByType.EnglishClub = count;
-      } else if (eventType === 'Job Talk') {
-        attendedByType.JobTalk = count;
-      } else if (eventType === 'International Forum') {
-        attendedByType.InternationalForum = count;
-      }
+    } else if (code === 'english_table') {
+      attendedByType.EnglishTable = count;
+    } else if (code === 'english_club') {
+      attendedByType.EnglishClub = count;
+    } else if (code === 'job_talk') {
+      attendedByType.JobTalk = count;
+    } else if (code === 'international_forum') {
+      attendedByType.InternationalForum = count;
     }
 
     // 計算總時數

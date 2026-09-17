@@ -9,6 +9,8 @@ const { P } = require('./permissions');
 const { SCOPE, ALL_SCOPES } = require('./scopes');
 const { buildEffectiveAccessFromSources } = require('../services/accessControl/readService');
 const logger = require('../utils/logger');
+const eventTypeService = require('../services/eventTypeService');
+const { normalizeEventTypeCode } = require('../constants/eventTypeCatalog');
 
 /**
  * @typedef {{
@@ -226,18 +228,10 @@ function buildBasePermissionSet(user) {
   if (role === 'worker') {
     const worker = (user && user.workerLevel) || 'event_ops';
     if (worker === 'event_ops') {
+      // 活動工讀：僅可檢視活動列表與預約名單（不可新增／簽到／匯出／違規／改密）
       addAll(perms, [
         P.CAN_VIEW_EVENTS_ADMIN,
-        P.CAN_MANAGE_EVENTS,
         P.CAN_VIEW_RESERVATIONS,
-        P.CAN_MANAGE_RESERVATIONS,
-        P.CAN_EXPORT_RESERVATIONS,
-        P.CAN_CHECKIN_STUDENTS,
-        P.CAN_VIEW_BLACKLIST,
-        P.CAN_RECORD_VIOLATIONS,
-        P.CAN_MANAGE_VIOLATIONS,
-        P.CAN_VIEW_ET_GROUPING,
-        P.CAN_EXPORT_ET_GROUPING,
       ]);
     } else if (worker === 'bestep_ops') {
       addAll(perms, [
@@ -465,8 +459,11 @@ function normalizeScopes(scopes) {
   const set = new Set();
   for (const s of scopes) {
     if (typeof s !== 'string') continue;
-    if (!ALL_SCOPES.includes(s)) continue;
-    set.add(s);
+    const key = s.trim();
+    if (!key) continue;
+    if (ALL_SCOPES.includes(key) || eventTypeService.isEventTypeScopeCode(key)) {
+      set.add(key);
+    }
   }
   return Array.from(set);
 }
@@ -678,16 +675,17 @@ function hasAllPermissions(user, permissions) {
 }
 
 /**
- * eventType → scope 映射（第二階段：scope 正式化）
+ * eventType（code 或 legacy 顯示名）→ scope（活動類型 code）
+ * 新類型的 code 即為動態 scope，供帳號多選。
  */
 function eventTypeToScope(eventType) {
-  const t = String(eventType || '').trim();
-  if (!t) return null;
-  if (t === 'English Table') return SCOPE.ENGLISH_TABLE;
-  if (t === 'International Forum') return SCOPE.INTERNATIONAL_FORUM;
-  if (t === 'Job Talk') return SCOPE.JOB_TALK;
-  if (t === 'English Club') return SCOPE.ENGLISH_CLUB;
-  // 其他未映射活動類型：僅 admin/worker／ALL scope 可視
+  const raw = String(eventType || '').trim();
+  if (!raw) return null;
+  const cfg = eventTypeService.resolveTypeConfigSync(raw, { fallbackDefault: false });
+  if (cfg?.code) return cfg.code;
+  const code = normalizeEventTypeCode(raw);
+  if (code) return code;
+  if (eventTypeService.isEventTypeScopeCode(raw)) return raw;
   return null;
 }
 
@@ -699,11 +697,11 @@ function hasScope(profile, scope) {
 
 /**
  * canAccessEventType：以 permission + scope 為主，teacherLevel 僅作 base 映射來源
+ * worker 與其他非 admin 相同：依 finalScopes 限制活動類型（不再 bypass）
  */
 function canAccessEventType(user, eventType) {
   const profile = buildAccessProfile(user);
   if (profile.isAdmin) return true;
-  if (profile.isWorker) return true;
   if (profile.isLeader) {
     const scope = eventTypeToScope(eventType);
     return scope === SCOPE.ENGLISH_TABLE && hasScope(profile, scope);
@@ -711,7 +709,7 @@ function canAccessEventType(user, eventType) {
 
   if (!profile.permissionSet.has(P.CAN_VIEW_EVENTS_ADMIN)) return false;
   const scope = eventTypeToScope(eventType);
-  // 未映射者：僅 admin/worker；避免擴權
+  // 未映射者：僅 admin；避免擴權
   if (!scope) return false;
   return hasScope(profile, scope);
 }

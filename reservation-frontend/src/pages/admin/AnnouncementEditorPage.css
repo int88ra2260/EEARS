@@ -1,0 +1,88 @@
+.ann-editor-page {
+  padding: 0.75rem 0.5rem 2rem;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.ann-editor-page--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  color: #5b6f93;
+}
+
+.ann-editor-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(42, 93, 159, 0.14);
+  border-radius: 12px;
+  background: #f7f9fc;
+}
+
+.ann-editor-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.ann-editor-topbar__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1c3d6e;
+}
+
+.ann-editor-topbar__dirty {
+  display: inline-block;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: #956400;
+}
+
+.ann-editor-topbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ann-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1.1rem;
+  align-items: start;
+}
+
+.ann-editor-title-input {
+  font-size: 1.25rem;
+  font-weight: 600;
+  min-height: 48px;
+}
+
+.ann-editor-panel {
+  margin-bottom: 0.9rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(42, 93, 159, 0.12);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.ann-editor-panel__title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #2a5d9f;
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+}
+
+@media (max-width: 991px) {
+  .ann-editor-layout {
+    grid-template-columns: 1fr;
+  }
+}

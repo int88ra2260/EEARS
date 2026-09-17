@@ -10,6 +10,10 @@ const KEYS = Object.freeze({
   EDIT: 'english_test_registration_edit_enabled',
 });
 
+/** 允許：(開,開)／(關,開)／(關,關)；禁止只開個人報名而關檢視與修正 */
+const INVALID_REGISTRATION_WINDOW_PAIR_MESSAGE =
+  '不可只開啟個人報名而關閉「檢視與修正」。允許狀態：兩者皆開、僅檢視與修正、兩者皆關。';
+
 function parseSettingBool(setting, defaultValue) {
   if (!setting) return defaultValue;
   if (setting.valueBool !== null && setting.valueBool !== undefined) {
@@ -42,6 +46,19 @@ async function upsertSettingBool(key, enabled) {
   return setting;
 }
 
+/**
+ * @param {boolean} individualEnabled
+ * @param {boolean} editEnabled
+ */
+function assertValidRegistrationWindowPair(individualEnabled, editEnabled) {
+  if (individualEnabled && !editEnabled) {
+    const err = new Error(INVALID_REGISTRATION_WINDOW_PAIR_MESSAGE);
+    err.status = 400;
+    err.code = 'INVALID_REGISTRATION_WINDOW_PAIR';
+    throw err;
+  }
+}
+
 async function isIndividualRegistrationEnabled() {
   return readSettingBool(KEYS.INDIVIDUAL, true);
 }
@@ -62,6 +79,10 @@ async function isRegistrationEditEnabled() {
 }
 
 async function setIndividualRegistrationEnabled(enabled) {
+  if (enabled) {
+    const editEnabled = await isRegistrationEditEnabled();
+    assertValidRegistrationWindowPair(true, editEnabled);
+  }
   await upsertSettingBool(KEYS.INDIVIDUAL, enabled);
   return enabled;
 }
@@ -76,13 +97,19 @@ async function setGroupRegistrationEnabled(enabled) {
 }
 
 async function setRegistrationEditEnabled(enabled) {
+  if (!enabled) {
+    const individualEnabled = await isIndividualRegistrationEnabled();
+    assertValidRegistrationWindowPair(individualEnabled, false);
+  }
   await upsertSettingBool(KEYS.EDIT, enabled);
   return enabled;
 }
 
 module.exports = {
   KEYS,
+  INVALID_REGISTRATION_WINDOW_PAIR_MESSAGE,
   parseSettingBool,
+  assertValidRegistrationWindowPair,
   isIndividualRegistrationEnabled,
   isGroupRegistrationEnabled,
   isRegistrationEditEnabled,

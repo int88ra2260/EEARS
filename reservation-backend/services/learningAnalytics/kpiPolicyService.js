@@ -1,7 +1,11 @@
 'use strict';
 
 const { LearningAnalyticsKpiPolicy } = require('../../models');
-const { getBuiltinPolicySeeds, POLICY_SCHEMA_VERSION } = require('./kpiPolicyDefaults');
+const {
+  getBuiltinPolicySeeds,
+  POLICY_SCHEMA_VERSION,
+  RETIRED_BUILTIN_POLICY_KEYS,
+} = require('./kpiPolicyDefaults');
 const { mergeInstrumentThresholds } = require('./kpiInstrumentThresholds');
 
 function serializePolicy(row) {
@@ -22,7 +26,22 @@ function serializePolicy(row) {
   };
 }
 
+async function retireObsoleteBuiltinPolicies() {
+  if (!RETIRED_BUILTIN_POLICY_KEYS.length) return;
+  await LearningAnalyticsKpiPolicy.update(
+    { isArchived: true, updatedBy: 'system' },
+    {
+      where: {
+        policyKey: RETIRED_BUILTIN_POLICY_KEYS,
+        isBuiltin: true,
+        isArchived: false,
+      },
+    }
+  );
+}
+
 async function ensureBuiltinKpiPolicies() {
+  await retireObsoleteBuiltinPolicies();
   const seeds = getBuiltinPolicySeeds();
   const results = [];
   for (const seed of seeds) {
@@ -40,12 +59,13 @@ async function ensureBuiltinKpiPolicies() {
       },
     });
     if (!created && row.isBuiltin) {
-      // 內建政策定義隨程式更新同步（名稱／說明／definition）
+      // 內建政策定義隨程式更新同步（名稱／說明／definition），並確保未封存
       await row.update({
         name: seed.name,
         academicYear: seed.academicYear,
         description: seed.description,
         definitionJson: seed.definition,
+        isArchived: false,
         updatedBy: 'system',
       });
     }

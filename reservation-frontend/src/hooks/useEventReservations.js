@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { EVENT_DETAIL_COPY } from '../constants/adminEventDetailCopy';
 import { debugEventDetail } from '../utils/eventDetailDebug';
 import { fetchEventReservations } from '../services/eventAdminService';
+import { DEFAULT_EVENT_TYPE_CODE } from '../constants/eventTypeCatalog';
 
 /**
  * 活動預約／簽到用名單（GET /api/events/:id/reservations）— 依 tab lazy load
@@ -77,7 +78,7 @@ export function useEventReservations({ token, eventId, enabled }) {
   const eventDate = payload?.eventDate ?? '';
   const eventStartTime = payload?.eventStartTime ?? '';
   const eventName = payload?.eventName ?? '';
-  const eventType = payload?.eventType ?? 'English Table';
+  const eventType = payload?.eventType ?? DEFAULT_EVENT_TYPE_CODE;
   const autoCheckCompleted = payload?.autoCheckCompleted ?? false;
 
   return {

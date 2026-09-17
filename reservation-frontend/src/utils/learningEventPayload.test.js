@@ -41,7 +41,7 @@ describe('learningEventPayload micro-learning', () => {
     const payload = buildVocabularyDepthCompletePayload(result, summary);
     expect(payload.gameId).toBe('vocabulary_depth');
     expect(payload.cefrLevel).toBe('B2');
-    expect(payload.payload.recommendedActivities).toContain('international-forum');
+    expect(payload.payload.recommendedActivities).toContain('job-talk');
   });
 
   test('buildVocabularySizeCompletePayload', () => {

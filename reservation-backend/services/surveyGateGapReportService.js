@@ -12,10 +12,11 @@ const {
 } = require('./surveyGateService');
 const { maskEmail } = require('../utils/piiMask');
 const surveyModuleService = require('./surveyModuleService');
+const eventTypeService = require('./eventTypeService');
 
 const ACTIVITY_TO_EVENT_TYPE = {
-  ET: 'English Table',
-  EC: 'English Club',
+  ET: 'english_table',
+  EC: 'english_club',
 };
 
 function normalizePagination(query = {}) {
@@ -63,24 +64,30 @@ function mergeEventScopeWhere(eventWhere, scopeWhere) {
   const scopedTypes = scopeWhere.eventType;
   if (!scopedTypes) return eventWhere;
   const allowed = Array.isArray(scopedTypes) ? scopedTypes : [scopedTypes];
-  if (!allowed.includes(eventWhere.eventType)) {
+  const wantedCode = eventTypeService.coerceEventTypeCode(eventWhere.eventType);
+  const allowedCodes = new Set(allowed.map((t) => eventTypeService.coerceEventTypeCode(t)));
+  if (!allowedCodes.has(wantedCode)) {
     return { ...eventWhere, eventType: { [Op.in]: [] } };
   }
-  return eventWhere;
+  return {
+    ...eventWhere,
+    eventType: { [Op.in]: eventTypeService.getEventTypeQueryValues(wantedCode) },
+  };
 }
 
 async function findLegacySurveySetting(eventType) {
   const allSurveySettings = await SurveySettings.findAll({ where: { isEnabled: true } });
   const surveyIdMapping = {
-    survey_1: 'English Table',
-    survey_2: 'English Club',
-    english_table_feedback_114_1: 'English Table',
-    english_club_feedback_114_1: 'English Club',
+    survey_1: 'english_table',
+    survey_2: 'english_club',
+    english_table_feedback_114_1: 'english_table',
+    english_club_feedback_114_1: 'english_club',
   };
+  const wantedCode = eventTypeService.coerceEventTypeCode(eventType);
 
   return allSurveySettings.find((setting) => {
     if (!setting.relatedEventTypes) {
-      return surveyIdMapping[setting.surveyId] === eventType;
+      return eventTypeService.coerceEventTypeCode(surveyIdMapping[setting.surveyId]) === wantedCode;
     }
     let relatedTypes;
     try {
@@ -88,9 +95,9 @@ async function findLegacySurveySetting(eventType) {
         ? setting.relatedEventTypes
         : JSON.parse(setting.relatedEventTypes);
     } catch (_) {
-      return surveyIdMapping[setting.surveyId] === eventType;
+      return eventTypeService.coerceEventTypeCode(surveyIdMapping[setting.surveyId]) === wantedCode;
     }
-    return relatedTypes.includes(eventType);
+    return relatedTypes.some((t) => eventTypeService.coerceEventTypeCode(t) === wantedCode);
   });
 }
 
@@ -171,11 +178,14 @@ function maskGapRowEmail(row) {
 async function buildMetaAndGate(parsed, semester) {
   const warnings = [];
   const nullSemesterEventCount = await Event.count({
-    where: { eventType: parsed.eventType, semesterId: null },
+    where: {
+      eventType: { [Op.in]: eventTypeService.getEventTypeQueryValues(parsed.eventType) },
+      semesterId: null,
+    },
   });
   if (nullSemesterEventCount > 0) {
     warnings.push(
-      `另有 ${nullSemesterEventCount} 筆 ${parsed.eventType} 活動的 semesterId 為 null，v1 未納入缺口計算。`
+      `另有 ${nullSemesterEventCount} 筆 ${eventTypeService.getEventTypeDisplayName(parsed.eventType)} 活動的 semesterId 為 null，v1 未納入缺口計算。`
     );
   }
 
@@ -205,7 +215,7 @@ async function fetchReservations(parsed, eventScopeWhere) {
   if (parsed.studentEmail) reservationWhere.studentEmail = { [Op.like]: `%${parsed.studentEmail}%` };
 
   let eventWhere = {
-    eventType: parsed.eventType,
+    eventType: { [Op.in]: eventTypeService.getEventTypeQueryValues(parsed.eventType) },
     semesterId: parsed.semesterId,
   };
   if (parsed.eventId) eventWhere.id = parsed.eventId;

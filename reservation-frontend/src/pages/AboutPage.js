@@ -83,6 +83,9 @@ function TeamMemberCard({ member, lang, phoneExtLabel }) {
 }
 
 function AboutContactSection({ copy }) {
+  const { t } = useLanguage();
+  const email = t('homePage.contactEmailValue') || SITE_CONTACT.email;
+
   return (
     <section id="contact" className="about-section about-section--contact" aria-labelledby="about-contact-title">
       <div className="about-shell">
@@ -102,19 +105,23 @@ function AboutContactSection({ copy }) {
           <dl className="about-contact__details">
             <div>
               <dt><ContentText k="homePage.contactAddress" /></dt>
-              <dd>{SITE_CONTACT.address}</dd>
+              <dd><ContentText k="homePage.contactAddressValue" /></dd>
             </div>
             <div>
               <dt><ContentText k="homePage.contactPhone" /></dt>
-              <dd>{SITE_CONTACT.phone}</dd>
+              <dd><ContentText k="homePage.contactPhoneValue" /></dd>
             </div>
             <div>
               <dt><ContentText k="homePage.contactEmail" /></dt>
-              <dd><a href={`mailto:${SITE_CONTACT.email}`}>{SITE_CONTACT.email}</a></dd>
+              <dd>
+                <a href={`mailto:${email}`}>
+                  <ContentText k="homePage.contactEmailValue" />
+                </a>
+              </dd>
             </div>
             <div>
               <dt><ContentText k="homePage.contactHours" /></dt>
-              <dd>{SITE_CONTACT.hours}</dd>
+              <dd><ContentText k="homePage.contactHoursValue" /></dd>
             </div>
           </dl>
         </div>

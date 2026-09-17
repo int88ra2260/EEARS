@@ -22,9 +22,9 @@ const EtEventGroupPlan = sequelize.define(
     groupingLayout: {
       type: DataTypes.STRING(30),
       allowNull: false,
-      defaultValue: 'physical_slots',
+      defaultValue: 'all_ability',
       field: 'grouping_layout',
-      comment: 'physical_slots | band_tables',
+      comment: 'legacy_order | random | all_ability | mixed_ability_random | band_tables',
     },
   },
   {

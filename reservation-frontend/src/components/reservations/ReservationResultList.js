@@ -108,7 +108,7 @@ export default function ReservationResultList({
               </Link>
               {!searchError ? (
                 <>
-                  <a className="btn btn-outline-secondary btn-sm" href="/contact">
+                  <a className="btn btn-outline-secondary btn-sm" href="/about#contact">
                     聯絡我們
                   </a>
                   <a className="btn btn-outline-secondary btn-sm" href="mailto:emicenter@mail.nsysu.edu.tw">

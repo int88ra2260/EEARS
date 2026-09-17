@@ -1,5 +1,11 @@
 import { SEMESTER_RANGES, SEMESTER_ORDER } from '../config/semesterConfig';
-import { SEMESTER_OPTIONS, getCurrentSemester, semesterIdFromDate } from '../utils/semesterUtils';
+import {
+  SEMESTER_OPTIONS,
+  getCurrentSemester,
+  getDefaultLearningPartnerOpsSemester,
+  getPreviousSemester,
+  semesterIdFromDate,
+} from '../utils/semesterUtils';
 
 describe('semesterConfig (synced from shared)', () => {
   it('exposes ranges and order', () => {
@@ -15,5 +21,14 @@ describe('semesterConfig (synced from shared)', () => {
   it('maps August into 115-1', () => {
     expect(semesterIdFromDate('2026-08-15')).toBe('115-1');
     expect(typeof getCurrentSemester()).toBe('string');
+  });
+
+  it('resolves previous semester and LP ops default', () => {
+    expect(getPreviousSemester('115-1')).toBe('114-2');
+    expect(getPreviousSemester('114-2')).toBe('114-1');
+    expect(getPreviousSemester('113-2')).toBeNull();
+    expect(getDefaultLearningPartnerOpsSemester()).toBe(
+      getPreviousSemester(getCurrentSemester()) || getCurrentSemester()
+    );
   });
 });

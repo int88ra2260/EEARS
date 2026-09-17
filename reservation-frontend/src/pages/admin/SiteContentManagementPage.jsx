@@ -21,6 +21,7 @@ import {
   updateSiteContentStaff,
   upsertSiteContentText,
 } from '../../services/siteContentAdminApi';
+import { fetchPublicEventTypes } from '../../services/eventTypeApi';
 import SiteContentTextPanel, { StatusBadge } from './SiteContentTextPanel';
 import SiteContentVisualPanel from './SiteContentVisualPanel';
 import { VISUAL_TEXT_SECTIONS } from './siteContentVisualConfig';
@@ -32,9 +33,9 @@ const STAFF_SECTIONS = ['staff_faculty', 'staff_admin'];
 
 const SECTION_LEADS = {
   home: '直接點擊首頁畫面上的文字即可編輯 Hero、公告、規則提示等區塊。',
-  activities: '在活動介紹頁預覽中點擊文字，即可修改各類型說明與導言。',
-  about: '編輯 /about 頁的中心介紹、系統說明與團隊區塊導言。',
-  contact: '聯絡資訊已整合於關於我們頁；點擊聯絡區塊即可編輯。',
+  activities: '在活動介紹頁預覽中點擊文字或卡片圖片即可修改。圖片使用媒體庫選圖／上傳。新類型會出現在「自訂活動類型介紹」。',
+  contact: '在關於我們頁的聯絡區塊預覽中點擊文字，即可修改標題、導言與聯絡方式。',
+  about: '編輯 /about 頁的中心介紹、系統說明與團隊區塊導言；聯絡資訊請切換「聯絡資訊」分頁。',
   legal: '切換隱私權／使用條款後，點擊段落文字即可編輯。',
   faq: '管理 /faq 與關於我們頁的常見問題列表，以及 FAQ 頁標題。',
   staff_faculty: '關於我們頁面的師資卡片。',
@@ -845,10 +846,25 @@ function StaffListPanel({
   );
 }
 
-export default function SiteContentManagementPage({ embedded = false } = {}) {
+/**
+ * @param {Object} [props]
+ * @param {boolean} [props.embedded]
+ * @param {string[]|null} [props.forcedSections] - 嵌入學生端內容中心時限定可見文案區塊
+ */
+export default function SiteContentManagementPage({ embedded = false, forcedSections = null } = {}) {
   const { token } = useOutletContext();
   const toast = useToast();
-  const [activeSection, setActiveSection] = useState(TEXT_SECTIONS[0]?.id || 'home');
+
+  const visibleSections = useMemo(() => {
+    if (Array.isArray(forcedSections) && forcedSections.length) {
+      const allowed = new Set(forcedSections);
+      return VISIBLE_SITE_CONTENT_SECTIONS.filter((s) => allowed.has(s.id));
+    }
+    return VISIBLE_SITE_CONTENT_SECTIONS;
+  }, [forcedSections]);
+
+  const defaultSectionId = visibleSections[0]?.id || TEXT_SECTIONS[0]?.id || 'home';
+  const [activeSection, setActiveSection] = useState(defaultSectionId);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -857,6 +873,26 @@ export default function SiteContentManagementPage({ embedded = false } = {}) {
   const [faqModal, setFaqModal] = useState({ show: false, item: null });
   const [staffModal, setStaffModal] = useState({ show: false, item: null });
   const [textEditMode, setTextEditMode] = useState('visual');
+  const [eventTypes, setEventTypes] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await fetchPublicEventTypes({ force: true });
+        if (!cancelled) setEventTypes(Array.isArray(list) ? list : []);
+      } catch {
+        if (!cancelled) setEventTypes([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!visibleSections.some((s) => s.id === activeSection)) {
+      setActiveSection(defaultSectionId);
+    }
+  }, [visibleSections, activeSection, defaultSectionId]);
 
   const loadSection = useCallback(async () => {
     setLoading(true);
@@ -886,14 +922,15 @@ export default function SiteContentManagementPage({ embedded = false } = {}) {
   }, [activeSection]);
 
   const textItems = useMemo(() => sectionData?.items || [], [sectionData]);
+  const activitiesEventTypes = activeSection === 'activities' ? eventTypes : null;
   const faqItems = useMemo(() => sectionData?.faq || [], [sectionData]);
   const faqPageTitle = useMemo(() => sectionData?.pageTitle || null, [sectionData]);
   const staffItems = useMemo(() => sectionData?.staff || [], [sectionData]);
   const isStaffSection = STAFF_SECTIONS.includes(activeSection);
 
   const activeSectionMeta = useMemo(
-    () => VISIBLE_SITE_CONTENT_SECTIONS.find((s) => s.id === activeSection),
-    [activeSection]
+    () => visibleSections.find((s) => s.id === activeSection),
+    [visibleSections, activeSection]
   );
 
   const handleSaveText = async (form) => {
@@ -1006,20 +1043,22 @@ export default function SiteContentManagementPage({ embedded = false } = {}) {
 
       {error ? <div className="scm-alert" role="alert">{error}</div> : null}
 
-      <nav className="scm-tabs" role="tablist" aria-label="文案區塊">
-        {VISIBLE_SITE_CONTENT_SECTIONS.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            role="tab"
-            aria-selected={activeSection === s.id}
-            className={`scm-tabs__item${activeSection === s.id ? ' is-active' : ''}`}
-            onClick={() => setActiveSection(s.id)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </nav>
+      {visibleSections.length > 1 ? (
+        <nav className="scm-tabs" role="tablist" aria-label="文案區塊">
+          {visibleSections.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="tab"
+              aria-selected={activeSection === s.id}
+              className={`scm-tabs__item${activeSection === s.id ? ' is-active' : ''}`}
+              onClick={() => setActiveSection(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
       {activeSectionMeta ? (
         <p className="scm-page__lead mb-3">
@@ -1068,6 +1107,7 @@ export default function SiteContentManagementPage({ embedded = false } = {}) {
           onSave={handleSaveText}
           onSwitchToList={() => setTextEditMode('list')}
           mediaToken={token}
+          eventTypes={activitiesEventTypes}
         />
       ) : (
         <SiteContentTextPanel
@@ -1083,6 +1123,7 @@ export default function SiteContentManagementPage({ embedded = false } = {}) {
               ? () => setTextEditMode('visual')
               : undefined
           }
+          eventTypes={activitiesEventTypes}
         />
       )}
 

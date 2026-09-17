@@ -21,6 +21,7 @@ const {
 
 const loginRouter = require('./routes/loginRouter');
 const eventRouter = require('./routes/eventRouter');
+const eventTypeRouter = require('./routes/eventTypeRouter');
 const reservationRouter = require('./routes/reservationRouter');
 const blacklistRouter = require('./routes/blacklistRouter');
 const settingsRouter = require('./routes/settingsRouter');
@@ -97,6 +98,7 @@ app.use('/api', notificationsRouter);
 app.use('/api/internal', internalDiagnosticsRouter);
 
 app.use('/api', loginRouter);
+app.use('/api', eventTypeRouter);
 app.use('/api', eventRouter);
 app.use('/api', reservationRouter);
 app.use('/api/settings', settingsRouter);
@@ -250,6 +252,14 @@ sequelize.authenticate()
       }
     } catch (bootstrapErr) {
       logger.error('問卷規則啟動同步失敗（不影響伺服器啟動）', bootstrapErr);
+    }
+
+    try {
+      const eventTypeService = require('./services/eventTypeService');
+      await eventTypeService.refreshCatalogCache({ force: true });
+      logger.simple.info('活動類型目錄快取已載入');
+    } catch (eventTypeWarmErr) {
+      logger.error('活動類型目錄暖機失敗（將使用 seed fallback）', eventTypeWarmErr);
     }
 
     app.listen(port, '0.0.0.0',() => {

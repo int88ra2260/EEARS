@@ -8,7 +8,7 @@ import {
   WORKER_LEVEL_TABLE_LABEL,
 } from '../constants/accountManagement';
 import { SYSTEM_ONLY_ASSIGNMENT_KEYS, pickPermissionLabel } from '../constants/permissionGroups';
-import { ALL_SCOPES } from '../constants/scopes';
+import { ALL_SCOPES, isEventActivityScope, isSystemScope } from '../constants/scopes';
 
 const ROLE_LABELS = {
   admin: '系統管理員',
@@ -26,10 +26,18 @@ function labelFromOptions(options, value, fallback = value) {
   return options.find((opt) => opt.value === value)?.label || fallback || '';
 }
 
-function normalizeScopeList(scopes) {
+export function normalizeScopeList(scopes) {
   if (!Array.isArray(scopes)) return [];
-  const allowed = new Set(ALL_SCOPES);
-  return Array.from(new Set(scopes.filter((scope) => allowed.has(scope)))).sort();
+  return Array.from(
+    new Set(
+      scopes.filter((scope) => {
+        if (typeof scope !== 'string') return false;
+        const key = scope.trim();
+        if (!key) return false;
+        return ALL_SCOPES.includes(key) || isEventActivityScope(key) || isSystemScope(key);
+      })
+    )
+  ).sort();
 }
 
 function buildPermissionsPayload(editPermMode) {

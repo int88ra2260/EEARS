@@ -1,7 +1,7 @@
 /**
  * 預約 gating 與問卷狀態（產品化 survey_rules + legacy 相容）
  *
- * Gate 僅對 English Table / English Club 生效。
+ * Gate 依活動類型 surveyGateEnabled；ET/EC 預設啟用。
  * surveyKey 優先由啟用規則（activityType）解析；找不到時才回退預設 key。
  */
 const { Op } = require('sequelize');
@@ -13,16 +13,21 @@ const {
   EnglishClubSurveyResponse,
 } = require('../models');
 const { getCurrentSemester } = require('../utils/semester');
+const eventTypeService = require('./eventTypeService');
 
 /** 換學期後仍可當後援；正式應以啟用規則綁定問卷為準 */
 const EVENT_TYPE_TO_SURVEY_KEY = {
+  english_table: 'english_table_feedback_114_1',
   'English Table': 'english_table_feedback_114_1',
+  english_club: 'english_club_feedback_114_1',
   'English Club': 'english_club_feedback_114_1',
 };
 
 const EVENT_TYPE_ACTIVITY_ALIASES = {
-  'English Table': ['English Table', 'ET'],
-  'English Club': ['English Club', 'EC'],
+  english_table: ['english_table', 'English Table', 'ET'],
+  'English Table': ['english_table', 'English Table', 'ET'],
+  english_club: ['english_club', 'English Club', 'EC'],
+  'English Club': ['english_club', 'English Club', 'EC'],
 };
 
 function legacyModelForSurveyKey(surveyKey) {
@@ -43,11 +48,21 @@ function legacyModelForSurveyKey(surveyKey) {
 }
 
 function isGateEventType(eventType) {
-  return eventType === 'English Table' || eventType === 'English Club';
+  return eventTypeService.isSurveyGateEnabledForType(eventType);
+}
+
+function aliasesForEventType(eventType) {
+  const cfg = eventTypeService.resolveTypeConfigSync(eventType);
+  const code = cfg?.code;
+  const fromMap = EVENT_TYPE_ACTIVITY_ALIASES[eventType] || EVENT_TYPE_ACTIVITY_ALIASES[code];
+  if (fromMap?.length) return fromMap;
+  if (!cfg) return [String(eventType || '').trim()].filter(Boolean);
+  const set = new Set([cfg.code, cfg.displayName, cfg.abbreviation, ...(cfg.legacyAliases || [])].filter(Boolean));
+  return Array.from(set);
 }
 
 async function findGateRuleByActivity(eventType) {
-  const aliases = EVENT_TYPE_ACTIVITY_ALIASES[eventType];
+  const aliases = aliasesForEventType(eventType);
   if (!aliases?.length) return null;
 
   const rules = await SurveyRule.findAll({

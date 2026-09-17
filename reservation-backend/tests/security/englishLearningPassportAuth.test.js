@@ -55,6 +55,11 @@ jest.mock('../../services/englishLearningPassport/passportService', () => ({
   batchDeletePassportsAdmin: jest.fn().mockResolvedValue({ deleted: [1], failed: [] }),
   batchRejectPassportsAdmin: jest.fn().mockResolvedValue({ rejected: [1], failed: [] }),
   deletePassportAdmin: jest.fn().mockResolvedValue({ id: 1, deleted: true }),
+  createPassportAdmin: jest.fn().mockResolvedValue({
+    id: 99,
+    studentId: 'B123456789',
+    status: 'active',
+  }),
 }));
 
 jest.mock('../../services/englishLearningPassport/exportService', () => ({
@@ -83,6 +88,7 @@ jest.mock('../../services/siteContentService', () => ({
 const adminRouter = require('../../routes/adminEnglishLearningPassportRouter');
 const { P } = require('../../middlewares/auth');
 const siteContentService = require('../../services/siteContentService');
+const passportService = require('../../services/englishLearningPassport/passportService');
 
 function createApp() {
   const app = express();
@@ -191,6 +197,34 @@ describe('admin english learning passport auth', () => {
       .send({ ids: [1, 2] });
     expect(ok.status).toBe(200);
     expect(ok.body.data.deleted).toEqual([1]);
+  });
+
+  it('手動新增護照需 MANAGE 權限', async () => {
+    const app = createApp();
+    const denied = await request(app)
+      .post('/api/admin/english-learning-passports')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS)
+      .send({
+        studentId: 'B123456789',
+        studentName: '測試',
+        studentEmail: 'b123456789@student.nsysu.edu.tw',
+      });
+    expect(denied.status).toBe(403);
+
+    const ok = await request(app)
+      .post('/api/admin/english-learning-passports')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS)
+      .send({
+        studentId: 'B123456789',
+        studentName: '測試',
+        studentEmail: 'b123456789@student.nsysu.edu.tw',
+        applicationReason: '驗證信無法收信',
+      });
+    expect(ok.status).toBe(201);
+    expect(ok.body.data.studentId).toBe('B123456789');
+    expect(passportService.createPassportAdmin).toHaveBeenCalled();
   });
 
   it('學生頁面文案 page-ui 需 MANAGE 權限', async () => {

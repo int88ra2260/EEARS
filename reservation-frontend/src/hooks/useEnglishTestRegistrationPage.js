@@ -339,7 +339,7 @@ export default function useEnglishTestRegistrationPage() {
     if (!registrationEditEnabled) {
       await alert({
         title: '無法修改',
-        description: '報名結束已過，無法修改報名資料',
+        description: '報名時間已過，無法修改報名資料',
         variant: 'warning',
       });
       return;

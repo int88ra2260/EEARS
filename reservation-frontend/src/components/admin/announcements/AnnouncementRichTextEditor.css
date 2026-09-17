@@ -1,0 +1,123 @@
+.ann-rte {
+  border: 1px solid rgba(42, 93, 159, 0.18);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.ann-rte--disabled {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.ann-rte-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid rgba(42, 93, 159, 0.12);
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f9 100%);
+}
+
+.ann-rte-toolbar__select {
+  width: auto;
+  min-width: 7.5rem;
+  max-width: 11rem;
+}
+
+.ann-rte-toolbar__select--size {
+  min-width: 4.5rem;
+  max-width: 5.5rem;
+}
+
+.ann-rte-toolbar__btn {
+  min-width: 2rem;
+}
+
+.ann-rte-toolbar__color {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+.ann-rte-toolbar__color input[type='color'] {
+  width: 2rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 1px solid rgba(42, 93, 159, 0.25);
+  border-radius: 0.35rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.ann-rte-surface {
+  min-height: 360px;
+}
+
+.ann-rte-surface .tiptap,
+.ann-rte-surface .ProseMirror {
+  min-height: 360px;
+  padding: 1rem 1.15rem 1.5rem;
+  outline: none;
+  font-family: 'Noto Sans TC', 'IBM Plex Sans', sans-serif;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #1c2a3a;
+}
+
+.ann-rte-surface .ProseMirror p.is-editor-empty:first-child::before {
+  color: #8a97a8;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ann-rte-surface .ProseMirror h1,
+.ann-rte-surface .ProseMirror h2,
+.ann-rte-surface .ProseMirror h3,
+.ann-rte-surface .ProseMirror h4 {
+  font-weight: 700;
+  margin: 1rem 0 0.5rem;
+  line-height: 1.35;
+}
+
+.ann-rte-surface .ProseMirror img.ann-rte-image,
+.ann-rte-surface .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.75rem 0;
+}
+
+.ann-rte-surface .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75rem 0;
+  table-layout: fixed;
+  overflow: hidden;
+}
+
+.ann-rte-surface .ProseMirror td,
+.ann-rte-surface .ProseMirror th {
+  border: 1px solid #c5d0de;
+  padding: 0.4rem 0.55rem;
+  vertical-align: top;
+  min-width: 80px;
+}
+
+.ann-rte-surface .ProseMirror th {
+  background: #eef3f9;
+  font-weight: 600;
+}
+
+.ann-rte-surface .ProseMirror a {
+  color: #2a5d9f;
+  text-decoration: underline;
+}
+
+.ann-rte-surface .ProseMirror ul,
+.ann-rte-surface .ProseMirror ol {
+  padding-left: 1.4rem;
+}

@@ -11,10 +11,12 @@ const {
   isDeprecatedSection,
   isValidStaffSlug,
 } = require('../constants/siteContentManifest');
+const { buildActivityTypeContentSeedItems } = require('../utils/activityTypeContent');
 
 const ENTRY_TEXT = 'text';
 const ENTRY_FAQ = 'faq';
 const ENTRY_STAFF = 'staff';
+const ACTIVITY_TYPE_SECTION = 'activities';
 
 function trimOrNull(v) {
   if (v == null) return null;
@@ -73,6 +75,14 @@ function serializeFaqEntry(row) {
   };
 }
 
+/** 圖片／第二按鈕網址與名稱允許留白（空白＝預設圖或不顯示按鈕） */
+function allowsEmptyTextValue(contentKey) {
+  const key = String(contentKey || '');
+  return /ImageUrl$/i.test(key)
+    || /SecondaryCta(?:Label|Url)$/i.test(key)
+    || /\.(imageUrl|secondaryCtaLabel|secondaryCtaUrl)$/i.test(key);
+}
+
 function validateTextPayload(section, body) {
   const errors = [];
   const contentKey = trimOrNull(body.contentKey);
@@ -90,10 +100,15 @@ function validateTextPayload(section, body) {
   } else if (!isAllowedTextKey(section, contentKey)) {
     errors.push('contentKey 不在允許清單內');
   }
-  if (!valueZh && !valueEn) {
+  if (!valueZh && !valueEn && !allowsEmptyTextValue(contentKey)) {
     errors.push('至少需填寫中文或英文內容');
   }
-  return { errors, contentKey, valueZh, valueEn };
+  return {
+    errors,
+    contentKey,
+    valueZh: valueZh || (allowsEmptyTextValue(contentKey) ? '' : valueZh),
+    valueEn: valueEn || (allowsEmptyTextValue(contentKey) ? '' : valueEn),
+  };
 }
 
 function validateFaqPayload(body, { isCreate }) {
@@ -498,6 +513,19 @@ async function seedTextFromDefaults(section, items, userId, { overwrite = false 
   return { seeded, updated, skipped, total: items.length };
 }
 
+/**
+ * 為新活動類型寫入介紹文案種子（不覆蓋既有覆寫）。
+ * @param {{ code: string, displayName?: string, abbreviation?: string }} eventType
+ * @param {number|null} [userId]
+ */
+async function ensureActivityTypeIntroContent(eventType, userId = null) {
+  const items = buildActivityTypeContentSeedItems(eventType);
+  if (!items.length) {
+    return { seeded: 0, updated: 0, skipped: 0, total: 0 };
+  }
+  return seedTextFromDefaults(ACTIVITY_TYPE_SECTION, items, userId, { overwrite: false });
+}
+
 function staffContentKey(section, slug) {
   const group = staffGroupFromSection(section);
   return `staff.${group}.${slug}`;
@@ -709,6 +737,7 @@ module.exports = {
   seedFaqFromDefaults,
   seedTextFromDefaults,
   seedStaffFromDefaults,
+  ensureActivityTypeIntroContent,
   serializeTextEntry,
   serializeFaqEntry,
   serializeStaffEntry,

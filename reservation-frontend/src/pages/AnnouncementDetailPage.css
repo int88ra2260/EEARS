@@ -1,11 +1,11 @@
 .announcement-detail-page {
-  --ann-ink: #3d2e24;
-  --ann-muted: #6c6258;
-  --ann-line: rgba(61, 46, 36, 0.12);
-  --ann-canvas: #fbfaf8;
+  --ann-ink: #1c2a3a;
+  --ann-muted: #5b6f93;
+  --ann-line: rgba(42, 93, 159, 0.14);
+  --ann-canvas: #f5f8fc;
   --ann-surface: #ffffff;
-  --ann-accent: #2f6f5e;
-  --ann-accent-soft: #e8f2ee;
+  --ann-accent: #2a5d9f;
+  --ann-accent-soft: #e8eef7;
   --ann-pin: #956400;
   --ann-pin-soft: #fbf3db;
   --ann-log: #5c6670;
@@ -62,7 +62,7 @@
 }
 
 .announcement-detail-article {
-  max-width: 720px;
+  max-width: 880px;
   margin: 0 auto;
   background: var(--ann-surface);
   border: 1px solid var(--ann-line);
@@ -146,14 +146,20 @@
 
 .announcement-detail-cover {
   margin-bottom: 1.15rem;
+  text-align: center;
 }
 
 .announcement-detail-cover img {
-  max-height: 360px;
-  width: 100%;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: min(82vh, 960px);
+  margin: 0 auto;
   object-fit: contain;
   border-radius: 8px;
   border: 1px solid var(--ann-line);
+  background: #fff;
 }
 
 .announcement-detail-body {
@@ -265,6 +271,94 @@
   color: var(--ann-ink);
 }
 
+.announcement-prose-html {
+  font-size: 1.02rem;
+  line-height: 1.75;
+  color: var(--ann-ink);
+  word-break: break-word;
+}
+
+.announcement-prose-html > *:first-child {
+  margin-top: 0;
+}
+
+.announcement-prose-html h1,
+.announcement-prose-html h2,
+.announcement-prose-html h3,
+.announcement-prose-html h4 {
+  margin: 1.15rem 0 0.55rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #1c3d6e;
+}
+
+.announcement-prose-html p {
+  margin: 0 0 0.85rem;
+}
+
+.announcement-prose-html ul,
+.announcement-prose-html ol {
+  margin: 0 0 0.85rem;
+  padding-left: 1.35rem;
+}
+
+.announcement-prose-html a {
+  color: #2a5d9f;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.announcement-prose-html img {
+  display: block;
+  width: auto !important;
+  max-width: 100%;
+  height: auto !important;
+  max-height: min(85vh, 1040px);
+  margin: 1rem auto;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid var(--ann-line);
+  background: #fff;
+}
+
+/* 單獨一張圖的段落置中，直式海報較好閱讀 */
+.announcement-prose-html p:has(> img:only-child) {
+  text-align: center;
+  margin: 1rem 0 1.15rem;
+}
+
+.announcement-prose-html p:has(> img:only-child) > img {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.announcement-prose-html table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.85rem 0 1.1rem;
+  font-size: 0.95rem;
+}
+
+.announcement-prose-html th,
+.announcement-prose-html td {
+  border: 1px solid rgba(42, 93, 159, 0.2);
+  padding: 0.45rem 0.6rem;
+  vertical-align: top;
+}
+
+.announcement-prose-html th {
+  background: #eef3f9;
+  font-weight: 600;
+}
+
+.announcement-prose-html blockquote {
+  margin: 0.85rem 0;
+  padding: 0.55rem 0.85rem;
+  border-left: 3px solid #2a5d9f;
+  background: #f5f8fc;
+  color: #3d4f66;
+}
+
 .announcement-detail-actions {
   margin-top: 1.5rem;
   padding-top: 1rem;
@@ -273,6 +367,13 @@
 
 .announcement-detail-actions .btn {
   min-height: 44px;
+}
+
+@media (max-width: 576px) {
+  .announcement-detail-cover img,
+  .announcement-prose-html img {
+    max-height: min(78vh, 720px);
+  }
 }
 
 @media (max-width: 420px) {

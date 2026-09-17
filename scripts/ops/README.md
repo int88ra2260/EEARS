@@ -32,6 +32,7 @@ pm2 save
 |------|------|
 | 完整上線（前端 build → 同步到後端 `build/` → 重啟 → 健康檢查） | `scripts\ops\deploy.bat` |
 | 只更新前端 SPA（不重啟 Node） | `powershell -File scripts\ops\deploy.ps1 -FrontendOnly` |
+| 桌面捷徑啟動／重啟後端（有 PM2 用 PM2，否則 foreground `node server.js`） | `scripts\ops\start-backend.bat` |
 | 只重啟後端 | `scripts\ops\restart-backend.bat` |
 | 首次 / 重建 PM2 | `scripts\ops\setup-pm2.bat` |
 

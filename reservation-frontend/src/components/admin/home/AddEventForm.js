@@ -1,11 +1,9 @@
-// components/admin/home/AddEventForm.js
-// 新增單筆活動表單。由 AdminHome 傳入 fields、handlers、error，送出行為與驗證保留在 parent。
-
 import React from 'react';
-import ErrorAlert from '../shared/ErrorAlert';
-import LocationSelectField from '../LocationSelectField';
 import EventCapacityFields from './EventCapacityFields';
+import LocationSelectField from '../LocationSelectField';
+import ErrorAlert from '../shared/ErrorAlert';
 import { getDefaultCapacityFields } from '../../../utils/eventCapacityFields';
+import { getEventTypeSelectOptions } from '../../../constants/eventTypeCatalog';
 
 /**
  * @param {Object} props
@@ -15,6 +13,8 @@ import { getDefaultCapacityFields } from '../../../utils/eventCapacityFields';
  * @param {string} props.error
  * @param {(e: React.FormEvent) => void} props.onSubmit
  * @param {() => void} props.onOpenBatchAdd
+ * @param {Array<{ value: string, label: string }>} [props.eventTypeOptions]
+ * @param {(raw: string) => object|null} [props.resolveTypeConfig]
  */
 export default function AddEventForm({
   fields,
@@ -22,14 +22,25 @@ export default function AddEventForm({
   loading,
   error,
   onSubmit,
-  onOpenBatchAdd
+  onOpenBatchAdd,
+  eventTypeOptions,
+  resolveTypeConfig,
 }) {
+  const options = eventTypeOptions?.length
+    ? eventTypeOptions
+    : getEventTypeSelectOptions({ includeOther: true });
+
+  const typeConfig = typeof resolveTypeConfig === 'function'
+    ? resolveTypeConfig(fields.eventType)
+    : null;
+
   const setField = (key, value) => {
     if (key === 'eventType') {
+      const cfg = typeof resolveTypeConfig === 'function' ? resolveTypeConfig(value) : null;
       onFieldsChange({
         ...fields,
         eventType: value,
-        ...getDefaultCapacityFields(value),
+        ...getDefaultCapacityFields(value, cfg),
       });
       return;
     }
@@ -63,15 +74,14 @@ export default function AddEventForm({
               value={fields.eventType}
               onChange={(e) => setField('eventType', e.target.value)}
             >
-              <option value="English Table">English Table</option>
-              <option value="Job Talk">Job Talk</option>
-              <option value="English Club">English Club</option>
-              <option value="International Forum">International Forum</option>
-              <option value="其他">其他</option>
+              {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </div>
           <EventCapacityFields
             eventType={fields.eventType}
+            typeConfig={typeConfig}
             fields={fields}
             onFieldsChange={handleCapacityChange}
             layout="inline"

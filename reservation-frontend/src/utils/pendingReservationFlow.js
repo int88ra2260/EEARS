@@ -3,6 +3,7 @@
  */
 
 import { loadStudentTrio } from './studentTrioStorage';
+import { DEFAULT_EVENT_TYPE_CODE } from '../constants/eventTypeCatalog';
 
 const PENDING_KEY = 'pendingReservation';
 const SURVEY_REDIRECT_DELAY_MS = 800;
@@ -39,7 +40,7 @@ export function restorePendingReservationFromQuery(searchParams, surveyIdFromRou
 
   const eventId = searchParams.get('eventId');
   const surveyKey = searchParams.get('surveyKey') || surveyIdFromRoute;
-  const eventType = searchParams.get('eventType') || 'English Table';
+  const eventType = searchParams.get('eventType') || DEFAULT_EVENT_TYPE_CODE;
   const trio = loadStudentTrio();
 
   if (!eventId || !trio.studentId?.trim()) return false;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getCurrentSemester } from '../utils/semesterUtils';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getCurrentSemester, getDefaultLearningPartnerOpsSemester } from '../utils/semesterUtils';
 import { getTeamStatusCounts } from '../utils/learningPartnerDisplayHelpers';
 import {
   exportLearningPartnerTeamsCsv,
@@ -9,14 +10,26 @@ import {
 } from '../services/learningPartnerAdminApi';
 
 const LIMIT = 20;
+const VALID_ADMIN_VIEWS = new Set(['teams', 'funnel', 'ranking']);
+
+function readLpViewFromSearch(search) {
+  const view = new URLSearchParams(search).get('lpView');
+  return VALID_ADMIN_VIEWS.has(view) ? view : null;
+}
 
 export default function useLearningPartnerManagement(token) {
-  const [adminView, setAdminView] = useState('teams');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [adminView, setAdminViewState] = useState(
+    () => readLpViewFromSearch(window.location.search) || 'teams'
+  );
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [semesterFilter, setSemesterFilter] = useState(getCurrentSemester() || '');
+  const [semesterFilter, setSemesterFilter] = useState(
+    () => getDefaultLearningPartnerOpsSemester() || ''
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -24,7 +37,35 @@ export default function useLearningPartnerManagement(token) {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [exporting, setExporting] = useState(false);
 
+  const syncLpViewToUrl = useCallback((view) => {
+    const params = new URLSearchParams(location.search);
+    if (view && view !== 'teams') {
+      params.set('lpView', view);
+    } else {
+      params.delete('lpView');
+    }
+    const next = params.toString();
+    const newUrl = next ? `${location.pathname}?${next}` : location.pathname;
+    const current = location.search.startsWith('?') ? location.search.slice(1) : location.search;
+    if (current === next) return;
+    navigate(newUrl, { replace: true });
+  }, [location.pathname, location.search, navigate]);
+
+  const setAdminView = useCallback((view) => {
+    setAdminViewState(view);
+    syncLpViewToUrl(view);
+  }, [syncLpViewToUrl]);
+
+  useEffect(() => {
+    const fromUrl = readLpViewFromSearch(location.search);
+    if (fromUrl && fromUrl !== adminView) {
+      setAdminViewState(fromUrl);
+    }
+  }, [location.search, adminView]);
+
   const loadTeams = useCallback(async () => {
+    if (adminView !== 'teams') return;
+
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -45,7 +86,7 @@ export default function useLearningPartnerManagement(token) {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, searchTerm, semesterFilter, token]);
+  }, [adminView, currentPage, statusFilter, searchTerm, semesterFilter, token]);
 
   useEffect(() => {
     loadTeams();
@@ -77,7 +118,10 @@ export default function useLearningPartnerManagement(token) {
 
   const statusCounts = useMemo(() => getTeamStatusCounts(teams, total), [teams, total]);
 
-  const rankingSemester = semesterFilter || getCurrentSemester() || '114-1';
+  const rankingSemester = semesterFilter
+    || getDefaultLearningPartnerOpsSemester()
+    || getCurrentSemester()
+    || '114-2';
 
   const resetPage = () => setCurrentPage(1);
 

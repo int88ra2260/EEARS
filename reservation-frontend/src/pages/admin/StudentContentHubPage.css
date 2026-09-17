@@ -98,6 +98,14 @@
   color: var(--sch-muted);
 }
 
+.sch-hub__section-lead--compact {
+  margin-bottom: 0.85rem;
+}
+
+.sch-hub__nav-label--spaced {
+  margin-top: 1rem;
+}
+
 .sch-hub__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

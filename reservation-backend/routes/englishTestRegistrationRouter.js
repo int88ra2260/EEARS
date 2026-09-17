@@ -60,8 +60,15 @@ const ExcelJS = require('exceljs');
 const {
   buildRegistrationListWhere,
   buildRegistrationListOrder,
+  buildRegistrationListSqlFilter,
   summarizeAppliedFilters,
+  parseOrderedIds,
+  applyOrderedIds,
 } = require('../utils/englishTestRegistrationListFilters');
+const {
+  attachSemesterSequences,
+  assignExportSequentialNumbers,
+} = require('../utils/englishTestRegistrationSequence');
 const emailLogService = require('../services/emailLogService');
 const logger = require('../utils/logger');
 const auditLogService = require('../services/auditLogService');
@@ -381,7 +388,7 @@ router.put('/english-test/registrations/update',
       const editOpen = await isRegistrationEditEnabled();
       if (!editOpen) {
         return res.status(403).json({
-          error: '報名結束已過，無法修改報名資料',
+          error: '報名時間已過，無法修改報名資料',
           code: 'ENGLISH_TEST_REGISTRATION_EDIT_CLOSED',
         });
       }
@@ -651,7 +658,9 @@ router.put('/english-test/registrations/update',
 
       // 英語能力相關欄位（報考項目／B2／成績）
       if (formData.examType !== undefined) {
-        updateData.examType = formData.examType || null;
+        const { normalizeExamTypeCode } = require('../utils/englishTestExamType');
+        const code = normalizeExamTypeCode(formData.examType);
+        updateData.examType = code || formData.examType || null;
       }
       if (formData.hasTakenBESTEP !== undefined) {
         updateData.hasTakenBESTEP = formData.hasTakenBESTEP || '否';
@@ -1226,8 +1235,8 @@ router.post('/english-test/register',
           agreedToTerms: formData.agreedToTerms === 'true' || formData.agreedToTerms === true || formData.agreedToTerms === 'true',
           infoSource: formData.infoSource || '',
           extraAnswers: parseExtraAnswersField(formData.extraAnswers),
-          // 如果 examType 為 'NON'，status 設為 'revision'（不報名），否則為 'pending'（審核中）
-          status: (formData.examType === 'NON') ? 'revision' : 'pending',
+          // status 由 Service 依正規化後的 examType 決定（NON→revision）
+          status: englishTestRegistrationService.computeSubmissionStatus(formData.examType),
           // 根據報名時間自動判斷學期（空窗期 fallback 至 getCurrentSemester）
           semester: (() => {
             try {
@@ -1683,7 +1692,7 @@ router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res
     const { page = 1 } = req.query;
     const rawLimit = parseInt(req.query.limit, 10);
     // 與前端 ENGLISH_TEST_MAX_PAGE_SIZE 對齊，避免一次載入過大 payload
-    const MAX_LIST_LIMIT = 500;
+    const MAX_LIST_LIMIT = 1000;
     const limitNum = Number.isFinite(rawLimit)
       ? Math.min(MAX_LIST_LIMIT, Math.max(1, rawLimit))
       : 20;
@@ -1714,6 +1723,7 @@ router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res
       'phone',
       'college',
       'department',
+      'grade',
       'status',
       'createdAt',
       'updatedAt',
@@ -1733,180 +1743,64 @@ router.get('/english-test/registrations', ...englishRegViewAuth, async (req, res
       offset,
     });
 
-    // 為每筆記錄計算按學期的編號（semesterSequence）
-    const rowIds = rows.map(row => row.id);
-    let semesterSequenceMap = {};
-    
-    if (rowIds.length > 0) {
-      const { sequelize } = require('../models');
-      const semesters = [...new Set(rows.map(row => row.semester).filter(Boolean))];
-      const targetSemester = semester || (semesters.length === 1 ? semesters[0] : null);
-      const replacements = { rowIds };
-
-      // 序號必須相對「該學期全部報名」計算；結果只回本頁 id
-      let sequenceQuery;
-      if (targetSemester) {
-        sequenceQuery = `
-          SELECT ranked.id, ranked.semesterSequence
-          FROM (
-            SELECT
-              id,
-              ROW_NUMBER() OVER (
-                PARTITION BY semester
-                ORDER BY createdAt ASC, id ASC
-              ) AS semesterSequence
-            FROM english_test_registrations
-            WHERE semester = :targetSemester
-          ) ranked
-          WHERE ranked.id IN (:rowIds)
-        `;
-        replacements.targetSemester = targetSemester;
-      } else {
-        sequenceQuery = `
-          SELECT ranked.id, ranked.semesterSequence
-          FROM (
-            SELECT
-              id,
-              ROW_NUMBER() OVER (
-                PARTITION BY semester
-                ORDER BY createdAt ASC, id ASC
-              ) AS semesterSequence
-            FROM english_test_registrations
-          ) ranked
-          WHERE ranked.id IN (:rowIds)
-        `;
-      }
-
-      const sequenceResults = await sequelize.query(sequenceQuery, {
-        replacements,
-        type: QueryTypes.SELECT
-      });
-      
-      sequenceResults.forEach((result) => {
-        semesterSequenceMap[result.id] = result.semesterSequence;
-      });
-    }
-    
-    // 為每筆記錄添加 semesterSequence
-    const rowsWithSequence = rows.map(row => {
-      const rowData = row.toJSON();
-      rowData.semesterSequence = semesterSequenceMap[row.id] || null;
-      return rowData;
+    // 為每筆記錄計算按學期的編號（semesterSequence，與匯出顯示編號相同）
+    const { sequelize } = require('../models');
+    const rowsWithSequence = await attachSemesterSequences(sequelize, rows, {
+      semesterFilter: semester || null,
     });
 
-    // 使用 SQL 聚合查詢計算統計資訊（性能優化：避免載入所有記錄到記憶體）
-    const { sequelize } = require('../models');
-    
-    // 構建 WHERE 條件字串和參數（與現有 where 對象對應）
-    const whereConditions = [];
-    const replacements = {};
+    // 統計卡片分兩套查詢，讓數字能跟著目前篩選變動：
+    // - 審核狀態：套用進階篩選（含測驗類型），略過 status
+    // - 報考項目：套用進階篩選（含狀態），略過 examType
+    const statusSql = buildRegistrationListSqlFilter(where, { omitKeys: ['status'], paramPrefix: 'st_' });
+    const examSql = buildRegistrationListSqlFilter(where, { omitKeys: ['examType'], paramPrefix: 'ex_' });
 
-    if (where.status) {
-      whereConditions.push(`status = :status`);
-      replacements.status = where.status;
-    }
-
-    if (where.createdAt) {
-      if (where.createdAt[Op.gte]) {
-        whereConditions.push(`createdAt >= :dateFrom`);
-        replacements.dateFrom = where.createdAt[Op.gte];
-      }
-      if (where.createdAt[Op.lte]) {
-        whereConditions.push(`createdAt <= :dateTo`);
-        replacements.dateTo = where.createdAt[Op.lte];
-      }
-    }
-
-    if (where.examType && where.examType[Op.in]) {
-      whereConditions.push(`examType IN (:examTypes)`);
-      replacements.examTypes = where.examType[Op.in];
-    }
-
-    if (where.isLowIncome) {
-      whereConditions.push(`isLowIncome = :isLowIncome`);
-      replacements.isLowIncome = where.isLowIncome;
-    }
-
-    if (where.hasDisabilityCard) {
-      whereConditions.push(`hasDisabilityCard = :hasDisabilityCard`);
-      replacements.hasDisabilityCard = where.hasDisabilityCard;
-    }
-    
-    if (where.semester) {
-      whereConditions.push(`semester = :semester`);
-      replacements.semester = where.semester;
-    }
-
-    // 處理搜尋條件（studentId, name, email）
-    if (where[Op.or]) {
-      const orConditions = [];
-      where[Op.or].forEach((condition, index) => {
-        if (condition.studentId && condition.studentId[Op.like]) {
-          orConditions.push(`studentId LIKE :search${index}`);
-          replacements[`search${index}`] = condition.studentId[Op.like];
-        } else if (condition.name && condition.name[Op.like]) {
-          orConditions.push(`name LIKE :search${index}`);
-          replacements[`search${index}`] = condition.name[Op.like];
-        } else if (condition.email && condition.email[Op.like]) {
-          orConditions.push(`email LIKE :search${index}`);
-          replacements[`search${index}`] = condition.email[Op.like];
-        }
-      });
-      if (orConditions.length > 0) {
-        whereConditions.push(`(${orConditions.join(' OR ')})`);
-      }
-    }
-
-    const whereClause = whereConditions.length > 0 
-      ? `WHERE ${whereConditions.join(' AND ')}`
-      : '';
-
-    // 統計卡片根據學期篩選條件計算（如果有提供學期參數）
-    // 建立統計查詢的 WHERE 條件（只使用學期篩選，不包含其他篩選條件）
-    const statsWhereConditions = [];
-    const statsReplacements = {};
-    
-    if (semester) {
-      statsWhereConditions.push(`semester = :statsSemester`);
-      statsReplacements.statsSemester = semester;
-    }
-    
-    const statsWhereClause = statsWhereConditions.length > 0 
-      ? `WHERE ${statsWhereConditions.join(' AND ')}`
-      : '';
-
-    const globalStatsQuery = `
-      SELECT 
+    const statusStatsQuery = `
+      SELECT
         COUNT(*) as total,
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
         SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
         SUM(CASE WHEN status = 'revision' THEN 1 ELSE 0 END) as revision,
         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success,
-        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+      FROM english_test_registrations
+      ${statusSql.whereClause}
+    `;
+
+    const examStatsQuery = `
+      SELECT
         SUM(CASE WHEN examType = 'NON' THEN 1 ELSE 0 END) as nonExam,
         SUM(CASE WHEN examType = 'NON' AND status IN ('approved', 'success') THEN 1 ELSE 0 END) as nonExamInconsistent,
         SUM(CASE WHEN examType IN ('LRSW', 'LR') THEN 1 ELSE 0 END) as listeningReading,
-        SUM(CASE WHEN examType IN ('LRSW', 'SW') THEN 1 ELSE 0 END) as speakingWriting
+        SUM(CASE WHEN examType IN ('LRSW', 'SW') THEN 1 ELSE 0 END) as speakingWriting,
+        SUM(CASE WHEN examType = 'LRSW' THEN 1 ELSE 0 END) as lrsw
       FROM english_test_registrations
-      ${statsWhereClause}
+      ${examSql.whereClause}
     `;
 
-    const globalStatsResult = await sequelize.query(globalStatsQuery, {
-      type: QueryTypes.SELECT,
-      replacements: statsReplacements
-    });
+    const [statusStatsResult, examStatsResult] = await Promise.all([
+      sequelize.query(statusStatsQuery, {
+        type: QueryTypes.SELECT,
+        replacements: statusSql.replacements,
+      }),
+      sequelize.query(examStatsQuery, {
+        type: QueryTypes.SELECT,
+        replacements: examSql.replacements,
+      }),
+    ]);
 
     const stats = {
-      total: parseInt(globalStatsResult[0]?.total) || 0,
-      pending: parseInt(globalStatsResult[0]?.pending) || 0,
-      approved: parseInt(globalStatsResult[0]?.approved) || 0,
-      revision: parseInt(globalStatsResult[0]?.revision) || 0,
-      success: parseInt(globalStatsResult[0]?.success) || 0,
-      failed: parseInt(globalStatsResult[0]?.failed) || 0,
-      nonExam: parseInt(globalStatsResult[0]?.nonExam) || 0,
-      nonExamInconsistent: parseInt(globalStatsResult[0]?.nonExamInconsistent) || 0,
-      listeningReading: parseInt(globalStatsResult[0]?.listeningReading) || 0,
-      speakingWriting: parseInt(globalStatsResult[0]?.speakingWriting) || 0
+      total: parseInt(statusStatsResult[0]?.total, 10) || 0,
+      pending: parseInt(statusStatsResult[0]?.pending, 10) || 0,
+      approved: parseInt(statusStatsResult[0]?.approved, 10) || 0,
+      revision: parseInt(statusStatsResult[0]?.revision, 10) || 0,
+      success: parseInt(statusStatsResult[0]?.success, 10) || 0,
+      failed: parseInt(statusStatsResult[0]?.failed, 10) || 0,
+      nonExam: parseInt(examStatsResult[0]?.nonExam, 10) || 0,
+      nonExamInconsistent: parseInt(examStatsResult[0]?.nonExamInconsistent, 10) || 0,
+      listeningReading: parseInt(examStatsResult[0]?.listeningReading, 10) || 0,
+      speakingWriting: parseInt(examStatsResult[0]?.speakingWriting, 10) || 0,
+      lrsw: parseInt(examStatsResult[0]?.lrsw, 10) || 0,
     };
 
     // 回應（新增 meta 欄位，不影響舊版）
@@ -2674,11 +2568,17 @@ router.put('/english-test/registrations/:id', ...englishRegReviewAuth, async (re
     if (department !== undefined) updateData.department = department;
     
     // 英語能力與培力資格
-    if (examType !== undefined) updateData.examType = examType || null;
+    if (examType !== undefined) {
+      const { normalizeExamTypeCode } = require('../utils/englishTestExamType');
+      const code = normalizeExamTypeCode(examType);
+      updateData.examType = code || examType || null;
+    }
 
     // 不報考不可同時為已通過／審核中／報名成功（歷史資料曾造成「不報考卡片找不到」）
     {
-      const nextExamType = examType !== undefined ? (examType || null) : registration.examType;
+      const { normalizeExamTypeCode } = require('../utils/englishTestExamType');
+      const nextExamTypeRaw = examType !== undefined ? (examType || null) : registration.examType;
+      const nextExamType = normalizeExamTypeCode(nextExamTypeRaw) || nextExamTypeRaw;
       const nextStatus = updateData.status !== undefined ? updateData.status : registration.status;
       if (nextExamType === 'NON' && ['pending', 'approved', 'success'].includes(nextStatus)) {
         if (status === 'failed') {
@@ -3085,6 +2985,11 @@ router.get('/english-test/registrations/export/excel', ...englishRegExportAuth, 
       order: orderBy
     });
 
+    // 匯出連號：依目前篩選結果列順序重編 1..N（與證件照檔名共用）；若有 orderedIds 則先重排
+    const orderedIds = parseOrderedIds(req.query.orderedIds);
+    const orderedRegistrations = applyOrderedIds(registrations, orderedIds);
+    const exportRows = assignExportSequentialNumbers(orderedRegistrations);
+
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('培力英檢報名資料');
 
@@ -3168,7 +3073,7 @@ router.get('/english-test/registrations/export/excel', ...englishRegExportAuth, 
     headerRow.height = 60;
 
     // 填入資料
-    registrations.forEach((reg, index) => {
+    exportRows.forEach((reg) => {
       // 處理報考項目格式轉換
       let examTypeFormatted = '';
       if (reg.examType) {
@@ -3214,20 +3119,12 @@ router.get('/english-test/registrations/export/excel', ...englishRegExportAuth, 
         }
       }
 
-      // 序號處理邏輯：
-      // - 報名成功狀態：使用 successSequence（報名成功順序編號）
-      // - 已通過狀態：使用報名編號（id）
-      // - 其他狀態：使用報名編號（id）
-      let sequenceNumber;
-      if (status === 'success') {
-        sequenceNumber = reg.successSequence || index + 1;
-      } else {
-        sequenceNumber = reg.id;
-      }
+      // 序號：匯出連號 1..N（與證件照檔名前綴一致）
+      const sequenceNumber = reg.exportSequence;
 
       // 根據表頭順序填入對應資料
       const rowData = [
-        sequenceNumber, // 序號（已通過時為連號，否則為報名編號）
+        sequenceNumber, // 序號（匯出連號）
         examTypeFormatted, // 報考項目
         '中華民國國民', // 身分國籍（預設）
         reg.idNumber || reg.nationalId || '', // 身分證字號
@@ -3299,7 +3196,7 @@ router.get('/english-test/registrations/export/excel', ...englishRegExportAuth, 
     logEnglishTestExportAudit(req, {
       action: 'english_test_export_excel',
       exportType: 'excel',
-      rowCount: registrations.length,
+      rowCount: exportRows.length,
       filters: summarizeAppliedFilters(req.query),
     });
 
@@ -3311,6 +3208,7 @@ router.get('/english-test/registrations/export/excel', ...englishRegExportAuth, 
 });
 
 // API: 匯出已通過或報名成功學生的證件照（ZIP格式）
+// 篩選／排序與 Excel 相同；檔名前綴用同一套匯出連號 1..N
 router.get('/english-test/registrations/export/photos', ...englishRegExportAuth, async (req, res) => {
   try {
     // 檢查 archiver 是否已安裝
@@ -3318,41 +3216,35 @@ router.get('/english-test/registrations/export/photos', ...englishRegExportAuth,
       return res.status(500).json({ error: 'archiver 套件未安裝，無法匯出證件照。請執行: npm install archiver' });
     }
 
-    // 從查詢參數取得狀態（預設為 'approved'，支援 'success'）
-    const { status = 'approved' } = req.query;
-    
-    // 驗證狀態參數
+    const status = String(req.query.status || 'approved').trim();
     if (!['approved', 'success'].includes(status)) {
       return res.status(400).json({ error: '狀態參數必須為 approved 或 success' });
     }
 
-    // 取得指定狀態的報名記錄
-    let orderBy;
-    if (status === 'success') {
-      // 報名成功狀態：按 successSequence ASC（null 視為最大值），再按 approvedAt ASC
-      orderBy = [
-        [Sequelize.literal('COALESCE("successSequence", 2147483647)'), 'ASC'],
-        [Sequelize.literal('COALESCE("approvedAt", "createdAt")'), 'ASC']
-      ];
-    } else {
-      // 已通過狀態：按 approvedAt ASC，再按 id ASC
-      orderBy = [
-        [Sequelize.literal('COALESCE("approvedAt", "createdAt")'), 'ASC'],
-        ['id', 'ASC']
-      ];
-    }
-    
+    const where = buildRegistrationListWhere({ ...req.query, status });
+    const orderBy = buildRegistrationListOrder(
+      { ...req.query, status },
+      { preferExportStatusOrder: true }
+    );
+
     const registrations = await EnglishTestRegistration.findAll({
-      where: { status },
-      order: orderBy
+      where,
+      order: orderBy,
     });
 
-    // 過濾出有證件照的記錄
-    const registrationsWithPhotos = registrations.filter(reg => reg.idPhoto);
+    const semesterFilter = String(req.query.semester || '').trim() || null;
+    // 先對「完整篩選結果」編 1..N，再取有照片者，才能與 Excel 序號對齊（缺照會跳號）
+    const orderedIds = parseOrderedIds(req.query.orderedIds);
+    const orderedRegistrations = applyOrderedIds(registrations, orderedIds);
+    const exportRows = assignExportSequentialNumbers(orderedRegistrations);
+    const registrationsWithPhotos = exportRows.filter((reg) => reg.idPhoto);
 
     if (registrationsWithPhotos.length === 0) {
       const statusText = status === 'approved' ? '已通過' : '報名成功';
-      return res.status(404).json({ error: `沒有找到${statusText}且具有證件照的報名記錄` });
+      const scopeHint = semesterFilter ? `（學期 ${semesterFilter}）` : '';
+      return res.status(404).json({
+        error: `沒有找到${statusText}${scopeHint}且具有證件照的報名記錄（已套用目前篩選條件）`,
+      });
     }
 
     // 建立 ZIP 檔案
@@ -3362,7 +3254,9 @@ router.get('/english-test/registrations/export/photos', ...englishRegExportAuth,
 
     // 設定回應標頭
     const statusText = status === 'approved' ? '已通過' : '報名成功';
-    const fileName = `培力英檢${statusText}證件照_${new Date().toISOString().split('T')[0]}.zip`;
+    const fileName = semesterFilter
+      ? `培力英檢${statusText}證件照_${semesterFilter}_${new Date().toISOString().split('T')[0]}.zip`
+      : `培力英檢${statusText}證件照_${new Date().toISOString().split('T')[0]}.zip`;
     const encodedFileName = encodeURIComponent(fileName);
     
     res.setHeader('Content-Type', 'application/zip');
@@ -3374,27 +3268,15 @@ router.get('/english-test/registrations/export/photos', ...englishRegExportAuth,
     // 處理每個記錄
     const baseUploadPath = path.join(__dirname, '../uploads');
     
-    for (let index = 0; index < registrationsWithPhotos.length; index++) {
-      const reg = registrationsWithPhotos[index];
-      
-      // 序號處理：
-      // - 報名成功狀態：使用 successSequence（報名成功順序編號）
-      // - 已通過狀態：使用報名編號（id）
-      let sequenceNumber;
-      if (status === 'success') {
-        sequenceNumber = reg.successSequence || index + 1;
-      } else {
-        // 已通過狀態使用報名編號
-        sequenceNumber = reg.id;
-      }
-      
-      // 清理檔名中的特殊字符
+    for (const reg of registrationsWithPhotos) {
+      // 檔名：匯出連號-身分證字號-姓名（與 Excel「序號」欄一致）
+      const exportNumber = reg.exportSequence;
       const cleanIdNumber = String(reg.idNumber || reg.nationalId || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
       const cleanName = String(reg.name || reg.studentNameZh || '').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '');
-      
+
       // 原始證件照檔案路徑
       const originalPhotoPath = path.join(baseUploadPath, reg.idPhoto);
-      
+
       // 檢查原始檔案是否存在
       if (!fs.existsSync(originalPhotoPath)) {
         logger.warn(`證件照檔案不存在: ${originalPhotoPath}`);
@@ -3403,9 +3285,8 @@ router.get('/english-test/registrations/export/photos', ...englishRegExportAuth,
 
       // 取得原始檔案的副檔名
       const originalExt = path.extname(reg.idPhoto);
-      
-      // 新的檔名格式：(序號-身分證字號-中文姓名).副檔名
-      const newFileName = `${sequenceNumber}-${cleanIdNumber}-${cleanName}${originalExt}`;
+
+      const newFileName = `${exportNumber}-${cleanIdNumber}-${cleanName}${originalExt}`;
 
       // 將檔案加入 ZIP（使用新的檔名）
       archive.file(originalPhotoPath, { name: newFileName });
@@ -3418,7 +3299,7 @@ router.get('/english-test/registrations/export/photos', ...englishRegExportAuth,
       action: 'english_test_export_photos',
       exportType: 'photos_zip',
       rowCount: registrationsWithPhotos.length,
-      filters: { status },
+      filters: summarizeAppliedFilters({ ...req.query, status }),
     });
 
   } catch (error) {

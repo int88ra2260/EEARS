@@ -53,6 +53,9 @@ export default function ImportTaskCard({ card, accessProfile }) {
     ? 'import-center-card--inactive'
     : 'import-center-card--active';
 
+  const affects = Array.isArray(card.affects) ? card.affects : [];
+  const impactModules = Array.isArray(card.impactModules) ? card.impactModules : [];
+
   return (
     <Card className={`h-100 import-center-card ${cardStateClass}`}>
       <Card.Body className="d-flex flex-column">
@@ -76,22 +79,54 @@ export default function ImportTaskCard({ card, accessProfile }) {
         ) : null}
 
         <Card.Text className="import-center-card__desc">{card.description}</Card.Text>
+
+        <div className="import-center-card__facts" aria-label="匯入與影響說明">
+          <div className="import-center-card__fact">
+            <span className="import-center-card__fact-label">匯入什麼</span>
+            <p className="import-center-card__fact-text">
+              {card.dataToImport || '請至目標頁查看說明'}
+            </p>
+          </div>
+
+          {affects.length > 0 ? (
+            <div className="import-center-card__fact">
+              <span className="import-center-card__fact-label">會影響什麼</span>
+              <ul className="import-center-card__affects">
+                {affects.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {card.notFor ? (
+            <p className="import-center-card__not-for">
+              <span className="import-center-card__not-for-label">注意</span>
+              {card.notFor}
+            </p>
+          ) : null}
+        </div>
+
+        {impactModules.length > 0 ? (
+          <div className="import-center-card__impact" aria-label="相關模組">
+            <span className="import-center-card__impact-label">相關模組</span>
+            <ul className="import-center-card__modules">
+              {impactModules.map((mod) => (
+                <li key={mod}>{mod}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         {card.importPath ? (
           <p className="import-center-card__next small text-muted mb-2">
             {statusTier === 'export_only'
-              ? `下一步：前往「${card.title}」頁下載或匯出`
-              : `下一步：前往「${card.title}」頁上傳`}
+              ? '下一步：前往對應頁下載或匯出'
+              : card.kind === 'sync'
+                ? '下一步：前往對應頁執行同步或查詢'
+                : '下一步：前往對應頁選學期／活動後上傳'}
           </p>
         ) : null}
-
-        <div className="import-center-card__impact" aria-label="影響模組">
-          <span className="import-center-card__impact-label">影響模組</span>
-          <ul className="import-center-card__modules">
-            {card.impactModules.map((mod) => (
-              <li key={mod}>{mod}</li>
-            ))}
-          </ul>
-        </div>
 
         {hasDetails ? (
           <div className="import-center-card-details">
@@ -104,7 +139,7 @@ export default function ImportTaskCard({ card, accessProfile }) {
               <span className="import-center-card-details__icon" aria-hidden="true">
                 {detailsOpen ? '−' : '+'}
               </span>
-              操作風險與說明
+              操作風險與進階說明
             </button>
             {detailsOpen ? (
               <div className="import-center-card-details__panel">

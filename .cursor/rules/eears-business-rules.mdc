@@ -17,17 +17,20 @@ alwaysApply: true
 - 學生端預約/查詢/取消皆以 `studentId`、`name`、`email`（以及取消用驗證碼）為主。
 - 不得因為簡化而移除既有檢查（例如：黑名單、問卷 gating、名額、重複預約、截止時間提示）。
 
-## 2) 預約/取消截止：活動開始前 2 小時（2hr，不是 24hr）
+## 2) 預約/取消截止：依活動類型 `cutoffHours`（預設 2 小時）
 
-- 預約開始/可預約範圍依活動 `eventType` 計算，但「截止」一律是活動開始前 `2` 小時。
-- 與前端一致性：
-  - 後端：`reservation-backend/utils/reservationTime.js`（`RESERVATION_CUTOFF_HOURS = 2`）
+- 預約開始/可預約範圍依活動類型的 `openRule` 計算；「截止」為活動開始前 `cutoffHours` 小時。
+- 公開取消與預約使用**同一** `cutoffHours`。
+- 設定來源：`event_types` 表（後台「活動類型設定」可編輯；允許範圍建議 0–72）。
+- 程式對照：
+  - 後端：`reservation-backend/utils/reservationTime.js`、`services/eventTypeService.js`
   - 前端：`reservation-frontend/src/utils/reservationTime.js`
-- 取消（公開取消）也必須遵守「活動開始前至少 2 小時」。
+- Seed 預設仍為 `2`；勿在文件或 UI 寫死「一律 2 小時」而不讀設定。
 
-## 3) 預約開放窗：存在於 eventType（而非一律『7 天限制』）
+## 3) 預約開放窗：存在於活動類型設定（而非一律『7 天限制』）
 
-- `7 day` 是不同 `eventType` 的「預約開放起算」邏輯（例如 Job Talk 7 天前 12:00），不是統一的黑名單天數或統一禁止規則。
+- `7 day` 是 Job Talk 等類型的「預約開放起算」預設規則，不是統一的黑名單天數或統一禁止規則。
+- 開放規則以 `event_types.openRule` 為準（`day_before` / `days_before` / `prev_weekday`）。
 - 因此：
   - 不要把「7 天」誤當作「距離活動 7 天內不可預約」。
   - 不要把「7 天」誤當作「問卷未填 7 天後才放行」。
@@ -44,11 +47,11 @@ alwaysApply: true
   - 違規累積計算
   - 通知/寄信行為（若有）
 
-## 5) 問卷 Gate：僅 ET/EC 的 product 規則擋；未填要擋或導向
+## 5) 問卷 Gate：依活動類型 `surveyGateEnabled`；未填要擋或導向
 
 必須維持以下語意：
 
-- Gate 僅對應 ET（English Table）/ EC（English Club）。
+- Gate 是否啟用讀自 `event_types.surveyGateEnabled`（seed：ET／EC 為 true）。
 - 後端以 `survey_rules`（啟用規則）決定是否「擋」：
   - `rule.isEnabled`、`rule.isRequired` 必須同時滿足才會檢查並可能擋下
   - `ruleTimeAllows(rule)` 判斷規則時間是否有效
@@ -69,11 +72,11 @@ alwaysApply: true
 ## AI 變更前檢查清單（建議在動手前逐項過）
 
 1. 這次修改會不會影響「學生端是否可預約/取消」？
-2. 這次修改會不會影響 `2hr` 截止或取消驗證碼語意？
-3. 這次修改會不會把 `7 day` 誤當成統一限制？
+2. 這次修改會不會影響 `cutoffHours` 截止或取消驗證碼語意？
+3. 這次修改會不會把 `7 天`／某類型 openRule 誤當成統一限制？
 4. 這次修改是否觸及：
-   - `checkSurvey` / `surveyGateService`
+   - `checkSurvey` / `surveyGateService` / `event_types.surveyGateEnabled`
    - `blacklistRouter` / `blacklistEnforcementService`
-   - `reservationTime`（前後端雙份）
+   - `reservationTime`（前後端）與 `eventTypeService`
 5. 若有觸及：是否同步修改並補測試（至少後端）？
 

@@ -21,6 +21,7 @@ import {
   fetchClassBestepLink,
   fetchRegistrationById,
 } from '../services/englishTestApi';
+import { createPrimarySortConfig } from '../utils/englishTestSortConfig';
 
 const VALID_MAIN_TABS = new Set(['individual', 'group', 'analytics', 'exemption', 'form', 'roster']);
 const VALID_STATUS_FILTERS = new Set(['all', 'pending', 'approved', 'success', 'revision', 'failed']);
@@ -173,7 +174,7 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
 
   useEffect(() => {
     if (statusFilter === 'success' && sortConfig.key !== 'successSequence') {
-      setSortConfig({ key: 'successSequence', direction: 'ASC' });
+      setSortConfig(createPrimarySortConfig('successSequence', 'ASC'));
     }
   }, [statusFilter, sortConfig.key, setSortConfig]);
 
@@ -324,7 +325,7 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
       const actionText = action === 'up' ? '上移' : action === 'down' ? '下移' : '移動';
       showToast(`${actionText}成功，新序號：${data.newSequence}`, 'success');
       if (statusFilter === 'success' && sortConfig.key !== 'successSequence') {
-        setSortConfig({ key: 'successSequence', direction: 'ASC' });
+        setSortConfig(createPrimarySortConfig('successSequence', 'ASC'));
       }
       await loadRegistrations();
       if (selectedRegistration && selectedRegistration.id === id) {
@@ -350,18 +351,13 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
 
   const handleStatsCardClick = useCallback((filterType, filterValue) => {
     if (filterType === 'status') {
-      // 狀態與報考項目是不同維度：切狀態時清掉測驗類型，避免進階篩選殘留造成「點了卻對不上」
       setStatusFilter(filterValue);
-      setAdvancedFilters((prev) => ({ ...prev, examTypes: [] }));
       setCurrentPage(1);
       if (filterValue === 'success') {
-        setSortConfig({ key: 'successSequence', direction: 'ASC' });
+        setSortConfig(createPrimarySortConfig('successSequence', 'ASC'));
       }
     } else if (filterType === 'examType') {
-      // 測驗類型卡片統計跨狀態；不報考（NON）寫入後 status 應為 revision，
-      // 歷史資料也可能是 approved+NON，故切到「全部」才能找齊。
       setAdvancedFilters((prev) => ({ ...prev, examTypes: [filterValue] }));
-      setStatusFilter('all');
       setCurrentPage(1);
     }
   }, [setStatusFilter, setCurrentPage, setSortConfig, setAdvancedFilters]);

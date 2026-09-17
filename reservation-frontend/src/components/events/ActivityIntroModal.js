@@ -113,29 +113,6 @@ export default function ActivityIntroModal({ show, onClose, initialTab, t }) {
                   </div>
                 )}
 
-                {activeTab === 'international-forum' && (
-                  <div className="tab-pane show active">
-                    <div className="row">
-                      <div className="col-md-5">
-                        <img
-                          src={IMAGES.internationalForum}
-                          alt={t('activities.internationalForum')}
-                          className="img-fluid rounded mb-3"
-                          style={{ maxHeight: '350px', objectFit: 'cover', width: '100%' }}
-                        />
-                      </div>
-                      <div className="col-md-7">
-                        <h5 className="text-primary mb-3">{t('activities.internationalForum')}</h5>
-                        <p className="text-muted mb-3" style={{ fontSize: '0.95rem' }}>{t('activities.ifDesc')}</p>
-                        <div className="mt-3">
-                          <h6 className="text-success">★ {t('activities.ifGoals')}</h6>
-                          <p className="text-muted" style={{ fontSize: '0.9rem' }}>{t('activities.ifGoalsDesc')}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {activeTab === 'job-talk' && (
                   <div className="tab-pane show active">
                     <div className="row">

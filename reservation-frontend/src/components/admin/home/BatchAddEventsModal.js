@@ -10,6 +10,10 @@ import {
   getDefaultCapacityFields,
 } from '../../../utils/eventCapacityFields';
 import { saveCapacityPrefs } from '../../../utils/eventCapacityPrefs';
+import {
+  DEFAULT_EVENT_TYPE_CODE,
+  getEventTypeSelectOptions,
+} from '../../../constants/eventTypeCatalog';
 import '../../../styles/admin-operations.css';
 
 const DEFAULT_EVENT_NOTES = '實踐歷程檔案';
@@ -19,10 +23,10 @@ const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 function createInitialTemplate() {
   return {
     name: '',
-    eventType: 'English Table',
+    eventType: DEFAULT_EVENT_TYPE_CODE,
     location: '',
     notes: DEFAULT_EVENT_NOTES,
-    ...getDefaultCapacityFields('English Table'),
+    ...getDefaultCapacityFields(DEFAULT_EVENT_TYPE_CODE),
   };
 }
 
@@ -36,7 +40,7 @@ function createEmptySlot(overrides = {}) {
 }
 
 function normalizeBatchEventRow(event) {
-  const eventType = event?.eventType || 'English Table';
+  const eventType = event?.eventType || DEFAULT_EVENT_TYPE_CODE;
   return {
     ...getDefaultCapacityFields(eventType),
     ...event,
@@ -132,7 +136,17 @@ export default function BatchAddEventsModal({
   result,
   onClose,
   onSubmit,
+  eventTypeOptions,
+  resolveTypeConfig,
 }) {
+  const typeOptions = eventTypeOptions?.length
+    ? eventTypeOptions
+    : getEventTypeSelectOptions();
+
+  const resolveCfg = (raw) => (
+    typeof resolveTypeConfig === 'function' ? resolveTypeConfig(raw) : null
+  );
+
   const [template, setTemplate] = useState(createInitialTemplate);
   const [timeSlots, setTimeSlots] = useState(() => [createEmptySlot()]);
   const [selectedDates, setSelectedDates] = useState([]);
@@ -152,7 +166,7 @@ export default function BatchAddEventsModal({
     setTemplate((prev) => {
       const next = { ...prev, [field]: value };
       if (field === 'eventType') {
-        Object.assign(next, getDefaultCapacityFields(value));
+        Object.assign(next, getDefaultCapacityFields(value, resolveCfg(value)));
       }
       return next;
     });
@@ -288,10 +302,9 @@ export default function BatchAddEventsModal({
                 value={template.eventType}
                 onChange={(e) => updateTemplate('eventType', e.target.value)}
               >
-                <option value="English Table">English Table</option>
-                <option value="Job Talk">Job Talk</option>
-                <option value="English Club">English Club</option>
-                <option value="International Forum">International Forum</option>
+                {typeOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </Form.Select>
             </div>
             <div className="col-md-5">
@@ -307,6 +320,7 @@ export default function BatchAddEventsModal({
           <div className="mb-2">
             <EventCapacityFields
               eventType={template.eventType}
+              typeConfig={resolveCfg(template.eventType)}
               fields={template}
               size="sm"
               layout="labeled"
@@ -439,14 +453,13 @@ export default function BatchAddEventsModal({
                           const nextType = e.target.value;
                           mergeRowFields(index, {
                             eventType: nextType,
-                            ...getDefaultCapacityFields(nextType),
+                            ...getDefaultCapacityFields(nextType, resolveCfg(nextType)),
                           });
                         }}
                       >
-                        <option value="English Table">English Table</option>
-                        <option value="Job Talk">Job Talk</option>
-                        <option value="English Club">English Club</option>
-                        <option value="International Forum">International Forum</option>
+                        {typeOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
                       </Form.Select>
                     </div>
                     <div className="batch-add-field">
@@ -479,6 +492,7 @@ export default function BatchAddEventsModal({
                     <div className="batch-add-field batch-add-field--capacity">
                       <EventCapacityFields
                         eventType={event.eventType}
+                        typeConfig={resolveCfg(event.eventType)}
                         fields={event}
                         size="sm"
                         layout="labeled"

@@ -152,6 +152,8 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '何時要填',
     '活動類型',
   ],
+  'survey-responses': ['作答紀錄', '問卷回覆', 'responses', '填答'],
+  'survey-analytics': ['問卷分析', '統計分析', 'survey analytics'],
   'survey-health': [
     '資料品質',
     '修復',
@@ -194,6 +196,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
 
   'learning-analytics': ['LA', '成效', '分析', '模型'],
   'learning-analytics-overview': ['KPI', '總覽', '趨勢比較', '中心成效'],
+  'learning-analytics-kpi-report': ['B2 KPI', '一鍵報表', 'KPI 報表'],
   'learning-analytics-cohorts': ['入學屆別', 'cohort', '群體'],
   'learning-analytics-offerings': ['細項分析', 'offerings', '課程細項', '活動細項'],
   'learning-analytics-resources': ['課程效益', '活動效益', '資源'],
@@ -217,11 +220,15 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   'weekly-reports': ['週報', 'Weekly Studio', 'blocks', '本週'],
   'student-content': [
     '首頁',
+    '活動介紹',
     '關於我們',
     '法規',
+    '法規表單',
     '學習資源',
+    '修課說明',
     '頁面內容',
     '學生看到的',
+    'Header',
   ],
 
   accounts: ['帳號', '權限', '角色'],
@@ -251,6 +258,14 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '學習有伴',
     '報名按鈕',
     'feature flag',
+  ],
+  'event-types-settings': [
+    '活動類型',
+    'event type',
+    '截止時數',
+    'cutoff',
+    '開放規則',
+    '組數設定',
   ],
   'system-email-templates': [
     '郵件',

@@ -15,13 +15,14 @@ const {
   serializeTaskItem,
   MARKING_GRACE_DAYS,
 } = require('./etTaskScope');
+const { isEnglishTableEventType } = require('../../utils/eventCapacity');
 
 async function loadEventContext(eventId) {
   const event = await Event.findByPk(eventId, {
     attributes: ['id', 'name', 'eventType', 'date', 'startTime', 'endTime', 'semesterId'],
   });
   if (!event) throw Object.assign(new Error('活動不存在'), { status: 404 });
-  if ((event.eventType || 'English Table') !== 'English Table') {
+  if (!isEnglishTableEventType(event.eventType)) {
     throw Object.assign(new Error('僅 English Table 活動支援任務勾選'), { status: 400 });
   }
   return event;

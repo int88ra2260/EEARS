@@ -12,6 +12,7 @@ import { getEventLocationDisplay } from '../../utils/eventLocation';
 import StatusBadge from '../ui/StatusBadge';
 import EventDeadlineHint from './EventDeadlineHint';
 import useToast from '../ui/useToast';
+import { isEnglishClubEventType, isEnglishTableEventType } from '../../utils/eventCapacityFields';
 import './eventHoverCard.css';
 
 /** 日曆可預約狀態 → StatusBadge variant（與預約卡語意對齊） */
@@ -94,7 +95,7 @@ export default forwardRef(function EventCalendarSection({
 
     const surveyRequired =
       surveyActive &&
-      (evt.eventType === 'English Table' || evt.eventType === 'English Club');
+      (isEnglishTableEventType(evt.eventType) || isEnglishClubEventType(evt.eventType));
 
     const statusLabel = canReserve ? t('home.eventHoverBadgeOpen') : hoverBadgeLabel(reasonCode, t);
 
@@ -142,7 +143,7 @@ export default forwardRef(function EventCalendarSection({
 
     const surveyRequired =
       surveyActive &&
-      (evt.eventType === 'English Table' || evt.eventType === 'English Club');
+      (isEnglishTableEventType(evt.eventType) || isEnglishClubEventType(evt.eventType));
 
     const reasonShort = (() => {
       if (!reasonMessage || typeof reasonMessage !== 'string') return '';

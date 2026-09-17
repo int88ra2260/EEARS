@@ -45,7 +45,7 @@ const AboutPage = lazy(() => import('./pages/AboutPage'));
 const CourseGuidePage = lazy(() => import('./pages/CourseGuidePage'));
 const HomeImmersiveTestPage = lazy(() => import('./pages/HomeImmersiveTestPage'));
 const CampusJourneyDraftPage = lazy(() => import('./pages/CampusJourneyDraftPage'));
-const ContactPage = lazy(() => import('./pages/ContactPage'));
+const ScrollWorldPacksPreviewPage = lazy(() => import('./pages/ScrollWorldPacksPreviewPage'));
 const LearningResourcesPage = lazy(() => import('./pages/LearningResourcesPage'));
 const RegulationsFormsPage = lazy(() => import('./pages/RegulationsFormsPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
@@ -75,6 +75,7 @@ const TrendDashboardPage = lazy(() => import('./components/TrendDashboardPage'))
 const ReportPage = lazy(() => import('./components/ReportPage'));
 const TeacherImpactPage = lazy(() => import('./components/TeacherImpactPage'));
 const AnnouncementManagementPage = lazy(() => import('./pages/admin/AnnouncementManagementPage'));
+const AnnouncementEditorPage = lazy(() => import('./pages/admin/AnnouncementEditorPage'));
 const AdminWeeklyReportPage = lazy(() => import('./pages/admin/AdminWeeklyReportPage'));
 const AdminWeeklyReportEditorPage = lazy(() => import('./pages/admin/AdminWeeklyReportEditorPage'));
 const StudentContentHubPage = lazy(() => import('./pages/admin/StudentContentHubPage'));
@@ -92,6 +93,7 @@ const AdminSurveyAnswerMappingPage = lazy(() => import('./pages/admin/AdminSurve
 const AdminDashboardProduct = lazy(() => import('./pages/admin/AdminDashboardProduct'));
 const AdminRoleIndex = lazy(() => import('./components/admin/AdminRoleIndex'));
 const SystemSettingsPage = lazy(() => import('./pages/admin/SystemSettingsPage'));
+const EventTypesAdminPage = lazy(() => import('./pages/admin/EventTypesAdminPage'));
 const AdminEmailTemplatesPage = lazy(() => import('./pages/admin/AdminEmailTemplatesPage'));
 const InternalDiagnosticsPage = lazy(() => import('./pages/admin/InternalDiagnosticsPage'));
 const AdminEventDetailPage = lazy(() => import('./pages/admin/AdminEventDetailPage'));
@@ -305,11 +307,11 @@ function AppContent() {
     };
   }, []);
 
-  // 舊首頁 hash 錨點相容：/#announcements → /announcements，/#faq → /faq，/#contact → /contact
+  // 舊首頁 hash 錨點相容：/#announcements → /announcements，/#faq → /faq，/#contact → /about#contact
   useEffect(() => {
     const h = location.hash?.replace('#', '').toLowerCase();
     if (location.pathname !== '/' || !h) return;
-    const map = { announcements: '/announcements', faq: '/faq', contact: '/contact' };
+    const map = { announcements: '/announcements', faq: '/faq', contact: '/about#contact' };
     if (map[h]) navigate(map[h], { replace: true });
   }, [location.pathname, location.hash, navigate]);
 
@@ -331,7 +333,9 @@ function AppContent() {
     location.pathname === '/login' ||
     location.pathname === '/forbidden';
   const isScrollWorldPage =
-    location.pathname === '/scrollworldtest' || location.pathname === '/campus-journey-draft';
+    location.pathname === '/scrollworldtest' ||
+    location.pathname === '/campus-journey-draft' ||
+    location.pathname === '/scroll-world-packs';
   const [isDesktopHome, setIsDesktopHome] = useState(() => {
     if (typeof window === 'undefined') return true;
     return window.matchMedia('(min-width: 861px)').matches;
@@ -353,7 +357,12 @@ function AppContent() {
   const showWeekly = showWeeklyHomeModal && !isDesktopHome;
 
   const publicShellBackground = isScrollWorldPage
-    ? { background: location.pathname === '/campus-journey-draft' ? '#f7f9fc' : '#f5ede0' }
+    ? {
+        background:
+          location.pathname === '/campus-journey-draft' || location.pathname === '/scroll-world-packs'
+            ? '#f7f9fc'
+            : '#f5ede0',
+      }
     : {
         background:
           'radial-gradient(circle at top left, rgba(42, 93, 159, 0.05), transparent 30rem), linear-gradient(180deg, #fbfbfa 0%, #f7f3ed 100%)',
@@ -453,8 +462,9 @@ function AppContent() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/scrollworldtest" element={<Navigate to="/" replace />} />
             <Route path="/campus-journey-draft" element={<CampusJourneyDraftPage />} />
+            <Route path="/scroll-world-packs" element={<ScrollWorldPacksPreviewPage />} />
             <Route path="/course-guide" element={<CourseGuidePage />} />
-            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/contact" element={<Navigate to="/about#contact" replace />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/survey" element={<Navigate to="/survey/choice" replace />} />
@@ -545,13 +555,16 @@ function AppContent() {
               />
               <Route path="survey-settings" element={<AdminLegacyRedirect to="/admin/survey-rules" fromLabel="問卷設定（舊網址）" />} />
               <Route path="announcements" element={<AnnouncementManagementPage />} />
+              <Route path="announcements/new" element={<AnnouncementEditorPage />} />
+              <Route path="announcements/:id/edit" element={<AnnouncementEditorPage />} />
               <Route path="weekly-reports" element={<AdminWeeklyReportPage />} />
               <Route path="weekly-reports/:id/edit" element={<AdminWeeklyReportEditorPage />} />
               <Route path="student-content" element={<StudentContentHubPage />} />
-              <Route path="site-content" element={<AdminLegacyRedirect to="/admin/student-content?area=copy" fromLabel="網站內容（舊網址）" />} />
+              <Route path="site-content" element={<AdminLegacyRedirect to="/admin/student-content?area=home" fromLabel="網站內容（舊網址）" />} />
               <Route path="page-content" element={<PageContentLegacyRedirect />} />
               <Route path="logs" element={<AdminAuditLogsPage />} />
               <Route path="settings/system" element={<SystemSettingsPage />} />
+              <Route path="settings/event-types" element={<EventTypesAdminPage />} />
               <Route path="settings/email-templates" element={<AdminEmailTemplatesPage />} />
               <Route path="diagnostics" element={<InternalDiagnosticsPage />} />
               <Route path="english-test" element={<EnglishTestManagement />} />

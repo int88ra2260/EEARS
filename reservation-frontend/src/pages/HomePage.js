@@ -5,6 +5,7 @@ import AnnouncementPreview from '../components/home/AnnouncementPreview';
 import FAQSection from '../components/home/FAQSection';
 import ContactSection from '../components/home/ContactSection';
 import useHomeMotion from '../hooks/useHomeMotion';
+import { takeNextHomeScrollWorldPackId } from '../constants/scrollWorldPacks';
 import '../styles/emi-brand.css';
 import '../components/home/home.css';
 import '../styles/magic-ui.css';
@@ -33,6 +34,7 @@ export default function HomePage() {
   const rootRef = useHomeMotion();
   const [isDesktop, setIsDesktop] = useState(readIsDesktop);
   const [dismissed, setDismissed] = useState(readDismissed);
+  const [homePackId] = useState(() => takeNextHomeScrollWorldPackId());
   const showOverlay = isDesktop && !dismissed;
 
   useEffect(() => {
@@ -104,7 +106,7 @@ export default function HomePage() {
       {showOverlay ? (
         <Suspense fallback={null}>
           <div className="swt-home-overlay" role="dialog" aria-modal="true" aria-label="沉浸式首頁">
-            <ScrollWorldTestPage onClose={dismissOverlay} />
+            <ScrollWorldTestPage onClose={dismissOverlay} packId={homePackId} />
           </div>
         </Suspense>
       ) : null}

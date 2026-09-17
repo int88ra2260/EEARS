@@ -10,6 +10,7 @@ import {
   saveEventTaskMarks,
 } from '../../../../services/etGroupingApi';
 import { showErrorMessage, showSuccessMessage } from '../../../../utils/errorHandler';
+import { isEnglishTableEventType } from '../../../../utils/eventCapacityFields';
 
 export default function AdminEventTaskMarksTab({ tabProps }) {
   const { token, eventId, canManage, canMark, eventType } = tabProps;
@@ -20,7 +21,7 @@ export default function AdminEventTaskMarksTab({ tabProps }) {
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [draftMarks, setDraftMarks] = useState({});
 
-  const isEnglishTable = (eventType || 'English Table') === 'English Table';
+  const isEnglishTable = isEnglishTableEventType(eventType);
   const canAccess = canManage || canMark;
 
   const loadMarks = useCallback(async () => {

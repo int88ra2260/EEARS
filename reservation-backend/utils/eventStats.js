@@ -115,13 +115,22 @@ async function getStudentParticipationStats(studentIds, semesterRange, activityT
     };
   }
 
-  // 活動類型映射
+  // 活動類型映射（查詢時相容 code + legacy 顯示名）
+  const eventTypeService = require('../services/eventTypeService');
   const ACTIVITY_TYPE_MAP = {
-    'ET': 'English Table',
-    'EC': 'English Club',
-    'JT': 'Job Talk',
-    'IF': 'International Forum'
+    ET: 'english_table',
+    EC: 'english_club',
+    JT: 'job_talk',
+    IF: 'international_forum',
   };
+
+  const activityTypeFilter =
+    activityType !== 'All'
+      ? (ACTIVITY_TYPE_MAP[activityType] || activityType)
+      : null;
+  const activityTypeValues = activityTypeFilter
+    ? eventTypeService.getEventTypeQueryValues(activityTypeFilter)
+    : null;
 
   // 查詢簽到統計
   const attendedStats = await sequelize.query(`
@@ -134,14 +143,14 @@ async function getStudentParticipationStats(studentIds, semesterRange, activityT
     WHERE r.studentId IN (:studentIds)
       AND r.checkinStatus = '已簽到'
       AND e.date BETWEEN :startDate AND :endDate
-      ${activityType !== 'All' ? 'AND e.eventType = :activityType' : ''}
+      ${activityTypeValues ? 'AND e.eventType IN (:activityTypes)' : ''}
     GROUP BY r.studentId, e.eventType
   `, {
     replacements: {
       studentIds: studentIds,
       startDate: semesterRange.start,
       endDate: semesterRange.end,
-      ...(activityType !== 'All' && { activityType: ACTIVITY_TYPE_MAP[activityType] || activityType })
+      ...(activityTypeValues && { activityTypes: activityTypeValues })
     },
     type: sequelize.QueryTypes.SELECT
   });
@@ -156,14 +165,14 @@ async function getStudentParticipationStats(studentIds, semesterRange, activityT
     WHERE r.studentId IN (:studentIds)
       AND r.checkinStatus = '已登記違規'
       AND e.date BETWEEN :startDate AND :endDate
-      ${activityType !== 'All' ? 'AND e.eventType = :activityType' : ''}
+      ${activityTypeValues ? 'AND e.eventType IN (:activityTypes)' : ''}
     GROUP BY r.studentId
   `, {
     replacements: {
       studentIds: studentIds,
       startDate: semesterRange.start,
       endDate: semesterRange.end,
-      ...(activityType !== 'All' && { activityType: ACTIVITY_TYPE_MAP[activityType] || activityType })
+      ...(activityTypeValues && { activityTypes: activityTypeValues })
     },
     type: sequelize.QueryTypes.SELECT
   });
@@ -185,18 +194,15 @@ async function getStudentParticipationStats(studentIds, semesterRange, activityT
     const count = parseInt(stat.count);
     attendedCountTotal += count;
     
-    const eventType = stat.eventType;
-    // 映射活動類型名稱
-    if (eventType === 'English Table') {
+    const code = eventTypeService.coerceEventTypeCode(stat.eventType, { fallback: '' });
+    if (code === 'english_table') {
       byType.EnglishTable += count;
-    } else if (eventType === 'English Club') {
+    } else if (code === 'english_club') {
       byType.EnglishClub += count;
-    } else if (eventType === 'Job Talk') {
+    } else if (code === 'job_talk') {
       byType.JobTalk += count;
-    } else if (eventType === 'International Forum') {
+    } else if (code === 'international_forum') {
       byType.InternationalForum += count;
-    } else if (byType.hasOwnProperty(eventType)) {
-      byType[eventType] += count;
     }
   });
 

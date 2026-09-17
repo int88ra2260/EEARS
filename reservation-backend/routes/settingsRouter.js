@@ -68,6 +68,9 @@ router.put('/english-test-registration-enabled', ...manageEnglishRegistrationAut
       enabled,
     });
   } catch (error) {
+    if (error.status === 400) {
+      return res.status(400).json({ error: error.message, code: error.code || 'BAD_REQUEST' });
+    }
     console.error('更新 english_test_registration_enabled 設定失敗：', error);
     return res.status(500).json({ error: '伺服器錯誤' });
   }
@@ -119,6 +122,9 @@ router.put('/english-test-registration-edit-enabled', ...manageEnglishRegistrati
       enabled,
     });
   } catch (error) {
+    if (error.status === 400) {
+      return res.status(400).json({ error: error.message, code: error.code || 'BAD_REQUEST' });
+    }
     console.error('更新 english_test_registration_edit_enabled 設定失敗：', error);
     return res.status(500).json({ error: '伺服器錯誤' });
   }

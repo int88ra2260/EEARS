@@ -2,106 +2,93 @@
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
+import {
+  DEFAULT_EVENT_TYPE_CODE,
+  OPEN_RULE_TYPES,
+  getDefaultTypeConfig,
+} from '../constants/eventTypeCatalog';
+import {
+  getCachedPublicEventTypes,
+  resolveTypeConfigFromList,
+} from '../services/eventTypeApi';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+/** @deprecated 預設 fallback；實際以類型 cutoffHours 為準 */
 export const RESERVATION_CUTOFF_HOURS = 2;
 
-/**
- * 根據活動類型計算預約開始時間
- * @param {Object} event - 活動物件，包含 date, startTime, eventType
- * @returns {Object} - 包含 openStart 和 openEnd 的物件
- */
-export function calculateReservationTime(event) {
-  const eventStart = dayjs(`${event.date}T${event.startTime}`);
-  
-  let openStart;
-  let openEnd;
-  
-  switch (event.eventType) {
-    case 'English Table':
-      // English Table：前一天 12:00 開始
-      openStart = eventStart.subtract(1, 'day').hour(12).minute(0).second(0);
-      openEnd = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
-      break;
-      
-    case 'Job Talk':
-      // Job Talk：活動開始前一個禮拜的同一個weekday的中午12點
-      openStart = eventStart.subtract(7, 'day').hour(12).minute(0).second(0);
-      openEnd = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
-      break;
-      
-    case 'English Club':
-      // English Club：上禮拜三的中午12點
-      // 直接計算：找到活動當週的星期三，然後減去7天
-      openStart = eventStart.startOf('week').add(3, 'day').subtract(7, 'day').hour(12).minute(0).second(0);
-      openEnd = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
-      break;
-      
-    case 'International Forum':
-      // International Forum：上禮拜五的中午12點  
-      // 直接計算：找到活動當週的星期五，然後減去7天
-      openStart = eventStart.startOf('week').add(5, 'day').subtract(7, 'day').hour(12).minute(0).second(0);
-      openEnd = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
-      break;
-      
-    default:
-      // 預設使用 English Table 的邏輯（包含自定義活動類型）：前一天 12:00
-      openStart = eventStart.subtract(1, 'day').hour(12).minute(0).second(0);
-      openEnd = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
-      break;
+function resolveCutoffHours(typeConfig) {
+  const n = Number(typeConfig?.cutoffHours);
+  if (Number.isFinite(n) && n >= 0) return n;
+  return RESERVATION_CUTOFF_HOURS;
+}
+
+function computeOpenStart(eventStart, openRule) {
+  const rule = openRule && typeof openRule === 'object' ? openRule : {};
+  const type = String(rule.type || OPEN_RULE_TYPES.DAY_BEFORE);
+  const hour = Number.isFinite(Number(rule.hour)) ? Number(rule.hour) : 12;
+  const minute = Number.isFinite(Number(rule.minute)) ? Number(rule.minute) : 0;
+
+  if (type === OPEN_RULE_TYPES.DAYS_BEFORE) {
+    const days = Number.isFinite(Number(rule.days)) ? Number(rule.days) : 7;
+    return eventStart.subtract(days, 'day').hour(hour).minute(minute).second(0);
   }
-  
-  return { openStart, openEnd };
+
+  if (type === OPEN_RULE_TYPES.PREV_WEEKDAY) {
+    const weekday = Number.isInteger(Number(rule.weekday)) ? Number(rule.weekday) : 3;
+    return eventStart.startOf('week').add(weekday, 'day').subtract(7, 'day').hour(hour).minute(minute).second(0);
+  }
+
+  const days = Number.isFinite(Number(rule.days)) ? Number(rule.days) : 1;
+  return eventStart.subtract(days, 'day').hour(hour).minute(minute).second(0);
 }
 
 /**
- * 取得指定日期前最近的指定星期幾（上週）
- * @param {dayjs.Dayjs} targetDate - 目標日期
- * @param {number} weekday - 星期幾 (1=星期一, 2=星期二, ..., 7=星期日)
- * @returns {dayjs.Dayjs} - 最近的指定星期幾
+ * @param {Object} event - { date, startTime, eventType }
+ * @param {Object} [typeConfig] - 來自 /api/event-types；省略時用公開快取或 seed fallback
  */
+export function calculateReservationTime(event, typeConfig) {
+  const eventStart = dayjs(`${event.date}T${event.startTime}`);
+  const fromCache = !typeConfig
+    ? resolveTypeConfigFromList(getCachedPublicEventTypes() || [], event?.eventType)
+    : null;
+  const cfg = typeConfig
+    || fromCache
+    || getDefaultTypeConfig(event?.eventType || DEFAULT_EVENT_TYPE_CODE);
+  const cutoffHours = resolveCutoffHours(cfg);
+  const openStart = computeOpenStart(eventStart, cfg.openRule);
+  const openEnd = eventStart.subtract(cutoffHours, 'hour');
+  return { openStart, openEnd, cutoffHours, typeConfig: cfg };
+}
+
+export function getCancellationDeadline(event, typeConfig) {
+  const { openEnd, cutoffHours, typeConfig: cfg } = calculateReservationTime(event, typeConfig);
+  return { deadline: openEnd, cutoffHours, typeConfig: cfg };
+}
+
 export function getLastWeekday(targetDate, weekday) {
-  
-  // 找到上週的指定星期幾
-  // 先找到本週的指定星期幾，然後減去7天
-  const startOfWeek = targetDate.startOf('week'); // 本週日
+  const startOfWeek = targetDate.startOf('week');
   let targetDayThisWeek;
-  
   if (weekday === 7) {
-    targetDayThisWeek = startOfWeek; // 本週日
+    targetDayThisWeek = startOfWeek;
   } else {
-    targetDayThisWeek = startOfWeek.add(weekday, 'day'); // 本週的目標星期幾
+    targetDayThisWeek = startOfWeek.add(weekday, 'day');
   }
-  
-  // 減去7天得到上週的同一天
   return targetDayThisWeek.subtract(7, 'day');
 }
 
-/**
- * 取得指定日期當週的指定星期幾（如果已過則取下週）
- * @param {dayjs.Dayjs} targetDate - 目標日期
- * @param {number} weekday - 星期幾 (1=星期一, 2=星期二, ..., 7=星期日)
- * @returns {dayjs.Dayjs} - 當週或下週的指定星期幾
- */
 export function getCurrentWeekday(targetDate, weekday) {
-  // 取得當週的指定星期幾
-  const startOfWeek = targetDate.startOf('week'); // 星期日
-  
-  // 計算當週的目標星期幾
+  const startOfWeek = targetDate.startOf('week');
   let targetDay;
   if (weekday === 7) {
-    targetDay = startOfWeek; // 星期日
+    targetDay = startOfWeek;
   } else {
-    targetDay = startOfWeek.add(weekday, 'day'); // 星期一到星期六
+    targetDay = startOfWeek.add(weekday, 'day');
   }
-  
-  // 如果目標星期幾已經過了（且已過了預約時間），取下週的
   const now = dayjs();
   if (targetDay.isBefore(now)) {
     return targetDay.add(7, 'day');
   }
-  
   return targetDay;
 }

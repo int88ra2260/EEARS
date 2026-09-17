@@ -159,7 +159,7 @@ export const PERMISSION_FIELD_META = {
   [P.CAN_RECORD_VIOLATIONS]: { label: '登記違規', description: '登記違規紀錄。', systemOnly: false },
   [P.CAN_MANAGE_VIOLATIONS]: { label: '違規管理', description: '違規案件維護。', systemOnly: false },
   [P.CAN_MANAGE_ANNOUNCEMENTS]: { label: '公告管理', description: '後台公告維護。', systemOnly: false },
-  [P.CAN_MANAGE_SITE_CONTENT]: { label: '學生端內容管理', description: '學生端文案、學習資源、法規表單與修課說明。', systemOnly: false },
+  [P.CAN_MANAGE_SITE_CONTENT]: { label: '學生端內容管理', description: '學生端文案（含活動介紹、關於我們）、學習資源、法規表單與修課說明。', systemOnly: false },
   [P.CAN_MANAGE_SETTINGS]: {
     label: '系統設定',
     description: '系統參數與設定檔層級治理。',

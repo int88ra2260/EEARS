@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-import { labelForContentKey } from '../../utils/siteContentCatalog';
+import { labelForContentKey, mergeTextCatalog } from '../../utils/siteContentCatalog';
 import { groupTextItems } from '../../utils/siteContentGroups';
 
 function StatusBadge({ isActive }) {
@@ -97,17 +97,18 @@ export default function SiteContentTextPanel({
   onEdit,
   onDelete,
   onSwitchToVisual,
+  eventTypes = null,
 }) {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState(() => new Set());
 
   const enriched = useMemo(
-    () => (items || []).map((item) => ({
+    () => mergeTextCatalog(section, items, { eventTypes }).map((item) => ({
       ...item,
       displayLabel: item.label || labelForContentKey(item.contentKey),
     })),
-    [items]
+    [section, items, eventTypes]
   );
 
   const stats = useMemo(() => ({

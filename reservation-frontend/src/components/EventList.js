@@ -21,6 +21,12 @@ import {
   eventTypeFilterToQueryParam,
   isInvalidEventTypeQueryParam,
 } from '../utils/eventTypeQuery';
+import { DEFAULT_EVENT_TYPES } from '../constants/eventTypeCatalog';
+import {
+  buildEventTypeSelectOptions,
+  eventTypesEqual,
+  fetchPublicEventTypes,
+} from '../services/eventTypeApi';
 import './EventList.css';
 import './events/eventTypeFilter.css';
 import '../styles/student-events.css';
@@ -32,19 +38,17 @@ import {
   makeDevRequestId,
 } from '../utils/reliabilityFaults';
 
+const TAB_TO_CODE = Object.freeze(
+  Object.fromEntries(DEFAULT_EVENT_TYPES.map((r) => [r.slug, r.code]))
+);
+
 function getInitialEventFilter(initialTabProp) {
   if (typeof window === 'undefined') return 'all';
   if (window.location.pathname === '/events') {
     return parseEventTypeQueryParam(new URLSearchParams(window.location.search).get('type'));
   }
   if (initialTabProp) {
-    const tabToType = {
-      'english-table': 'English Table',
-      'english-club': 'English Club',
-      'international-forum': 'International Forum',
-      'job-talk': 'Job Talk',
-    };
-    return tabToType[initialTabProp] || 'all';
+    return TAB_TO_CODE[initialTabProp] || 'all';
   }
   return 'all';
 }
@@ -63,15 +67,12 @@ function EventList({ initialTab: initialTabProp }) {
   const [selectedEvent, setSelectedEvent]           = useState(null);
   // 後台啟用中的活動問卷（用於顯示重要通知與問卷連結）
   const [enabledSurveys, setEnabledSurveys] = useState([]);
+  const [eventTypeCatalog, setEventTypeCatalog] = useState(() =>
+    DEFAULT_EVENT_TYPES.filter((r) => r.isActive).map((r) => ({ ...r }))
+  );
 
   const INITIAL_FILTER_FROM_TAB = useMemo(() => {
-    const tabToType = {
-      'english-table': 'English Table',
-      'english-club': 'English Club',
-      'international-forum': 'International Forum',
-      'job-talk': 'Job Talk',
-    };
-    return tabToType[initialTabProp] || 'all';
+    return TAB_TO_CODE[initialTabProp] || 'all';
   }, [initialTabProp]);
 
   const isEventsRoute = location.pathname === '/events';
@@ -86,8 +87,8 @@ function EventList({ initialTab: initialTabProp }) {
   }, [setSearchParams]);
 
   const urlDerivedFilter = useMemo(
-    () => parseEventTypeQueryParam(searchParams.get('type')),
-    [searchParams],
+    () => parseEventTypeQueryParam(searchParams.get('type'), eventTypeCatalog),
+    [searchParams, eventTypeCatalog],
   );
 
   const [eventTypeFilter, setEventTypeFilter] = useState(() => getInitialEventFilter(initialTabProp));
@@ -103,7 +104,7 @@ function EventList({ initialTab: initialTabProp }) {
   useEffect(() => {
     if (!isEventsRoute) return;
     const raw = searchParams.get('type');
-    if (!isInvalidEventTypeQueryParam(raw)) return;
+    if (!isInvalidEventTypeQueryParam(raw, eventTypeCatalog)) return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -112,17 +113,43 @@ function EventList({ initialTab: initialTabProp }) {
       },
       { replace: true },
     );
-  }, [isEventsRoute, searchParams, setSearchParams]);
+  }, [isEventsRoute, searchParams, setSearchParams, eventTypeCatalog]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const list = await fetchPublicEventTypes({ force: true });
+      if (!cancelled && Array.isArray(list) && list.length) {
+        setEventTypeCatalog(list.filter((r) => r.isActive !== false));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filterOptions = useMemo(() => {
-    return [
-      { value: 'all', labelKey: 'page.eventTypeFilterAll', tabId: null },
-      { value: 'English Table', labelKey: 'activities.englishTable', tabId: 'english-table' },
-      { value: 'English Club', labelKey: 'activities.englishClub', tabId: 'english-club' },
-      { value: 'Job Talk', labelKey: 'activities.jobTalk', tabId: 'job-talk' },
-      { value: 'International Forum', labelKey: 'activities.internationalForum', tabId: 'international-forum' },
-    ];
-  }, []);
+    const fromCatalog = buildEventTypeSelectOptions(eventTypeCatalog, {
+      includeAll: true,
+      activeOnly: true,
+    });
+    return fromCatalog.map((opt) => {
+      if (opt.value === 'all') {
+        return { value: 'all', labelKey: 'page.eventTypeFilterAll', tabId: null, label: opt.label };
+      }
+      const seed = DEFAULT_EVENT_TYPES.find((r) => r.code === opt.value);
+      const labelKeyByCode = {
+        english_table: 'activities.englishTable',
+        english_club: 'activities.englishClub',
+        job_talk: 'activities.jobTalk',
+        international_forum: 'activities.internationalForum',
+      };
+      return {
+        value: opt.value,
+        label: opt.label,
+        labelKey: labelKeyByCode[opt.value] || null,
+        tabId: seed?.slug || opt.slug || null,
+      };
+    });
+  }, [eventTypeCatalog]);
 
   // Phase 2.3：問卷完成後自動承接預約成功（自動開啟 booking modal）
   useEffect(() => {
@@ -162,8 +189,8 @@ function EventList({ initialTab: initialTabProp }) {
 
   const filteredEvents = useMemo(() => {
     if (eventTypeFilter === 'all') return events;
-    return events.filter((evt) => evt.eventType === eventTypeFilter);
-  }, [events, eventTypeFilter]);
+    return events.filter((evt) => eventTypesEqual(evt.eventType, eventTypeFilter, eventTypeCatalog));
+  }, [events, eventTypeFilter, eventTypeCatalog]);
 
   const applyEventTypeFilter = useCallback(
     (value) => {
@@ -172,14 +199,14 @@ function EventList({ initialTab: initialTabProp }) {
         setSearchParams(
           (prev) => {
             const next = new URLSearchParams(prev);
-            next.set('type', eventTypeFilterToQueryParam(value));
+            next.set('type', eventTypeFilterToQueryParam(value, eventTypeCatalog));
             return next;
           },
           { replace: true },
         );
       }
     },
-    [location.pathname, setSearchParams],
+    [location.pathname, setSearchParams, eventTypeCatalog],
   );
 
   // 載入後台啟用中的活動問卷（僅在啟用時顯示問卷通知）
@@ -370,6 +397,7 @@ function EventList({ initialTab: initialTabProp }) {
         >
           {filterOptions.map((opt, i) => {
             const isActive = eventTypeFilter === opt.value;
+            const labelText = opt.labelKey ? t(opt.labelKey) : (opt.label || opt.value);
             return (
               <button
                 key={opt.value}
@@ -379,7 +407,7 @@ function EventList({ initialTab: initialTabProp }) {
                 }}
                 className={`event-type-filter__btn ${isActive ? 'is-active' : ''}`}
                 aria-pressed={isActive}
-                aria-label={`${t(opt.labelKey)}${isActive ? t('page.eventTypeFilterCurrentSuffix') : ''}`}
+                aria-label={`${labelText}${isActive ? t('page.eventTypeFilterCurrentSuffix') : ''}`}
                 tabIndex={activeFilterIndex === i ? 0 : -1}
                 onKeyDown={(e) => onFilterKeyDown(e, i)}
                 onClick={() => applyEventTypeFilter(opt.value)}
@@ -389,7 +417,7 @@ function EventList({ initialTab: initialTabProp }) {
                     ✓
                   </span>
                 )}
-                {t(opt.labelKey)}
+                {labelText}
               </button>
             );
           })}

@@ -4,18 +4,24 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getCurrentSemester } from '../utils/semesterUtils';
 import { fetchRegistrations } from '../services/englishTestApi';
+import {
+  normalizeSortConfig,
+  appendSortQueryParams,
+  createPrimarySortConfig,
+} from '../utils/englishTestSortConfig';
 
 const SORT_CONFIG_KEY = 'englishTestSortConfig';
 const PAGE_SIZE_KEY = 'englishTestPageSize';
-const DEFAULT_SORT = { key: 'id', direction: 'ASC' };
+const DEFAULT_SORT = createPrimarySortConfig('id', 'ASC');
 const DEFAULT_PAGE_SIZE = 100;
 /** 單次列表請求／畫面渲染上限（避免「全部」一次塞數千列） */
-export const ENGLISH_TEST_MAX_PAGE_SIZE = 500;
+export const ENGLISH_TEST_MAX_PAGE_SIZE = 1000;
 export const ENGLISH_TEST_PAGE_SIZE_OPTIONS = [
   { value: 50, label: '50 筆' },
   { value: 100, label: '100 筆' },
   { value: 200, label: '200 筆' },
-  { value: 500, label: '500 筆（上限）' },
+  { value: 500, label: '500 筆' },
+  { value: 1000, label: '1000 筆（上限）' },
 ];
 const VALID_STATUS = new Set(['all', 'pending', 'approved', 'success', 'revision', 'failed']);
 const VALID_PAGE_SIZES = new Set(ENGLISH_TEST_PAGE_SIZE_OPTIONS.map((o) => String(o.value)));
@@ -30,7 +36,8 @@ const defaultStats = () => ({
   nonExam: 0,
   nonExamInconsistent: 0,
   listeningReading: 0,
-  speakingWriting: 0
+  speakingWriting: 0,
+  lrsw: 0
 });
 
 const defaultAdvancedFilters = () => ({
@@ -45,7 +52,7 @@ const defaultAdvancedFilters = () => ({
 function getInitialSortConfig() {
   try {
     const saved = localStorage.getItem(SORT_CONFIG_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) return normalizeSortConfig(JSON.parse(saved));
   } catch (e) {}
   return DEFAULT_SORT;
 }
@@ -97,11 +104,15 @@ export function useEnglishTestRegistrations({
   );
   const [searchTerm, setSearchTerm] = useState('');
   const [advancedFilters, setAdvancedFilters] = useState(defaultAdvancedFilters());
-  const [sortConfig, setSortConfig] = useState(() => getInitialSortConfig());
+  const [sortConfig, setSortConfigState] = useState(() => getInitialSortConfig());
   const [stats, setStats] = useState(defaultStats());
   const [todayNewCount, setTodayNewCount] = useState(0);
 
   const apiLimit = resolveApiLimit(pageSize);
+
+  const setSortConfig = useCallback((next) => {
+    setSortConfigState((prev) => normalizeSortConfig(typeof next === 'function' ? next(prev) : next));
+  }, []);
 
   const setPageSize = useCallback((next) => {
     const normalized = normalizePageSize(next);
@@ -122,9 +133,8 @@ export function useEnglishTestRegistrations({
     if (mainTab === 'individual' && advancedFilters.semester) p.set('semester', advancedFilters.semester);
     if (mainTab === 'individual' && advancedFilters.isLowIncome) p.set('isLowIncome', advancedFilters.isLowIncome);
     if (mainTab === 'individual' && advancedFilters.hasDisabilityCard) p.set('hasDisabilityCard', advancedFilters.hasDisabilityCard);
-    if (mainTab === 'individual' && sortConfig.key) {
-      p.set('sortBy', sortConfig.key);
-      p.set('sortOrder', sortConfig.direction);
+    if (mainTab === 'individual' && sortConfig?.key) {
+      appendSortQueryParams(p, sortConfig);
     }
     return p;
   }, [currentPage, apiLimit, statusFilter, searchTerm, mainTab, advancedFilters, sortConfig]);

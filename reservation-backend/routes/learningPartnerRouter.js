@@ -22,6 +22,8 @@ const emailQueue = require('../utils/emailQueue');
 const { isGroupRegistrationEnabled } = require('../services/registrationSettingsService');
 const { getActiveRegistrationSemester } = require('../utils/englishTestRegistrationSemester');
 const englishTestRegistrationService = require('../services/englishTestRegistrationService');
+const { getLearningPartnerFunnel } = require('../services/learningPartnerFunnelService');
+const { getLearningPartnerOutcomeComparison } = require('../services/learningPartnerOutcomeService');
 
 // 輔助函數：取得設定值
 async function getSetting(key, defaultValue) {
@@ -872,6 +874,62 @@ router.post('/learning-partner/teams/:teamId/cancel', ...learningPartnerAdminAut
     return res.status(500).json({
       error: '取消團體時發生錯誤',
       code: 'LP_INTERNAL_ERROR'
+    });
+  }
+});
+
+// 6b. GET /api/admin/learning-partner/funnel - 單次考試（學期）營運漏斗
+router.get('/admin/learning-partner/funnel', ...learningPartnerAdminAuth, async (req, res) => {
+  try {
+    const semester = String(req.query.semester || '').trim();
+    if (!semester) {
+      return res.status(400).json({
+        error: '請提供學期參數 semester（例如 114-1）',
+        code: 'LP_INVALID_SEMESTER',
+      });
+    }
+
+    const data = await getLearningPartnerFunnel({ semester });
+    return res.json(data);
+  } catch (error) {
+    if (error.code === 'LP_INVALID_SEMESTER') {
+      return res.status(error.status || 400).json({
+        error: error.message,
+        code: error.code,
+      });
+    }
+    console.error('查詢學習有伴營運漏斗錯誤:', error);
+    return res.status(500).json({
+      error: '查詢營運成效時發生錯誤',
+      code: 'LP_INTERNAL_ERROR',
+    });
+  }
+});
+
+// 6c. GET /api/admin/learning-partner/outcome - 有伴 vs 無伴該次考試成績對照
+router.get('/admin/learning-partner/outcome', ...learningPartnerAdminAuth, async (req, res) => {
+  try {
+    const semester = String(req.query.semester || '').trim();
+    if (!semester) {
+      return res.status(400).json({
+        error: '請提供學期參數 semester（例如 114-1）',
+        code: 'LP_INVALID_SEMESTER',
+      });
+    }
+
+    const data = await getLearningPartnerOutcomeComparison({ semester });
+    return res.json(data);
+  } catch (error) {
+    if (error.code === 'LP_INVALID_SEMESTER') {
+      return res.status(error.status || 400).json({
+        error: error.message,
+        code: error.code,
+      });
+    }
+    console.error('查詢學習有伴成績對照錯誤:', error);
+    return res.status(500).json({
+      error: '查詢成績對照時發生錯誤',
+      code: 'LP_INTERNAL_ERROR',
     });
   }
 });

@@ -19,12 +19,16 @@ describe('workerLevel access matrix', () => {
     expect(p.finalScopes).toEqual([SCOPE.ALL]);
   });
 
-  it('event_ops: activity ops without settings/accounts', () => {
+  it('event_ops: view events and reservations only (no checkin/violations)', () => {
     const p = profileFor('event_ops');
-    expect(p.permissionSet.has(P.CAN_MANAGE_EVENTS)).toBe(true);
-    expect(p.permissionSet.has(P.CAN_CHECKIN_STUDENTS)).toBe(true);
-    expect(p.permissionSet.has(P.CAN_MANAGE_VIOLATIONS)).toBe(true);
-    expect(p.permissionSet.has(P.CAN_VIEW_ET_GROUPING)).toBe(true);
+    expect(p.permissionSet.has(P.CAN_VIEW_EVENTS_ADMIN)).toBe(true);
+    expect(p.permissionSet.has(P.CAN_VIEW_RESERVATIONS)).toBe(true);
+    expect(p.permissionSet.has(P.CAN_MANAGE_EVENTS)).toBe(false);
+    expect(p.permissionSet.has(P.CAN_CHECKIN_STUDENTS)).toBe(false);
+    expect(p.permissionSet.has(P.CAN_EXPORT_RESERVATIONS)).toBe(false);
+    expect(p.permissionSet.has(P.CAN_MANAGE_VIOLATIONS)).toBe(false);
+    expect(p.permissionSet.has(P.CAN_VIEW_BLACKLIST)).toBe(false);
+    expect(p.permissionSet.has(P.CAN_VIEW_ET_GROUPING)).toBe(false);
     expect(p.permissionSet.has(P.CAN_IMPORT_BESTEP)).toBe(false);
     expect(p.permissionSet.has(P.CAN_MANAGE_ANNOUNCEMENTS)).toBe(false);
     expect(p.permissionSet.has(P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS)).toBe(false);

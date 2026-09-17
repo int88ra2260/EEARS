@@ -3,6 +3,8 @@
  */
 export {
   getCurrentSemester,
+  getPreviousSemester,
+  getDefaultLearningPartnerOpsSemester,
   isValidSemester,
   semesterIdFromDate,
   SEMESTER_RANGES,

@@ -1,6 +1,9 @@
+'use strict';
+
 const dayjs = require('dayjs');
 const { Reservation, Event } = require('../models');
-const { RESERVATION_CUTOFF_HOURS } = require('../utils/reservationTime');
+const { getCancellationDeadline } = require('../utils/reservationTime');
+const eventTypeService = require('./eventTypeService');
 
 async function cancelReservationPublic({
   reservationId,
@@ -21,11 +24,11 @@ async function cancelReservationPublic({
     return { cancelled: false, reservation, reason: 'identity_mismatch' };
   }
 
+  const typeConfig = eventTypeService.resolveTypeConfigSync(reservation.Event.eventType);
   const now = dayjs();
-  const eventStart = dayjs(`${reservation.Event.date}T${reservation.Event.startTime}`);
-  const cancellationDeadline = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
+  const { deadline: cancellationDeadline } = getCancellationDeadline(reservation.Event, typeConfig);
   if (now.isAfter(cancellationDeadline)) {
-    return { cancelled: false, reservation, reason: 'time_window_closed' };
+    return { cancelled: false, reservation, reason: 'time_window_closed', cutoffHours: typeConfig.cutoffHours };
   }
 
   const code = String(verificationCode || '').trim();

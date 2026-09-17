@@ -14,6 +14,7 @@ import { useState, useCallback, useMemo } from 'react';
 import dayjs from 'dayjs';
 import useConfirm from '../components/ui/useConfirm';
 import { RESERVATION_CUTOFF_HOURS } from '../constants/reservationRules';
+import { DEFAULT_EVENT_TYPE_CODE } from '../constants/eventTypeCatalog';
 import {
   batchMarkEventNoShow,
   checkinEventReservation,
@@ -162,7 +163,7 @@ export function useReservationAdminFlow({ token, showSuccessMessage, showErrorMe
       name: eventName,
       date: data.eventDate || '',
       startTime: data.eventStartTime || eventStartTime || '',
-      eventType: eventType || 'English Table',
+      eventType: eventType || DEFAULT_EVENT_TYPE_CODE,
       autoCheckCompleted: data.autoCheckCompleted || false
     });
     await loadEventViolations(eventId);

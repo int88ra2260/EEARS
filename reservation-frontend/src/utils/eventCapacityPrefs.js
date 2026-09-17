@@ -1,5 +1,7 @@
 'use strict';
 
+import { DEFAULT_EVENT_TYPE_CODE, normalizeEventTypeCode } from '../constants/eventTypeCatalog';
+
 const STORAGE_KEY = 'eears.eventCapacityPrefs.v1';
 
 /**
@@ -26,8 +28,8 @@ export function saveCapacityPrefs(fields = {}) {
     if (typeof localStorage === 'undefined') return;
     const prev = loadCapacityPrefs();
     const next = { ...prev };
-    const eventType = fields.eventType || 'English Table';
-    const isEt = eventType === 'English Table';
+    const eventType = fields.eventType || DEFAULT_EVENT_TYPE_CODE;
+    const isEt = normalizeEventTypeCode(eventType) === 'english_table';
 
     if (isEt) {
       const gc = parseInt(fields.groupCount, 10);

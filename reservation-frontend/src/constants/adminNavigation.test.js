@@ -49,17 +49,27 @@ describe('getAdminRoleHomeLabel', () => {
 });
 
 describe('filterVisibleNav worker by workerLevel', () => {
-  it('event_ops worker can access operations route and sees events nav', () => {
+  it('event_ops worker only sees events-list', () => {
     const workerProfile = buildAccessProfile('', 'worker');
     expect(workerProfile.workerLevel).toBe('event_ops');
     expect(canAccessAdminRoute(workerProfile, '/admin/operations')).toBe(true);
+    expect(canAccessAdminRoute(workerProfile, '/admin/account/reset')).toBe(false);
     expect(canAccessAdminRoute(workerProfile, '/admin/announcements')).toBe(false);
+    expect(workerProfile.permissionSet.has('can_manage_events')).toBe(false);
+    expect(workerProfile.permissionSet.has('can_checkin_students')).toBe(false);
+    expect(workerProfile.permissionSet.has('can_view_reservations')).toBe(true);
 
     const workerCtx = buildNavContextFromAccessProfile(workerProfile);
     const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, workerCtx);
     const sectionIds = visible.map((section) => section.id);
-    expect(sectionIds).toContain('events');
+    expect(sectionIds).toEqual(['events']);
+    expect(sectionIds).not.toContain('accounts');
     expect(sectionIds).not.toContain('announcements');
+    expect(sectionIds).not.toContain('import-center');
+    expect(sectionIds).not.toContain('system');
+
+    const eventChildren = visible.find((s) => s.id === 'events')?.children?.map((c) => c.id) || [];
+    expect(eventChildren).toEqual(['events-list']);
   });
 
   it('content_editor worker sees announcement routes', () => {
@@ -76,12 +86,12 @@ describe('filterVisibleNav worker by workerLevel', () => {
 });
 
 describe('getDefaultExpandedSectionIds', () => {
-  it('expands events and accounts for event_ops worker', () => {
+  it('expands events for event_ops worker (no accounts)', () => {
     const workerCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'worker'));
     const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, workerCtx);
     const ids = getDefaultExpandedSectionIds(workerCtx, visible);
     expect(ids.has('events')).toBe(true);
-    expect(ids.has('accounts')).toBe(true);
+    expect(ids.has('accounts')).toBe(false);
   });
 
   it('expands events for office staff', () => {

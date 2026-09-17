@@ -8,19 +8,22 @@ import {
   updateSystemSetting,
 } from '../../services/settingsAdminApi';
 
-function ToggleRow({ title, desc, value, loading, onChange }) {
+function ToggleRow({ title, desc, value, loading, onChange, disabled = false, disabledHint }) {
   return (
     <div className="d-flex justify-content-between align-items-center border rounded p-3 mb-2">
       <div>
         <div className="fw-semibold">{title}</div>
         <div className="small text-muted">{desc}</div>
+        {disabled && disabledHint ? (
+          <div className="small text-warning mt-1">{disabledHint}</div>
+        ) : null}
       </div>
       <div className="form-check form-switch m-0">
         <input
           className="form-check-input"
           type="checkbox"
           checked={!!value}
-          disabled={loading}
+          disabled={loading || disabled}
           onChange={(e) => onChange(e.target.checked)}
         />
       </div>
@@ -62,6 +65,15 @@ export default function SystemSettingsPage() {
   }, [load]);
 
   const updateSetting = async (path, key, enabled) => {
+    if (key === 'englishTestRegistrationEnabled' && enabled && !settings.englishTestRegistrationEditEnabled) {
+      toast.error('請先開啟「檢視與修正」，才能開啟個人報名');
+      return;
+    }
+    if (key === 'englishTestRegistrationEditEnabled' && !enabled && settings.englishTestRegistrationEnabled) {
+      toast.error('請先關閉「個人報名」，才能關閉「檢視與修正」');
+      return;
+    }
+
     setSaving(true);
     try {
       await updateSystemSetting(token, userRole, path, enabled);
@@ -74,12 +86,13 @@ export default function SystemSettingsPage() {
       setLastFeedback(feedback);
       toast.success('設定已更新');
     } catch (e) {
+      const msg = e?.message || e?.data?.error || '設定更新失敗';
       setLastFeedback({
         type: 'danger',
-        message: '設定更新失敗',
+        message: msg,
         at: new Date().toLocaleString('zh-TW'),
       });
-      toast.error('設定更新失敗');
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -120,11 +133,16 @@ export default function SystemSettingsPage() {
       <div className="card shadow-sm mb-3">
         <div className="card-header">系統開關</div>
         <div className="card-body">
+          <div className="alert alert-secondary small mb-3">
+            個人報名與「檢視與修正」僅允許：兩者皆開（Header：培力英檢(考試報名)）、僅檢視與修正（Header：培力英檢(資料修正)）、兩者皆關（Header 不顯示）。
+          </div>
           <ToggleRow
             title="英檢個人報名開關"
-            desc="控制培力英檢個人報名入口（含前台 Header 顯示與學生端 API）"
+            desc="控制培力英檢個人新報名；需同時開啟「檢視與修正」"
             value={settings.englishTestRegistrationEnabled}
             loading={saving}
+            disabled={!settings.englishTestRegistrationEnabled && !settings.englishTestRegistrationEditEnabled}
+            disabledHint="請先開啟「檢視與修正」"
             onChange={(v) => updateSetting(SETTINGS_PATHS.englishTestRegistration, 'englishTestRegistrationEnabled', v)}
           />
           <ToggleRow
@@ -136,9 +154,11 @@ export default function SystemSettingsPage() {
           />
           <ToggleRow
             title="英檢「檢視與修正」開關"
-            desc="控制學生端能否查詢並修改已報名資料；可與個人報名分開，方便報名截止後仍開放修正"
+            desc="控制 Header 是否顯示培力英檢入口，以及學生端查詢／修改；關閉前需先關閉個人報名"
             value={settings.englishTestRegistrationEditEnabled}
             loading={saving}
+            disabled={settings.englishTestRegistrationEditEnabled && settings.englishTestRegistrationEnabled}
+            disabledHint="請先關閉「個人報名」"
             onChange={(v) => updateSetting(SETTINGS_PATHS.englishTestRegistrationEdit, 'englishTestRegistrationEditEnabled', v)}
           />
         </div>

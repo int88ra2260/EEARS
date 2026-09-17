@@ -110,7 +110,7 @@ const getActivitySpecificContent = (eventType, startTime) => {
         chineseDescription: 'English Table',
         englishDescription: 'English Table',
         checkInTime: checkInTime,
-        chineseReminder: `提醒您：逾時參加(12:20以後)等同遲到，遲到視為違規行為;違規達兩次以上，系統會自動將學生列入黑名單，敬請留意。`,
+        chineseReminder: `提醒您：逾時參加(活動開始5分鐘後)等同遲到，遲到視為違規行為;違規達兩次以上，系統會自動將學生列入黑名單，敬請留意。`,
         englishReminder: `Reminder: Attending after 12:20 will be regarded as being late, and lateness will be treated as a violation. Students with two or more violations in the same semester will automatically be placed on the blacklist by the system. Please take note.`,
         //chineseAdditionalInfo: '請準備好您的英語能力，與國際學生進行輕鬆的英語對話交流！',
         //englishAdditionalInfo: 'Please be ready to engage in casual English conversations with international students!'

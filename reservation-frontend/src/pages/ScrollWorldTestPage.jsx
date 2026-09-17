@@ -8,6 +8,7 @@ import {
   SCROLL_WORLD_SECTIONS,
   buildScrollWorldSegments,
 } from '../constants/scrollWorldTestConfig';
+import { getScrollWorldPack } from '../constants/scrollWorldPacks';
 import { fetchScrollWorldTestPublic } from '../services/pageContentPublicApi';
 import './ScrollWorldTestPage.css';
 
@@ -51,10 +52,17 @@ function renderCommaBreaks(text) {
   });
 }
 
-export default function ScrollWorldTestPage({ onClose = null }) {
+/**
+ * @param {{ onClose?: (() => void) | null, packId?: string }} props
+ * packId: clay | papercraft | neon；未傳則沿用既有 clay 資產。
+ */
+export default function ScrollWorldTestPage({ onClose = null, packId = 'clay' }) {
   const { t, lang } = useLanguage();
   const videoRefs = useRef({});
   const [dbSegments, setDbSegments] = useState(null);
+  const pack = useMemo(() => getScrollWorldPack(packId), [packId]);
+  const packSections = pack.sections || SCROLL_WORLD_SECTIONS;
+  const packConnectors = pack.connectors || SCROLL_WORLD_CONNECTORS;
 
   useEffect(() => {
     let cancelled = false;
@@ -73,18 +81,25 @@ export default function ScrollWorldTestPage({ onClose = null }) {
     };
   }, []);
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-swt-pack', pack.id);
+    return () => {
+      document.documentElement.removeAttribute('data-swt-pack');
+    };
+  }, [pack.id]);
+
   const sectionsOrdered = useMemo(() => {
     const rows = Array.isArray(dbSegments) ? [...dbSegments].sort((a, b) => a.sortOrder - b.sortOrder) : [];
-    const active = rows.length ? rows.filter((s) => !!s.isActive) : (dbSegments == null ? SCROLL_WORLD_SECTIONS : []);
+    const active = rows.length ? rows.filter((s) => !!s.isActive) : (dbSegments == null ? packSections : []);
 
     if (!active || active.length === 0) return [];
 
-    // 當 DB 尚未 ready 時，回到既有靜態 config（確保頁面不會空白）
-    if (active === SCROLL_WORLD_SECTIONS) return SCROLL_WORLD_SECTIONS;
+    // 當 DB 尚未 ready 時，回到 pack 靜態 config（確保頁面不會空白）
+    if (active === packSections) return packSections;
 
     return active
       .map((seg) => {
-        const staticSection = SCROLL_WORLD_SECTIONS.find((s) => s.id === seg.sectionId);
+        const staticSection = packSections.find((s) => s.id === seg.sectionId);
         if (!staticSection) return null;
 
         const secondary = Array.isArray(seg.secondaryCtas) ? seg.secondaryCtas : [];
@@ -122,21 +137,34 @@ export default function ScrollWorldTestPage({ onClose = null }) {
         };
       })
       .filter(Boolean);
-  }, [dbSegments, lang]);
+  }, [dbSegments, lang, packSections]);
 
   const segments = useMemo(
-    () => buildScrollWorldSegments(sectionsOrdered, SCROLL_WORLD_CONNECTORS),
-    [sectionsOrdered],
+    () => buildScrollWorldSegments(sectionsOrdered, packConnectors),
+    [sectionsOrdered, packConnectors],
   );
 
   const { rootRef } = useScrollWorldGsap({
     sections: sectionsOrdered,
-    connectors: SCROLL_WORLD_CONNECTORS,
+    connectors: packConnectors,
     videoRefs,
   });
 
+  const pageStyle = {
+    '--swt-bg': pack.bg,
+    '--swt-ink': pack.ink,
+    '--swt-ink-soft': pack.inkSoft,
+  };
+
   return (
-    <div ref={rootRef} className="swt-page" data-swt-section="0">
+    <div
+      key={pack.id}
+      ref={rootRef}
+      className="swt-page"
+      data-swt-section="0"
+      data-swt-pack={pack.id}
+      style={pageStyle}
+    >
       {typeof onClose === 'function' ? (
         <button
           type="button"
@@ -159,7 +187,6 @@ export default function ScrollWorldTestPage({ onClose = null }) {
             data-swt-seg={seg.key}
             style={{ '--swt-scene-accent': seg.accent }}
           >
-            {/* 背景：靜態 still + CSS blur（不再解第二支影片） */}
             {seg.still ? (
               <img
                 className="swt-scene__still swt-scene__still--bg"
@@ -181,7 +208,6 @@ export default function ScrollWorldTestPage({ onClose = null }) {
               />
             ) : null}
 
-            {/* 前景影片：preload=none，由 hook 依鄰近段落動態掛 src */}
             {seg.clip ? (
               <video
                 ref={(el) => {

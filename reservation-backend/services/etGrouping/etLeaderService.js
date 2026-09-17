@@ -7,6 +7,7 @@ const {
   EtEventGroupAssignment,
   sequelize,
 } = require('../../models');
+const { isEnglishTableEventType } = require('../../utils/eventCapacity');
 
 async function listLeaderCandidates() {
   const teachers = await Teacher.findAll({
@@ -50,7 +51,7 @@ async function syncLeaderToAssignments(eventId, groupLabel, leaderTeacherId, { t
 async function assignGroupLeaders(eventId, assignments = [], { userId: _userId } = {}) {
   const event = await Event.findByPk(eventId);
   if (!event) throw Object.assign(new Error('活動不存在'), { status: 404 });
-  if ((event.eventType || 'English Table') !== 'English Table') {
+  if (!isEnglishTableEventType(event.eventType)) {
     throw Object.assign(new Error('僅 English Table 活動支援 Leader 指派'), { status: 400 });
   }
   if (!Array.isArray(assignments) || !assignments.length) {

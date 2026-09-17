@@ -9,6 +9,7 @@ import './StudentContentHubPage.css';
 
 /**
  * 學生端內容中心 — 單一入口，依任務區嵌入既有編輯器
+ * 主任務順序對齊前台 Header 探索導覽。
  */
 export default function StudentContentHubPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -21,6 +22,13 @@ export default function StudentContentHubPage() {
       : '學生端內容 | EEARS';
   }, [area]);
 
+  // 舊連結 area=copy → home
+  useEffect(() => {
+    if (areaId === 'copy') {
+      setSearchParams({ area: 'home' }, { replace: true });
+    }
+  }, [areaId, setSearchParams]);
+
   const setArea = (id) => {
     if (!id) {
       setSearchParams({}, { replace: false });
@@ -29,10 +37,27 @@ export default function StudentContentHubPage() {
     setSearchParams({ area: id }, { replace: false });
   };
 
-  // 防呆：未知 area
-  if (areaId && !area) {
+  if (areaId && areaId !== 'copy' && !area) {
     return <Navigate to="/admin/student-content" replace />;
   }
+
+  const headerAreas = STUDENT_CONTENT_AREAS.filter((a) => a.headerMatch);
+  const otherAreas = STUDENT_CONTENT_AREAS.filter((a) => !a.headerMatch && !a.advanced);
+  const advancedAreas = STUDENT_CONTENT_AREAS.filter((a) => a.advanced);
+
+  const renderCard = (a, { cta = '開始編輯', advanced = false } = {}) => (
+    <button
+      key={a.id}
+      type="button"
+      className={`sch-hub__card${advanced ? ' sch-hub__card--advanced' : ''}`}
+      onClick={() => setArea(a.id)}
+    >
+      <div className="sch-hub__card-title">{a.label}</div>
+      <p className="sch-hub__card-desc">{a.description}</p>
+      {a.howTo ? <p className="sch-hub__card-how">{a.howTo}</p> : null}
+      <span className="sch-hub__card-cta">{cta}</span>
+    </button>
+  );
 
   return (
     <div className="sch-hub admin-page">
@@ -40,7 +65,8 @@ export default function StudentContentHubPage() {
         <div className="sch-hub__header-copy">
           <p className="sch-hub__kicker">學生在網站上看到的內容</p>
           <p className="sch-hub__lead">
-            這裡修改學生在網站上看得到的文字、連結、PDF、修課說明與圖片。存檔後前台會更新；不確定時可先開預覽確認。
+            上方任務對應網站 Header 的探索選單（活動介紹、學習資源、修課說明、法規表單、關於我們）。
+            存檔後前台會更新；不確定時可先開預覽確認。
           </p>
         </div>
         {area ? (
@@ -63,46 +89,48 @@ export default function StudentContentHubPage() {
 
       {!area ? (
         <div className="sch-hub__landing">
-          <h2 className="sch-hub__section-title">你想做什麼？</h2>
-          <p className="sch-hub__section-lead">選一個任務開始。每個任務只改一類內容，比較不容易改錯。</p>
+          <h2 className="sch-hub__section-title">網站導覽頁（對應 Header）</h2>
+          <p className="sch-hub__section-lead">
+            與學生端選單相同：活動介紹 → 學習資源 → 修課說明 → 法規表單 → 關於我們。選一個開始編輯。
+          </p>
 
           <div className="sch-hub__grid">
-            {STUDENT_CONTENT_AREAS.filter((a) => !a.advanced).map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                className="sch-hub__card"
-                onClick={() => setArea(a.id)}
-              >
-                <div className="sch-hub__card-title">{a.label}</div>
-                <p className="sch-hub__card-desc">{a.description}</p>
-                <p className="sch-hub__card-how">{a.howTo}</p>
-                <span className="sch-hub__card-cta">開始編輯</span>
-              </button>
-            ))}
+            {headerAreas.map((a) => renderCard(a))}
           </div>
 
           <div className="sch-hub__advanced">
-            <h3 className="sch-hub__advanced-title">進階（選用）</h3>
-            {STUDENT_CONTENT_AREAS.filter((a) => a.advanced).map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                className="sch-hub__card sch-hub__card--advanced"
-                onClick={() => setArea(a.id)}
-              >
-                <div className="sch-hub__card-title">{a.label}</div>
-                <p className="sch-hub__card-desc">{a.description}</p>
-                <span className="sch-hub__card-cta">開啟</span>
-              </button>
-            ))}
+            <h3 className="sch-hub__advanced-title">其他固定頁與工具</h3>
+            <p className="sch-hub__section-lead sch-hub__section-lead--compact">
+              首頁文案、常見問題、媒體庫等不在 Header 主選單，但仍可在此修改。
+            </p>
+            <div className="sch-hub__grid">
+              {otherAreas.map((a) => renderCard(a))}
+            </div>
           </div>
+
+          {advancedAreas.length ? (
+            <div className="sch-hub__advanced">
+              <h3 className="sch-hub__advanced-title">進階（選用）</h3>
+              {advancedAreas.map((a) => renderCard(a, { cta: '開啟', advanced: true }))}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="sch-hub__workspace">
           <aside className="sch-hub__nav" aria-label="內容任務">
-            <div className="sch-hub__nav-label">任務</div>
-            {STUDENT_CONTENT_AREAS.map((a) => (
+            <div className="sch-hub__nav-label">網站導覽</div>
+            {headerAreas.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                className={`sch-hub__nav-item${a.id === area.id ? ' is-active' : ''}`}
+                onClick={() => setArea(a.id)}
+              >
+                <span className="sch-hub__nav-item-title">{a.shortLabel}</span>
+              </button>
+            ))}
+            <div className="sch-hub__nav-label sch-hub__nav-label--spaced">其他</div>
+            {[...otherAreas, ...advancedAreas].map((a) => (
               <button
                 key={a.id}
                 type="button"
@@ -124,7 +152,10 @@ export default function StudentContentHubPage() {
             </div>
 
             {area.kind === 'site-content' ? (
-              <SiteContentManagementPage embedded />
+              <SiteContentManagementPage
+                embedded
+                forcedSections={area.siteSections || null}
+              />
             ) : area.kind === 'media-library' ? (
               <MediaLibraryPanel />
             ) : (

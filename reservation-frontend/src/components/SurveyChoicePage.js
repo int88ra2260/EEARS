@@ -7,8 +7,9 @@ import { fetchEnabledSurveys } from '../services/surveyPublicApi';
 import EmptyState from './ui/EmptyState';
 
 function getEventTypeLabel(types, t) {
-  const hasEt = types?.includes('English Table');
-  const hasEc = types?.includes('English Club');
+  const set = new Set((types || []).map((x) => String(x || '').trim().toLowerCase()));
+  const hasEt = ['english_table', 'english table', 'et'].some((k) => set.has(k));
+  const hasEc = ['english_club', 'english club', 'ec'].some((k) => set.has(k));
   if (hasEt && hasEc) return `${t('activities.englishTable')} / ${t('activities.englishClub')}`;
   if (hasEt) return t('activities.englishTable');
   if (hasEc) return t('activities.englishClub');

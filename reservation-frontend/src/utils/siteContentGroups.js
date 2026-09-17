@@ -166,18 +166,28 @@ const GROUPS = {
         || k === 'activitiesPage.durationLabel',
     },
     {
+      id: 'custom-types',
+      label: '自訂活動類型介紹',
+      description: '在「活動類型設定」新增的類型；可編輯名稱、簡介、圖片、第二按鈕與適合對象等',
+      match: (k) => k.startsWith('activities.type.'),
+    },
+    {
       id: 'english-table',
       label: 'English Table',
-      description: 'ET 活動說明與視覺標籤',
+      description: 'ET 活動說明、卡片圖片、第二按鈕與視覺標籤',
       match: (k) => k.startsWith('activities.et') || k.startsWith('activitiesPage.et')
-        || k === 'activities.englishTable' || k.startsWith('activities.et'),
+        || k === 'activities.englishTable' || k === 'activities.englishTableImageUrl'
+        || k === 'activities.englishTableSecondaryCtaLabel'
+        || k === 'activities.englishTableSecondaryCtaUrl',
     },
     {
       id: 'english-club',
       label: 'English Club',
-      description: 'EC 活動說明與視覺標籤',
+      description: 'EC 活動說明、卡片圖片、第二按鈕與視覺標籤',
       match: (k) => k.startsWith('activities.ec') || k.startsWith('activitiesPage.ec')
-        || k === 'activities.englishClub',
+        || k === 'activities.englishClub' || k === 'activities.englishClubImageUrl'
+        || k === 'activities.englishClubSecondaryCtaLabel'
+        || k === 'activities.englishClubSecondaryCtaUrl',
     },
     {
       id: 'international-forum',
@@ -189,9 +199,21 @@ const GROUPS = {
     {
       id: 'job-talk',
       label: 'Job Talk',
-      description: 'JT 活動說明與視覺標籤',
+      description: 'JT 活動說明、卡片圖片、第二按鈕與視覺標籤',
       match: (k) => k.startsWith('activities.jt') || k.startsWith('activitiesPage.jt')
-        || k === 'activities.jobTalk' || k === 'activities.jobTalkFull',
+        || k === 'activities.jobTalk' || k === 'activities.jobTalkFull'
+        || k === 'activities.jobTalkImageUrl'
+        || k === 'activities.jobTalkSecondaryCtaLabel'
+        || k === 'activities.jobTalkSecondaryCtaUrl',
+    },
+    {
+      id: 'writing-workshop',
+      label: 'Writing Workshop',
+      description: '寫作工坊說明、卡片圖片與第二按鈕',
+      match: (k) => k.startsWith('activities.ww') || k.startsWith('activitiesPage.ww')
+        || k === 'activities.writingWorkshop' || k === 'activities.writingWorkshopImageUrl'
+        || k === 'activities.writingWorkshopSecondaryCtaLabel'
+        || k === 'activities.writingWorkshopSecondaryCtaUrl',
     },
     {
       id: 'list-page',
@@ -231,14 +253,14 @@ const GROUPS = {
   contact: [
     {
       id: 'header',
-      label: '頁面標題',
-      description: '聯絡我們頁開頭',
+      label: '區塊標題',
+      description: '關於我們／首頁聯絡區塊開頭',
       match: (k) => k === 'homePage.contactTitle' || k === 'homePage.contactKicker'
         || k === 'homePage.contactLead' || k === 'homePage.contactPageLink',
     },
     {
       id: 'details',
-      label: '聯絡資訊',
+      label: '聯絡方式',
       description: '地址、電話、Email 與服務時間',
       match: (k) => k.startsWith('homePage.contact') && !['homePage.contactTitle', 'homePage.contactKicker',
         'homePage.contactLead', 'homePage.contactPageLink'].includes(k),

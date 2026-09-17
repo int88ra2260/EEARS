@@ -9,11 +9,14 @@ import {
   ENGLISH_TEST_OFFICIAL_ANNOUNCEMENT_URL,
   ENGLISH_TEST_ANNOUNCEMENT_FALLBACK,
 } from '../../../constants/englishTestRegistrationAnnouncement';
+import RegistrationClosedNotice from './RegistrationClosedNotice';
 
 export default function RegistrationAnnouncementStep({
   agreedToAnnouncement,
   onAgreedChange,
   onNext,
+  registrationEnabled = true,
+  registrationEditEnabled = true,
 }) {
   const { t } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -74,6 +77,10 @@ export default function RegistrationAnnouncementStep({
 
   return (
     <div>
+      {!registrationEnabled && (
+        <RegistrationClosedNotice registrationEditEnabled={registrationEditEnabled} />
+      )}
+
       <div className="alert alert-info mb-4" role="note">
         <p className="mb-2">{t('page.englishTestNotGraduation')}</p>
         <div className="d-flex flex-wrap gap-2">

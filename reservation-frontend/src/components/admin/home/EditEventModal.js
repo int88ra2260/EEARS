@@ -7,6 +7,11 @@ import ErrorAlert from '../shared/ErrorAlert';
 import LocationSelectField from '../LocationSelectField';
 import EventCapacityFields from './EventCapacityFields';
 import { getDefaultCapacityFields } from '../../../utils/eventCapacityFields';
+import {
+  getEventTypeDisplayName,
+  getEventTypeSelectOptions,
+  normalizeEventTypeCode,
+} from '../../../constants/eventTypeCatalog';
 
 /**
  * @param {Object} props
@@ -25,14 +30,25 @@ export default function EditEventModal({
   error,
   onClose,
   onSubmit,
-  onFieldsChange
+  onFieldsChange,
+  eventTypeOptions,
+  resolveTypeConfig,
 }) {
+  const options = eventTypeOptions?.length
+    ? eventTypeOptions
+    : getEventTypeSelectOptions({ includeOther: true });
+  const typeConfig = typeof resolveTypeConfig === 'function'
+    ? resolveTypeConfig(fields.eventType)
+    : null;
+  const optionValues = new Set(options.map((o) => o.value));
+
   const setField = (key, value) => {
     if (key === 'eventType') {
+      const cfg = typeof resolveTypeConfig === 'function' ? resolveTypeConfig(value) : null;
       onFieldsChange({
         ...fields,
         eventType: value,
-        ...getDefaultCapacityFields(value),
+        ...getDefaultCapacityFields(value, cfg),
       });
       return;
     }
@@ -60,14 +76,26 @@ export default function EditEventModal({
           <Form.Group className="mb-3">
             <Form.Label>活動類型 *</Form.Label>
             <Form.Select
-              value={fields.eventType || ''}
+              value={
+                fields.eventType === '其他'
+                  ? '其他'
+                  : (optionValues.has(fields.eventType)
+                    ? fields.eventType
+                    : (normalizeEventTypeCode(fields.eventType) || fields.eventType || ''))
+              }
               onChange={(e) => setField('eventType', e.target.value)}
             >
-              <option value="English Table">English Table</option>
-              <option value="English Club">English Club</option>
-              <option value="Job Talk">Job Talk</option>
-              <option value="International Forum">International Forum</option>
-              <option value="其他">其他</option>
+              {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+              {fields.eventType
+                && fields.eventType !== '其他'
+                && !optionValues.has(fields.eventType)
+                && !normalizeEventTypeCode(fields.eventType) && (
+                <option value={fields.eventType}>
+                  {getEventTypeDisplayName(fields.eventType)}（未對應）
+                </option>
+              )}
             </Form.Select>
           </Form.Group>
 
@@ -118,6 +146,7 @@ export default function EditEventModal({
           <div className="row">
             <EventCapacityFields
               eventType={fields.eventType}
+              typeConfig={typeConfig}
               fields={fields}
               onFieldsChange={onFieldsChange}
               layout="stacked"

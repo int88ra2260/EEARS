@@ -1,5 +1,6 @@
 import { getTranslation, LANG_EN, LANG_ZH, translations } from '../constants/translations';
 import { SITE_CONTENT_KEY_SUGGESTIONS } from '../constants/siteContentManifest';
+import { buildActivitiesContentSeedItems } from './activityTypeContent';
 
 /** 與後端 siteContentManifest 前綴一致 */
 export const TEXT_SECTION_PREFIXES = {
@@ -51,8 +52,8 @@ function isResolvableKey(key) {
   return zh !== key || en !== key;
 }
 
-export function buildTextSeedItems(section) {
-  return keysForTextSection(section)
+export function buildTextSeedItems(section, { eventTypes } = {}) {
+  const fromTranslations = keysForTextSection(section)
     .filter(isResolvableKey)
     .map((contentKey) => ({
       contentKey,
@@ -60,32 +61,46 @@ export function buildTextSeedItems(section) {
       valueZh: getTranslation(LANG_ZH, contentKey),
       valueEn: getTranslation(LANG_EN, contentKey),
     }));
+
+  if (section !== 'activities') return fromTranslations;
+
+  const dynamic = buildActivitiesContentSeedItems(eventTypes);
+  const seen = new Set(fromTranslations.map((row) => row.contentKey));
+  const extra = dynamic.filter((row) => !seen.has(row.contentKey));
+  return [...fromTranslations, ...extra];
 }
 
-export function mergeTextCatalog(section, savedItems = []) {
-  const savedByKey = new Map((savedItems || []).map((item) => [item.contentKey, item]));
-  return buildTextSeedItems(section).map((defaults) => {
-    const saved = savedByKey.get(defaults.contentKey);
-    if (!saved) {
-      return {
-        ...defaults,
-        id: null,
-        status: 'default',
-        isActive: true,
-        valueZh: defaults.valueZh,
-        valueEn: defaults.valueEn,
-      };
-    }
+function mergeSeedWithSaved(defaults, savedByKey) {
+  const saved = savedByKey.get(defaults.contentKey);
+  if (!saved) {
     return {
       ...defaults,
-      id: saved.id,
-      status: saved.isActive === false ? 'disabled' : 'custom',
-      isActive: saved.isActive !== false,
-      valueZh: saved.valueZh,
-      valueEn: saved.valueEn,
-      updatedAt: saved.updatedAt,
+      id: null,
+      status: 'default',
+      isActive: true,
+      valueZh: defaults.valueZh,
+      valueEn: defaults.valueEn,
     };
-  });
+  }
+  return {
+    ...defaults,
+    id: saved.id,
+    status: saved.isActive === false ? 'disabled' : 'custom',
+    isActive: saved.isActive !== false,
+    valueZh: saved.valueZh,
+    valueEn: saved.valueEn,
+    updatedAt: saved.updatedAt,
+  };
+}
+
+/**
+ * @param {string} section
+ * @param {Array} savedItems
+ * @param {{ eventTypes?: Array }} [options] - activities 區塊可傳入活動類型目錄，產生動態介紹文案列
+ */
+export function mergeTextCatalog(section, savedItems = [], options = {}) {
+  const savedByKey = new Map((savedItems || []).map((item) => [item.contentKey, item]));
+  return buildTextSeedItems(section, options).map((defaults) => mergeSeedWithSaved(defaults, savedByKey));
 }
 
 export function labelForContentKey(contentKey) {

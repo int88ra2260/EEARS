@@ -24,7 +24,7 @@ const EMPTY_FORM = {
 export default function AdminWeeklyReportPage() {
   const { token } = useOutletContext();
   const navigate = useNavigate();
-  const confirm = useConfirm();
+  const { confirm } = useConfirm();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

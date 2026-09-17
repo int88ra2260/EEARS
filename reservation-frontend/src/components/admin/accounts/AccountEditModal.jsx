@@ -15,17 +15,15 @@ import { PERMISSION_GROUPS } from '../../../constants/permissionGroups';
 import {
   ROLE_BADGE_DEFAULT,
   ROLE_BADGE_SOFT,
-  SCOPE_HINTS,
-  SCOPE_LABELS,
   STAFF_LEVEL_OPTIONS,
   STAFF_LEVEL_SUMMARY,
   TEACHER_LEVEL_OPTIONS,
   WORKER_LEVEL_OPTIONS,
   WORKER_LEVEL_SUMMARY,
 } from '../../../constants/accountManagement';
-import { ALL_SCOPES } from '../../../constants/scopes';
 import PermissionOverrideGuide from './PermissionOverrideGuide';
 import PermissionOverrideRow from './PermissionOverrideRow';
+import AccountScopeEditor from './AccountScopeEditor';
 
 export default function AccountEditModal({
   editingAccount,
@@ -276,7 +274,7 @@ export default function AccountEditModal({
               <Tab eventKey="scopes" title="資料範圍">
                 <div className="pt-3 border-top">
                   <p className="small text-muted mb-3">
-                    決定此帳號在後台能處理<strong>哪些業務</strong>（例如活動、班級、英檢），與「功能權限」分頁的開關不同。
+                    決定此帳號在後台能處理<strong>哪些業務</strong>。手動指定時可多選<strong>活動類型</strong>（顯示名稱），並另設班級／問卷／英檢等範圍；與「功能權限」分頁的開關不同。
                   </p>
                   <fieldset className="mb-3">
                     <legend className="fw-medium fs-6 mb-2">可存取的業務範圍</legend>
@@ -314,28 +312,10 @@ export default function AccountEditModal({
                     </Stack>
                   </fieldset>
                   {scopeMode === 'custom' ? (
-                    <div className="border rounded p-3 bg-light">
-                      <div className="fw-medium small mb-2">請勾選允許存取的業務</div>
-                      <Stack gap={3}>
-                        {ALL_SCOPES.map((s) => (
-                          <div key={s}>
-                            <Form.Check
-                              type="checkbox"
-                              id={`scope-${s}`}
-                              label={SCOPE_LABELS[s] || s}
-                              checked={customScopes.includes(s)}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                setCustomScopes((prev) => (checked ? Array.from(new Set([...prev, s])) : prev.filter((x) => x !== s)));
-                              }}
-                            />
-                            {SCOPE_HINTS[s] ? (
-                              <div className="small text-muted ms-4">{SCOPE_HINTS[s]}</div>
-                            ) : null}
-                          </div>
-                        ))}
-                      </Stack>
-                    </div>
+                    <AccountScopeEditor
+                      customScopes={customScopes}
+                      setCustomScopes={setCustomScopes}
+                    />
                   ) : (
                     <Alert variant="light" className="small mb-0 border">
                       目前將沿用系統依角色計算的範圍，無需逐項勾選。若要查看實際範圍，可儲存後請對方重新登入，或使用「權限來源」除錯。

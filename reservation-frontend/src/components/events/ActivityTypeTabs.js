@@ -1,13 +1,21 @@
 /**
- * 活動類型切換 Tab（English Table / Club / Forum / Job Talk）
- * 僅 UI 切換，不處理資料；實際 Tab 列表由 eventsContentConfig 驅動
+ * 活動類型切換 Tab（依後台啟用中的 event-types）
  */
-import React from 'react';
-import { ACTIVITY_TABS } from '../../constants/eventsContentConfig';
+import React, { useMemo } from 'react';
 import useSessionShuffled from '../../hooks/useSessionShuffled';
+import useBookableActivityCatalog from '../../hooks/useBookableActivityCatalog';
 
 export default function ActivityTypeTabs({ activeTab, onTabChange, t }) {
-  const tabs = useSessionShuffled(ACTIVITY_TABS, 'activity-intro-tabs');
+  const { bookableCards } = useBookableActivityCatalog();
+  const tabDefs = useMemo(
+    () => bookableCards.map((card) => ({
+      id: card.slug,
+      labelKey: card.titleKey || null,
+      displayName: card.displayName || card.slug,
+    })),
+    [bookableCards]
+  );
+  const tabs = useSessionShuffled(tabDefs, 'activity-intro-tabs');
 
   return (
     <ul className="nav nav-tabs mb-3" id="activityTabs" role="tablist">
@@ -18,7 +26,7 @@ export default function ActivityTypeTabs({ activeTab, onTabChange, t }) {
             className={`nav-link ${activeTab === tab.id ? 'active' : ''}`}
             onClick={() => onTabChange(tab.id)}
           >
-            {t(tab.labelKey)}
+            {tab.labelKey ? t(tab.labelKey) : tab.displayName}
           </button>
         </li>
       ))}

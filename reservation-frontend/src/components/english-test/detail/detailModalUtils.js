@@ -11,11 +11,28 @@ export const getStatusText = (status) => {
 };
 
 export const getExamTypeText = (examType) => {
-  if (examType === 'LRSW') return '四項全考';
-  if (examType === 'LR') return '聽讀';
-  if (examType === 'SW') return '說寫';
-  if (examType === 'NON') return '不報考';
-  return examType || '未填寫';
+  const raw = String(examType || '').trim();
+  if (!raw) return '未填寫';
+  if (
+    raw === 'LRSW'
+    || raw === '聽讀說寫'
+    || raw.includes('（LRSW）')
+    || raw.includes('(LRSW)')
+    || raw.startsWith('聽說讀寫')
+    || raw.startsWith('四項全考')
+  ) {
+    return '四項全考';
+  }
+  if (raw === 'LR' || raw.includes('（LR）') || raw.includes('(LR)') || raw.startsWith('聽讀')) {
+    return '聽讀';
+  }
+  if (raw === 'SW' || raw.includes('（SW）') || raw.includes('(SW)') || raw.startsWith('說寫')) {
+    return '說寫';
+  }
+  if (raw === 'NON' || raw.includes('（NON）') || raw.includes('(NON)') || raw.startsWith('不報考')) {
+    return '不報考';
+  }
+  return raw;
 };
 
 export const parseB2Files = (b2CertificateFile) => {

@@ -73,11 +73,11 @@ async function syncLegacySettingToSurveyRule(setting, opts = {}) {
 
   const eventType =
     surveyKey === 'english_table_feedback_114_1'
-      ? 'English Table'
+      ? 'english_table'
       : surveyKey === 'english_club_feedback_114_1'
-        ? 'English Club'
+        ? 'english_club'
         : null;
-  const activityType = eventType === 'English Table' ? 'ET' : eventType === 'English Club' ? 'EC' : null;
+  const activityType = eventType === 'english_table' ? 'ET' : eventType === 'english_club' ? 'EC' : null;
 
   const mapped = {
     isEnabled: !!setting.isEnabled,

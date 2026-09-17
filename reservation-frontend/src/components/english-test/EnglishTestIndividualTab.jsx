@@ -49,6 +49,11 @@ export default function EnglishTestIndividualTab({
   onExportPhotos,
   onSendStatusEmails,
   sendingEmails,
+  exportingExcel = false,
+  exportingPhotos = false,
+  exportArrangeMode = false,
+  onToggleExportArrange,
+  onArrangeMove,
   registrationEnabled,
   registrationGroupEnabled,
   registrationEditEnabled = true,
@@ -80,6 +85,7 @@ export default function EnglishTestIndividualTab({
   onDelete,
   onClassBestep,
   onDragEnd,
+  enableDragSort = false,
   currentPage,
   totalPages,
   total,
@@ -93,6 +99,8 @@ export default function EnglishTestIndividualTab({
   const [showExportPanel, setShowExportPanel] = useState(false);
   const pageItems = useMemo(() => buildPageItems(currentPage, totalPages), [currentPage, totalPages]);
   const canExportPhotos = statusFilter === 'approved' || statusFilter === 'success';
+  const exportBusy = exportingExcel || exportingPhotos;
+  const panelBusy = exportBusy || sendingEmails;
   const exportScopeLabel = STATUS_LABEL[statusFilter] || '全部';
   const semesterFilterLabel = advancedFilters?.semester
     ? String(advancedFilters.semester).trim()
@@ -105,6 +113,15 @@ export default function EnglishTestIndividualTab({
   const rangeLabel = `第 ${rangeStart}–${rangeEnd} 筆，共 ${total} 筆`;
 
   const confirmToggle = (kind, nextEnabled, apply) => {
+    if (kind === 'individual' && nextEnabled && !registrationEditEnabled) {
+      window.alert('請先開啟「檢視與修正」，才能開啟個人報名。\n允許狀態：兩者皆開／僅檢視與修正／兩者皆關。');
+      return;
+    }
+    if (kind === 'edit' && !nextEnabled && registrationEnabled) {
+      window.alert('請先關閉「個人報名」，才能關閉「檢視與修正」。\n允許狀態：兩者皆開／僅檢視與修正／兩者皆關。');
+      return;
+    }
+
     const labels = {
       individual: '個人報名',
       group: '團體報名（學習有伴）',
@@ -112,9 +129,16 @@ export default function EnglishTestIndividualTab({
     };
     const label = labels[kind] || kind;
     const action = nextEnabled ? '啟用' : '停用';
-    const impact = kind === 'edit'
-      ? '這會立即影響學生端能否使用「檢視與修正」。'
-      : '這會立即影響學生端能否報名。';
+    let impact = '這會立即影響學生端能否報名。';
+    if (kind === 'edit') {
+      impact = nextEnabled
+        ? 'Header 將顯示培力英檢入口；若個人報名關閉，文案為「培力英檢(資料修正)」。'
+        : 'Header 培力英檢入口將隱藏，學生無法從導覽進入檢視與修正。';
+    } else if (kind === 'individual') {
+      impact = nextEnabled
+        ? 'Header 文案將顯示「培力英檢(考試報名)」。'
+        : '個人報名關閉後，Header 文案改為「培力英檢(資料修正)」（若檢視與修正仍開啟）。';
+    }
     if (!window.confirm(`確定要${action}「${label}」嗎？\n${impact}`)) {
       return;
     }
@@ -136,7 +160,11 @@ export default function EnglishTestIndividualTab({
                 aria-selected={statusFilter === key}
               >
                 {label}
-                <span className="badge bg-secondary ms-1">{stats[key === 'all' ? 'total' : key] ?? 0}</span>
+                <span className="badge bg-secondary ms-1">
+                  {statusFilter === key
+                    ? total
+                    : (stats[key === 'all' ? 'total' : key] ?? 0)}
+                </span>
               </button>
             </li>
           ))}
@@ -153,6 +181,18 @@ export default function EnglishTestIndividualTab({
             >
               <i className="fas fa-bolt me-1" aria-hidden />
               快速審核證件照（{stats.pending}）
+            </button>
+          )}
+          {canExportEnglishTestData && typeof onToggleExportArrange === 'function' && (
+            <button
+              type="button"
+              className={`btn btn-sm ${exportArrangeMode ? 'btn-warning' : 'btn-outline-warning'}`}
+              disabled={exportBusy}
+              onClick={onToggleExportArrange}
+              title={exportArrangeMode ? '關閉匯出順序微調' : '開啟後可拖曳或指定序號，完全控制匯出 Excel／證件照順序'}
+            >
+              <i className={`fas fa-${exportArrangeMode ? 'check' : 'arrows-alt-v'} me-1`} aria-hidden />
+              {exportArrangeMode ? '關閉順序微調' : '匯出順序微調'}
             </button>
           )}
           <button
@@ -174,35 +214,84 @@ export default function EnglishTestIndividualTab({
         </div>
       </div>
 
+      {exportArrangeMode && (
+        <div className="alert alert-warning py-2 px-3 mb-3 small" role="status">
+          <i className="fas fa-arrows-alt-v me-1" aria-hidden />
+          匯出順序微調已開啟：列表「匯出序」欄可 ↑↓／輸入數字調整單筆位置，也可拖曳；此時匯出 Excel／證件照會依此順序。
+        </div>
+      )}
+
       {showExportPanel && (
         <div className="card mb-3 border-primary-subtle">
           <div className="card-body py-3">
             <div className="fw-semibold mb-1">匯出與通知</div>
             <p className="small text-muted mb-3 mb-md-2">
               匯出範圍與目前列表一致：狀態「{exportScopeLabel}」加下方進階篩選（含學期、日期、測驗類型等）。
+              Excel「序號」與證件照檔名前綴會依此次匯出結果重編為 1、2、3…（兩者對齊；與列表報名編號可不相同）。
               證件照僅「已通過／報名成功」可匯出；成功信／失敗信需切到對應狀態。
+              {exportArrangeMode
+                ? ' 目前為「匯出順序微調」：可拖曳列，或用「匯出序」欄的 ↑↓／輸入數字移至指定位置；匯出會完全依此順序。'
+                : ' 建議先用進階篩選多層排序，再開「匯出順序微調」逐筆精調，即可完全控制 Excel／證件照順序。'}
             </p>
             <div className="d-flex flex-wrap gap-2 align-items-center">
               {canExportEnglishTestData && (
-                <button type="button" className="btn btn-success btn-sm" onClick={onExport}>
-                  <i className="fas fa-file-excel me-1" aria-hidden />
-                  匯出 Excel（{exportExcelLabel}）
+                <button
+                  type="button"
+                  className={`btn btn-sm ${exportArrangeMode ? 'btn-warning' : 'btn-outline-warning'}`}
+                  disabled={panelBusy}
+                  onClick={onToggleExportArrange}
+                >
+                  <i className={`fas fa-${exportArrangeMode ? 'check' : 'arrows-alt-v'} me-1`} aria-hidden />
+                  {exportArrangeMode ? '關閉匯出順序微調' : '匯出順序微調'}
+                </button>
+              )}
+              {canExportEnglishTestData && (
+                <button
+                  type="button"
+                  className="btn btn-success btn-sm"
+                  disabled={panelBusy}
+                  aria-busy={exportingExcel || undefined}
+                  onClick={onExport}
+                >
+                  {exportingExcel ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden />
+                      Excel 匯出中…
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-file-excel me-1" aria-hidden />
+                      匯出 Excel（{exportExcelLabel}）
+                    </>
+                  )}
                 </button>
               )}
               {canExportEnglishTestData && (
                 <button
                   type="button"
                   className="btn btn-info btn-sm"
-                  disabled={!canExportPhotos}
+                  disabled={panelBusy || !canExportPhotos}
+                  aria-busy={exportingPhotos || undefined}
                   title={
-                    canExportPhotos
-                      ? `匯出「${exportScopeLabel}」證件照`
-                      : '請先切換狀態為「已通過」或「報名成功」'
+                    exportingPhotos
+                      ? '證件照打包中，請稍候'
+                      : canExportPhotos
+                        ? `匯出「${exportScopeLabel}」證件照（含目前學期／進階篩選）`
+                        : '請先切換狀態為「已通過」或「報名成功」'
                   }
-                  onClick={() => canExportPhotos && onExportPhotos(statusFilter)}
+                  onClick={() => canExportPhotos && !panelBusy && onExportPhotos()}
                 >
-                  <i className="fas fa-images me-1" aria-hidden />
-                  匯出證件照
+                  {exportingPhotos ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden />
+                      證件照打包中…
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-images me-1" aria-hidden />
+                      匯出證件照
+                    </>
+                  )}
                 </button>
               )}
               {canReviewEnglishTests && (
@@ -210,33 +299,61 @@ export default function EnglishTestIndividualTab({
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
-                    disabled={sendingEmails || statusFilter !== 'success' || (stats.success || 0) === 0}
+                    disabled={panelBusy || statusFilter !== 'success' || (stats.success || 0) === 0}
                     title={statusFilter !== 'success' ? '請先切到「報名成功」再寄信' : undefined}
                     onClick={() => onSendStatusEmails('success')}
                   >
-                    {sendingEmails ? '發送中…' : '寄報名成功信'}
+                    {sendingEmails ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden />
+                        發送中…
+                      </>
+                    ) : (
+                      '寄報名成功信'
+                    )}
                   </button>
                   <button
                     type="button"
                     className="btn btn-outline-info btn-sm"
-                    disabled={sendingEmails || statusFilter !== 'success'}
+                    disabled={panelBusy || statusFilter !== 'success'}
                     title={statusFilter !== 'success' ? '請先切到「報名成功」' : '對四項皆報考者發送團體推廣信'}
                     onClick={() => onSendStatusEmails('group_promo')}
                   >
-                    {sendingEmails ? '發送中…' : '寄團體推廣信'}
+                    {sendingEmails ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden />
+                        發送中…
+                      </>
+                    ) : (
+                      '寄團體推廣信'
+                    )}
                   </button>
                   <button
                     type="button"
                     className="btn btn-outline-secondary btn-sm"
-                    disabled={sendingEmails || statusFilter !== 'failed' || (stats.failed || 0) === 0}
+                    disabled={panelBusy || statusFilter !== 'failed' || (stats.failed || 0) === 0}
                     title={statusFilter !== 'failed' ? '請先切到「報名失敗」再寄信' : undefined}
                     onClick={() => onSendStatusEmails('failed')}
                   >
-                    {sendingEmails ? '發送中…' : '寄報名失敗信'}
+                    {sendingEmails ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden />
+                        發送中…
+                      </>
+                    ) : (
+                      '寄報名失敗信'
+                    )}
                   </button>
                 </>
               )}
             </div>
+            {exportBusy && (
+              <div className="form-text text-primary mt-2 mb-0" role="status">
+                {exportingPhotos
+                  ? '證件照 ZIP 產生中，檔案較大時可能需要一分鐘以上，請勿關閉頁面或重複點擊。'
+                  : 'Excel 產生中，請稍候…'}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -246,7 +363,7 @@ export default function EnglishTestIndividualTab({
           <div className="card-body py-3">
             <div className="fw-semibold text-warning-emphasis mb-1">報名窗口設定（高風險）</div>
             <p className="small text-muted mb-3">
-              開關會立即影響學生端。個人報名、團體報名與「檢視與修正」可分開控制，方便報名截止後仍開放修正一段時間。
+              開關會立即影響學生端。個人報名與「檢視與修正」僅允許三種組合：兩者皆開（Header：考試報名）、僅檢視與修正（Header：資料修正）、兩者皆關（Header 不顯示）。不可只開個人報名。
             </p>
             <div className="d-flex flex-column flex-sm-row gap-3 flex-wrap">
               <div className="d-flex align-items-center gap-2">
@@ -258,7 +375,8 @@ export default function EnglishTestIndividualTab({
                     id="registrationEnabled"
                     checked={registrationEnabled}
                     onChange={(e) => confirmToggle('individual', e.target.checked, onToggleRegistration)}
-                    disabled={isUpdatingSetting}
+                    disabled={isUpdatingSetting || (!registrationEnabled && !registrationEditEnabled)}
+                    title={!registrationEnabled && !registrationEditEnabled ? '請先開啟「檢視與修正」' : undefined}
                   />
                   <label className="form-check-label small" htmlFor="registrationEnabled">
                     {registrationEnabled ? '已啟用' : '已停用'}
@@ -290,7 +408,8 @@ export default function EnglishTestIndividualTab({
                     id="registrationEditEnabled"
                     checked={registrationEditEnabled}
                     onChange={(e) => confirmToggle('edit', e.target.checked, onToggleRegistrationEdit)}
-                    disabled={isUpdatingSetting}
+                    disabled={isUpdatingSetting || (registrationEditEnabled && registrationEnabled)}
+                    title={registrationEditEnabled && registrationEnabled ? '請先關閉「個人報名」' : undefined}
                   />
                   <label className="form-check-label small" htmlFor="registrationEditEnabled">
                     {registrationEditEnabled ? '已啟用' : '已停用'}
@@ -366,8 +485,10 @@ export default function EnglishTestIndividualTab({
               onDelete={onDelete}
               onClassBestep={onClassBestep}
               searchTerm={searchTerm}
-              enableDragSort={statusFilter === 'success'}
+              enableDragSort={enableDragSort}
               onDragEnd={onDragEnd}
+              exportArrangeMode={exportArrangeMode}
+              onArrangeMove={onArrangeMove}
             />
             <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 gap-2">
               <div className="d-flex flex-wrap align-items-center gap-2">

@@ -10,11 +10,17 @@ import {
   isSidebarChildActive,
   isSidebarSingleSectionActive,
 } from '../../constants/adminNavigation';
+import useLearningPartnerOpsAttention from '../../hooks/useLearningPartnerOpsAttention';
+import { LP_OPS_ATTENTION_PATH } from '../../utils/learningPartnerOpsAttention';
+import UnreadAttentionDot from '../learning-partner/UnreadAttentionDot';
 
 export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavigate }) {
   const visible = useMemo(() => filterVisibleNav(ADMIN_NAV_SECTIONS, navContext), [navContext]);
   const active = useMemo(() => getSidebarActiveState(pathname, navContext), [pathname, navContext]);
   const [navQuery, setNavQuery] = useState('');
+  const { showAttention: showLpOpsAttention } = useLearningPartnerOpsAttention(
+    navContext?.accessProfile
+  );
 
   const filteredVisible = useMemo(
     () => filterAdminNavByQuery(visible, navQuery),
@@ -49,6 +55,14 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
       return { ...prev, [active.sectionId]: true };
     });
   }, [active.sectionId]);
+
+  useEffect(() => {
+    if (!showLpOpsAttention) return;
+    setExpandedSections((prev) => {
+      if (prev.english) return prev;
+      return { ...prev, english: true };
+    });
+  }, [showLpOpsAttention]);
 
   useEffect(() => {
     const q = navQuery.trim();
@@ -88,16 +102,25 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
     onNavigate?.();
   };
 
+  const resolveLeafPath = (leaf) => {
+    if (leaf.id === 'english-registration' && showLpOpsAttention) {
+      return LP_OPS_ATTENTION_PATH;
+    }
+    return leaf.path;
+  };
+
   const renderLeafLink = (section, leaf) => {
     const childActive = isSidebarChildActive(active, section.id, leaf.id);
+    const showDot = leaf.id === 'english-registration' && showLpOpsAttention;
     return (
       <li key={leaf.id}>
         <Link
-          to={leaf.path}
+          to={resolveLeafPath(leaf)}
           className={`admin-sidebar__link${childActive ? ' admin-sidebar__link--active' : ''}`}
           onClick={handleLinkClick}
         >
-          {leaf.label}
+          <span>{leaf.label}</span>
+          {showDot ? <UnreadAttentionDot label="請查看學習有伴營運成效" /> : null}
         </Link>
       </li>
     );
@@ -140,6 +163,7 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
           if (section.children?.length) {
             const expanded = isExpanded(section.id);
             const sectionHasActive = active.sectionId === section.id;
+            const sectionShowDot = section.id === 'english' && showLpOpsAttention;
             return (
               <li key={section.id} className="mb-1">
                 <button
@@ -150,7 +174,10 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
                   onClick={() => toggleSection(section.id)}
                   aria-expanded={expanded}
                 >
-                  <span>{section.label}</span>
+                  <span className="admin-sidebar__section-label-row">
+                    <span>{section.label}</span>
+                    {sectionShowDot ? <UnreadAttentionDot label="請查看學習有伴營運成效" /> : null}
+                  </span>
                   <span className="admin-sidebar__chevron" aria-hidden>
                     {expanded ? '▼' : '▶'}
                   </span>

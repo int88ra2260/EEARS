@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { safeAPICall, showErrorMessage, showSuccessMessage } from '../utils/errorHandler';
 import {
@@ -12,6 +12,11 @@ import {
   exportReportSummary,
   downloadBlob,
 } from '../services/eventService';
+import {
+  buildEventTypeSelectOptions,
+  fetchPublicEventTypes,
+  resolveTypeConfigFromList,
+} from '../services/eventTypeApi';
 import { useAdminEventSummary } from './useAdminEventSummary';
 import {
   getDefaultCapacityFields,
@@ -20,12 +25,13 @@ import {
   mapEventToCapacityFields,
 } from '../utils/eventCapacityFields';
 import { saveCapacityPrefs } from '../utils/eventCapacityPrefs';
+import { DEFAULT_EVENT_TYPE_CODE, getEventTypeSelectOptions } from '../constants/eventTypeCatalog';
 
 export const DEFAULT_EVENT_NOTES = '實踐歷程檔案';
 
 const EMPTY_ADD_FIELDS = {
   name: '',
-  eventType: 'English Table',
+  eventType: DEFAULT_EVENT_TYPE_CODE,
   date: '',
   startTime: '',
   endTime: '',
@@ -33,7 +39,7 @@ const EMPTY_ADD_FIELDS = {
   notes: DEFAULT_EVENT_NOTES,
   customEventType: '',
   customReservationRule: '',
-  ...getDefaultCapacityFields('English Table'),
+  ...getDefaultCapacityFields(DEFAULT_EVENT_TYPE_CODE),
 };
 
 const EMPTY_EDIT_FIELDS = {
@@ -84,6 +90,35 @@ export function useAdminEventOperations({
   const [batchAddLoading, setBatchAddLoading] = useState(false);
   const [batchAddError, setBatchAddError] = useState('');
   const [batchAddResult, setBatchAddResult] = useState(null);
+  const [eventTypeCatalog, setEventTypeCatalog] = useState([]);
+
+  const resolveTypeConfig = useCallback(
+    (raw) => resolveTypeConfigFromList(eventTypeCatalog, raw),
+    [eventTypeCatalog]
+  );
+
+  const eventTypeSelectOptions = useMemo(() => {
+    if (eventTypeCatalog.length > 0) {
+      return buildEventTypeSelectOptions(eventTypeCatalog, { includeOther: true, activeOnly: true });
+    }
+    return getEventTypeSelectOptions({ includeOther: true });
+  }, [eventTypeCatalog]);
+
+  const eventTypeFilterOptions = useMemo(() => {
+    const base = eventTypeCatalog.length > 0
+      ? buildEventTypeSelectOptions(eventTypeCatalog, { includeOther: true, activeOnly: true })
+      : getEventTypeSelectOptions({ includeOther: true });
+    return [{ value: 'all', label: '全部類型' }, ...base];
+  }, [eventTypeCatalog]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const list = await fetchPublicEventTypes({ force: true });
+      if (!cancelled) setEventTypeCatalog(Array.isArray(list) ? list : []);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const refreshSummary = () => {
     fetchSummary(selectedSemester, selectedEventType);
@@ -114,7 +149,8 @@ export function useAdminEventOperations({
       finalEventType = addFields.customEventType.trim();
     }
 
-    const capacityError = validateCapacityFields(addFields, finalEventType);
+    const typeConfig = resolveTypeConfig(finalEventType);
+    const capacityError = validateCapacityFields(addFields, finalEventType, typeConfig);
     if (capacityError) {
       setAddError(capacityError);
       setAddLoading(false);
@@ -129,7 +165,7 @@ export function useAdminEventOperations({
       endTime: addFields.endTime,
       location: addFields.location?.trim() || null,
       notes: addFields.notes?.trim() || DEFAULT_EVENT_NOTES,
-      ...buildCapacityRequestPayload(addFields, finalEventType),
+      ...buildCapacityRequestPayload(addFields, finalEventType, typeConfig),
     };
 
     if (addFields.eventType === '其他') {
@@ -141,7 +177,7 @@ export function useAdminEventOperations({
     if (result.success) {
       setAddFields({
         ...EMPTY_ADD_FIELDS,
-        ...getDefaultCapacityFields('English Table'),
+        ...getDefaultCapacityFields(DEFAULT_EVENT_TYPE_CODE),
       });
       saveCapacityPrefs({ ...requestData, eventType: finalEventType, maxParticipants: requestData.maxCapacity });
       refreshSummary();
@@ -167,8 +203,10 @@ export function useAdminEventOperations({
     const errors = [];
 
     for (let i = 0; i < batchEvents.length; i += 1) {
+      const rowType = batchEvents[i]?.eventType || DEFAULT_EVENT_TYPE_CODE;
+      const rowConfig = resolveTypeConfig(rowType);
       const event = {
-        ...getDefaultCapacityFields(batchEvents[i]?.eventType || 'English Table'),
+        ...getDefaultCapacityFields(rowType, rowConfig),
         ...batchEvents[i],
       };
 
@@ -198,7 +236,8 @@ export function useAdminEventOperations({
         continue;
       }
 
-      const capacityError = validateCapacityFields(event, event.eventType);
+      const typeConfig = resolveTypeConfig(event.eventType);
+      const capacityError = validateCapacityFields(event, event.eventType, typeConfig);
       if (capacityError) {
         errors.push(`第 ${i + 1} 行：${capacityError}`);
         continue;
@@ -212,7 +251,7 @@ export function useAdminEventOperations({
         endTime: event.endTime,
         location: event.location?.trim() || null,
         notes: event.notes?.trim() || DEFAULT_EVENT_NOTES,
-        ...buildCapacityRequestPayload(event, event.eventType),
+        ...buildCapacityRequestPayload(event, event.eventType, typeConfig),
       });
     }
 
@@ -297,7 +336,8 @@ export function useAdminEventOperations({
   };
 
   const handleEditEvent = (event) => {
-    const capacityFields = mapEventToCapacityFields(event);
+    const typeConfig = resolveTypeConfig(event.eventType);
+    const capacityFields = mapEventToCapacityFields(event, typeConfig);
     setEditFields({
       eventId: event.eventId,
       name: event.name,
@@ -336,7 +376,8 @@ export function useAdminEventOperations({
       finalEventType = editFields.customEventType || editFields.name;
     }
 
-    const capacityError = validateCapacityFields(editFields, finalEventType);
+    const typeConfig = resolveTypeConfig(finalEventType);
+    const capacityError = validateCapacityFields(editFields, finalEventType, typeConfig);
     if (capacityError) {
       setEditError(capacityError);
       setEditLoading(false);
@@ -349,7 +390,7 @@ export function useAdminEventOperations({
       customReservationRule: editFields.eventType === '其他' ? editFields.customReservationRule : null,
       location: editFields.location?.trim() || null,
       notes: editFields.notes?.trim() || null,
-      ...buildCapacityRequestPayload(editFields, finalEventType),
+      ...buildCapacityRequestPayload(editFields, finalEventType, typeConfig),
     }));
 
     if (result.success) {
@@ -483,6 +524,10 @@ export function useAdminEventOperations({
     handleExport,
     handleExportAll,
     isEventToday,
+    eventTypeCatalog,
+    eventTypeSelectOptions,
+    eventTypeFilterOptions,
+    resolveTypeConfig,
   };
 }
 

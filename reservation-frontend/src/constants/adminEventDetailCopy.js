@@ -22,4 +22,15 @@ export const EVENT_DETAIL_COPY = {
   reservationsLoadFailed: '名單載入失敗',
   /** 違規端點失敗（顯示於 Alert） */
   violationsLoadFailed: '違規資料載入失敗',
+  /** 分頁流程提示（一般場次） */
+  tabFlowHint:
+    '建議流程：預約名單（查詢／取消）→ 簽到管理（現場）→ 活動後違規與未到。匯入與匯出為工具分頁。',
+  /** 分頁流程提示（English Table） */
+  tabFlowHintEt:
+    '建議流程：預約名單 → 能力分組（場前）→ 簽到管理（現場）→ 任務成效 → 活動後違規與未到。匯入與匯出為工具分頁。',
+  /** 預約名單：職責說明 */
+  reservationsRole:
+    '此分頁以完整名單查詢為主；現場簽到請至「簽到管理」，違規／批次未到請至「違規與未到處理」。',
+  /** 預約名單：無簽到按鈕時的導引 */
+  goCheckinCta: '前往簽到管理',
 };

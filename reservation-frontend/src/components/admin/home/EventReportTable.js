@@ -94,8 +94,8 @@ export default function EventReportTable({
 
     if (isWorker) {
       return (
-        <Link to={checkinPath} className="btn btn-sm btn-outline-success">
-          簽到／管理
+        <Link to={detailPath} className="btn btn-sm btn-outline-primary">
+          名單
         </Link>
       );
     }
@@ -155,7 +155,8 @@ export default function EventReportTable({
 
       <div className="alert alert-light border mb-3 small" role="note">
         <strong>營運流程：</strong>
-        由本頁「明細」進入後，可於同一頁切換「簽到管理」「違規與未到處理」。今日場次可直接按「簽到」。
+        「明細」進入後依分頁作業：名單查詢 →（ET 場前能力分組）→ 簽到 → 活動後違規／未到。
+        今日場次可直接按「簽到」；「違規」會開到對應分頁。
       </div>
 
       <div className="admin-operations__filters">
@@ -297,7 +298,10 @@ export default function EventReportTable({
                 return (
                   <tr key={evt.eventId} className={isToday ? 'is-today' : ''}>
                     <td>{evt.name}</td>
-                    <td>{evt.eventType}</td>
+                    <td>{(() => {
+                      const match = eventTypeOptions.find((o) => o.value === evt.eventType);
+                      return match?.label || evt.eventType;
+                    })()}</td>
                     <td>{evt.date}</td>
                     <td>{evt.startTime} – {evt.endTime}</td>
                     <td>{evt.location || '地點待公告'}</td>

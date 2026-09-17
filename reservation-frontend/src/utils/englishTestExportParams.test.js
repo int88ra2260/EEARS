@@ -24,6 +24,21 @@ describe('appendExportListParams', () => {
     expect(params.get('sortOrder')).toBe('DESC');
   });
 
+  it('serializes multi-level sort for export', () => {
+    const params = appendExportListParams(new URLSearchParams(), {
+      statusFilter: 'all',
+      advancedFilters: {},
+      sortConfig: {
+        levels: [
+          { key: 'createdAt', direction: 'DESC' },
+          { key: 'name', direction: 'ASC' },
+        ],
+      },
+    });
+    expect(params.get('sortBy')).toBe('createdAt,name');
+    expect(params.get('sortOrder')).toBe('DESC,ASC');
+  });
+
   it('omits status when all', () => {
     const params = appendExportListParams(new URLSearchParams(), {
       statusFilter: 'all',
@@ -31,5 +46,13 @@ describe('appendExportListParams', () => {
     });
     expect(params.has('status')).toBe(false);
     expect(params.get('semester')).toBe('114-2');
+  });
+
+  it('appends orderedIds when provided', () => {
+    const params = appendExportListParams(new URLSearchParams(), {
+      statusFilter: 'approved',
+      orderedIds: [10, 20, 'x', 30],
+    });
+    expect(params.get('orderedIds')).toBe('10,20,30');
   });
 });

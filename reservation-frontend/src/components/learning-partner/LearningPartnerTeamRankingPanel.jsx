@@ -12,7 +12,7 @@ import {
   Spinner,
   Table
 } from 'react-bootstrap';
-import { getCurrentSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
+import { getDefaultLearningPartnerOpsSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
 import { handleAPIError } from '../../utils/errorHandler';
 import { calculateBestepTeamRanking, fetchBestepTeamRanking } from '../../services/bestepAdminApi';
 
@@ -178,7 +178,7 @@ export default function LearningPartnerTeamRankingPanel({
 }) {
   const token = tokenProp || localStorage.getItem('token');
   const [internalSemester, setInternalSemester] = useState(
-    controlledSemester || getCurrentSemester() || '114-1'
+    controlledSemester || getDefaultLearningPartnerOpsSemester() || '114-2'
   );
   const semester = controlledSemester ?? internalSemester;
 

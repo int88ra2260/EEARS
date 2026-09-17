@@ -7,13 +7,18 @@ import ImportUploadPanel from '../../import/ImportUploadPanel';
 import ImportResultSummary from '../../import/ImportResultSummary';
 import ImportErrorList from '../../import/ImportErrorList';
 import { collectCardExcelImportIssues } from './collectCardExcelImportIssues';
+import { isEnglishTableEventType } from '../../../../utils/eventCapacityFields';
 
-function AdminEventImportExportTab({ tabProps }) {
+function AdminEventImportExportTab({ tabProps, onGoCheckinTab }) {
   const p = tabProps;
+  const successCount = p.importResult
+    ? (p.importResult.successCount ?? p.importResult.imported ?? 0)
+    : 0;
+  const showEtExport = isEnglishTableEventType(p.currentEventType) && p.canExportEtGrouping;
 
   return (
     <div className="pt-3">
-      <p className="small text-muted mb-3">工具型操作：下載名單或匯入刷卡檔，與簽到流程分開。</p>
+      <p className="small text-muted mb-3">工具型操作：下載名單或匯入刷卡檔，與現場簽到流程分開。</p>
       <Card className="mb-3 border-primary">
         <Card.Header className="bg-primary text-white py-2 small fw-semibold">匯出</Card.Header>
         <Card.Body>
@@ -22,7 +27,7 @@ function AdminEventImportExportTab({ tabProps }) {
             <Button variant="primary" size="sm" onClick={p.handleExport} disabled={!p.canExportReservations}>
               匯出活動 Excel
             </Button>
-            {(p.currentEventType || 'English Table') === 'English Table' && p.canExportEtGrouping ? (
+            {showEtExport ? (
               <Button variant="outline-primary" size="sm" onClick={p.handleExportEtGrouping}>
                 匯出 ET 分組／任務 Excel
               </Button>
@@ -62,7 +67,7 @@ function AdminEventImportExportTab({ tabProps }) {
                 <div className="mt-3">
                   <ImportResultSummary
                     result={p.importResult}
-                    successCount={p.importResult.successCount ?? p.importResult.imported}
+                    successCount={successCount}
                     skippedCount={p.importResult.skipped}
                     failedCount={
                       p.importResult.failed ??
@@ -73,6 +78,13 @@ function AdminEventImportExportTab({ tabProps }) {
                     message={p.importResult.message ? <div className="small">{p.importResult.message}</div> : ''}
                     className="mb-2"
                   />
+                  {successCount > 0 && onGoCheckinTab ? (
+                    <div className="mb-3">
+                      <Button variant="outline-success" size="sm" onClick={onGoCheckinTab}>
+                        查看簽到管理（確認剩餘未簽）
+                      </Button>
+                    </div>
+                  ) : null}
                   <ImportErrorList errors={warnings} title="warnings 明細" variant="warning" className="mb-2" />
                   <ImportErrorList errors={skipped} title="略過明細" variant="info" className="mb-2" />
                   <ImportErrorList errors={errors} title="錯誤明細" className="mb-0" />

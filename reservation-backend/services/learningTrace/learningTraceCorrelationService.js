@@ -69,9 +69,12 @@ async function getTraceLjCorrelationSummary(query = {}) {
   const practiced = new Set(traces.map((row) => row.studentId));
   const reservedEt = new Set();
   const checkedIn = new Set();
+  const eventTypeService = require('../eventTypeService');
+  const KNOWN_CODES = new Set(['english_table', 'english_club', 'international_forum', 'job_talk']);
   reservations.forEach((row) => {
     const type = row.Event?.eventType || '';
-    if (!['English Table', 'English Club', 'International Forum', 'Job Talk'].includes(type)) return;
+    const code = eventTypeService.coerceEventTypeCode(type, { fallback: '' });
+    if (!KNOWN_CODES.has(code)) return;
     reservedEt.add(row.studentId);
     if (isCheckedIn(row.checkinStatus)) {
       checkedIn.add(row.studentId);

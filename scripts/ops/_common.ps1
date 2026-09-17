@@ -7,6 +7,23 @@ function Get-EearsRepoRoot {
   return (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 }
 
+function Ensure-EearsOpsPath {
+  # Desktop / Explorer launches often miss npm global bin and custom Node installs.
+  $candidates = @(
+    'D:\',
+    (Join-Path $env:APPDATA 'npm'),
+    (Join-Path $env:ProgramFiles 'nodejs'),
+    (Join-Path ${env:ProgramFiles(x86)} 'nodejs'),
+    (Join-Path $env:LOCALAPPDATA 'Programs\node')
+  )
+  foreach ($dir in $candidates) {
+    if ([string]::IsNullOrWhiteSpace($dir)) { continue }
+    if (-not (Test-Path -LiteralPath $dir)) { continue }
+    $parts = $env:Path -split ';' | Where-Object { $_ -and ($_ -ne $dir) }
+    $env:Path = (@($dir) + $parts) -join ';'
+  }
+}
+
 function Write-EearsStep {
   param(
     [Parameter(Mandatory = $true)][string]$Message,
@@ -75,22 +92,35 @@ function Sync-EearsFrontendBuild {
   Write-EearsStep "SPA synced to $TargetBuildDir" -Level OK
 }
 
-function Test-EearsPm2App {
+function Get-EearsPm2AppStatus {
   param([string]$AppName = 'eears-backend')
   if (-not (Get-Command 'pm2' -ErrorAction SilentlyContinue)) {
-    return $false
+    return $null
   }
-  $listJson = & pm2 jlist 2>$null
-  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($listJson)) {
-    return $false
-  }
+
+  # Avoid ConvertFrom-Json on `pm2 jlist` — Windows PowerShell rejects duplicate keys.
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
   try {
-    $apps = $listJson | ConvertFrom-Json
-    return [bool]($apps | Where-Object { $_.name -eq $AppName })
+    $lines = & pm2 show $AppName 2>&1 | ForEach-Object { "$_" }
   }
-  catch {
-    return $false
+  finally {
+    $ErrorActionPreference = $prevEap
   }
+
+  $text = ($lines -join "`n")
+  if ([string]::IsNullOrWhiteSpace($text) -or $text -match "doesn't exist") {
+    return $null
+  }
+  if ($text -match '(?im)\bstatus\b[^\n]*?\b(online|errored|stopped|stopping|launching|waiting)\b') {
+    return $Matches[1].ToLowerInvariant()
+  }
+  return $null
+}
+
+function Test-EearsPm2App {
+  param([string]$AppName = 'eears-backend')
+  return $null -ne (Get-EearsPm2AppStatus -AppName $AppName)
 }
 
 function Restart-EearsBackendProcess {
@@ -99,6 +129,8 @@ function Restart-EearsBackendProcess {
     [string]$AppName = 'eears-backend',
     [string]$EcosystemFile = ''
   )
+  Ensure-EearsOpsPath
+
   if (-not (Get-Command 'pm2' -ErrorAction SilentlyContinue)) {
     throw @"
 PM2 is not installed or not in PATH.
@@ -110,17 +142,18 @@ Then run:
 "@
   }
 
+  if ([string]::IsNullOrWhiteSpace($EcosystemFile)) {
+    $EcosystemFile = Join-Path $BackendDir 'ecosystem.config.cjs'
+  }
+
   if (Test-EearsPm2App -AppName $AppName) {
-    Write-EearsStep "pm2 restart $AppName" -Level STEP
-    & pm2 restart $AppName
+    Write-EearsStep "pm2 restart $AppName --update-env" -Level STEP
+    & pm2 restart $AppName --update-env
     if ($LASTEXITCODE -ne 0) {
       throw "pm2 restart $AppName failed (exit $LASTEXITCODE)"
     }
   }
   else {
-    if ([string]::IsNullOrWhiteSpace($EcosystemFile)) {
-      $EcosystemFile = Join-Path $BackendDir 'ecosystem.config.cjs'
-    }
     if (-not (Test-Path -LiteralPath $EcosystemFile)) {
       throw "PM2 app '$AppName' not found and ecosystem file missing: $EcosystemFile"
     }

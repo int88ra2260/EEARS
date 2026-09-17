@@ -1,6 +1,8 @@
 jest.mock('../services/surveyGateService', () => ({
   EVENT_TYPE_TO_SURVEY_KEY: {
+    english_table: 'english_table_feedback_114_1',
     'English Table': 'english_table_feedback_114_1',
+    english_club: 'english_club_feedback_114_1',
     'English Club': 'english_club_feedback_114_1',
   },
   resolveGateContext: jest.fn(),
@@ -123,19 +125,21 @@ describe('surveyGateGapReportService.listSurveyGateGaps', () => {
     expect(data.meta.reason).toBe('rule_not_required');
   });
 
-  it('activityType=ET 只查 English Table', async () => {
+  it('activityType=ET 只查 english_table（含別名）', async () => {
     surveyGateService.hasCompletedForGateWithSemester.mockResolvedValue(false);
     Reservation.findAll.mockResolvedValue([]);
 
     await listSurveyGateGaps({ semesterId: 3, activityType: 'ET' });
 
-    expect(surveyGateService.resolveGateContext).toHaveBeenCalledWith('English Table');
+    expect(surveyGateService.resolveGateContext).toHaveBeenCalledWith('english_table');
     expect(Reservation.findAll).toHaveBeenCalled();
     const eventWhere = Reservation.findAll.mock.calls[0][0].include[0].where;
-    expect(eventWhere.eventType).toBe('English Table');
+    expect(eventWhere.eventType).toEqual({
+      [require('sequelize').Op.in]: expect.arrayContaining(['english_table', 'English Table', 'ET']),
+    });
   });
 
-  it('activityType=EC 只查 English Club', async () => {
+  it('activityType=EC 只查 english_club（含別名）', async () => {
     surveyGateService.resolveGateContext.mockResolvedValue({
       mode: 'product',
       survey: { id: 2, surveyKey: 'english_club_feedback_114_1' },
@@ -146,9 +150,11 @@ describe('surveyGateGapReportService.listSurveyGateGaps', () => {
 
     await listSurveyGateGaps({ semesterId: 3, activityType: 'EC' });
 
-    expect(surveyGateService.resolveGateContext).toHaveBeenCalledWith('English Club');
+    expect(surveyGateService.resolveGateContext).toHaveBeenCalledWith('english_club');
     const eventWhere = Reservation.findAll.mock.calls[0][0].include[0].where;
-    expect(eventWhere.eventType).toBe('English Club');
+    expect(eventWhere.eventType).toEqual({
+      [require('sequelize').Op.in]: expect.arrayContaining(['english_club', 'English Club', 'EC']),
+    });
   });
 
   it('列表 Email 遮罩', async () => {
@@ -197,7 +203,12 @@ describe('surveyGateGapReportService.listSurveyGateGaps', () => {
     const data = await listSurveyGateGaps({ semesterId: 3, activityType: 'ET' });
     expect(data.meta.warnings.some((w) => w.includes('semesterId 為 null'))).toBe(true);
     expect(Event.count).toHaveBeenCalledWith({
-      where: { eventType: 'English Table', semesterId: null },
+      where: {
+        eventType: {
+          [require('sequelize').Op.in]: expect.arrayContaining(['english_table', 'English Table', 'ET']),
+        },
+        semesterId: null,
+      },
     });
   });
 });

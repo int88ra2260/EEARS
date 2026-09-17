@@ -102,8 +102,18 @@ export async function exportRegistrationsExcel(token, params) {
   return res.blob();
 }
 
-export async function exportRegistrationPhotos(token, status) {
-  const res = await fetchClient(`${BASE}/export/photos?status=${status}`, {
+export async function exportRegistrationPhotos(token, params) {
+  // 相容舊呼叫：exportRegistrationPhotos(token, 'approved')
+  let qs;
+  if (params instanceof URLSearchParams) {
+    qs = params.toString();
+  } else if (typeof params === 'string') {
+    qs = new URLSearchParams({ status: params }).toString();
+  } else {
+    qs = new URLSearchParams(params || {}).toString();
+  }
+  const url = qs ? `${BASE}/export/photos?${qs}` : `${BASE}/export/photos`;
+  const res = await fetchClient(url, {
     headers: authHeaders(token),
   });
   if (!res.ok) {

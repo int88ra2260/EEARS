@@ -7,12 +7,17 @@ const ACTIVITY_TO_SURVEY_KEY = EVENT_TYPE_TO_SURVEY_KEY;
 
 function activityTypeToEventTypes(activityType) {
   if (!activityType) return [];
-  if (activityType === 'ET' || activityType === 'English Table') return ['English Table'];
-  if (activityType === 'EC' || activityType === 'English Club') return ['English Club'];
+  const eventTypeService = require('./eventTypeService');
+  if (activityType === 'ET' || activityType === 'English Table' || activityType === 'english_table') {
+    return eventTypeService.getEventTypeQueryValues('english_table');
+  }
+  if (activityType === 'EC' || activityType === 'English Club' || activityType === 'english_club') {
+    return eventTypeService.getEventTypeQueryValues('english_club');
+  }
   if (activityType === 'PUBLIC' || activityType === 'STANDALONE' || activityType === 'HOME') {
     return [];
   }
-  return [activityType];
+  return eventTypeService.getEventTypeQueryValues(activityType);
 }
 
 function isStandaloneActivityType(activityType) {

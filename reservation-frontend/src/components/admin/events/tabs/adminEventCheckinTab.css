@@ -1,0 +1,32 @@
+.admin-event-checkin-tab__panel {
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  height: 100%;
+}
+
+.admin-event-checkin-tab__panel-head {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--admin-border, #eaeaea);
+  background: #f8f9fa;
+}
+
+.admin-event-checkin-tab__panel--pending .admin-event-checkin-tab__panel-head {
+  background: #edf7f0;
+  color: #1e6b3a;
+}
+
+.admin-event-checkin-tab__panel-head--danger {
+  background: #fdebec;
+  color: #9f2f2d;
+  border-top: 1px solid var(--admin-border, #eaeaea);
+}
+
+@media (max-width: 991.98px) {
+  .admin-event-checkin-tab__panel {
+    margin-bottom: 0.25rem;
+  }
+}

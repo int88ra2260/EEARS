@@ -204,6 +204,141 @@ function pickBestCandidate(candidates, proofSelection) {
   return sorted[0];
 }
 
+function skillCellBetter(a, b) {
+  if (!b) return true;
+  if (!a) return false;
+  const ra = a.cefrRank != null && Number.isFinite(Number(a.cefrRank)) ? Number(a.cefrRank) : -1;
+  const rb = b.cefrRank != null && Number.isFinite(Number(b.cefrRank)) ? Number(b.cefrRank) : -1;
+  if (ra !== rb) return ra > rb;
+  const sa = a.rawScore != null && Number.isFinite(Number(a.rawScore)) ? Number(a.rawScore) : -Infinity;
+  const sb = b.rawScore != null && Number.isFinite(Number(b.rawScore)) ? Number(b.rawScore) : -Infinity;
+  if (sa !== sb) return sa > sb;
+  return String(a.examDate || '') > String(b.examDate || '');
+}
+
+function mergeSkillMaps(cells) {
+  const map = {};
+  for (const cell of cells) {
+    if (!cell?.skill) continue;
+    const sk = String(cell.skill).toLowerCase();
+    if (!SKILLS.includes(sk)) continue;
+    if (skillCellBetter(cell, map[sk])) map[sk] = cell;
+  }
+  return map;
+}
+
+/**
+ * pairAssembly:
+ * - same_attempt（預設／相容）：每筆 attempt 各自成場
+ * - same_date：同工具 + 同考試日期合併技能
+ * - cross_date：同工具跨日期取各技能最佳後再成對
+ */
+function buildPairAssemblies(attempts, pairAssembly) {
+  const mode = String(pairAssembly || 'same_attempt').toLowerCase();
+
+  if (mode === 'same_date') {
+    const groups = new Map();
+    for (const att of attempts) {
+      if (!att.instrumentCode || !att.examDate) continue;
+      const key = `${att.instrumentCode}|${att.examDate}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          instrumentCode: att.instrumentCode,
+          examDate: att.examDate,
+          attemptIds: [],
+          cells: [],
+        });
+      }
+      const g = groups.get(key);
+      g.attemptIds.push(att.id);
+      for (const sk of SKILLS) {
+        const cell = att.skillMap?.[sk];
+        if (cell) {
+          g.cells.push({
+            ...cell,
+            skill: sk,
+            examDate: att.examDate,
+            attemptId: att.id,
+            instrument: att.instrumentCode,
+          });
+        }
+      }
+    }
+    return [...groups.values()].map((g) => ({
+      instrumentCode: g.instrumentCode,
+      examDate: g.examDate,
+      attemptId: g.attemptIds[0] || null,
+      attemptIds: g.attemptIds,
+      skillMap: mergeSkillMaps(g.cells),
+      assembly: 'same_date',
+    }));
+  }
+
+  if (mode === 'cross_date') {
+    const byInstrument = new Map();
+    for (const att of attempts) {
+      if (!att.instrumentCode) continue;
+      if (!byInstrument.has(att.instrumentCode)) {
+        byInstrument.set(att.instrumentCode, {
+          instrumentCode: att.instrumentCode,
+          cells: [],
+        });
+      }
+      const g = byInstrument.get(att.instrumentCode);
+      for (const sk of SKILLS) {
+        const cell = att.skillMap?.[sk];
+        if (cell) {
+          g.cells.push({
+            ...cell,
+            skill: sk,
+            examDate: att.examDate,
+            attemptId: att.id,
+            instrument: att.instrumentCode,
+          });
+        }
+      }
+    }
+    return [...byInstrument.values()].map((g) => {
+      const skillMap = mergeSkillMaps(g.cells);
+      const dates = Object.values(skillMap).map((c) => c.examDate).filter(Boolean).sort();
+      return {
+        instrumentCode: g.instrumentCode,
+        examDate: dates.length ? `${dates[0]}~${dates[dates.length - 1]}` : null,
+        attemptId: Object.values(skillMap)[0]?.attemptId || null,
+        attemptIds: [...new Set(Object.values(skillMap).map((c) => c.attemptId).filter((id) => id != null))],
+        skillMap,
+        assembly: 'cross_date',
+      };
+    });
+  }
+
+  // same_attempt
+  return attempts.map((att) => ({
+    instrumentCode: att.instrumentCode,
+    examDate: att.examDate,
+    attemptId: att.id,
+    attemptIds: [att.id],
+    skillMap: att.skillMap || {},
+    assembly: 'same_attempt',
+  }));
+}
+
+function resolvePairRule({ dim, instruments, instrumentCode, pairKey }) {
+  const override = String(dim.passMode || dim.pairPassMode || '').toLowerCase();
+  if (override === 'both_cefr') {
+    return {
+      passMode: 'both_cefr',
+      minCefrRank: dim.minCefrRank != null ? Number(dim.minCefrRank) : B2_RANK,
+      note: 'policy force both_cefr',
+    };
+  }
+  const instrumentCfg = instrumentCode ? instruments[instrumentCode] : null;
+  const rule = pairKey && instrumentCfg?.pairs?.[pairKey]
+    ? instrumentCfg.pairs[pairKey]
+    : null;
+  return rule;
+}
+
 /**
  * @param {object} definition policy.definition
  * @param {Array<{studentId:string, attempts:object[]}>} studentAttempts
@@ -269,11 +404,10 @@ function evaluateKpiPolicy(definition, studentAttempts, runOptions = {}) {
       let incompleteCount = 0;
       let unsupportedCount = 0;
 
-      for (const att of attempts) {
-        const instrumentCode = att.instrumentCode;
-        const skillMap = att.skillMap;
-
-        if (dim.kind === 'skill') {
+      if (dim.kind === 'skill') {
+        for (const att of attempts) {
+          const instrumentCode = att.instrumentCode;
+          const skillMap = att.skillMap;
           const skill = skills[0];
           if (dim.requireCompleteSkills !== false && !skillMap[skill]) {
             incompleteCount += 1;
@@ -295,43 +429,53 @@ function evaluateKpiPolicy(definition, studentAttempts, runOptions = {}) {
               skills: { [skill]: skillMap[skill] },
             });
           }
-          continue;
         }
+      } else {
+        // pair：依 pairAssembly 組場後判定
+        const assemblies = buildPairAssemblies(attempts, dim.pairAssembly || evidence.pairAssembly);
+        const pairKey = resolvePairKey(skills);
 
-        // pair
-        if (dim.requireCompleteSkills !== false) {
-          const missing = skills.filter((sk) => !skillMap[sk]);
-          if (missing.length) {
-            incompleteCount += 1;
+        for (const sitting of assemblies) {
+          const instrumentCode = sitting.instrumentCode;
+          const skillMap = sitting.skillMap || {};
+
+          if (dim.requireCompleteSkills !== false) {
+            const missing = skills.filter((sk) => !skillMap[sk]);
+            if (missing.length) {
+              incompleteCount += 1;
+              continue;
+            }
+          }
+
+          const rule = resolvePairRule({
+            dim,
+            instruments,
+            instrumentCode,
+            pairKey,
+          });
+
+          if (!rule) {
+            unsupportedCount += 1;
             continue;
           }
-        }
 
-        const pairKey = resolvePairKey(skills);
-        const instrumentCfg = instrumentCode ? instruments[instrumentCode] : null;
-        const rule = pairKey && instrumentCfg?.pairs?.[pairKey]
-          ? instrumentCfg.pairs[pairKey]
-          : null;
-
-        if (!rule) {
-          unsupportedCount += 1;
-          continue;
-        }
-
-        const result = evaluatePairPass({ skills, skillMap, rule });
-        if (result.passed) {
-          const skillSnap = {};
-          for (const sk of skills) skillSnap[sk] = skillMap[sk];
-          candidates.push({
-            attemptId: att.id,
-            examDate: att.examDate,
-            instrument: instrumentCode,
-            combined: result.combined,
-            reason: result.reason,
-            skills: skillSnap,
-            passMode: rule.passMode,
-            minTotal: rule.minTotal != null ? rule.minTotal : null,
-          });
+          const result = evaluatePairPass({ skills, skillMap, rule });
+          if (result.passed) {
+            const skillSnap = {};
+            for (const sk of skills) skillSnap[sk] = skillMap[sk];
+            candidates.push({
+              attemptId: sitting.attemptId,
+              attemptIds: sitting.attemptIds,
+              examDate: sitting.examDate,
+              instrument: instrumentCode,
+              combined: result.combined,
+              reason: result.reason,
+              skills: skillSnap,
+              passMode: rule.passMode,
+              minTotal: rule.minTotal != null ? rule.minTotal : null,
+              assembly: sitting.assembly,
+            });
+          }
         }
       }
 
@@ -421,4 +565,6 @@ module.exports = {
   pickBestCandidate,
   resolveInstrumentCode,
   skillMapFromAttempt,
+  buildPairAssemblies,
+  resolvePairRule,
 };

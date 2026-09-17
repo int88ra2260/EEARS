@@ -4,6 +4,7 @@
  */
 
 import { fetchClient } from '../utils/fetchClient';
+import { DEFAULT_EVENT_TYPE_CODE } from '../constants/eventTypeCatalog';
 
 /**
  * 建立預約
@@ -19,7 +20,7 @@ export async function createReservation(payload) {
       studentId: (payload.studentId || '').trim(),
       studentName: (payload.studentName || '').trim(),
       studentEmail: (payload.studentEmail || '').trim(),
-      eventType: payload.eventType || 'English Table',
+      eventType: payload.eventType || DEFAULT_EVENT_TYPE_CODE,
     }),
   });
 

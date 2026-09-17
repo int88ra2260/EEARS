@@ -21,12 +21,12 @@ describe('buildWordBridgeRecommendations', () => {
     expect(result.activities).toContain(WRITING_WORKSHOP_KEY);
   });
 
-  it('prefers club and forum for high-density speaking learners', () => {
+  it('prefers club for high-density speaking learners', () => {
     const result = buildPreferenceRecommendations({
       density: 'high',
       focus: 'speaking',
     });
-    expect(result.activities[0]).toMatch(/english-club|international-forum/);
+    expect(result.activities[0]).toBe('english-club');
   });
 
   it('falls back to CEFR mapping without preferences', () => {

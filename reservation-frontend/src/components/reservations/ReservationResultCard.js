@@ -86,7 +86,7 @@ export default function ReservationResultCard({
               ) : null}
               <div className="mt-2 text-muted small">
                 沒收到驗證碼？
-                （重寄功能待後端支援）你可以先返回確認預約資訊，或前往 <a href="/contact">聯絡我們</a>，
+                （重寄功能待後端支援）你可以先返回確認預約資訊，或前往 <a href="/about#contact">聯絡我們</a>，
                 也可直接寄信至 <a href="mailto:emicenter@mail.nsysu.edu.tw">emicenter@mail.nsysu.edu.tw</a>。
               </div>
               <div className="mt-2 d-flex gap-2">

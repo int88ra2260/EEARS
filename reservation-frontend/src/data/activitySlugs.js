@@ -1,33 +1,50 @@
 /**
  * 活動類型 slug 對應（用於 /activities/:slug 分類頁）
- * 與 EventList 的 activeTab 及 eventTypes 一致
- * 注意：BESTEP 不再與 job-talk 共用，後端支援前請勿加入 bestep
+ * 有效 slug 以 GET /api/event-types 啟用中類型為準。
  */
-export const ACTIVITY_SLUGS = {
-  'english-table': 'english-table',
-  'english-club': 'english-club',
-  'international-forum': 'international-forum',
-  'job-talk': 'job-talk',
-};
+import { activityTypeContentKey, usesLegacyActivityPresentation } from '../utils/activityTypeContent';
 
-export const VALID_SLUGS = Object.keys(ACTIVITY_SLUGS);
-
-export function slugToTab(slug) {
-  return ACTIVITY_SLUGS[slug] || null;
-}
-
-export function isValidActivitySlug(slug) {
-  return VALID_SLUGS.includes(slug);
-}
-
-/** slug → 翻譯 key（activities.xxx）用於分類頁標題 */
+/** slug → 翻譯 key（activities.xxx）用於分類頁標題（已知類型） */
 export const SLUG_TO_TITLE_KEY = {
   'english-table': 'activities.englishTable',
   'english-club': 'activities.englishClub',
-  'international-forum': 'activities.internationalForum',
   'job-talk': 'activities.jobTalk',
 };
 
-export function getCategoryTitleKey(slug) {
-  return SLUG_TO_TITLE_KEY[slug] || null;
+/**
+ * @param {string} slug
+ * @param {Array<{ slug: string, code: string, displayName?: string, isActive?: boolean }>} eventTypes
+ */
+export function resolveBookableSlug(slug, eventTypes) {
+  const key = String(slug || '').trim();
+  if (!key) return null;
+  const row = (Array.isArray(eventTypes) ? eventTypes : []).find(
+    (r) => r.slug === key && r.isActive !== false
+  );
+  if (!row) return null;
+  const titleKey = SLUG_TO_TITLE_KEY[key]
+    || (!usesLegacyActivityPresentation(row.code) ? activityTypeContentKey(row.code, 'title') : null);
+  return {
+    slug: key,
+    type: row.code,
+    titleKey,
+    displayName: row.displayName || key,
+    /** phrasebookItems 使用顯示名稱欄位 */
+    phrasebookActivityType: row.displayName || null,
+  };
+}
+
+export function slugToTab(slug) {
+  return String(slug || '').trim() || null;
+}
+
+/** @deprecated 請用 resolveBookableSlug(slug, eventTypes) */
+export function isValidActivitySlug(slug, eventTypes) {
+  return Boolean(resolveBookableSlug(slug, eventTypes));
+}
+
+export function getCategoryTitleKey(slug, eventTypes) {
+  const resolved = resolveBookableSlug(slug, eventTypes);
+  if (!resolved) return null;
+  return resolved.titleKey;
 }

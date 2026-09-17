@@ -13,7 +13,6 @@ import {
   isEventLeadAccountManager,
   isSystemAdminActor,
 } from '../constants/permissionGroups';
-import { ALL_SCOPES } from '../constants/scopes';
 import {
   createTeacher,
   deleteTeacher,
@@ -31,6 +30,7 @@ import {
   downloadTextFile,
   exportAccountsToCsv,
   normalizeCreateTeacherBody,
+  normalizeScopeList,
   serializeEditPayload,
 } from '../utils/accountManagementHelpers';
 
@@ -62,7 +62,7 @@ function createPermissionModeFromAccount(account) {
 
 function createScopeStateFromAccount(account) {
   const scopes = Array.isArray(account?.scopes) ? account.scopes : [];
-  const customScopes = scopes.filter((scope) => ALL_SCOPES.includes(scope));
+  const customScopes = normalizeScopeList(scopes);
   return {
     scopeMode: customScopes.length ? 'custom' : 'inherit',
     customScopes,

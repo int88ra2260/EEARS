@@ -4,6 +4,7 @@
 import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
 import dayjs from 'dayjs';
+import { isEnglishTableEventType } from '../../../utils/eventCapacityFields';
 
 /**
  * @param {Object} props
@@ -170,7 +171,7 @@ export default function ReservationDetailModal({
               <tr>
                 <th>學號</th>
                 <th>姓名</th>
-                {eventType === 'English Table' && <th>組別</th>}
+                {isEnglishTableEventType(eventType) && <th>組別</th>}
                 <th>簽到狀態</th>
                 <th>操作</th>
               </tr>
@@ -178,7 +179,7 @@ export default function ReservationDetailModal({
             <tbody>
               {reservations.length === 0 ? (
                 <tr>
-                  <td colSpan={eventType === 'English Table' ? 5 : 4} className="text-center text-muted">
+                  <td colSpan={isEnglishTableEventType(eventType) ? 5 : 4} className="text-center text-muted">
                     {searchTerm ? '沒有符合搜尋條件的預約' : '尚無預約資料'}
                   </td>
                 </tr>
@@ -187,7 +188,7 @@ export default function ReservationDetailModal({
                   <tr key={reservation.id != null ? reservation.id : index}>
                     <td>{reservation.studentId}</td>
                     <td>{reservation.studentName || reservation.name}</td>
-                    {eventType === 'English Table' && (
+                    {isEnglishTableEventType(eventType) && (
                       <td>
                         <span className="badge bg-info">{reservation.group}</span>
                       </td>

@@ -30,14 +30,23 @@ export function getSemesterOptions() {
 
 /**
  * 活動報表用活動類型選項。
+ * @param {Array<{ code: string, displayName: string, isActive?: boolean }>} [catalog]
  */
-export function getEventTypeOptions() {
+export function getEventTypeOptions(catalog) {
+  if (Array.isArray(catalog) && catalog.length) {
+    const opts = catalog
+      .filter((r) => r && r.isActive !== false)
+      .slice()
+      .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
+      .map((r) => ({ value: r.code, label: r.displayName || r.code }));
+    return [{ value: 'all', label: '全部類型' }, ...opts, { value: '其他', label: '其他' }];
+  }
   return [
     { value: 'all', label: '全部類型' },
-    { value: 'English Table', label: 'English Table' },
-    { value: 'Job Talk', label: 'Job Talk' },
-    { value: 'English Club', label: 'English Club' },
-    { value: 'International Forum', label: 'International Forum' },
-    { value: '其他', label: '其他' }
+    { value: 'english_table', label: 'English Table' },
+    { value: 'job_talk', label: 'Job Talk' },
+    { value: 'english_club', label: 'English Club' },
+    { value: 'international_forum', label: 'International Forum' },
+    { value: '其他', label: '其他' },
   ];
 }

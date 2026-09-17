@@ -11,7 +11,6 @@ import './ActivityRecommendationList.css';
 const ACTIVITY_META = {
   'english-table': { tone: 'blue', titleKey: 'activities.englishTable', slug: 'english-table' },
   'english-club': { tone: 'green', titleKey: 'activities.englishClub', slug: 'english-club' },
-  'international-forum': { tone: 'yellow', titleKey: 'activities.internationalForum', slug: 'international-forum' },
   'job-talk': { tone: 'red', titleKey: 'activities.jobTalk', slug: 'job-talk' },
   [WRITING_WORKSHOP_KEY]: { tone: 'purple', titleKey: 'activities.writingWorkshop', external: true },
 };

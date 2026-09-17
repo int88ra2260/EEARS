@@ -64,7 +64,7 @@ export default function LearningAnalyticsSemesterOpsPanel({
     try {
       const policies = await listLearningAnalyticsKpiPolicies(token, {});
       const list = Array.isArray(policies) ? policies : [];
-      const preferred = list.find((p) => !p.isArchived && p.policyKey === 'ay115-sitting-pair-sum')
+      const preferred = list.find((p) => !p.isArchived && p.policyKey === 'pair-bothcefr-samedate-g24')
         || list.find((p) => !p.isArchived)
         || null;
       if (!preferred) {

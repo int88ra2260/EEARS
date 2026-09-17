@@ -26,8 +26,9 @@ function buildStudentFriendlyError({ code, message, status }) {
 }
 
 function computeSubmissionStatus(examType) {
-  // 如果 examType 为 'NON'，status 設為 'revision'（不報名），否則為 'pending'（審核中）
-  return examType === 'NON' ? 'revision' : 'pending';
+  const { normalizeExamTypeCode } = require('../utils/englishTestExamType');
+  // 不報考（含中文舊值）→ revision；其餘 → pending
+  return normalizeExamTypeCode(examType) === 'NON' ? 'revision' : 'pending';
 }
 
 function isBlankSemester(value) {
@@ -198,6 +199,7 @@ async function queryPublicRegistration(
  *    - 只有當 payload 明確帶入 REVIEW_FIELDS 才會更新；未帶入則保留既有值
  */
 async function createOrUpdateRegistration(payload, { transaction, actor = 'student' } = {}) {
+  const { normalizeExamTypeCode } = require('../utils/englishTestExamType');
   const studentId = payload?.studentId;
   const semester = payload?.semester;
 
@@ -217,6 +219,14 @@ async function createOrUpdateRegistration(payload, { transaction, actor = 'stude
       message: '無法判斷本學期，請聯絡管理員後再進行處理',
       status: 400
     });
+  }
+
+  // 報考項目統一存代碼（LRSW/LR/SW/NON），相容歷史中文 label value
+  if (payload.examType != null && String(payload.examType).trim() !== '') {
+    const code = normalizeExamTypeCode(payload.examType);
+    if (code) {
+      payload = { ...payload, examType: code };
+    }
   }
 
   const existing = await findExistingRegistration(studentId, semester, { transaction });

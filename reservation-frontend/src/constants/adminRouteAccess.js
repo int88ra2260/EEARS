@@ -162,6 +162,12 @@ export const ADMIN_ROUTE_ACCESS = [
   },
 
   { pattern: '/admin/announcements', label: '公告管理', anyPermissions: [P.CAN_MANAGE_ANNOUNCEMENTS] },
+  { pattern: '/admin/announcements/new', label: '新增公告', anyPermissions: [P.CAN_MANAGE_ANNOUNCEMENTS] },
+  {
+    pattern: '/admin/announcements/:id/edit',
+    label: '編輯公告',
+    anyPermissions: [P.CAN_MANAGE_ANNOUNCEMENTS],
+  },
   {
     pattern: '/admin/weekly-reports',
     label: '英語中心週報',
@@ -183,6 +189,11 @@ export const ADMIN_ROUTE_ACCESS = [
     pattern: '/admin/settings/system',
     label: '系統設定',
     anyPermissions: [P.CAN_MANAGE_SETTINGS],
+  },
+  {
+    pattern: '/admin/settings/event-types',
+    label: '活動類型設定',
+    anyPermissions: [P.CAN_MANAGE_EVENTS],
   },
   {
     pattern: '/admin/settings/email-templates',
@@ -474,7 +485,7 @@ export const ADMIN_ROUTE_ACCESS = [
 
   { pattern: '/admin/accounts', label: '帳號管理', anyPermissions: [P.CAN_MANAGE_ACCOUNTS] },
   { pattern: '/admin/account', label: '帳號管理', anyPermissions: [P.CAN_MANAGE_ACCOUNTS] },
-  { pattern: '/admin/account/reset', label: '變更密碼', allowAuthenticated: true },
+  { pattern: '/admin/account/reset', label: '變更密碼', allowAuthenticated: true, denyWorkerLevels: ['event_ops'] },
 ];
 
 function normalizePathname(pathname) {
@@ -524,6 +535,13 @@ export function canAccessAdminRoute(accessProfile, pathname) {
   const rule = getAdminRouteAccess(pathname);
   if (!rule) return false;
   if (isDeniedStaffLevel(accessProfile, rule.denyStaffLevels)) return false;
+  if (
+    rule.denyWorkerLevels?.length
+    && accessProfile?.role === 'worker'
+    && rule.denyWorkerLevels.includes(accessProfile?.workerLevel || 'event_ops')
+  ) {
+    return false;
+  }
   if (
     rule.denyTeacherLevels?.length
     && accessProfile?.role === 'teacher'

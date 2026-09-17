@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
 import { EVENT_DETAIL_COPY } from '../../../constants/adminEventDetailCopy';
+import { resolveEventTypeDisplayName } from '../../../services/eventTypeApi';
 
 /**
  * 活動明細頁首：基本資料 + 狀態摘要（不重複 AdminLayout 之「活動明細」標題）
  */
-export default function AdminEventDetailHeader({ ws, onGoCheckinTab }) {
+export default function AdminEventDetailHeader({ ws, onGoCheckinTab, onGoViolationsTab }) {
   const cap = ws.eventMeta?.maxCapacity;
   const loc = ws.eventMeta?.location;
   const endT = ws.eventMeta?.endTime;
@@ -33,7 +34,7 @@ export default function AdminEventDetailHeader({ ws, onGoCheckinTab }) {
             </div>
             <div className="col-12 col-sm-6 col-lg-4">
               <span className="text-secondary">類型：</span>
-              {ws.currentEventType || '—'}
+              {ws.currentEventType ? resolveEventTypeDisplayName(ws.currentEventType) : '—'}
             </div>
             <div className="col-12 col-sm-6 col-lg-4">
               <span className="text-secondary">地點：</span>
@@ -58,12 +59,12 @@ export default function AdminEventDetailHeader({ ws, onGoCheckinTab }) {
               ← 返回活動列表
             </Button>
           </Link>
-          {ws.checkinOpenHint && ws.headerCountsReady && ws.noShowReservationCount > 0 && (
+          {onGoCheckinTab && ws.checkinOpenHint && ws.headerCountsReady && ws.noShowReservationCount > 0 && (
             <Button variant="success" size="sm" className="w-100" onClick={onGoCheckinTab}>
               前往簽到（{ws.noShowReservationCount} 人未簽）
             </Button>
           )}
-          {ws.checkinOpenHint && !ws.headerCountsReady && (
+          {onGoCheckinTab && ws.checkinOpenHint && !ws.headerCountsReady && (
             <Button variant="outline-success" size="sm" className="w-100" disabled>
               {EVENT_DETAIL_COPY.headerStatsLoading}
             </Button>
@@ -87,7 +88,18 @@ export default function AdminEventDetailHeader({ ws, onGoCheckinTab }) {
           </Badge>
         )}
         {ws.violationsLoaded && (ws.eventViolations?.length || 0) > 0 && (
-          <Badge bg="danger">本活動違規紀錄 {ws.eventViolations.length} 筆</Badge>
+          onGoViolationsTab ? (
+            <button
+              type="button"
+              className="btn btn-link p-0 border-0 align-baseline"
+              onClick={onGoViolationsTab}
+              title="前往違規與未到處理"
+            >
+              <Badge bg="danger">本活動違規紀錄 {ws.eventViolations.length} 筆</Badge>
+            </button>
+          ) : (
+            <Badge bg="danger">本活動違規紀錄 {ws.eventViolations.length} 筆</Badge>
+          )
         )}
       </div>
     </div>

@@ -13,6 +13,11 @@ import {
   savePendingReservation,
   SURVEY_GATE_REDIRECT_DELAY_MS,
 } from '../utils/pendingReservationFlow';
+import {
+  isEnglishClubEventType,
+  isEnglishTableEventType,
+} from '../utils/eventCapacityFields';
+import { DEFAULT_EVENT_TYPE_CODE } from '../constants/eventTypeCatalog';
 
 const RATE_LIMIT_MS = 5000;
 const RATE_LIMIT_MAX = 3;
@@ -130,7 +135,7 @@ export default function useEventBooking() {
         studentId: studentId.trim(),
         studentName: studentName.trim(),
         studentEmail: studentEmail.trim(),
-        eventType: event.eventType || 'English Table',
+        eventType: event.eventType || DEFAULT_EVENT_TYPE_CODE,
       });
 
         if (!res.ok) {
@@ -149,11 +154,11 @@ export default function useEventBooking() {
 
           let finalSurveyId = data.surveyId;
           if (!finalSurveyId) {
-            if (event.eventType === 'English Table') finalSurveyId = 'english_table_feedback_114_1';
-            else if (event.eventType === 'English Club') finalSurveyId = 'english_club_feedback_114_1';
+            if (isEnglishTableEventType(event.eventType)) finalSurveyId = 'english_table_feedback_114_1';
+            else if (isEnglishClubEventType(event.eventType)) finalSurveyId = 'english_club_feedback_114_1';
           }
           const mappedSurveyId = SURVEY_ID_MAPPING[finalSurveyId] || finalSurveyId;
-          const eventType = event.eventType || 'English Table';
+          const eventType = event.eventType || DEFAULT_EVENT_TYPE_CODE;
           const surveyPath = buildSurveyRedirectPath(mappedSurveyId, {
             eventId: event.id,
             eventType,

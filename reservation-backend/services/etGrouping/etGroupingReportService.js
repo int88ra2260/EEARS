@@ -8,7 +8,7 @@ const {
   EtEventGroupLeader,
 } = require('../../models');
 const { getSemesterInfo } = require('../../utils/eventSemesterFromDate');
-const { resolveLegacyGroupCount } = require('../../utils/eventCapacity');
+const { resolveLegacyGroupCount, ENGLISH_TABLE_EVENT_TYPE_ALIASES, isEnglishTableEventType } = require('../../utils/eventCapacity');
 const { listGroupLeaders } = require('./etLeaderService');
 const { buildPreferenceAssignmentsForEvent } = require('./etLeaderPreferenceService');
 const etSessionTaskService = require('./etSessionTaskService');
@@ -21,7 +21,7 @@ async function queryEtEvents({
   dateFrom = null,
   dateTo = null,
 } = {}) {
-  const where = { eventType: 'English Table' };
+  const where = { eventType: { [Op.in]: ENGLISH_TABLE_EVENT_TYPE_ALIASES } };
   if (date) {
     where.date = date;
   } else if (dateFrom || dateTo) {
@@ -137,7 +137,7 @@ async function listMyLeaderSessions(teacherId, filters = {}) {
   const eventMap = new Map();
   for (const row of leaderRows) {
     const event = row.event;
-    if (!event || (event.eventType || 'English Table') !== 'English Table') continue;
+    if (!event || !isEnglishTableEventType(event.eventType)) continue;
     if (filters.semesterId != null && event.semesterId !== filters.semesterId) continue;
     if (filters.semesterLabel && filters.semesterLabel !== 'all'
       && getSemesterInfo(event.date) !== filters.semesterLabel) continue;

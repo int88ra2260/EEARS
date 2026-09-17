@@ -1,6 +1,6 @@
 ---
 name: eears-reservation
-description: EEARS 預約/取消流程與 2hr 截止（含時間窗、blacklist、問卷 Gate）。線上候補已停用。
+description: EEARS 預約/取消流程與可設定截止時數（含時間窗、blacklist、問卷 Gate）。線上候補已停用。
 license: MIT
 ---
 
@@ -22,19 +22,18 @@ license: MIT
 
 ## Core Business Rules（硬約束）
 
-1. 2hr 截止：活動開始前 2 小時
-   - 後端：`reservation-backend/utils/reservationTime.js`
+1. 截止時數：依活動類型 `cutoffHours`（seed 預設 2；可於後台編輯）
+   - 後端：`reservation-backend/utils/reservationTime.js` + `eventTypeService`
    - 前端：`reservation-frontend/src/utils/reservationTime.js`
-   - 取消與預約使用同一「2hr」政策語意
+   - 取消與預約使用同一 `cutoffHours`
 
-2. 預約開放窗依 eventType（不要把 7 天當成統一限制）
-   - `English Table`／自訂類型：前一天 **12:00** 開始
-   - `Job Talk`：7 天前 weekday 12:00 開始
-   - `English Club`：上週三 12:00
-   - `International Forum`：上週五 12:00
+2. 預約開放窗依活動類型 `openRule`（存在 `event_types`）
+   - 勿把某類型的 days_before 誤當成全站統一限制
 
-3. 預約前檢查的順序與語意
-   - 若問卷 Gate 適用（ET/EC product mode + rule required），未完成必須擋下
+3. `events.eventType` 存 **code**（如 `english_table`），顯示名在類型目錄
+
+4. 預約前檢查的順序與語意
+   - 若問卷 Gate 適用（類型 `surveyGateEnabled` + product mode + rule required），未完成必須擋下
    - 若 blacklist 適用，blacklisted 期間必須擋下
    - 額滿即無法再預約（不開放候補）
 

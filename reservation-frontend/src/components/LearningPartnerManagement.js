@@ -1,18 +1,27 @@
 // components/LearningPartnerManagement.js
 // 學習有伴團體報名管理頁面（管理端）
-import React from 'react';
+import React, { useEffect } from 'react';
 import useLearningPartnerManagement from '../hooks/useLearningPartnerManagement';
+import useLearningPartnerOpsAttention from '../hooks/useLearningPartnerOpsAttention';
 import LearningPartnerAdminTabs from './learning-partner/LearningPartnerAdminTabs';
 import LearningPartnerTeamsToolbar from './learning-partner/LearningPartnerTeamsToolbar';
 import LearningPartnerTeamsGrid from './learning-partner/LearningPartnerTeamsGrid';
 import LearningPartnerTeamsPagination from './learning-partner/LearningPartnerTeamsPagination';
 import LearningPartnerTeamDetailModal from './learning-partner/LearningPartnerTeamDetailModal';
 import LearningPartnerTeamRankingPanel from './learning-partner/LearningPartnerTeamRankingPanel';
+import LearningPartnerFunnelPanel from './learning-partner/LearningPartnerFunnelPanel';
 
-export default function LearningPartnerManagement({ token }) {
+export default function LearningPartnerManagement({ token, accessProfile }) {
   const lp = useLearningPartnerManagement(token);
+  const { showAttention, markSeen } = useLearningPartnerOpsAttention(accessProfile);
 
-  if (lp.loading && lp.teams.length === 0) {
+  useEffect(() => {
+    if (lp.adminView === 'funnel' && showAttention) {
+      markSeen();
+    }
+  }, [lp.adminView, showAttention, markSeen]);
+
+  if (lp.loading && lp.teams.length === 0 && lp.adminView === 'teams') {
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-primary" role="status">
@@ -25,7 +34,19 @@ export default function LearningPartnerManagement({ token }) {
 
   return (
     <div>
-      <LearningPartnerAdminTabs adminView={lp.adminView} onViewChange={lp.setAdminView} />
+      <LearningPartnerAdminTabs
+        adminView={lp.adminView}
+        onViewChange={lp.setAdminView}
+        showFunnelAttention={showAttention}
+      />
+
+      {lp.adminView === 'funnel' && (
+        <LearningPartnerFunnelPanel
+          token={token}
+          semester={lp.rankingSemester}
+          onSemesterChange={lp.handleSemesterChange}
+        />
+      )}
 
       {lp.adminView === 'ranking' && (
         <LearningPartnerTeamRankingPanel

@@ -240,7 +240,8 @@ export function surveyStatusBadgeVariant(status) {
 }
 
 export function labelActivityType(code) {
-  return ACTIVITY_TYPE_LABELS[code] || code || '—';
+  if (ACTIVITY_TYPE_LABELS[code]) return ACTIVITY_TYPE_LABELS[code];
+  return code || '—';
 }
 
 export function labelTriggerMode(code) {

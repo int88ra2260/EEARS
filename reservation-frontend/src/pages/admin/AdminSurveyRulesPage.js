@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import SurveyWorkflowGuide from '../../components/admin/survey/SurveyWorkflowGuide';
 import {
@@ -21,6 +21,7 @@ import Pagination from 'react-bootstrap/Pagination';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { bootstrapBgToStatusVariant } from '../../utils/statusBadgeUtils';
 import useToast from '../../components/ui/useToast';
+import { fetchPublicEventTypes } from '../../services/eventTypeApi';
 import {
   deleteSurveyRule,
   fetchSurveyCenterOptions,
@@ -70,16 +71,34 @@ export default function AdminSurveyRulesPage() {
   const [simulation, setSimulation] = useState({ currentTime: '', triggerMode: '', result: null, loading: false });
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null });
   const [conflictText, setConflictText] = useState('');
+  const [eventTypeCatalog, setEventTypeCatalog] = useState([]);
+
+  const activityTypeOptions = useMemo(() => {
+    const legacy = Object.entries(ACTIVITY_TYPE_LABELS).map(([value, label]) => ({ value, label }));
+    const known = new Set(legacy.map((o) => o.value));
+    const fromCatalog = (eventTypeCatalog || [])
+      .filter((r) => r && r.isActive !== false)
+      .filter((r) => !known.has(r.code) && !(r.abbreviation && known.has(r.abbreviation)))
+      .map((r) => ({
+        value: r.code,
+        label: r.abbreviation ? `${r.displayName}（${r.abbreviation}）` : (r.displayName || r.code),
+      }));
+    return [...legacy, ...fromCatalog];
+  }, [eventTypeCatalog]);
 
   const loadOptions = useCallback(async () => {
     try {
-      const data = await fetchSurveyCenterOptions(token);
+      const [data, types] = await Promise.all([
+        fetchSurveyCenterOptions(token),
+        fetchPublicEventTypes({ force: true }),
+      ]);
       setOptions({
         semesters: data.semesters || [],
         surveys: data.surveys || [],
         versions: data.versions || [],
         events: data.events || [],
       });
+      setEventTypeCatalog(Array.isArray(types) ? types : []);
     } catch (e) {
       toast.danger(e.message || '載入選項失敗');
     }
@@ -250,8 +269,8 @@ export default function AdminSurveyRulesPage() {
           <div className="col-md-3">
             <Form.Select value={filters.activityType} onChange={(e) => setFilters((f) => ({ ...f, activityType: e.target.value }))}>
               <option value="">全部活動類型</option>
-              {Object.entries(ACTIVITY_TYPE_LABELS).map(([code, label]) => (
-                <option key={code} value={code}>{label}（{code}）</option>
+              {activityTypeOptions.map(({ value, label }) => (
+                <option key={value} value={value}>{label}（{value}）</option>
               ))}
             </Form.Select>
           </div>
@@ -280,8 +299,8 @@ export default function AdminSurveyRulesPage() {
           </div>
           <div className="col-md-3">
             <Form.Select value={preview.activityType} onChange={(e) => setPreview((p) => ({ ...p, activityType: e.target.value }))}>
-              {Object.entries(ACTIVITY_TYPE_LABELS).map(([code, label]) => (
-                <option key={code} value={code}>{label}</option>
+              {activityTypeOptions.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
               ))}
             </Form.Select>
           </div>
@@ -372,7 +391,10 @@ export default function AdminSurveyRulesPage() {
                   {rows.map((r) => (
                     <tr key={r.id}>
                       <td>{r.Semester?.code || '—'}</td>
-                      <td>{labelActivityType(r.activityType)}</td>
+                      <td>
+                        {activityTypeOptions.find((o) => o.value === r.activityType)?.label
+                          || labelActivityType(r.activityType)}
+                      </td>
                       <td>{r.Survey?.title || r.Survey?.name || r.surveyId}</td>
                       <td>{r.SurveyVersion?.versionNumber != null ? `第 ${r.SurveyVersion.versionNumber} 版` : '—'}</td>
                       <td>{labelTriggerMode(r.triggerMode)}</td>
@@ -417,8 +439,8 @@ export default function AdminSurveyRulesPage() {
             <div className="col-md-4">
               <Form.Label>活動類型</Form.Label>
               <Form.Select value={form.activityType} onChange={(e) => setForm((f) => ({ ...f, activityType: e.target.value }))}>
-                {Object.entries(ACTIVITY_TYPE_LABELS).map(([code, label]) => (
-                  <option key={code} value={code}>{label}</option>
+                {activityTypeOptions.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
                 ))}
               </Form.Select>
             </div>

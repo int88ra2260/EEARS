@@ -11,16 +11,19 @@ const {
 } = require('../../models');
 const { getGseSnapshotsForStudents } = require('./etGseSnapshotService');
 const { normalizeCefrKey } = require('../learningAnalytics/learningAnalyticsCefrUtils');
-const { resolveLegacyGroupCount } = require('../../utils/eventCapacity');
+const { resolveLegacyGroupCount, isEnglishTableEventType } = require('../../utils/eventCapacity');
 const {
   normalizeAbilityGroupSlots,
-  buildMixedPhysicalAssignments,
+  buildAssignmentsByStrategy,
   summarizePhysicalSlots,
+  normalizeGroupingStrategy,
+  strategyRequiresBands,
+  GROUPING_STRATEGIES,
 } = require('./etPhysicalGroupAssignment');
 const { listGroupLeaders } = require('./etLeaderService');
 const { buildBandTableAssignments, countBandTables } = require('./etBandTableAssignmentService');
 
-const ALGORITHM_VERSION = 'v1';
+const ALGORITHM_VERSION = 'v2';
 const UNK_BAND_CODE = 'ET-UNK';
 
 function serializeBand(band) {
@@ -196,14 +199,15 @@ async function ensurePlan(eventId, { transaction } = {}) {
 async function generateGrouping(eventId, {
   force = false,
   groupSlots = null,
-  groupingLayout = 'physical_slots',
+  groupingLayout = null,
+  groupingStrategy = null,
   userId: _userId,
 } = {}) {
   const event = await Event.findByPk(eventId, {
     include: [{ model: Reservation, order: [['id', 'ASC']] }],
   });
   if (!event) throw Object.assign(new Error('活動不存在'), { status: 404 });
-  if ((event.eventType || 'English Table') !== 'English Table') {
+  if (!isEnglishTableEventType(event.eventType)) {
     throw Object.assign(new Error('僅 English Table 活動支援能力分組'), { status: 400 });
   }
 
@@ -212,13 +216,28 @@ async function generateGrouping(eventId, {
     throw Object.assign(new Error('分組已發布，請先確認是否要覆寫'), { status: 409, code: 'GROUPING_ALREADY_PUBLISHED' });
   }
 
-  const bands = await listActiveBands(event.semesterId);
-  if (!bands.length) throw Object.assign(new Error('尚未設定分組帶'), { status: 400 });
-
   const groupCount = resolveLegacyGroupCount(event);
   const perGroupCapacity = Math.max(1, Number(event.perGroupCapacity) || Math.ceil((event.maxCapacity || 36) / groupCount));
-  const layout = groupingLayout === 'band_tables' ? 'band_tables' : 'physical_slots';
-  const slotConfig = layout === 'physical_slots'
+
+  const rawStrategy = groupingStrategy || groupingLayout || GROUPING_STRATEGIES.ALL_ABILITY;
+  const strategy = normalizeGroupingStrategy(rawStrategy, {
+    hasPartialAbilitySlots: Array.isArray(groupSlots)
+      && groupSlots.length > 0
+      && groupSlots.length < groupCount,
+  });
+
+  const needsBands = strategyRequiresBands(strategy);
+  let bands = [];
+  if (needsBands) {
+    bands = await listActiveBands(event.semesterId);
+    if (!bands.length) {
+      throw Object.assign(new Error('尚未設定分組帶'), { status: 400 });
+    }
+  } else {
+    bands = await listActiveBands(event.semesterId);
+  }
+
+  const mixedSlots = strategy === GROUPING_STRATEGIES.MIXED_ABILITY_RANDOM
     ? normalizeAbilityGroupSlots(groupSlots, groupCount)
     : null;
 
@@ -232,12 +251,12 @@ async function generateGrouping(eventId, {
       cefr: null,
       dataQuality: 'missing',
     };
-    const band = matchBandForSnapshot(snapshot, bands);
+    const band = bands.length ? matchBandForSnapshot(snapshot, bands) : { code: UNK_BAND_CODE };
     return { reservation, snapshot, band };
   });
 
   let assignmentRows;
-  if (layout === 'band_tables') {
+  if (strategy === GROUPING_STRATEGIES.BAND_TABLES) {
     const tableCount = countBandTables(bands);
     if (tableCount > groupCount) {
       throw Object.assign(
@@ -247,12 +266,15 @@ async function generateGrouping(eventId, {
     }
     assignmentRows = buildBandTableAssignments({ eventId, students, bands });
   } else {
-    assignmentRows = buildMixedPhysicalAssignments({
+    assignmentRows = buildAssignmentsByStrategy({
       eventId,
       students,
-      abilitySlots: slotConfig.abilitySlots,
-      legacySlots: slotConfig.legacySlots,
+      strategy,
+      groupCount,
+      abilitySlots: mixedSlots?.abilitySlots || [],
+      legacySlots: mixedSlots?.legacySlots || [],
       perGroupCapacity,
+      randomSeed: eventId * 1009 + reservations.length,
     });
   }
 
@@ -270,8 +292,12 @@ async function generateGrouping(eventId, {
       status: 'draft',
       algorithmVersion: ALGORITHM_VERSION,
       generatedAt: new Date(),
-      groupingLayout: layout,
-      abilityGroupSlots: layout === 'physical_slots' ? slotConfig.abilitySlots : null,
+      groupingLayout: strategy,
+      abilityGroupSlots: strategy === GROUPING_STRATEGIES.MIXED_ABILITY_RANDOM
+        ? mixedSlots.abilitySlots
+        : (strategy === GROUPING_STRATEGIES.ALL_ABILITY
+          ? Array.from({ length: groupCount }, (_, i) => i + 1)
+          : null),
     }, { transaction });
 
     await transaction.commit();
@@ -306,9 +332,22 @@ async function getEventGrouping(eventId) {
   const abilityGroupSlots = event.groupPlan?.abilityGroupSlots
     || Array.from({ length: groupCount }, (_, index) => index + 1);
   const groupingLayout = event.groupPlan?.groupingLayout || 'physical_slots';
-  const slotConfig = groupingLayout === 'band_tables'
-    ? { abilitySlots: [], legacySlots: [], allAbility: true }
-    : normalizeAbilityGroupSlots(abilityGroupSlots, groupCount);
+  const strategy = normalizeGroupingStrategy(groupingLayout, {
+    hasPartialAbilitySlots: Array.isArray(event.groupPlan?.abilityGroupSlots)
+      && event.groupPlan.abilityGroupSlots.length > 0
+      && event.groupPlan.abilityGroupSlots.length < groupCount,
+  });
+  const slotConfig = strategy === GROUPING_STRATEGIES.BAND_TABLES
+    ? { abilitySlots: [], legacySlots: [], allAbility: true, strategy }
+    : {
+      ...normalizeAbilityGroupSlots(
+        strategy === GROUPING_STRATEGIES.MIXED_ABILITY_RANDOM
+          ? abilityGroupSlots
+          : Array.from({ length: groupCount }, (_, index) => index + 1),
+        groupCount
+      ),
+      strategy,
+    };
 
   const assignmentByReservation = new Map(
     (event.groupAssignments || []).map((a) => [a.reservationId, a])
@@ -355,7 +394,7 @@ async function getEventGrouping(eventId) {
     groupSummary[label].count += 1;
   }
 
-  const slotSummary = groupingLayout === 'band_tables'
+  const slotSummary = strategy === GROUPING_STRATEGIES.BAND_TABLES
     ? {
       slots: Object.values(groupSummary).map((row) => ({
         groupNumber: null,
@@ -368,14 +407,20 @@ async function getEventGrouping(eventId) {
       abilitySlots: [],
       legacySlots: [],
       allAbility: true,
+      strategy,
     }
     : summarizePhysicalSlots({
       groupCount,
-      abilitySlots: slotConfig.abilitySlots,
-      legacySlots: slotConfig.legacySlots,
+      abilitySlots: strategy === GROUPING_STRATEGIES.MIXED_ABILITY_RANDOM
+        ? slotConfig.abilitySlots
+        : Array.from({ length: groupCount }, (_, i) => i + 1),
+      legacySlots: strategy === GROUPING_STRATEGIES.MIXED_ABILITY_RANDOM
+        ? slotConfig.legacySlots
+        : [],
       assignments: event.groupAssignments || [],
+      strategy,
     });
-  const slotsWithLeaders = groupingLayout === 'band_tables'
+  const slotsWithLeaders = strategy === GROUPING_STRATEGIES.BAND_TABLES
     ? slotSummary.slots
     : slotSummary.slots.map((slot) => {
       const leader = leaderByGroup.get(slot.groupLabel);
@@ -407,7 +452,8 @@ async function getEventGrouping(eventId) {
           publishedAt: event.groupPlan.publishedAt,
           publishedBy: event.groupPlan.publishedBy,
           abilityGroupSlots: event.groupPlan.abilityGroupSlots || slotConfig.abilitySlots,
-          groupingLayout: event.groupPlan.groupingLayout || groupingLayout,
+          groupingLayout: strategy,
+          groupingStrategy: strategy,
         }
       : null,
     slotConfig: {
@@ -487,7 +533,7 @@ async function publishGrouping(eventId, { userId } = {}) {
     include: [{ model: EtEventGroupAssignment, as: 'groupAssignments' }],
   });
   if (!event) throw Object.assign(new Error('活動不存在'), { status: 404 });
-  if ((event.eventType || 'English Table') !== 'English Table') {
+  if (!isEnglishTableEventType(event.eventType)) {
     throw Object.assign(new Error('僅 English Table 活動支援能力分組'), { status: 400 });
   }
 

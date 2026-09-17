@@ -89,6 +89,8 @@ export function isNavItemVisible(visibility, c) {
     case 'opsDashboard':
       if (isDeputyManagerProfile(c?.accessProfile) || isOfficeStaffOpsDenied(c?.accessProfile)) return false;
       if (c.actualUserRole === 'teacher' && !c.hasAdminRights) return false;
+      // 工讀生不進營運總覽（活動工讀側欄另以 leaf allowlist 收斂）
+      if (c.actualUserRole === 'worker') return false;
       return true;
     case 'teachingImpactTrends': {
       if (c.hasAdminRights) return true;
@@ -110,16 +112,24 @@ export function isNavItemVisible(visibility, c) {
 }
 
 /**
- * Worker 側欄改為依權限顯示（配合 workerLevel 分責）。
- * 保留函式名稱供測試／相容；目前一律回傳 false。
- * @param {AdminNavContext} _c
+ * 活動工讀（event_ops）：側欄僅活動列表（不可變更密碼，避免帳密漂移）。
+ * @param {AdminNavContext} c
  */
-export function isWorkerRestrictedMenu(_c) {
-  return false;
+export function isEventOpsWorkerMenu(c) {
+  return c?.actualUserRole === 'worker'
+    && (c?.accessProfile?.workerLevel || 'event_ops') === 'event_ops';
 }
 
-/** @deprecated worker 已改權限導向；保留常數避免舊測試硬依賴 */
-export const WORKER_NAV_LEAF_IDS = new Set(['system-dashboard', 'account-reset']);
+/** @deprecated 舊名；改呼叫 isEventOpsWorkerMenu */
+export function isWorkerRestrictedMenu(c) {
+  return isEventOpsWorkerMenu(c);
+}
+
+/** 活動工讀允許的側欄 leaf id */
+export const EVENT_OPS_WORKER_NAV_LEAF_IDS = new Set(['events-list']);
+
+/** @deprecated 舊常數；活動工讀改用 EVENT_OPS_WORKER_NAV_LEAF_IDS */
+export const WORKER_NAV_LEAF_IDS = EVENT_OPS_WORKER_NAV_LEAF_IDS;
 
 /**
  * 依角色決定側欄預設展開的 section id（P1：避免首次進入全部收合）。
@@ -143,7 +153,8 @@ export function getDefaultExpandedSectionIds(c, visibleSections) {
     if (workerLevel === 'bestep_ops' || workerLevel === 'passport_ops') ids.add('english');
     else if (workerLevel === 'content_editor') ids.add('announcements');
     else ids.add('events');
-    ids.add('accounts');
+    // 活動工讀側欄無帳號區（不可變更密碼）
+    if ((workerLevel || 'event_ops') !== 'event_ops') ids.add('accounts');
   } else {
     for (const sectionId of ['events', 'english', 'surveys', 'learning-journey']) {
       if (visibleSections.some((section) => section.id === sectionId)) {
@@ -201,6 +212,10 @@ export function canShowAdminNavItem(item, c) {
   if (item?.hiddenFromNav) return false;
   if (item?.visibility && !isNavItemVisible(item.visibility, c)) return false;
   if (item?.path && !canAccessAdminRoute(c?.accessProfile, item.path)) return false;
+  // 活動工讀：僅保留活動列表
+  if (isEventOpsWorkerMenu(c) && item?.id && !item?.children) {
+    return EVENT_OPS_WORKER_NAV_LEAF_IDS.has(item.id);
+  }
   return true;
 }
 
@@ -745,6 +760,15 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'perm:can_manage_settings',
         pageTitle: '系統設定',
         breadcrumbLabel: '系統設定',
+      },
+      {
+        id: 'event-types-settings',
+        label: '活動類型設定',
+        path: '/admin/settings/event-types',
+        matchPrefixes: ['/admin/settings/event-types'],
+        visibility: 'perm:can_manage_events',
+        pageTitle: '活動類型設定',
+        breadcrumbLabel: '活動類型設定',
       },
       {
         id: 'system-email-templates',

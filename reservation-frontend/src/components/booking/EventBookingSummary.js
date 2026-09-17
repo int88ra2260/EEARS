@@ -9,8 +9,14 @@ import { getEventLocationDisplay } from '../../utils/eventLocation';
 import { useLanguage } from '../../context/LanguageContext';
 import EventDeadlineHint from '../events/EventDeadlineHint';
 import StatusBadge from '../ui/StatusBadge';
-
-const KNOWN_TYPES = ['English Table', 'Job Talk', 'English Club', 'International Forum'];
+import {
+  DEFAULT_EVENT_TYPE_CODE,
+} from '../../constants/eventTypeCatalog';
+import {
+  getCachedPublicEventTypes,
+  resolveEventTypeDisplayName,
+  resolveTypeConfigFromList,
+} from '../../services/eventTypeApi';
 
 function formatSessionDate(dateStr, lang) {
   if (!dateStr) return '—';
@@ -36,8 +42,9 @@ export default function EventBookingSummary({
 
   let timingSummary = null;
   try {
-    const { openStart, openEnd } = calculateReservationTime(event);
-    const isCustomType = !KNOWN_TYPES.includes(event.eventType);
+    const typeConfig = resolveTypeConfigFromList(getCachedPublicEventTypes() || [], event.eventType);
+    const { openStart, openEnd } = calculateReservationTime(event, typeConfig);
+    const knownInCatalog = Boolean(typeConfig);
     const dateFmt = lang === 'en' ? 'MMM D HH:mm' : 'MM/DD HH:mm';
     timingSummary = (
       <p className="event-booking-summary__timing-line">
@@ -47,7 +54,7 @@ export default function EventBookingSummary({
         <span className="event-booking-summary__timing-note">
           {t('booking.timingCutoffNote')}
         </span>
-        {isCustomType && event.customReservationRule && (
+        {!knownInCatalog && event.customReservationRule && (
           <span className="event-booking-summary__timing-rule">
             {event.customReservationRule}
           </span>
@@ -88,7 +95,9 @@ export default function EventBookingSummary({
             {event.startTime} – {event.endTime}
           </p>
           <p className="event-booking-summary__slot-location">{getEventLocationDisplay(event)}</p>
-          <p className="event-booking-summary__slot-type">{event.eventType || 'English Table'}</p>
+          <p className="event-booking-summary__slot-type">
+            {resolveEventTypeDisplayName(event.eventType || DEFAULT_EVENT_TYPE_CODE)}
+          </p>
         </aside>
 
         <div className="event-booking-summary__quick-meta">

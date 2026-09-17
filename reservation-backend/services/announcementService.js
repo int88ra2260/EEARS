@@ -4,7 +4,7 @@
  * 前台列表排序：isPinned DESC → publishedAt DESC → id DESC
  * 公開可見條件：status=published、isPublished、publishedAt、未軟刪、未過期；排程到期於 list/get 前 promote
  *
- * XSS：內文目前為純文字為主；若改為 HTML，輸入端應加 sanitizer（TODO）
+ * XSS：富文字 HTML 於 create/update 經 sanitizeAnnouncementHtml 消毒
  */
 const { Op, fn, col, where } = require('sequelize');
 const { Announcement, AnnouncementRevision, Teacher } = require('../models');
@@ -20,13 +20,25 @@ const {
   TAG_MAX,
   TAG_ITEM_MAX,
 } = require('../constants/announcementConstants');
+const {
+  sanitizeAnnouncementHtml,
+  isAnnouncementHtmlContent,
+} = require('../utils/sanitizeAnnouncementHtml');
 
 const TITLE_MAX = 200;
 const SUMMARY_MAX = 2000;
-const CONTENT_MAX = 65535;
+const CONTENT_MAX = 500000;
 const COVER_MAX = 500;
 const SLUG_MAX = 180;
 const OG_MAX = 500;
+
+function normalizeContentForStorage(raw) {
+  const content = String(raw ?? '');
+  if (isAnnouncementHtmlContent(content)) {
+    return sanitizeAnnouncementHtml(content);
+  }
+  return content;
+}
 
 function stripTags(s) {
   return String(s || '')
@@ -547,7 +559,7 @@ async function createAnnouncement(body, userId) {
   }
 
   const title = String(body.title).trim();
-  const content = String(body.content);
+  const content = normalizeContentForStorage(body.content);
   const { authorId, authorNameSnapshot } = await resolveAuthorSnapshot(userId);
   const slugInput = body.slug != null && String(body.slug).trim() ? String(body.slug).trim() : null;
   const slug = slugInput ? await ensureUniqueSlug(slugInput.slice(0, SLUG_MAX)) : await ensureUniqueSlug(baseSlugFromTitle(title));
@@ -647,7 +659,7 @@ async function updateAnnouncement(id, body, userId) {
 
   if (body.title !== undefined) patch.title = String(body.title).trim();
   if (body.summary !== undefined) patch.summary = body.summary != null ? String(body.summary).trim() || null : null;
-  if (body.content !== undefined) patch.content = String(body.content);
+  if (body.content !== undefined) patch.content = normalizeContentForStorage(body.content);
   if (body.coverImage !== undefined) patch.coverImage = body.coverImage != null ? String(body.coverImage).trim() || null : null;
   if (body.coverImageAlt !== undefined) {
     patch.coverImageAlt = body.coverImageAlt != null ? String(body.coverImageAlt).trim().slice(0, COVER_ALT_MAX) || null : null;

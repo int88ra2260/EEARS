@@ -4,6 +4,8 @@ const { Reservation, Event, EtEventGroupAssignment, EtSessionTaskMark } = requir
 const { getSemesterInfo } = require('../../utils/eventSemesterFromDate');
 const { listTaskTemplate } = require('./etTaskTemplateService');
 const { filterTasksForBand } = require('./etTaskScope');
+const { ENGLISH_TABLE_EVENT_TYPE_ALIASES } = require('../../utils/eventCapacity');
+const { Op } = require('sequelize');
 
 async function computeCompletion(eventId, reservationId, bandCode, semesterId) {
   const [marks, templateData] = await Promise.all([
@@ -33,7 +35,7 @@ async function getStudentEtTrends(studentId, { semesterLabel = null } = {}) {
     include: [{
       model: Event,
       required: true,
-      where: { eventType: 'English Table' },
+      where: { eventType: { [Op.in]: ENGLISH_TABLE_EVENT_TYPE_ALIASES } },
       attributes: ['id', 'name', 'date', 'startTime', 'semesterId', 'groupingMode'],
     }],
     order: [[{ model: Event }, 'date', 'ASC'], ['id', 'ASC']],

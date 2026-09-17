@@ -18,17 +18,35 @@ const QUESTION_TYPES = [
 
 function optionsToText(options) {
   return (options || [])
-    .map((o) => (typeof o === 'string' ? o : o.label || o.value || ''))
+    .map((o) => {
+      if (typeof o === 'string') return o.trim();
+      const value = String(o?.value ?? '').trim();
+      const label = String(o?.label ?? '').trim();
+      if (!value && !label) return '';
+      if (!value) return label;
+      if (!label || label === value) return value;
+      return `${value} | ${label}`;
+    })
     .filter(Boolean)
     .join('\n');
 }
 
+/** 每行一個選項；可寫 `value | 顯示文字`（無 | 時 value=label） */
 function textToOptions(text) {
   return String(text || '')
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => ({ value: line, label: line }));
+    .map((line) => {
+      const pipe = line.indexOf('|');
+      if (pipe >= 0) {
+        const value = line.slice(0, pipe).trim();
+        const label = line.slice(pipe + 1).trim() || value;
+        return value ? { value, label } : null;
+      }
+      return { value: line, label: line };
+    })
+    .filter(Boolean);
 }
 
 function imagesToText(images) {
@@ -280,7 +298,11 @@ export default function FormQuestionEditorModal({
                     value={draft.optionsText}
                     disabled={readOnly}
                     onChange={(e) => patch({ optionsText: e.target.value })}
+                    placeholder={'LRSW | 聽說讀寫（LRSW）\nLR | 聽讀（LR）\nSW | 說寫（SW）\nNON | 不報考（NON）'}
                   />
+                  <div className="form-text">
+                    可寫「代碼 | 顯示文字」。若只寫一行文字，會同時當作 value 與 label（系統題如報考項目請保留 LRSW／LR／SW／NON 代碼）。
+                  </div>
                 </div>
               )}
 

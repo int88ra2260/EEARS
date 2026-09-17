@@ -253,11 +253,11 @@ export function computeWordBridgeResult(summary) {
   } else if (estimatedLevel === 'A2') {
     activities.push('english-table', 'english-club');
   } else if (estimatedLevel === 'B1') {
-    activities.push('english-club', 'english-table', 'international-forum');
+    activities.push('english-club', 'english-table', 'job-talk');
   } else if (estimatedLevel === 'B2') {
-    activities.push('international-forum', 'english-club', 'job-talk');
+    activities.push('job-talk', 'english-club', 'english-table');
   } else {
-    activities.push('international-forum', 'job-talk', 'english-club');
+    activities.push('job-talk', 'english-club', 'english-table');
   }
 
   const confidence =

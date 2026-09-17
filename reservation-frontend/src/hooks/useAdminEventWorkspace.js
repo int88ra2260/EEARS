@@ -22,6 +22,7 @@ import {
 } from '../services/eventAdminService';
 import { downloadBlob, exportEventReservations } from '../services/eventService';
 import { exportEventEtGrouping, downloadEtBlob } from '../services/etGroupingApi';
+import { isEnglishTableEventType } from '../utils/eventCapacityFields';
 
 export default function useAdminEventWorkspace({ token, userRole, accessProfile: ctxProfile, eventId, activeTab = 'reservations' }) {
   const { confirm } = useConfirm();
@@ -61,7 +62,11 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
   const canExportEtGrouping = hasPermission(accessProfile, P.CAN_EXPORT_ET_GROUPING);
   const canMarkEtSessionTasks = hasPermission(accessProfile, P.CAN_MARK_ET_SESSION_TASKS);
 
-  const needReservations = canViewReservations && ['reservations', 'checkin', 'violations'].includes(activeTab);
+  // 預約／簽到／違規需名單；未知 tab 會回退到預約名單，一併預載
+  const needReservations = canViewReservations && (
+    ['reservations', 'checkin', 'violations'].includes(activeTab)
+    || !['grouping', 'taskMarks', 'importExport', 'reservations', 'checkin', 'violations'].includes(activeTab)
+  );
   const needViolations = (canManageViolations || canViewBlacklist) && activeTab === 'violations';
 
   const resv = useEventReservations({
@@ -465,8 +470,18 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
   }, [sortedReservationData, reservationSearchTerm]);
 
   const pendingCheckinRows = useMemo(
-    () => filteredReservationData.filter((r) => r.checkinStatus === '未簽到'),
-    [filteredReservationData]
+    () => reservationData.filter((r) => r.checkinStatus === '未簽到'),
+    [reservationData]
+  );
+
+  const checkedInRows = useMemo(
+    () => reservationData.filter((r) => r.checkinStatus === '已簽到'),
+    [reservationData]
+  );
+
+  const violationRows = useMemo(
+    () => reservationData.filter((r) => r.checkinStatus === '已登記違規'),
+    [reservationData]
   );
 
   const noShowReservationCount = useMemo(() => {
@@ -513,7 +528,9 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     await meta.reload();
     resv.invalidateCache();
     vio.invalidateCache();
-    if (['reservations', 'checkin', 'violations'].includes(activeTab)) {
+    const shouldLoadReservations = ['reservations', 'checkin', 'violations'].includes(activeTab)
+      || !['grouping', 'taskMarks', 'importExport', 'reservations', 'checkin', 'violations'].includes(activeTab);
+    if (shouldLoadReservations) {
       await resv.load(true);
     }
     if (activeTab === 'violations') {
@@ -550,6 +567,7 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       isEventToday,
       currentEventDate,
       handleDeleteReservation,
+      noShowReservationCount,
     }),
     [
       resBlocking,
@@ -569,6 +587,7 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       isEventToday,
       currentEventDate,
       handleDeleteReservation,
+      noShowReservationCount,
     ],
   );
 
@@ -577,6 +596,8 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       resBlocking,
       reservationsError: resv.error,
       pendingCheckinRows,
+      checkedInRows,
+      violationRows,
       currentEventType,
       currentEventDate,
       canCheckinStudents,
@@ -589,6 +610,8 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       resBlocking,
       resv.error,
       pendingCheckinRows,
+      checkedInRows,
+      violationRows,
       currentEventType,
       currentEventDate,
       canCheckinStudents,
@@ -630,29 +653,32 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     ],
   );
 
+  const refreshReservations = resv.refresh;
+  const handleGroupingPublished = useCallback(() => {
+    if (refreshReservations) refreshReservations();
+  }, [refreshReservations]);
+
   const groupingTabProps = useMemo(
     () => ({
-      visible: canViewEtGrouping && canAccessCurrentEvent && (currentEventType || 'English Table') === 'English Table',
+      visible: canViewEtGrouping && canAccessCurrentEvent && isEnglishTableEventType(currentEventType),
       token,
       eventId: currentEventId,
       eventType: currentEventType,
       canManage: canManageEtGrouping,
       canExport: canExportEtGrouping,
       onExport: handleExportEtGrouping,
-      onPublished: () => {
-        if (resv.refresh) resv.refresh();
-      },
+      onPublished: handleGroupingPublished,
     }),
     [
       canViewEtGrouping,
       canManageEtGrouping,
       canExportEtGrouping,
       handleExportEtGrouping,
+      handleGroupingPublished,
       canAccessCurrentEvent,
       currentEventType,
       token,
       currentEventId,
-      resv.refresh,
     ],
   );
 
@@ -660,7 +686,7 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     () => ({
       visible: (canMarkEtSessionTasks || canManageEtGrouping)
         && canAccessCurrentEvent
-        && (currentEventType || 'English Table') === 'English Table',
+        && isEnglishTableEventType(currentEventType),
       token,
       eventId: currentEventId,
       eventType: currentEventType,
@@ -783,6 +809,7 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     canManageEvents,
     canAccessCurrentEvent,
     canImportExcel,
+    canExportEtGrouping,
     importFile,
     importLoading,
     importError,

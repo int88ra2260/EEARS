@@ -21,6 +21,8 @@ param(
 $common = Join-Path $PSScriptRoot '_common.ps1'
 . $common
 
+Ensure-EearsOpsPath
+
 $repoRoot = Get-EearsRepoRoot
 $backendDir = Join-Path $repoRoot 'reservation-backend'
 

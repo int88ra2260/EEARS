@@ -113,7 +113,7 @@ export function handleAPIError(error, response = null) {
   }
   
   // 請求超時
-  if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+  if (error?.name === 'AbortError' || error?.code === 'ECONNABORTED') {
     return finalize(createErrorMessage('TIMEOUT_ERROR'));
   }
   

@@ -31,6 +31,18 @@ export async function fetchLearningPartnerTeams(token, queryParams) {
   return throwIfNotOk(res, '載入團體列表失敗');
 }
 
+export async function fetchLearningPartnerFunnel(token, semester) {
+  const qs = new URLSearchParams({ semester: String(semester || '') });
+  const res = await fetchClient(`${BASE}/funnel?${qs}`, { headers: authHeaders(token) });
+  return throwIfNotOk(res, '載入營運成效失敗');
+}
+
+export async function fetchLearningPartnerOutcome(token, semester) {
+  const qs = new URLSearchParams({ semester: String(semester || '') });
+  const res = await fetchClient(`${BASE}/outcome?${qs}`, { headers: authHeaders(token) });
+  return throwIfNotOk(res, '載入成績對照失敗');
+}
+
 export async function fetchLearningPartnerTeamById(token, teamId) {
   const res = await fetchClient(`${BASE}/teams/${teamId}`, { headers: authHeaders(token) });
   return throwIfNotOk(res, '載入團體詳情失敗');

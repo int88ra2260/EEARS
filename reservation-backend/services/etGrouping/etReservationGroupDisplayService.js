@@ -1,6 +1,6 @@
 'use strict';
 
-const { resolveLegacyGroupCount } = require('../../utils/eventCapacity');
+const { resolveLegacyGroupCount, isEnglishTableEventType } = require('../../utils/eventCapacity');
 
 const DEFAULT_GROUP_COUNT = 9;
 
@@ -53,8 +53,7 @@ function mapReservationRow(reservation, group) {
  * 依活動分組模式產生名單顯示用組別
  */
 async function buildReservationGroupsForDisplay(event, reservations = [], { assignmentMap } = {}) {
-  const eventType = event.eventType || 'English Table';
-  if (eventType !== 'English Table') {
+  if (!isEnglishTableEventType(event.eventType)) {
     return reservations.map((r) => mapReservationRow(r, null));
   }
 

@@ -2,25 +2,26 @@
 
 const { buildAccessProfile, eventTypeToScope } = require('../../auth/accessProfile');
 const { SCOPE } = require('../../auth/scopes');
+const eventTypeService = require('../eventTypeService');
 
+/** scope → 可匹配的 events.eventType 值（code + legacy，遷移過渡期） */
 const EVENT_TYPE_BY_SCOPE = {
-  [SCOPE.ENGLISH_TABLE]: ['English Table'],
-  [SCOPE.INTERNATIONAL_FORUM]: ['International Forum'],
-  [SCOPE.JOB_TALK]: ['Job Talk'],
-  [SCOPE.ENGLISH_CLUB]: ['English Club'],
+  [SCOPE.ENGLISH_TABLE]: ['english_table', 'English Table', 'ET'],
+  [SCOPE.INTERNATIONAL_FORUM]: ['international_forum', 'International Forum', 'IF'],
+  [SCOPE.JOB_TALK]: ['job_talk', 'Job Talk', 'JT'],
+  [SCOPE.ENGLISH_CLUB]: ['english_club', 'English Club', 'EC'],
 };
 
 function normalizeEventTypeForScope(eventType) {
   const raw = String(eventType || '').trim();
-  const lower = raw.toLowerCase();
-  if (lower === 'english table') return { eventType: 'English Table', scope: SCOPE.ENGLISH_TABLE };
-  if (lower === 'international forum') return { eventType: 'International Forum', scope: SCOPE.INTERNATIONAL_FORUM };
-  if (lower === 'job talk') return { eventType: 'Job Talk', scope: SCOPE.JOB_TALK };
-  if (lower === 'english club') return { eventType: 'English Club', scope: SCOPE.ENGLISH_CLUB };
-
   const scope = eventTypeToScope(raw);
   if (!scope) return { eventType: raw, scope: null };
-  return { eventType: raw, scope };
+  const cfg = eventTypeService.resolveTypeConfigSync(raw);
+  return {
+    eventType: cfg?.code || scope,
+    displayName: cfg?.displayName || raw,
+    scope,
+  };
 }
 
 function hasAnyPermission(profile, permissions = []) {
@@ -53,11 +54,9 @@ function canAccessEventByRecord(user, event, options = {}) {
     return { allowed: false, code: 'EVENT_SCOPE_DENIED', message: '您沒有存取此活動資料的權限。' };
   }
 
-  if (isWorkerProfile(profile)) {
-    if (!options.explicitEventContext) {
-      return { allowed: false, code: 'MISSING_EVENT_CONTEXT', message: '此操作需要指定活動或預約來源。' };
-    }
-    return { allowed: true, scope };
+  // 工讀生現場操作仍須帶明確活動上下文，但仍受 finalScopes 限制
+  if (isWorkerProfile(profile) && !options.explicitEventContext) {
+    return { allowed: false, code: 'MISSING_EVENT_CONTEXT', message: '此操作需要指定活動或預約來源。' };
   }
 
   if (profile.finalScopes.includes(SCOPE.ALL)) {
@@ -84,16 +83,19 @@ function assertCanAccessEvent(user, event, options = {}) {
 function buildEventScopeWhere(user) {
   const profile = buildAccessProfile(user);
   if (profile.isAdmin) return {};
-  if (isWorkerProfile(profile)) return null;
 
   if (profile.finalScopes.includes(SCOPE.ALL)) return {};
 
   const eventTypes = profile.finalScopes
-    .flatMap((scope) => EVENT_TYPE_BY_SCOPE[scope] || [])
+    .flatMap((scope) => {
+      if (EVENT_TYPE_BY_SCOPE[scope]) return EVENT_TYPE_BY_SCOPE[scope];
+      if (eventTypeService.isEventTypeScopeCode(scope)) return [scope];
+      return [];
+    })
     .filter(Boolean);
 
   if (!eventTypes.length) return null;
-  return { eventType: eventTypes };
+  return { eventType: [...new Set(eventTypes)] };
 }
 
 module.exports = {

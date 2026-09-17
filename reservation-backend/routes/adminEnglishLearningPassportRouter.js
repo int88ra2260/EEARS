@@ -40,6 +40,15 @@ router.get('/english-learning-passports', viewAuth, async (req, res, next) => {
   }
 });
 
+router.post('/english-learning-passports', manageAuth, async (req, res, next) => {
+  try {
+    const data = await passportService.createPassportAdmin(req.body, req.user?.id, req);
+    res.status(201).json({ success: true, data });
+  } catch (e) {
+    handleServiceError(e, res, next);
+  }
+});
+
 router.get('/english-learning-passports/export/xlsx', exportAuth, async (req, res, next) => {
   try {
     const { buffer, fileName, contentDisposition } = await exportService.exportPassportsXlsx(req.query, req);

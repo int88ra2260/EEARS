@@ -16,7 +16,7 @@ export const VISUAL_SECTION_CONFIG = {
     path: '/activities',
     layout: 'public',
     Component: ActivitiesPage,
-    hint: '點擊活動介紹頁上的標題、說明與表格文字即可編輯。',
+    hint: '點擊活動介紹頁上的標題、說明、表格文字、卡片圖片或「設定第二按鈕」即可編輯；圖片接媒體庫，第二按鈕可改名稱／顯示／網址。',
   },
   about: {
     path: '/about',

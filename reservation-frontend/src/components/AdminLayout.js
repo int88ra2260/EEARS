@@ -91,10 +91,14 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
   );
 
   useEffect(() => {
+    // 活動工讀不可變更密碼；即使 mustResetPassword 也不強制導向改密頁
+    const isEventOpsWorker = accessProfile.role === 'worker'
+      && (accessProfile.workerLevel || 'event_ops') === 'event_ops';
+    if (isEventOpsWorker) return;
     if (mustResetPassword && location.pathname !== '/admin/account/reset') {
       navigate('/admin/account/reset', { replace: true });
     }
-  }, [mustResetPassword, location.pathname, navigate]);
+  }, [mustResetPassword, location.pathname, navigate, accessProfile.role, accessProfile.workerLevel]);
 
   useEffect(() => {
     if (accessProfile.role !== 'leader') return;

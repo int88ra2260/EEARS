@@ -95,7 +95,7 @@ export default function LearningAnalyticsKpiReportPage() {
       setPolicies(list);
       setPolicyId((prev) => {
         if (prev && list.some((p) => String(p.id) === String(prev) && !p.isArchived)) return prev;
-        const preferred = list.find((p) => !p.isArchived && p.policyKey === 'ay115-sitting-pair-sum')
+        const preferred = list.find((p) => !p.isArchived && p.policyKey === 'pair-bothcefr-samedate-g24')
           || list.find((p) => !p.isArchived)
           || list[0];
         return preferred ? String(preferred.id) : '';
@@ -278,7 +278,7 @@ export default function LearningAnalyticsKpiReportPage() {
     <div className="la-page-body">
       <LearningAnalyticsPanelHeader
         title="B2 KPI 報表"
-        lead="依政策庫鎖定達標規則（同場合計或單項歷史最佳），對名冊學生產出聽讀／說寫（或四技能）達標人數與比例。可隨時切換政策，不限單一學年一種看法。"
+        lead="依政策庫鎖定達標規則（同日／跨日 × 雙科 CEFR 或分數合計；大一～大三或大二～大四），對名冊學生產出聽讀／說寫達標人數與比例。"
       />
 
       {error ? <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert> : null}

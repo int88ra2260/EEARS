@@ -18,6 +18,12 @@ import {
   mergeTextCatalog,
 } from '../../utils/siteContentCatalog';
 import {
+  getActivityImageDefaultSrc,
+  isSecondaryCtaLabelKey,
+  isSecondaryCtaUrlKey,
+  pairSecondaryCtaUrlKey,
+} from '../../utils/activityTypeContent';
+import {
   fetchMediaLibraryAdmin,
   uploadMediaLibraryAdmin,
 } from '../../services/mediaLibraryAdminApi';
@@ -52,6 +58,12 @@ function isImageUrlKey(contentKey) {
   return typeof contentKey === 'string' && /ImageUrl$/i.test(contentKey);
 }
 
+function mediaUploadScopeForSection(section) {
+  if (section === 'english_learning_passport') return 'elp';
+  if (section === 'activities') return 'general';
+  return 'general';
+}
+
 function resolveSidebarImagePreview(contentKey, url) {
   const custom = String(url || '').trim();
   if (/^https?:\/\//i.test(custom) || custom.startsWith('/')) {
@@ -59,6 +71,10 @@ function resolveSidebarImagePreview(contentKey, url) {
   }
   if (contentKey === 'elpPage.guideImageUrl') {
     return { src: elpStudentGuideImage, isDefault: true };
+  }
+  const activityDefault = getActivityImageDefaultSrc(contentKey);
+  if (activityDefault) {
+    return { src: activityDefault, isDefault: true };
   }
   return { src: '', isDefault: true };
 }
@@ -71,9 +87,16 @@ function TextEditSidebar({
   onSave,
   onClear,
   mediaToken,
+  section,
+  pairedUrlDraft,
+  setPairedUrlDraft,
+  pairedUrlKey,
 }) {
   const toast = useToast();
   const imageMode = isImageUrlKey(draft.contentKey);
+  const ctaUrlMode = isSecondaryCtaUrlKey(draft.contentKey);
+  const ctaLabelMode = isSecondaryCtaLabelKey(draft.contentKey);
+  const urlFieldMode = imageMode || ctaUrlMode;
   const [assets, setAssets] = useState([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -105,7 +128,7 @@ function TextEditSidebar({
       <aside className="scm-visual__sidebar scm-visual__sidebar--empty">
         <p className="scm-visual__sidebar-title">編輯面板</p>
         <p className="scm-visual__sidebar-hint">
-          在左側畫面上點擊任一段文字或圖片，即可在此修改內容。
+          在左側畫面上點擊任一段文字、圖片或「設定第二按鈕」，即可在此修改。
         </p>
       </aside>
     );
@@ -123,12 +146,32 @@ function TextEditSidebar({
     }));
   };
 
+  const applyCtaUrl = (url) => {
+    const next = String(url || '').trim();
+    if (ctaUrlMode) {
+      setDraft((d) => ({
+        ...d,
+        valueZh: next,
+        valueEn: next,
+      }));
+      return;
+    }
+    if (pairedUrlDraft) {
+      setPairedUrlDraft((d) => ({
+        ...d,
+        valueZh: next,
+        valueEn: next,
+        isActive: true,
+      }));
+    }
+  };
+
   const handleUpload = async (file) => {
     if (!mediaToken) throw new Error('未登入');
     setUploading(true);
     try {
       const asset = await uploadMediaLibraryAdmin(mediaToken, file, {
-        scope: 'elp',
+        scope: mediaUploadScopeForSection(section),
         label: file.name,
       });
       setAssets((cur) => [asset, ...cur.filter((x) => x.id !== asset.id)]);
@@ -141,6 +184,10 @@ function TextEditSidebar({
       setUploading(false);
     }
   };
+
+  const currentUrlValue = ctaUrlMode
+    ? (draft.valueZh || '')
+    : (pairedUrlDraft?.valueZh || '');
 
   return (
     <aside className="scm-visual__sidebar">
@@ -209,26 +256,49 @@ function TextEditSidebar({
               />
             </Form.Group>
           </>
+        ) : ctaUrlMode ? (
+          <Form.Group className="mb-3">
+            <Form.Label>按鈕導向網址</Form.Label>
+            <Form.Control
+              value={draft.valueZh}
+              onChange={(e) => applyCtaUrl(e.target.value)}
+              placeholder="/events 或 https://…"
+            />
+            <Form.Text muted>內部路徑請以 / 開頭；外部連結請用 https://</Form.Text>
+          </Form.Group>
         ) : (
           <>
             <Form.Group className="mb-3">
-              <Form.Label>中文</Form.Label>
+              <Form.Label>{ctaLabelMode ? '按鈕名稱（中文）' : '中文'}</Form.Label>
               <Form.Control
                 as="textarea"
-                rows={5}
+                rows={ctaLabelMode ? 2 : 5}
                 value={draft.valueZh}
                 onChange={(e) => setDraft((d) => ({ ...d, valueZh: e.target.value }))}
               />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>English</Form.Label>
+              <Form.Label>{ctaLabelMode ? 'Button label (English)' : 'English'}</Form.Label>
               <Form.Control
                 as="textarea"
-                rows={5}
+                rows={ctaLabelMode ? 2 : 5}
                 value={draft.valueEn}
                 onChange={(e) => setDraft((d) => ({ ...d, valueEn: e.target.value }))}
               />
             </Form.Group>
+            {ctaLabelMode && pairedUrlKey && pairedUrlDraft ? (
+              <Form.Group className="mb-3">
+                <Form.Label>按鈕導向網址</Form.Label>
+                <Form.Control
+                  value={currentUrlValue}
+                  onChange={(e) => applyCtaUrl(e.target.value)}
+                  placeholder="/events 或 https://…（留白則不顯示按鈕）"
+                />
+                <Form.Text muted>
+                  需同時填寫名稱與網址，且下方「啟用」開啟，前台才會顯示第二按鈕。
+                </Form.Text>
+              </Form.Group>
+            ) : null}
           </>
         )}
         <Form.Check
@@ -236,7 +306,9 @@ function TextEditSidebar({
           className="mb-3"
           label={imageMode
             ? '啟用自訂圖片（關閉後學生端恢復預設圖）'
-            : '啟用（停用後學生端恢復預設文案）'}
+            : ctaLabelMode
+              ? '前台顯示此第二按鈕（需同時有名稱與網址）'
+              : '啟用（停用後學生端恢復預設文案）'}
           checked={draft.isActive}
           onChange={(e) => setDraft((d) => ({ ...d, isActive: e.target.checked }))}
         />
@@ -258,16 +330,19 @@ export default function SiteContentVisualPanel({
   onSave,
   onSwitchToList,
   mediaToken = null,
+  eventTypes = null,
 }) {
   const config = VISUAL_SECTION_CONFIG[section];
   const [previewLang, setPreviewLang] = useState('zh');
   const [selectedKey, setSelectedKey] = useState(null);
   const [draft, setDraft] = useState(emptyDraft());
   const [initialDraft, setInitialDraft] = useState(emptyDraft());
+  const [pairedUrlDraft, setPairedUrlDraft] = useState(null);
+  const [initialPairedUrlDraft, setInitialPairedUrlDraft] = useState(null);
 
   const catalogRows = useMemo(
-    () => mergeTextCatalog(section, items),
-    [section, items]
+    () => mergeTextCatalog(section, items, { eventTypes }),
+    [section, items, eventTypes]
   );
 
   const rowByKey = useMemo(
@@ -289,12 +364,33 @@ export default function SiteContentVisualPanel({
     setSelectedKey(key);
     setDraft(next);
     setInitialDraft(next);
+
+    const urlKey = pairSecondaryCtaUrlKey(key);
+    if (urlKey) {
+      const urlRow = rowByKey.get(urlKey);
+      const urlDraft = urlRow
+        ? rowToDraft(urlRow)
+        : {
+            ...emptyDraft(),
+            contentKey: urlKey,
+            label: labelForContentKey(urlKey),
+            valueZh: '',
+            valueEn: '',
+          };
+      setPairedUrlDraft(urlDraft);
+      setInitialPairedUrlDraft(urlDraft);
+    } else {
+      setPairedUrlDraft(null);
+      setInitialPairedUrlDraft(null);
+    }
   }, [rowByKey]);
 
   const clearSelection = useCallback(() => {
     setSelectedKey(null);
     setDraft(emptyDraft());
     setInitialDraft(emptyDraft());
+    setPairedUrlDraft(null);
+    setInitialPairedUrlDraft(null);
   }, []);
 
   useEffect(() => {
@@ -309,17 +405,28 @@ export default function SiteContentVisualPanel({
 
   const previewOverrides = useMemo(() => {
     const base = catalogRowsToOverrides(catalogRows);
-    return mergeDraftOverride(base, draft);
-  }, [catalogRows, draft]);
+    let merged = mergeDraftOverride(base, draft);
+    if (pairedUrlDraft?.contentKey) {
+      merged = mergeDraftOverride(merged, pairedUrlDraft);
+    }
+    return merged;
+  }, [catalogRows, draft, pairedUrlDraft]);
 
   const dirty = useMemo(() => {
     if (!draft.contentKey) return false;
-    return (
+    const draftDirty = (
       draft.valueZh !== initialDraft.valueZh
       || draft.valueEn !== initialDraft.valueEn
       || draft.isActive !== initialDraft.isActive
     );
-  }, [draft, initialDraft]);
+    if (!pairedUrlDraft || !initialPairedUrlDraft) return draftDirty;
+    const urlDirty = (
+      pairedUrlDraft.valueZh !== initialPairedUrlDraft.valueZh
+      || pairedUrlDraft.valueEn !== initialPairedUrlDraft.valueEn
+      || pairedUrlDraft.isActive !== initialPairedUrlDraft.isActive
+    );
+    return draftDirty || urlDirty;
+  }, [draft, initialDraft, pairedUrlDraft, initialPairedUrlDraft]);
 
   const handleSave = async () => {
     if (!draft.contentKey) return;
@@ -331,7 +438,22 @@ export default function SiteContentVisualPanel({
       valueEn: draft.valueEn,
       isActive: draft.isActive,
     });
+    if (pairedUrlDraft?.contentKey) {
+      const url = String(pairedUrlDraft.valueZh || pairedUrlDraft.valueEn || '').trim();
+      // 有既有列或已填網址才寫入；空白允許（後端 optional key）以便清掉導向
+      if (pairedUrlDraft.id || url) {
+        await onSave({
+          id: pairedUrlDraft.id,
+          contentKey: pairedUrlDraft.contentKey,
+          label: pairedUrlDraft.label || labelForContentKey(pairedUrlDraft.contentKey),
+          valueZh: url,
+          valueEn: url,
+          isActive: draft.isActive,
+        });
+      }
+    }
     setInitialDraft(draft);
+    if (pairedUrlDraft) setInitialPairedUrlDraft(pairedUrlDraft);
   };
 
   if (!config) {
@@ -413,6 +535,10 @@ export default function SiteContentVisualPanel({
           onSave={handleSave}
           onClear={clearSelection}
           mediaToken={mediaToken}
+          section={section}
+          pairedUrlDraft={pairedUrlDraft}
+          setPairedUrlDraft={setPairedUrlDraft}
+          pairedUrlKey={pairedUrlDraft?.contentKey || null}
         />
       </div>
     </div>

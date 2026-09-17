@@ -51,12 +51,12 @@ export async function fetchEventGrouping(token, eventId) {
 export async function generateEventGrouping(token, eventId, {
   force = false,
   groupSlots = null,
-  groupingLayout = 'physical_slots',
+  groupingStrategy = 'all_ability',
 } = {}) {
   const res = await fetchClient(`${API_BASE}/events/${eventId}/grouping/generate`, {
     method: 'POST',
     headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ force, groupSlots, groupingLayout }),
+    body: JSON.stringify({ force, groupSlots, groupingStrategy }),
   });
   return handleResponse(res, '自動分組失敗');
 }

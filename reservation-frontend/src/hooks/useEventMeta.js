@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { EVENT_DETAIL_COPY } from '../constants/adminEventDetailCopy';
 import { debugEventDetail } from '../utils/eventDetailDebug';
 import { fetchEventMeta as fetchEventMetaApi } from '../services/eventService';
+import { DEFAULT_EVENT_TYPE_CODE } from '../constants/eventTypeCatalog';
 
 /**
  * 活動基本資料（GET /api/events/:id/meta）— Phase 5 輕量 payload + aggregate 統計
@@ -54,7 +55,7 @@ export function useEventMeta({ token, eventId }) {
     endTime: data?.endTime ?? '',
     location: data?.location ?? '',
     maxCapacity: data?.maxCapacity != null ? Number(data.maxCapacity) : null,
-    eventType: data?.eventType || 'English Table',
+    eventType: data?.eventType || DEFAULT_EVENT_TYPE_CODE,
     reservedCount: data?.reserved != null ? Number(data.reserved) : null,
     availableSpots: data?.availableSpots != null ? Number(data.availableSpots) : null,
     checkedInCount: data?.checkedInCount != null ? Number(data.checkedInCount) : null,

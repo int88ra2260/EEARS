@@ -13,14 +13,19 @@ const { getGseSnapshotForStudent } = require('./etGseSnapshotService');
 const { listBands, matchBandForSnapshot } = require('./etGroupingService');
 
 const { calculateReservationTime } = require('../../utils/reservationTime');
-
 const { getSemesterInfo } = require('../../utils/eventSemesterFromDate');
+const {
+  isEnglishTableEventType,
+  ENGLISH_TABLE_EVENT_TYPE_ALIASES,
+  ENGLISH_CLUB_EVENT_TYPE_ALIASES,
+} = require('../../utils/eventCapacity');
+const eventTypeService = require('../eventTypeService');
 
-
-
-const SPEAKING_FOCUS_TYPES = ['English Table', 'English Club', 'International Forum'];
-
-
+const SPEAKING_FOCUS_TYPES = [
+  ...ENGLISH_TABLE_EVENT_TYPE_ALIASES,
+  ...ENGLISH_CLUB_EVENT_TYPE_ALIASES,
+  ...eventTypeService.getEventTypeQueryValues('international_forum'),
+];
 
 function identifyWeakSkillsFromSnapshot(snapshot) {
 
@@ -130,7 +135,7 @@ async function getEtActivityRecommendations(studentId, { limit = 5 } = {}) {
 
     const alreadyReserved = participatedEventIds.has(event.id);
 
-    const priority = (event.eventType === 'English Table' ? 3 : 2)
+    const priority = (isEnglishTableEventType(event.eventType) ? 3 : 2)
 
       + (openNow ? 2 : 0)
 

@@ -639,6 +639,5 @@ export const PHRASEBOOK_ACTIVITY_TABS = [
   { key: 'all', activityType: null },
   { key: 'english-table', activityType: 'English Table' },
   { key: 'english-club', activityType: 'English Club' },
-  { key: 'international-forum', activityType: 'International Forum' },
   { key: 'job-talk', activityType: 'Job Talk' },
 ];

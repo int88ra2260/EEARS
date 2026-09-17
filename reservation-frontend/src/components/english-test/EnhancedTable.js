@@ -9,6 +9,7 @@ import EnhancedTableRowContent from './EnhancedTableRowContent';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import useConfirm from '../ui/useConfirm';
 import { getStatusBadge, highlightText } from './englishTestTableHelpers';
+import { normalizeSortConfig, applyHeaderSortClick } from '../../utils/englishTestSortConfig';
 import './EnglishTestIndividualTable.css';
 
 const ALL_COLUMNS = [
@@ -16,12 +17,15 @@ const ALL_COLUMNS = [
   { key: 'successSequence', label: '報名成功序號', sortable: true },
   { key: 'studentId', label: '學號', sortable: true },
   { key: 'name', label: '姓名', sortable: true },
-  { key: 'email', label: 'Email', sortable: false },
+  { key: 'email', label: 'Email', sortable: true },
   { key: 'phone', label: '電話', sortable: false },
   { key: 'college', label: '學院', sortable: true },
-  { key: 'department', label: '科系', sortable: false },
+  { key: 'department', label: '科系', sortable: true },
+  { key: 'grade', label: '年級', sortable: true },
+  { key: 'examType', label: '報考項目', sortable: true },
   { key: 'status', label: '狀態', sortable: true },
   { key: 'createdAt', label: '報名時間', sortable: true },
+  { key: 'approvedAt', label: '通過時間', sortable: true },
   { key: 'photo', label: '證件照', sortable: false, image: true },
 ];
 
@@ -38,10 +42,12 @@ export default function EnhancedTable({
   searchTerm = '',
   enableDragSort = false,
   onDragEnd = null,
+  exportArrangeMode = false,
+  onArrangeMove = null,
 }) {
   const { confirm } = useConfirm();
   const isMobile = useMediaQuery('(max-width: 768px)');
-  const [localSortConfig, setLocalSortConfig] = useState(sortConfig || { key: 'id', direction: 'ASC' });
+  const [localSortConfig, setLocalSortConfig] = useState(() => normalizeSortConfig(sortConfig));
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem('englishTestTableColumns');
     if (saved) {
@@ -65,7 +71,7 @@ export default function EnhancedTable({
   }, [data]);
 
   useEffect(() => {
-    if (sortConfig) setLocalSortConfig(sortConfig);
+    if (sortConfig) setLocalSortConfig(normalizeSortConfig(sortConfig));
   }, [sortConfig]);
 
   const selectedIdSet = useMemo(() => new Set(selectedRows), [selectedRows]);
@@ -99,12 +105,14 @@ export default function EnhancedTable({
     }
   };
 
-  const handleSort = (key) => {
-    const effectiveConfig = sortConfig || localSortConfig;
-    const direction = effectiveConfig.key === key && effectiveConfig.direction === 'ASC' ? 'DESC' : 'ASC';
-    const newSortConfig = { key, direction };
-    setLocalSortConfig(newSortConfig);
-    onSort && onSort(key, direction);
+  const handleSort = (key, event) => {
+    const { config, capped } = applyHeaderSortClick(
+      sortConfig || localSortConfig,
+      key,
+      { shiftKey: Boolean(event?.shiftKey) }
+    );
+    setLocalSortConfig(config);
+    onSort && onSort(config, { capped, shiftKey: Boolean(event?.shiftKey) });
   };
 
   const handleColumnChange = (newColumns) => {
@@ -113,7 +121,7 @@ export default function EnhancedTable({
 
   const sortedData = useMemo(() => {
     if (sortConfig) return data;
-    const effectiveConfig = localSortConfig;
+    const effectiveConfig = normalizeSortConfig(localSortConfig);
     if (!effectiveConfig.key) return data;
 
     return [...data].sort((a, b) => {
@@ -148,13 +156,16 @@ export default function EnhancedTable({
           </div>
 
           <div className="row g-3">
-            {sortedData.map((row) => (
+            {sortedData.map((row, index) => (
               <div key={row.id} className="col-12">
                 <div className="card">
                   <div className="card-body">
                     <div className="d-flex justify-content-between align-items-start mb-2">
                       <div>
                         <h6 className="mb-1">
+                          {exportArrangeMode && (
+                            <span className="badge text-bg-primary me-2">#{index + 1}</span>
+                          )}
                           {searchTerm ? highlightText(row.name, searchTerm) : row.name}
                           {' '}
                           ({row.studentId})
@@ -168,6 +179,66 @@ export default function EnhancedTable({
                       />
                     </div>
 
+                    {exportArrangeMode && onArrangeMove && (
+                      <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <div className="btn-group btn-group-sm" role="group">
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            disabled={index === 0}
+                            onClick={() => onArrangeMove(row.id, 'up')}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            disabled={index >= sortedData.length - 1}
+                            onClick={() => onArrangeMove(row.id, 'down')}
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            disabled={index === 0}
+                            onClick={() => onArrangeMove(row.id, 'top')}
+                          >
+                            置頂
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            disabled={index >= sortedData.length - 1}
+                            onClick={() => onArrangeMove(row.id, 'bottom')}
+                          >
+                            置底
+                          </button>
+                        </div>
+                        <label className="d-inline-flex align-items-center gap-1 mb-0 small">
+                          移至
+                          <input
+                            type="number"
+                            className="form-control form-control-sm"
+                            style={{ width: '4.5rem' }}
+                            min={1}
+                            max={sortedData.length}
+                            defaultValue={index + 1}
+                            key={`jump-${row.id}-${index}`}
+                            onKeyDown={(e) => {
+                              if (e.key !== 'Enter') return;
+                              e.preventDefault();
+                              const n = parseInt(e.currentTarget.value, 10);
+                              if (Number.isInteger(n)) onArrangeMove(row.id, 'to', n);
+                            }}
+                            onBlur={(e) => {
+                              const n = parseInt(e.currentTarget.value, 10);
+                              if (Number.isInteger(n) && n !== index + 1) onArrangeMove(row.id, 'to', n);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
                     {visibleColumns.includes('email') && (
                       <div className="mb-1">
                         <small>
@@ -250,6 +321,11 @@ export default function EnhancedTable({
                     <i className="fas fa-grip-vertical text-muted" />
                   </th>
                 )}
+                {exportArrangeMode && (
+                  <th style={{ minWidth: '148px', textAlign: 'left', verticalAlign: 'middle' }} title="匯出序號與個別調整">
+                    匯出序
+                  </th>
+                )}
 
                 <th style={{ width: '40px', textAlign: 'center', verticalAlign: 'middle' }}>
                   <input
@@ -275,19 +351,30 @@ export default function EnhancedTable({
                       verticalAlign: 'middle',
                       whiteSpace: 'nowrap',
                     }}
-                    onClick={() => col.sortable && handleSort(col.key)}
+                    title={col.sortable ? '點選排序；按住 Shift 點選可疊加多層排序' : undefined}
+                    onClick={(e) => col.sortable && handleSort(col.key, e)}
                   >
                     {col.label}
-                    {col.sortable && (
-                      <span className="ms-2">
-                        {(sortConfig || localSortConfig).key === col.key && (
-                          <i className={`fas fa-sort-${(sortConfig || localSortConfig).direction === 'ASC' ? 'up' : 'down'}`} />
-                        )}
-                        {(sortConfig || localSortConfig).key !== col.key && (
-                          <i className="fas fa-sort text-muted" style={{ opacity: 0.3 }} />
-                        )}
-                      </span>
-                    )}
+                    {col.sortable && (() => {
+                      const effective = normalizeSortConfig(sortConfig || localSortConfig);
+                      const levelIndex = effective.levels.findIndex((l) => l.key === col.key);
+                      if (levelIndex < 0) {
+                        return (
+                          <span className="ms-2">
+                            <i className="fas fa-sort text-muted" style={{ opacity: 0.3 }} />
+                          </span>
+                        );
+                      }
+                      const level = effective.levels[levelIndex];
+                      return (
+                        <span className="ms-2">
+                          <span className="badge text-bg-secondary me-1" style={{ fontSize: '0.65rem' }}>
+                            {levelIndex + 1}
+                          </span>
+                          <i className={`fas fa-sort-${level.direction === 'ASC' ? 'up' : 'down'}`} />
+                        </span>
+                      );
+                    })()}
                   </th>
                 ))}
                 <th style={{ textAlign: 'left', verticalAlign: 'middle' }}>操作</th>
@@ -301,7 +388,7 @@ export default function EnhancedTable({
                   onDragEnd={handleDragEnd}
                 >
                   <SortableContext items={items} strategy={verticalListSortingStrategy}>
-                    {sortedData.map((row) => (
+                    {sortedData.map((row, index) => (
                       <SortableTableRow key={row.id} id={row.id}>
                         <EnhancedTableRowContent
                           row={row}
@@ -314,6 +401,10 @@ export default function EnhancedTable({
                           onDelete={onDelete}
                           onClassBestep={onClassBestep}
                           enableDragSort
+                          exportArrangeMode={exportArrangeMode}
+                          arrangeIndex={exportArrangeMode ? index : -1}
+                          arrangeTotal={exportArrangeMode ? sortedData.length : 0}
+                          onArrangeMove={onArrangeMove}
                           confirm={confirm}
                         />
                       </SortableTableRow>
@@ -321,7 +412,7 @@ export default function EnhancedTable({
                   </SortableContext>
                 </DndContext>
               ) : (
-                sortedData.map((row) => (
+                sortedData.map((row, index) => (
                   <tr
                     key={row.id}
                     style={{
@@ -339,6 +430,10 @@ export default function EnhancedTable({
                       onDelete={onDelete}
                       onClassBestep={onClassBestep}
                       enableDragSort={false}
+                      exportArrangeMode={exportArrangeMode}
+                      arrangeIndex={exportArrangeMode ? index : -1}
+                      arrangeTotal={exportArrangeMode ? sortedData.length : 0}
+                      onArrangeMove={onArrangeMove}
                       confirm={confirm}
                     />
                   </tr>

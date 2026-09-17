@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useMemo, useEf
 import { LANG_ZH, LANG_EN, getTranslation } from '../constants/translations';
 import { fetchSiteContent } from '../services/siteContentApi';
 import { formatMessage } from '../utils/formatMessage';
+import { resolveActivityTypeContentFallback } from '../utils/activityTypeContent';
 
 const STORAGE_KEY = 'eears_lang';
 
@@ -53,6 +54,10 @@ export function LanguageProvider({ children }) {
         if (localized) template = localized;
       }
       if (!template) template = getTranslation(lang, path);
+      if (template === path) {
+        const dynamicFallback = resolveActivityTypeContentFallback(path, lang);
+        if (dynamicFallback) template = dynamicFallback;
+      }
       if (vars && typeof vars === 'object') {
         return formatMessage(template, vars);
       }

@@ -84,7 +84,8 @@ async function buildGamificationContext(studentId) {
   ]);
 
   const checkedIn = reservations.filter((row) => row.checkinStatus === '已簽到');
-  const etCheckins = checkedIn.filter((row) => row.Event?.eventType === 'English Table').length;
+  const { isEnglishTableEventType } = require('../../utils/eventCapacity');
+  const etCheckins = checkedIn.filter((row) => isEnglishTableEventType(row.Event?.eventType)).length;
 
   return {
     microLearningSessions: traces.length,
