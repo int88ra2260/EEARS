@@ -15,13 +15,15 @@ describe('englishTestStatusEmailConfirm', () => {
     expect(failedBulk.description).toContain('寄送通知信');
   });
 
-  test('batch send confirms mention irreversibility', () => {
+  test('batch send confirms mention irreversibility and wait hint', () => {
     const success = getEnglishTestBatchEmailConfirm('success');
     expect(success.message).toContain('報名成功');
     expect(success.message).toContain('無法撤回');
+    expect(success.message).toContain('寄送中');
     expect(success.confirmLabel).toBe('確認並寄信');
 
     const group = getEnglishTestBatchEmailConfirm('group_promo');
     expect(group.title).toContain('團體推廣');
+    expect(group.message).toContain('寄送中');
   });
 });

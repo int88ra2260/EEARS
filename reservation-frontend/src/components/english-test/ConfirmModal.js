@@ -1,5 +1,5 @@
 // 自訂確認框，取代 window.confirm，提升無障礙與一致性
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function ConfirmModal({
   show,
@@ -11,7 +11,22 @@ export default function ConfirmModal({
   onConfirm,
   onCancel
 }) {
+  const [busy, setBusy] = useState(false);
+
   if (!show) return null;
+
+  const handleConfirm = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (onConfirm) await Promise.resolve(onConfirm());
+      onCancel && onCancel();
+    } catch (_) {
+      // 錯誤由呼叫方 toast／處理；保持可再試
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div
@@ -30,22 +45,34 @@ export default function ConfirmModal({
               className="btn-close"
               onClick={onCancel}
               aria-label="關閉"
+              disabled={busy}
             />
           </div>
           <div className="modal-body">{message}</div>
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onCancel}
+              disabled={busy}
+            >
               {cancelLabel}
             </button>
             <button
               type="button"
               className={`btn btn-${variant}`}
-              onClick={async () => {
-                if (onConfirm) await Promise.resolve(onConfirm());
-                onCancel && onCancel();
-              }}
+              onClick={handleConfirm}
+              disabled={busy}
+              aria-busy={busy || undefined}
             >
-              {confirmLabel}
+              {busy ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden />
+                  處理中…
+                </>
+              ) : (
+                confirmLabel
+              )}
             </button>
           </div>
         </div>

@@ -49,6 +49,8 @@ export default function EnglishTestIndividualTab({
   onExportPhotos,
   onSendStatusEmails,
   sendingEmails,
+  sendingEmailKind = null,
+  sendingEmailLabel = null,
   exportingExcel = false,
   exportingPhotos = false,
   exportArrangeMode = false,
@@ -300,13 +302,20 @@ export default function EnglishTestIndividualTab({
                     type="button"
                     className="btn btn-primary btn-sm"
                     disabled={panelBusy || statusFilter !== 'success' || (stats.success || 0) === 0}
-                    title={statusFilter !== 'success' ? '請先切到「報名成功」再寄信' : undefined}
+                    aria-busy={sendingEmailKind === 'success' || undefined}
+                    title={
+                      sendingEmailKind === 'success'
+                        ? '報名成功信寄送中'
+                        : statusFilter !== 'success'
+                          ? '請先切到「報名成功」再寄信'
+                          : undefined
+                    }
                     onClick={() => onSendStatusEmails('success')}
                   >
-                    {sendingEmails ? (
+                    {sendingEmailKind === 'success' ? (
                       <>
                         <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden />
-                        發送中…
+                        寄送中…
                       </>
                     ) : (
                       '寄報名成功信'
@@ -316,13 +325,20 @@ export default function EnglishTestIndividualTab({
                     type="button"
                     className="btn btn-outline-info btn-sm"
                     disabled={panelBusy || statusFilter !== 'success'}
-                    title={statusFilter !== 'success' ? '請先切到「報名成功」' : '對四項皆報考者發送團體推廣信'}
+                    aria-busy={sendingEmailKind === 'group_promo' || undefined}
+                    title={
+                      sendingEmailKind === 'group_promo'
+                        ? '團體推廣信寄送中'
+                        : statusFilter !== 'success'
+                          ? '請先切到「報名成功」'
+                          : '對四項皆報考者發送團體推廣信'
+                    }
                     onClick={() => onSendStatusEmails('group_promo')}
                   >
-                    {sendingEmails ? (
+                    {sendingEmailKind === 'group_promo' ? (
                       <>
                         <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden />
-                        發送中…
+                        寄送中…
                       </>
                     ) : (
                       '寄團體推廣信'
@@ -332,13 +348,20 @@ export default function EnglishTestIndividualTab({
                     type="button"
                     className="btn btn-outline-secondary btn-sm"
                     disabled={panelBusy || statusFilter !== 'failed' || (stats.failed || 0) === 0}
-                    title={statusFilter !== 'failed' ? '請先切到「報名失敗」再寄信' : undefined}
+                    aria-busy={sendingEmailKind === 'failed' || undefined}
+                    title={
+                      sendingEmailKind === 'failed'
+                        ? '報名失敗信寄送中'
+                        : statusFilter !== 'failed'
+                          ? '請先切到「報名失敗」再寄信'
+                          : undefined
+                    }
                     onClick={() => onSendStatusEmails('failed')}
                   >
-                    {sendingEmails ? (
+                    {sendingEmailKind === 'failed' ? (
                       <>
                         <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden />
-                        發送中…
+                        寄送中…
                       </>
                     ) : (
                       '寄報名失敗信'
@@ -347,6 +370,14 @@ export default function EnglishTestIndividualTab({
                 </>
               )}
             </div>
+            {sendingEmails && (
+              <div className="alert alert-info py-2 px-3 mt-2 mb-0 small" role="status" aria-live="polite">
+                <span className="spinner-border spinner-border-sm me-2" aria-hidden />
+                正在寄送{sendingEmailLabel || '通知信'}，SMTP 偏慢時可能需要數分鐘。
+                <strong className="ms-1">請勿關閉或重新整理頁面</strong>
+                ；完成後右下角會顯示成功／失敗筆數。
+              </div>
+            )}
             {exportBusy && (
               <div className="form-text text-primary mt-2 mb-0" role="status">
                 {exportingPhotos

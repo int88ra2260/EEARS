@@ -49,8 +49,13 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
   const urlHydratedRef = useRef(false);
   const { confirmModal, openConfirm, closeConfirm } = useConfirmModal();
 
-  const showToast = useCallback((message, variant = 'success') => {
-    setToast({ show: true, message, variant });
+  const showToast = useCallback((message, variant = 'success', options = {}) => {
+    setToast({
+      show: true,
+      message,
+      variant,
+      duration: options.duration,
+    });
   }, []);
 
   const list = useEnglishTestRegistrations({

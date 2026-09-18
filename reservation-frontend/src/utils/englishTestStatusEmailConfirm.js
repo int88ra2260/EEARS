@@ -41,11 +41,14 @@ export function getEnglishTestStatusEmailConfirm({ status, count = 1 } = {}) {
   };
 }
 
+const BATCH_WAIT_HINT =
+  '人數較多或郵件伺服器偏慢時，可能需要數分鐘；確認後請留意頁面上的「寄送中」提示，完成後會再通知您。';
+
 export function getEnglishTestBatchEmailConfirm(status) {
   if (status === 'success') {
     return {
       title: '確認寄送通知信？',
-      message: '將對目前所有「報名成功」者寄送通知信。此操作無法撤回，確定繼續？',
+      message: `將對目前所有「報名成功」者寄送通知信。此操作無法撤回。${BATCH_WAIT_HINT}`,
       confirmLabel: '確認並寄信',
       variant: 'warning',
     };
@@ -53,7 +56,7 @@ export function getEnglishTestBatchEmailConfirm(status) {
   if (status === 'failed') {
     return {
       title: '確認寄送通知信？',
-      message: '將對目前所有「報名失敗」者寄送通知信。此操作無法撤回，確定繼續？',
+      message: `將對目前所有「報名失敗」者寄送通知信。此操作無法撤回。${BATCH_WAIT_HINT}`,
       confirmLabel: '確認並寄信',
       variant: 'warning',
     };
@@ -61,14 +64,14 @@ export function getEnglishTestBatchEmailConfirm(status) {
   if (status === 'group_promo') {
     return {
       title: '確認寄送團體推廣信？',
-      message: '將對所有「報名成功」且「四項皆報考」者寄送團體推廣信。此操作無法撤回，確定繼續？',
+      message: `將對所有「報名成功」且「四項皆報考」者寄送團體推廣信。此操作無法撤回。${BATCH_WAIT_HINT}`,
       confirmLabel: '確認並寄信',
       variant: 'warning',
     };
   }
   return {
     title: '確認寄送通知信？',
-    message: '確定要寄送通知信嗎？',
+    message: `確定要寄送通知信嗎？${BATCH_WAIT_HINT}`,
     confirmLabel: '確認並寄信',
     variant: 'warning',
   };

@@ -61,7 +61,7 @@ export default function EnglishTestManagement() {
     selectedRows, setSelectedRows, handleBulkApprove, handleBulkReject,
     handleBulkDelete, handleBulkSetSuccess, handleBulkSetFailed,
   } = m.bulk;
-  const { sendingEmails, handleSendStatusEmails } = m.emails;
+  const { sendingEmails, sendingEmailKind, sendingEmailLabel, handleSendStatusEmails } = m.emails;
 
   const {
     selectedRegistration, showDetailModal, currentRegistrationIndex,
@@ -358,6 +358,8 @@ export default function EnglishTestManagement() {
           })}
           onSendStatusEmails={handleSendStatusEmails}
           sendingEmails={sendingEmails}
+          sendingEmailKind={sendingEmailKind}
+          sendingEmailLabel={sendingEmailLabel}
           exportingExcel={exportingExcel}
           exportingPhotos={exportingPhotos}
           exportArrangeMode={exportArrangeMode}
@@ -495,6 +497,7 @@ export default function EnglishTestManagement() {
         show={toast.show}
         message={toast.message}
         variant={toast.variant}
+        duration={toast.duration ?? 3000}
         onClose={() => setToast((prev) => ({ ...prev, show: false }))}
       />
 
