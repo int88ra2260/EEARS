@@ -9,6 +9,7 @@ describe('appendExportListParams', () => {
         semester: '115-1',
         dateFrom: '2026-03-01',
         examTypes: ['LR'],
+        grades: ['一年級', '二年級'],
         isLowIncome: '是',
       },
       sortConfig: { key: 'id', direction: 'DESC' },
@@ -19,6 +20,7 @@ describe('appendExportListParams', () => {
     expect(params.get('search')).toBe('王小明');
     expect(params.get('dateFrom')).toBe('2026-03-01');
     expect(params.getAll('examTypes')).toEqual(['LR']);
+    expect(params.getAll('grades')).toEqual(['一年級', '二年級']);
     expect(params.get('isLowIncome')).toBe('是');
     expect(params.get('sortBy')).toBe('id');
     expect(params.get('sortOrder')).toBe('DESC');

@@ -113,6 +113,9 @@ const EtTaskTemplate = require('./EtTaskTemplate');
 const EtTaskTemplateItem = require('./EtTaskTemplateItem');
 const EtEventGroupLeader = require('./EtEventGroupLeader');
 const EtLeaderPreference = require('./EtLeaderPreference');
+const EtLeaderAttendance = require('./EtLeaderAttendance');
+const EtLeaderCheckinToken = require('./EtLeaderCheckinToken');
+const EtLeaderPayProfile = require('./EtLeaderPayProfile');
 const EtSessionTaskMark = require('./EtSessionTaskMark');
 
 EnglishLearningPassport.hasMany(EnglishLearningSubmission, {
@@ -199,6 +202,18 @@ EtEventGroupLeader.belongsTo(Teacher, { foreignKey: 'leaderTeacherId', as: 'lead
 
 EtLeaderPreference.belongsTo(Teacher, { foreignKey: 'leaderTeacherId', as: 'leader' });
 Teacher.hasMany(EtLeaderPreference, { foreignKey: 'leaderTeacherId', as: 'leaderPreferences' });
+
+Event.hasMany(EtLeaderAttendance, { foreignKey: 'eventId', as: 'leaderAttendances', onDelete: 'CASCADE' });
+EtLeaderAttendance.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
+EtLeaderAttendance.belongsTo(Teacher, { foreignKey: 'leaderTeacherId', as: 'leader' });
+EtLeaderAttendance.belongsTo(Teacher, { foreignKey: 'markedBy', as: 'marker' });
+
+Event.hasOne(EtLeaderCheckinToken, { foreignKey: 'eventId', as: 'leaderCheckinToken', onDelete: 'CASCADE' });
+EtLeaderCheckinToken.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
+EtLeaderCheckinToken.belongsTo(Teacher, { foreignKey: 'createdBy', as: 'creator' });
+
+EtLeaderPayProfile.belongsTo(Teacher, { foreignKey: 'leaderTeacherId', as: 'leader' });
+Teacher.hasOne(EtLeaderPayProfile, { foreignKey: 'leaderTeacherId', as: 'leaderPayProfile' });
 
 Event.hasMany(EtSessionTaskMark, { foreignKey: 'eventId', as: 'sessionTaskMarks', onDelete: 'CASCADE' });
 EtSessionTaskMark.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
@@ -429,5 +444,8 @@ module.exports = {
   EtTaskTemplateItem,
   EtEventGroupLeader,
   EtLeaderPreference,
+  EtLeaderAttendance,
+  EtLeaderCheckinToken,
+  EtLeaderPayProfile,
   EtSessionTaskMark,
 };

@@ -1,15 +1,14 @@
 // routes/blacklistRouter.js
 const express = require('express');
-const dayjs = require('dayjs');
 const { authMiddleware, requirePermission, hasPermission, P } = require('../middlewares/auth');
 
 const router = express.Router();
 const { User, BlackListRecord, Reservation, Event, EventViolation, sequelize } = require('../models');
 const auditLogService = require('../services/auditLogService');
 const {
-  computeBlacklistUnlockDate,
-  cancelReservationsWithinBlacklistWindow,
   enqueueBlacklistNotificationEmails,
+  syncSemesterViolationCountAndMaybeBlacklist,
+  afterViolationRecordDeleted,
 } = require('../services/blacklistEnforcementService');
 const { assertCanAccessEvent } = require('../services/accessControl/eventScopeGuard');
 const { getSemesterInfo } = require('../utils/eventSemesterFromDate');
@@ -143,28 +142,13 @@ router.post('/recordViolation', authMiddleware, async (req, res) => {
       reason: reason || '違規'
     }, { transaction });
 
-    // 累加違規次數，不歸零
-    user.violationCount += 1;
+    // 違規次數以當學期紀錄重算（跨學期歸零）
+    const applied = await syncSemesterViolationCountAndMaybeBlacklist(user, { transaction });
 
-    // 若違規次數 >= 2 => 進入黑名單
-    if (user.violationCount >= 2) {
-      const now = dayjs();
-      const unlockDate = computeBlacklistUnlockDate(now);
-
-      user.isBlacklisted = true;
-      user.blacklistUntil = unlockDate.toDate();
-      // 不歸零 violationCount
-      await user.save({ transaction });
-
-      const pendingBlacklistEmails = await cancelReservationsWithinBlacklistWindow({
-        user,
-        unlockDate,
-        now,
-        transaction,
-      });
+    if (applied.blacklistedNow) {
       await transaction.commit();
 
-      enqueueBlacklistNotificationEmails(pendingBlacklistEmails, {
+      enqueueBlacklistNotificationEmails(applied.emailPayloads, {
         requestId: req.requestId,
         userId: user.id,
       });
@@ -174,28 +158,26 @@ router.post('/recordViolation', authMiddleware, async (req, res) => {
         action: 'record_violation_blacklist',
         entityType: 'User',
         entityId: user.id,
-        targetSummary: `eventId=${accessEvent.id} violationCount=${user.violationCount}`,
-        afterData: { blacklisted: true, unlockDate: unlockDate.toISOString() },
+        targetSummary: `eventId=${accessEvent.id} violationCount=${applied.violationCount}`,
+        afterData: { blacklisted: true, unlockDate: applied.unlockDate.toISOString() },
         req,
       });
       return res.json({
-        message: `已達第二次違規，使用者進入黑名單至 ${unlockDate.format('YYYY/MM/DD HH:mm:ss')}，並取消該期間內預約`,
+        message: `已達第二次違規，使用者進入黑名單至 ${applied.unlockDate.format('YYYY/MM/DD HH:mm:ss')}，並取消該期間內預約`,
       });
-    } else {
-      // 第一次違規
-      await user.save({ transaction });
-      await transaction.commit();
-      auditLogService.logAuditAsync({
-        module: 'blacklist',
-        action: 'record_violation_first',
-        entityType: 'User',
-        entityId: user.id,
-        targetSummary: `eventId=${accessEvent.id} violationCount=${user.violationCount}`,
-        afterData: { violationCount: user.violationCount },
-        req,
-      });
-      return res.json({ message: '已紀錄此違規行為' });
     }
+
+    await transaction.commit();
+    auditLogService.logAuditAsync({
+      module: 'blacklist',
+      action: 'record_violation_first',
+      entityType: 'User',
+      entityId: user.id,
+      targetSummary: `eventId=${accessEvent.id} violationCount=${applied.violationCount}`,
+      afterData: { violationCount: applied.violationCount },
+      req,
+    });
+    return res.json({ message: '已紀錄此違規行為' });
   } catch (err) {
     if (transaction) await transaction.rollback();
     console.error(err);
@@ -249,30 +231,11 @@ router.post('/batchRecordViolations', authMiddleware, async (req, res) => {
           reason: reason || '違規'
         }, { transaction });
 
-        // 累加違規次數
-        user.violationCount += 1;
-
-        // 若違規次數 >= 2 => 進入黑名單
-        if (user.violationCount >= 2) {
-          const now = dayjs();
-          const unlockDate = computeBlacklistUnlockDate(now);
-
-          user.isBlacklisted = true;
-          user.blacklistUntil = unlockDate.toDate();
-          await user.save({ transaction });
-
-          const emailPayloads = await cancelReservationsWithinBlacklistWindow({
-            user,
-            unlockDate,
-            now,
-            transaction,
-          });
-          emailPayloads.forEach((payload) => {
-            pendingBlacklistEmails.push({ payload, userId: user.id });
-          });
-        } else {
-          await user.save({ transaction });
-        }
+        // 違規次數以當學期紀錄重算（跨學期歸零）
+        const applied = await syncSemesterViolationCountAndMaybeBlacklist(user, { transaction });
+        applied.emailPayloads.forEach((payload) => {
+          pendingBlacklistEmails.push({ payload, userId: user.id });
+        });
 
         results.successCount++;
       } catch (err) {
@@ -353,6 +316,22 @@ router.get('/', authMiddleware, async (req, res) => {
         }
       ]
     });
+
+    // 列表顯示的違規次數：指定學期用該學期筆數；否則用當學期（跨學期不累計）
+    const countSemester = (semester && semester !== 'all') ? semester : getCurrentSemester();
+    const semesterCountByUserId = {};
+    for (const record of records) {
+      if (!record.User?.id) continue;
+      if (getSemesterInfo(record.recordedAt) !== countSemester) continue;
+      const uid = record.User.id;
+      semesterCountByUserId[uid] = (semesterCountByUserId[uid] || 0) + 1;
+    }
+    for (const record of records) {
+      if (!record.User) continue;
+      const count = semesterCountByUserId[record.User.id] || 0;
+      record.User.violationCount = count;
+      if (record.User.dataValues) record.User.dataValues.violationCount = count;
+    }
 
     // 為每個記錄添加活動資訊
     for (let record of records) {
@@ -445,18 +424,10 @@ router.delete('/:recordId', authMiddleware, requirePermission(P.CAN_MANAGE_BLACK
       return res.status(404).json({ message: '紀錄未關聯到使用者' });
     }
 
-    // user.violationCount -= 1，但不得小於 0
-    if (user.violationCount > 0) user.violationCount -= 1;
-
-    // 若減完後 < 2 => 不需要在黑名單
-    if (user.violationCount < 2) {
-      user.isBlacklisted = false;
-      user.blacklistUntil = null;
-    }
-    await user.save();
-
-    // 刪除該筆違規紀錄
+    const deletedRecordedAt = record.recordedAt;
+    // 先刪除紀錄，再依當學期重算次數（僅刪當學期紀錄且次數 < 2 時解除黑名單）
     await record.destroy();
+    await afterViolationRecordDeleted(user, deletedRecordedAt);
 
     return res.json({ message: '已成功刪除該筆違規紀錄' });
   } catch (err) {

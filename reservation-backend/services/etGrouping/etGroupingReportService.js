@@ -82,6 +82,28 @@ async function buildEventReportRow(event) {
 
   const preferenceAssignments = await buildPreferenceAssignmentsForEvent(event);
 
+  let leaderAttendance = { present: 0, onTime: 0, late: 0, manual: 0, assigned: 0 };
+  try {
+    const etLeaderAttendanceService = require('./etLeaderAttendanceService');
+    const attendanceData = await etLeaderAttendanceService.listEventAttendance(event.id);
+    leaderAttendance.assigned = attendanceData.leaders.length;
+    for (const row of attendanceData.leaders) {
+      const status = row.attendance?.status || row.derivedStatus;
+      if (status === 'on_time') {
+        leaderAttendance.present += 1;
+        leaderAttendance.onTime += 1;
+      } else if (status === 'late') {
+        leaderAttendance.present += 1;
+        leaderAttendance.late += 1;
+      } else if (status === 'manual') {
+        leaderAttendance.present += 1;
+        leaderAttendance.manual += 1;
+      }
+    }
+  } catch (_err) {
+    // 出席表尚未遷移時略過
+  }
+
   return {
     eventId: event.id,
     name: event.name,
@@ -97,6 +119,7 @@ async function buildEventReportRow(event) {
     groups: Array.from(groupStatsMap.values()).sort((a, b) => a.groupLabel.localeCompare(b.groupLabel, 'zh-Hant')),
     taskStats,
     preferenceSlotCount: preferenceAssignments.length,
+    leaderAttendance,
   };
 }
 
@@ -155,10 +178,34 @@ async function listMyLeaderSessions(teacherId, filters = {}) {
     eventMap.get(event.id).groupLabels.push(row.groupLabel);
   }
 
-  return Array.from(eventMap.values()).map((item) => ({
+  const sessions = Array.from(eventMap.values()).map((item) => ({
     ...item,
     groupLabels: [...new Set(item.groupLabels)].sort((a, b) => a.localeCompare(b, 'zh-Hant')),
   }));
+
+  const etLeaderAttendanceService = require('./etLeaderAttendanceService');
+  const attendanceMap = await etLeaderAttendanceService.getAttendanceMapForEvents(
+    sessions.map((s) => s.eventId),
+    teacherId
+  );
+
+  return sessions.map((item) => {
+    const attendance = attendanceMap.get(`${item.eventId}:${teacherId}`) || null;
+    let derivedStatus = attendance?.status || null;
+    if (!attendance) {
+      const window = etLeaderAttendanceService.getEventWindow({
+        date: item.date,
+        startTime: item.startTime,
+        endTime: item.endTime,
+      });
+      if (window && new Date() > window.endAt) derivedStatus = 'absent';
+    }
+    return {
+      ...item,
+      attendance,
+      derivedStatus,
+    };
+  });
 }
 
 async function writeReportsSummaryExcel(filters, res) {
@@ -173,6 +220,9 @@ async function writeReportsSummaryExcel(filters, res) {
     { header: '組數', key: 'groupCount', width: 8 },
     { header: '預約人數', key: 'reservationCount', width: 10 },
     { header: 'Leader已指派', key: 'leaderCount', width: 12 },
+    { header: 'Leader出席', key: 'leaderPresent', width: 10 },
+    { header: 'Leader準時', key: 'leaderOnTime', width: 10 },
+    { header: 'Leader遲到', key: 'leaderLate', width: 10 },
     { header: '已簽到', key: 'checkedIn', width: 8 },
     { header: '任務完成率%', key: 'completionRate', width: 14 },
     { header: '分組模式', key: 'groupingMode', width: 14 },
@@ -187,6 +237,9 @@ async function writeReportsSummaryExcel(filters, res) {
       groupCount: row.groupCount,
       reservationCount: row.reservationCount,
       leaderCount: row.leaderCount,
+      leaderPresent: row.leaderAttendance?.present ?? '',
+      leaderOnTime: row.leaderAttendance?.onTime ?? '',
+      leaderLate: row.leaderAttendance?.late ?? '',
       checkedIn: row.taskStats.checkedIn,
       completionRate: row.taskStats.completionRate ?? '',
       groupingMode: row.groupingMode,

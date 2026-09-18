@@ -87,12 +87,14 @@ const mockReservationFindByPk = jest.fn();
 const mockUserFindOne = jest.fn();
 const mockBlackListRecordCreate = jest.fn();
 const mockBlackListRecordFindOne = jest.fn();
+const mockBlackListRecordCount = jest.fn();
 
 jest.mock('../models', () => ({
   User: { findOne: (...args) => mockUserFindOne(...args) },
   BlackListRecord: {
     create: (...args) => mockBlackListRecordCreate(...args),
     findOne: (...args) => mockBlackListRecordFindOne(...args),
+    count: (...args) => mockBlackListRecordCount(...args),
   },
   Reservation: { findByPk: (...args) => mockReservationFindByPk(...args), findAll: jest.fn().mockResolvedValue([]) },
   Event: { findByPk: (...args) => mockEventFindByPk(...args) },
@@ -133,6 +135,7 @@ function makeEvent() {
 function makeBlacklistRecord(user) {
   return {
     id: 99,
+    recordedAt: new Date(),
     User: user,
     destroy: jest.fn().mockResolvedValue(undefined),
   };
@@ -157,6 +160,7 @@ describe('blacklistRouter auth policy', () => {
     mockEventFindByPk.mockResolvedValue(makeEvent());
     mockReservationFindByPk.mockResolvedValue(null);
     mockBlackListRecordCreate.mockResolvedValue({ id: 1 });
+    mockBlackListRecordCount.mockResolvedValue(1);
     mockUserFindOne.mockResolvedValue(makeUser());
     mockBlackListRecordFindOne.mockResolvedValue(makeBlacklistRecord(makeUser()));
   });

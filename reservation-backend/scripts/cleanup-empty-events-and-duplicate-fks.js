@@ -7,6 +7,8 @@
  * 用法：
  *   node scripts/cleanup-empty-events-and-duplicate-fks.js --dry-run
  *   node scripts/cleanup-empty-events-and-duplicate-fks.js
+ *   node scripts/cleanup-empty-events-and-duplicate-fks.js --fk-only
+ *   node scripts/cleanup-empty-events-and-duplicate-fks.js --fk-only --dry-run
  */
 
 const sequelize = require('../db');
@@ -38,6 +40,15 @@ const FK_TARGETS = [
     refTable: 'events',
     refColumn: 'id',
     keepName: 'event_violations_eventId_events_fk',
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+  },
+  {
+    tableName: 'event_violations',
+    columnName: 'userId',
+    refTable: 'users',
+    refColumn: 'id',
+    keepName: 'event_violations_userId_users_fk',
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE',
   },
@@ -200,7 +211,7 @@ async function normalizeColumnForeignKey(
   };
 }
 
-async function cleanupEmptyEventsAndDuplicateFks({ dryRun = false } = {}) {
+async function cleanupEmptyEventsAndDuplicateFks({ dryRun = false, fkOnly = false } = {}) {
   if (sequelize.getDialect() !== 'mysql') {
     console.log('非 MySQL，略過');
     return null;
@@ -210,10 +221,12 @@ async function cleanupEmptyEventsAndDuplicateFks({ dryRun = false } = {}) {
   const transaction = dryRun ? null : await sequelize.transaction();
 
   try {
-    const events = await deleteOrphanEmptyEvents(queryInterface, sequelize, {
-      dryRun,
-      transaction,
-    });
+    const events = fkOnly
+      ? { deleted: 0, ids: [], skipped: true }
+      : await deleteOrphanEmptyEvents(queryInterface, sequelize, {
+        dryRun,
+        transaction,
+      });
 
     const fkResults = [];
     for (const target of FK_TARGETS) {
@@ -225,7 +238,7 @@ async function cleanupEmptyEventsAndDuplicateFks({ dryRun = false } = {}) {
       );
     }
 
-    const summary = { dryRun, events, foreignKeys: fkResults };
+    const summary = { dryRun, fkOnly, events, foreignKeys: fkResults };
 
     if (dryRun) {
       console.log('\n--- DRY RUN 摘要 ---');
@@ -244,9 +257,14 @@ async function cleanupEmptyEventsAndDuplicateFks({ dryRun = false } = {}) {
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
+  const fkOnly = process.argv.includes('--fk-only');
   await sequelize.authenticate();
-  console.log(dryRun ? '開始 DRY RUN…' : '開始清理空活動與重複 FK…');
-  await cleanupEmptyEventsAndDuplicateFks({ dryRun });
+  const mode = [
+    dryRun ? 'DRY RUN' : '套用',
+    fkOnly ? '僅 FK' : '空活動+FK',
+  ].join(' / ');
+  console.log(`開始清理（${mode}）…`);
+  await cleanupEmptyEventsAndDuplicateFks({ dryRun, fkOnly });
   await sequelize.close();
 }
 

@@ -1,16 +1,9 @@
-const dayjs = require('dayjs');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
 const { Event, Reservation, User, EventViolation, BlackListRecord, sequelize } = require('../models');
 const auditLogService = require('./auditLogService');
 const {
-  computeBlacklistUnlockDate,
-  cancelReservationsWithinBlacklistWindow,
   enqueueBlacklistNotificationEmails,
+  syncSemesterViolationCountAndMaybeBlacklist,
 } = require('./blacklistEnforcementService');
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
 
 async function runEventAutoCheck({
   eventId,
@@ -107,26 +100,11 @@ async function runEventAutoCheck({
       reason,
     }, { transaction });
 
-    user.violationCount += 1;
-    if (user.violationCount >= 2) {
-      const now = dayjs();
-      const unlockDate = computeBlacklistUnlockDate(now);
-      user.isBlacklisted = true;
-      user.blacklistUntil = unlockDate.toDate();
-      await user.save({ transaction });
-
-      const emailPayloads = await cancelReservationsWithinBlacklistWindow({
-        user,
-        unlockDate,
-        now,
-        transaction,
-      });
-      emailPayloads.forEach((payload) => {
-        pendingBlacklistEmails.push({ payload, userId: user.id });
-      });
-    } else {
-      await user.save({ transaction });
-    }
+    // 違規次數以當學期紀錄重算（跨學期歸零）
+    const applied = await syncSemesterViolationCountAndMaybeBlacklist(user, { transaction });
+    applied.emailPayloads.forEach((payload) => {
+      pendingBlacklistEmails.push({ payload, userId: user.id });
+    });
 
     if (reason === '預約未到') results.noShowRecords += 1;
     else results.violationRecords += 1;

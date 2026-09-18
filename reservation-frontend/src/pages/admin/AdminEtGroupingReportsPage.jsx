@@ -143,8 +143,9 @@ export default function AdminEtGroupingReportsPage() {
                 <th>活動</th>
                 <th>組數</th>
                 <th>預約</th>
-                <th>Leader</th>
-                <th>已簽到</th>
+                <th>Leader 指派</th>
+                <th>Leader 出席</th>
+                <th>學生已簽到</th>
                 <th>任務完成率</th>
                 <th />
               </tr>
@@ -161,6 +162,12 @@ export default function AdminEtGroupingReportsPage() {
                       {row.leaderCount}/{row.groupCount}
                     </Badge>
                   </td>
+                  <td className="small">
+                    {row.leaderAttendance
+                      ? `${row.leaderAttendance.present || 0}/${row.leaderAttendance.assigned || 0}`
+                        + `（準時 ${row.leaderAttendance.onTime || 0}／遲到 ${row.leaderAttendance.late || 0}）`
+                      : '—'}
+                  </td>
                   <td>{row.taskStats?.checkedIn ?? 0}</td>
                   <td>
                     {row.taskStats?.completionRate != null ? `${row.taskStats.completionRate}%` : '—'}
@@ -170,7 +177,7 @@ export default function AdminEtGroupingReportsPage() {
                       size="sm"
                       variant="link"
                       className="p-0"
-                      onClick={() => navigate(`/admin/operations/${row.eventId}`)}
+                      onClick={() => navigate(`/admin/operations/${row.eventId}?tab=grouping`)}
                     >
                       明細
                     </Button>

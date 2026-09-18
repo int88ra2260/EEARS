@@ -19,6 +19,7 @@ export function appendExportListParams(params, {
   if (advancedFilters.dateFrom) params.append('dateFrom', advancedFilters.dateFrom);
   if (advancedFilters.dateTo) params.append('dateTo', advancedFilters.dateTo);
   (advancedFilters.examTypes || []).forEach((t) => params.append('examTypes', t));
+  (advancedFilters.grades || []).forEach((g) => params.append('grades', g));
   if (advancedFilters.semester) params.append('semester', advancedFilters.semester);
   if (advancedFilters.isLowIncome) params.append('isLowIncome', advancedFilters.isLowIncome);
   if (advancedFilters.hasDisabilityCard) {

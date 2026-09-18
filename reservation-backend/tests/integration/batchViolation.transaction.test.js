@@ -191,7 +191,11 @@ describe('batch transaction consistency', () => {
     }));
     jest.doMock('../../models', () => ({
       User: { findOne: jest.fn().mockResolvedValue(user) },
-      BlackListRecord: { create: jest.fn().mockResolvedValue({ id: 1 }) },
+      BlackListRecord: {
+        create: jest.fn().mockResolvedValue({ id: 1 }),
+        // 當學期重算後達門檻（含本筆）
+        count: jest.fn().mockResolvedValue(2),
+      },
       Reservation: {
         findAll: jest.fn().mockResolvedValue([
           {

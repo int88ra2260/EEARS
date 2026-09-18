@@ -80,6 +80,30 @@ function expandExamTypes(examTypes) {
  * @param {object} query - 通常為 req.query
  * @returns {object} Sequelize where
  */
+/**
+ * 年級篩選：支援 grades（複選）或 grade（單值／逗號分隔）。
+ * @param {string|string[]|null|undefined} grades
+ * @param {string|string[]|null|undefined} grade
+ * @returns {string[]}
+ */
+function parseGradeList(grades, grade) {
+  const toList = (value) => {
+    if (Array.isArray(value)) {
+      return value.flatMap((v) => String(v).split(',')).map((s) => s.trim()).filter(Boolean);
+    }
+    if (value == null || value === '') return [];
+    return String(value).split(',').map((s) => s.trim()).filter(Boolean);
+  };
+  const seen = new Set();
+  const out = [];
+  for (const g of [...toList(grades), ...toList(grade)]) {
+    if (seen.has(g)) continue;
+    seen.add(g);
+    out.push(g);
+  }
+  return out;
+}
+
 function buildRegistrationListWhere(query = {}) {
   const {
     status,
@@ -90,6 +114,8 @@ function buildRegistrationListWhere(query = {}) {
     isLowIncome,
     hasDisabilityCard,
     semester,
+    grades,
+    grade,
   } = query;
 
   const where = {};
@@ -131,6 +157,13 @@ function buildRegistrationListWhere(query = {}) {
   }
   if (semester) {
     where.semester = semester;
+  }
+
+  const gradeList = parseGradeList(grades, grade);
+  if (gradeList.length === 1) {
+    where.grade = gradeList[0];
+  } else if (gradeList.length > 1) {
+    where.grade = { [Op.in]: gradeList };
   }
 
   return where;
@@ -362,6 +395,16 @@ function buildRegistrationListSqlFilter(where = {}, options = {}) {
     replacements[p('semester')] = where.semester;
   }
 
+  if (!omit.has('grade') && where.grade) {
+    if (where.grade[Op.in]) {
+      whereConditions.push(`grade IN (:${p('grades')})`);
+      replacements[p('grades')] = where.grade[Op.in];
+    } else {
+      whereConditions.push(`grade = :${p('grade')}`);
+      replacements[p('grade')] = where.grade;
+    }
+  }
+
   if (!omit.has('search') && where[Op.or]) {
     const orConditions = [];
     where[Op.or].forEach((condition, index) => {
@@ -400,6 +443,8 @@ function summarizeAppliedFilters(query = {}) {
     isLowIncome,
     hasDisabilityCard,
     semester,
+    grades,
+    grade,
     sortBy,
     sortOrder,
   } = query;
@@ -418,6 +463,8 @@ function summarizeAppliedFilters(query = {}) {
   if (isLowIncome) filters.isLowIncome = isLowIncome;
   if (hasDisabilityCard) filters.hasDisabilityCard = hasDisabilityCard;
   if (semester) filters.semester = semester;
+  const gradeList = parseGradeList(grades, grade);
+  if (gradeList.length > 0) filters.grades = gradeList;
   if (sortBy) {
     const levels = parseSortLevels(query);
     if (levels.length > 0) {

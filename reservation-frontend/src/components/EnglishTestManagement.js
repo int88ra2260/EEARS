@@ -217,7 +217,7 @@ export default function EnglishTestManagement() {
 
   const handleClearFilters = () => {
     setSearchTerm('');
-    setAdvancedFilters({ dateFrom: '', dateTo: '', examTypes: [], isLowIncome: '', hasDisabilityCard: '' });
+    setAdvancedFilters({ dateFrom: '', dateTo: '', examTypes: [], grades: [], isLowIncome: '', hasDisabilityCard: '' });
     setCurrentPage(1);
     loadRegistrations();
   };

@@ -147,6 +147,46 @@ export async function fetchMyLeaderSessions(token, { semester } = {}) {
   return handleResponse(res, '載入我的帶班場次失敗');
 }
 
+export async function checkInLeaderAttendance(token, eventId, checkInToken) {
+  const res = await fetchClient(`${API_BASE}/events/${eventId}/leader-attendance/check-in`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: checkInToken }),
+  });
+  return handleResponse(res, 'Leader 出席簽到失敗');
+}
+
+export async function fetchEventLeaderAttendance(token, eventId) {
+  const res = await fetchClient(`${API_BASE}/events/${eventId}/leader-attendance`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res, '載入 Leader 出席失敗');
+}
+
+export async function fetchEventLeaderCheckinQrMeta(token, eventId) {
+  const res = await fetchClient(`${API_BASE}/events/${eventId}/leader-attendance/qr`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res, '載入簽到 QR 狀態失敗');
+}
+
+export async function rotateEventLeaderCheckinQr(token, eventId) {
+  const res = await fetchClient(`${API_BASE}/events/${eventId}/leader-attendance/qr`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  return handleResponse(res, '產生簽到 QR 失敗');
+}
+
+export async function manualUpsertLeaderAttendance(token, eventId, leaderTeacherId, body = {}) {
+  const res = await fetchClient(`${API_BASE}/events/${eventId}/leader-attendance/${leaderTeacherId}`, {
+    method: 'PUT',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res, '補登 Leader 出席失敗');
+}
+
 export async function fetchEtGroupingReportsSummary(token, { semester, date, dateFrom, dateTo } = {}) {
   const params = new URLSearchParams();
   if (semester && semester !== 'all') params.append('semester', semester);
@@ -207,6 +247,45 @@ export async function exportEtGroupingReports(token, { semester, date, dateFrom,
   }
   const blob = await res.blob();
   return { blob, filename: 'et-grouping-reports.xlsx' };
+}
+
+export async function fetchLeaderPayProfiles(token) {
+  const res = await fetchClient(`${API_BASE}/payroll/profiles`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res, '載入 Leader 薪資設定失敗');
+}
+
+export async function saveLeaderPayProfile(token, leaderTeacherId, body) {
+  const res = await fetchClient(`${API_BASE}/payroll/profiles/${leaderTeacherId}`, {
+    method: 'PUT',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res, '儲存 Leader 薪資設定失敗');
+}
+
+export async function fetchLeaderPayrollMonthly(token, yearMonth) {
+  const qs = yearMonth ? `?yearMonth=${encodeURIComponent(yearMonth)}` : '';
+  const res = await fetchClient(`${API_BASE}/payroll/monthly${qs}`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res, '載入 Leader 支薪月報失敗');
+}
+
+export async function exportLeaderPayrollMonthly(token, yearMonth) {
+  const qs = yearMonth ? `?yearMonth=${encodeURIComponent(yearMonth)}` : '';
+  const res = await fetchClient(`${API_BASE}/payroll/monthly/export${qs}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    const data = await parseJson(res);
+    throw new Error(data.message || data.error || '匯出 Leader 支薪月報失敗');
+  }
+  const blob = await res.blob();
+  const filename = parseFilenameFromDisposition(res.headers.get('Content-Disposition'))
+    || `et-leader-payroll-${yearMonth || 'month'}.xlsx`;
+  return { blob, filename };
 }
 
 export async function fetchEtTaskTemplate(token, { semesterId } = {}) {

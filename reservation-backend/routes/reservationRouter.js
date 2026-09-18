@@ -35,6 +35,7 @@ const {
   assertCanAccessEvent,
   buildEventScopeWhere,
 } = require('../services/accessControl/eventScopeGuard');
+const { countViolationsInSemester } = require('../services/blacklistEnforcementService');
 
 const STUDENT_ID_HEADERS = ['學號', '工號', '學員', 'studentid', '卡號', '編號'];
 const NAME_HEADERS = ['姓名', 'name', '學生姓名'];
@@ -263,7 +264,8 @@ router.get('/users/blacklist-status', async (req, res) => {
     
     return res.json({
       isBlacklisted: isCurrentlyBlacklisted,
-      violationCount: user.violationCount || 0,
+      // 對外顯示／警告用：當學期違規次數（跨學期不累計）
+      violationCount: await countViolationsInSemester(user.id),
       blacklistUntil: user.blacklistUntil || null,
       studentId: user.studentId,
       name: user.name

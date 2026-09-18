@@ -21,6 +21,7 @@ import {
 } from '../../../../services/etGroupingApi';
 import { showErrorMessage, showSuccessMessage } from '../../../../utils/errorHandler';
 import { isEnglishTableEventType } from '../../../../utils/eventCapacityFields';
+import AdminEventLeaderAttendancePanel from './AdminEventLeaderAttendancePanel';
 import './adminEventGroupingTab.css';
 
 const DATA_QUALITY_LABELS = {
@@ -950,6 +951,14 @@ export default function AdminEventGroupingTab({ tabProps }) {
                 </div>
               </Card.Body>
             </Card>
+          ) : null}
+
+          {canManage ? (
+            <AdminEventLeaderAttendancePanel
+              token={token}
+              eventId={eventId}
+              canManage={canManage}
+            />
           ) : null}
 
           <Card className="mb-3">

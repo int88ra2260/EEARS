@@ -44,6 +44,7 @@ const defaultAdvancedFilters = () => ({
   dateFrom: '',
   dateTo: '',
   examTypes: [],
+  grades: [],
   isLowIncome: '',
   hasDisabilityCard: '',
   semester: getCurrentSemester() || ''
@@ -130,6 +131,7 @@ export function useEnglishTestRegistrations({
     if (mainTab === 'individual' && advancedFilters.dateFrom) p.set('dateFrom', advancedFilters.dateFrom);
     if (mainTab === 'individual' && advancedFilters.dateTo) p.set('dateTo', advancedFilters.dateTo);
     (advancedFilters.examTypes || []).forEach(t => p.append('examTypes', t));
+    (advancedFilters.grades || []).forEach((g) => p.append('grades', g));
     if (mainTab === 'individual' && advancedFilters.semester) p.set('semester', advancedFilters.semester);
     if (mainTab === 'individual' && advancedFilters.isLowIncome) p.set('isLowIncome', advancedFilters.isLowIncome);
     if (mainTab === 'individual' && advancedFilters.hasDisabilityCard) p.set('hasDisabilityCard', advancedFilters.hasDisabilityCard);

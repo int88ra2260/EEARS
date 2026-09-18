@@ -279,6 +279,15 @@ export const ADMIN_NAV_SECTIONS = [
         breadcrumbLabel: 'ET 場次報表',
       },
       {
+        id: 'et-leader-payroll',
+        label: 'Leader 支薪報表',
+        path: '/admin/et-grouping/payroll',
+        matchPrefixes: ['/admin/et-grouping/payroll'],
+        visibility: 'perm:can_view_et_grouping',
+        pageTitle: 'Leader 支薪報表',
+        breadcrumbLabel: 'Leader 支薪報表',
+      },
+      {
         id: 'et-student-trends',
         label: 'ET 學生趨勢',
         path: '/admin/et-grouping/student-trends',

@@ -19,7 +19,7 @@ license: MIT
 
 - 學生端不建立帳號/不登入：以 `studentId`、`name`、`email` 做識別與流程
 - 截止為「活動開始前 2 小時」（`RESERVATION_CUTOFF_HOURS = 2`）
-- 黑名單：違規累積到門檻後封鎖預約，且以週日邏輯解封
+- 黑名單：違規累積到門檻後封鎖預約（違規次數以當學期計算、跨學期歸零），且以週日邏輯解封
 - 問卷 Gate：僅 ET/EC 的 product 規則擋，未完成要 fail-close（409 + `redirectUrl`）
 
 ## Hard Constraints（修改前必須逐項檢查）

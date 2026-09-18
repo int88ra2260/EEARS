@@ -1,6 +1,7 @@
 // components/english-test/AdvancedFilterPanel.js
 import React, { useState, useEffect } from 'react';
 import { getCurrentSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
+import { GRADES } from '../../utils/englishTestFormOptions';
 import {
   MAX_SORT_LEVELS,
   ENGLISH_TEST_SORT_FIELD_OPTIONS,
@@ -22,6 +23,7 @@ export default function AdvancedFilterPanel({
     dateFrom: initialFilters.dateFrom || '',
     dateTo: initialFilters.dateTo || '',
     examTypes: initialFilters.examTypes || [],
+    grades: initialFilters.grades || [],
     isLowIncome: initialFilters.isLowIncome || '',
     hasDisabilityCard: initialFilters.hasDisabilityCard || '',
     semester: initialFilters.semester || getCurrentSemester() || '' // 預設為當前學期
@@ -60,6 +62,13 @@ export default function AdvancedFilterPanel({
     handleFilterChange('examTypes', newTypes);
   };
 
+  const handleGradeToggle = (value) => {
+    const newGrades = filters.grades.includes(value)
+      ? filters.grades.filter((g) => g !== value)
+      : [...filters.grades, value];
+    handleFilterChange('grades', newGrades);
+  };
+
   const emitSortLevels = (levels) => {
     onSortChange && onSortChange(createSortConfigFromLevels(levels));
   };
@@ -88,6 +97,7 @@ export default function AdvancedFilterPanel({
       dateFrom: '',
       dateTo: '',
       examTypes: [],
+      grades: [],
       isLowIncome: '',
       hasDisabilityCard: '',
       semester: ''
@@ -100,11 +110,15 @@ export default function AdvancedFilterPanel({
   const examTypesKey = Array.isArray(initialFilters.examTypes)
     ? initialFilters.examTypes.join(',')
     : '';
+  const gradesKey = Array.isArray(initialFilters.grades)
+    ? initialFilters.grades.join(',')
+    : '';
   useEffect(() => {
     setFilters({
       dateFrom: initialFilters.dateFrom || '',
       dateTo: initialFilters.dateTo || '',
       examTypes: examTypesKey ? examTypesKey.split(',') : [],
+      grades: gradesKey ? gradesKey.split(',') : [],
       isLowIncome: initialFilters.isLowIncome || '',
       hasDisabilityCard: initialFilters.hasDisabilityCard || '',
       semester: initialFilters.semester || '',
@@ -116,6 +130,7 @@ export default function AdvancedFilterPanel({
     initialFilters.hasDisabilityCard,
     initialFilters.semester,
     examTypesKey,
+    gradesKey,
   ]);
 
   // 搜尋建議（簡單實作，可擴展為從 API 取得）
@@ -173,6 +188,11 @@ export default function AdvancedFilterPanel({
                 測驗類型：{filters.examTypes.map((t) =>
                   examTypeOptions.find((o) => o.value === t)?.label || t
                 ).join('、')}
+              </span>
+            )}
+            {filters.grades.length > 0 && (
+              <span className="badge bg-secondary ms-1">
+                年級：{filters.grades.join('、')}
               </span>
             )}
           </button>
@@ -291,6 +311,27 @@ export default function AdvancedFilterPanel({
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* 年級篩選（可複選） */}
+          <div className="col-md-6">
+            <label className="form-label">年級（可複選）</label>
+            <div className="d-flex flex-wrap gap-2">
+              {GRADES.map((grade) => (
+                <div key={grade} className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id={`grade-${grade}`}
+                    checked={filters.grades.includes(grade)}
+                    onChange={() => handleGradeToggle(grade)}
+                  />
+                  <label className="form-check-label" htmlFor={`grade-${grade}`}>
+                    {grade}
+                  </label>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* 特殊身分篩選 */}

@@ -44,6 +44,11 @@ export const ADMIN_ROUTE_ACCESS = [
     anyPermissions: [P.CAN_VIEW_ET_GROUPING, P.CAN_EXPORT_ET_GROUPING, P.CAN_MANAGE_ET_GROUPING],
   },
   {
+    pattern: '/admin/et-grouping/payroll',
+    label: 'Leader 支薪報表',
+    anyPermissions: [P.CAN_VIEW_ET_GROUPING, P.CAN_EXPORT_ET_GROUPING, P.CAN_MANAGE_ET_GROUPING],
+  },
+  {
     pattern: '/admin/et-grouping/student-trends',
     label: 'ET 學生趨勢',
     anyPermissions: [P.CAN_VIEW_ET_GROUPING, P.CAN_EXPORT_ET_GROUPING, P.CAN_MANAGE_ET_GROUPING],

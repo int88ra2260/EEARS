@@ -46,6 +46,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   ],
   'et-task-templates': ['任務勾選', '模板', 'task', '英語桌任務'],
   'et-grouping-reports': ['場次彙總', '英語桌報表', 'ET 報表'],
+  'et-leader-payroll': ['支薪', '薪水', '時薪', '年資', 'Leader 薪資', 'payroll'],
   'et-student-trends': ['學期趨勢', '英語桌學生', 'ET 趨勢'],
   'et-leader-sessions': [
     '帶班',

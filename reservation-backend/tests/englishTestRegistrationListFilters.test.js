@@ -61,6 +61,21 @@ describe('englishTestRegistrationListFilters', () => {
       const where = buildRegistrationListWhere({ examTypes: ['LR'] });
       expect(where.examType[Op.in]).toEqual(expect.arrayContaining(['LR', 'LRSW']));
     });
+
+    it('applies single grade equality', () => {
+      const where = buildRegistrationListWhere({ grades: ['一年級'] });
+      expect(where.grade).toBe('一年級');
+    });
+
+    it('applies multiple grades with Op.in', () => {
+      const where = buildRegistrationListWhere({ grades: ['一年級', '二年級'] });
+      expect(where.grade[Op.in]).toEqual(['一年級', '二年級']);
+    });
+
+    it('accepts singular grade query param', () => {
+      const where = buildRegistrationListWhere({ grade: '三年級' });
+      expect(where.grade).toBe('三年級');
+    });
   });
 
   describe('buildRegistrationListSqlFilter', () => {
@@ -89,6 +104,16 @@ describe('englishTestRegistrationListFilters', () => {
       expect(replacements.isLowIncome).toBe('低收入戶');
       expect(replacements.status).toBeUndefined();
       expect(replacements.examTypes).toBeUndefined();
+    });
+
+    it('includes grade IN when multiple grades selected', () => {
+      const where = buildRegistrationListWhere({
+        grades: ['一年級', '二年級'],
+        semester: '115-1',
+      });
+      const { whereClause, replacements } = buildRegistrationListSqlFilter(where);
+      expect(whereClause).toContain('grade IN (:grades)');
+      expect(replacements.grades).toEqual(['一年級', '二年級']);
     });
 
     it('status stats omit only status and keep examTypes', () => {
@@ -236,6 +261,13 @@ describe('englishTestRegistrationListFilters', () => {
         status: 'pending',
         semester: '115-1',
       });
+    });
+
+    it('includes grades when provided', () => {
+      expect(summarizeAppliedFilters({ grades: ['一年級', '四年級以上'] }).grades).toEqual([
+        '一年級',
+        '四年級以上',
+      ]);
     });
 
     it('includes orderedIdsCount when provided', () => {

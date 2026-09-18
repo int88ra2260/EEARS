@@ -22,6 +22,8 @@ const etGroupingReportService = require('../services/etGrouping/etGroupingReport
 const etStudentInsightService = require('../services/etGrouping/etStudentInsightService');
 const etStudentTrendService = require('../services/etGrouping/etStudentTrendService');
 const etActivityRecommendationService = require('../services/etGrouping/etActivityRecommendationService');
+const etLeaderAttendanceService = require('../services/etGrouping/etLeaderAttendanceService');
+const etLeaderPayrollService = require('../services/etGrouping/etLeaderPayrollService');
 const auditLogService = require('../services/auditLogService');
 
 async function loadEventForAccess(req, res, next) {
@@ -293,6 +295,116 @@ router.post('/events/:id/group-leaders/apply-preferences', manageGroupingAuth, a
   }
 });
 
+const leaderAttendanceSelfAuth = [
+  authMiddleware,
+  loadEventForAccess,
+  requirePermission(P.CAN_MARK_ET_SESSION_TASKS),
+  (req, res, next) => {
+    if (!canAccessEventType(req.user, accessEventType(req))) {
+      return res.status(403).json({ success: false, message: '無權限存取此活動類型' });
+    }
+    return next();
+  },
+];
+
+router.post('/events/:id/leader-attendance/check-in', leaderAttendanceSelfAuth, async (req, res, next) => {
+  try {
+    const data = await etLeaderAttendanceService.checkInWithQr(req.params.id, {
+      teacherId: req.user?.id,
+      token: req.body?.token,
+    });
+    auditLogService.logAuditAsync({
+      module: 'et_grouping',
+      action: 'leader_attendance_check_in',
+      entityType: 'Event',
+      entityId: Number(req.params.id),
+      targetSummary: `eventId=${req.params.id};status=${data.status}`,
+      afterData: data,
+      req,
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    if (err.code === 'ALREADY_CHECKED_IN') {
+      return res.status(409).json({
+        success: false,
+        code: err.code,
+        message: err.message,
+        data: err.data || null,
+      });
+    }
+    return handleServiceError(res, err, next);
+  }
+});
+
+router.get('/events/:id/leader-attendance', manageGroupingAuth, async (req, res, next) => {
+  try {
+    const data = await etLeaderAttendanceService.listEventAttendance(req.params.id);
+    res.json({ success: true, data });
+  } catch (err) {
+    return handleServiceError(res, err, next);
+  }
+});
+
+router.get('/events/:id/leader-attendance/qr', manageGroupingAuth, async (req, res, next) => {
+  try {
+    const data = await etLeaderAttendanceService.getCheckinQrMeta(req.params.id);
+    res.json({ success: true, data });
+  } catch (err) {
+    return handleServiceError(res, err, next);
+  }
+});
+
+router.post('/events/:id/leader-attendance/qr', manageGroupingAuth, async (req, res, next) => {
+  try {
+    const data = await etLeaderAttendanceService.rotateCheckinQr(req.params.id, {
+      userId: req.user?.id,
+    });
+    auditLogService.logAuditAsync({
+      module: 'et_grouping',
+      action: 'rotate_leader_checkin_qr',
+      entityType: 'Event',
+      entityId: Number(req.params.id),
+      targetSummary: `eventId=${req.params.id}`,
+      afterData: { expiresAt: data.expiresAt, rotatedAt: data.rotatedAt },
+      req,
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    return handleServiceError(res, err, next);
+  }
+});
+
+router.put(
+  '/events/:id/leader-attendance/:leaderTeacherId',
+  manageGroupingAuth,
+  async (req, res, next) => {
+    try {
+      const data = await etLeaderAttendanceService.manualUpsertAttendance(
+        req.params.id,
+        req.params.leaderTeacherId,
+        {
+          status: req.body?.status,
+          note: req.body?.note,
+          checkInAt: req.body?.checkInAt,
+          userId: req.user?.id,
+        }
+      );
+      auditLogService.logAuditAsync({
+        module: 'et_grouping',
+        action: 'manual_leader_attendance',
+        entityType: 'Event',
+        entityId: Number(req.params.id),
+        targetSummary: `eventId=${req.params.id};leader=${req.params.leaderTeacherId}`,
+        afterData: data.attendance,
+        req,
+      });
+      res.json({ success: true, data });
+    } catch (err) {
+      return handleServiceError(res, err, next);
+    }
+  }
+);
+
 router.get(
   '/leader-preferences',
   authMiddleware,
@@ -396,6 +508,80 @@ router.get(
       res.json({ success: true, data });
     } catch (err) {
       next(err);
+    }
+  }
+);
+
+const payrollViewAuth = [
+  authMiddleware,
+  requireAnyPermission([P.CAN_VIEW_ET_GROUPING, P.CAN_EXPORT_ET_GROUPING, P.CAN_MANAGE_ET_GROUPING]),
+];
+
+router.get('/payroll/profiles', payrollViewAuth, async (req, res, next) => {
+  try {
+    const data = await etLeaderPayrollService.listPayProfiles();
+    res.json({ success: true, data });
+  } catch (err) {
+    return handleServiceError(res, err, next);
+  }
+});
+
+router.put(
+  '/payroll/profiles/:leaderTeacherId',
+  authMiddleware,
+  requirePermission(P.CAN_MANAGE_ET_GROUPING),
+  async (req, res, next) => {
+    try {
+      const data = await etLeaderPayrollService.upsertPayProfile(req.params.leaderTeacherId, {
+        seniorityYears: req.body?.seniorityYears,
+        hourlyRate: req.body?.hourlyRate,
+        note: req.body?.note,
+      });
+      auditLogService.logAuditAsync({
+        module: 'et_grouping',
+        action: 'upsert_leader_pay_profile',
+        entityType: 'EtLeaderPayProfile',
+        entityId: Number(req.params.leaderTeacherId),
+        targetSummary: `leader=${req.params.leaderTeacherId};rate=${data.hourlyRate}`,
+        afterData: data,
+        req,
+      });
+      res.json({ success: true, data });
+    } catch (err) {
+      return handleServiceError(res, err, next);
+    }
+  }
+);
+
+router.get('/payroll/monthly', payrollViewAuth, async (req, res, next) => {
+  try {
+    const data = await etLeaderPayrollService.buildMonthlyPayroll({
+      yearMonth: req.query.yearMonth || req.query.month,
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    return handleServiceError(res, err, next);
+  }
+});
+
+router.get(
+  '/payroll/monthly/export',
+  authMiddleware,
+  requireAnyPermission([P.CAN_EXPORT_ET_GROUPING, P.CAN_MANAGE_ET_GROUPING]),
+  async (req, res, next) => {
+    try {
+      await etLeaderPayrollService.exportMonthlyPayrollExcel(res, {
+        yearMonth: req.query.yearMonth || req.query.month,
+      });
+      auditLogService.logAuditAsync({
+        module: 'et_grouping',
+        action: 'export_leader_payroll',
+        entityType: 'EtLeaderPayProfile',
+        targetSummary: `yearMonth=${req.query.yearMonth || req.query.month}`,
+        req,
+      });
+    } catch (err) {
+      return handleServiceError(res, err, next);
     }
   }
 );

@@ -31,12 +31,11 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true
   },
-  // 違規次數 (同一學期可清零或累加，可依需求調整)
+  // 違規次數 (以當學期 BlackListRecord 重算；跨學期歸零)
   violationCount: {
     type: DataTypes.INTEGER,
     defaultValue: 0
   },
-  // 若需要紀錄學期，可在此增加 semester 欄位
 }, {
   tableName: 'Users',
   timestamps: false
