@@ -457,23 +457,23 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/analytics/overview',
-    label: '行政總覽',
+    label: '活動營運總覽',
     allowAdminOrExecutive: true,
   },
   {
     pattern: '/admin/analytics/risk',
-    label: '高風險預警',
+    label: '高風險行政追蹤',
     allowAdminOrExecutive: true,
   },
   {
     pattern: '/admin/analytics/trends',
-    label: '趨勢分析',
+    label: '活動營運總覽（舊趨勢網址）',
     allowAdminOrExecutive: true,
   },
-  { pattern: '/admin/reports', label: '報表下載', anyPermissions: [P.CAN_EXPORT_REPORTS] },
+  { pattern: '/admin/reports', label: '營運報表下載', anyPermissions: [P.CAN_EXPORT_REPORTS] },
   {
     pattern: '/admin/analytics/teacher-impact',
-    label: '班級行政綜合變化',
+    label: '活動營運總覽（舊班級行政綜合變化網址）',
     anyPermissions: [
       P.CAN_VIEW_ANALYTICS,
       P.CAN_VIEW_CLASSES,

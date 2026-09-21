@@ -2,7 +2,7 @@
  * 後台導覽設定（Phase 2 IA）
  * 權限與舊版 AdminLayout nav-tabs 一致，不擴權。
  *
- * 側欄排序原則：日常營運 → 英檢／問卷 → 資料匯入 → 分析報表 → 合規／公告 → 帳號 → 系統（含營運總覽）
+ * 側欄排序原則：日常營運 → 英檢／學習歷程／問卷 → 資料匯入 → 分析報表 → 合規／公告 → 帳號 → 系統（含營運總覽）
  *
  * @typedef {{ actualUserRole: string, isTeacher: boolean, hasAdminRights: boolean, canViewReport: boolean, canViewSurvey: boolean, accessProfile?: object }} AdminNavContext
  */
@@ -29,12 +29,13 @@ function canAccessImportCenter(c) {
  * - all：凡可進後台者
  * - canViewReport：活動與預約（列表／明細）
  * - classes：班級與參與
- * - english：英檢與培力
+ * - english：英檢與培力（考試行政）
+ * - learningOutcomes：學習歷程、護照與成效分析
  * - surveyGroup：問卷側欄群組是否出現
  * - canViewSurvey：問卷管理子項
  * - adminOnly：需 hasAdminRights（admin／executive）
  * - opsDashboard：營運總覽（非一般授課老師）
- * - teachingImpactTrends：班級行政綜合變化（admin／executive／活動負責人）
+ * - operationsAnalytics：營運分析或營運報表匯出
  */
 export function isNavItemVisible(visibility, c) {
   // Phase 2：permission-based visibility（以 accessProfile.finalPermissions 為主）
@@ -60,13 +61,22 @@ export function isNavItemVisible(visibility, c) {
         !!(set && set.has && (
           set.has(P.CAN_VIEW_ENGLISH_TEST_METRICS) ||
           set.has(P.CAN_VIEW_ENGLISH_TESTS) ||
+          set.has(P.CAN_MANAGE_LEARNING_PARTNER_ADMIN)
+        ));
+      return c.hasAdminRights || canEnglish;
+    }
+    case 'learningOutcomes': {
+      const set = c?.accessProfile?.permissionSet;
+      const canLearningOutcomes =
+        !!(set && set.has && (
           set.has(P.CAN_VIEW_ENGLISH_TEST_TRACKING) ||
           set.has(P.CAN_MANAGE_ENGLISH_TEST_TRACKING) ||
           set.has(P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS) ||
           set.has(P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS) ||
-          set.has(P.CAN_MANAGE_LEARNING_PARTNER_ADMIN)
+          set.has(P.CAN_VIEW_LEARNING_ANALYTICS) ||
+          set.has(P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS)
         ));
-      return c.hasAdminRights || canEnglish;
+      return c.hasAdminRights || canLearningOutcomes;
     }
     case 'englishLearningJourney': {
       if (isDeputyManagerProfile(c?.accessProfile)) return false;
@@ -92,15 +102,12 @@ export function isNavItemVisible(visibility, c) {
       // 工讀生不進營運總覽（活動工讀側欄另以 leaf allowlist 收斂）
       if (c.actualUserRole === 'worker') return false;
       return true;
-    case 'teachingImpactTrends': {
-      if (c.hasAdminRights) return true;
-      const level = c?.accessProfile?.teacherLevel;
+    case 'operationsAnalytics':
       return (
-        c.isTeacher &&
-        (level === 'et_manager' || level === 'if_manager' || level === 'jt_manager') &&
-        c?.accessProfile?.permissionSet?.has?.(P.CAN_VIEW_ANALYTICS)
+        c?.accessProfile?.permissionSet?.has?.(P.CAN_VIEW_ANALYTICS) ||
+        c?.accessProfile?.permissionSet?.has?.(P.CAN_EXPORT_REPORTS) ||
+        c.hasAdminRights
       );
-    }
     case 'weeklyReports':
       return canAccessWeeklyReports(c?.accessProfile);
     case 'accountNav':
@@ -150,13 +157,14 @@ export function getDefaultExpandedSectionIds(c, visibleSections) {
   } else if (role === 'office_staff') {
     ids.add('events');
   } else if (role === 'worker') {
-    if (workerLevel === 'bestep_ops' || workerLevel === 'passport_ops') ids.add('english');
+    if (workerLevel === 'bestep_ops') ids.add('english');
+    else if (workerLevel === 'passport_ops') ids.add('learning-outcomes');
     else if (workerLevel === 'content_editor') ids.add('announcements');
     else ids.add('events');
     // 活動工讀側欄無帳號區（不可變更密碼）
     if ((workerLevel || 'event_ops') !== 'event_ops') ids.add('accounts');
   } else {
-    for (const sectionId of ['events', 'english', 'surveys', 'learning-journey']) {
+    for (const sectionId of ['events', 'english', 'learning-outcomes', 'surveys']) {
       if (visibleSections.some((section) => section.id === sectionId)) {
         ids.add(sectionId);
       }
@@ -332,15 +340,6 @@ export const ADMIN_NAV_SECTIONS = [
     expandable: true,
     children: [
       {
-        id: 'english-learning-passport',
-        label: '英語實踐歷程護照',
-        path: '/admin/english-learning-passports',
-        matchPrefixes: ['/admin/english-learning-passports'],
-        visibility: 'perm:can_view_english_learning_passports',
-        pageTitle: '英語實踐歷程護照',
-        breadcrumbLabel: '英語實踐歷程護照',
-      },
-      {
         id: 'english-registration',
         label: '培力英檢管理',
         path: '/admin/english-test',
@@ -348,6 +347,34 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'perm:can_view_english_tests',
         pageTitle: '培力英檢管理',
         breadcrumbLabel: '培力英檢管理',
+      },
+      {
+        id: 'bestep-import',
+        label: 'BESTEP 資料匯入',
+        path: '/admin/english-test/import',
+        matchPrefixes: ['/admin/english-test/import', '/admin/bestep/import'],
+        visibility: 'english',
+        pageTitle: 'BESTEP 資料匯入',
+        breadcrumbLabel: 'BESTEP 資料匯入',
+        // P14-5：匯入入口已整合至資料匯入中心；保留 route／麵包屑 meta，僅自側欄隱藏
+        hiddenFromNav: true,
+      },
+    ],
+  },
+  {
+    id: 'learning-outcomes',
+    label: '學習歷程與成果',
+    visibility: 'learningOutcomes',
+    expandable: true,
+    children: [
+      {
+        id: 'english-learning-passport',
+        label: '英語實踐歷程護照',
+        path: '/admin/english-learning-passports',
+        matchPrefixes: ['/admin/english-learning-passports'],
+        visibility: 'perm:can_view_english_learning_passports',
+        pageTitle: '英語實踐歷程護照',
+        breadcrumbLabel: '英語實踐歷程護照',
       },
       {
         id: 'learning-journey',
@@ -366,7 +393,7 @@ export const ADMIN_NAV_SECTIONS = [
         label: '學習歷程資料匯入',
         path: '/admin/learning-journey/import',
         matchPrefixes: ['/admin/learning-journey/import'],
-        visibility: 'english',
+        visibility: 'englishLearningJourney',
         pageTitle: '學習歷程資料匯入',
         breadcrumbLabel: '學習歷程資料匯入',
         hiddenFromNav: true,
@@ -376,7 +403,7 @@ export const ADMIN_NAV_SECTIONS = [
         label: '英文寫作工坊（EWL）同步',
         path: '/admin/learning-journey/ewl-sync',
         matchPrefixes: ['/admin/learning-journey/ewl-sync'],
-        visibility: 'english',
+        visibility: 'englishLearningJourney',
         pageTitle: '英文寫作工坊（EWL）同步',
         breadcrumbLabel: 'EWL 同步',
         hiddenFromNav: true,
@@ -393,15 +420,85 @@ export const ADMIN_NAV_SECTIONS = [
         hiddenFromNav: true,
       },
       {
-        id: 'bestep-import',
-        label: 'BESTEP 資料匯入',
-        path: '/admin/english-test/import',
-        matchPrefixes: ['/admin/english-test/import', '/admin/bestep/import'],
-        visibility: 'english',
-        pageTitle: 'BESTEP 資料匯入',
-        breadcrumbLabel: 'BESTEP 資料匯入',
-        // P14-5：匯入入口已整合至資料匯入中心；保留 route／麵包屑 meta，僅自側欄隱藏
-        hiddenFromNav: true,
+        id: 'learning-analytics-overview',
+        label: '學習成效總覽',
+        path: '/admin/learning-analytics/overview',
+        matchPrefixes: ['/admin/learning-analytics/overview'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '英語學習成效分析',
+        breadcrumbLabel: '學習成效總覽',
+      },
+      {
+        id: 'learning-analytics-kpi-report',
+        label: 'B2 KPI 報表',
+        path: '/admin/learning-analytics/kpi-report',
+        matchPrefixes: ['/admin/learning-analytics/kpi-report'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: 'B2 KPI 一鍵報表',
+        breadcrumbLabel: 'B2 KPI 報表',
+      },
+      {
+        id: 'learning-analytics-cohorts',
+        label: '系所比較',
+        path: '/admin/learning-analytics/cohorts',
+        matchPrefixes: ['/admin/learning-analytics/cohorts'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '系所／入學年比較',
+        breadcrumbLabel: '系所比較',
+      },
+      {
+        id: 'learning-analytics-offerings',
+        label: '課／師／活動',
+        path: '/admin/learning-analytics/offerings',
+        matchPrefixes: ['/admin/learning-analytics/offerings'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '課程／教師／活動細項',
+        breadcrumbLabel: '課／師／活動',
+      },
+      {
+        id: 'learning-analytics-resources',
+        label: '資源覆蓋',
+        path: '/admin/learning-analytics/resources',
+        matchPrefixes: ['/admin/learning-analytics/resources'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '資源參與覆蓋',
+        breadcrumbLabel: '資源覆蓋',
+      },
+      {
+        id: 'learning-analytics-skills',
+        label: '技能成長',
+        path: '/admin/learning-analytics/skills',
+        matchPrefixes: ['/admin/learning-analytics/skills'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '聽讀說寫技能成長',
+        breadcrumbLabel: '技能成長',
+      },
+      {
+        id: 'learning-analytics-students',
+        label: '個人軌跡',
+        path: '/admin/learning-analytics/students',
+        matchPrefixes: ['/admin/learning-analytics/students'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '學生個人學習軌跡',
+        breadcrumbLabel: '個人軌跡',
+      },
+      {
+        id: 'learning-analytics-raw',
+        label: '資料匯出',
+        path: '/admin/learning-analytics/raw-data',
+        matchPrefixes: ['/admin/learning-analytics/raw-data'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '原始資料匯出',
+        breadcrumbLabel: '資料匯出',
+      },
+      {
+        id: 'learning-analytics-settings',
+        label: '模組設定',
+        path: '/admin/learning-analytics/settings',
+        matchPrefixes: ['/admin/learning-analytics/settings'],
+        visibility: 'perm:can_manage_learning_analytics_settings',
+        pageTitle: '學習成效分析設定',
+        breadcrumbLabel: '模組設定',
       },
     ],
   },
@@ -515,98 +612,9 @@ export const ADMIN_NAV_SECTIONS = [
     ],
   },
   {
-    id: 'learning-analytics',
-    label: '學習成效分析',
-    visibility: 'perm:can_view_learning_analytics',
-    expandable: true,
-    children: [
-      {
-        id: 'learning-analytics-overview',
-        label: '總覽',
-        path: '/admin/learning-analytics/overview',
-        matchPrefixes: ['/admin/learning-analytics/overview'],
-        visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '英語學習成效分析',
-        breadcrumbLabel: '總覽',
-      },
-      {
-        id: 'learning-analytics-kpi-report',
-        label: 'B2 KPI 報表',
-        path: '/admin/learning-analytics/kpi-report',
-        matchPrefixes: ['/admin/learning-analytics/kpi-report'],
-        visibility: 'perm:can_view_learning_analytics',
-        pageTitle: 'B2 KPI 一鍵報表',
-        breadcrumbLabel: 'B2 KPI 報表',
-      },
-      {
-        id: 'learning-analytics-cohorts',
-        label: '系所比較',
-        path: '/admin/learning-analytics/cohorts',
-        matchPrefixes: ['/admin/learning-analytics/cohorts'],
-        visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '系所／入學年比較',
-        breadcrumbLabel: '系所比較',
-      },
-      {
-        id: 'learning-analytics-offerings',
-        label: '課／師／活動',
-        path: '/admin/learning-analytics/offerings',
-        matchPrefixes: ['/admin/learning-analytics/offerings'],
-        visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '課程／教師／活動細項',
-        breadcrumbLabel: '課／師／活動',
-      },
-      {
-        id: 'learning-analytics-resources',
-        label: '資源覆蓋',
-        path: '/admin/learning-analytics/resources',
-        matchPrefixes: ['/admin/learning-analytics/resources'],
-        visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '資源參與覆蓋',
-        breadcrumbLabel: '資源覆蓋',
-      },
-      {
-        id: 'learning-analytics-skills',
-        label: '技能成長',
-        path: '/admin/learning-analytics/skills',
-        matchPrefixes: ['/admin/learning-analytics/skills'],
-        visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '聽讀說寫技能成長',
-        breadcrumbLabel: '技能成長',
-      },
-      {
-        id: 'learning-analytics-students',
-        label: '個人軌跡',
-        path: '/admin/learning-analytics/students',
-        matchPrefixes: ['/admin/learning-analytics/students'],
-        visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '學生個人學習軌跡',
-        breadcrumbLabel: '個人軌跡',
-      },
-      {
-        id: 'learning-analytics-raw',
-        label: '資料匯出',
-        path: '/admin/learning-analytics/raw-data',
-        matchPrefixes: ['/admin/learning-analytics/raw-data'],
-        visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '原始資料匯出',
-        breadcrumbLabel: '資料匯出',
-      },
-      {
-        id: 'learning-analytics-settings',
-        label: '模組設定',
-        path: '/admin/learning-analytics/settings',
-        matchPrefixes: ['/admin/learning-analytics/settings'],
-        visibility: 'perm:can_manage_learning_analytics_settings',
-        pageTitle: '學習成效分析設定',
-        breadcrumbLabel: '模組設定',
-      },
-    ],
-  },
-  {
     id: 'analytics',
-    label: '分析與報表',
-    visibility: 'perm:can_view_analytics',
+    label: '營運分析與報表',
+    visibility: 'operationsAnalytics',
     expandable: true,
     children: [
       {
@@ -622,39 +630,30 @@ export const ADMIN_NAV_SECTIONS = [
       },
       {
         id: 'analytics-overview',
-        label: '行政總覽',
+        label: '活動營運總覽',
         path: '/admin/analytics/overview',
         matchPrefixes: ['/admin/analytics/overview'],
         visibility: 'adminOnly',
-        pageTitle: '行政總覽',
-        breadcrumbLabel: '行政總覽',
+        pageTitle: '活動營運總覽',
+        breadcrumbLabel: '活動營運總覽',
       },
       {
         id: 'analytics-risk',
-        label: '高風險預警',
+        label: '高風險行政追蹤',
         path: '/admin/analytics/risk',
         matchPrefixes: ['/admin/analytics/risk'],
         visibility: 'adminOnly',
-        pageTitle: '高風險預警',
-        breadcrumbLabel: '高風險預警',
-      },
-      {
-        id: 'analytics-trends',
-        label: '趨勢分析',
-        path: '/admin/analytics/trends',
-        matchPrefixes: ['/admin/analytics/trends'],
-        visibility: 'adminOnly',
-        pageTitle: '趨勢分析',
-        breadcrumbLabel: '趨勢分析',
+        pageTitle: '高風險行政追蹤',
+        breadcrumbLabel: '高風險行政追蹤',
       },
       {
         id: 'analytics-reports',
-        label: '報表下載',
+        label: '營運報表下載',
         path: '/admin/reports',
         matchPrefixes: ['/admin/reports'],
         visibility: 'perm:can_export_reports',
-        pageTitle: '報表下載',
-        breadcrumbLabel: '報表下載',
+        pageTitle: '營運報表下載',
+        breadcrumbLabel: '營運報表下載',
       },
       {
         id: 'analytics-teacher-dash',
@@ -664,15 +663,6 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'perm:can_view_analytics',
         pageTitle: '我的教學儀表板',
         breadcrumbLabel: '我的教學儀表板',
-      },
-      {
-        id: 'analytics-teacher-impact',
-        label: '班級行政綜合變化',
-        path: '/admin/analytics/teacher-impact',
-        matchPrefixes: ['/admin/analytics/teacher-impact'],
-        visibility: 'teachingImpactTrends',
-        pageTitle: '班級行政綜合變化',
-        breadcrumbLabel: '班級行政綜合變化',
       },
     ],
   },

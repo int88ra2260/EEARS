@@ -99,7 +99,7 @@ export default function TeacherDashboardPage() {
             前往英語學習歷程中心
           </Button>
           <Button variant="outline-secondary" size="sm" onClick={() => navigate('/admin/analytics/overview')}>
-            返回分析與報表
+            返回活動營運總覽
           </Button>
         </div>
       </div>

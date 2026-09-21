@@ -105,7 +105,7 @@ export default function RiskDetectionPage() {
             {loading ? '更新中…' : '重新整理'}
           </Button>
           <Button variant="outline-secondary" size="sm" onClick={() => navigate('/admin/analytics/overview')}>
-            返回行政總覽
+            返回活動營運總覽
           </Button>
         </div>
       </div>

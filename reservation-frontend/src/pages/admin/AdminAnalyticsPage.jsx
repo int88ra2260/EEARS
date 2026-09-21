@@ -186,10 +186,6 @@ export default function AdminAnalyticsPage() {
 
   const [semester, setSemester] = useState(getCurrentSemester() || '114-1');
 
-  const [coreLoading, setCoreLoading] = useState(false);
-  const [coreError, setCoreError] = useState('');
-  const [adminOverview, setAdminOverview] = useState(null);
-
   const [resLoading, setResLoading] = useState(false);
   const [resError, setResError] = useState('');
   const [reservationOverview, setReservationOverview] = useState(null);
@@ -202,15 +198,11 @@ export default function AdminAnalyticsPage() {
   const [attendanceTrend, setAttendanceTrend] = useState([]);
   const [classRankings, setClassRankings] = useState([]);
 
-  const refreshing = coreLoading || resLoading || chartsLoading;
+  const refreshing = resLoading || chartsLoading;
 
   const load = useCallback(async () => {
     if (!token) return;
     const kind = 'reservation';
-
-    setCoreLoading(true);
-    setCoreError('');
-    setAdminOverview(null);
 
     setResLoading(true);
     setResError('');
@@ -223,18 +215,6 @@ export default function AdminAnalyticsPage() {
     setActivityTrend([]);
     setAttendanceTrend([]);
     setClassRankings([]);
-
-    const coreP = (async () => {
-      try {
-        const json = await fetchAnalyticsOverview(token, semester);
-        setAdminOverview(json || null);
-      } catch (e) {
-        setCoreError(e?.message || '載入失敗');
-        setAdminOverview(null);
-      } finally {
-        setCoreLoading(false);
-      }
-    })();
 
     const resP = (async () => {
       try {
@@ -308,14 +288,12 @@ export default function AdminAnalyticsPage() {
       }
     })();
 
-    await Promise.all([coreP, resP, chartsP]);
+    await Promise.all([resP, chartsP]);
   }, [token, semester]);
 
   useEffect(() => {
     load();
   }, [load]);
-
-  const lj = adminOverview?.learningJourneyCoreKpi || null;
 
   const semesterRangeLabel = useMemo(() => {
     const r = SEMESTER_RANGES[semester];
@@ -330,7 +308,6 @@ export default function AdminAnalyticsPage() {
         bookingRate: 0,
         attendanceRate: 0,
         violationRate: 0,
-        englishPassRate: 0,
       };
     }
     return {
@@ -338,7 +315,6 @@ export default function AdminAnalyticsPage() {
       bookingRate: Number(reservationOverview.bookingRate || 0),
       attendanceRate: Number(reservationOverview.attendanceRate || 0),
       violationRate: Number(reservationOverview.violationRate || 0),
-      englishPassRate: Number(reservationOverview.englishPassRate || 0),
     };
   }, [reservationOverview]);
 
@@ -368,19 +344,6 @@ export default function AdminAnalyticsPage() {
     }));
   }, [classRankings]);
 
-  const ljEmptyRoster =
-    !coreLoading &&
-    !coreError &&
-    lj &&
-    Number(lj.rosterActiveStudentCount || 0) === 0;
-
-  const ljNoValidScores =
-    !coreLoading &&
-    !coreError &&
-    lj &&
-    Number(lj.rosterActiveStudentCount || 0) > 0 &&
-    Number(lj.validBestScoreStudentCount || 0) === 0;
-
   const reservationAllZero =
     !resLoading &&
     !resError &&
@@ -388,8 +351,7 @@ export default function AdminAnalyticsPage() {
     Number(reservationKpis.totalReservations || 0) === 0 &&
     Number(reservationKpis.bookingRate || 0) === 0 &&
     Number(reservationKpis.attendanceRate || 0) === 0 &&
-    Number(reservationKpis.violationRate || 0) === 0 &&
-    Number(reservationKpis.englishPassRate || 0) === 0;
+    Number(reservationKpis.violationRate || 0) === 0;
 
   const chartsNoData =
     !chartsLoading &&
@@ -423,103 +385,14 @@ export default function AdminAnalyticsPage() {
         </div>
       </div>
       <p className="text-muted small mb-3">
-        本頁彙整<strong>學習歷程核心指標</strong>（英語學習歷程名冊與 et 成績口徑）與<strong>活動預約營運概況</strong>（活動預約／名額利用率／簽到／違規）；兩者分開呈現，請勿混為同一種達標定義。
+        本頁只呈現<strong>活動營運</strong>相關資料：預約量、名額利用率、簽到、違規與需優先處理的班級排行。正式學習成果、B2 KPI 與學生能力軌跡請至「學習成效分析」。
       </p>
 
-      {/* 區塊一：學習歷程核心 KPI */}
-      <Card className="mb-4 border-primary">
-        <Card.Header className="fw-semibold bg-primary-subtle">學習歷程核心 KPI</Card.Header>
-        <Card.Body>
-          {coreLoading && (
-            <div className="text-center py-4">
-              <Spinner animation="border" size="sm" className="me-2" />
-              載入中…
-            </div>
-          )}
-          {coreError && !coreLoading && <Alert variant="danger">{coreError}</Alert>}
-          {!coreLoading && !coreError && adminOverview && !lj && (
-            <Alert variant="secondary" className="mb-0">
-              後端未回傳 learningJourneyCoreKpi（可能為舊版快取）；請稍候重試或聯絡管理員更新服務。
-            </Alert>
-          )}
-          {!coreLoading && !coreError && lj && (
-            <>
-              {ljEmptyRoster && (
-                <Alert variant="warning" className="py-2 small mb-3">
-                  <strong>尚未建立本學期追蹤名冊：</strong>目前英語學習歷程 active roster 人數為 0。若已匯入名冊，請確認學期代碼一致。
-                </Alert>
-              )}
-              {ljNoValidScores && (
-                <Alert variant="info" className="py-2 small mb-3">
-                  <strong>已有追蹤名冊，但尚未匯入可判讀 CEFR 的成績：</strong>名冊內尚無有效 best skill（cefrRank≥1）資料。
-                </Alert>
-              )}
-              <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
-                <span className="badge bg-secondary text-uppercase">{lj.dataStatus || '—'}</span>
-                {lj.generatedAt && (
-                  <span className="text-muted small">
-                    指標計算時間（generatedAt）：{dayjs(lj.generatedAt).format('YYYY-MM-DD HH:mm')}
-                  </span>
-                )}
-                <span className="text-muted small">
-                  資料更新時間（updatedAt）：
-                  {lj.updatedAt ? dayjs(lj.updatedAt).format('YYYY-MM-DD HH:mm') : '尚未接資料治理時間戳'}
-                </span>
-              </div>
-              {lj.dataStatusNote && (
-                <Alert
-                  variant={lj.dataStatus === 'unavailable' ? 'danger' : lj.rosterActiveStudentCount > 0 ? 'info' : 'warning'}
-                  className="py-2 small"
-                >
-                  {lj.dataStatusNote}
-                </Alert>
-              )}
-              <div className="row g-3">
-                <KpiCard
-                  title="追蹤學生數"
-                  value={lj.rosterActiveStudentCount != null ? lj.rosterActiveStudentCount : '—'}
-                  hint="本學期英語學習歷程 active 名冊（EtEnrollmentSnapshot isActive=true）之 DISTINCT 學號人數。"
-                />
-                <KpiCard
-                  title="有效成績學生數"
-                  value={lj.validBestScoreStudentCount != null ? lj.validBestScoreStudentCount : '—'}
-                  hint="名冊內至少一項歷史最佳技能可判讀（cefrRank ≥ 1，來自 et_exam_attempts 有效成績）之學生人數。"
-                />
-                <KpiCard
-                  title="已達標學生數"
-                  value={lj.attainedStudentCount != null ? lj.attainedStudentCount : '—'}
-                  hint="名冊內至少一項歷史最佳技能達 B2+（cefrRank ≥ 4，與學習歷程 B2 報表口徑一致）之學生人數。"
-                />
-                <KpiCard
-                  title="達標率（LJ canonical）"
-                  value={lj.attainmentRate != null ? formatPct1(lj.attainmentRate) : '—'}
-                  hint="已達標學生數 ÷ 追蹤學生數；僅學習歷程口徑。非活動預約、非 english_test_registrations.hasCEFRB2。"
-                />
-                <KpiCard
-                  title="高風險學生數（名冊內）"
-                  value={lj.highRiskStudentCount != null ? lj.highRiskStudentCount : '—'}
-                  hint="僅計算本學期追蹤名冊內學生，沿用風險模組規則（與「高風險預警」頁之規則一致，但母體為名冊交集）。"
-                />
-              </div>
-              {lj.highRiskNote && <p className="text-muted small mt-2 mb-0">{lj.highRiskNote}</p>}
-              <Form.Text className="text-muted d-block mt-2">
-                母體：本學期英語學習歷程 active roster。有效成績：至少一項可判讀 best skill（cefrRank≥1）。達標：至少一項最佳技能達
-                B2+（cefrRank≥4）。<strong>指標計算時間（generatedAt）</strong>為本次後端計算時間，<strong>不等於</strong>資料匯入或 ETL
-                完成時間。<strong>資料更新時間（updatedAt）</strong>若為「尚未接資料治理時間戳」，表示尚未寫入治理事件表。
-              </Form.Text>
-            </>
-          )}
-        </Card.Body>
-      </Card>
-
-      {/* 區塊二：活動預約營運概況 */}
       <Card className="mb-4">
         <Card.Header className="fw-semibold">活動預約營運概況</Card.Header>
         <Card.Body>
           <p className="text-muted small mb-3">
-            本區統計<strong>活動預約、名額利用率、簽到與違規</strong>資料（與學習歷程達標無直接對應）。下方「Legacy 報名資料 B2 標記比例」來自
-            <code>english_test_registrations.hasCEFRB2</code>，屬舊報名欄位營運指標，<strong>不得</strong>稱為達標率，亦<strong>非</strong>
-            Learning Journey canonical 達標率。
+            本區統計<strong>活動預約、名額利用率、簽到與違規</strong>資料，用來判斷活動供給、出席與行政追蹤壓力；不解讀學生能力或 B2 達標。
           </p>
           {resLoading && (
             <div className="text-center py-3">
@@ -530,7 +403,7 @@ export default function AdminAnalyticsPage() {
           {resError && !resLoading && <Alert variant="danger">{resError}</Alert>}
           {!resLoading && !resError && reservationAllZero && (
             <Alert variant="secondary" className="py-2 small mb-3">
-              本學期尚無活動預約紀錄（或所選區間內預約、預約率、簽到、違規與 Legacy B2 標記皆為 0）。
+              本學期尚無活動預約紀錄（或所選區間內預約、預約率、簽到與違規皆為 0）。
             </Alert>
           )}
           {!resLoading && !resError && (
@@ -550,11 +423,6 @@ export default function AdminAnalyticsPage() {
                 title="違規率（預約）"
                 value={formatPct1(reservationKpis.violationRate)}
                 hint="已登記違規 ÷ 總預約。"
-              />
-              <KpiCard
-                title="Legacy 報名資料 B2 標記比例"
-                value={formatPct1(reservationKpis.englishPassRate)}
-                hint="API 欄位仍為 englishPassRate：english_test_registrations 本學期 hasCEFRB2 為肯定值之比例。與上方 LJ canonical 達標率無關。"
               />
             </div>
           )}

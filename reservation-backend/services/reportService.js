@@ -7,8 +7,6 @@ const ExcelJS = require('exceljs');
 const classEvaluationService = require('./classEvaluationService');
 const teacherEvaluationService = require('./teacherEvaluationService');
 const analyticsService = require('./analyticsService');
-const trendAnalysisService = require('./trendAnalysisService');
-const scoringService = require('./scoringService');
 const riskDetectionService = require('./riskDetectionService');
 const { ClassMembership } = require('../models');
 
@@ -17,8 +15,6 @@ const MAX_HIGH_RISK_EXPORT_ROWS = 8000;
 
 const POPULATION_CLASS_MEMBERSHIP =
   '本學期 class_memberships DISTINCT 學生（班級名冊口徑，非 LJ active roster）';
-const POPULATION_LJ_ROSTER =
-  '本學期 EtEnrollmentSnapshot active roster（英語學習歷程名冊）';
 
 function tryRequirePdfKit() {
   try {
@@ -67,10 +63,8 @@ async function enrichHighRiskRowsFromMemberships(semester, risks) {
   });
 }
 
-async function buildClassReportData(classId, semester, fromSemester, toSemester) {
+async function buildClassReportData(classId, semester) {
   const classEval = await classEvaluationService.getClassEvaluation(classId, semester);
-  const trends = await trendAnalysisService.getClassTrends(classId, fromSemester || semester, toSemester || semester);
-  const score = await scoringService.getClassTeachingScore(classId, semester);
   const studentIds = (classEval.bestepOverview?.students || []).map((s) => s.studentId).filter(Boolean);
   const highRisks = await riskDetectionService.getRisksForStudents(studentIds, semester, { onlyHigh: true });
 
@@ -80,33 +74,24 @@ async function buildClassReportData(classId, semester, fromSemester, toSemester)
     semester,
     className: classEval.className,
     summary: classEval,
-    trends,
-    score,
     highRisks,
     reportGeneratedAt: nowIso(),
   };
 }
 
-async function buildTeacherReportData(teacherId, semester, fromSemester, toSemester) {
+async function buildTeacherReportData(teacherId, semester) {
   const dashboard = await teacherEvaluationService.getTeacherDashboard(teacherId, semester);
-  const trendsOverview = await trendAnalysisService.getOverviewTrends(
-    fromSemester || semester,
-    toSemester || semester
-  );
   return {
     scope: 'teacher',
     teacherId: Number(teacherId),
     semester,
     dashboard,
-    trendsOverview,
     reportGeneratedAt: nowIso(),
   };
 }
 
-/**
- * 行政總覽報表資料：含 learningJourneyCoreKpi、班級名冊 KPI、活動預約營運（reservation）、趨勢。
- */
-async function buildOverviewReportData(semester, fromSemester, toSemester) {
+/** 營運總覽報表資料：活動預約營運 + 班級行政追蹤，不混入正式學習成效 KPI。 */
+async function buildOverviewReportData(semester) {
   const overview = await analyticsService.getAdminOverview(semester);
   let reservationOverview = null;
   try {
@@ -114,13 +99,11 @@ async function buildOverviewReportData(semester, fromSemester, toSemester) {
   } catch (_) {
     reservationOverview = null;
   }
-  const trends = await trendAnalysisService.getOverviewTrends(fromSemester || semester, toSemester || semester);
   return {
     scope: 'overview',
     semester,
     overview,
     reservationOverview,
-    trends,
     reportGeneratedAt: nowIso(),
   };
 }
@@ -152,11 +135,10 @@ function applyHeaderStyle(row) {
   };
 }
 
-/** 行政總覽：多 sheet 正式欄位 */
+/** 活動營運總覽：多 sheet 正式欄位 */
 async function generateOverviewExcelWorkbook(data) {
   const wb = new ExcelJS.Workbook();
-  const { semester, overview, reservationOverview, trends, reportGeneratedAt } = data;
-  const lj = overview.learningJourneyCoreKpi || null;
+  const { semester, overview, reservationOverview, reportGeneratedAt } = data;
 
   // --- Sheet 1 報表摘要 ---
   const ws1 = wb.addWorksheet('報表摘要', { views: [{ state: 'frozen', ySplit: 1 }] });
@@ -167,32 +149,25 @@ async function generateOverviewExcelWorkbook(data) {
   const h1 = ws1.addRow({ k: '欄位', v: '內容' });
   applyHeaderStyle(h1);
   const s1 = [
-    ['報表名稱', 'EEARS 行政總覽（Overview）'],
+    ['報表名稱', 'EEARS 活動營運總覽'],
     ['學期', semester],
     ['報表產生時間（generatedAt）', reportGeneratedAt],
     [
-      '資料更新時間（updatedAt）',
-      lj?.updatedAt ? String(lj.updatedAt) : '尚未接資料治理時間戳',
-    ],
-    ['LJ 指標計算時間（learningJourneyCoreKpi.generatedAt）', lj?.generatedAt ? String(lj.generatedAt) : '—'],
-    ['LJ 資料狀態（dataStatus）', lj?.dataStatus != null ? String(lj.dataStatus) : '—'],
-    ['LJ 備註（dataStatusNote）', lj?.dataStatusNote ? String(lj.dataStatusNote) : '—'],
-    [
       '說明',
-      '報表產生時間為匯出當下伺服器時間，不等於資料匯入或 ETL 完成時間；updatedAt 若未接治理事件表則無法顯示。',
+      '本報表只呈現活動營運與行政追蹤資料。正式學習成果、B2 KPI、學生能力軌跡請使用「學習成效分析」。',
     ],
   ];
   s1.forEach(([k, v]) => ws1.addRow({ k, v }));
 
-  // --- Sheet 2 LJ 核心 KPI ---
-  const ws2 = wb.addWorksheet('LJ核心KPI', { views: [{ state: 'frozen', ySplit: 1 }] });
+  // --- Sheet 2 活動預約營運 ---
+  const ws2 = wb.addWorksheet('活動預約營運', { views: [{ state: 'frozen', ySplit: 1 }] });
   ws2.columns = [
     { header: '指標名稱', key: 'n', width: 26 },
     { header: '數值', key: 'val', width: 14 },
     { header: '單位', key: 'unit', width: 10 },
     { header: '母體', key: 'pop', width: 36 },
     { header: '指標定義', key: 'def', width: 52 },
-    { header: '是否 canonical', key: 'can', width: 14 },
+    { header: '是否學習成效', key: 'can', width: 14 },
     { header: '備註', key: 'note', width: 36 },
   ];
   const hdr2 = ws2.addRow({
@@ -201,99 +176,23 @@ async function generateOverviewExcelWorkbook(data) {
     unit: '單位',
     pop: '母體',
     def: '指標定義',
-    can: '是否 canonical',
+    can: '是否學習成效',
     note: '備註',
   });
   applyHeaderStyle(hdr2);
-  if (!lj) {
-    ws2.addRow({
-      n: '—',
-      val: '—',
-      unit: '—',
-      pop: POPULATION_LJ_ROSTER,
-      def: '後端未回傳 learningJourneyCoreKpi',
-      can: '—',
-      note: '請確認服務版本與快取',
-    });
-  } else {
-    const rows = [
-      [
-        '追蹤學生數',
-        lj.rosterActiveStudentCount,
-        '人',
-        POPULATION_LJ_ROSTER,
-        'EtEnrollmentSnapshot active roster 之 DISTINCT studentId',
-        '是',
-        '與班級名冊人數可能不同',
-      ],
-      [
-        '有效成績學生數',
-        lj.validBestScoreStudentCount,
-        '人',
-        POPULATION_LJ_ROSTER,
-        '名冊內至少一項 best skill 可判讀（cefrRank≥1）',
-        '是',
-        '',
-      ],
-      [
-        '已達標學生數',
-        lj.attainedStudentCount,
-        '人',
-        POPULATION_LJ_ROSTER,
-        '至少一項最佳技能達 B2+（cefrRank≥4）',
-        '是',
-        '非 Legacy hasCEFRB2',
-      ],
-      [
-        '達標率（LJ canonical）',
-        lj.attainmentRate,
-        '%',
-        POPULATION_LJ_ROSTER,
-        '已達標學生數 ÷ 追蹤學生數',
-        '是',
-        '不得與 englishPassRate（Legacy）混稱',
-      ],
-      [
-        '學習歷程高風險學生數',
-        lj.highRiskStudentCount,
-        '人',
-        `${POPULATION_LJ_ROSTER}（與風險規則交集）`,
-        '名冊內學生計算 riskLevel=high',
-        '否（風險維度）',
-        lj.highRiskNote || '與「班級名冊高風險」母體不同',
-      ],
-    ];
-    rows.forEach((r) =>
-      ws2.addRow({ n: r[0], val: r[1], unit: r[2], pop: r[3], def: r[4], can: r[5], note: r[6] || '' })
-    );
-  }
-
-  // --- Sheet 3 活動預約營運 ---
-  const ws3 = wb.addWorksheet('活動預約營運', { views: [{ state: 'frozen', ySplit: 1 }] });
-  ws3.columns = ws2.columns;
-  const hdr3 = ws3.addRow({
-    n: '指標名稱',
-    val: '數值',
-    unit: '單位',
-    pop: '母體',
-    def: '指標定義',
-    can: '是否 legacy',
-    note: '備註',
-  });
-  applyHeaderStyle(hdr3);
   if (!reservationOverview) {
-    ws3.addRow({
+    ws2.addRow({
       n: '（無法載入）',
       val: '—',
       unit: '—',
-      pop: 'reservations / events / english_test_registrations',
-      def: '活動預約與舊報名資料',
+      pop: 'reservations / events',
+      def: '活動預約與名額資料',
       can: '—',
       note: 'getReservationOverview 失敗或學期不支援',
     });
   } else {
     const ro = reservationOverview;
-    ws3.addRow({
+    ws2.addRow({
       n: '總預約數',
       val: ro.totalReservations,
       unit: '筆',
@@ -302,7 +201,7 @@ async function generateOverviewExcelWorkbook(data) {
       can: '否',
       note: '',
     });
-    ws3.addRow({
+    ws2.addRow({
       n: '預約率',
       val: ro.bookingRate,
       unit: '%',
@@ -311,7 +210,7 @@ async function generateOverviewExcelWorkbook(data) {
       can: '否',
       note: ro.totalEventCapacity != null ? `名額加總（供查核）：${ro.totalEventCapacity}` : '',
     });
-    ws3.addRow({
+    ws2.addRow({
       n: '簽到出席率（預約）',
       val: ro.attendanceRate,
       unit: '%',
@@ -320,7 +219,7 @@ async function generateOverviewExcelWorkbook(data) {
       can: '否',
       note: '',
     });
-    ws3.addRow({
+    ws2.addRow({
       n: '違規率（預約）',
       val: ro.violationRate,
       unit: '%',
@@ -329,20 +228,11 @@ async function generateOverviewExcelWorkbook(data) {
       can: '否',
       note: '',
     });
-    ws3.addRow({
-      n: 'Legacy 報名資料 B2 標記比例',
-      val: ro.englishPassRate,
-      unit: '%',
-      pop: 'english_test_registrations 本學期',
-      def: 'hasCEFRB2 肯定值比例；API 鍵仍為 englishPassRate',
-      can: '是（legacy）',
-      note: '不得命名為「達標率」；非 LJ canonical',
-    });
   }
 
-  // --- Sheet 4 班級行政 KPI ---
-  const ws4 = wb.addWorksheet('班級行政KPI', { views: [{ state: 'frozen', ySplit: 1 }] });
-  ws4.columns = [
+  // --- Sheet 3 班級行政追蹤 ---
+  const ws3 = wb.addWorksheet('班級行政追蹤', { views: [{ state: 'frozen', ySplit: 1 }] });
+  ws3.columns = [
     { header: '指標名稱', key: 'n', width: 28 },
     { header: '數值', key: 'val', width: 14 },
     { header: '單位', key: 'unit', width: 10 },
@@ -350,7 +240,7 @@ async function generateOverviewExcelWorkbook(data) {
     { header: '指標定義', key: 'def', width: 48 },
     { header: '備註', key: 'note', width: 40 },
   ];
-  const hdr4 = ws4.addRow({
+  const hdr3 = ws3.addRow({
     n: '指標名稱',
     val: '數值',
     unit: '單位',
@@ -358,16 +248,12 @@ async function generateOverviewExcelWorkbook(data) {
     def: '指標定義',
     note: '備註',
   });
-  applyHeaderStyle(hdr4);
+  applyHeaderStyle(hdr3);
   const o = overview;
   const adminRows = [
     ['班級名冊 Distinct 學生數', o.totalStudents, '人', POPULATION_CLASS_MEMBERSHIP, 'class_memberships 該學期', ''],
     ['參與率（班級 KPI）', o.participationRate, '%', POPULATION_CLASS_MEMBERSHIP, 'kpiService 活動簽到參與', ''],
     ['平均簽到次數', o.avgParticipationCount, '次', POPULATION_CLASS_MEMBERSHIP, '', ''],
-    ['BESTEP 報考率', o.bestepRegistrationRate, '%', POPULATION_CLASS_MEMBERSHIP, '', ''],
-    ['BESTEP 出席率', o.bestepAttendanceRate, '%', POPULATION_CLASS_MEMBERSHIP, '', ''],
-    ['BESTEP 通過率', o.bestepPassRate, '%', POPULATION_CLASS_MEMBERSHIP, '', ''],
-    ['抵免核准率', o.exemptionApprovedRate, '%', POPULATION_CLASS_MEMBERSHIP, '', ''],
     ['問卷完成率', o.surveyCompletionRate, '%', POPULATION_CLASS_MEMBERSHIP, '', ''],
     ['違規率（行政 KPI）', o.violationRate, '%', POPULATION_CLASS_MEMBERSHIP, 'kpiService 違規統計', ''],
     [
@@ -376,18 +262,10 @@ async function generateOverviewExcelWorkbook(data) {
       '人',
       POPULATION_CLASS_MEMBERSHIP,
       'riskLevel=high 之學生人數',
-      '與 LJ 名冊內高風險人數不同母體',
-    ],
-    [
-      '教學綜合指標變化（proxy）',
-      trends?.decisionKpis?.teacherImpact?.growth,
-      '分',
-      '全校班級合成（末兩學期）',
-      'scoringService 平均教學綜合分之差分；API 鍵 teacherImpact.growth',
-      '非教師因果；不得稱教師影響力',
+      '行政追蹤用途；正式學習成果請看學習成效分析',
     ],
   ];
-  adminRows.forEach((r) => ws4.addRow({ n: r[0], val: r[1], unit: r[2], pop: r[3], def: r[4], note: r[5] || '' }));
+  adminRows.forEach((r) => ws3.addRow({ n: r[0], val: r[1], unit: r[2], pop: r[3], def: r[4], note: r[5] || '' }));
 
   return wb.xlsx.writeBuffer();
 }
@@ -491,7 +369,7 @@ function addKeyValueSheet(wb, sheetName, titleRows) {
 
 async function generateClassExcelWorkbook(data) {
   const wb = new ExcelJS.Workbook();
-  const { classId, semester, className, summary, score, highRisks, trends, reportGeneratedAt } = data;
+  const { classId, semester, className, summary, highRisks, reportGeneratedAt } = data;
 
   addKeyValueSheet(wb, '班級報表摘要', [
     { label: '報表名稱', value: 'EEARS 單一班級報表', note: '' },
@@ -515,21 +393,16 @@ async function generateClassExcelWorkbook(data) {
     ['抵免核准率', summary.bestep?.exemptionApprovedRate, ''],
     ['問卷完成率（估計）', summary.survey?.estimatedCompletionRate, ''],
     ['違規率', summary.violations?.violationRate, ''],
-    ['教學綜合分（proxy）', `${score?.score ?? '—'}（${score?.level ?? '—'}）`, '班級層級加權合成，非教師因果'],
     ['班級名冊高風險人數', highRisks.length, '僅計 high；與 LJ 名冊高風險不同母體'],
   ];
   rows.forEach(([label, value, note]) => ws.addRow({ label, value, note }));
-
-  const wsT = wb.addWorksheet('趨勢學期', { views: [{ state: 'frozen', ySplit: 1 }] });
-  wsT.addRow({ a: '跨學期趨勢學期序列' });
-  wsT.addRow({ a: (trends?.semesters || []).join(', ') });
 
   return wb.xlsx.writeBuffer();
 }
 
 async function generateTeacherExcelWorkbook(data) {
   const wb = new ExcelJS.Workbook();
-  const { teacherId, semester, dashboard, trendsOverview, reportGeneratedAt } = data;
+  const { teacherId, semester, dashboard, reportGeneratedAt } = data;
   const s = dashboard.summary || {};
 
   addKeyValueSheet(wb, '教師報表摘要', [
@@ -552,11 +425,6 @@ async function generateTeacherExcelWorkbook(data) {
     ['平均參與率', s.avgParticipationRate, '班級名冊 KPI 平均'],
     ['平均通過率', s.avgPassRate, 'BESTEP 等彙整'],
     ['班級名冊高風險人數（加總）', s.totalRiskStudents, '各負責班級 high 人數加總；非 LJ 名冊母體'],
-    [
-      '教學綜合指標變化（proxy）',
-      trendsOverview?.decisionKpis?.teacherImpact?.growth,
-      'API 鍵 teacherImpact.growth；全校 proxy 跨期差分，非教師因果',
-    ],
   ];
   rows.forEach(([label, value, note]) => ws.addRow({ label, value, note }));
 
@@ -598,7 +466,6 @@ async function generatePdfReport(data) {
       doc.text(`ParticipationRate: ${data.summary.participation?.participationRate}`);
       doc.text(`BestepPassRate: ${data.summary.bestep?.bestepPassRate}`);
       doc.text(`ExemptionApprovedRate: ${data.summary.bestep?.exemptionApprovedRate}`);
-      doc.text(`TeachingScore(proxy): ${data.score.score} (${data.score.level})`);
       doc.text(`班級名冊高風險人數: ${data.highRisks.length}`);
     } else if (data.scope === 'teacher') {
       doc.text(`TeacherId: ${data.teacherId}`);
@@ -617,12 +484,9 @@ async function generatePdfReport(data) {
       doc.text(`ParticipationRate: ${data.overview.participationRate}`);
       doc.text(`BestepPassRate: ${data.overview.bestepPassRate}`);
       doc.text(`班級名冊高風險人數: ${data.overview.highRiskStudentCount}`);
-      doc.text(`教學綜合指標變化(proxy, teacherImpact.growth): ${data.trends.decisionKpis?.teacherImpact?.growth}`);
     }
 
     doc.moveDown();
-    const semesters = data.trends?.semesters || data.trendsOverview?.semesters || [];
-    doc.text(`Trend Semesters: ${semesters.join(', ')}`);
     doc.end();
   });
 }

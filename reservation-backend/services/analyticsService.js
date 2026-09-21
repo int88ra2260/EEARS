@@ -137,14 +137,15 @@ async function buildClassRiskRanking(uniqueStudentMembership, highRiskStudentIds
 }
 
 /**
- * 行政總覽「學習歷程核心 KPI」：口徑與 Learning Journey V3 一致。
+ * 學習歷程核心 KPI：口徑與 Learning Journey V3 一致。
  * - roster：EtEnrollmentSnapshot isActive=true（學期 active 追蹤名冊）
  * - 有效成績：至少一項 skill 之 cefrRank ≥ 1（可判讀之歷史最佳技能）
  * - 已達標：至少一項 skill 之 cefrRank ≥ LJ_ATTAINMENT_MIN_RANK（B2+，與 b2ReportService 對齊）
  * - 達標率：已達標 DISTINCT student / 追蹤學生數（canonical；**不得**以 english_test_registrations.hasCEFRB2 代替）
  * - 高風險：僅針對名冊內學生呼叫 riskDetectionService.computeRisksForStudentIds（母體與 getAdminOverview 班級名冊高風險不同）
  * - `generatedAt`：本函式計算時間，非資料匯入時間；`updatedAt` 未接治理表時為 null。
- * 詳見 docs/analytics-and-reports-metric-definitions.md。
+ * 正式學習成效頁與 B2 KPI 報表應使用 /api/admin/learning-analytics；舊 /api/analytics
+ * 不再混入本指標，避免營運分析與學習成效分析重疊。
  */
 async function getLearningJourneyCoreKpi(semesterId) {
   const sem = String(semesterId || '').trim();
@@ -270,9 +271,8 @@ async function getLearningJourneyCoreKpi(semesterId) {
 }
 
 /**
- * 班級／行政總覽：母體為該學期 `class_memberships`（DISTINCT studentId 聚合至 KPI）。
- * `highRiskStudentCount`：**班級名冊**內 riskLevel=high 之學生人數（與 `learningJourneyCoreKpi.highRiskStudentCount`
- * 之 **LJ active roster** 母體不同，禁止在 UI 混用同一稱呼）。詳見 docs/analytics-and-reports-metric-definitions.md。
+ * 班級／營運總覽：母體為該學期 `class_memberships`（DISTINCT studentId 聚合至 KPI）。
+ * 本 API 僅服務活動營運與行政追蹤；正式學習成果與 B2 KPI 請使用 learning-analytics 模組。
  */
 async function getAdminOverview(semester) {
   if (!SEMESTER_RANGES[semester]) {
@@ -310,7 +310,6 @@ async function getAdminOverview(semester) {
       top10Classes: [],
       highRiskClasses: []
     };
-    empty.learningJourneyCoreKpi = await getLearningJourneyCoreKpi(semester);
     setCache(cacheKey, empty, OVERVIEW_CACHE_TTL_MS);
     return empty;
   }
@@ -369,8 +368,6 @@ async function getAdminOverview(semester) {
     highRiskClasses
   };
 
-  result.learningJourneyCoreKpi = await getLearningJourneyCoreKpi(semester);
-
   setCache(cacheKey, result, OVERVIEW_CACHE_TTL_MS);
   return result;
 }
@@ -427,8 +424,7 @@ function buildCapacityBreakdownPayload({ semester, start, end, byEventType, byEv
  * Phase 8：預約營運分析（SQL aggregation）。母體：reservations × events（學期日期區間）。
  *
  * 回傳欄位 `englishPassRate` 為 **legacy 營運指標**：english_test_registrations.hasCEFRB2 為肯定值之比例。
- * 不得稱為 Learning Journey canonical 達標率（與 learningJourneyCoreKpi.attainmentRate 無關）。
- * 詳見 docs/analytics-and-reports-metric-definitions.md。
+ * 不得稱為 Learning Journey canonical 達標率；前端營運頁不再顯示此 legacy 欄位。
  *
  * KPI：
  * - 總預約數

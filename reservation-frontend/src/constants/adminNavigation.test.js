@@ -85,6 +85,27 @@ describe('filterVisibleNav worker by workerLevel', () => {
   });
 });
 
+describe('ADMIN_NAV_SECTIONS learning IA', () => {
+  it('keeps exam admin separate from learning outcome surfaces', () => {
+    const englishSection = ADMIN_NAV_SECTIONS.find((section) => section.id === 'english');
+    const learningOutcomesSection = ADMIN_NAV_SECTIONS.find((section) => section.id === 'learning-outcomes');
+
+    expect(englishSection?.children?.map((child) => child.id)).toContain('english-registration');
+    expect(englishSection?.children?.map((child) => child.id)).not.toContain('english-learning-passport');
+    expect(englishSection?.children?.map((child) => child.id)).not.toContain('learning-journey');
+
+    expect(learningOutcomesSection?.label).toBe('學習歷程與成果');
+    expect(learningOutcomesSection?.children?.map((child) => child.id)).toEqual(
+      expect.arrayContaining([
+        'english-learning-passport',
+        'learning-journey',
+        'learning-analytics-overview',
+      ])
+    );
+    expect(ADMIN_NAV_SECTIONS.map((section) => section.id)).not.toContain('learning-analytics');
+  });
+});
+
 describe('getDefaultExpandedSectionIds', () => {
   it('expands events for event_ops worker (no accounts)', () => {
     const workerCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'worker'));
@@ -108,6 +129,19 @@ describe('getDefaultExpandedSectionIds', () => {
     const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, ctx);
     const ids = getDefaultExpandedSectionIds(ctx, visible);
     expect(ids.has('classes')).toBe(true);
+  });
+
+  it('expands learning outcomes for passport_ops worker', () => {
+    const tokenPayload = Buffer.from(JSON.stringify({
+      role: 'worker',
+      workerLevel: 'passport_ops',
+    })).toString('base64');
+    const fakeToken = `hdr.${tokenPayload}.sig`;
+    const ctx = buildNavContextFromAccessProfile(buildAccessProfile(fakeToken, 'worker'));
+    const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, ctx);
+    const ids = getDefaultExpandedSectionIds(ctx, visible);
+    expect(ids.has('learning-outcomes')).toBe(true);
+    expect(ids.has('english')).toBe(false);
   });
 });
 

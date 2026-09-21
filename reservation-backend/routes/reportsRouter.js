@@ -46,7 +46,7 @@ async function requireClassReportScope(req, res, next) {
   }
 }
 
-// PDF/Excel 報表下載：與前台「分析與報表」一致，限管理員或執行長
+// PDF/Excel 報表下載：與前台「營運分析與報表」一致，限管理員或執行長
 router.use('/reports', authMiddleware, requirePermission(P.CAN_EXPORT_REPORTS));
 
 router.get('/reports/class/:classId', requireClassReportScope, reportController.getClassReport);

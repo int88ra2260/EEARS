@@ -251,7 +251,7 @@ export const PERMISSION_GROUPS = [
   {
     id: 'english_lj_reports',
     title: '英檢、學習歷程與報表',
-    blurb: '英檢業務、學習歷程、分析與報表下載。',
+    blurb: '英檢業務、學習歷程、學習成效分析與營運報表下載。',
     keys: [
       P.CAN_VIEW_ENGLISH_TEST_METRICS,
       P.CAN_VIEW_ENGLISH_TESTS,

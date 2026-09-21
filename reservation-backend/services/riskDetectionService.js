@@ -3,7 +3,7 @@
 //
 // 母體說明（避免與 LJ 名冊混淆）：
 // - getRisksForSemester / getHighRisksForSemester：預設為該學期 class_memberships 內 DISTINCT 學生。
-// - computeRisksForStudentIds(studentIds, …)：僅針對傳入之 studentIds（例如行政總覽 LJ 名冊子集）。
+// - computeRisksForStudentIds(studentIds, …)：僅針對傳入之 studentIds（例如特定名冊或行政追蹤子集）。
 // 風險因子：noShow、低參與、無有效 BESTEP 報名狀態、違規等（見 utils/riskConstants）。
 // 詳見 docs/analytics-and-reports-metric-definitions.md。
 
