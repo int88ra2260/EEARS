@@ -20,7 +20,7 @@ const METRIC_HELP_SUMMARY = (
       <strong>班級名冊高風險</strong>：母體為 <code>class_memberships</code>，與 LJ 名冊內高風險人數<strong>不同母體</strong>。
     </p>
     <p className="mb-2">
-      <strong>教學綜合指標（proxy）</strong>：班級層級 KPI 加權合成，<strong>不代表</strong>個別教師因果影響；API 可能仍使用
+      <strong>班級行政綜合變化（proxy）</strong>：班級層級 KPI 加權合成，<strong>不代表</strong>個別教師因果影響；API 可能仍使用
       <code>teacherImpact</code> 鍵名。
     </p>
     <p className="mb-0">

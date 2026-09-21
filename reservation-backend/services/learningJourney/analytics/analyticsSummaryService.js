@@ -21,6 +21,7 @@ async function getAnalyticsSummary(query = {}) {
   const total = students.length;
   const b2plusCount = students.filter((s) => s.isB2plus).length;
   const retestCount = students.filter((s) => s.retestFlag).length;
+  const validExamCount = students.filter((s) => s.hasValidExam).length;
   const singleExamCount = students.filter((s) => s.hasValidExam && Number(s.examCount) <= 1).length;
   const multiExamCount = students.filter((s) => Number(s.examCount) >= 2).length;
   const withBaseline = students.filter((s) => s.baselineEnglishScore != null).length;
@@ -58,6 +59,8 @@ async function getAnalyticsSummary(query = {}) {
       students: total,
       exams: exams.length,
       withBaseline,
+      studentsWithValidExam: validExamCount,
+      validExamRate: total ? Number((validExamCount / total).toFixed(4)) : 0,
       b2plusCount,
       b2plusRate: total ? Number((b2plusCount / total).toFixed(4)) : 0,
       retestStudents: retestCount,

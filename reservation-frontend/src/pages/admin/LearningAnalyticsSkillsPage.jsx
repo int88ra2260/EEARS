@@ -254,7 +254,7 @@ export default function LearningAnalyticsSkillsPage() {
 
             <Col sm={6} lg={6}>
               <div className="la-panel h-100 d-flex flex-column justify-content-center">
-                <p className="small text-muted mb-2">時數只算考試前的課程／活動，考後不計入該次進步。</p>
+                <p className="small text-muted mb-2">先看哪些技能有足夠前後測樣本；樣本太少時，下一步是補測或補資料，不是解讀成效。</p>
                 <GrowthMetricsExplainer />
               </div>
             </Col>
@@ -269,9 +269,9 @@ export default function LearningAnalyticsSkillsPage() {
 
               <div className="la-panel">
 
-                <div className="la-panel-title">各技能進步（GSE 量尺）</div>
+                <div className="la-panel-title">各技能前後測觀察</div>
 
-                <p className="small text-muted mb-2">實際與校正後皆為 GSE，可同圖比較；不含各測驗原始分差。</p>
+                <p className="small text-muted mb-2">主看樣本數與實際進步方向；校正值只作輔助，不作行政排序依據。</p>
 
                 <div style={{ width: '100%', height: 320 }}>
 
@@ -291,7 +291,7 @@ export default function LearningAnalyticsSkillsPage() {
 
                       <Bar dataKey="actual" name="GSE 實際進步" fill="#94a3b8" radius={[4, 4, 0, 0]} />
 
-                      <Bar dataKey="adjusted" name="GSE 校正後進步" fill="#2c5282" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="adjusted" name="GSE 校正值（輔助）" fill="#2c5282" radius={[4, 4, 0, 0]} />
 
                     </BarChart>
 
@@ -307,8 +307,8 @@ export default function LearningAnalyticsSkillsPage() {
 
               <div className="la-panel">
 
-                <div className="la-panel-title">有進步的學生比例</div>
-                <p className="small text-muted mb-2">以 GSE 實際進步 &gt; 0 計算。</p>
+                <div className="la-panel-title">可優先查看的技能</div>
+                <p className="small text-muted mb-2">以 GSE 實際進步 &gt; 0 計算；比例低或樣本少時，請回到學生明細確認缺測與資料品質。</p>
 
                 <ul className="list-unstyled small mb-0">
 
@@ -348,7 +348,7 @@ export default function LearningAnalyticsSkillsPage() {
 
                         <Radar name="GSE 實際" dataKey="actual" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.25} />
 
-                        <Radar name="GSE 校正後" dataKey="adjusted" stroke="#2c5282" fill="#2c5282" fillOpacity={0.2} />
+                        <Radar name="GSE 校正值" dataKey="adjusted" stroke="#2c5282" fill="#2c5282" fillOpacity={0.2} />
 
                         <Legend />
 

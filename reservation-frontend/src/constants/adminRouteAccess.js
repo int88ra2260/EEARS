@@ -401,7 +401,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/learning-analytics/resources',
-    label: '資源效益',
+    label: '資源覆蓋',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
@@ -439,13 +439,13 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/learning-analytics/insights',
-    label: '圖表探索',
+    label: '研究圖表封存入口',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
     pattern: '/admin/learning-analytics/model-runs',
-    label: '分析紀錄',
+    label: '研究估計封存入口',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
@@ -473,7 +473,7 @@ export const ADMIN_ROUTE_ACCESS = [
   { pattern: '/admin/reports', label: '報表下載', anyPermissions: [P.CAN_EXPORT_REPORTS] },
   {
     pattern: '/admin/analytics/teacher-impact',
-    label: '教學綜合趨勢',
+    label: '班級行政綜合變化',
     anyPermissions: [
       P.CAN_VIEW_ANALYTICS,
       P.CAN_VIEW_CLASSES,

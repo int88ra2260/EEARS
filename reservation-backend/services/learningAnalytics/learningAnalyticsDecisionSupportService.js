@@ -253,7 +253,7 @@ async function getStudentRecommendations(studentId, query = {}) {
       disclaimer: '通過機率為觀察資料啟發式估計，非正式預測模型。',
     },
     recommendations,
-    disclaimer: '建議僅供行政參考；資源與進步的關聯為觀察估計，不代表保證成效。',
+    disclaimer: '建議僅供行政參考；資源參與與進步之間屬觀察資料，不代表保證成效。',
     causalClaimAllowed: false,
   };
 }
@@ -366,7 +366,7 @@ async function getAdvancedVisualizations(query = {}) {
 
   const notYetB2 = students.filter((s) => !s.isB2plus);
   const outlookBuckets = { high: 0, medium: 0, low: 0 };
-  const outlookSamples = notYetB2.slice(0, 2000).map((student) => {
+  notYetB2.slice(0, 2000).forEach((student) => {
     const participatedTypes = new Set();
     const courseH = courseHoursByStudentId.get(student.studentId) || 0;
     const activityH = activityHoursByStudentId.get(student.studentId) || 0;
@@ -380,7 +380,6 @@ async function getAdvancedVisualizations(query = {}) {
     if (probability >= 0.65) outlookBuckets.high += 1;
     else if (probability >= 0.4) outlookBuckets.medium += 1;
     else outlookBuckets.low += 1;
-    return { studentId: student.studentId, probability, department: student.department };
   });
 
   return {
@@ -394,9 +393,6 @@ async function getAdvancedVisualizations(query = {}) {
     certificationOutlookSummary: {
       notB2plusStudents: notYetB2.length,
       buckets: outlookBuckets,
-      topProspects: outlookSamples
-        .sort((a, b) => b.probability - a.probability)
-        .slice(0, 10),
       disclaimer: '通過機率為觀察性估計分層（已校正資源效應：quasiCausal / IPW / AIPW）；僅供資源配置參考，非錄取或認證保證。',
     },
     causalClaimAllowed: false,

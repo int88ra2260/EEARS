@@ -16,13 +16,13 @@ function interpretProxyGrowth(growth) {
   if (n > 0.5) {
     return {
       variant: 'info',
-      text: '變化為正：全校班級合成之教學綜合 proxy 平均上升，可作為整體趨勢參考（非因果）。',
+      text: '變化為正：全校班級行政綜合 proxy 平均上升，可作為整體趨勢參考（非因果）。',
     };
   }
   if (n < -0.5) {
     return {
       variant: 'warning',
-      text: '變化為負：建議進一步查看參與率、BESTEP、抵免、問卷與違規等細項（仍為 proxy，不得歸因於單一教師）。',
+      text: '變化為負：建議進一步查看參與率、BESTEP、抵免、問卷與違規等細項（仍為 proxy，不得歸因於單一教師或單一課程）。',
     };
   }
   return { variant: 'light', text: '變化量接近零：整體 proxy 大致持平。' };
@@ -61,7 +61,7 @@ export default function TeacherImpactPage() {
         throw err;
       }
       setSemesterSpan(json.semesters || []);
-      // API 保留鍵名 teacherImpact；語意為全校教學綜合 proxy 跨期差分（非教師因果）
+      // API 保留鍵名 teacherImpact；語意為全校班級行政綜合 proxy 跨期差分（非教師因果）
       setImpact(json.decisionKpis?.teacherImpact || null);
     } catch (e) {
       const errMsg = handleAPIError(e);
@@ -94,8 +94,8 @@ export default function TeacherImpactPage() {
       </div>
       <Alert variant="warning" className="mb-3">
         <strong>不作為個別教師績效評定依據。</strong>
-        本頁呈現的是依班級參與率、BESTEP 通過率、抵免、問卷完成率與違規率等資料計算出的綜合 proxy 指標（全校班級合成教學分數之跨學期差分）。
-        可作為行政觀察趨勢參考，<strong>不代表</strong>個別教師對學生學習成果的因果影響。
+        本頁呈現的是依班級參與率、BESTEP 通過率、抵免、問卷完成率與違規率等資料計算出的綜合 proxy 指標（全校班級行政綜合分數之跨學期差分）。
+        可作為行政觀察趨勢參考，<strong>不代表</strong>個別教師或單一課程對學生學習成果的因果影響。
       </Alert>
 
       <Card className="mb-3 border-primary-subtle">
@@ -127,7 +127,7 @@ export default function TeacherImpactPage() {
           </div>
           {needTwoSemesters && !loading && (
             <Alert variant="light" border className="small mt-3 mb-0 py-2">
-              查詢範圍僅 {semesterSpan.length} 個學期：<strong>需要至少兩個學期</strong>才能計算教學綜合 proxy 之前後差分。
+              查詢範圍僅 {semesterSpan.length} 個學期：<strong>需要至少兩個學期</strong>才能計算班級行政綜合 proxy 之前後差分。
             </Alert>
           )}
         </Card.Body>
@@ -144,7 +144,7 @@ export default function TeacherImpactPage() {
         <>
           <Card className="mb-3">
             <Card.Header className="d-flex flex-wrap align-items-center gap-2 fw-semibold bg-primary-subtle">
-              <span>教學綜合指標（跨學期變化）</span>
+              <span>班級行政綜合變化（跨學期）</span>
               <Badge bg="secondary">Proxy</Badge>
             </Card.Header>
             <Card.Body>
@@ -154,7 +154,7 @@ export default function TeacherImpactPage() {
                     <Card.Body>
                       <div className="text-muted small">前一學期</div>
                       <div className="fs-5 fw-semibold text-primary">{impact.previousSemester ?? '—'}</div>
-                      <div className="text-muted small mt-2">前一學期平均教學綜合分（proxy）</div>
+                      <div className="text-muted small mt-2">前一學期平均行政綜合分（proxy）</div>
                       <div className="fs-4">{impact.previousAvgTeachingScore ?? '—'}</div>
                     </Card.Body>
                   </Card>
@@ -164,7 +164,7 @@ export default function TeacherImpactPage() {
                     <Card.Body>
                       <div className="text-muted small">目前學期</div>
                       <div className="fs-5 fw-semibold text-primary">{impact.currentSemester ?? '—'}</div>
-                      <div className="text-muted small mt-2">目前學期平均教學綜合分（proxy）</div>
+                      <div className="text-muted small mt-2">目前學期平均行政綜合分（proxy）</div>
                       <div className="fs-4">{impact.currentAvgTeachingScore ?? '—'}</div>
                     </Card.Body>
                   </Card>
@@ -187,7 +187,7 @@ export default function TeacherImpactPage() {
 
       {!loading && !error && !impact && !needTwoSemesters && (
         <Alert variant="secondary" className="mb-0">
-          後端未回傳教學綜合 proxy 差分（可能僅單一學期或資料不足）。請調整學期範圍後重試。
+          後端未回傳班級行政綜合 proxy 差分（可能僅單一學期或資料不足）。請調整學期範圍後重試。
         </Alert>
       )}
     </div>

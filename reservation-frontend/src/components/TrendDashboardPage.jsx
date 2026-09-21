@@ -122,8 +122,8 @@ export default function TrendDashboardPage() {
     const ti = data?.decisionKpis?.teacherImpact;
     if (!ti?.previousSemester || !ti?.currentSemester) return [];
     return [
-      { semester: ti.previousSemester, 教學綜合分: ti.previousAvgTeachingScore },
-      { semester: ti.currentSemester, 教學綜合分: ti.currentAvgTeachingScore },
+      { semester: ti.previousSemester, 行政綜合分: ti.previousAvgTeachingScore },
+      { semester: ti.currentSemester, 行政綜合分: ti.currentAvgTeachingScore },
     ];
   }, [data]);
 
@@ -141,7 +141,7 @@ export default function TrendDashboardPage() {
     <div className="container-fluid px-2 px-md-3">
       <Alert variant="info" className="small py-2 mb-3">
         趨勢指標基於 <strong>class_memberships</strong> 與 <code>kpiService</code> 聚合（班級行政管理口徑），與 LJ active roster 之 canonical
-        達標<strong>不同</strong>。下方「決策輔助指標」含教學綜合 proxy 變化，<strong>不代表</strong>教師因果影響。
+        達標<strong>不同</strong>。下方「決策輔助指標」含班級行政綜合 proxy 變化，<strong>不代表</strong>教師因果影響。
       </Alert>
       <Card className="mb-3 border-primary-subtle">
         <Card.Body>
@@ -307,7 +307,7 @@ export default function TrendDashboardPage() {
                   {teachingTwoPoint.length === 2 && (
                     <div className="col-12 col-lg-6">
                       <div className="text-muted small mb-1">
-                        教學綜合指標（proxy，僅末兩學期可比較）
+                        班級行政綜合變化（proxy，僅末兩學期可比較）
                       </div>
                       <div style={{ height: 260 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -316,14 +316,14 @@ export default function TrendDashboardPage() {
                             <XAxis dataKey="semester" tick={{ fontSize: 12 }} />
                             <YAxis domain={['auto', 'auto']} />
                             <RechartsTooltip
-                              formatter={(v) => [`${v}`, '教學綜合分（proxy）']}
+                              formatter={(v) => [`${v}`, '行政綜合分（proxy）']}
                               labelFormatter={(l) => `學期：${l}`}
                             />
                             <Legend />
                             <Line
                               type="monotone"
-                              dataKey="教學綜合分"
-                              name="教學綜合分（proxy）"
+                              dataKey="行政綜合分"
+                              name="行政綜合分（proxy）"
                               stroke="#6f42c1"
                               strokeWidth={2}
                               dot={{ r: 5 }}
@@ -333,7 +333,7 @@ export default function TrendDashboardPage() {
                         </ResponsiveContainer>
                       </div>
                       <Form.Text className="text-muted">
-                        此線僅連接 API 提供之末兩學期全校平均教學綜合分，非逐學期完整序列。
+                        此線僅連接 API 提供之末兩學期全校平均行政綜合分，非逐學期完整序列。
                       </Form.Text>
                     </div>
                   )}
@@ -405,14 +405,14 @@ export default function TrendDashboardPage() {
                       {trendDirectionBadge(data.decisionKpis.highRiskImprovementRate, { invert: true })}
                     </div>
                     <div className="d-flex flex-wrap align-items-center gap-2">
-                      <span>教學綜合指標變化（proxy，API 鍵 teacherImpact.growth）：</span>
+                      <span>班級行政綜合變化（proxy，API 鍵 teacherImpact.growth）：</span>
                       <strong>{data.decisionKpis.teacherImpact?.growth ?? '—'}</strong>
                       {teachingProxyBadge(data.decisionKpis.teacherImpact?.growth)}
                     </div>
                   </div>
                 )}
                 <p className="text-muted small mb-0 mt-3">
-                  教學綜合分由班級層級 KPI 加權合成，僅供趨勢參考；不得解讀為個別教師對學生成果之因果影響。
+                  行政綜合分由班級層級 KPI 加權合成，僅供趨勢參考；不得解讀為個別教師對學生成果之因果影響。
                 </p>
               </Card.Body>
             </Card>

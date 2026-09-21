@@ -6,6 +6,7 @@ import { validateB1SynonymQuestion } from './b1SynonymRules';
 import { validateA1DefinitionQuestion } from './a1DefinitionRules';
 import { validateB2CollocationQuestion } from './b2CollocationRules';
 import { validateC1NuanceQuestion } from './c1NuanceRules';
+import { attachVocabularyDepthItemMetadata } from './metadata';
 
 /**
  * @typedef {Object} VocabularyDepthOption
@@ -433,9 +434,16 @@ export const VOCABULARY_DEPTH_QUESTIONS = [
 ];
 
 const ALL_VOCABULARY_DEPTH_QUESTIONS = [
-  ...VOCABULARY_DEPTH_QUESTIONS,
-  ...VOCABULARY_DEPTH_QUESTIONS_EXTENDED,
-  ...VOCABULARY_DEPTH_QUESTIONS_GENERATED,
+  ...VOCABULARY_DEPTH_QUESTIONS.map((q) => attachVocabularyDepthItemMetadata(q, {
+    source: 'manual_seed',
+  })),
+  ...VOCABULARY_DEPTH_QUESTIONS_EXTENDED.map((q) => attachVocabularyDepthItemMetadata(q, {
+    source: 'manual_extended',
+  })),
+  ...VOCABULARY_DEPTH_QUESTIONS_GENERATED.map((q) => attachVocabularyDepthItemMetadata(q, {
+    source: 'generated',
+    reviewStatus: 'generated_reviewed',
+  })),
 ];
 
 function shuffleArray(items) {
@@ -476,6 +484,10 @@ export function getQuestionsForLevel(level, count = 6) {
  */
 export function countQuestionsByLevel(level) {
   return ALL_VOCABULARY_DEPTH_QUESTIONS.filter((q) => q.level === level).length;
+}
+
+export function getVocabularyDepthQuestionMetadata(questionId) {
+  return ALL_VOCABULARY_DEPTH_QUESTIONS.find((q) => q.id === questionId)?.metadata || null;
 }
 
 export function validateQuestionBank() {

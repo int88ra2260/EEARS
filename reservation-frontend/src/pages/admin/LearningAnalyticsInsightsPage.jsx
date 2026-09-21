@@ -3,7 +3,6 @@ import Alert from 'react-bootstrap/Alert';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
-import { Link } from 'react-router-dom';
 import CertificationTrendChart from '../../components/learningAnalytics/charts/CertificationTrendChart';
 import CohortGrowthBoxplot from '../../components/learningAnalytics/charts/CohortGrowthBoxplot';
 import ParticipationGrowthScatter from '../../components/learningAnalytics/charts/ParticipationGrowthScatter';
@@ -85,8 +84,7 @@ export default function LearningAnalyticsInsightsPage() {
       {!loading && data ? (
         <>
           <Alert variant="secondary" className="mt-3 small mb-0">
-            本頁圖表多為觀察趨勢。
-            「啟發式通過分層」屬實驗功能（固定先驗＋粗資源標記），不可作為輔導優先序或認證預測的正式依據。
+            本頁是研究附錄：用來檢查假設、資料分布與模型方向，不作為主管上呈或輔導點名依據。
             「各學期 B2+」為固定學期序列，不受系所等學生篩選。
           </Alert>
 
@@ -95,7 +93,7 @@ export default function LearningAnalyticsInsightsPage() {
               <div className="la-panel la-bento-card">
                 <LearningAnalyticsPanelHeader
                   title="參與時數與進步"
-                  lead="橫軸是考前累積時數，縱軸是校正後進步。點愈右上，參與多且進步也多。"
+                  lead="橫軸是考前累積時數，縱軸是校正後進步。此圖只看分布形狀，不用來宣稱參與造成進步。"
                 />
                 <ParticipationGrowthScatter points={data.participationVsGrowth} />
               </div>
@@ -116,7 +114,7 @@ export default function LearningAnalyticsInsightsPage() {
               <div className="la-panel la-bento-card">
                 <LearningAnalyticsPanelHeader
                   title="系所進步分布"
-                  lead="箱子愈高代表該系所學生進步幅度愈大。"
+                  lead="檢查不同系所的成長分布與離散程度；解讀前需確認樣本數與前後測覆蓋。"
                 />
                 <CohortGrowthBoxplot rows={data.cohortGrowthBoxplot} />
               </div>
@@ -137,10 +135,10 @@ export default function LearningAnalyticsInsightsPage() {
             <div className="la-panel mt-3">
               <LearningAnalyticsPanelHeader
                 title="啟發式通過分層（實驗）"
-                lead="依起始程度與資源參與粗估分層。僅供探索，非正式預測模型。"
+                lead="依起始程度與資源參與粗估分層，只保留總量觀察；不輸出學生排名或點名清單。"
               />
               <Alert variant="warning" className="small py-2">
-                請勿將下列人數解讀為「應優先投入／保證通過」的決策依據。
+                請勿將下列人數解讀為「應優先投入／保證通過」。正式行動請使用 B2 KPI 缺口名單、缺重測與無考試名單。
               </Alert>
               <Row className="g-3 la-bento-row">
                 <Col xs={6} md={3}>
@@ -173,40 +171,10 @@ export default function LearningAnalyticsInsightsPage() {
                   />
                 </Col>
               </Row>
-
-              {outlook?.topProspects?.length ? (
-                <LaFold label="展開實驗名單（前 10）" className="mt-3">
-                  <p className="small text-muted mb-2">
-                    名單依啟發式分數排序，僅供內部探索；不是輔導優先序清單。
-                  </p>
-                  <div className="table-responsive">
-                    <table className="table table-sm align-middle mb-0">
-                      <thead>
-                        <tr>
-                          <th>學號</th>
-                          <th>系所</th>
-                          <th className="text-end">啟發式分數</th>
-                          <th />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {outlook.topProspects.map((row) => (
-                          <tr key={row.studentId}>
-                            <td className="fw-semibold">{row.studentId}</td>
-                            <td>{row.department || '—'}</td>
-                            <td className="text-end">{`${(row.probability * 100).toFixed(0)}%`}</td>
-                            <td className="text-end">
-                              <Link to={`/admin/learning-analytics/students/${encodeURIComponent(row.studentId)}`}>
-                                學習軌跡
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </LaFold>
-              ) : null}
+              <LaFold label="為什麼不顯示學生排名？" className="mt-3">
+                啟發式分層混合了起始程度、重測紀錄與粗略資源參與，適合做模型 sanity check，
+                但不適合作為個別學生輔導順序。需要採取行動時，請回到 KPI 報表匯出未達標、缺重測、無考試名單。
+              </LaFold>
             </div>
           ) : null}
         </>

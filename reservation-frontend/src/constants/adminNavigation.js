@@ -34,7 +34,7 @@ function canAccessImportCenter(c) {
  * - canViewSurvey：問卷管理子項
  * - adminOnly：需 hasAdminRights（admin／executive）
  * - opsDashboard：營運總覽（非一般授課老師）
- * - teachingImpactTrends：教學綜合趨勢（admin／executive／活動負責人）
+ * - teachingImpactTrends：班級行政綜合變化（admin／executive／活動負責人）
  */
 export function isNavItemVisible(visibility, c) {
   // Phase 2：permission-based visibility（以 accessProfile.finalPermissions 為主）
@@ -558,12 +558,12 @@ export const ADMIN_NAV_SECTIONS = [
       },
       {
         id: 'learning-analytics-resources',
-        label: '資源效益',
+        label: '資源覆蓋',
         path: '/admin/learning-analytics/resources',
         matchPrefixes: ['/admin/learning-analytics/resources'],
         visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '資源參與效益',
-        breadcrumbLabel: '資源效益',
+        pageTitle: '資源參與覆蓋',
+        breadcrumbLabel: '資源覆蓋',
       },
       {
         id: 'learning-analytics-skills',
@@ -591,24 +591,6 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'perm:can_view_learning_analytics',
         pageTitle: '原始資料匯出',
         breadcrumbLabel: '資料匯出',
-      },
-      {
-        id: 'learning-analytics-insights',
-        label: '圖表探索',
-        path: '/admin/learning-analytics/insights',
-        matchPrefixes: ['/admin/learning-analytics/insights'],
-        visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '圖表探索（實驗）',
-        breadcrumbLabel: '圖表探索',
-      },
-      {
-        id: 'learning-analytics-model-runs',
-        label: '分析紀錄',
-        path: '/admin/learning-analytics/model-runs',
-        matchPrefixes: ['/admin/learning-analytics/model-runs'],
-        visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '分析紀錄',
-        breadcrumbLabel: '分析紀錄',
       },
       {
         id: 'learning-analytics-settings',
@@ -685,12 +667,12 @@ export const ADMIN_NAV_SECTIONS = [
       },
       {
         id: 'analytics-teacher-impact',
-        label: '教學綜合趨勢',
+        label: '班級行政綜合變化',
         path: '/admin/analytics/teacher-impact',
         matchPrefixes: ['/admin/analytics/teacher-impact'],
         visibility: 'teachingImpactTrends',
-        pageTitle: '教學綜合趨勢',
-        breadcrumbLabel: '教學綜合趨勢',
+        pageTitle: '班級行政綜合變化',
+        breadcrumbLabel: '班級行政綜合變化',
       },
     ],
   },

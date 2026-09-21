@@ -28,7 +28,7 @@ function buildAnalyticsOverviewHref(semesterId) {
 
 /**
  * 學習歷程儀表板上的成效摘要（精簡版）。
- * 完整群體分析、資源效益與 Model Run 請至「英語學習成效分析」模組。
+ * 完整群體分析、資源覆蓋與資料匯出請至「英語學習成效分析」模組。
  */
 export default function LearningJourneyAnalyticsPanel({ token, semesterId }) {
   const [loading, setLoading] = useState(false);
@@ -127,7 +127,7 @@ export default function LearningJourneyAnalyticsPanel({ token, semesterId }) {
           查看完整成效分析 →
         </Button>
         <Button as={Link} to={resourcesHref} variant="outline-secondary" size="sm">
-          資源效益與進階模型
+          資源覆蓋與資料匯出
         </Button>
         {semesterId ? (
           <span className="small text-muted">

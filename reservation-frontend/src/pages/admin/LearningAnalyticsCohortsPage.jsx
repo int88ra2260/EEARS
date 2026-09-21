@@ -68,6 +68,12 @@ function formatGrowth(value) {
 
 }
 
+function formatSample(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('zh-TW');
+}
+
 
 
 export default function LearningAnalyticsCohortsPage() {
@@ -229,9 +235,11 @@ export default function LearningAnalyticsCohortsPage() {
 
                     <th className="text-end">平均資源時數</th>
 
-                    <th className="text-end" title="後測減前測的平均進步">實際進步</th>
+                    <th className="text-end" title="可計算前後測成長的樣本數">前後測樣本</th>
 
-                    <th className="text-end" title="扣掉起始程度差異後的進步">校正後進步</th>
+                    <th className="text-end" title="後測減前測的平均進步；只作輔助觀察">實際進步</th>
+
+                    <th className="text-end" title="研究用輔助值，不作行政排序主依據">校正值</th>
 
                   </tr>
 
@@ -253,9 +261,11 @@ export default function LearningAnalyticsCohortsPage() {
 
                       <td className="text-end">{row.avgResourceHours}</td>
 
+                      <td className="text-end">{formatSample(row.growthEpisodeCount ?? row.sampleSize)}</td>
+
                       <td className="text-end">{formatGrowth(row.avgActualGseGrowth)}</td>
 
-                      <td className="text-end">{formatGrowth(row.avgAdjustedGseGrowth)}</td>
+                      <td className="text-end text-muted">{formatGrowth(row.avgAdjustedGseGrowth)}</td>
 
                     </tr>
 
@@ -275,11 +285,11 @@ export default function LearningAnalyticsCohortsPage() {
 
             <div className="la-panel mt-3">
 
-              <div className="la-panel-title">有參與 vs 較少參與</div>
+              <div className="la-panel-title">參與量對照（輔助觀察）</div>
 
               <p className="small text-muted">
 
-                比較考前時數 ≥10 小時與較少參與者的平均進步。用來對照，不是「參加造成進步」。
+                比較考前時數 ≥10 小時與較少參與者的前後測樣本。這裡只幫忙找值得追查的群體，不用來宣稱參與造成進步。
 
               </p>
 
@@ -299,7 +309,7 @@ export default function LearningAnalyticsCohortsPage() {
 
                       <th className="text-end">實際進步</th>
 
-                      <th className="text-end">校正後進步</th>
+                      <th className="text-end">校正值</th>
 
                     </tr>
 
@@ -319,7 +329,7 @@ export default function LearningAnalyticsCohortsPage() {
 
                         <td className="text-end">{formatGrowth(row.avgActualGseGrowth)}</td>
 
-                        <td className="text-end">{formatGrowth(row.avgAdjustedGseGrowth)}</td>
+                        <td className="text-end text-muted">{formatGrowth(row.avgAdjustedGseGrowth)}</td>
 
                       </tr>
 
@@ -341,7 +351,7 @@ export default function LearningAnalyticsCohortsPage() {
 
             <div className="la-panel mt-3">
 
-              <div className="la-panel-title">各技能進步</div>
+              <div className="la-panel-title">各技能前後測樣本</div>
 
               <div className="table-responsive">
 
@@ -357,7 +367,7 @@ export default function LearningAnalyticsCohortsPage() {
 
                       <th className="text-end">實際進步</th>
 
-                      <th className="text-end">校正後進步</th>
+                      <th className="text-end">校正值</th>
 
                     </tr>
 
@@ -375,7 +385,7 @@ export default function LearningAnalyticsCohortsPage() {
 
                         <td className="text-end">{formatGrowth(row.avgActualGseGrowth)}</td>
 
-                        <td className="text-end">{formatGrowth(row.avgAdjustedGseGrowth)}</td>
+                        <td className="text-end text-muted">{formatGrowth(row.avgAdjustedGseGrowth)}</td>
 
                       </tr>
 

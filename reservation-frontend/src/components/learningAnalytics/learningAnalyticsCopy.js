@@ -5,15 +5,15 @@ export const OBSERVATION_NOTE = '數字用來比較趨勢，不是「參加就�
 /**
  * UI 顯示用最小樣本人數（與後端 offerings MIN_GROWTH_SAMPLE=10 對齊）。
  * - 細項分析：低於此門檻遮蔽平均進步／進步率
- * - 資源效益進階估計：低於此門檻不顯示該列
+ * - 資源進階觀察估計：低於此門檻不顯示該列
  * 注意：後端 evidenceLevel「medium」常另需約 30 人，那是資料完整度標籤，不是顯示門檻。
  */
 export const LA_MIN_DISPLAY_SAMPLE = 10;
 
 export const ESTIMATE_METHODS = Object.freeze({
   descriptive: {
-    title: '實際進步（描述）',
-    lead: '有前後測的學生，工具原始分進步的平均。跨英檢不宜直接互比。',
+    title: '覆蓋與進步（描述）',
+    lead: '先看參與人數與可算前後測樣本；原始分進步只作內部參考，跨英檢不宜直接互比。',
   },
   matching: {
     title: '背景相近學生比較',

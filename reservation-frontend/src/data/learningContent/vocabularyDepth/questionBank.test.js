@@ -58,6 +58,21 @@ describe('vocabularyDepth questionBank', () => {
     expect(seen.size).toBeGreaterThan(6);
   });
 
+  test('getQuestionsForLevel attaches analytics metadata to sampled items', () => {
+    const [question] = getQuestionsForLevel('B1', 1);
+    expect(question.metadata).toMatchObject({
+      itemId: question.id,
+      gameId: 'vocabulary_depth',
+      cefrLevel: 'B1',
+      itemType: question.type,
+      skillDimension: expect.any(String),
+      componentProcess: expect.any(String),
+      source: expect.any(String),
+      reviewStatus: expect.any(String),
+    });
+    expect(Array.isArray(question.metadata.activityTags)).toBe(true);
+  });
+
   test('generated A2 questions do not leak answers in prompts', () => {
     const a2Generated = VOCABULARY_DEPTH_QUESTIONS_GENERATED.filter(
       (q) => q.level === 'A2' && q.type === 'context',

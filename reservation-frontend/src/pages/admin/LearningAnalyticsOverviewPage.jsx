@@ -9,11 +9,6 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -26,22 +21,11 @@ import LearningAnalyticsDataHealth from '../../components/learningAnalytics/Lear
 import LearningAnalyticsOverviewGuide from '../../components/learningAnalytics/LearningAnalyticsOverviewGuide';
 import LearningAnalyticsSemesterOpsPanel from '../../components/learningAnalytics/LearningAnalyticsSemesterOpsPanel';
 import MicroLearningEngagementPanel from '../../components/learningAnalytics/MicroLearningEngagementPanel';
-import LearningTraceInsightsPanel from '../../components/learningAnalytics/LearningTraceInsightsPanel';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
 import LaFold from '../../components/learningAnalytics/LaFold';
 import EvidenceQualityBadge from '../../components/learningAnalytics/EvidenceQualityBadge';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 import { LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
-
-const SKILL_LABELS = {
-  listening: '聽力',
-  reading: '閱讀',
-  speaking: '口說',
-  writing: '寫作',
-  interaction: '互動',
-  mediation: '調整',
-  overall: '整體',
-};
 
 const EVIDENCE_QUALITY_USER_LABELS = {
   high: '高（英檢與參與紀錄較完整）',
@@ -60,6 +44,13 @@ function formatNum(n) {
   const v = Number(n);
   if (!Number.isFinite(v)) return '—';
   return v.toLocaleString('zh-TW');
+}
+
+function formatCoverage(part, total) {
+  const p = Number(part);
+  const t = Number(total);
+  if (!Number.isFinite(p) || !Number.isFinite(t) || t <= 0) return '—';
+  return `${((p / t) * 100).toFixed(1)}%`;
 }
 
 export default function LearningAnalyticsOverviewPage() {
@@ -114,20 +105,24 @@ export default function LearningAnalyticsOverviewPage() {
     }));
   }, [data]);
 
-  const skillRadar = useMemo(() => (
-    (data?.skillGrowth || []).map((row) => ({
-      skill: SKILL_LABELS[row.skill] || row.skill,
-      adjusted: Number(row.adjustedGrowthAverage) || 0,
-      raw: Number(row.rawGrowthAverage) || 0,
-    }))
-  ), [data]);
-
   const resourceChart = useMemo(() => (
     (data?.resourceParticipation || []).slice(0, 8).map((row) => ({
       name: row.label,
       hours: row.hours,
     }))
   ), [data]);
+
+  const resourceObservability = useMemo(() => {
+    const byResource = new Map((data?.resourceRanking || []).map((row) => [row.resourceType, row]));
+    return (data?.resourceParticipation || []).slice(0, 6).map((row) => {
+      const ranking = byResource.get(row.resourceType) || {};
+      return {
+        ...row,
+        growthSampleSize: ranking.growthSampleSize,
+        evidenceLevel: ranking.evidenceLevel,
+      };
+    });
+  }, [data]);
 
   const filterHasNoMatch = data?.hasData === false && meta?.hasAnalyticData;
   const semesterId = appliedFilters.semester || '';
@@ -222,33 +217,33 @@ export default function LearningAnalyticsOverviewPage() {
             <Row className="g-3 mt-1">
               <Col md={3} sm={6}>
                 <MetricCard
-                  label="納入分析的學生"
+                  label="納入快照學生"
                   value={formatNum(headline.studentsInAnalysis)}
-                  tooltip="符合目前篩選條件、且已納入成效分析摘要的學生人數。"
+                  tooltip="符合目前篩選條件、且已納入分析快照的學生人數；這是觀察母體，不等於學期名冊分母。"
                 />
               </Col>
               <Col md={3} sm={6}>
                 <MetricCard
-                  label="可算成長的學生"
-                  value={formatNum(headline.studentsWithMultipleExams)}
-                  hint={`其中曾重測 ${formatNum(headline.studentsWithRetest)} 人`}
-                  tooltip="至少有兩次有效英檢紀錄，系統才能計算個人進步幅度（含 BESTEP 多梯次等）。"
+                  label="有效英檢覆蓋"
+                  value={formatCoverage(headline.studentsWithValidExam, headline.studentsInAnalysis)}
+                  hint={`${formatNum(headline.studentsWithValidExam)} 人有有效英檢`}
+                  tooltip="納入快照學生中，至少有一筆可用英檢資料的人數比例。覆蓋不足時，成長與達標解讀都要降權。"
                 />
               </Col>
               <Col md={3} sm={6}>
                 <MetricCard
-                  label="B2 以上達標率（快照累積）"
+                  label="前後測覆蓋"
+                  value={formatCoverage(headline.studentsWithMultipleExams, headline.studentsInAnalysis)}
+                  hint={`${formatNum(headline.studentsWithMultipleExams)} 人可算成長`}
+                  tooltip="至少有兩次有效英檢紀錄，才能計算個人進步。這比平均成長更適合作為總覽主指標。"
+                />
+              </Col>
+              <Col md={3} sm={6}>
+                <MetricCard
+                  label="B2+（快照背景）"
                   value={formatPct(headline.b2plusRate)}
-                  hint={`${formatNum(headline.b2plusCount)} 人`}
-                  tooltip="依分析快照中每位學生歷史最佳技能成績，CEFR 達 B2 或以上者所占比例。不是學期名冊 KPI。"
-                />
-              </Col>
-              <Col md={3} sm={6}>
-                <MetricCard
-                  label="平均能力成長（校正後）"
-                  value={headline.averageAdjustedGseGrowth ?? '—'}
-                  hint="愈高代表進步愈多"
-                  tooltip="扣掉起始程度差異後的平均進步。用來比較群體，不代表某一門課的直接效果。"
+                  hint={`${formatNum(headline.b2plusCount)} 人；非學期 KPI`}
+                  tooltip="依分析快照中每位學生歷史最佳技能成績，CEFR 達 B2 或以上者所占比例。正式上呈請看 A 區或 B2 KPI 報表。"
                 />
               </Col>
             </Row>
@@ -279,22 +274,38 @@ export default function LearningAnalyticsOverviewPage() {
               <Col lg={6}>
                 <div className="la-panel">
                   <LearningAnalyticsPanelHeader
-                    title="各技能平均成長"
-                    lead="愈外圈代表該技能平均進步愈多（已校正起始程度）。"
-                    tooltip="僅含有前後測的學生。用來看趨勢，不宜當成某一門課的直接成效。"
+                    title="成長資料可用性"
+                    lead="先看有多少資料能支撐成長解讀；平均成長請到技能成長頁查看分布與明細。"
                   />
-                  <div style={{ width: '100%', height: 280 }}>
-                    <ResponsiveContainer>
-                      <RadarChart data={skillRadar} outerRadius="70%">
-                        <PolarGrid />
-                        <PolarAngleAxis dataKey="skill" tick={{ fontSize: 11 }} />
-                        <PolarRadiusAxis tick={{ fontSize: 10 }} />
-                        <Radar name="校正後成長" dataKey="adjusted" stroke="#2c5282" fill="#2c5282" fillOpacity={0.35} />
-                        <Tooltip />
-                        <Legend />
-                      </RadarChart>
-                    </ResponsiveContainer>
+                  <div className="table-responsive">
+                    <table className="table table-sm align-middle mb-0">
+                      <tbody>
+                        <tr>
+                          <th>有 baseline</th>
+                          <td className="text-end">{formatNum(headline.studentsWithBaseline)}</td>
+                          <td className="text-end text-muted">{formatCoverage(headline.studentsWithBaseline, headline.studentsInAnalysis)}</td>
+                        </tr>
+                        <tr>
+                          <th>有有效英檢</th>
+                          <td className="text-end">{formatNum(headline.studentsWithValidExam)}</td>
+                          <td className="text-end text-muted">{formatCoverage(headline.studentsWithValidExam, headline.studentsInAnalysis)}</td>
+                        </tr>
+                        <tr>
+                          <th>僅 1 場英檢</th>
+                          <td className="text-end">{formatNum(headline.studentsWithSingleExam)}</td>
+                          <td className="text-end text-muted">需補重測</td>
+                        </tr>
+                        <tr>
+                          <th>可算前後測</th>
+                          <td className="text-end">{formatNum(headline.studentsWithMultipleExams)}</td>
+                          <td className="text-end text-muted">{formatCoverage(headline.studentsWithMultipleExams, headline.studentsInAnalysis)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
+                  <p className="small text-muted mt-2 mb-0">
+                    成長值只應在「可算前後測」樣本足夠時解讀；正式缺口請以 A 區缺重測／無考試為主。
+                  </p>
                 </div>
               </Col>
             </Row>
@@ -323,33 +334,33 @@ export default function LearningAnalyticsOverviewPage() {
               <Col lg={5}>
                 <div className="la-panel">
                   <LearningAnalyticsPanelHeader
-                    title="資源與進步"
-                    lead="有參與者的平均進步排名。數字高不代表該資源保證有效。"
+                    title="資源資料可觀察性"
+                    lead="先看哪些資源有足夠參與與前後測樣本；不要把此處解讀成成效排名。"
                   />
                   <div className="table-responsive">
                     <table className="table table-sm align-middle mb-0">
                       <thead>
                         <tr>
                           <th>資源類型</th>
-                          <th className="text-end">樣本人數</th>
-                          <th className="text-end">平均原始分進步</th>
+                          <th className="text-end">累積時數</th>
+                          <th className="text-end">可算成長</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {(data.resourceRanking || []).slice(0, 6).map((row) => (
+                        {resourceObservability.map((row) => (
                           <tr key={row.resourceType}>
                             <td>{row.label}</td>
+                            <td className="text-end">{row.hours ?? '—'}</td>
                             <td className="text-end">{row.growthSampleSize ?? '—'}</td>
-                            <td className="text-end">{row.rawGrowthAverage ?? '—'}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                   <p className="small text-muted mt-2 mb-0">
-                    「平均原始分進步」為各英檢工具分數差，非 GSE；跨工具不宜直接互比。想深入比較請至
+                    若要看課程、教師或活動層級，請先確認「可算成長」樣本是否足夠，再到
                     {' '}
-                    <Link to="/admin/learning-analytics/resources">資源效益</Link>
+                    <Link to="/admin/learning-analytics/offerings">課／師／活動</Link>
                     。
                   </p>
                 </div>
@@ -398,11 +409,9 @@ export default function LearningAnalyticsOverviewPage() {
             </Row>
 
             <MicroLearningEngagementPanel token={token} ready={ready} />
-            <LearningTraceInsightsPanel token={token} ready={ready} />
 
             <div className="d-flex flex-wrap gap-3 mt-3 pt-2 border-top small">
               <Link to="/admin/learning-analytics/cohorts">群體比較</Link>
-              <Link to="/admin/learning-analytics/insights">進階分析</Link>
               <Link to="/admin/learning-analytics/skills">技能成長</Link>
               <Link to="/admin/learning-analytics/raw-data">匯出資料</Link>
             </div>

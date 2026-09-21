@@ -243,7 +243,7 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
             )}
           </div>
 
-          <LaFold label="建議資源與通過機會（實驗，預設收合）" className="mb-3">
+          <LaFold label="學生待辦與資源安排（預設收合）" className="mb-3">
             {recommendations ? (
               <StudentRecommendationsPanel data={recommendations} />
             ) : (

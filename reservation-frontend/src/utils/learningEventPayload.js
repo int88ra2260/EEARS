@@ -95,6 +95,7 @@ export function buildVocabularyDepthCompletePayload(result, summary) {
       failLevel: summary.failLevel,
       passedLevels: summary.passedLevels ?? [],
       levelStats: summary.levelStats ?? [],
+      answerLog: summary.answerLog ?? [],
       confidence: result?.confidence ?? null,
       recommendedActivities: getActivityKeysForCefrLevel(result?.estimatedLevel || 'A1'),
       stats: result?.stats ?? null,

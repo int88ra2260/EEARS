@@ -41,9 +41,13 @@ module.exports = {
         { transaction }
       );
 
-      // 其餘老師預設為 regular（已在欄位定義中設定）
+      // 其餘老師預設為 regular（已在欄位定義中設定）。舊版空資料庫在此 migration
+      // 執行時尚未有 role 欄位，因此需保留向前相容。
+      const regularTeacherWhere = tableDefinition.role
+        ? "teacherLevel IS NULL AND role = 'teacher'"
+        : 'teacherLevel IS NULL';
       await queryInterface.sequelize.query(
-        "UPDATE teachers SET teacherLevel = 'regular' WHERE teacherLevel IS NULL AND role = 'teacher'",
+        `UPDATE teachers SET teacherLevel = 'regular' WHERE ${regularTeacherWhere}`,
         { transaction }
       );
 
@@ -63,4 +67,3 @@ module.exports = {
     }
   }
 };
-

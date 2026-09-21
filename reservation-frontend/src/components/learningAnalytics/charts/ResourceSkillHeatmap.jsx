@@ -18,7 +18,7 @@ function cellTone(value) {
 
 export default function ResourceSkillHeatmap({ rows = [], skills = ['listening', 'reading', 'speaking', 'writing'] }) {
   if (!rows.length) {
-    return <p className="small text-muted mb-0">尚無資源效益資料可繪製熱圖。</p>;
+    return <p className="small text-muted mb-0">尚無資源覆蓋資料可繪製熱圖。</p>;
   }
 
   return (

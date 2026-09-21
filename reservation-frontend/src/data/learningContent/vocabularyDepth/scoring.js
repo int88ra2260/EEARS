@@ -22,7 +22,7 @@ const LEVEL_RANK = Object.fromEntries(VOCABULARY_DEPTH_LEVELS.map((l, i) => [l, 
  * @property {string|null} failLevel
  * @property {string} endReason
  * @property {LevelStat[]} levelStats
- * @property {{ questionId: string, level: string, word: string, isCorrect: boolean }[]} answerLog
+ * @property {{ itemId?: string, questionId: string, level: string, word: string, isCorrect: boolean, responseMs?: number|null }[]} answerLog
  * @property {number} totalCorrect
  * @property {number} totalAnswered
  */

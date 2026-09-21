@@ -35,6 +35,22 @@ describe('learningEventPayload micro-learning', () => {
       failLevel: 'B2',
       endReason: 'level_failed',
       levelStats: [],
+      answerLog: [
+        {
+          itemId: 'vd_b1_01',
+          questionId: 'vd_b1_01',
+          level: 'B1',
+          cefrLevel: 'B1',
+          word: 'clarify',
+          itemType: 'synonym',
+          skillDimension: 'vocabulary_depth',
+          componentProcess: 'synonym_discrimination',
+          isCorrect: true,
+          selectedOptionId: 'a',
+          correctOptionId: 'a',
+          responseMs: 2400,
+        },
+      ],
       totalCorrect: 20,
       totalAnswered: 24,
     };
@@ -42,6 +58,8 @@ describe('learningEventPayload micro-learning', () => {
     expect(payload.gameId).toBe('vocabulary_depth');
     expect(payload.cefrLevel).toBe('B2');
     expect(payload.payload.recommendedActivities).toContain('job-talk');
+    expect(payload.payload.answerLog).toHaveLength(1);
+    expect(payload.payload.answerLog[0].itemId).toBe('vd_b1_01');
   });
 
   test('buildVocabularySizeCompletePayload', () => {

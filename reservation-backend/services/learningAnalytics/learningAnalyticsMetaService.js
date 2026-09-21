@@ -133,7 +133,7 @@ async function getLearningAnalyticsMeta() {
     warnings.push('尚無分析摘要資料，請至「學習歷程維運」執行「背景重建（全部）」。');
   }
   if ((eventTypeCounts.activity_event || 0) < 50) {
-    warnings.push('活動事件筆數偏少；請執行全域重建後再檢視資源效益。');
+    warnings.push('活動事件筆數偏少；請執行全域重建後再檢視資源覆蓋與可算成長樣本。');
   }
   if (snapshotVersionCount > 1) {
     warnings.push(

@@ -126,8 +126,6 @@ const LearningAnalyticsStudentJourneyPage = lazy(() => import('./pages/admin/Lea
 const LearningAnalyticsStudentDetailPage = lazy(() => import('./pages/admin/LearningAnalyticsStudentDetailPage'));
 const LearningAnalyticsRawDataPage = lazy(() => import('./pages/admin/LearningAnalyticsRawDataPage'));
 const LearningAnalyticsSettingsPage = lazy(() => import('./pages/admin/LearningAnalyticsSettingsPage'));
-const LearningAnalyticsInsightsPage = lazy(() => import('./pages/admin/LearningAnalyticsInsightsPage'));
-const LearningAnalyticsModelRunsPage = lazy(() => import('./pages/admin/LearningAnalyticsModelRunsPage'));
 const LearningAnalyticsKpiReportPage = lazy(() => import('./pages/admin/LearningAnalyticsKpiReportPage'));
 const ImportCenterPage = lazy(() => import('./pages/admin/ImportCenterPage'));
 const ImportRunHistoryPage = lazy(() => import('./pages/admin/ImportRunHistoryPage'));
@@ -608,8 +606,8 @@ function AppContent() {
                 <Route path="students" element={<LearningAnalyticsStudentJourneyPage />} />
                 <Route path="students/:studentId" element={<LearningAnalyticsStudentDetailPage />} />
                 <Route path="raw-data" element={<LearningAnalyticsRawDataPage />} />
-                <Route path="insights" element={<LearningAnalyticsInsightsPage />} />
-                <Route path="model-runs" element={<LearningAnalyticsModelRunsPage />} />
+                <Route path="insights" element={<Navigate to="overview" replace />} />
+                <Route path="model-runs" element={<Navigate to="resources" replace />} />
                 <Route path="settings" element={<LearningAnalyticsSettingsPage token={token} />} />
               </Route>
               <Route path="english-learning-passports" element={<EnglishLearningPassportsAdminPage />} />

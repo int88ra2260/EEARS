@@ -161,6 +161,8 @@ async function getLearningAnalyticsOverview(query = {}) {
   const headline = {
     studentsInAnalysis: totals.students || 0,
     studentsWithBaseline: totals.withBaseline || 0,
+    studentsWithValidExam: totals.studentsWithValidExam || 0,
+    studentsWithSingleExam: totals.singleExamStudents || 0,
     studentsWithMultipleExams: totals.multiExamStudents || 0,
     studentsWithRetest: totals.retestStudents || 0,
     b2plusCount: totals.b2plusCount || 0,
@@ -217,7 +219,7 @@ async function getLearningAnalyticsOverview(query = {}) {
     estimatePolicy: lva.estimatePolicy,
     disclaimers: [
       '本模組呈現的是觀察資料與修正後趨勢，不代表課程或活動的因果效果。',
-      '資源效益排名為描述性關聯；進階準因果估計請參考進階分析區塊。',
+      '資源頁先看參與覆蓋與可算成長樣本；進階觀察估計僅作研究附錄。',
       '所有指標皆可回溯至 lj_analytic_* 與 lj_student_events 原始投影資料。',
     ],
     hasData,

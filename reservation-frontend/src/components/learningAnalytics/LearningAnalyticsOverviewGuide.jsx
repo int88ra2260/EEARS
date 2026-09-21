@@ -25,9 +25,9 @@ export default function LearningAnalyticsOverviewGuide() {
           要比系所或入學年度，請到
           {' '}
           <Link to="/admin/learning-analytics/cohorts">群體分析</Link>
-          ；要比資源與進步的關聯，請到
+          ；要看資源覆蓋與可觀察樣本，請到
           {' '}
-          <Link to="/admin/learning-analytics/resources">資源效益</Link>
+          <Link to="/admin/learning-analytics/resources">資源覆蓋</Link>
           。
         </li>
         <li>若 B 區顯示尚無資料，請先到學習歷程維運執行背景重建。</li>

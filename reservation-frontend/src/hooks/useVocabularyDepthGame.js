@@ -26,6 +26,7 @@ function createInitialState() {
     questionIndex: 0,
     questions: [],
     currentQuestion: null,
+    questionStartedAt: null,
     levelCorrect: 0,
     levelStats: [],
     answerLog: [],
@@ -98,6 +99,7 @@ export default function useVocabularyDepthGame() {
       questionIndex: 0,
       levelCorrect: 0,
       currentQuestion: questions[0],
+      questionStartedAt: Date.now(),
     };
   }, [finishSession]);
 
@@ -160,6 +162,7 @@ export default function useVocabularyDepthGame() {
     if (prev.phase !== PHASE.PLAYING || !prev.currentQuestion) return;
 
     const question = prev.currentQuestion;
+    const answeredAt = Date.now();
     const isCorrect = optionId === question.correctOptionId;
     const levelCorrect = prev.levelCorrect + (isCorrect ? 1 : 0);
     const totalCorrect = prev.totalCorrect + (isCorrect ? 1 : 0);
@@ -167,11 +170,21 @@ export default function useVocabularyDepthGame() {
     const selected = question.options.find((o) => o.id === optionId);
 
     const answerEntry = {
+      itemId: question.metadata?.itemId || question.id,
       questionId: question.id,
       level: question.level,
+      cefrLevel: question.metadata?.cefrLevel || question.level,
       word: question.word,
+      itemType: question.metadata?.itemType || question.type,
+      skillDimension: question.metadata?.skillDimension || 'vocabulary',
+      componentProcess: question.metadata?.componentProcess || question.type,
+      activityTags: question.metadata?.activityTags || [],
+      source: question.metadata?.source || 'unknown',
+      reviewStatus: question.metadata?.reviewStatus || 'unknown',
       isCorrect,
       selectedOptionId: optionId,
+      correctOptionId: question.correctOptionId,
+      responseMs: prev.questionStartedAt ? Math.max(0, answeredAt - prev.questionStartedAt) : null,
     };
 
     setState({
@@ -202,6 +215,7 @@ export default function useVocabularyDepthGame() {
           phase: PHASE.PLAYING,
           questionIndex: nextIndex,
           currentQuestion: s.questions[nextIndex],
+          questionStartedAt: Date.now(),
           lastFeedback: null,
         }));
         return;

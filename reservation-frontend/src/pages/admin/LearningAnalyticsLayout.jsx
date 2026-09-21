@@ -49,38 +49,28 @@ const NAV_GROUPS = [
   },
   {
     id: 'resource',
-    title: '資源對照',
+    title: '資源營運',
     items: [
       {
         to: '/admin/learning-analytics/offerings',
         label: '課／師／活動',
-        hint: '哪門課／哪位師值得盯',
+        hint: '參與、樣本、細項資料品質',
       },
       {
         to: '/admin/learning-analytics/resources',
-        label: '資源效益',
-        hint: '類型參與對照（描述為主）',
+        label: '資源覆蓋',
+        hint: '類型參與與可觀察樣本',
       },
     ],
   },
   {
     id: 'ops',
-    title: '探索與維運',
+    title: '資料與設定',
     items: [
-      {
-        to: '/admin/learning-analytics/insights',
-        label: '圖表探索',
-        hint: '散佈／熱圖（實驗）',
-      },
       {
         to: '/admin/learning-analytics/raw-data',
         label: '資料匯出',
         hint: '原始資料預覽與下載',
-      },
-      {
-        to: '/admin/learning-analytics/model-runs',
-        label: '分析紀錄',
-        hint: '固化當次篩選結果',
       },
       {
         to: '/admin/learning-analytics/settings',
@@ -110,7 +100,7 @@ export default function LearningAnalyticsLayout() {
     <div className="learning-analytics-shell">
       <header className="la-page-header">
         <p className="la-page-subtitle mb-0">
-          上呈用 B2 KPI；其餘頁面用來觀察能力與資源關聯。數字用來比較趨勢，不是保證參加就進步。
+          上呈用 B2 KPI 與缺口名單；能力與資源頁先看覆蓋率、樣本數與分布。沒有明確下一步的研究型估計不放在日常後台流程。
         </p>
       </header>
       <nav className="la-subnav-grouped" aria-label="學習成效分析子頁">

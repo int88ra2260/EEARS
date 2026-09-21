@@ -12,7 +12,13 @@ export {
   getQuestionsForLevel,
   countQuestionsByLevel,
   validateQuestionBank,
+  getVocabularyDepthQuestionMetadata,
 } from './questionBank';
+
+export {
+  buildVocabularyDepthItemMetadata,
+  attachVocabularyDepthItemMetadata,
+} from './metadata';
 
 export {
   computeVocabularyDepthResult,

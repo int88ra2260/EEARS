@@ -243,7 +243,7 @@ function summarizeEngagementRows(gameId, rows, days, since) {
     else mistakeBuckets['5+'] += 1;
   });
 
-  return {
+  const summary = {
     gameId,
     windowDays: days,
     since: since.toISOString(),
@@ -272,6 +272,72 @@ function summarizeEngagementRows(gameId, rows, days, since) {
     })),
     researchNote: '微學習軌跡為匿名或自願學號關聯之觀察資料，不作因果宣稱。',
   };
+
+  if (gameId === 'vocabulary_depth') {
+    summary.itemStats = summarizeVocabularyDepthItemStats(rows);
+  }
+
+  return summary;
+}
+
+function summarizeVocabularyDepthItemStats(rows) {
+  const buckets = new Map();
+
+  rows.forEach((row) => {
+    const answerLog = Array.isArray(row.payload?.answerLog) ? row.payload.answerLog : [];
+    answerLog.forEach((entry) => {
+      const itemId = String(entry.itemId || entry.questionId || '').trim();
+      if (!itemId) return;
+      if (!buckets.has(itemId)) {
+        buckets.set(itemId, {
+          itemId,
+          questionId: entry.questionId || itemId,
+          level: entry.cefrLevel || entry.level || null,
+          word: entry.word || null,
+          itemType: entry.itemType || null,
+          skillDimension: entry.skillDimension || null,
+          componentProcess: entry.componentProcess || null,
+          source: entry.source || null,
+          reviewStatus: entry.reviewStatus || null,
+          activityTags: Array.isArray(entry.activityTags) ? entry.activityTags : [],
+          exposureCount: 0,
+          correctCount: 0,
+          responseMsTotal: 0,
+          responseMsCount: 0,
+        });
+      }
+      const bucket = buckets.get(itemId);
+      bucket.exposureCount += 1;
+      if (entry.isCorrect === true) bucket.correctCount += 1;
+      const responseMs = Number(entry.responseMs);
+      if (Number.isFinite(responseMs) && responseMs >= 0) {
+        bucket.responseMsTotal += responseMs;
+        bucket.responseMsCount += 1;
+      }
+    });
+  });
+
+  return [...buckets.values()]
+    .map((bucket) => ({
+      itemId: bucket.itemId,
+      questionId: bucket.questionId,
+      level: bucket.level,
+      word: bucket.word,
+      itemType: bucket.itemType,
+      skillDimension: bucket.skillDimension,
+      componentProcess: bucket.componentProcess,
+      source: bucket.source,
+      reviewStatus: bucket.reviewStatus,
+      activityTags: bucket.activityTags,
+      exposureCount: bucket.exposureCount,
+      correctCount: bucket.correctCount,
+      correctRate: pct(bucket.correctCount, bucket.exposureCount),
+      avgResponseMs: bucket.responseMsCount
+        ? Math.round(bucket.responseMsTotal / bucket.responseMsCount)
+        : null,
+    }))
+    .sort((a, b) => b.exposureCount - a.exposureCount || a.itemId.localeCompare(b.itemId))
+    .slice(0, 100);
 }
 
 function mergeDailySeries(seriesList) {
@@ -403,4 +469,5 @@ module.exports = {
   getMicroLearningEngagementSummary,
   getRecommendationFunnelSummary,
   validateTraceInput,
+  summarizeVocabularyDepthItemStats,
 };

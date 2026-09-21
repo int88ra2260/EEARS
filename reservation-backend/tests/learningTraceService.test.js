@@ -5,6 +5,7 @@ const {
   recordLearningTrace,
   getMicroLearningEngagementSummary,
   getRecommendationFunnelSummary,
+  summarizeVocabularyDepthItemStats,
 } = require('../services/learningTraceService');
 const { generateRegulatoryFocusFeedback } = require('../services/learningTrace/learningFeedbackService');
 const { getStudentGamificationProfile, BADGE_DEFS } = require('../services/learningTrace/learningGamificationService');
@@ -205,6 +206,62 @@ describe('learningTraceService', () => {
       expect(summary.perGame).toHaveLength(4);
       expect(summary.totals.completedSessions).toBe(1);
     });
+
+    it('summarizes vocabulary_depth item-level response stats', async () => {
+      LearningTraceEvent.findAll.mockResolvedValue([
+        {
+          traceId: 'vd_a',
+          clientSessionId: 'ls_1',
+          studentId: null,
+          occurredAt: new Date('2026-08-27T10:00:00Z'),
+          durationMs: 60000,
+          cefrLevel: 'B1',
+          payload: {
+            endReason: 'level_failed',
+            answerLog: [
+              {
+                itemId: 'vd_b1_01',
+                questionId: 'vd_b1_01',
+                level: 'B1',
+                cefrLevel: 'B1',
+                word: 'clarify',
+                itemType: 'synonym',
+                skillDimension: 'vocabulary_depth',
+                componentProcess: 'synonym_discrimination',
+                activityTags: ['english_table'],
+                source: 'manual_seed',
+                reviewStatus: 'reviewed',
+                isCorrect: true,
+                responseMs: 2000,
+              },
+              {
+                itemId: 'vd_b1_01',
+                questionId: 'vd_b1_01',
+                level: 'B1',
+                isCorrect: false,
+                responseMs: 4000,
+              },
+            ],
+          },
+        },
+      ]);
+
+      const summary = await getMicroLearningEngagementSummary({ days: 30, gameId: 'vocabulary_depth' });
+      expect(summary.itemStats).toHaveLength(1);
+      expect(summary.itemStats[0]).toMatchObject({
+        itemId: 'vd_b1_01',
+        exposureCount: 2,
+        correctCount: 1,
+        correctRate: 0.5,
+        avgResponseMs: 3000,
+      });
+    });
+  });
+});
+
+describe('summarizeVocabularyDepthItemStats', () => {
+  it('returns an empty array when answerLog is missing', () => {
+    expect(summarizeVocabularyDepthItemStats([{ payload: {} }])).toEqual([]);
   });
 });
 
