@@ -522,6 +522,148 @@
   color: #787774;
 }
 
+.la-skill-growth-summary {
+  background: var(--la-surface);
+}
+
+.la-skill-growth-summary__headline {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--la-ink);
+  line-height: 1.4;
+}
+
+.la-skill-growth-summary__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.la-skill-growth-summary__facts span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--la-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--la-muted);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.la-skill-growth-card {
+  border-left: 4px solid #cbd5e1;
+}
+
+.la-skill-growth-card--positive {
+  border-left-color: #346538;
+}
+
+.la-skill-growth-card--watch {
+  border-left-color: #956400;
+}
+
+.la-skill-growth-card--risk {
+  border-left-color: #b45309;
+}
+
+.la-skill-growth-card--muted {
+  background: #fbfaf8;
+}
+
+.la-skill-growth-card__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--la-ink);
+}
+
+.la-skill-growth-card__meta {
+  margin-top: 0.1rem;
+  color: var(--la-muted);
+  font-size: 0.78rem;
+}
+
+.la-skill-growth-card__status {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  background: #f7f6f3;
+  color: var(--la-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.la-skill-growth-card--positive .la-skill-growth-card__status {
+  background: #edf3ec;
+  color: #346538;
+}
+
+.la-skill-growth-card--watch .la-skill-growth-card__status {
+  background: #fbf3db;
+  color: #956400;
+}
+
+.la-skill-growth-card--risk .la-skill-growth-card__status {
+  background: #fff4e6;
+  color: #9a3412;
+}
+
+.la-skill-growth-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0.9rem 0 0.65rem;
+}
+
+.la-skill-growth-card__metrics div {
+  border: 1px solid var(--la-border);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+}
+
+.la-skill-growth-card__metrics span {
+  display: block;
+  color: var(--la-muted);
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.la-skill-growth-card__metrics strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--la-ink);
+  font-size: 1.2rem;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.la-skill-growth-card__adjusted {
+  color: var(--la-accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.45rem;
+}
+
+.la-skill-growth-card__summary {
+  color: var(--la-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.la-skill-growth-guide {
+  padding-left: 1.15rem;
+  color: var(--la-muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.la-skill-growth-guide li + li {
+  margin-top: 0.35rem;
+}
+
 @keyframes la-fade-up {
   from {
     opacity: 0;
