@@ -141,6 +141,9 @@
   - `ACCESS_PROFILE_JSON_FALLBACK_ENABLED`
 - JSON mirror write 預設關閉：
   - `ACCESS_PROFILE_JSON_MIRROR_WRITE=false`
+- table vs JSON 一致性改為**語意比對**（忽略 key 順序）：
+  - `npm run access:check-consistency`
+  - 等價殘留可清：`npm run access:clear-stale-json`（dry-run）／`npm run access:clear-stale-json:apply`
 - 角色權限 seed：
   - `npm run access:seed-role-permissions`
 - 切換與回滾說明：

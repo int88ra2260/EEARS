@@ -1,0 +1,68 @@
+# Production deploy on the Windows self-hosted runner after CI succeeds on main.
+# Does NOT run on pull_request (avoids fork PR abuse of self-hosted runners).
+name: Deploy production (self-hosted)
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Pull and deploy on production PC
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, Windows, eears-prod]
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Sync D:\EEARS to origin/main and deploy
+        env:
+          EEARS_ROOT: "D:\\EEARS"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = $env:EEARS_ROOT
+          if (-not (Test-Path -LiteralPath $root)) {
+            throw "EEARS root not found: $root"
+          }
+          Set-Location -LiteralPath $root
+
+          Write-Host "=== git status (before) ==="
+          git status --short --branch
+          if ($LASTEXITCODE -ne 0) { throw "git status failed" }
+
+          $envPath = Join-Path $root 'reservation-backend\.env'
+          if (-not (Test-Path -LiteralPath $envPath)) {
+            throw "Missing reservation-backend\.env — abort (never invent secrets in CI)"
+          }
+
+          Write-Host "=== git fetch / checkout / reset ==="
+          git fetch origin
+          if ($LASTEXITCODE -ne 0) { throw "git fetch failed" }
+          git checkout main
+          if ($LASTEXITCODE -ne 0) { throw "git checkout main failed" }
+          git reset --hard origin/main
+          if ($LASTEXITCODE -ne 0) { throw "git reset --hard failed" }
+
+          if (-not (Test-Path -LiteralPath $envPath)) {
+            throw "reservation-backend\.env missing after reset — abort"
+          }
+
+          Write-Host "=== HEAD ==="
+          git rev-parse HEAD
+          git log -1 --oneline
+
+          Write-Host "=== deploy.ps1 ==="
+          $deploy = Join-Path $root 'scripts\ops\deploy.ps1'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $deploy
+          if ($LASTEXITCODE -ne 0) { throw "deploy.ps1 failed with exit $LASTEXITCODE" }
+
+      - name: Dump PM2 status on failure
+        if: failure()
+        run: |
+          Write-Host "=== pm2 status ==="
+          try { pm2 status } catch { Write-Host $_ }
+          Write-Host "=== pm2 logs (last 80) ==="
+          try { pm2 logs eears-backend --lines 80 --nostream } catch { Write-Host $_ }

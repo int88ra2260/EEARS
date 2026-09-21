@@ -107,10 +107,11 @@ function buildBasePermissionSet(user) {
   if (role === 'worker') {
     const worker = (user && user.workerLevel) || 'event_ops';
     if (worker === 'event_ops') {
-      // 活動工讀：僅可檢視活動列表與預約名單（不可新增／簽到／匯出／違規／改密）
+      // 活動工讀：活動列表、預約名單、簽到（不可新增／匯出／違規／改密）
       addAll(perms, [
         P.CAN_VIEW_EVENTS_ADMIN,
         P.CAN_VIEW_RESERVATIONS,
+        P.CAN_CHECKIN_STUDENTS,
       ]);
     } else if (worker === 'bestep_ops') {
       addAll(perms, [

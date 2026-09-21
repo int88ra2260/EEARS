@@ -234,7 +234,8 @@ async function buildAccessDebugApiPayload(userId) {
     diagnostics.push({
       level: 'warning',
       code: 'PERMISSION_OVERRIDE_SOURCE_MISMATCH',
-      message: 'Table 與 JSON 權限覆寫內容不一致（consistency.hasMismatch）。',
+      message:
+        'Table 與 JSON 權限覆寫語意不一致（consistency.hasMismatch）。table 為 SoT；請以 table 為準或執行 access:check-consistency。',
     });
   }
   if (fallback.required) {

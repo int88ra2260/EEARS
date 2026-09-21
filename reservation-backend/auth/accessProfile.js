@@ -620,7 +620,9 @@ async function resolveEffectiveAccessSources(user) {
     jsonScopes: Array.isArray(user.scopes) ? user.scopes : null,
     mode,
   });
+  // 僅語意不一致才 WARN（忽略 JSON key 順序假陽性）；table_first 下實際仍以 table 為準
   if (effective?.consistency?.hasMismatch) {
+    const c = effective.consistency;
     console.log(JSON.stringify({
       type: 'access_profile_source_mismatch',
       userId: user.id,
@@ -628,13 +630,11 @@ async function resolveEffectiveAccessSources(user) {
       teacherLevel: user.teacherLevel || null,
       source: effective.source,
       mode,
-      permissionOverrideDiffKeys: {
-        table: Object.keys(effective.consistency.permissionOverrideDiff.table || {}),
-        fallback: Object.keys(effective.consistency.permissionOverrideDiff.fallback || {}),
-      },
-      scopeDiff: effective.consistency.scopeDiff || null,
+      permissionOverrideKeyDiff: c.permissionOverrideKeyDiff || null,
+      scopeKeyDiff: c.scopeKeyDiff || null,
+      note: 'table is source of truth; JSON is legacy fallback only',
     }));
-    logger.warn('access profile table/json mismatch detected');
+    logger.warn('access profile table/json semantic mismatch detected');
   }
   return {
     ...user,

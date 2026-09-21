@@ -1,6 +1,7 @@
 const { RolePermission, UserPermissionOverride, UserScope } = require('../../models');
 const { P } = require('../../auth/permissions');
 const { ALL_SCOPES } = require('../../auth/scopes');
+const { buildSourceConsistency } = require('./sourceConsistency');
 const ALL_PERMISSION_VALUES = Object.values(P);
 
 function toOverrideObject(rows) {
@@ -131,20 +132,14 @@ async function buildEffectiveAccessFromSources({
   const hasTableBase = tableBasePermissions.length > 0;
   const hasAnyTableData = hasTableBase || hasTablePermission || hasTableScope;
 
+  // 語意比對（忽略 key／陣列順序）；僅在仍啟用 JSON fallback 時偵測「真漂移」
   const tableConsistency = jsonFallbackEnabled
-    ? {
-        hasMismatch:
-          JSON.stringify(tablePermissionOverrides) !== JSON.stringify(fallbackPermissions || {}) ||
-          JSON.stringify(tableScopeOverrides) !== JSON.stringify(fallbackScopes || []),
-        permissionOverrideDiff: {
-          table: tablePermissionOverrides,
-          fallback: fallbackPermissions || {},
-        },
-        scopeDiff: {
-          table: tableScopeOverrides,
-          fallback: fallbackScopes || [],
-        },
-      }
+    ? buildSourceConsistency({
+        tablePermissionOverrides,
+        fallbackPermissionOverrides: fallbackPermissions || {},
+        tableScopeOverrides,
+        fallbackScopeOverrides: fallbackScopes || [],
+      })
     : null;
 
   if (mode === 'table_first') {

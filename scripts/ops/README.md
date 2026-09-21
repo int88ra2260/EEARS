@@ -26,6 +26,29 @@ pm2-startup install
 pm2 save
 ```
 
+4. （建議）安裝 GitHub self-hosted runner，讓 `main` CI 通過後自動部署：見 [SELF_HOSTED_RUNNER.md](./SELF_HOSTED_RUNNER.md)
+
+## GitHub 自動部署
+
+| 項目 | 說明 |
+|------|------|
+| 觸發 | `.github/workflows/deploy-prod.yml`：`main` 上 **CI** 成功完成後 |
+| 行為 | 於 `D:\EEARS`：`git fetch` → `reset --hard origin/main` → `deploy.ps1` |
+| Runner | label `eears-prod`（僅這台生產機） |
+| 不自動做 | migration、改寫 `.env`、對 PR／fork 部署 |
+
+手機 Cursor：合併 PR 到 `main` → 等 Actions 綠燈即可；無需遠端登入本機。
+
+Runner 離線或失敗時的手動 fallback：
+
+```bat
+cd /d D:\EEARS
+git fetch origin
+git checkout main
+git reset --hard origin/main
+scripts\ops\deploy.bat
+```
+
 ## 日常指令
 
 | 情境 | 指令 |
@@ -75,6 +98,8 @@ IIS reverse proxy (public/web.config)
 | `deploy.ps1` / `deploy.bat` | 正式部署 |
 | `restart-backend.ps1` / `.bat` | 只重啟後端 |
 | `setup-pm2.ps1` / `.bat` | 一次性程序註冊 |
+| `SELF_HOSTED_RUNNER.md` | 生產機 GitHub runner 一次性設定 |
 | `../reservation-backend/ecosystem.config.cjs` | PM2 程序定義 |
+| `../../.github/workflows/deploy-prod.yml` | CI 成功後自動拉碼部署 |
 
 完整 runbook 見 `reservation-backend/docs/DEPLOYMENT_CHECKLIST.md`。

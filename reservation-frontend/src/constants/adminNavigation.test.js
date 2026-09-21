@@ -56,7 +56,7 @@ describe('filterVisibleNav worker by workerLevel', () => {
     expect(canAccessAdminRoute(workerProfile, '/admin/account/reset')).toBe(false);
     expect(canAccessAdminRoute(workerProfile, '/admin/announcements')).toBe(false);
     expect(workerProfile.permissionSet.has('can_manage_events')).toBe(false);
-    expect(workerProfile.permissionSet.has('can_checkin_students')).toBe(false);
+    expect(workerProfile.permissionSet.has('can_checkin_students')).toBe(true);
     expect(workerProfile.permissionSet.has('can_view_reservations')).toBe(true);
 
     const workerCtx = buildNavContextFromAccessProfile(workerProfile);

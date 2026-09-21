@@ -33,6 +33,8 @@
     "health-check": "node scripts/health-check.mjs",
     "access:backfill": "node scripts/backfill-access-control-tables.js",
     "access:check-consistency": "node scripts/check-access-control-consistency.js",
+    "access:clear-stale-json": "node scripts/clear-stale-access-json.js",
+    "access:clear-stale-json:apply": "node scripts/clear-stale-access-json.js --apply",
     "access:seed-role-permissions": "node scripts/seed-role-permissions.js",
     "access:debug": "node scripts/debug-access.js",
     "access:audit-role-permissions": "node scripts/audit-role-permissions.js",

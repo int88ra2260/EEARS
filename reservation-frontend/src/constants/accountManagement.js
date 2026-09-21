@@ -42,10 +42,11 @@ export const WORKER_LEVEL_OPTIONS = [
 
 export const WORKER_LEVEL_SUMMARY = {
   event_ops: {
-    description: '僅可檢視所屬活動類型的活動列表與預約名單（不可簽到、匯出入、違規或變更密碼）。',
+    description: '可檢視所屬活動類型的活動列表、預約名單與簽到（不可匯出入、違規或變更密碼）。',
     permissions: [
       '活動列表（唯讀）',
-      '預約名單（唯讀）',
+      '預約名單',
+      '簽到管理',
     ],
   },
   bestep_ops: {

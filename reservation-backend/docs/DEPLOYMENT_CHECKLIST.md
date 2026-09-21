@@ -32,7 +32,24 @@ pm2-startup install
 pm2 save
 ```
 
+### GitHub self-hosted runner（建議，自動部署）
+
+見 [`scripts/ops/SELF_HOSTED_RUNNER.md`](../../scripts/ops/SELF_HOSTED_RUNNER.md)。
+
+- Workflow：`.github/workflows/deploy-prod.yml`
+- 條件：`main` 上 **CI** 成功 → 於 `D:\EEARS` 拉碼 → `scripts/ops/deploy.ps1`
+- **不會**自動跑 migration；schema 變更仍須本節下方人工 migrate
+- Runner 須與 PM2 使用**同一 Windows 使用者**，並帶 label `eears-prod`
+
 ## 日常上線
+
+### A0. 自動部署（已裝 runner）
+
+1. 開發機開 PR → CI 綠燈 → 合併到 `main`
+2. GitHub Actions：`CI` 成功後觸發 `Deploy production (self-hosted)`
+3. 手機／本機只需在 Actions 確認 deploy 成功
+
+失敗或 runner 離線 → 改用下方 **A** 手動部署。
 
 ### A. 完整部署（程式碼已更新到本機目錄後）
 
@@ -42,6 +59,16 @@ scripts\ops\deploy.bat
 ```
 
 流程：`frontend npm ci` → `npm run build` → `robocopy` 同步到 `reservation-backend/build` → `pm2 restart` → 就緒探測 → `npm run post-deploy-check`。
+
+若需先對齊遠端 `main`：
+
+```bat
+cd /d D:\EEARS
+git fetch origin
+git checkout main
+git reset --hard origin/main
+scripts\ops\deploy.bat
+```
 
 ### B. 只更新前端
 
@@ -113,14 +140,18 @@ npm run post-deploy-check
 | API 就緒逾時 | `pm2 logs eears-backend`；確認 `.env`、DB、port 3000 |
 | 前端空白 | 確認 `reservation-backend/build/index.html` 存在；IIS proxy |
 | `npm ci` 失敗 | 確認 `package-lock.json` 與 Node 20 |
+| Deploy job 一直 Queued | Runner Offline；或缺少 label `eears-prod`（見 `SELF_HOSTED_RUNNER.md`） |
+| Deploy 找不到 `eears-backend` | Runner 服務帳號與 PM2 使用者不一致 |
 
 ## 相關檔案
 
 | 路徑 | 說明 |
 |------|------|
 | `scripts/ops/README.md` | 指令速查 |
+| `scripts/ops/SELF_HOSTED_RUNNER.md` | Self-hosted runner 設定 |
 | `scripts/ops/deploy.ps1` | 正式部署 |
 | `scripts/ops/restart-backend.ps1` | 重啟 |
 | `scripts/ops/setup-pm2.ps1` | PM2 註冊 |
+| `.github/workflows/deploy-prod.yml` | CI 後自動部署 |
 | `reservation-backend/ecosystem.config.cjs` | PM2 定義 |
 | `reservation-backend/scripts/post_deploy_check.mjs` | 部署後檢查 |

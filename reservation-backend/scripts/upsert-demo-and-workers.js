@@ -22,12 +22,11 @@ const {
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
-/** 活動工讀：關閉寫入／簽到／違規／ET 分組（與 accessProfile event_ops 範本對齊） */
+/** 活動工讀：關閉寫入／匯出／違規／ET 分組（保留簽到；與 accessProfile event_ops 範本對齊） */
 const EVENT_OPS_DENY = {
   [P.CAN_MANAGE_EVENTS]: false,
   [P.CAN_MANAGE_RESERVATIONS]: false,
   [P.CAN_EXPORT_RESERVATIONS]: false,
-  [P.CAN_CHECKIN_STUDENTS]: false,
   [P.CAN_VIEW_BLACKLIST]: false,
   [P.CAN_RECORD_VIOLATIONS]: false,
   [P.CAN_MANAGE_VIOLATIONS]: false,
@@ -154,10 +153,14 @@ async function upsertOne(spec, transaction) {
   const hashed = await bcrypt.hash(spec.password, 12);
   const existing = await findByUsername(spec.username, transaction);
   const isActive = spec.isActive !== false;
-  const scopeOverrides = Array.isArray(spec.scopes) ? spec.scopes : null;
-  const permissionOverrides = spec.permissions && typeof spec.permissions === 'object'
-    ? spec.permissions
-    : null;
+  const hasScopeSpec = Object.prototype.hasOwnProperty.call(spec, 'scopes');
+  const hasPermissionSpec = Object.prototype.hasOwnProperty.call(spec, 'permissions');
+  const scopeOverrides = hasScopeSpec
+    ? (Array.isArray(spec.scopes) ? spec.scopes : null)
+    : undefined;
+  const permissionOverrides = hasPermissionSpec
+    ? (spec.permissions && typeof spec.permissions === 'object' ? spec.permissions : null)
+    : undefined;
 
   const payload = {
     name: spec.name,
@@ -172,9 +175,10 @@ async function upsertOne(spec, transaction) {
     isActive,
     mustResetPassword: false,
     disabledReason: isActive ? null : (spec.disabledReason || null),
-    scopes: scopeOverrides,
-    permissions: permissionOverrides,
   };
+  // 雙寫 JSON 鏡像（與 user_permission_overrides / user_scopes 一致，避免 table/json mismatch WARN）
+  if (hasScopeSpec) payload.scopes = scopeOverrides;
+  if (hasPermissionSpec) payload.permissions = permissionOverrides;
 
   if (!existing) {
     if (DRY_RUN) {
@@ -184,19 +188,23 @@ async function upsertOne(spec, transaction) {
         role: spec.role,
         workerLevel: spec.workerLevel,
         isActive,
-        scopes: scopeOverrides,
+        scopes: hasScopeSpec ? scopeOverrides : null,
         isDemo: spec.isDemo,
       };
     }
     const created = await Teacher.create(payload, { transaction });
-    await syncUserScopes(created.id, scopeOverrides, null, {
-      transaction,
-      source: 'ops_upsert_demo_workers',
-    });
-    await syncPermissionOverrides(created.id, permissionOverrides, null, {
-      transaction,
-      source: 'ops_upsert_demo_workers',
-    });
+    if (hasScopeSpec) {
+      await syncUserScopes(created.id, scopeOverrides, null, {
+        transaction,
+        source: 'ops_upsert_demo_workers',
+      });
+    }
+    if (hasPermissionSpec) {
+      await syncPermissionOverrides(created.id, permissionOverrides, null, {
+        transaction,
+        source: 'ops_upsert_demo_workers',
+      });
+    }
     return {
       action: 'created',
       id: created.id,
@@ -204,7 +212,7 @@ async function upsertOne(spec, transaction) {
       role: created.role,
       workerLevel: created.workerLevel,
       isActive: created.isActive,
-      scopes: scopeOverrides,
+      scopes: hasScopeSpec ? scopeOverrides : null,
       isDemo: created.isDemo,
     };
   }
@@ -217,20 +225,31 @@ async function upsertOne(spec, transaction) {
       role: spec.role,
       workerLevel: spec.workerLevel,
       isActive,
-      scopes: scopeOverrides,
+      scopes: hasScopeSpec ? scopeOverrides : null,
       isDemo: spec.isDemo,
     };
   }
 
   await existing.update(payload, { transaction });
-  await syncUserScopes(existing.id, scopeOverrides, null, {
-    transaction,
-    source: 'ops_upsert_demo_workers',
-  });
-  await syncPermissionOverrides(existing.id, permissionOverrides, null, {
-    transaction,
-    source: 'ops_upsert_demo_workers',
-  });
+  // Sequelize JSON 變更有時偵測不到；強制再寫一次鏡像欄位
+  if (hasScopeSpec || hasPermissionSpec) {
+    const mirror = {};
+    if (hasScopeSpec) mirror.scopes = scopeOverrides;
+    if (hasPermissionSpec) mirror.permissions = permissionOverrides;
+    await existing.update(mirror, { transaction });
+  }
+  if (hasScopeSpec) {
+    await syncUserScopes(existing.id, scopeOverrides, null, {
+      transaction,
+      source: 'ops_upsert_demo_workers',
+    });
+  }
+  if (hasPermissionSpec) {
+    await syncPermissionOverrides(existing.id, permissionOverrides, null, {
+      transaction,
+      source: 'ops_upsert_demo_workers',
+    });
+  }
   await bumpAccessVersion(existing.id, 'ops_upsert_demo_workers', { transaction });
   await existing.reload({ transaction });
   return {
@@ -240,9 +259,11 @@ async function upsertOne(spec, transaction) {
     role: existing.role,
     workerLevel: existing.workerLevel,
     isActive: existing.isActive,
-    scopes: scopeOverrides,
+    scopes: hasScopeSpec ? scopeOverrides : null,
     isDemo: existing.isDemo,
     accessVersion: existing.accessVersion,
+    jsonPermissions: existing.permissions,
+    jsonScopes: existing.scopes,
   };
 }
 

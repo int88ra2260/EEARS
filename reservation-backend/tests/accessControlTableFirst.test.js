@@ -124,5 +124,50 @@ describe('access control table-first', () => {
     expect(result.basePermissions).toContain('can_manage_announcements');
     expect(result.source).toBe('table_first');
   });
+
+  it('table/JSON 覆寫鍵集合相同但順序不同時不標 hasMismatch', async () => {
+    mockRoleFindAll.mockResolvedValue([{ permission: 'can_view_events_admin' }]);
+    mockOverrideFindAll.mockResolvedValue([
+      { permission: 'can_export_et_grouping', value: 'allow' },
+      { permission: 'can_manage_events', value: 'allow' },
+      { permission: 'can_view_blacklist', value: 'allow' },
+    ]);
+    mockScopeFindAll.mockResolvedValue([{ scopeType: 'event', scopeValue: 'english_table' }]);
+    const result = await buildEffectiveAccessFromSources({
+      userId: 29,
+      role: 'worker',
+      teacherLevel: 'regular',
+      workerLevel: 'event_ops',
+      mode: 'table_first',
+      jsonPermissions: {
+        can_manage_events: true,
+        can_view_blacklist: true,
+        can_export_et_grouping: true,
+      },
+      jsonScopes: ['english_table'],
+    });
+    expect(result.source).toBe('table_first');
+    expect(result.consistency).toBeTruthy();
+    expect(result.consistency.hasMismatch).toBe(false);
+  });
+
+  it('table/JSON 語意不同時標 hasMismatch 並帶 keyDiff', async () => {
+    mockRoleFindAll.mockResolvedValue([]);
+    mockOverrideFindAll.mockResolvedValue([
+      { permission: 'can_manage_events', value: 'allow' },
+    ]);
+    mockScopeFindAll.mockResolvedValue([]);
+    const result = await buildEffectiveAccessFromSources({
+      userId: 30,
+      role: 'worker',
+      mode: 'table_first',
+      jsonPermissions: { can_manage_accounts: true },
+      jsonScopes: ['class'],
+    });
+    expect(result.consistency.hasMismatch).toBe(true);
+    expect(result.consistency.permissionOverrideKeyDiff.onlyInTable).toContain('can_manage_events');
+    expect(result.consistency.permissionOverrideKeyDiff.onlyInFallback).toContain('can_manage_accounts');
+    expect(result.consistency.scopeKeyDiff.onlyInFallback).toContain('class');
+  });
 });
 
