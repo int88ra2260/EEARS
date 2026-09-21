@@ -16,6 +16,7 @@ import {
 import { getMicroLearningEngagement } from '../../services/learningTraceApi';
 import MetricCard from './MetricCard';
 import LearningAnalyticsPanelHeader from './LearningAnalyticsPanelHeader';
+import VocabularyDepthItemAnalyticsPanel from './VocabularyDepthItemAnalyticsPanel';
 
 const GAME_TABS = [
   { id: 'all', label: '總覽' },
@@ -35,16 +36,6 @@ function formatDuration(ms) {
   const sec = totalSec % 60;
   if (min <= 0) return `${sec} 秒`;
   return `${min} 分 ${sec} 秒`;
-}
-
-function formatPercent(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
-  return `${Math.round(n * 100)}%`;
-}
-
-function formatItemMeta(row) {
-  return [row.level, row.itemType, row.componentProcess].filter(Boolean).join(' · ') || '未標記';
 }
 
 export default function MicroLearningEngagementPanel({ token, ready = true }) {
@@ -202,56 +193,7 @@ export default function MicroLearningEngagementPanel({ token, ready = true }) {
           </Row>
 
           {activeGameId === 'vocabulary_depth' ? (
-            <div className="la-chart-card mt-3">
-              <div className="d-flex justify-content-between align-items-start gap-3 mb-3">
-                <div>
-                  <h3 className="h6 mb-1">題目基礎分析</h3>
-                  <p className="small text-muted mb-0">
-                    依 Vocabulary Depth 作答紀錄彙整，用於題庫維護與未來適性選題；非正式難度校準。
-                  </p>
-                </div>
-                <span className="badge text-bg-light border">
-                  {(data.itemStats || []).length} 題
-                </span>
-              </div>
-
-              {(data.itemStats || []).length ? (
-                <div className="table-responsive">
-                  <table className="table table-sm align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th scope="col">題目</th>
-                        <th scope="col">標記</th>
-                        <th scope="col" className="text-end">曝光</th>
-                        <th scope="col" className="text-end">答對率</th>
-                        <th scope="col" className="text-end">平均反應</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.itemStats.slice(0, 12).map((row) => (
-                        <tr key={row.itemId}>
-                          <td>
-                            <div className="fw-semibold">{row.word || row.itemId}</div>
-                            <div className="text-muted small">{row.itemId}</div>
-                          </td>
-                          <td>
-                            <div>{formatItemMeta(row)}</div>
-                            <div className="text-muted small">{row.source || 'unknown'}</div>
-                          </td>
-                          <td className="text-end">{row.exposureCount ?? 0}</td>
-                          <td className="text-end">{formatPercent(row.correctRate)}</td>
-                          <td className="text-end">{formatDuration(row.avgResponseMs)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="small text-muted mb-0">
-                  尚未累積可彙整的題目層級作答紀錄。新版 trace 上線後，完成場次會逐步出現在這裡。
-                </p>
-              )}
-            </div>
+            <VocabularyDepthItemAnalyticsPanel itemStats={data.itemStats || []} />
           ) : null}
 
           {data.researchNote ? (

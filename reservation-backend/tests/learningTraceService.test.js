@@ -6,6 +6,7 @@ const {
   getMicroLearningEngagementSummary,
   getRecommendationFunnelSummary,
   summarizeVocabularyDepthItemStats,
+  assessVocabularyDepthItemHealth,
 } = require('../services/learningTraceService');
 const { generateRegulatoryFocusFeedback } = require('../services/learningTrace/learningFeedbackService');
 const { getStudentGamificationProfile, BADGE_DEFS } = require('../services/learningTrace/learningGamificationService');
@@ -254,6 +255,10 @@ describe('learningTraceService', () => {
         correctCount: 1,
         correctRate: 0.5,
         avgResponseMs: 3000,
+        health: {
+          status: 'insufficient_data',
+          label: '資料不足',
+        },
       });
     });
   });
@@ -262,6 +267,92 @@ describe('learningTraceService', () => {
 describe('summarizeVocabularyDepthItemStats', () => {
   it('returns an empty array when answerLog is missing', () => {
     expect(summarizeVocabularyDepthItemStats([{ payload: {} }])).toEqual([]);
+  });
+
+  it('computes ability group rates and discrimination hints', () => {
+    const makeAnswers = (count, isCorrect) => Array.from({ length: count }, () => ({
+      itemId: 'vd_b1_02',
+      questionId: 'vd_b1_02',
+      level: 'B1',
+      word: 'participate',
+      itemType: 'synonym',
+      skillDimension: 'vocabulary_depth',
+      componentProcess: 'synonym_discrimination',
+      activityTags: [],
+      source: 'manual_seed',
+      reviewStatus: 'reviewed',
+      isCorrect,
+      responseMs: 3000,
+    }));
+
+    const stats = summarizeVocabularyDepthItemStats([
+      { cefrLevel: 'A1', payload: { answerLog: makeAnswers(3, false) } },
+      { cefrLevel: 'B2', payload: { answerLog: makeAnswers(3, true) } },
+    ]);
+
+    expect(stats[0].abilityGroupStats).toEqual([
+      { level: 'A1', exposureCount: 3, correctCount: 0, correctRate: 0 },
+      { level: 'B2', exposureCount: 3, correctCount: 3, correctRate: 1 },
+    ]);
+    expect(stats[0].discrimination).toMatchObject({
+      status: 'observable',
+      spread: 1,
+    });
+    expect(stats[0].metadataSuggestion).toMatchObject({
+      status: 'needs_human_review',
+      source: 'llm_pending',
+      needsHumanReview: true,
+    });
+  });
+});
+
+describe('assessVocabularyDepthItemHealth', () => {
+  it('marks low-exposure items as insufficient data', () => {
+    expect(assessVocabularyDepthItemHealth({
+      exposureCount: 3,
+      correctRate: 1,
+      avgResponseMs: 1000,
+    })).toMatchObject({
+      status: 'insufficient_data',
+      severity: 'muted',
+    });
+  });
+
+  it('marks stable items as observable', () => {
+    expect(assessVocabularyDepthItemHealth({
+      exposureCount: 12,
+      correctRate: 0.65,
+      avgResponseMs: 4000,
+    })).toMatchObject({
+      status: 'observable',
+      severity: 'ok',
+    });
+  });
+
+  it('flags items that may need review', () => {
+    const health = assessVocabularyDepthItemHealth({
+      exposureCount: 14,
+      correctRate: 0.2,
+      avgResponseMs: 15000,
+    });
+    expect(health.status).toBe('review_suggested');
+    expect(health.reasons).toEqual(
+      expect.arrayContaining([
+        '答對率偏低，可能太難或題目需檢查',
+        '平均反應時間偏長',
+      ]),
+    );
+  });
+
+  it('flags low discrimination when group spread is small', () => {
+    const health = assessVocabularyDepthItemHealth({
+      exposureCount: 14,
+      correctRate: 0.6,
+      avgResponseMs: 3000,
+      discrimination: { status: 'low_discrimination' },
+    });
+    expect(health.status).toBe('review_suggested');
+    expect(health.reasons).toContain('高低估計程度答對率差異偏小，疑似鑑別度不足');
   });
 });
 

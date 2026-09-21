@@ -20,6 +20,15 @@ const ALLOWED_EVENT_TYPES = new Set([
 const CEFR_LEVELS = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
 const TRACE_ID_RE = /^[a-zA-Z0-9_-]{8,64}$/;
 const CLIENT_SESSION_RE = /^[a-zA-Z0-9_-]{4,64}$/;
+const VOCAB_DEPTH_ITEM_HEALTH = Object.freeze({
+  minExposure: 10,
+  minGroupExposure: 3,
+  tooEasyCorrectRate: 0.9,
+  tooHardCorrectRate: 0.3,
+  lowDiscriminationSpread: 0.15,
+  slowAvgResponseMs: 12000,
+});
+const CEFR_RANK = Object.freeze({ A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 });
 
 function normalizeStudentId(value) {
   if (value == null || value === '') return null;
@@ -285,6 +294,7 @@ function summarizeVocabularyDepthItemStats(rows) {
 
   rows.forEach((row) => {
     const answerLog = Array.isArray(row.payload?.answerLog) ? row.payload.answerLog : [];
+    const sessionLevel = normalizeCefrLevel(row.cefrLevel || row.payload?.estimatedLevel);
     answerLog.forEach((entry) => {
       const itemId = String(entry.itemId || entry.questionId || '').trim();
       if (!itemId) return;
@@ -304,6 +314,7 @@ function summarizeVocabularyDepthItemStats(rows) {
           correctCount: 0,
           responseMsTotal: 0,
           responseMsCount: 0,
+          abilityGroups: new Map(),
         });
       }
       const bucket = buckets.get(itemId);
@@ -314,30 +325,168 @@ function summarizeVocabularyDepthItemStats(rows) {
         bucket.responseMsTotal += responseMs;
         bucket.responseMsCount += 1;
       }
+      if (sessionLevel) {
+        if (!bucket.abilityGroups.has(sessionLevel)) {
+          bucket.abilityGroups.set(sessionLevel, {
+            level: sessionLevel,
+            exposureCount: 0,
+            correctCount: 0,
+          });
+        }
+        const group = bucket.abilityGroups.get(sessionLevel);
+        group.exposureCount += 1;
+        if (entry.isCorrect === true) group.correctCount += 1;
+      }
     });
   });
 
   return [...buckets.values()]
-    .map((bucket) => ({
-      itemId: bucket.itemId,
-      questionId: bucket.questionId,
-      level: bucket.level,
-      word: bucket.word,
-      itemType: bucket.itemType,
-      skillDimension: bucket.skillDimension,
-      componentProcess: bucket.componentProcess,
-      source: bucket.source,
-      reviewStatus: bucket.reviewStatus,
-      activityTags: bucket.activityTags,
-      exposureCount: bucket.exposureCount,
-      correctCount: bucket.correctCount,
-      correctRate: pct(bucket.correctCount, bucket.exposureCount),
-      avgResponseMs: bucket.responseMsCount
-        ? Math.round(bucket.responseMsTotal / bucket.responseMsCount)
-        : null,
-    }))
+    .map(buildVocabularyDepthItemStatsRow)
     .sort((a, b) => b.exposureCount - a.exposureCount || a.itemId.localeCompare(b.itemId))
     .slice(0, 100);
+}
+
+function normalizeCefrLevel(value) {
+  const level = String(value || '').trim().toUpperCase();
+  return CEFR_RANK[level] ? level : null;
+}
+
+function buildVocabularyDepthItemStatsRow(bucket) {
+  const abilityGroupStats = [...bucket.abilityGroups.values()]
+    .map((group) => ({
+      level: group.level,
+      exposureCount: group.exposureCount,
+      correctCount: group.correctCount,
+      correctRate: pct(group.correctCount, group.exposureCount),
+    }))
+    .sort((a, b) => (CEFR_RANK[a.level] || 99) - (CEFR_RANK[b.level] || 99));
+
+  const row = {
+    itemId: bucket.itemId,
+    questionId: bucket.questionId,
+    level: bucket.level,
+    word: bucket.word,
+    itemType: bucket.itemType,
+    skillDimension: bucket.skillDimension,
+    componentProcess: bucket.componentProcess,
+    source: bucket.source,
+    reviewStatus: bucket.reviewStatus,
+    activityTags: bucket.activityTags,
+    exposureCount: bucket.exposureCount,
+    correctCount: bucket.correctCount,
+    correctRate: pct(bucket.correctCount, bucket.exposureCount),
+    avgResponseMs: bucket.responseMsCount
+      ? Math.round(bucket.responseMsTotal / bucket.responseMsCount)
+      : null,
+    abilityGroupStats,
+  };
+
+  const discrimination = assessVocabularyDepthDiscrimination(row);
+  return {
+    ...row,
+    discrimination,
+    metadataSuggestion: buildVocabularyDepthMetadataSuggestion(row, discrimination),
+    health: assessVocabularyDepthItemHealth({ ...row, discrimination }),
+  };
+}
+
+function assessVocabularyDepthDiscrimination(row) {
+  const usableGroups = (row.abilityGroupStats || [])
+    .filter((group) => group.exposureCount >= VOCAB_DEPTH_ITEM_HEALTH.minGroupExposure)
+    .sort((a, b) => (CEFR_RANK[a.level] || 99) - (CEFR_RANK[b.level] || 99));
+
+  if (usableGroups.length < 2) {
+    return {
+      status: 'insufficient_group_data',
+      label: '分組不足',
+      spread: null,
+      lowGroup: null,
+      highGroup: null,
+      minGroupExposure: VOCAB_DEPTH_ITEM_HEALTH.minGroupExposure,
+    };
+  }
+
+  const lowGroup = usableGroups[0];
+  const highGroup = usableGroups[usableGroups.length - 1];
+  const spread = Number((highGroup.correctRate - lowGroup.correctRate).toFixed(4));
+
+  return {
+    status: spread < VOCAB_DEPTH_ITEM_HEALTH.lowDiscriminationSpread
+      ? 'low_discrimination'
+      : 'observable',
+    label: spread < VOCAB_DEPTH_ITEM_HEALTH.lowDiscriminationSpread ? '鑑別度偏低' : '可觀察',
+    spread,
+    lowGroup,
+    highGroup,
+    minGroupExposure: VOCAB_DEPTH_ITEM_HEALTH.minGroupExposure,
+  };
+}
+
+function buildVocabularyDepthMetadataSuggestion(row, discrimination) {
+  const suggestions = [];
+  if (!row.skillDimension) suggestions.push({ field: 'skillDimension', reason: '缺少技能維度標記' });
+  if (!row.componentProcess) suggestions.push({ field: 'componentProcess', reason: '缺少測量歷程標記' });
+  if (!row.activityTags?.length) suggestions.push({ field: 'activityTags', reason: '尚未對齊活動推薦標籤' });
+  if (discrimination?.status === 'low_discrimination') {
+    suggestions.push({ field: 'reviewStatus', reason: '分組答對率差異偏小，建議人工審題' });
+  }
+
+  return {
+    status: suggestions.length ? 'needs_human_review' : 'not_needed',
+    source: 'llm_pending',
+    label: suggestions.length ? '待 AI 建議 / 人工確認' : '暫無建議',
+    needsHumanReview: suggestions.length > 0,
+    suggestions,
+    note: 'LLM item assistant 尚未串接；此欄位先保留人工確認工作流與未來 AI 建議入口。',
+  };
+}
+
+function assessVocabularyDepthItemHealth(row) {
+  const exposureCount = Number(row.exposureCount || 0);
+  const correctRate = Number(row.correctRate);
+  const avgResponseMs = Number(row.avgResponseMs);
+  const reasons = [];
+
+  if (exposureCount < VOCAB_DEPTH_ITEM_HEALTH.minExposure) {
+    return {
+      status: 'insufficient_data',
+      label: '資料不足',
+      severity: 'muted',
+      reasons: [`曝光未滿 ${VOCAB_DEPTH_ITEM_HEALTH.minExposure} 次`],
+      thresholds: VOCAB_DEPTH_ITEM_HEALTH,
+    };
+  }
+
+  if (Number.isFinite(correctRate) && correctRate >= VOCAB_DEPTH_ITEM_HEALTH.tooEasyCorrectRate) {
+    reasons.push('答對率偏高，可能太簡單');
+  }
+  if (Number.isFinite(correctRate) && correctRate <= VOCAB_DEPTH_ITEM_HEALTH.tooHardCorrectRate) {
+    reasons.push('答對率偏低，可能太難或題目需檢查');
+  }
+  if (Number.isFinite(avgResponseMs) && avgResponseMs >= VOCAB_DEPTH_ITEM_HEALTH.slowAvgResponseMs) {
+    reasons.push('平均反應時間偏長');
+  }
+  if (row.discrimination?.status === 'low_discrimination') {
+    reasons.push('高低估計程度答對率差異偏小，疑似鑑別度不足');
+  }
+
+  if (!reasons.length) {
+    return {
+      status: 'observable',
+      label: '可觀察',
+      severity: 'ok',
+      reasons: ['樣本量達標，暫無明顯異常'],
+      thresholds: VOCAB_DEPTH_ITEM_HEALTH,
+    };
+  }
+
+  return {
+    status: 'review_suggested',
+    label: '建議檢查',
+    severity: 'warning',
+    reasons,
+    thresholds: VOCAB_DEPTH_ITEM_HEALTH,
+  };
 }
 
 function mergeDailySeries(seriesList) {
@@ -470,4 +619,5 @@ module.exports = {
   getRecommendationFunnelSummary,
   validateTraceInput,
   summarizeVocabularyDepthItemStats,
+  assessVocabularyDepthItemHealth,
 };
