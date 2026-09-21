@@ -78,6 +78,16 @@ function pct(value) {
 
 }
 
+function numberOrNull(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function absFinite(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.abs(n) : 0;
+}
+
 
 
 export default function LearningAnalyticsSkillsPage() {
@@ -160,9 +170,9 @@ export default function LearningAnalyticsSkillsPage() {
       .filter((r) => SKILL_LABELS[r.skill])
       .map((r) => ({
         skill: r.label || SKILL_LABELS[r.skill],
-        actual: Number(r.actualGseGrowthAverage) || 0,
-        adjusted: Number(adjMap.get(r.skill) ?? r.adjustedGseGrowthAverage) || 0,
-        rawInstrument: Number(r.rawGrowthAverage) || null,
+        actual: numberOrNull(r.actualGseGrowthAverage),
+        adjusted: numberOrNull(adjMap.get(r.skill) ?? r.adjustedGseGrowthAverage),
+        rawInstrument: numberOrNull(r.rawGrowthAverage),
         sampleSize: r.sampleSize,
         growthRatio: r.growthStudentRatio,
       }));
@@ -171,12 +181,12 @@ export default function LearningAnalyticsSkillsPage() {
   const radarData = useMemo(() => {
     return (growth?.radar || []).map((row) => ({
       skill: row.label || SKILL_LABELS[row.skill] || row.skill,
-      actual: Number(row.actualGseGrowthAverage) || 0,
-      adjusted: Number(row.adjustedGseGrowthAverage) || 0,
+      actual: numberOrNull(row.actualGseGrowthAverage),
+      adjusted: numberOrNull(row.adjustedGseGrowthAverage),
       fullMark: Math.max(
         50,
-        ...chartData.map((r) => Math.abs(r.actual)),
-        ...chartData.map((r) => Math.abs(r.adjusted))
+        ...chartData.map((r) => absFinite(r.actual)),
+        ...chartData.map((r) => absFinite(r.adjusted))
       ),
     }));
   }, [growth, chartData]);
@@ -274,7 +284,9 @@ export default function LearningAnalyticsSkillsPage() {
 
                 <div className="la-panel-title">各技能前後測觀察</div>
 
-                <p className="small text-muted mb-2">主看樣本數與實際進步方向；校正值只作輔助，不作行政排序依據。</p>
+                <p className="small text-muted mb-2">
+                  主看樣本數與實際進步方向；「高於/低於預期」是扣除模型預期成長後的輔助值，接近 0 代表大致符合預期，不代表沒有進步。缺少可估資料時不畫成 0。
+                </p>
 
                 <div style={{ width: '100%', height: 320 }}>
 
@@ -294,7 +306,7 @@ export default function LearningAnalyticsSkillsPage() {
 
                       <Bar dataKey="actual" name="GSE 實際進步" fill="#94a3b8" radius={[4, 4, 0, 0]} />
 
-                      <Bar dataKey="adjusted" name="GSE 校正值（輔助）" fill="#2c5282" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="adjusted" name="高於/低於預期成長（輔助）" fill="#2c5282" radius={[4, 4, 0, 0]} />
 
                     </BarChart>
 
@@ -351,7 +363,7 @@ export default function LearningAnalyticsSkillsPage() {
 
                         <Radar name="GSE 實際" dataKey="actual" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.25} />
 
-                        <Radar name="GSE 校正值" dataKey="adjusted" stroke="#2c5282" fill="#2c5282" fillOpacity={0.2} />
+                        <Radar name="高於/低於預期" dataKey="adjusted" stroke="#2c5282" fill="#2c5282" fillOpacity={0.2} />
 
                         <Legend />
 
