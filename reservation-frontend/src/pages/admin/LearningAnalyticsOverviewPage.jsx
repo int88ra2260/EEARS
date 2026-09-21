@@ -25,7 +25,7 @@ import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/Lea
 import LaFold from '../../components/learningAnalytics/LaFold';
 import EvidenceQualityBadge from '../../components/learningAnalytics/EvidenceQualityBadge';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
-import { LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import { LA_FILTER_INTRO_COHORT, OVERVIEW_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
 const EVIDENCE_QUALITY_USER_LABELS = {
   high: '高（英檢與參與紀錄較完整）',
@@ -66,7 +66,7 @@ export default function LearningAnalyticsOverviewPage() {
     apiParams,
     token,
     semesterFromUrl,
-  } = useLearningAnalyticsBootstrap();
+  } = useLearningAnalyticsBootstrap({ scopeKeys: OVERVIEW_FILTER_KEYS });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -153,12 +153,14 @@ export default function LearningAnalyticsOverviewPage() {
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
         snapshotOptions={meta?.snapshots}
+        visibleKeys={OVERVIEW_FILTER_KEYS}
+        groupSnapshots
         filterTitle="篩選條件"
         submitLabel="套用篩選"
         showAdvanced={false}
         intro={LA_FILTER_INTRO_COHORT}
       />
-      <LearningAnalyticsActiveFilters filters={appliedFilters} />
+      <LearningAnalyticsActiveFilters filters={appliedFilters} visibleKeys={OVERVIEW_FILTER_KEYS} />
 
       {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
 

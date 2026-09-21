@@ -152,7 +152,7 @@ export const PERMISSION_FIELD_META = {
   [P.CAN_VIEW_ANALYTICS]: { label: '分析檢視', description: '營運分析檢視。', systemOnly: false },
   [P.CAN_VIEW_LEARNING_ANALYTICS]: { label: '學習成效分析（檢視）', description: '英語學習成效與增值評估儀表板。', systemOnly: false },
   [P.CAN_EXPORT_LEARNING_ANALYTICS]: { label: '學習成效分析（匯出）', description: '匯出學習成效分析資料。', systemOnly: false },
-  [P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS]: { label: '學習成效分析設定', description: '管理技能向量與分析設定。', systemOnly: true },
+  [P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS]: { label: '分析設定', description: '管理學習成效分析的下拉選項、技能向量、估計參數與資料版本。', systemOnly: true },
   [P.CAN_RUN_LEARNING_ANALYTICS_MODEL]: { label: '學習成效模型執行', description: '執行學習成效進階估計並寫入模型紀錄。', systemOnly: true },
   [P.CAN_VIEW_BLACKLIST]: { label: '黑名單檢視', description: '黑名單檢視。', systemOnly: false },
   [P.CAN_MANAGE_BLACKLIST]: { label: '黑名單管理', description: '黑名單維護。', systemOnly: false },

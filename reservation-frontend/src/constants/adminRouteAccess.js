@@ -451,7 +451,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/learning-analytics/settings',
-    label: '學習成效分析設定',
+    label: '分析設定與資料版本',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS],
   },

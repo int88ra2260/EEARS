@@ -12,7 +12,7 @@ import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
-import { LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import { COHORT_COMPARISON_FILTER_KEYS, LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
 
 
@@ -100,7 +100,7 @@ export default function LearningAnalyticsCohortsPage() {
 
     token,
 
-  } = useLearningAnalyticsBootstrap();
+  } = useLearningAnalyticsBootstrap({ scopeKeys: COHORT_COMPARISON_FILTER_KEYS });
 
   const [groupBy, setGroupBy] = useState('department');
 
@@ -175,11 +175,14 @@ export default function LearningAnalyticsCohortsPage() {
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
         snapshotOptions={meta?.snapshots}
+        visibleKeys={COHORT_COMPARISON_FILTER_KEYS}
+        showAdvanced={false}
+        groupSnapshots
         intro={LA_FILTER_INTRO_COHORT}
 
       />
 
-      <LearningAnalyticsActiveFilters filters={appliedFilters} />
+      <LearningAnalyticsActiveFilters filters={appliedFilters} visibleKeys={COHORT_COMPARISON_FILTER_KEYS} />
 
       <Form.Group className="mt-3" style={{ maxWidth: 280 }}>
 

@@ -74,8 +74,8 @@ const NAV_GROUPS = [
       },
       {
         to: '/admin/learning-analytics/settings',
-        label: '模組設定',
-        hint: '參數／資源技能檔',
+        label: '分析設定',
+        hint: '下拉選項／資源技能／資料版本',
         manageOnly: true,
       },
     ],

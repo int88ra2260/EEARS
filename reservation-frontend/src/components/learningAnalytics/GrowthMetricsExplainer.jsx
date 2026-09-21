@@ -19,7 +19,7 @@ export default function GrowthMetricsExplainer({ className = '' }) {
       <p className="mb-0">
         兩者都是觀察結果。進階參數在
         {' '}
-        <Link to="/admin/learning-analytics/settings">模組設定</Link>
+        <Link to="/admin/learning-analytics/settings">分析設定</Link>
         。
       </p>
     </LaFold>

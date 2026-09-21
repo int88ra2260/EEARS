@@ -206,7 +206,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   'learning-analytics-raw': ['raw data', '原始資料', '明細資料'],
   'learning-analytics-insights': ['insights', '進階', '決策支援'],
   'learning-analytics-model-runs': ['模型', 'model run', '分析批次'],
-  'learning-analytics-settings': ['LVA', '公式', '模組設定'],
+  'learning-analytics-settings': ['LVA', '公式', '模組設定', '分析設定', '資料版本'],
 
   analytics: ['報表', '分析', 'KPI'],
   'analytics-students': ['學號搜尋', '舊查詢', '學生查詢'],

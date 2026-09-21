@@ -142,7 +142,7 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
       <Alert variant="warning" className="mt-3">
 
-        您沒有「學習成效分析設定」權限。如需調整模組設定，請聯絡系統管理員。
+        您沒有「分析設定」權限。如需調整下拉選項、資源技能權重或資料版本，請聯絡系統管理員。
 
       </Alert>
 
@@ -158,7 +158,7 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
       <p className="small text-muted">
 
-        調整下拉選項、估計參數與資源技能權重。重建資料請到
+        日常只需維護下拉選項與資源技能權重；估計參數與資料版本清理屬於進階維運。重建資料請到
 
         {' '}
 
@@ -202,7 +202,7 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
           <LearningAnalyticsSettingsSection
 
-            title="篩選選項維護"
+            title="日常篩選選項"
 
             lead="下拉選單會合併「分析資料中出現過的值」與手動清單；可先新增未來系所或學院。"
 
@@ -236,9 +236,9 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
           <LearningAnalyticsSettingsSection
 
-            title="目前用哪種算法"
+            title="方法參考"
 
-            lead="右側是目前預設。數字用來比較趨勢，不是保證參加就進步。"
+            lead="這裡只說明目前分析如何解讀；日常使用不需要調整。"
 
           >
 
@@ -250,9 +250,9 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
           <LearningAnalyticsSettingsSection
 
-            title="估計參數"
+            title="進階估計參數"
 
-            lead="調整校正後進步、背景相近比較與加權比較的門檻。展開後再改參數。"
+            lead="影響校正後進步、背景相近比較與加權比較。只有在確認分析方法要更新時才調整。"
 
             badge={lvaCustomBadge}
 
@@ -292,7 +292,7 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
             title="各資源主要練什麼"
 
-            lead="各課程／活動對聽說讀寫的相對權重，用在曝光與建議。"
+            lead="各課程／活動對聽說讀寫的相對權重，用在曝光、建議與課／師／活動分析。"
 
             badge={skillCustomBadge}
 
@@ -315,9 +315,9 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
 
           <div className="la-panel mb-3">
-            <div className="la-panel-title">清理舊資料版本</div>
+            <div className="la-panel-title">資料版本管理</div>
             <p className="small text-muted mb-2">
-              先「預覽」看會刪哪些版本，確認後再「執行刪除」。
+              清理分析快照屬於維運操作；先「預覽」看會刪哪些版本，確認後再「執行刪除」。
             </p>
 
             <Form.Group className="mb-3" style={{ maxWidth: 360 }}>

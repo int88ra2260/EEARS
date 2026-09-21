@@ -486,7 +486,7 @@ export default function LearningAnalyticsKpiReportPage() {
         </div>
       ) : (
         <Alert variant="light" className="border mb-3 small text-muted">
-          政策庫新建／編輯／封存需「學習成效分析設定」權限。目前可選用既有政策執行報表。
+          政策庫新建／編輯／封存需「分析設定」權限。目前可選用既有政策執行報表。
         </Alert>
       )}
 

@@ -10,7 +10,7 @@ import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/Lea
 import LaFold from '../../components/learningAnalytics/LaFold';
 import { RESOURCE_TYPE_LABELS, SKILL_LABELS } from '../../components/learningAnalytics/learningAnalyticsCopy';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
-import { LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import { LA_FILTER_INTRO_COHORT, RESOURCE_COVERAGE_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
 function resourceLabel(type) {
   return RESOURCE_TYPE_LABELS[type] || type;
@@ -39,7 +39,7 @@ export default function LearningAnalyticsResourcesPage() {
     ready,
     apiParams,
     token,
-  } = useLearningAnalyticsBootstrap();
+  } = useLearningAnalyticsBootstrap({ scopeKeys: RESOURCE_COVERAGE_FILTER_KEYS });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -118,11 +118,14 @@ export default function LearningAnalyticsResourcesPage() {
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
         snapshotOptions={meta?.snapshots}
+        visibleKeys={RESOURCE_COVERAGE_FILTER_KEYS}
+        showAdvanced={false}
+        groupSnapshots
         filterTitle="篩選條件"
         submitLabel="套用篩選"
         intro={LA_FILTER_INTRO_COHORT}
       />
-      <LearningAnalyticsActiveFilters filters={appliedFilters} />
+      <LearningAnalyticsActiveFilters filters={appliedFilters} visibleKeys={RESOURCE_COVERAGE_FILTER_KEYS} />
 
       {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
       {loading ? <div className="text-center py-5"><Spinner animation="border" /></div> : null}

@@ -50,7 +50,7 @@ import MetricCard from '../../components/learningAnalytics/MetricCard';
 import GrowthMetricsExplainer from '../../components/learningAnalytics/GrowthMetricsExplainer';
 
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
-import { LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import { LA_FILTER_INTRO_COHORT, SKILL_GROWTH_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
 
 
@@ -104,7 +104,7 @@ export default function LearningAnalyticsSkillsPage() {
 
     token,
 
-  } = useLearningAnalyticsBootstrap();
+  } = useLearningAnalyticsBootstrap({ scopeKeys: SKILL_GROWTH_FILTER_KEYS });
 
   const [loading, setLoading] = useState(false);
 
@@ -207,11 +207,14 @@ export default function LearningAnalyticsSkillsPage() {
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
         snapshotOptions={meta?.snapshots}
+        visibleKeys={SKILL_GROWTH_FILTER_KEYS}
+        showAdvanced={false}
+        groupSnapshots
         intro={LA_FILTER_INTRO_COHORT}
 
       />
 
-      <LearningAnalyticsActiveFilters filters={appliedFilters} />
+      <LearningAnalyticsActiveFilters filters={appliedFilters} visibleKeys={SKILL_GROWTH_FILTER_KEYS} />
       {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
 
       {loading ? <div className="text-center py-5"><Spinner animation="border" /></div> : null}

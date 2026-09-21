@@ -63,8 +63,8 @@ export const FILTER_FIELD_HINTS = Object.freeze({
   snapshot_version: '分析摘要的資料版本。請優先選最新「全域分析」；課程匯入／手動部分重建人數可能偏少或重複。',
   student_id: '精確學號（不分大小寫）。填寫後只匯出／預覽該生。',
   cohort: '選項來自分析資料中的入學年度（級），例如 113、114。',
-  college: '選項來自分析資料中的學院，以及模組設定中手動新增的項目。',
-  department: '選項來自分析資料中的系所，以及模組設定中手動新增的項目。',
+  college: '選項來自分析資料中的學院，以及分析設定中手動新增的項目。',
+  department: '選項來自分析資料中的系所，以及分析設定中手動新增的項目。',
   baseline_level: '依學生基線英語能力（CEFR 等級）篩選群體。',
   exposure_level: '依考前累積的英語課程與活動參與時數分級。',
   has_valid_exam: '是否有納入分析的有效英檢成績。',
@@ -81,6 +81,45 @@ export const LA_FILTER_INTRO_COHORT = '學期大多只影響認證等「學期�
 
 /** 原始資料匯出頁：篩選會真正縮小匯出範圍 */
 export const LA_FILTER_INTRO_RAW_EXPORT = '此頁篩選會套用到預覽與匯出。若只要某學年度學生，請用「學年度」或「入學年度（級）」；「入學學期」對應 enrollment_term（如 114-2）。資料版本請選「建議｜全域分析」。';
+
+/** 日常總覽頁：只保留能直接回答管理問題的條件 */
+export const OVERVIEW_FILTER_KEYS = [
+  'snapshot_version',
+  'semester',
+  'cohort',
+  'college',
+  'department',
+];
+
+/** 群體比較頁：以學生群體切片為主，不顯示研究模型參數 */
+export const COHORT_COMPARISON_FILTER_KEYS = [
+  'snapshot_version',
+  'cohort',
+  'college',
+  'department',
+  'has_valid_exam',
+  'is_b2plus',
+];
+
+/** 技能成長頁：聚焦可計算技能成長的樣本與工具 */
+export const SKILL_GROWTH_FILTER_KEYS = [
+  'snapshot_version',
+  'cohort',
+  'college',
+  'department',
+  'retest_flag',
+  'instrument',
+  'skill',
+];
+
+/** 資源覆蓋頁：看資源是否有足夠可觀察樣本，不做研究型配對調參 */
+export const RESOURCE_COVERAGE_FILTER_KEYS = [
+  'snapshot_version',
+  'semester',
+  'cohort',
+  'college',
+  'department',
+];
 
 /** 原始資料頁顯示的篩選鍵（匯出導向，非圖表共用語意） */
 export const RAW_EXPORT_FILTER_KEYS = [
