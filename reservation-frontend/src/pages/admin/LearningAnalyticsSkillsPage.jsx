@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Alert from 'react-bootstrap/Alert';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
@@ -168,7 +168,7 @@ function buildPageSummary(rows) {
   };
 }
 
-function SkillInsightCard({ row }) {
+function SkillInsightCard({ row, onGrowthRatioClick }) {
   return (
     <div className={`la-panel la-skill-growth-card la-skill-growth-card--${row.judgement.tone}`}>
       <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
@@ -184,10 +184,16 @@ function SkillInsightCard({ row }) {
           <span>平均 GSE 成長</span>
           <strong>{formatGse(row.actual)}</strong>
         </div>
-        <div>
+        <button
+          type="button"
+          className="la-skill-growth-card__metric-action"
+          onClick={() => onGrowthRatioClick?.(row.key, row.skill)}
+          title={`查看${row.skill}學生明細，依實際進步由高到低排序`}
+        >
           <span>有進步學生</span>
           <strong>{pct(row.growthRatio)}</strong>
-        </div>
+          <em>點擊查看明細</em>
+        </button>
       </div>
 
       <div className="la-skill-growth-card__adjusted">{adjustedLabel(row.adjusted)}</div>
@@ -213,6 +219,26 @@ export default function LearningAnalyticsSkillsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
+  const [episodeFocus, setEpisodeFocus] = useState(null);
+  const episodeSectionRef = useRef(null);
+
+  const handleGrowthRatioClick = useCallback((skillKey, skillLabel) => {
+    setEpisodeFocus({
+      skill: skillKey,
+      skillLabel,
+      sortKey: 'rawGrowth',
+      sortDir: 'desc',
+      token: Date.now(),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!episodeFocus?.token) return undefined;
+    const timer = window.setTimeout(() => {
+      episodeSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [episodeFocus]);
 
   const load = useCallback(async () => {
     if (!ready) return;
@@ -324,7 +350,7 @@ export default function LearningAnalyticsSkillsPage() {
           <Row className="g-3 mt-1">
             {chartData.map((row) => (
               <Col md={6} xl={3} key={row.key}>
-                <SkillInsightCard row={row} />
+                <SkillInsightCard row={row} onGrowthRatioClick={handleGrowthRatioClick} />
               </Col>
             ))}
           </Row>
@@ -380,12 +406,16 @@ export default function LearningAnalyticsSkillsPage() {
 
           <Row className="g-3 mt-1">
             <Col xs={12}>
-              <div className="la-panel">
+              <div className="la-panel" ref={episodeSectionRef} id="la-skill-episode-list">
                 <div className="la-panel-title">學生前後測明細：用於追查個別案例</div>
                 <p className="small text-muted">
                   當某個技能樣本不足、低於預期或進步比例偏低時，再往下看學生時間線與考前參與紀錄。時數只算考試前的課程／活動。
+                  也可點上方卡片的「有進步學生」，快速篩該技能並依實際進步由高到低排列。
                 </p>
-                <GrowthEpisodeTable episodes={growth?.episodes || data.growthEpisodes?.sampleEpisodes || []} />
+                <GrowthEpisodeTable
+                  episodes={growth?.episodes || data.growthEpisodes?.sampleEpisodes || []}
+                  focusRequest={episodeFocus}
+                />
               </div>
             </Col>
           </Row>

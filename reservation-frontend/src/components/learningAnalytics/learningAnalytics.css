@@ -424,6 +424,10 @@
   font-weight: 500;
 }
 
+.la-episode-toolbar .form-label {
+  font-size: 0.75rem;
+}
+
 .la-episode-table th {
   font-size: 0.75rem;
   color: var(--la-muted);
@@ -617,11 +621,28 @@
   margin: 0.9rem 0 0.65rem;
 }
 
-.la-skill-growth-card__metrics div {
+.la-skill-growth-card__metrics div,
+.la-skill-growth-card__metric-action {
   border: 1px solid var(--la-border);
   border-radius: 8px;
   padding: 0.55rem 0.65rem;
   background: #fff;
+}
+
+.la-skill-growth-card__metric-action {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.la-skill-growth-card__metric-action:hover,
+.la-skill-growth-card__metric-action:focus-visible {
+  border-color: #2a5d9f;
+  background: #f4f8fc;
+  box-shadow: 0 0 0 2px rgba(42, 93, 159, 0.12);
+  outline: none;
 }
 
 .la-skill-growth-card__metrics span {
@@ -638,6 +659,15 @@
   font-size: 1.2rem;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
+}
+
+.la-skill-growth-card__metric-action em {
+  display: block;
+  margin-top: 0.2rem;
+  font-style: normal;
+  font-size: 0.68rem;
+  color: #2a5d9f;
+  font-weight: 600;
 }
 
 .la-skill-growth-card__adjusted {
