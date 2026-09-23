@@ -38,6 +38,7 @@ Runner label：`eears-prod`
 | 同一 Windows 使用者 | Runner 服務帳號必須能執行 `pm2` 並看到 `eears-backend`；換使用者會變成「空的」PM2 |
 | 工作目錄 | Deploy job 在 `D:\EEARS` 做 `git reset --hard`，**不用** Actions 預設 `_work` 當正式目錄 |
 | `.env` | 已被 `.gitignore`；reset 不會刪本地 ignored 檔，但仍勿把 `.env` 加入版控 |
+| `siteStats.json` | 瀏覽人次執行時資料，已 gitignore；workflow 在 `reset --hard` 前後備份／還原（見 `deploy-prod.yml`） |
 | 安全 | Deploy **只**在 `main` 的 CI 成功後觸發；**不要**對 `pull_request`／fork 跑 self-hosted |
 | Schema | Workflow **不會**自動跑 migration；有 migration 仍依 checklist 人工執行 |
 
@@ -53,9 +54,11 @@ Runner 離線或自動部署失敗時，在本機：
 
 ```bat
 cd /d D:\EEARS
+copy /Y reservation-backend\data\siteStats.json %TEMP%\eears-siteStats-backup.json
 git fetch origin
 git checkout main
 git reset --hard origin/main
+if exist %TEMP%\eears-siteStats-backup.json copy /Y %TEMP%\eears-siteStats-backup.json reservation-backend\data\siteStats.json
 scripts\ops\deploy.bat
 ```
 

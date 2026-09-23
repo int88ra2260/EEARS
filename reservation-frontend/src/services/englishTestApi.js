@@ -255,6 +255,62 @@ export async function updateExemptionReview(token, registrationId, body) {
   return data;
 }
 
+const MAIL_BASE = '/api/english-test';
+
+export async function fetchEnglishTestMailOptions(token) {
+  const res = await fetchClient(`${MAIL_BASE}/mail-options`, { headers: authHeaders(token) });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '載入寄信選項失敗');
+  return data;
+}
+
+export async function saveEnglishTestMailTemplate(token, payload, id) {
+  const url = id
+    ? `${MAIL_BASE}/mail-templates/${id}`
+    : `${MAIL_BASE}/mail-templates`;
+  const res = await fetchClient(url, {
+    method: id ? 'PUT' : 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '儲存範本失敗');
+  return data.data;
+}
+
+export async function deleteEnglishTestMailTemplate(token, id) {
+  const res = await fetchClient(`${MAIL_BASE}/mail-templates/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '刪除範本失敗');
+  return data;
+}
+
+export async function fetchEnglishTestMailSends(token, params) {
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetchClient(`${MAIL_BASE}/mail-sends?${qs}`, { headers: authHeaders(token) });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '載入寄信紀錄失敗');
+  return data;
+}
+
+export async function sendSelectedEmails(token, payload) {
+  const res = await fetchClient(`${BASE}/send-selected-emails`, {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    const err = new Error(data.error || '寄信失敗');
+    err.isGmailLocked = typeof data.error === 'string' && data.error.includes('Gmail 暫時鎖定');
+    throw err;
+  }
+  return data;
+}
+
 /** 觸發瀏覽器下載 blob */
 export function downloadBlob(blob, fileName) {
   const url = window.URL.createObjectURL(blob);

@@ -12,6 +12,9 @@ export default function AdminEventDetailHeader({ ws, onGoCheckinTab, onGoViolati
   const cap = ws.eventMeta?.maxCapacity;
   const loc = ws.eventMeta?.location;
   const endT = ws.eventMeta?.endTime;
+  const kioskPath = ws.currentEventId
+    ? `/admin/operations/${encodeURIComponent(ws.currentEventId)}/checkin-kiosk`
+    : null;
 
   const timeRange =
     ws.currentEventStartTime && endT
@@ -59,9 +62,16 @@ export default function AdminEventDetailHeader({ ws, onGoCheckinTab, onGoViolati
               ← 返回活動列表
             </Button>
           </Link>
+          {onGoCheckinTab && kioskPath && ws.canCheckinStudents ? (
+            <Link to={kioskPath}>
+              <Button variant="success" size="sm" className="w-100">
+                現場 Kiosk 簽到
+              </Button>
+            </Link>
+          ) : null}
           {onGoCheckinTab && ws.checkinOpenHint && ws.headerCountsReady && ws.noShowReservationCount > 0 && (
-            <Button variant="success" size="sm" className="w-100" onClick={onGoCheckinTab}>
-              前往簽到（{ws.noShowReservationCount} 人未簽）
+            <Button variant="outline-success" size="sm" className="w-100" onClick={onGoCheckinTab}>
+              前往簽到分頁（{ws.noShowReservationCount} 人未簽）
             </Button>
           )}
           {onGoCheckinTab && ws.checkinOpenHint && !ws.headerCountsReady && (

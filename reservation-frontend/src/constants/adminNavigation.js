@@ -34,6 +34,7 @@ function canAccessImportCenter(c) {
  * - surveyGroup：問卷側欄群組是否出現
  * - canViewSurvey：問卷管理子項
  * - adminOnly：需 hasAdminRights（admin／executive）
+ * - roleAdmin：僅系統角色 admin
  * - opsDashboard：營運總覽（非一般授課老師）
  * - operationsAnalytics：營運分析或營運報表匯出
  */
@@ -94,6 +95,8 @@ export function isNavItemVisible(visibility, c) {
       return c.canViewSurvey;
     case 'adminOnly':
       return c.hasAdminRights;
+    case 'roleAdmin':
+      return c?.actualUserRole === 'admin' || !!c?.accessProfile?.isAdmin;
     case 'importCenter':
       return canAccessImportCenter(c);
     case 'opsDashboard':
@@ -328,10 +331,28 @@ export const ADMIN_NAV_SECTIONS = [
     id: 'classes',
     label: '班級與參與',
     visibility: 'classes',
-    path: '/admin/classes',
-    matchPrefixes: ['/admin/classes'],
-    pageTitle: '班級參與概況',
-    breadcrumbLabel: '班級列表',
+    expandable: true,
+    children: [
+      {
+        id: 'classes-overview',
+        label: '班級參與概況',
+        path: '/admin/classes',
+        matchPrefixes: ['/admin/classes'],
+        visibility: 'classes',
+        pageTitle: '班級參與概況',
+        breadcrumbLabel: '班級列表',
+      },
+      {
+        id: 'class-credit-allocation',
+        label: '活動時數分配',
+        path: '/admin/classes/credit-allocation',
+        matchPrefixes: ['/admin/classes/credit-allocation'],
+        visibility: 'perm:can_manage_classes',
+        pageTitle: '活動時數分配',
+        breadcrumbLabel: '活動時數分配',
+        searchTerms: ['課堂加分', '時數', '計點'],
+      },
+    ],
   },
   {
     id: 'english',
@@ -406,7 +427,7 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'englishLearningJourney',
         pageTitle: '英文寫作工坊（EWL）同步',
         breadcrumbLabel: 'EWL 同步',
-        hiddenFromNav: true,
+        searchTerms: ['寫作工坊', 'EWL', '同步', 'ReservationInfo'],
       },
       {
         id: 'learning-journey-operations',
@@ -778,6 +799,16 @@ export const ADMIN_NAV_SECTIONS = [
         pageTitle: '系統診斷',
         breadcrumbLabel: '系統診斷',
       },
+      {
+        id: 'system-ops-scripts',
+        label: '維運腳本',
+        path: '/admin/ops-scripts',
+        matchPrefixes: ['/admin/ops-scripts'],
+        visibility: 'roleAdmin',
+        pageTitle: '維運腳本',
+        breadcrumbLabel: '維運腳本',
+        searchTerms: ['備份', 'backup', '寫作工坊', 'EWL', '同步', '腳本', '維運'],
+      },
     ],
   },
 ];
@@ -856,6 +887,19 @@ export function getAdminPageMeta(pathname, ctx) {
       };
     }
   }
+  if (pathname.match(/^\/admin\/operations\/\d+\/checkin-kiosk$/)) {
+    const ev = filtered.find((s) => s.id === 'events');
+    if (ev) {
+      return {
+        groupLabel: ev.label,
+        pageTitle: '現場簽到 Kiosk',
+        breadcrumbLeaf: '現場簽到 Kiosk',
+        breadcrumbParent: { label: '活動列表', to: '/admin/operations' },
+        sectionId: 'events',
+        childId: 'event-checkin-kiosk',
+      };
+    }
+  }
   if (pathname.match(/^\/admin\/operations\/\d+$/)) {
     const ev = filtered.find((s) => s.id === 'events');
     if (ev) {
@@ -925,6 +969,15 @@ export function getAdminPageMeta(pathname, ctx) {
     const classesSection = filtered.find((s) => s.id === 'classes');
     if (classesSection) {
       const groupLabel = classesSection.label;
+      if (pathname === '/admin/classes/credit-allocation') {
+        return {
+          groupLabel,
+          pageTitle: '活動時數分配',
+          breadcrumbLeaf: '活動時數分配',
+          sectionId: 'classes',
+          childId: 'class-credit-allocation',
+        };
+      }
       if (pathname.includes('/bestep')) {
         return {
           groupLabel,
@@ -949,7 +1002,7 @@ export function getAdminPageMeta(pathname, ctx) {
           pageTitle: classesSection.pageTitle || '班級參與概況',
           breadcrumbLeaf: classesSection.breadcrumbLabel || '班級列表',
           sectionId: 'classes',
-          childId: 'classes',
+          childId: 'classes-overview',
         };
       }
     }

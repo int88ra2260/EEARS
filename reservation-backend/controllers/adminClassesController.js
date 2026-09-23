@@ -9,6 +9,7 @@ const { getStudentParticipationStats: getStudentParticipationStatsUtil } = requi
 const { SEMESTER_RANGES } = require('../utils/semesterConstants');
 const auditLogService = require('../services/auditLogService');
 const { logExportAudit } = require('../utils/exportAudit');
+const { attachmentContentDisposition } = require('../utils/reportExportFilename');
 const {
   assertCanAccessClass,
   buildClassScopeWhere,
@@ -19,6 +20,13 @@ const {
   buildClassDisplayName,
 } = require('../services/classRosterPdfParseService');
 const { applyStructuredClassRosterImport } = require('../services/classRosterImportService');
+const {
+  hoursForEventType,
+  hoursToPoints,
+  roundHours,
+  ENGLISH_TABLE_45_MIN_FROM,
+} = require('../utils/classCreditHours');
+const classCreditAllocationService = require('../services/classCreditAllocationService');
 const fs = require('fs');
 
 // 活動類型映射
@@ -443,51 +451,25 @@ const getClassOverview = async (req, res, next) => {
 
     const cleanedStudentId = cleanStudentId(studentId);
     if (cleanedStudentId) {
-      const semesterReservation = await Reservation.findOne({
-        attributes: ['id'],
-        include: [{
-          model: Event,
-          attributes: [],
-          where: {
-            date: {
-              [Op.between]: [semesterRange.start, semesterRange.end]
-            }
-          }
-        }],
-        where: { studentId: cleanedStudentId }
-      });
-
-      if (!semesterReservation) {
-        return res.json({
-          data: [],
-          pagination: {
-            page: parseInt(page),
-            pageSize: parseInt(pageSize),
-            total: 0,
-            totalPages: 0
-          }
-        });
-      }
-
       const matchingMemberships = await ClassMembership.findAll({
         attributes: ['classId'],
         where: {
           semester,
-          studentId: cleanedStudentId
+          studentId: cleanedStudentId,
         },
-        group: ['classId']
+        group: ['classId'],
       });
 
-      const classIds = matchingMemberships.map(m => m.classId).filter(Boolean);
+      const classIds = matchingMemberships.map((m) => m.classId).filter(Boolean);
       if (classIds.length === 0) {
         return res.json({
           data: [],
           pagination: {
-            page: parseInt(page),
-            pageSize: parseInt(pageSize),
+            page: parseInt(page, 10),
+            pageSize: parseInt(pageSize, 10),
             total: 0,
-            totalPages: 0
-          }
+            totalPages: 0,
+          },
         });
       }
 
@@ -646,13 +628,20 @@ const getClassDetail = async (req, res, next) => {
         semesterRange,
         activityType
       );
+      const credit = await classCreditAllocationService.getClassMemberCreditView(
+        cleanedStudentId,
+        semester,
+        classId,
+        stats,
+      );
 
       return {
         studentId: member.studentId,
         studentName: member.studentName,
         department: member.department,
         email: member.email,
-        ...stats
+        ...stats,
+        ...credit,
       };
     }));
 
@@ -797,7 +786,7 @@ const exportClassOverview = async (req, res, next) => {
 
     // 設定回應標頭
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="班級參與概況_${semester}.xlsx"`);
+    res.setHeader('Content-Disposition', attachmentContentDisposition(`班級參與概況_${semester}.xlsx`));
 
     await workbook.xlsx.write(res);
 
@@ -860,13 +849,22 @@ const exportClassDetail = async (req, res, next) => {
         semesterRange,
         activityType
       );
+      const credit = await classCreditAllocationService.getClassMemberCreditView(
+        cleanedStudentId,
+        semester,
+        classId,
+        stats,
+      );
 
       return {
         studentId: member.studentId,
         studentName: member.studentName,
         department: member.department || '',
-        totalHours: stats.totalHours || 0,
-        pointScore: stats.pointScore || 0,
+        totalHours: credit.totalHours || 0,
+        pointScore: credit.pointScore || 0,
+        siteTotalHours: credit.siteTotalHours || 0,
+        sitePointScore: credit.sitePointScore || 0,
+        allocationStatusLabel: credit.allocationStatusLabel || '',
         lastAttendAt: stats.lastAttendAt || '',
         isBlacklisted: stats.isBlacklisted ? '是' : '否'
       };
@@ -881,8 +879,11 @@ const exportClassDetail = async (req, res, next) => {
       { header: '學號', key: 'studentId', width: 15 },
       { header: '姓名', key: 'studentName', width: 15 },
       { header: '系所', key: 'department', width: 20 },
-      { header: '總時數', key: 'totalHours', width: 12 },
-      { header: '計點數', key: 'pointScore', width: 12 },
+      { header: '總時數', key: 'totalHours', width: 14 },
+      { header: '總點數', key: 'pointScore', width: 14 },
+      { header: '全站累計時數（僅參考）', key: 'siteTotalHours', width: 18 },
+      { header: '全站累計計點（僅參考）', key: 'sitePointScore', width: 18 },
+      { header: '配置狀態', key: 'allocationStatusLabel', width: 12 },
       { header: '最後簽到日', key: 'lastAttendAt', width: 15 },
       { header: '黑名單', key: 'isBlacklisted', width: 10 }
     ];
@@ -894,7 +895,7 @@ const exportClassDetail = async (req, res, next) => {
 
     // 設定回應標頭
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${classRecord.name}_明細_${semester}.xlsx"`);
+    res.setHeader('Content-Disposition', attachmentContentDisposition(`${classRecord.name}_明細_${semester}.xlsx`));
 
     await workbook.xlsx.write(res);
 
@@ -1007,6 +1008,7 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
   const attendedStats = await sequelize.query(`
     SELECT 
       e.eventType,
+      CASE WHEN e.date >= '${ENGLISH_TABLE_45_MIN_FROM}' THEN 1 ELSE 0 END AS et45,
       COUNT(r.id) as count,
       MAX(r.checkinTime) as lastAttend
     FROM Reservations r
@@ -1015,7 +1017,7 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
       AND r.checkinStatus = '已簽到'
       AND e.date BETWEEN :startDate AND :endDate
       ${activityType !== 'All' ? 'AND e.eventType = :activityType' : ''}
-    GROUP BY e.eventType
+    GROUP BY e.eventType, et45
   `, {
     replacements: {
       studentId: studentId,
@@ -1059,16 +1061,11 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
   let lastAttendAt = null;
   let totalHours = 0;
 
-  // 活動類型時數對應表（相容 code + legacy 顯示名）
   const eventTypeService = require('../services/eventTypeService');
-  const getEventTypeHours = (eventType) => {
-    const code = eventTypeService.coerceEventTypeCode(eventType, { fallback: '' });
-    if (code === 'english_table') return 0.5;
-    if (code === 'english_club') return 1;
-    if (code === 'job_talk') return 1;
-    if (code === 'international_forum') return 1;
-    return 0;
-  };
+  // 活動類型時數對照（單一來源：utils/classCreditHours）
+  const getEventTypeHours = (eventType, et45) => hoursForEventType(eventType, {
+    use45MinEnglishTable: Number(et45) === 1,
+  });
 
   attendedStats.forEach(stat => {
     const count = parseInt(stat.count);
@@ -1089,7 +1086,7 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
     }
 
     // 計算總時數
-    const hoursPerEvent = getEventTypeHours(eventType);
+    const hoursPerEvent = getEventTypeHours(eventType, stat.et45);
     totalHours += count * hoursPerEvent;
 
     if (stat.lastAttend && (!lastAttendAt || stat.lastAttend > lastAttendAt)) {
@@ -1097,8 +1094,9 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
     }
   });
 
+  totalHours = roundHours(totalHours);
   // 計算計點數（每半小時算一點，即總時數 * 2）
-  const pointScore = totalHours * 2;
+  const pointScore = hoursToPoints(totalHours);
 
   return {
     reservedCount,
@@ -1107,8 +1105,8 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
     attendedByType,
     lastAttendAt: lastAttendAt ? new Date(lastAttendAt).toLocaleDateString() : null,
     isBlacklisted,
-    totalHours: parseFloat(totalHours.toFixed(1)),
-    pointScore: Math.round(pointScore)
+    totalHours,
+    pointScore
   };
 }
 

@@ -7,6 +7,64 @@ require('dotenv').config();
 let reservationTransporter = null;  // 活動預約相關郵件
 let bestepTransporter = null;       // 培力英檢報名相關郵件
 
+// 連線池：同一帳號只維持 1 條已登入連線，後續信件重用，避免每封信都 SMTP AUTH。
+// Nodemailer 連上後會對 socket 呼叫 setKeepAlive(true)。
+const SMTP_POOL_MAX_CONNECTIONS = 1;
+const SMTP_POOL_MAX_MESSAGES = 1000;
+const SMTP_SOCKET_TIMEOUT_MS = 30 * 60 * 1000;
+const SMTP_LOGIN_COOLDOWN_MS = 15 * 60 * 1000;
+let smtpLoginCooldownUntil = 0;
+
+function buildGmailTransportOptions(user, pass) {
+  return {
+    service: 'gmail',
+    pool: true,
+    maxConnections: SMTP_POOL_MAX_CONNECTIONS,
+    maxMessages: SMTP_POOL_MAX_MESSAGES,
+    socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
+    auth: {
+      user,
+      pass: String(pass || '').replace(/\s+/g, ''),
+    },
+  };
+}
+
+function createGmailTransport(user, pass) {
+  return nodemailer.createTransport(buildGmailTransportOptions(user, pass));
+}
+
+function isGmailLoginRateLimited(error) {
+  if (!error || error.code === 'SMTP_LOGIN_COOLDOWN') return false;
+  if (Number(error.responseCode) === 454) return true;
+  const message = String(error.message || error.response || '');
+  return error.code === 'EAUTH' && /too many login attempts/i.test(message);
+}
+
+function noteSmtpAuthFailure(error) {
+  if (!isGmailLoginRateLimited(error)) return;
+  smtpLoginCooldownUntil = Date.now() + SMTP_LOGIN_COOLDOWN_MS;
+}
+
+function isSmtpAuthCoolingDown() {
+  return Date.now() < smtpLoginCooldownUntil;
+}
+
+function assertSmtpLoginAllowed() {
+  if (!isSmtpAuthCoolingDown()) return;
+  const waitSec = Math.ceil((smtpLoginCooldownUntil - Date.now()) / 1000);
+  const err = new Error(`Gmail 暫時拒絕登入，${waitSec} 秒內不再嘗試新的 SMTP 登入`);
+  err.code = 'SMTP_LOGIN_COOLDOWN';
+  err.responseCode = 454;
+  throw err;
+}
+
+function getMailTransporters() {
+  return {
+    reservation: reservationTransporter,
+    bestep: bestepTransporter,
+  };
+}
+
 // 培力英檢相關郵件模板列表（審核中/請修正/報名成功/報名失敗/修改通知/學習有伴/團體推廣）
 const BESTEP_EMAIL_TEMPLATES = [
   'englishTestRegistrationSuccess',
@@ -17,6 +75,7 @@ const BESTEP_EMAIL_TEMPLATES = [
   'englishTestRegistrationFinalFailure',
   'englishTestRegistrationGroupPromo',
   'englishTestEmailVerification',
+  'englishTestManualSend',
   'learningPartnerInvitation',
   'learningPartnerInvitationResend',
   'learningPartnerAllApproved',
@@ -26,16 +85,8 @@ const BESTEP_EMAIL_TEMPLATES = [
 
 // 活動預約相關郵件配置
 if (process.env.GMAIL_USER && process.env.GMAIL_PASS) {
-  // 移除密碼中的空格（應用程式密碼格式）
-  const reservationPass = (process.env.GMAIL_PASS || '').replace(/\s+/g, '');
-  reservationTransporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: reservationPass
-    }
-  });
-  console.log('✅ 活動預約郵件服務已配置:', process.env.GMAIL_USER);
+  reservationTransporter = createGmailTransport(process.env.GMAIL_USER, process.env.GMAIL_PASS);
+  console.log('✅ 活動預約郵件服務已配置（SMTP 連線池）:', process.env.GMAIL_USER);
 } else {
   console.warn('⚠️ 活動預約郵件認證資訊未設定');
   console.warn('請在 .env 檔案中設定 GMAIL_USER 和 GMAIL_PASS');
@@ -43,16 +94,8 @@ if (process.env.GMAIL_USER && process.env.GMAIL_PASS) {
 
 // 培力英檢相關郵件配置
 if (process.env.BESTEP_GMAIL_USER && process.env.BESTEP_GMAIL_PASS) {
-  // 移除密碼中的空格（應用程式密碼格式）
-  const bestepPass = (process.env.BESTEP_GMAIL_PASS || '').replace(/\s+/g, '');
-  bestepTransporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.BESTEP_GMAIL_USER,
-      pass: bestepPass
-    }
-  });
-  console.log('✅ 培力英檢郵件服務已配置:', process.env.BESTEP_GMAIL_USER);
+  bestepTransporter = createGmailTransport(process.env.BESTEP_GMAIL_USER, process.env.BESTEP_GMAIL_PASS);
+  console.log('✅ 培力英檢郵件服務已配置（SMTP 連線池）:', process.env.BESTEP_GMAIL_USER);
 } else {
   console.warn('⚠️ 培力英檢郵件認證資訊未設定');
   console.warn('請在 .env 檔案中設定 BESTEP_GMAIL_USER 和 BESTEP_GMAIL_PASS');
@@ -196,6 +239,10 @@ const emailTemplates = {
 
 請妥善保管此驗證碼，取消預約時需要輸入此驗證碼才能完成取消。
 
+【現場簽到碼】
+請於活動現場出示下列簽到碼（或確認信中的 QR）：
+簽到碼：${data.bookingCode || (data.reservationId != null ? `R-${String(data.reservationId).padStart(6, '0')}` : 'N/A')}
+
 ${activityInfo.chineseReminder}
 
 若有任何問題請聯繫:
@@ -220,6 +267,10 @@ If you need to cancel this reservation, please use the following verification co
 Verification Code: ${data.cancellationCode || 'N/A'}
 
 Please keep this code safe. You will need to enter this code when canceling your reservation.
+
+[On-site Check-in Code]
+Please show the following code (or the QR in this email) at the venue:
+Check-in Code: ${data.bookingCode || (data.reservationId != null ? `R-${String(data.reservationId).padStart(6, '0')}` : 'N/A')}
 
 ${activityInfo.englishReminder}
 
@@ -1587,6 +1638,53 @@ Best regards,
 Center for EMI Teaching Excellence
 `
     };
+  },
+
+  classCreditAllocationReminder: (data) => {
+    const allocationUrl = data.allocationUrl
+      || `${String(process.env.FRONTEND_URL || 'http://emieears-siwan.nsysu.edu.tw').replace(/\/$/, '')}/student/class-credit-allocation`;
+    return {
+      from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
+      to: data.studentEmail || data.email,
+      subject: `【英語中心】${data.semester || ''} 課堂加分時數分配提醒`,
+      text: `
+親愛的 ${data.studentName || ''}（${data.studentId || ''}）您好，
+
+您於 ${data.semester || ''} 學期修習多門英語課程。參與活動累計的時數須自行分配到各課程，同一時數不可同時用於多門課的課堂加分。
+
+待分配時數：${data.remainingHours ?? ''} 小時（${data.remainingPoints ?? ''} 點）
+配置截止日：${data.deadline || '尚未設定'}（當日 23:59 前，台北時間）
+本學期課程：${data.classNames || ''}
+
+請至下列頁面，以學號、姓名與 Email 進入「課堂加分配置」完成分配：
+${allocationUrl}
+
+截止後尚未分配的時數，各班將顯示為未配置，無法再修改。
+
+若有任何問題請聯繫:
+全英語卓越教學中心 (Center for EMI Teaching Excellence)
+Email: emicenter@mail.nsysu.edu.tw
+電話: (07)5252000#5808
+
+全英語卓越教學中心 敬上
+
+Dear ${data.studentName || ''} (${data.studentId || ''}),
+
+You are enrolled in more than one English course in semester ${data.semester || ''}. Activity hours must be assigned to specific courses and cannot be used for more than one course.
+
+Hours still to assign: ${data.remainingHours ?? ''} (${data.remainingPoints ?? ''} points)
+Deadline: ${data.deadline || 'not set'} (23:59 Asia/Taipei)
+Courses: ${data.classNames || ''}
+
+Please open the page below and sign in with your student ID, name, and email:
+${allocationUrl}
+
+Hours left unassigned after the deadline cannot be changed.
+
+Center for EMI Teaching Excellence
+Email: emicenter@mail.nsysu.edu.tw
+`
+    };
   }
 };
 
@@ -1623,6 +1721,7 @@ const sendEmail = async (template, data) => {
   }
 
   try {
+    assertSmtpLoginAllowed();
     // eslint-disable-next-line global-require
     const { buildMailOptions } = require('../services/emailTemplateService');
     const mailOptions = await buildMailOptions(template, data);
@@ -1636,6 +1735,7 @@ const sendEmail = async (template, data) => {
       console.log(`📧 Email template disabled, skip: ${template}`);
       return { skipped: true, reason: 'disabled' };
     }
+    noteSmtpAuthFailure(error);
     console.error(`❌ Failed to send email: ${template}`, error);
     const recipient = data.studentEmail || data.email || '未知';
     console.error(`   收件人: ${recipient}`);
@@ -1653,9 +1753,15 @@ const sendRawMail = async (template, mailOptions) => {
     err.template = template;
     throw err;
   }
+  assertSmtpLoginAllowed();
   const payload = { ...mailOptions, from: sender };
-  await selectedTransporter.sendMail(payload);
-  return { ok: true, to: payload.to, subject: payload.subject };
+  try {
+    await selectedTransporter.sendMail(payload);
+    return { ok: true, to: payload.to, subject: payload.subject };
+  } catch (error) {
+    noteSmtpAuthFailure(error);
+    throw error;
+  }
 };
 
 module.exports = {
@@ -1667,4 +1773,8 @@ module.exports = {
   getEventLocationForEmail,
   BESTEP_STATUS_MAP,
   BESTEP_EXAM_TYPE_MAP,
+  buildGmailTransportOptions,
+  getMailTransporters,
+  isGmailLoginRateLimited,
+  isSmtpAuthCoolingDown,
 };

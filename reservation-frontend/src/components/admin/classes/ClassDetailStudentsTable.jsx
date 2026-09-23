@@ -2,6 +2,14 @@ import React from 'react';
 import { Badge, Button, Card, Spinner, Table } from 'react-bootstrap';
 import { formatTotalHours } from '../../../utils/classDetailHelpers';
 
+function AllocationStatusBadge({ status, label }) {
+  if (!label) return <span className="text-muted">—</span>;
+  if (status === 'unallocated') return <Badge bg="warning" text="dark">{label}</Badge>;
+  if (status === 'pending') return <Badge bg="secondary">{label}</Badge>;
+  if (status === 'allocated_elsewhere') return <Badge bg="info">{label}</Badge>;
+  return <Badge bg="success">{label}</Badge>;
+}
+
 export default function ClassDetailStudentsTable({
   loading,
   data,
@@ -13,7 +21,10 @@ export default function ClassDetailStudentsTable({
   return (
     <Card>
       <Card.Header>
-        <h5>學生明細</h5>
+        <h5 className="mb-1">學生明細</h5>
+        <div className="small text-muted">
+          「總時數」為課堂加分依據；「全站累計」僅供參考，不可兩邊重複加分。
+        </div>
       </Card.Header>
       <Card.Body>
         {loading ? (
@@ -35,7 +46,10 @@ export default function ClassDetailStudentsTable({
                     <th>姓名</th>
                     <th>系所</th>
                     <th>總時數</th>
-                    <th>計點數</th>
+                    <th>總點數</th>
+                    <th>全站累計時數（僅參考）</th>
+                    <th>全站累計計點（僅參考）</th>
+                    <th>配置狀態</th>
                     <th>最後簽到日</th>
                     <th>黑名單</th>
                     <th>教學評估</th>
@@ -49,6 +63,14 @@ export default function ClassDetailStudentsTable({
                       <td>{student.department || '-'}</td>
                       <td>{formatTotalHours(student.totalHours)}</td>
                       <td>{student.pointScore || '0'}</td>
+                      <td className="text-muted">{formatTotalHours(student.siteTotalHours)}</td>
+                      <td className="text-muted">{student.sitePointScore || '0'}</td>
+                      <td>
+                        <AllocationStatusBadge
+                          status={student.allocationStatus}
+                          label={student.allocationStatusLabel}
+                        />
+                      </td>
                       <td>{student.lastAttendAt || '-'}</td>
                       <td>
                         {student.isBlacklisted ? (
@@ -83,18 +105,16 @@ export default function ClassDetailStudentsTable({
                   <Button
                     variant="outline-secondary"
                     size="sm"
-                    disabled={filters.page === 1}
+                    disabled={filters.page <= 1}
                     onClick={() => onFilterChange('page', filters.page - 1)}
+                    className="me-2"
                   >
                     上一頁
                   </Button>
-                  <span className="mx-2">
-                    第 {filters.page} 頁，共 {pagination.totalPages} 頁
-                  </span>
                   <Button
                     variant="outline-secondary"
                     size="sm"
-                    disabled={filters.page === pagination.totalPages}
+                    disabled={filters.page >= pagination.totalPages}
                     onClick={() => onFilterChange('page', filters.page + 1)}
                   >
                     下一頁

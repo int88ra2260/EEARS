@@ -132,6 +132,7 @@ router.post('/:key/preview', async (req, res, next) => {
     const preview = await previewEmailTemplate(req.params.key, {
       subjectTemplate: body.subjectTemplate,
       bodyTemplate: body.bodyTemplate,
+      attachments: body.attachments,
       data: body.data,
     });
     res.json({ success: true, data: preview });
@@ -150,6 +151,7 @@ router.post('/:key/test-send', async (req, res, next) => {
       to: body.to,
       subjectTemplate: body.subjectTemplate,
       bodyTemplate: body.bodyTemplate,
+      attachments: body.attachments,
       data: body.data,
     });
     res.json({ success: true, data: result });

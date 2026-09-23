@@ -1,22 +1,36 @@
 import React, { useMemo, useRef, useState } from 'react';
 import './MediaPicker.css';
 
+const DEFAULT_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,application/pdf';
+
+function isPdfAsset(asset) {
+  const mime = String(asset?.mime || asset?.mimeType || '').toLowerCase();
+  const url = String(asset?.url || '').toLowerCase();
+  return mime === 'application/pdf' || url.endsWith('.pdf');
+}
+
 /**
- * 可重用媒體挑選器（Step1 縮圖選取 → Step2 上傳 → Step3 媒體庫）
+ * 可重用媒體挑選器（縮圖選取 → 上傳 → 媒體庫）
  *
  * value: { url, mediaId? }
  * assets: MediaAssetRef[]
  * onChange({ url, mediaId })
  * onUploadFile?(File) => Promise<MediaAssetRef>
+ * onDeleteAsset?(asset) => Promise<void>|void — 提供時顯示每張卡片的刪除鈕
+ * accept?: file input accept（預設含圖片 + PDF）
  */
 export default function MediaPicker({
   value,
   assets = [],
   onChange,
   onUploadFile,
+  onDeleteAsset,
   uploading = false,
-  emptyHint = '尚無可選圖片。',
+  deletingId = null,
+  emptyHint = '尚無可選媒體。',
   allowClear = true,
+  accept = DEFAULT_ACCEPT,
+  toolbarLabel = '選擇媒體',
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customUrl, setCustomUrl] = useState(value?.url || '');
@@ -64,17 +78,32 @@ export default function MediaPicker({
     }
   };
 
+  const renderThumb = (asset) => {
+    if (isPdfAsset(asset)) {
+      return (
+        <span className="media-picker__thumb-wrap media-picker__thumb-wrap--file" aria-hidden="true">
+          <span className="media-picker__file-badge">PDF</span>
+        </span>
+      );
+    }
+    return (
+      <span className="media-picker__thumb-wrap">
+        <img src={asset.url} alt="" loading="lazy" />
+      </span>
+    );
+  };
+
   return (
     <div className="media-picker">
       <div className="media-picker__toolbar">
-        <span className="media-picker__toolbar-label">選擇圖片</span>
+        <span className="media-picker__toolbar-label">{toolbarLabel}</span>
         <div className="media-picker__toolbar-actions">
           {onUploadFile ? (
             <>
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept={accept}
                 hidden
                 onChange={handleFileChange}
               />
@@ -84,13 +113,13 @@ export default function MediaPicker({
                 disabled={uploading}
                 onClick={() => fileRef.current?.click()}
               >
-                {uploading ? '上傳中…' : '上傳新圖'}
+                {uploading ? '上傳中…' : '上傳檔案'}
               </button>
             </>
           ) : null}
           {allowClear && selectedUrl ? (
             <button type="button" className="btn btn-sm btn-outline-secondary" onClick={handleClear}>
-              清除
+              清除選取
             </button>
           ) : null}
         </div>
@@ -99,28 +128,50 @@ export default function MediaPicker({
       {assets.length === 0 ? (
         <div className="media-picker__empty">{emptyHint}</div>
       ) : (
-        <div className="media-picker__grid" role="listbox" aria-label="可選圖片">
+        <div className="media-picker__grid" role="listbox" aria-label="可選媒體">
           {assets.map((asset) => {
             const isActive =
               (selectedId && asset.id === selectedId) || (!selectedId && asset.url === selectedUrl);
+            const canDelete = typeof onDeleteAsset === 'function' && asset.source !== 'catalog';
+            const isDeleting = deletingId != null && String(deletingId) === String(asset.id);
             return (
-              <button
+              <div
                 key={asset.id}
-                type="button"
+                className={`media-picker__tile${isActive ? ' is-active' : ''}`}
                 role="option"
                 aria-selected={isActive}
-                className={`media-picker__tile${isActive ? ' is-active' : ''}`}
-                onClick={() => handleSelect(asset)}
-                title={asset.label}
               >
-                <span className="media-picker__thumb-wrap">
-                  <img src={asset.url} alt="" loading="lazy" />
-                </span>
-                <span className="media-picker__tile-label">{asset.label}</span>
-                {asset.source === 'upload' ? (
-                  <span className="media-picker__tile-badge">已上傳</span>
+                <button
+                  type="button"
+                  className="media-picker__tile-main"
+                  onClick={() => handleSelect(asset)}
+                  title={asset.label}
+                >
+                  {renderThumb(asset)}
+                  <span className="media-picker__tile-label">{asset.label}</span>
+                  {asset.source === 'upload' ? (
+                    <span className="media-picker__tile-badge">已上傳</span>
+                  ) : asset.source === 'catalog' ? (
+                    <span className="media-picker__tile-badge media-picker__tile-badge--catalog">系統</span>
+                  ) : null}
+                </button>
+                {canDelete ? (
+                  <button
+                    type="button"
+                    className="media-picker__tile-delete"
+                    title={`刪除「${asset.label || ''}」`}
+                    aria-label={`刪除 ${asset.label || '媒體'}`}
+                    disabled={isDeleting}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onDeleteAsset(asset);
+                    }}
+                  >
+                    {isDeleting ? '…' : '刪除'}
+                  </button>
                 ) : null}
-              </button>
+              </div>
             );
           })}
         </div>
@@ -129,11 +180,22 @@ export default function MediaPicker({
       {selectedAsset || selectedUrl ? (
         <div className="media-picker__selected">
           <div className="media-picker__selected-preview">
-            {selectedUrl ? <img src={selectedUrl} alt={selectedAsset?.label || '已選圖片'} /> : null}
+            {selectedUrl ? (
+              isPdfAsset(selectedAsset) || String(selectedUrl).toLowerCase().endsWith('.pdf') ? (
+                <div className="media-picker__selected-file">
+                  <span className="media-picker__file-badge">PDF</span>
+                  <a href={selectedUrl} target="_blank" rel="noopener noreferrer" className="small">
+                    開啟預覽
+                  </a>
+                </div>
+              ) : (
+                <img src={selectedUrl} alt={selectedAsset?.label || '已選媒體'} />
+              )
+            ) : null}
           </div>
           <div className="media-picker__selected-meta">
             <div className="media-picker__selected-title">
-              {selectedAsset?.label || '自訂圖片'}
+              {selectedAsset?.label || '自訂媒體'}
             </div>
             <div className="media-picker__selected-url">{selectedUrl}</div>
           </div>
@@ -145,13 +207,13 @@ export default function MediaPicker({
         open={showAdvanced}
         onToggle={(e) => setShowAdvanced(e.currentTarget.open)}
       >
-        <summary>進階：手動輸入圖片路徑</summary>
+        <summary>進階：手動輸入路徑</summary>
         <div className="media-picker__advanced-body">
           <input
             className="form-control form-control-sm"
             value={customUrl}
             onChange={(e) => setCustomUrl(e.target.value)}
-            placeholder="/images/course-guide/.... 或 /uploads/..."
+            placeholder="/images/... 或 /uploads/media/..."
           />
           <button type="button" className="btn btn-sm btn-outline-dark mt-2" onClick={handleCustomApply}>
             套用路徑

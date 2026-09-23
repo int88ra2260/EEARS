@@ -33,9 +33,10 @@ pm2 save
 | 項目 | 說明 |
 |------|------|
 | 觸發 | `.github/workflows/deploy-prod.yml`：`main` 上 **CI** 成功完成後 |
-| 行為 | 於 `D:\EEARS`：`git fetch` → `reset --hard origin/main` → `deploy.ps1` |
+| 行為 | 於 `D:\EEARS`：備份 `siteStats.json` → `git fetch` → `reset --hard origin/main` → 還原統計檔 → `deploy.ps1` |
 | Runner | label `eears-prod`（僅這台生產機） |
 | 不自動做 | migration、改寫 `.env`、對 PR／fork 部署 |
+| 執行時資料 | `reservation-backend/data/siteStats.json`（瀏覽人次）不進版控；deploy workflow 會保留 |
 
 手機 Cursor：合併 PR 到 `main` → 等 Actions 綠燈即可；無需遠端登入本機。
 
@@ -43,9 +44,11 @@ Runner 離線或失敗時的手動 fallback：
 
 ```bat
 cd /d D:\EEARS
+copy /Y reservation-backend\data\siteStats.json %TEMP%\eears-siteStats-backup.json
 git fetch origin
 git checkout main
 git reset --hard origin/main
+if exist %TEMP%\eears-siteStats-backup.json copy /Y %TEMP%\eears-siteStats-backup.json reservation-backend\data\siteStats.json
 scripts\ops\deploy.bat
 ```
 

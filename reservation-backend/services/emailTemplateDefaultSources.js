@@ -22,6 +22,10 @@ const EMAIL_TEMPLATE_DEFAULT_SOURCES = {
 
 請妥善保管此驗證碼，取消預約時需要輸入此驗證碼才能完成取消。
 
+【現場簽到碼】
+請於活動現場出示下列簽到碼（或確認信中的 QR）：
+簽到碼：{{bookingCode}}
+
 {{chineseReminder}}
 
 若有任何問題請聯繫:
@@ -46,6 +50,10 @@ If you need to cancel this reservation, please use the following verification co
 Verification Code: {{cancellationCode}}
 
 Please keep this code safe. You will need to enter this code when canceling your reservation.
+
+[On-site Check-in Code]
+Please show the following code (or the QR in this email) at the venue:
+Check-in Code: {{bookingCode}}
 
 {{englishReminder}}
 
@@ -583,6 +591,25 @@ Center for EMI Teaching Excellence
 
 【後續說明】
 此團體報名已失效，如需重新報名，請重新建立團體。
+
+全英語卓越教學中心 敬上
+`,
+  },
+
+  classCreditAllocationReminder: {
+    subject: '【英語中心】{{semester}} 課堂加分時數分配提醒',
+    body: `親愛的 {{studentName}}（{{studentId}}）您好，
+
+您於 {{semester}} 學期修習多門英語課程。參與活動累計的時數須自行分配到各課程，同一時數不可同時用於多門課的課堂加分。
+
+待分配時數：{{remainingHours}} 小時（{{remainingPoints}} 點）
+配置截止日：{{deadline}}（當日 23:59 前，台北時間）
+本學期課程：{{classNames}}
+
+請至下列頁面，以學號、姓名與 Email 進入「課堂加分配置」完成分配：
+{{allocationUrl}}
+
+截止後尚未分配的時數，各班將顯示為未配置，無法再修改。
 
 全英語卓越教學中心 敬上
 `,

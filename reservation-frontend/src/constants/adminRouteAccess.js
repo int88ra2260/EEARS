@@ -59,6 +59,11 @@ export const ADMIN_ROUTE_ACCESS = [
     anyPermissions: [P.CAN_MARK_ET_SESSION_TASKS],
   },
   {
+    pattern: '/admin/operations/:eventId/checkin-kiosk',
+    label: '現場簽到 Kiosk',
+    anyPermissions: [P.CAN_CHECKIN_STUDENTS],
+  },
+  {
     pattern: '/admin/operations/:eventId',
     label: '活動明細',
     anyPermissions: [
@@ -70,6 +75,11 @@ export const ADMIN_ROUTE_ACCESS = [
   },
 
   { pattern: '/admin/classes', label: '班級參與概況', anyPermissions: [P.CAN_VIEW_CLASSES, P.CAN_MANAGE_CLASSES] },
+  {
+    pattern: '/admin/classes/credit-allocation',
+    label: '活動時數分配',
+    anyPermissions: [P.CAN_MANAGE_CLASSES],
+  },
   {
     pattern: '/admin/classes/:classId',
     label: '班級明細',
@@ -216,6 +226,12 @@ export const ADMIN_ROUTE_ACCESS = [
     roles: ['admin'],
     denyStaffLevels: DEPUTY_DENIED_STAFF_LEVELS,
     anyPermissions: [P.CAN_VIEW_INTERNAL_DIAGNOSTICS],
+  },
+  {
+    pattern: '/admin/ops-scripts',
+    label: '維運腳本',
+    roles: ['admin'],
+    denyStaffLevels: DEPUTY_DENIED_STAFF_LEVELS,
   },
 
   {

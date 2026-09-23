@@ -68,6 +68,7 @@ const LearningPartnerRegistrationPage = lazy(() => import('./components/Learning
 const LearningPartnerStatusPage = lazy(() => import('./components/LearningPartnerStatusPage'));
 const LearningPartnerApprovePage = lazy(() => import('./components/LearningPartnerApprovePage'));
 const ClassBestepOverview = lazy(() => import('./components/ClassBestepOverview'));
+const AdminClassCreditAllocationPage = lazy(() => import('./pages/admin/AdminClassCreditAllocationPage'));
 const TeacherDashboardPage = lazy(() => import('./components/TeacherDashboardPage'));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 const RiskDetectionPage = lazy(() => import('./components/RiskDetectionPage'));
@@ -95,6 +96,7 @@ const EventTypesAdminPage = lazy(() => import('./pages/admin/EventTypesAdminPage
 const AdminEmailTemplatesPage = lazy(() => import('./pages/admin/AdminEmailTemplatesPage'));
 const InternalDiagnosticsPage = lazy(() => import('./pages/admin/InternalDiagnosticsPage'));
 const AdminEventDetailPage = lazy(() => import('./pages/admin/AdminEventDetailPage'));
+const AdminEventCheckinKioskPage = lazy(() => import('./pages/admin/AdminEventCheckinKioskPage'));
 const AdminEtTaskTemplatesPage = lazy(() => import('./pages/admin/AdminEtTaskTemplatesPage'));
 const AdminEtGroupingSettingsPage = lazy(() => import('./pages/admin/AdminEtGroupingSettingsPage'));
 const AdminEtGroupingReportsPage = lazy(() => import('./pages/admin/AdminEtGroupingReportsPage'));
@@ -106,8 +108,10 @@ const EnglishTestImportHubPage = lazy(() => import('./pages/admin/EnglishTestImp
 const LearningJourneyDashboardPage = lazy(() => import('./pages/admin/LearningJourneyDashboardPage'));
 const LearningJourneyImportHubPage = lazy(() => import('./pages/admin/LearningJourneyImportHubPage'));
 const AdminEwlSyncPage = lazy(() => import('./pages/admin/AdminEwlSyncPage'));
+const AdminOpsScriptsPage = lazy(() => import('./pages/admin/AdminOpsScriptsPage'));
 const EnglishLearningPassportPage = lazy(() => import('./pages/student/EnglishLearningPassportPage'));
 const StudentProgressPage = lazy(() => import('./pages/student/StudentProgressPage'));
+const ClassCreditAllocationPage = lazy(() => import('./pages/student/ClassCreditAllocationPage'));
 const EnglishLearningPassportSubmissionPage = lazy(() => import('./pages/student/EnglishLearningPassportSubmissionPage'));
 const EnglishLearningPassportCertificationPage = lazy(() => import('./pages/student/EnglishLearningPassportCertificationPage'));
 const EnglishLearningPassportsAdminPage = lazy(() => import('./pages/admin/EnglishLearningPassportsAdminPage'));
@@ -515,6 +519,7 @@ function AppContent() {
               <Route path="english-tests/tracking" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="英檢追蹤（舊網址）" />} />
               <Route path="english-tests" element={<AdminLegacyRedirect to="/admin/english-test" fromLabel="英檢管理（舊網址）" />} />
               <Route path="operations/participation" element={<AdminEventParticipationStatsPage />} />
+              <Route path="operations/:eventId/checkin-kiosk" element={<AdminEventCheckinKioskPage />} />
               <Route path="operations/:eventId" element={<AdminEventDetailPage />} />
               <Route path="et-grouping/settings" element={<AdminEtGroupingSettingsPage />} />
               <Route path="et-grouping/tasks" element={<AdminEtTaskTemplatesPage />} />
@@ -523,6 +528,7 @@ function AppContent() {
               <Route path="et-grouping/student-trends" element={<AdminEtStudentTrendsPage />} />
               <Route path="et-grouping/my-sessions" element={<AdminEtLeaderSessionsPage />} />
               <Route path="operations" element={<AdminHome />} />
+              <Route path="classes/credit-allocation" element={<AdminClassCreditAllocationPage />} />
               <Route path="classes/:classId/bestep" element={<ClassBestepOverview />} />
               <Route path="classes/:classId" element={<ClassDetail />} />
               <Route path="classes" element={<ClassOverview />} />
@@ -565,6 +571,7 @@ function AppContent() {
               <Route path="settings/event-types" element={<EventTypesAdminPage />} />
               <Route path="settings/email-templates" element={<AdminEmailTemplatesPage />} />
               <Route path="diagnostics" element={<InternalDiagnosticsPage />} />
+              <Route path="ops-scripts" element={<AdminOpsScriptsPage />} />
               <Route path="english-test" element={<EnglishTestManagement />} />
               {/* legacy route (redirect only)
                   kept for backward compatibility
@@ -627,6 +634,7 @@ function AppContent() {
             <Route path="/register/english-test/group/status/:teamId" element={<LearningPartnerStatusPage />} />
             <Route path="/register/english-test/group/approve" element={<LearningPartnerApprovePage />} />
             <Route path="/student/progress" element={<StudentProgressPage />} />
+            <Route path="/student/class-credit-allocation" element={<ClassCreditAllocationPage />} />
             <Route path="/student/english-learning-passport" element={<EnglishLearningPassportPage />} />
             <Route path="/student/english-learning-passport/submissions/:id" element={<EnglishLearningPassportSubmissionPage />} />
             <Route path="/student/english-learning-passport/certification" element={<EnglishLearningPassportCertificationPage />} />

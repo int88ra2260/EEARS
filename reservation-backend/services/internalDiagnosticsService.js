@@ -1,12 +1,14 @@
 const os = require('os');
-const nodemailer = require('nodemailer');
 const { Op } = require('sequelize');
 const { sequelize, SystemLog } = require('../models');
 const emailQueue = require('../utils/emailQueue');
+const { getMailTransporters, isSmtpAuthCoolingDown } = require('../config/email');
 const { getSystemLogQueueStats } = require('./systemLogService');
 const { getAuditLogQueueStats } = require('./auditLogService');
 
 const HEALTH_TIMEOUT_MS = 3000;
+const SMTP_VERIFY_TTL_MS = 15 * 60 * 1000;
+const smtpVerifyCache = new Map();
 
 function withTimeout(promiseFactory, timeoutMs = HEALTH_TIMEOUT_MS) {
   return Promise.race([
@@ -34,26 +36,41 @@ async function checkDatabaseHealth() {
   }
 }
 
-async function verifySmtpAccount(serviceName, user, pass) {
-  if (!user || !pass) {
+async function verifySmtpAccount(serviceName, transporter, configured) {
+  if (!configured || !transporter) {
     return { name: serviceName, status: 'degraded', latencyMs: null, detail: 'missing_credentials' };
   }
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user,
-      pass: String(pass).replace(/\s+/g, ''),
-    },
-  });
+  if (isSmtpAuthCoolingDown()) {
+    return {
+      name: serviceName,
+      status: 'error',
+      latencyMs: null,
+      detail: 'smtp_login_cooldown',
+    };
+  }
+
+  const cached = smtpVerifyCache.get(serviceName);
+  if (cached && Date.now() - cached.checkedAt < SMTP_VERIFY_TTL_MS) {
+    return cached.result;
+  }
 
   const started = Date.now();
   try {
     await withTimeout(() => transporter.verify());
     const latencyMs = Date.now() - started;
-    return { name: serviceName, status: mapHealthStatus(latencyMs, false), latencyMs };
+    const result = { name: serviceName, status: mapHealthStatus(latencyMs, false), latencyMs };
+    smtpVerifyCache.set(serviceName, { checkedAt: Date.now(), result });
+    return result;
   } catch (error) {
-    return { name: serviceName, status: 'error', latencyMs: Date.now() - started, detail: error.message };
+    const result = {
+      name: serviceName,
+      status: 'error',
+      latencyMs: Date.now() - started,
+      detail: error.message,
+    };
+    smtpVerifyCache.set(serviceName, { checkedAt: Date.now(), result });
+    return result;
   }
 }
 
@@ -256,13 +273,25 @@ async function getRecentErrors() {
 }
 
 async function getExternalServiceDependencies() {
-  const healthResults = await Promise.all([
+  const { reservation, bestep } = getMailTransporters();
+  const reservationConfigured = Boolean(process.env.GMAIL_USER && process.env.GMAIL_PASS);
+  const bestepConfigured = Boolean(process.env.BESTEP_GMAIL_USER && process.env.BESTEP_GMAIL_PASS);
+  const bestepSharesReservation = Boolean(bestep && reservation && bestep === reservation);
+
+  const [mysql, reservationHealth] = await Promise.all([
     checkDatabaseHealth().then((result) => ({ name: 'mysql', ...result })),
-    verifySmtpAccount('smtp_reservation', process.env.GMAIL_USER, process.env.GMAIL_PASS),
-    verifySmtpAccount('smtp_bestep', process.env.BESTEP_GMAIL_USER, process.env.BESTEP_GMAIL_PASS),
+    verifySmtpAccount('smtp_reservation', reservation, reservationConfigured),
   ]);
 
-  return healthResults;
+  const bestepHealth = bestepSharesReservation
+    ? {
+      ...reservationHealth,
+      name: 'smtp_bestep',
+      detail: reservationHealth.detail || 'shared_reservation_transport',
+    }
+    : await verifySmtpAccount('smtp_bestep', bestep, bestepConfigured);
+
+  return [mysql, reservationHealth, bestepHealth];
 }
 
 async function getInternalDiagnostics() {

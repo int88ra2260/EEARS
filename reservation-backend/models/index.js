@@ -14,6 +14,8 @@ const EnglishClubSurveyResponse = require('./EnglishClubSurveyResponse');
 const SurveySettings = require('./SurveySettings');
 const Class = require('./Class');
 const ClassMembership = require('./ClassMembership');
+const ClassCreditAllocation = require('./ClassCreditAllocation');
+const ClassCreditAdjustment = require('./ClassCreditAdjustment');
 const Teacher = require('./Teacher');
 const ClassTeacher = require('./ClassTeacher');
 const EnglishTestRegistration = require('./EnglishTestRegistration');
@@ -55,6 +57,8 @@ const MediaAsset = require('./MediaAsset');
 const AuditLog = require('./AuditLog');
 const EmailLog = require('./EmailLog');
 const EmailTemplateOverride = require('./EmailTemplateOverride');
+const EnglishTestMailTemplate = require('./EnglishTestMailTemplate');
+const EnglishTestMailSend = require('./EnglishTestMailSend');
 const SystemLog = require('./SystemLog');
 const Notification = require('./Notification');
 const RolePermission = require('./RolePermission');
@@ -235,6 +239,11 @@ Notification.belongsTo(User, { foreignKey: 'userId' });
 Class.hasMany(ClassMembership, { foreignKey: 'classId', onDelete: 'CASCADE' });
 ClassMembership.belongsTo(Class, { foreignKey: 'classId' });
 
+Class.hasMany(ClassCreditAllocation, { foreignKey: 'classId', onDelete: 'CASCADE' });
+ClassCreditAllocation.belongsTo(Class, { foreignKey: 'classId' });
+Class.hasMany(ClassCreditAdjustment, { foreignKey: 'classId', onDelete: 'CASCADE' });
+ClassCreditAdjustment.belongsTo(Class, { foreignKey: 'classId' });
+
 // Teacher 與 Class 的關聯（多對多）
 Teacher.belongsToMany(Class, { through: ClassTeacher, foreignKey: 'teacherId' });
 Class.belongsToMany(Teacher, { through: ClassTeacher, foreignKey: 'classId' });
@@ -346,6 +355,8 @@ module.exports = {
   SurveySettings,
   Class,
   ClassMembership,
+  ClassCreditAllocation,
+  ClassCreditAdjustment,
   Teacher,
   ClassTeacher,
   EnglishTestRegistration,
@@ -386,6 +397,8 @@ module.exports = {
   AuditLog,
   EmailLog,
   EmailTemplateOverride,
+  EnglishTestMailTemplate,
+  EnglishTestMailSend,
   SystemLog,
   Notification,
   RolePermission,

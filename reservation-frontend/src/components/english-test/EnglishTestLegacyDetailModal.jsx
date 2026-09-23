@@ -85,7 +85,7 @@ export default function EnglishTestLegacyDetailModal({
         <div className="modal-content">
           <div className="modal-header bg-primary text-white">
             <div className="d-flex justify-content-between align-items-center w-100">
-              <h5 className="modal-title mb-0">報名詳細資料 - {registration.name}</h5>
+              <h5 className="modal-title mb-0 text-white">報名詳細資料 - {registration.name}</h5>
               <div className="d-flex gap-2">
                 <button
                   type="button"

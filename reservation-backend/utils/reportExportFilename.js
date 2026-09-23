@@ -54,9 +54,15 @@ function buildEearsReportBasename(opts) {
   return { basename: `EEARS_${middle}_${stamp}`, ext };
 }
 
+function attachmentContentDisposition(filename) {
+  const safe = String(filename || 'download.xlsx').replace(/[\r\n"]/g, '_');
+  const ascii = safe.replace(/[^\x20-\x7E]/g, '_');
+  const encoded = encodeURIComponent(safe);
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
 function buildContentDispositionAttachment(basename, ext) {
-  const filename = `${basename}.${ext}`;
-  return `attachment; filename="${filename}"`;
+  return attachmentContentDisposition(`${basename}.${ext}`);
 }
 
 module.exports = {
@@ -64,4 +70,5 @@ module.exports = {
   formatTimestampForFilename,
   buildEearsReportBasename,
   buildContentDispositionAttachment,
+  attachmentContentDisposition,
 };

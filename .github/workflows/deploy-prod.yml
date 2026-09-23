@@ -38,6 +38,18 @@ jobs:
             throw "Missing reservation-backend\.env — abort (never invent secrets in CI)"
           }
 
+          # Runtime counters live outside git; preserve across reset --hard
+          # (first deploy after untracking deletes the tracked file from the tree).
+          $statsRel = 'reservation-backend\data\siteStats.json'
+          $statsPath = Join-Path $root $statsRel
+          $statsBackup = Join-Path $env:TEMP 'eears-siteStats-backup.json'
+          if (Test-Path -LiteralPath $statsPath) {
+            Copy-Item -LiteralPath $statsPath -Destination $statsBackup -Force
+            Write-Host "=== backed up $statsRel ==="
+          } else {
+            Write-Host "=== no existing $statsRel to backup ==="
+          }
+
           Write-Host "=== git fetch / checkout / reset ==="
           git fetch origin
           if ($LASTEXITCODE -ne 0) { throw "git fetch failed" }
@@ -48,6 +60,13 @@ jobs:
 
           if (-not (Test-Path -LiteralPath $envPath)) {
             throw "reservation-backend\.env missing after reset — abort"
+          }
+
+          if (Test-Path -LiteralPath $statsBackup) {
+            $dataDir = Split-Path -Parent $statsPath
+            New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+            Copy-Item -LiteralPath $statsBackup -Destination $statsPath -Force
+            Write-Host "=== restored $statsRel from backup ==="
           }
 
           Write-Host "=== HEAD ==="

@@ -37,7 +37,7 @@ export default function DetailModalMobileView({
         <div className="modal-content">
           <div className="modal-header bg-primary text-white">
             <div className="d-flex justify-content-between align-items-center w-100 flex-wrap gap-2">
-              <h5 className="modal-title mb-0">{registration.name}</h5>
+              <h5 className="modal-title mb-0 text-white">{registration.name}</h5>
               <div className="d-flex gap-2 align-items-center flex-shrink-0">
                 <DetailModalStatusBadge registration={registration} />
                 <DetailModalSequenceControls

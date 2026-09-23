@@ -10,6 +10,7 @@ import { useEnglishTestRejection } from './useEnglishTestRejection';
 import { useEnglishTestBulkActions } from './useEnglishTestBulkActions';
 import { useEnglishTestExport } from './useEnglishTestExport';
 import { useEnglishTestEmails } from './useEnglishTestEmails';
+import { useEnglishTestManualMail } from './useEnglishTestManualMail';
 import { useEnglishTestQuickReview } from './useEnglishTestQuickReview';
 import { useEnglishTestAdminUpdate } from './useEnglishTestAdminUpdate';
 import { useEnglishTestAnalytics } from './useEnglishTestAnalytics';
@@ -21,8 +22,6 @@ import {
   fetchClassBestepLink,
   fetchRegistrationById,
 } from '../services/englishTestApi';
-import { createPrimarySortConfig } from '../utils/englishTestSortConfig';
-
 const VALID_MAIN_TABS = new Set(['individual', 'group', 'analytics', 'exemption', 'form', 'roster']);
 const VALID_STATUS_FILTERS = new Set(['all', 'pending', 'approved', 'success', 'revision', 'failed']);
 
@@ -71,6 +70,7 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
   const exportOps = useEnglishTestExport({ token, showToast });
   const bulk = useEnglishTestBulkActions({ token, showToast, loadRegistrations: list.loadRegistrations });
   const emails = useEnglishTestEmails({ token, openConfirm, showToast });
+  const manualMail = useEnglishTestManualMail({ token, showToast });
 
   const detail = useEnglishTestDetail({
     token,
@@ -144,8 +144,6 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
   const {
     loadRegistrations,
     statusFilter,
-    sortConfig,
-    setSortConfig,
     setStatusFilter,
     setCurrentPage,
     setAdvancedFilters,
@@ -176,12 +174,6 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
   useEffect(() => {
     loadRegistrations();
   }, [loadRegistrations]);
-
-  useEffect(() => {
-    if (statusFilter === 'success' && sortConfig.key !== 'successSequence') {
-      setSortConfig(createPrimarySortConfig('successSequence', 'ASC'));
-    }
-  }, [statusFilter, sortConfig.key, setSortConfig]);
 
   // 將主 Tab／狀態篩選寫入 URL，方便分享與重新整理還原
   useEffect(() => {
@@ -329,9 +321,6 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
       const data = await adjustRegistrationSequence(token, id, body);
       const actionText = action === 'up' ? '上移' : action === 'down' ? '下移' : '移動';
       showToast(`${actionText}成功，新序號：${data.newSequence}`, 'success');
-      if (statusFilter === 'success' && sortConfig.key !== 'successSequence') {
-        setSortConfig(createPrimarySortConfig('successSequence', 'ASC'));
-      }
       await loadRegistrations();
       if (selectedRegistration && selectedRegistration.id === id) {
         const refreshed = await fetchRegistrationById(token, id);
@@ -346,9 +335,6 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
     adjustingSequence,
     token,
     showToast,
-    statusFilter,
-    sortConfig.key,
-    setSortConfig,
     loadRegistrations,
     selectedRegistration,
     setSelectedRegistration,
@@ -358,14 +344,11 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
     if (filterType === 'status') {
       setStatusFilter(filterValue);
       setCurrentPage(1);
-      if (filterValue === 'success') {
-        setSortConfig(createPrimarySortConfig('successSequence', 'ASC'));
-      }
     } else if (filterType === 'examType') {
       setAdvancedFilters((prev) => ({ ...prev, examTypes: [filterValue] }));
       setCurrentPage(1);
     }
-  }, [setStatusFilter, setCurrentPage, setSortConfig, setAdvancedFilters]);
+  }, [setStatusFilter, setCurrentPage, setAdvancedFilters]);
 
   const getStatusText = useCallback((s) => {
     const statusMap = {
@@ -393,6 +376,7 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
     exportOps,
     bulk,
     emails,
+    manualMail,
     detail,
     status,
     rejection,

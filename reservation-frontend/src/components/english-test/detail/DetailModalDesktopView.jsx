@@ -69,7 +69,7 @@ export default function DetailModalDesktopView({
         <div className="modal-content">
           <div className="modal-header bg-primary text-white flex-wrap">
             <div className="d-flex justify-content-between align-items-center w-100 flex-wrap gap-2">
-              <h5 className="modal-title mb-0 text-truncate" style={{ maxWidth: 'min(100%, 280px)' }}>
+              <h5 className="modal-title mb-0 text-white text-truncate" style={{ maxWidth: 'min(100%, 280px)' }}>
                 報名詳細資料 - {registration.name}
               </h5>
               <div className="d-flex gap-2 align-items-center flex-shrink-0 flex-wrap">

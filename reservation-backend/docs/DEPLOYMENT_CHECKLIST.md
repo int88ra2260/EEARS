@@ -109,6 +109,7 @@ npx sequelize-cli db:migrate
 - 以 `reservation-backend/.env.example` 為準
 - 生產必填：`JWT_SECRET`（≥32）、`CORS_ORIGINS`、`DB_*`
 - 部署腳本**不會**改寫 `.env`
+- `reservation-backend/data/siteStats.json`（Footer 瀏覽人次）**不進版控**；自動部署會在 `git reset --hard` 前後備份／還原。手動拉碼請先備份該檔（見 `scripts/ops/README.md`）
 
 ## 部署後驗證
 

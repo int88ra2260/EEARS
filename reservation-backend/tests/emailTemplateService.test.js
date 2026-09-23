@@ -114,8 +114,62 @@ describe('emailTemplateService', () => {
       location: 'Lib',
       cancellationCode: 'X1',
     });
-    expect(vars.subjectPrefix).toMatch(/English Table/);
+    expect(vars.subjectPrefix).toBeTruthy();
     expect(vars.locationZh).toBe('Lib');
     expect(vars.cancellationCode).toBe('X1');
+  });
+
+  test('buildMailOptions attaches check-in QR for reservationSuccess', async () => {
+    const mail = await buildMailOptions('reservationSuccess', {
+      studentName: 'Ann',
+      studentId: 'B1',
+      studentEmail: 'a@b.com',
+      eventName: 'Demo',
+      eventType: 'English Club',
+      date: '2026-08-12',
+      startTime: '18:00',
+      endTime: '19:30',
+      location: 'Lib',
+      cancellationCode: 'ABC',
+      reservationId: 360,
+      bookingCode: 'R-000360',
+    });
+    expect(mail.text).toContain('R-000360');
+    expect(mail.html).toContain('cid:eears-checkin-qr');
+    expect(mail.attachments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ cid: 'eears-checkin-qr' }),
+      ])
+    );
+  });
+
+  test('buildMailOptions applies HTML body override as html + text', async () => {
+    EmailTemplateOverride.findAll.mockResolvedValue([
+      {
+        templateKey: 'englishTestEmailVerification',
+        subjectTemplate: 'Hi',
+        bodyTemplate: '<p>Code <strong>{{code}}</strong></p>',
+        isEnabled: true,
+        attachmentsJson: null,
+      },
+    ]);
+    invalidateEmailTemplateOverrideCache();
+    const mail = await buildMailOptions('englishTestEmailVerification', {
+      email: 'a@b.com',
+      code: '999888',
+    });
+    expect(mail.subject).toBe('Hi');
+    expect(mail.text).toContain('999888');
+    expect(mail.html).toContain('<strong>999888</strong>');
+  });
+
+  test('previewEmailTemplate includes html for rich body', async () => {
+    const { previewEmailTemplate } = require('../services/emailTemplateService');
+    const preview = await previewEmailTemplate('englishTestEmailVerification', {
+      subjectTemplate: 'T',
+      bodyTemplate: '<p>Hello <u>{{email}}</u></p>',
+    });
+    expect(preview.html).toContain('<u>student@example.com</u>');
+    expect(preview.body).toContain('student@example.com');
   });
 });

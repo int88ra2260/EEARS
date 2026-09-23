@@ -1,12 +1,13 @@
 /**
  * 我的英語進度：統一讀取 API（活動 / 修課 / 考試 / 護照）
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import PageHeader from '../../components/layout/PageHeader';
+import StudentRecordShell from '../../components/student/StudentRecordShell';
 import ReservationLookupSection from '../../components/reservations/ReservationLookupSection';
 import { fetchStudentProgress } from '../../services/studentProgressApi';
 import { setVoluntaryStudentId } from '../../utils/learningStudentLink';
+import { loadReservationIdentity, saveReservationIdentity } from '../../utils/studentIdentityStorage';
 import { useLanguage } from '../../context/LanguageContext';
 import { validateReservationFields } from '../../utils/validators';
 import '../../styles/public-ui.css';
@@ -82,7 +83,11 @@ function ActivityRecordList({ title, records, emptyText, t }) {
 
 export default function StudentProgressPage() {
   const { t } = useLanguage();
-  const [form, setForm] = useState({ studentId: '', studentName: '', studentEmail: '' });
+  const [form, setForm] = useState(() => loadReservationIdentity() || {
+    studentId: '',
+    studentName: '',
+    studentEmail: '',
+  });
   const [hasSearched, setHasSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
@@ -104,6 +109,7 @@ export default function StudentProgressPage() {
     setProgress(null);
     setHasSearched(true);
     setVoluntaryStudentId(trimmed.studentId);
+    saveReservationIdentity(trimmed);
 
     try {
       const result = await fetchStudentProgress(trimmed);
@@ -121,10 +127,13 @@ export default function StudentProgressPage() {
     }
   }, [form.studentEmail, form.studentId, form.studentName, t]);
 
-  const breadcrumbs = [
-    { label: t('nav.home'), path: '/' },
-    { label: t('page.studentProgressTitle') },
-  ];
+  const didAutoSearch = useRef(false);
+  useEffect(() => {
+    if (didAutoSearch.current) return;
+    if (!loadReservationIdentity()) return;
+    didAutoSearch.current = true;
+    handleSearch();
+  }, [handleSearch]);
 
   const activities = progress?.activities;
   const courses = progress?.courses?.items || [];
@@ -136,11 +145,7 @@ export default function StudentProgressPage() {
 
   return (
     <div className="student-progress-page public-reservation-page">
-      <PageHeader
-        breadcrumbs={breadcrumbs}
-        title={t('page.studentProgressTitle')}
-        lead={t('page.studentProgressLead')}
-      />
+      <StudentRecordShell lead={t('page.studentProgressLead')}>
 
       <div className="public-card">
         <ReservationLookupSection
@@ -189,9 +194,6 @@ export default function StudentProgressPage() {
               </div>
 
               <div className="d-flex flex-wrap gap-2 mt-3">
-                <Link to="/my-reservations" className="btn btn-primary btn-sm">
-                  {t('nav.myReservations')}
-                </Link>
                 <Link to="/events" className="btn btn-outline-primary btn-sm">
                   {t('nav.eventsBooking')}
                 </Link>
@@ -312,6 +314,7 @@ export default function StudentProgressPage() {
           </section>
         </>
       ) : null}
+      </StudentRecordShell>
     </div>
   );
 }

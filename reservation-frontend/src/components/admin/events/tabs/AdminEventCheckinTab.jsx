@@ -1,4 +1,5 @@
 import React, { memo, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import Card from 'react-bootstrap/Card';
 import Button from 'react-bootstrap/Button';
 import Col from 'react-bootstrap/Col';
@@ -20,6 +21,7 @@ function matchesSearch(reservation, q) {
 
 function AdminEventCheckinTab({ tabProps }) {
   const p = tabProps;
+  const { eventId } = useParams();
   const [checkinSearchTerm, setCheckinSearchTerm] = useState('');
   const [passportFlags, setPassportFlags] = useState(() => ({}));
   const isEt = isEnglishTableEventType(p.currentEventType);
@@ -66,6 +68,18 @@ function AdminEventCheckinTab({ tabProps }) {
         <h6 className="text-success fw-semibold mb-2">主任務：現場簽到／補簽到</h6>
         <p className="small text-muted mb-2">
           左側為<strong>待簽到</strong>，右側為<strong>已簽到</strong>。搜尋會同時過濾兩欄。
+          {eventId && p.canCheckinStudents ? (
+            <>
+              {' '}現場建議改用
+              <Link
+                to={`/admin/operations/${encodeURIComponent(eventId)}/checkin-kiosk`}
+                className="ms-1"
+              >
+                Kiosk 精簡頁
+              </Link>
+              。
+            </>
+          ) : null}
         </p>
         <Alert variant="light" className="border small py-2 mb-3">
           若學生聲明<strong>累計護照點數</strong>（與課堂加分擇一），請勾選「計入護照」後再簽到。
@@ -94,13 +108,23 @@ function AdminEventCheckinTab({ tabProps }) {
                   </span>
                 ) : null}
               </div>
-              <div className="flex-grow-1" style={{ minWidth: '200px', maxWidth: '360px' }}>
-                <Form.Control
-                  size="sm"
-                  placeholder="搜尋學號／姓名（兩欄共用）"
-                  value={checkinSearchTerm}
-                  onChange={(e) => setCheckinSearchTerm(e.target.value)}
-                />
+              <div className="d-flex flex-wrap align-items-center gap-2 flex-grow-1 justify-content-end">
+                {eventId && p.canCheckinStudents ? (
+                  <Link
+                    to={`/admin/operations/${encodeURIComponent(eventId)}/checkin-kiosk`}
+                    className="btn btn-success btn-sm fw-semibold"
+                  >
+                    開啟現場 Kiosk
+                  </Link>
+                ) : null}
+                <div style={{ minWidth: '200px', maxWidth: '360px', flex: '1 1 200px' }}>
+                  <Form.Control
+                    size="sm"
+                    placeholder="搜尋學號／姓名（兩欄共用）"
+                    value={checkinSearchTerm}
+                    onChange={(e) => setCheckinSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 

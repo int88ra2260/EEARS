@@ -67,16 +67,21 @@ const learningPartnerRouter = require('./routes/learningPartnerRouter');
 const etGroupingRouter = require('./routes/etGroupingRouter');
 const learningTraceRouter = require('./routes/learningTraceRouter');
 const studentProgressRouter = require('./routes/studentProgressRouter');
+const classCreditAllocationRouter = require('./routes/classCreditAllocationRouter');
+const adminClassCreditAllocationRouter = require('./routes/adminClassCreditAllocationRouter');
 
 const { errorHandler } = require('./middlewares/errorHandler');
 const { requestLogger } = require('./middlewares/requestLogger');
 const { authMiddleware, requirePermission, P } = require('./middlewares/auth');
 const { expireLearningPartnerTeams } = require('./scripts/learningPartnerExpireCron');
 const { startEventAutoCheckScheduler } = require('./scripts/eventAutoCheckScheduler');
+const { startEwlDailySyncScheduler } = require('./scripts/ewlDailySyncScheduler');
+const { startBackupDailyScheduler } = require('./scripts/backupDailyScheduler');
 const adminLogsRouter = require('./routes/adminLogsRouter');
 const adminEmailTemplatesRouter = require('./routes/adminEmailTemplatesRouter');
 const studentsRouter = require('./routes/studentsRouter');
 const importRunHistoryRouter = require('./routes/importRunHistoryRouter');
+const adminOpsScriptsRouter = require('./routes/adminOpsScriptsRouter');
 const { isLearningJourneyV3ReadModelEnabled } = require('./services/learningJourney/learningJourneyFeatureFlags');
 
 const app = express();
@@ -117,6 +122,7 @@ app.use('/api/admin/surveys/health', adminSurveyHealthRouter);
 app.use('/api/admin/surveys/repairs', adminSurveyRepairsRouter);
 app.use('/api/admin/surveys/answer-mappings', adminSurveyAnswerMappingRouter);
 app.use('/api/admin/classes', adminClassesRouter);
+app.use('/api/admin/class-credit-allocation', adminClassCreditAllocationRouter);
 app.use('/api', teacherRoutes);
 app.use('/api', adminRouter);
 app.use('/api', englishTestRegistrationRouter);
@@ -136,6 +142,7 @@ app.use('/api/admin/learning-journey-v3', learningJourneyV3Router);
 app.use('/api/admin/learning-analytics', learningAnalyticsRouter);
 app.use('/api', learningTraceRouter);
 app.use('/api', studentProgressRouter);
+app.use('/api', classCreditAllocationRouter);
 app.use('/api/admin/et-grouping', etGroupingRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api', analyticsRouter);
@@ -151,6 +158,7 @@ app.use('/api/admin', adminMediaRouter);
 app.use('/api/admin/logs', adminLogsRouter);
 app.use('/api/admin/email-templates', adminEmailTemplatesRouter);
 app.use('/api/admin/import-runs', importRunHistoryRouter);
+app.use('/api/admin/ops-scripts', adminOpsScriptsRouter);
 app.use('/api', studentsRouter);
 
 // 提供上傳檔案的靜態服務
@@ -285,6 +293,10 @@ sequelize.authenticate()
 
       // 每日 23:59:59 自動執行活動結束檢查
       startEventAutoCheckScheduler(logger);
+      // 每日同步寫作工坊預約與簽到（預設 06:00，過去 14 天～未來 60 天）
+      startEwlDailySyncScheduler(logger);
+      // 每日資料庫備份（預設 02:00，scripts/backup-db.bat）
+      startBackupDailyScheduler(logger);
     });
   })
   .catch(err => {

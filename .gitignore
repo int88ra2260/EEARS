@@ -18,6 +18,9 @@ Thumbs.db
 reservation-backend/uploads/
 reservation-backend/exports/
 reservation-frontend/exports/
+# Site view counter (runtime; deploy must preserve — see deploy-prod.yml)
+reservation-backend/data/siteStats.json
+reservation-backend/data/siteStats.json.tmp
 
 # CodeGraph local index (MCP knowledge graph; per-machine)
 .codegraph/

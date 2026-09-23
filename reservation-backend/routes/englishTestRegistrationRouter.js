@@ -70,6 +70,7 @@ const {
   assignExportSequentialNumbers,
 } = require('../utils/englishTestRegistrationSequence');
 const emailLogService = require('../services/emailLogService');
+const englishTestManualMailService = require('../services/englishTestManualMailService');
 const logger = require('../utils/logger');
 const auditLogService = require('../services/auditLogService');
 const {
@@ -2795,6 +2796,120 @@ router.put('/english-test/registrations/:id', ...englishRegReviewAuth, async (re
   } catch (error) {
     logger.error('更新報名狀態錯誤', error);
     res.status(500).json({ error: '伺服器錯誤' });
+  }
+});
+
+function respondManualMailError(res, error, logLabel) {
+  if (error && error.status && error.status < 500) {
+    return res.status(error.status).json({ error: error.message, code: error.code || 'BAD_REQUEST' });
+  }
+  logger.error(logLabel, error);
+  return res.status(500).json({ error: '伺服器錯誤' });
+}
+
+// API: 指定寄信可選的郵件設定範本與自訂範本
+router.get('/english-test/mail-options', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const [catalog, custom] = await Promise.all([
+      Promise.resolve(englishTestManualMailService.listSelectableCatalogTemplates()),
+      englishTestManualMailService.listCustomTemplates(),
+    ]);
+    res.json({ catalog, custom });
+  } catch (error) {
+    respondManualMailError(res, error, '讀取培力英檢寄信選項錯誤');
+  }
+});
+
+router.get('/english-test/mail-templates', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const data = await englishTestManualMailService.listCustomTemplates();
+    res.json({ data });
+  } catch (error) {
+    respondManualMailError(res, error, '讀取培力英檢自訂範本錯誤');
+  }
+});
+
+router.post('/english-test/mail-templates', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const data = await englishTestManualMailService.createCustomTemplate({
+      name: req.body?.name,
+      subjectTemplate: req.body?.subjectTemplate,
+      bodyTemplate: req.body?.bodyTemplate,
+      userId: req.user?.id || null,
+    });
+    res.status(201).json({ data });
+  } catch (error) {
+    respondManualMailError(res, error, '建立培力英檢自訂範本錯誤');
+  }
+});
+
+router.put('/english-test/mail-templates/:id', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const data = await englishTestManualMailService.updateCustomTemplate(req.params.id, {
+      name: req.body?.name,
+      subjectTemplate: req.body?.subjectTemplate,
+      bodyTemplate: req.body?.bodyTemplate,
+      userId: req.user?.id || null,
+    });
+    res.json({ data });
+  } catch (error) {
+    respondManualMailError(res, error, '更新培力英檢自訂範本錯誤');
+  }
+});
+
+router.delete('/english-test/mail-templates/:id', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const data = await englishTestManualMailService.deleteCustomTemplate(req.params.id);
+    res.json(data);
+  } catch (error) {
+    respondManualMailError(res, error, '刪除培力英檢自訂範本錯誤');
+  }
+});
+
+router.get('/english-test/mail-sends', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const data = await englishTestManualMailService.listSendLogs({
+      page: req.query.page,
+      limit: req.query.limit,
+      studentId: req.query.studentId,
+      registrationId: req.query.registrationId,
+    });
+    res.json(data);
+  } catch (error) {
+    respondManualMailError(res, error, '讀取培力英檢寄信紀錄錯誤');
+  }
+});
+
+router.post('/english-test/registrations/send-selected-emails', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const result = await englishTestManualMailService.sendToSelected({
+      ids: req.body?.ids,
+      source: req.body?.source,
+      templateKey: req.body?.templateKey,
+      customTemplateId: req.body?.customTemplateId,
+      subject: req.body?.subject,
+      body: req.body?.body,
+      userId: req.user?.id || null,
+      requestId: req.requestId,
+    });
+    auditLogService.logAuditAsync({
+      module: 'english_test',
+      action: 'send_selected_emails',
+      entityType: 'EnglishTestMailBatch',
+      entityId: result.batchId,
+      targetSummary: result.versionLabel,
+      afterData: {
+        sourceType: result.sourceType,
+        versionLabel: result.versionLabel,
+        sent: result.sent,
+        failed: result.failed,
+        total: result.total,
+      },
+      req,
+    });
+    res.json(result);
+  } catch (error) {
+    respondManualMailError(res, error, '培力英檢指定寄信錯誤');
   }
 });
 

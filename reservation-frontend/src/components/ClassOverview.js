@@ -13,7 +13,6 @@ import ClassOverviewTable from './admin/classes/ClassOverviewTable';
 import ClassOverviewDeleteModal from './admin/classes/ClassOverviewDeleteModal';
 import ClassOverviewUploadModal from './admin/classes/ClassOverviewUploadModal';
 import ClassOverviewUploadResultModal from './admin/classes/ClassOverviewUploadResultModal';
-
 export default function ClassOverview() {
   const navigate = useNavigate();
   const { userRole, token, accessProfile: ctxAccess } = useOutletContext() || {};

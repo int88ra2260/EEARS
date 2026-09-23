@@ -24,6 +24,10 @@ const EmailTemplateOverride = sequelize.define(
       type: DataTypes.TEXT('long'),
       allowNull: true,
     },
+    attachmentsJson: {
+      type: DataTypes.JSON,
+      allowNull: true,
+    },
     isEnabled: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

@@ -70,6 +70,7 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
   }, [location.pathname, navContext, pageMetaOverride]);
 
   const breadcrumbLeafOverride = pageMetaOverride?.breadcrumbLeaf;
+  const kioskMode = !!pageMetaOverride?.kioskMode;
 
   useEffect(() => {
     setPageMetaOverride(null);
@@ -165,8 +166,8 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
   }
 
   return (
-    <div className="admin-layout-root">
-      {isMobileNav && mobileMenuOpen && (
+    <div className={`admin-layout-root${kioskMode ? ' admin-layout-root--kiosk' : ''}`}>
+      {!kioskMode && isMobileNav && mobileMenuOpen && (
         <div
           className="admin-sidebar-backdrop"
           role="presentation"
@@ -174,44 +175,48 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
         />
       )}
 
-      <AdminSidebar
-        pathname={location.pathname}
-        navContext={navContext}
-        mobileOpen={!isMobileNav || mobileMenuOpen}
-        onNavigate={() => isMobileNav && setMobileMenuOpen(false)}
-      />
+      {!kioskMode && (
+        <AdminSidebar
+          pathname={location.pathname}
+          navContext={navContext}
+          mobileOpen={!isMobileNav || mobileMenuOpen}
+          onNavigate={() => isMobileNav && setMobileMenuOpen(false)}
+        />
+      )}
 
       <div className="admin-main">
-        <header className="admin-topbar">
-          <div className="d-flex align-items-center flex-wrap gap-2">
-            {isMobileNav && (
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm admin-sidebar-toggle"
-                aria-expanded={mobileMenuOpen}
-                aria-controls="admin-sidebar-nav"
-                onClick={() => setMobileMenuOpen((o) => !o)}
-              >
-                選單
+        {!kioskMode && (
+          <header className="admin-topbar">
+            <div className="d-flex align-items-center flex-wrap gap-2">
+              {isMobileNav && (
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm admin-sidebar-toggle"
+                  aria-expanded={mobileMenuOpen}
+                  aria-controls="admin-sidebar-nav"
+                  onClick={() => setMobileMenuOpen((o) => !o)}
+                >
+                  選單
+                </button>
+              )}
+              <h1 className="admin-topbar__title mb-0">後台管理</h1>
+            </div>
+            <div className="d-flex align-items-center gap-3 flex-wrap">
+              <span className="admin-badge admin-badge--role">{getRoleDisplayText(actualUserRole, username)}</span>
+              {accessProfile.isDemo && (
+                <span className="admin-badge admin-badge--warn">DEMO</span>
+              )}
+              {mustResetPassword && (
+                <span className="admin-badge admin-badge--warn">需更改密碼</span>
+              )}
+              <button type="button" className="btn btn-outline-secondary" onClick={onLogout}>
+                登出
               </button>
-            )}
-            <h1 className="admin-topbar__title mb-0">後台管理</h1>
-          </div>
-          <div className="d-flex align-items-center gap-3 flex-wrap">
-            <span className="admin-badge admin-badge--role">{getRoleDisplayText(actualUserRole, username)}</span>
-            {accessProfile.isDemo && (
-              <span className="admin-badge admin-badge--warn">DEMO</span>
-            )}
-            {mustResetPassword && (
-              <span className="admin-badge admin-badge--warn">需更改密碼</span>
-            )}
-            <button type="button" className="btn btn-outline-secondary" onClick={onLogout}>
-              登出
-            </button>
-          </div>
-        </header>
+            </div>
+          </header>
+        )}
 
-        {showTokenWarning && (
+        {!kioskMode && showTokenWarning && (
           <div className="alert alert-warning alert-dismissible fade show mx-3 mt-2 mb-0" role="alert">
             <i className="fas fa-exclamation-triangle me-2"></i>
             您的登入即將在15分鐘內過期，請及時儲存工作並重新登入。
@@ -219,26 +224,28 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
           </div>
         )}
 
-        {accessProfile.isDemo && (
+        {!kioskMode && accessProfile.isDemo && (
           <div className="alert alert-info mx-3 mt-2 mb-0" role="alert">
             此為 DEMO 帳號：可瀏覽後台功能介面，不會顯示真實資料，且無法新增／修改／刪除。
           </div>
         )}
 
-        {mustResetPassword && (
+        {!kioskMode && mustResetPassword && (
           <div className="alert alert-warning mx-3 mt-2 mb-0" role="alert">
             為保障帳號安全，請先前往「變更密碼」完成密碼更新後再繼續操作。
           </div>
         )}
 
-        <div className="admin-page-header">
-          <h2 className="admin-page-header__title">{pageTitle}</h2>
-          <AdminBreadcrumbs
-            pathname={location.pathname}
-            navContext={navContext}
-            leafOverride={breadcrumbLeafOverride}
-          />
-        </div>
+        {!kioskMode && (
+          <div className="admin-page-header">
+            <h2 className="admin-page-header__title">{pageTitle}</h2>
+            <AdminBreadcrumbs
+              pathname={location.pathname}
+              navContext={navContext}
+              leafOverride={breadcrumbLeafOverride}
+            />
+          </div>
+        )}
 
         <div className="admin-layout__content">
           {mustResetPassword && location.pathname !== '/admin/account/reset' ? null : routeDenied ? (

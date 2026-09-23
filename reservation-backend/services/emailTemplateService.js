@@ -7,6 +7,16 @@ const {
   getEmailTemplateSampleData,
 } = require('./emailTemplateCatalog');
 const { getEmailTemplateDefaultSource } = require('./emailTemplateDefaultSources');
+const {
+  looksLikeHtml,
+  sanitizeEmailHtml,
+  htmlToPlainText,
+  wrapEmailDocument,
+} = require('../utils/emailTemplateHtml');
+const {
+  normalizeAttachmentsInput,
+  buildNodemailerAttachments,
+} = require('./emailTemplateAttachmentService');
 
 /** 覆寫快取：避免每次寄信都打 DB */
 let overrideCache = null;
@@ -17,6 +27,35 @@ function invalidateEmailTemplateOverrideCache() {
   overrideCache = null;
   overrideCacheAt = 0;
 }
+
+function parseAttachmentsJson(raw) {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return normalizeAttachmentsInput(raw);
+  if (typeof raw === 'string') {
+    try {
+      return normalizeAttachmentsInput(JSON.parse(raw));
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+/**
+ * 將覆寫／草稿正文套到 mailOptions（支援精簡 HTML）。
+ */
+function applyBodyTemplate(built, bodyTemplate, vars) {
+  const rendered = interpolateTemplate(bodyTemplate, vars);
+  if (looksLikeHtml(rendered)) {
+    const safe = sanitizeEmailHtml(rendered);
+    built.html = wrapEmailDocument(safe);
+    built.text = htmlToPlainText(safe);
+  } else {
+    built.text = rendered;
+    delete built.html;
+  }
+}
+
 
 /**
  * {{var}} / {{ var }} 插值；缺值以空字串取代（避免把 placeholder 原樣寄出）。
@@ -119,6 +158,12 @@ function enrichMailVars(data = {}) {
   if (!vars.studentEmail && data.email) vars.studentEmail = data.email;
 
   vars.cancellationCode = data.cancellationCode || 'N/A';
+  vars.bookingCode = data.bookingCode
+    || (data.reservationId != null
+      // eslint-disable-next-line global-require
+      ? require('../utils/bookingCode').formatBookingCode(data.reservationId)
+      : '');
+  vars.reservationId = data.reservationId != null ? String(data.reservationId) : '';
   vars.expiresInMinutes = data.expiresInMinutes || data.expiresMinutes || 10;
   vars.teamSize = data.teamSize != null ? data.teamSize : '未知';
   vars.expiresAtHours = data.expiresAtHours || 24;
@@ -195,10 +240,13 @@ function renderCodeDefault(templateKey, data) {
 }
 
 /**
- * 組出實際寄信內容：程式預設 → 套用 DB 覆寫（主旨／正文）。
+ * 組出實際寄信內容：程式預設 → 套用 DB 覆寫（主旨／正文／附件）→ 可選草稿覆寫（預覽／測試）。
  * isEnabled === false 時丟 EMAIL_TEMPLATE_DISABLED。
+ * @param {string} templateKey
+ * @param {object} data
+ * @param {{ subjectTemplate?: string|null, bodyTemplate?: string|null, attachments?: array|null, skipDisabledCheck?: boolean }} [draft]
  */
-async function buildMailOptions(templateKey, data) {
+async function buildMailOptions(templateKey, data, draft = {}) {
   const catalog = getEmailTemplateCatalogEntry(templateKey);
   if (!catalog && !getEmailTemplatesFn()?.[templateKey]) {
     const err = new Error(`UNKNOWN_EMAIL_TEMPLATE:${templateKey}`);
@@ -207,7 +255,7 @@ async function buildMailOptions(templateKey, data) {
   }
 
   const override = await getOverride(templateKey);
-  if (override && override.isEnabled === false) {
+  if (!draft.skipDisabledCheck && override && override.isEnabled === false) {
     const err = new Error('EMAIL_TEMPLATE_DISABLED');
     err.code = 'EMAIL_TEMPLATE_DISABLED';
     err.template = templateKey;
@@ -222,8 +270,36 @@ async function buildMailOptions(templateKey, data) {
       built.subject = interpolateTemplate(override.subjectTemplate, vars);
     }
     if (override.bodyTemplate != null && String(override.bodyTemplate).trim() !== '') {
-      built.text = interpolateTemplate(override.bodyTemplate, vars);
+      applyBodyTemplate(built, override.bodyTemplate, vars);
     }
+  }
+
+  // 後台預覽／測試：以編輯器當前草稿覆寫 DB／程式預設
+  if (draft.subjectTemplate != null && String(draft.subjectTemplate).trim() !== '') {
+    built.subject = interpolateTemplate(draft.subjectTemplate, vars);
+  }
+  if (draft.bodyTemplate != null && String(draft.bodyTemplate).trim() !== '') {
+    applyBodyTemplate(built, draft.bodyTemplate, vars);
+  }
+
+  const attachmentSource = draft.attachments !== undefined
+    ? draft.attachments
+    : (override ? override.attachmentsJson : null);
+  const normalizedAtt = normalizeAttachmentsInput(attachmentSource);
+  if (normalizedAtt.length) {
+    const { attachments: fileAtts } = await buildNodemailerAttachments(normalizedAtt);
+    if (fileAtts.length) {
+      built.attachments = [
+        ...(Array.isArray(built.attachments) ? built.attachments : []),
+        ...fileAtts,
+      ];
+    }
+  }
+
+  if (templateKey === 'reservationSuccess') {
+    // eslint-disable-next-line global-require
+    const { attachReservationCheckinQr } = require('./reservationCheckinQrService');
+    return attachReservationCheckinQr(built, data || {});
   }
 
   return built;
@@ -235,6 +311,7 @@ function serializeOverride(row) {
     templateKey: row.templateKey,
     subjectTemplate: row.subjectTemplate,
     bodyTemplate: row.bodyTemplate,
+    attachments: parseAttachmentsJson(row.attachmentsJson),
     isEnabled: row.isEnabled !== false,
     notes: row.notes || null,
     updatedByUserId: row.updatedByUserId || null,
@@ -260,6 +337,8 @@ async function listEmailTemplates() {
 
     const hasSubjectOverride = !!(override && override.subjectTemplate != null && String(override.subjectTemplate).trim() !== '');
     const hasBodyOverride = !!(override && override.bodyTemplate != null && String(override.bodyTemplate).trim() !== '');
+    const attachments = parseAttachmentsJson(override?.attachmentsJson);
+    const hasAttachmentsOverride = attachments.length > 0;
     const sample = getEmailTemplateSampleData(entry.key) || {};
     const vars = enrichMailVars(sample);
     const source = getEmailTemplateDefaultSource(entry.key);
@@ -289,6 +368,19 @@ async function listEmailTemplates() {
       if (!varMap.has(name)) varMap.set(name, { name, description: '系統衍生／模板變數' });
     }
 
+    const editorHints = [];
+    if (entry.key === 'reservationSuccess') {
+      editorHints.push(
+        '實際寄出時會自動附加現場簽到 QR 圖片（內嵌附件）；純文字客戶端可見簽到碼。'
+      );
+      const bodyForHint = String(editableBody || '');
+      if (!bodyForHint.includes('{{bookingCode}}') && !bodyForHint.includes('現場簽到')) {
+        editorHints.push(
+          '目前正文未含 {{bookingCode}}／現場簽到段落；建議「還原系統預設文案」，寄信時仍會自動補上簽到碼與 QR。'
+        );
+      }
+    }
+
     return {
       key: entry.key,
       category: entry.category,
@@ -298,9 +390,11 @@ async function listEmailTemplates() {
       channel: entry.channel,
       variables: [...varMap.values()],
       isEnabled: override ? override.isEnabled !== false : true,
-      hasOverride: !!(hasSubjectOverride || hasBodyOverride || (override && override.isEnabled === false)),
+      hasOverride: !!(hasSubjectOverride || hasBodyOverride || hasAttachmentsOverride || (override && override.isEnabled === false)),
       hasSubjectOverride,
       hasBodyOverride,
+      hasAttachmentsOverride,
+      attachments,
       override: serializeOverride(override),
       codeDefaultSubject,
       codeDefaultBody,
@@ -311,6 +405,7 @@ async function listEmailTemplates() {
       effectiveSubject,
       effectiveBody,
       sampleData: sample,
+      editorHints,
     };
   });
 }
@@ -326,7 +421,7 @@ async function getEmailTemplateDetail(templateKey) {
   return list.find((t) => t.key === templateKey) || null;
 }
 
-async function previewEmailTemplate(templateKey, { subjectTemplate, bodyTemplate, data } = {}) {
+async function previewEmailTemplate(templateKey, { subjectTemplate, bodyTemplate, attachments, data } = {}) {
   const entry = getEmailTemplateCatalogEntry(templateKey);
   if (!entry) {
     const err = new Error('EMAIL_TEMPLATE_NOT_FOUND');
@@ -344,23 +439,71 @@ async function previewEmailTemplate(templateKey, { subjectTemplate, bodyTemplate
   ];
   const validation = validatePlaceholders(subjectTemplate, bodyTemplate, allowed);
 
-  const subject =
+  let subject =
     subjectTemplate != null && String(subjectTemplate).trim() !== ''
       ? interpolateTemplate(subjectTemplate, vars)
       : codeBuilt.subject;
-  const body =
+  let body =
     bodyTemplate != null && String(bodyTemplate).trim() !== ''
       ? interpolateTemplate(bodyTemplate, vars)
       : codeBuilt.text;
+
+  const warnings = validation.unknown.length
+    ? [`未在變數清單中的 placeholder：${validation.unknown.join(', ')}`]
+    : [];
+
+  let html = null;
+  if (looksLikeHtml(body)) {
+    const safe = sanitizeEmailHtml(body);
+    html = wrapEmailDocument(safe);
+    body = htmlToPlainText(safe);
+  }
+
+  const override = await getOverride(templateKey);
+  const attachmentList = attachments !== undefined
+    ? normalizeAttachmentsInput(attachments)
+    : parseAttachmentsJson(override?.attachmentsJson);
+
+  let checkinQr = null;
+  if (templateKey === 'reservationSuccess') {
+    // eslint-disable-next-line global-require
+    const {
+      attachReservationCheckinQr,
+      buildCheckinQrPreviewFromMail,
+    } = require('./reservationCheckinQrService');
+    const withQr = await attachReservationCheckinQr(
+      {
+        to: codeBuilt.to,
+        subject,
+        text: body,
+        html: html || undefined,
+      },
+      sample
+    );
+    subject = withQr.subject || subject;
+    body = withQr.text || body;
+    checkinQr = buildCheckinQrPreviewFromMail(withQr);
+    html = checkinQr?.htmlPreview || withQr.html || html;
+    if (!checkinQr) {
+      warnings.push('簽到 QR 預覽產生失敗；實際寄信仍會嘗試附加 QR。');
+    }
+    if (bodyTemplate != null && String(bodyTemplate).trim() !== '') {
+      const draft = String(bodyTemplate);
+      if (!draft.includes('{{bookingCode}}') && !draft.includes('現場簽到')) {
+        warnings.push('目前文案未含 {{bookingCode}}／現場簽到；實際寄信仍會自動補上簽到碼與 QR。');
+      }
+    }
+  }
 
   return {
     to: codeBuilt.to,
     subject,
     body,
+    html,
+    attachments: attachmentList,
+    checkinQr,
     sampleData: sample,
-    warnings: validation.unknown.length
-      ? [`未在變數清單中的 placeholder：${validation.unknown.join(', ')}`]
-      : [],
+    warnings,
     placeholders: validation.used,
   };
 }
@@ -380,12 +523,21 @@ async function upsertEmailTemplateOverride(templateKey, payload, userId) {
         ? null
         : String(payload.subjectTemplate).slice(0, 500);
 
-  const bodyTemplate =
-    payload.bodyTemplate === undefined
-      ? undefined
-      : payload.bodyTemplate == null || String(payload.bodyTemplate).trim() === ''
-        ? null
-        : String(payload.bodyTemplate);
+  let bodyTemplate;
+  if (payload.bodyTemplate === undefined) {
+    bodyTemplate = undefined;
+  } else if (payload.bodyTemplate == null || String(payload.bodyTemplate).trim() === '') {
+    bodyTemplate = null;
+  } else {
+    const rawBody = String(payload.bodyTemplate);
+    bodyTemplate = looksLikeHtml(rawBody) ? sanitizeEmailHtml(rawBody) : rawBody;
+  }
+
+  const attachmentsJson = payload.attachments === undefined
+    ? undefined
+    : (normalizeAttachmentsInput(payload.attachments).length
+      ? normalizeAttachmentsInput(payload.attachments)
+      : null);
 
   const allowed = new Set([
     ...(entry.variables || []).map((v) => v.name),
@@ -405,6 +557,7 @@ async function upsertEmailTemplateOverride(templateKey, payload, userId) {
   };
   if (subjectTemplate !== undefined) next.subjectTemplate = subjectTemplate;
   if (bodyTemplate !== undefined) next.bodyTemplate = bodyTemplate;
+  if (attachmentsJson !== undefined) next.attachmentsJson = attachmentsJson;
   if (payload.isEnabled !== undefined) next.isEnabled = !!payload.isEnabled;
   if (payload.notes !== undefined) {
     next.notes = payload.notes == null ? null : String(payload.notes).slice(0, 500);
@@ -419,6 +572,7 @@ async function upsertEmailTemplateOverride(templateKey, payload, userId) {
       templateKey,
       subjectTemplate: subjectTemplate === undefined ? null : subjectTemplate,
       bodyTemplate: bodyTemplate === undefined ? null : bodyTemplate,
+      attachmentsJson: attachmentsJson === undefined ? null : attachmentsJson,
       isEnabled: payload.isEnabled === undefined ? true : !!payload.isEnabled,
       notes: payload.notes == null ? null : String(payload.notes).slice(0, 500),
       updatedByUserId: userId || null,
@@ -447,7 +601,7 @@ async function resetEmailTemplateOverride(templateKey) {
   return { ok: true };
 }
 
-async function sendTestEmail(templateKey, { to, subjectTemplate, bodyTemplate, data } = {}) {
+async function sendTestEmail(templateKey, { to, subjectTemplate, bodyTemplate, attachments, data } = {}) {
   const entry = getEmailTemplateCatalogEntry(templateKey);
   if (!entry) {
     const err = new Error('EMAIL_TEMPLATE_NOT_FOUND');
@@ -465,19 +619,34 @@ async function sendTestEmail(templateKey, { to, subjectTemplate, bodyTemplate, d
   sample.email = to;
 
   const override = await getOverride(templateKey);
+  const draftSubject =
+    subjectTemplate !== undefined ? subjectTemplate : override?.subjectTemplate;
+  const draftBody = bodyTemplate !== undefined ? bodyTemplate : override?.bodyTemplate;
+  const draftAttachments =
+    attachments !== undefined ? attachments : parseAttachmentsJson(override?.attachmentsJson);
+
   const preview = await previewEmailTemplate(templateKey, {
-    subjectTemplate: subjectTemplate !== undefined ? subjectTemplate : override?.subjectTemplate,
-    bodyTemplate: bodyTemplate !== undefined ? bodyTemplate : override?.bodyTemplate,
+    subjectTemplate: draftSubject,
+    bodyTemplate: draftBody,
+    attachments: draftAttachments,
     data: sample,
+  });
+
+  // 與正式寄信同一條組信路徑（含 reservationSuccess QR）
+  const mailOptions = await buildMailOptions(templateKey, sample, {
+    subjectTemplate: draftSubject,
+    bodyTemplate: draftBody,
+    attachments: draftAttachments,
+    skipDisabledCheck: true,
   });
 
   // eslint-disable-next-line global-require
   const { sendRawMail } = require('../config/email');
-  const subject = `[測試] ${preview.subject || templateKey}`;
+  const subject = `[測試] ${mailOptions.subject || templateKey}`;
   await sendRawMail(templateKey, {
+    ...mailOptions,
     to,
     subject,
-    text: preview.body || '',
   });
 
   return {
@@ -485,6 +654,9 @@ async function sendTestEmail(templateKey, { to, subjectTemplate, bodyTemplate, d
     to,
     subject,
     warnings: preview.warnings,
+    checkinQrAttached: !!(mailOptions.attachments || []).some(
+      (a) => a && a.cid === 'eears-checkin-qr'
+    ),
   };
 }
 

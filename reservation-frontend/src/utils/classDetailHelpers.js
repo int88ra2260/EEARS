@@ -22,8 +22,9 @@ export const CLASS_DETAIL_SEMESTER_OPTIONS = [
 ];
 
 export function formatTotalHours(totalHours) {
-  if (!totalHours) return '0';
-  return totalHours.toFixed(1).replace(/\.0$/, '');
+  const n = Number(totalHours);
+  if (!Number.isFinite(n) || n === 0) return '0';
+  return String(Math.round(n * 100) / 100);
 }
 
 export function computeClassDetailStatistics(data) {

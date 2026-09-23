@@ -15,8 +15,12 @@ import './Header.css';
 /** 任務導覽：學生最常用的動作 */
 const TASK_NAV = [
   { action: 'events', path: '/events', labelKey: 'nav.eventsBooking' },
-  { action: 'my-reservations', path: '/my-reservations', labelKey: 'nav.myReservations' },
-  { action: 'progress', path: '/student/progress', labelKey: 'nav.myProgress' },
+  {
+    action: 'my-record',
+    path: '/student/progress',
+    labelKey: 'nav.myRecord',
+    matchPaths: ['/student/progress', '/my-reservations', '/student/class-credit-allocation'],
+  },
 ];
 
 /** 探索導覽：資訊瀏覽（最新公告／活動介紹／學習資源／修課說明／法規表單／關於我們） */
@@ -57,9 +61,14 @@ export default function Header() {
     ? 'nav.englishTest'
     : 'nav.englishTestEdit';
 
-  const isActive = (path) => {
+  const pathIsActive = (path) => {
     if (path === '/') return pathname === '/';
     return pathname === path || pathname.startsWith(`${path}/`);
+  };
+
+  const itemIsActive = (item) => {
+    const paths = item.matchPaths?.length ? item.matchPaths : [item.path];
+    return paths.some((path) => pathIsActive(path));
   };
 
   useEffect(() => {
@@ -111,12 +120,12 @@ export default function Header() {
     </button>
   );
 
-  const navClass = (mobile, path) =>
-    `${mobile ? 'nav-link-mobile' : 'nav-link'}${isActive(path) ? (mobile ? ' nav-link-mobile--active' : ' nav-link--active') : ''}`;
+  const navClass = (mobile, active) =>
+    `${mobile ? 'nav-link-mobile' : 'nav-link'}${active ? (mobile ? ' nav-link-mobile--active' : ' nav-link--active') : ''}`;
 
   const renderLinks = (items, mobile) =>
     items.map((item) => {
-      const className = navClass(mobile, item.path);
+      const className = navClass(mobile, itemIsActive(item));
       if (preview?.isPreview) {
         return (
           <span key={item.action} className={className} aria-disabled="true">
@@ -140,8 +149,8 @@ export default function Header() {
     if (!showEnglishTest) return null;
     const label = t(englishTestLabelKey);
     const className = mobile
-      ? `nav-link-mobile nav-link-mobile--service${isActive('/register/english-test') ? ' nav-link-mobile--active' : ''}`
-      : `nav-link nav-link--service nav-link--service-muted${isActive('/register/english-test') ? ' nav-link--active' : ''}`;
+      ? `nav-link-mobile nav-link-mobile--service${pathIsActive('/register/english-test') ? ' nav-link-mobile--active' : ''}`
+      : `nav-link nav-link--service nav-link--service-muted${pathIsActive('/register/english-test') ? ' nav-link--active' : ''}`;
     if (preview?.isPreview) {
       return (
         <span className={className} aria-disabled="true">

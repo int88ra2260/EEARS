@@ -249,11 +249,11 @@ export default function LearningJourneyStudentProfilePage() {
           </ProfileSection>
 
           {canViewEtGrouping ? (
-            <ProfileSection title="English Table 參與與建議" sourceMeta={{ source: 'et_grouping' }}>
+            <ProfileSection title="English Table 參與" sourceMeta={{ source: 'et_grouping' }}>
               <EtStudentParticipationPanel
                 token={token}
                 studentId={studentId}
-                showRecommendations
+                showRecommendations={false}
               />
             </ProfileSection>
           ) : null}

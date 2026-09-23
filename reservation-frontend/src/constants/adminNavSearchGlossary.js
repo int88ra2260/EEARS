@@ -75,6 +75,17 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '修課名單',
     '我的班級',
   ],
+  'classes-overview': [
+    '班級列表',
+    '班級參與',
+    '修課名冊',
+  ],
+  'class-credit-allocation': [
+    '課堂加分',
+    '時數分配',
+    '活動時數',
+    '計點',
+  ],
 
   english: ['英檢', '培力', 'BESTEP', '學習歷程', '護照'],
   'english-learning-passport': [

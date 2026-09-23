@@ -17,6 +17,18 @@ export function loadReservationIdentity() {
   }
 }
 
+export function clearReservationIdentity() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(RESERVATION_IDENTITY_KEY);
+  } catch {
+    /* ignore */
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('eears-student-identity'));
+  }
+}
+
 export function saveReservationIdentity(identity) {
   if (typeof window === 'undefined') return;
   try {
@@ -28,6 +40,9 @@ export function saveReservationIdentity(identity) {
         studentEmail: String(identity.studentEmail || '').trim(),
       }),
     );
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('eears-student-identity'));
+    }
   } catch {
     /* ignore quota / private mode */
   }

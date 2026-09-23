@@ -30,6 +30,36 @@ const {
   sumResourceInExposureWindow,
 } = require('./examSessionService');
 
+function nfkcStudentKey(studentId) {
+  return String(studentId || '').normalize('NFKC').trim().toUpperCase();
+}
+
+function isAsciiStudentId(studentId) {
+  return /^[\x20-\x7E]+$/.test(String(studentId || ''));
+}
+
+/** MySQL unicode collation 把全形／半形學號視為相同，同一批次不可同時插入。 */
+function collapseWidthDuplicateStudents(rows) {
+  const map = new Map();
+  for (const row of rows) {
+    const key = nfkcStudentKey(row.studentId);
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, row);
+      continue;
+    }
+    const score = (item) => (
+      Number(item.examCount || 0)
+      + Number(item.totalActivityHours || 0)
+      + Number(item.totalCourseHours || 0)
+      + Number(item.totalResourceHours || 0)
+      + (isAsciiStudentId(item.studentId) ? 0.01 : 0)
+    );
+    if (score(row) > score(prev)) map.set(key, row);
+  }
+  return [...map.values()];
+}
+
 function chunkArray(items, size) {
   const n = Math.max(1, Number(size) || 50);
   const chunks = [];
@@ -327,8 +357,9 @@ async function rebuildAnalytics(opts = {}) {
   await LjAnalyticExam.destroy({ where: { snapshotVersion, ...where } });
   await LjAnalyticStudent.destroy({ where: { snapshotVersion, ...where } });
 
+  const analyticStudents = collapseWidthDuplicateStudents(students);
   if (exams.length) await LjAnalyticExam.bulkCreate(exams);
-  if (students.length) await LjAnalyticStudent.bulkCreate(students);
+  if (analyticStudents.length) await LjAnalyticStudent.bulkCreate(analyticStudents);
 
   return {
     snapshotVersion,
@@ -336,7 +367,7 @@ async function rebuildAnalytics(opts = {}) {
     derivedAt: derivedAt.toISOString(),
     projectResult,
     eventCount: events.length,
-    analyticStudentCount: students.length,
+    analyticStudentCount: analyticStudents.length,
     analyticExamCount: exams.length,
   };
 }

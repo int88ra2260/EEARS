@@ -12,6 +12,7 @@ export default function BulkActionToolbar({
   onBulkDelete,
   onBulkSetSuccess,
   onBulkSetFailed,
+  onOpenManualSend,
   showBulkSetSuccess = false
 }) {
   const { confirm } = useConfirm();
@@ -161,6 +162,16 @@ export default function BulkActionToolbar({
                 <i className="fas fa-ban me-1"></i>
                 批量設為報名失敗
               </button>
+              {onOpenManualSend && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={onOpenManualSend}
+                >
+                  <i className="fas fa-envelope me-1"></i>
+                  寄給所選
+                </button>
+              )}
               <button
                 className="btn btn-sm btn-outline-danger"
                 onClick={() => {

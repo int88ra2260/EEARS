@@ -10,6 +10,7 @@ import AnalyticsSection from './english-test/AnalyticsSection';
 import LearningPartnerManagement from './LearningPartnerManagement';
 import ExemptionReviewSection from './english-test/ExemptionReviewSection';
 import EnglishTestIndividualTab from './english-test/EnglishTestIndividualTab';
+import EnglishTestManualMailModal from './english-test/EnglishTestManualMailModal';
 import EnglishTestStudentRosterTab from './english-test/EnglishTestStudentRosterTab';
 import EnglishTestLegacyDetailModal from './english-test/EnglishTestLegacyDetailModal';
 import EnglishTestStatusModal from './english-test/EnglishTestStatusModal';
@@ -17,7 +18,7 @@ import EnglishTestRejectionModal from './english-test/EnglishTestRejectionModal'
 import EnglishTestFormBuilderTab from './english-test/form-builder/EnglishTestFormBuilderTab';
 import { buildAccessProfile, hasPermission } from '../utils/accessControl';
 import { P } from '../constants/permissions';
-import { createPrimarySortConfig, normalizeSortConfig } from '../utils/englishTestSortConfig';
+import { normalizeSortConfig } from '../utils/englishTestSortConfig';
 import { ENGLISH_TEST_MAX_PAGE_SIZE } from '../hooks/useEnglishTestRegistrations';
 import { moveIdInExportOrder } from '../utils/englishTestExportOrder';
 import useLearningPartnerOpsAttention from '../hooks/useLearningPartnerOpsAttention';
@@ -62,6 +63,7 @@ export default function EnglishTestManagement() {
     handleBulkDelete, handleBulkSetSuccess, handleBulkSetFailed,
   } = m.bulk;
   const { sendingEmails, sendingEmailKind, sendingEmailLabel, handleSendStatusEmails } = m.emails;
+  const manualMail = m.manualMail;
 
   const {
     selectedRegistration, showDetailModal, currentRegistrationIndex,
@@ -210,9 +212,6 @@ export default function EnglishTestManagement() {
   const handleStatusFilterChange = (key) => {
     setStatusFilter(key);
     setCurrentPage(1);
-    if (key === 'success') {
-      setSortConfig(createPrimarySortConfig('successSequence', 'ASC'));
-    }
   };
 
   const handleClearFilters = () => {
@@ -357,6 +356,7 @@ export default function EnglishTestManagement() {
             orderedIds: exportArrangeMode ? orderedIds : null,
           })}
           onSendStatusEmails={handleSendStatusEmails}
+          manualMail={manualMail}
           sendingEmails={sendingEmails}
           sendingEmailKind={sendingEmailKind}
           sendingEmailLabel={sendingEmailLabel}
@@ -490,6 +490,19 @@ export default function EnglishTestManagement() {
             setQuickReviewIndex(-1);
           }}
           autoNext
+        />
+      )}
+
+      {canReviewEnglishTests && manualMail && (
+        <EnglishTestManualMailModal
+          token={token}
+          open={manualMail.open}
+          panel={manualMail.panel}
+          onPanelChange={manualMail.setPanel}
+          onClose={manualMail.close}
+          selectedIds={selectedRows}
+          sending={manualMail.sending}
+          onSend={manualMail.sendSelected}
         />
       )}
 

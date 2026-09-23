@@ -495,7 +495,9 @@ router.post('/reservations', checkSurvey, async (req, res) => {
       startTime: event.startTime,
       endTime: event.endTime,
       location: event.location,
-      cancellationCode: cancellationCode  // 包含驗證碼
+      cancellationCode: cancellationCode, // 包含驗證碼
+      reservationId: reservation.id,
+      bookingCode: formatBookingCode(reservation.id),
     };
 
     emailQueue.enqueue('reservationSuccess', reservationSuccessEmailData, {

@@ -1,7 +1,8 @@
 const path = require('path');
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { MediaAsset, CourseGuideTopic, WeeklyReport, Announcement, WeeklyMedia } = require('../models');
+const { MediaAsset, CourseGuideTopic, WeeklyReport, Announcement, WeeklyMedia, EmailTemplateOverride } = require('../models');
+const { safeNormalizeFilename } = require('./learningJourney/utils/safeNormalizeFilename');
 
 const MEDIA_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'media');
 const LEGACY_COURSE_GUIDE_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'course-guide');
@@ -36,18 +37,29 @@ function mimeFromExt(ext) {
   if (e === '.png') return 'image/png';
   if (e === '.webp') return 'image/webp';
   if (e === '.gif') return 'image/gif';
+  if (e === '.pdf') return 'application/pdf';
   return 'application/octet-stream';
+}
+
+function displayNameFromUpload(originalname, fallback = null) {
+  const decoded = safeNormalizeFilename(originalname);
+  const name = String(decoded || '').trim();
+  if (name) return name;
+  return fallback || null;
 }
 
 function serializeMediaAsset(row) {
   const plain = row.get ? row.get({ plain: true }) : row;
+  // 讀取時再嘗試還原舊資料的 mojibake 顯示名
+  const originalName = displayNameFromUpload(plain.originalName, plain.originalName);
+  const labelRaw = displayNameFromUpload(plain.label, plain.label);
   return {
     id: `media:${plain.id}`,
     dbId: plain.id,
     key: plain.key || null,
     url: plain.url,
-    label: plain.label || plain.originalName || plain.url,
-    originalName: plain.originalName || null,
+    label: labelRaw || originalName || plain.url,
+    originalName: originalName || null,
     storedName: plain.storedName || null,
     mime: plain.mime || null,
     source: plain.source,
@@ -296,6 +308,32 @@ async function findMediaReferences(asset) {
     });
   }
 
+  // 郵件模板附件
+  try {
+    const overrides = await EmailTemplateOverride.findAll({
+      attributes: ['id', 'templateKey', 'attachmentsJson'],
+    });
+    for (const ov of overrides) {
+      const list = Array.isArray(ov.attachmentsJson) ? ov.attachmentsJson : [];
+      const hit = list.some((a) => {
+        if (!a || typeof a !== 'object') return false;
+        if (url && a.url === url) return true;
+        if (plain.id != null && Number(a.mediaId) === Number(plain.id)) return true;
+        return false;
+      });
+      if (hit) {
+        refs.push({
+          type: 'email-template',
+          id: ov.id,
+          templateKey: ov.templateKey,
+          label: `郵件模板 · ${ov.templateKey}`,
+        });
+      }
+    }
+  } catch {
+    // EmailTemplateOverride / attachmentsJson 可能尚未 migrate
+  }
+
   return refs;
 }
 
@@ -334,12 +372,19 @@ async function createMediaFromUpload(file, { scope = 'general', label = null, ac
     err.status = 400;
     throw err;
   }
+  const decodedOriginal = displayNameFromUpload(file.originalname, file.originalname);
+  const ext = path.extname(decodedOriginal || file.filename || '').toLowerCase();
+  let mime = file.mimetype || null;
+  if (ext === '.pdf' && (!mime || mime === 'application/octet-stream')) {
+    mime = 'application/pdf';
+  }
+  const displayLabel = displayNameFromUpload(label, null) || decodedOriginal || file.filename;
   const row = await MediaAsset.create({
     url: `/uploads/media/${file.filename}`,
-    label: label || file.originalname || file.filename,
-    originalName: file.originalname || null,
+    label: displayLabel,
+    originalName: decodedOriginal || null,
     storedName: file.filename,
-    mime: file.mimetype || null,
+    mime,
     source: 'upload',
     scope: scope || 'general',
     byteSize: Number.isFinite(file.size) ? file.size : null,
@@ -362,7 +407,10 @@ async function updateMediaAsset(id, payload, _actorId) {
     throw err;
   }
   const patch = {};
-  if (payload.label != null) patch.label = String(payload.label).trim() || row.label;
+  if (payload.label != null) {
+    const nextLabel = displayNameFromUpload(payload.label, String(payload.label).trim());
+    patch.label = nextLabel || row.label;
+  }
   if (payload.scope != null) patch.scope = String(payload.scope).trim() || row.scope;
   if (payload.isActive != null) patch.isActive = !!payload.isActive;
   if (Object.keys(patch).length) {
@@ -386,7 +434,7 @@ async function deleteMediaAsset(id, { force = false } = {}) {
 
   const references = await findMediaReferences(row);
   if (references.length && !force) {
-    const err = new Error('此圖片仍被內容引用，無法刪除');
+    const err = new Error('此媒體仍被內容引用，無法刪除');
     err.status = 409;
     err.code = 'MEDIA_IN_USE';
     err.details = { references };

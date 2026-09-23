@@ -135,7 +135,10 @@ class EmailQueue {
         });
         return;
       } catch (error) {
-        const shouldRetry = job.retries < job.maxRetries;
+        const loginThrottled = error && (
+          error.code === 'SMTP_LOGIN_COOLDOWN' || Number(error.responseCode) === 454
+        );
+        const shouldRetry = job.retries < job.maxRetries && !loginThrottled;
 
         logEmailAsync({
           to: mailMeta.to,
@@ -152,6 +155,8 @@ class EmailQueue {
 
         if (shouldRetry) {
           await delay(this.retryDelay);
+        } else if (loginThrottled) {
+          throw new Error(`Email failed because Gmail login is throttled: ${error.message}`);
         } else {
           throw new Error(`Email failed after ${job.maxRetries} retries: ${error.message}`);
         }

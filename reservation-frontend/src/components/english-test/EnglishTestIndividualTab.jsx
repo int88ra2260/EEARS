@@ -48,6 +48,7 @@ export default function EnglishTestIndividualTab({
   onExport,
   onExportPhotos,
   onSendStatusEmails,
+  manualMail = null,
   sendingEmails,
   sendingEmailKind = null,
   sendingEmailLabel = null,
@@ -102,7 +103,7 @@ export default function EnglishTestIndividualTab({
   const pageItems = useMemo(() => buildPageItems(currentPage, totalPages), [currentPage, totalPages]);
   const canExportPhotos = statusFilter === 'approved' || statusFilter === 'success';
   const exportBusy = exportingExcel || exportingPhotos;
-  const panelBusy = exportBusy || sendingEmails;
+  const panelBusy = exportBusy || sendingEmails || !!manualMail?.sending;
   const exportScopeLabel = STATUS_LABEL[statusFilter] || '全部';
   const semesterFilterLabel = advancedFilters?.semester
     ? String(advancedFilters.semester).trim()
@@ -367,6 +368,22 @@ export default function EnglishTestIndividualTab({
                       '寄報名失敗信'
                     )}
                   </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm"
+                    disabled={panelBusy}
+                    onClick={() => manualMail?.openPanel('templates')}
+                  >
+                    自訂信件
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm"
+                    disabled={panelBusy}
+                    onClick={() => manualMail?.openPanel('history')}
+                  >
+                    寄信紀錄
+                  </button>
                 </>
               )}
             </div>
@@ -478,6 +495,7 @@ export default function EnglishTestIndividualTab({
           onBulkDelete={onBulkDelete}
           onBulkSetSuccess={onBulkSetSuccess}
           onBulkSetFailed={onBulkSetFailed}
+          onOpenManualSend={() => manualMail?.openPanel('send')}
           showBulkSetSuccess={statusFilter === 'approved'}
         />
       )}

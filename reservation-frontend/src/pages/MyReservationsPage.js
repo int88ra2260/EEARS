@@ -2,13 +2,14 @@
  * 我的預約查詢頁：專用查詢表單 + 結果列表，不再使用 EventList
  * 與 ReservationSearchModal 共用 reservationService / useReservationLookup / 查詢與取消流程
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import PageHeader from '../components/layout/PageHeader';
+import StudentRecordShell from '../components/student/StudentRecordShell';
 import ReservationLookupSection from '../components/reservations/ReservationLookupSection';
 import ReservationResultList from '../components/reservations/ReservationResultList';
 import useReservationLookup from '../hooks/useReservationLookup';
 import ToastMessage from '../components/ui/ToastMessage';
+import { loadReservationIdentity } from '../utils/studentIdentityStorage';
 import '../styles/public-ui.css';
 
 export default function MyReservationsPage() {
@@ -44,18 +45,17 @@ export default function MyReservationsPage() {
     }
   }, [search]);
 
-  const breadcrumbs = [
-    { label: t('nav.home'), path: '/' },
-    { label: t('page.myReservationsTitle') },
-  ];
+  const didAutoSearch = useRef(false);
+  useEffect(() => {
+    if (didAutoSearch.current) return;
+    if (!loadReservationIdentity()) return;
+    didAutoSearch.current = true;
+    handleSearch();
+  }, [handleSearch]);
 
   return (
     <div className="my-reservations-page my-reservations-page--lookup public-reservation-page">
-      <PageHeader
-        breadcrumbs={breadcrumbs}
-        title={t('page.myReservationsTitle')}
-        lead={t('page.myReservationsLead')}
-      />
+      <StudentRecordShell lead={t('page.myReservationsLead')}>
 
       <div className="public-card">
       <ReservationLookupSection
@@ -94,6 +94,7 @@ export default function MyReservationsPage() {
         variant={toast.variant}
         onClose={() => setToast((prev) => ({ ...prev, show: false }))}
       />
+      </StudentRecordShell>
     </div>
   );
 }

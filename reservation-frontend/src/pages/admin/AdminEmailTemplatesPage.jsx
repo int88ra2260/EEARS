@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import useToast from '../../components/ui/useToast';
 import {
@@ -9,12 +9,20 @@ import {
   testSendEmailTemplate,
 } from '../../services/emailTemplatesAdminApi';
 import EmailRateLimitGuardPanel from '../../components/admin/EmailRateLimitGuardPanel';
+import EmailTemplateRichTextEditor from '../../components/admin/email/EmailTemplateRichTextEditor';
+import EmailTemplateAttachmentsField from '../../components/admin/email/EmailTemplateAttachmentsField';
+import {
+  plainTextToEmailEditorHtml,
+  emailBodiesEquivalent,
+  sanitizeEmailTemplateHtml,
+} from '../../utils/sanitizeEmailTemplateHtml';
 
 const CATEGORY_ORDER = [
   'reservation',
   'english_test',
   'english_learning_passport',
   'learning_partner',
+  'classes',
 ];
 
 const CATEGORY_FILTER_OPTIONS = [
@@ -23,6 +31,7 @@ const CATEGORY_FILTER_OPTIONS = [
   { value: 'english_test', label: '培力英檢' },
   { value: 'english_learning_passport', label: '英語實踐歷程護照' },
   { value: 'learning_partner', label: '學習有伴' },
+  { value: 'classes', label: '班級與參與' },
 ];
 
 export default function AdminEmailTemplatesPage() {
@@ -39,11 +48,15 @@ export default function AdminEmailTemplatesPage() {
 
   const [subjectTemplate, setSubjectTemplate] = useState('');
   const [bodyTemplate, setBodyTemplate] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const [editorResetKey, setEditorResetKey] = useState('init');
   const [isEnabled, setIsEnabled] = useState(true);
   const [notes, setNotes] = useState('');
   const [preview, setPreview] = useState(null);
   const [testTo, setTestTo] = useState('');
   const [dirty, setDirty] = useState(false);
+  const bodyEditorRef = useRef(null);
+  const baselineBodyHtmlRef = useRef('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,12 +83,19 @@ export default function AdminEmailTemplatesPage() {
     if (!selected) return;
     // 一律帶入「目前實際使用」的可編輯稿（覆寫或系統預設還原）
     setSubjectTemplate(selected.editableSubject || selected.codeDefaultSubject || '');
-    setBodyTemplate(selected.editableBody || selected.codeDefaultBody || '');
+    const rawBody = selected.editableBody || selected.codeDefaultBody || '';
+    const bodyHtml = plainTextToEmailEditorHtml(rawBody);
+    setBodyTemplate(bodyHtml);
+    baselineBodyHtmlRef.current = plainTextToEmailEditorHtml(
+      selected.baselineEditableBody || selected.codeDefaultBody || ''
+    );
+    setAttachments(Array.isArray(selected.attachments) ? selected.attachments : []);
+    setEditorResetKey(`${selected.key}-${selected.override?.updatedAt || 'base'}`);
     setIsEnabled(selected.isEnabled !== false);
     setNotes(selected.override?.notes || '');
     setPreview(null);
     setDirty(false);
-  }, [selected?.key, selected?.override?.updatedAt, selected?.isEnabled, selected?.editableSubject, selected?.editableBody]);
+  }, [selected?.key, selected?.override?.updatedAt, selected?.isEnabled, selected?.editableSubject, selected?.editableBody, selected?.attachments, selected?.baselineEditableBody, selected?.codeDefaultBody]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -115,7 +135,12 @@ export default function AdminEmailTemplatesPage() {
   const handleLoadDefault = () => {
     if (!selected) return;
     setSubjectTemplate(selected.baselineEditableSubject || selected.codeDefaultSubject || '');
-    setBodyTemplate(selected.baselineEditableBody || selected.codeDefaultBody || '');
+    const html = plainTextToEmailEditorHtml(
+      selected.baselineEditableBody || selected.codeDefaultBody || ''
+    );
+    setBodyTemplate(html);
+    setAttachments([]);
+    setEditorResetKey(`default-${Date.now()}`);
     setDirty(true);
     toast.info('已載入系統預設文案到編輯器（尚未儲存）');
   };
@@ -125,16 +150,22 @@ export default function AdminEmailTemplatesPage() {
     setSaving(true);
     try {
       const baselineSubject = (selected.baselineEditableSubject || '').trim();
-      const baselineBody = (selected.baselineEditableBody || '').trim();
       const nextSubject = subjectTemplate.trim();
-      const nextBody = bodyTemplate.trim();
+      const nextBody = sanitizeEmailTemplateHtml(bodyTemplate);
+      const baselineHtml = baselineBodyHtmlRef.current;
       // 與系統預設稿相同 → 存 null（繼續走程式預設）；有改才存覆寫
       const subjectTemplatePayload = nextSubject === '' || nextSubject === baselineSubject ? null : subjectTemplate;
-      const bodyTemplatePayload = nextBody === '' || nextBody === baselineBody ? null : bodyTemplate;
+      const bodySameAsBaseline = emailBodiesEquivalent(nextBody, baselineHtml)
+        || nextBody === baselineHtml;
+      const bodyTemplatePayload = !nextBody || nextBody === '<p></p>' || bodySameAsBaseline
+        ? null
+        : nextBody;
+      const attachmentsPayload = attachments.length ? attachments : null;
 
       const { data, warnings } = await saveEmailTemplate(token, selected.key, {
         subjectTemplate: subjectTemplatePayload,
         bodyTemplate: bodyTemplatePayload,
+        attachments: attachmentsPayload,
         isEnabled,
         notes: notes.trim() === '' ? null : notes,
       });
@@ -171,6 +202,7 @@ export default function AdminEmailTemplatesPage() {
       const data = await previewEmailTemplate(token, selected.key, {
         subjectTemplate: subjectTemplate.trim() === '' ? null : subjectTemplate,
         bodyTemplate: bodyTemplate.trim() === '' ? null : bodyTemplate,
+        attachments,
       });
       setPreview(data);
       if (data.warnings?.length) toast.warning(data.warnings.join('；'));
@@ -192,6 +224,7 @@ export default function AdminEmailTemplatesPage() {
         to: testTo.trim(),
         subjectTemplate: subjectTemplate.trim() === '' ? null : subjectTemplate,
         bodyTemplate: bodyTemplate.trim() === '' ? null : bodyTemplate,
+        attachments,
       });
       toast.success(`測試信已寄出：${data.subject}`);
       if (data.warnings?.length) toast.warning(data.warnings.join('；'));
@@ -207,8 +240,8 @@ export default function AdminEmailTemplatesPage() {
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
           <p className="text-muted small mb-0">
-            開啟任一封信會自動帶入目前文案；動態內容以{' '}
-            <code>{'{{變數名}}'}</code> 表示（不會出現範例姓名）。預覽／測試寄信才會代入範例資料。
+            開啟任一封信會自動帶入目前文案；可用粗體／底線／文字顏色，並從媒體庫附加檔案。
+            動態內容以 <code>{'{{變數名}}'}</code> 表示（不會出現範例姓名）。預覽／測試寄信才會代入範例資料。
           </p>
         </div>
         <Link to="/admin/settings/system" className="btn btn-outline-secondary btn-sm">
@@ -311,6 +344,14 @@ export default function AdminEmailTemplatesPage() {
                   </div>
                 </div>
 
+                {(selected.editorHints || []).length > 0 && (
+                  <div className="alert alert-info py-2 small mb-3">
+                    {(selected.editorHints || []).map((hint) => (
+                      <div key={hint}>{hint}</div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mb-3">
                   <div className="small fw-semibold mb-1">可用變數</div>
                   <div className="d-flex flex-wrap gap-1">
@@ -321,7 +362,7 @@ export default function AdminEmailTemplatesPage() {
                         className="btn btn-sm btn-outline-secondary"
                         title={v.description || v.name}
                         onClick={() => {
-                          setBodyTemplate((prev) => `${prev}{{${v.name}}}`);
+                          bodyEditorRef.current?.insertText(`{{${v.name}}}`);
                           setDirty(true);
                         }}
                       >
@@ -356,16 +397,28 @@ export default function AdminEmailTemplatesPage() {
                       <span className="text-muted fw-normal">（目前為系統預設）</span>
                     )}
                   </label>
-                  <textarea
-                    className="form-control font-monospace"
-                    rows={14}
+                  <p className="small text-muted mb-1">
+                    支援粗體、底線、文字顏色；動態內容請用上方變數按鈕插入。
+                  </p>
+                  <EmailTemplateRichTextEditor
+                    ref={bodyEditorRef}
                     value={bodyTemplate}
-                    onChange={(e) => {
-                      setBodyTemplate(e.target.value);
+                    resetKey={editorResetKey}
+                    onChange={(html) => {
+                      setBodyTemplate(html);
                       setDirty(true);
                     }}
                   />
                 </div>
+
+                <EmailTemplateAttachmentsField
+                  token={token}
+                  value={attachments}
+                  onChange={(next) => {
+                    setAttachments(next);
+                    setDirty(true);
+                  }}
+                />
 
                 <div className="mb-3">
                   <label className="form-label small fw-semibold">備註（僅後台可見）</label>
@@ -417,9 +470,42 @@ export default function AdminEmailTemplatesPage() {
                     <div className="fw-semibold mb-2">預覽結果</div>
                     <div className="small text-muted mb-1">收件（範例）：{preview.to}</div>
                     <div className="fw-semibold mb-2">{preview.subject}</div>
-                    <pre className="small mb-0" style={{ whiteSpace: 'pre-wrap', maxHeight: 320, overflow: 'auto' }}>
-                      {preview.body}
-                    </pre>
+                    {preview.checkinQr?.dataUrl ? (
+                      <div className="mb-3 p-3 border rounded bg-white text-center">
+                        <div className="small fw-semibold mb-1">現場簽到 QR（預覽）</div>
+                        <div className="small text-muted mb-2">
+                          簽到碼：{preview.checkinQr.bookingCode || preview.sampleData?.bookingCode}
+                        </div>
+                        <img
+                          src={preview.checkinQr.dataUrl}
+                          alt={`Check-in QR ${preview.checkinQr.bookingCode || ''}`}
+                          width={180}
+                          height={180}
+                          className="d-block mx-auto"
+                        />
+                        {preview.checkinQr.note ? (
+                          <div className="small text-muted mt-2">{preview.checkinQr.note}</div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {(preview.attachments || []).length > 0 ? (
+                      <div className="small mb-2">
+                        附件：{(preview.attachments || []).map((a) => a.label || a.filename).join('、')}
+                      </div>
+                    ) : null}
+                    {preview.html ? (
+                      <div
+                        className="small border rounded p-3 bg-white"
+                        style={{ maxHeight: 360, overflow: 'auto' }}
+                        // 預覽 HTML 已由後端消毒
+                        // eslint-disable-next-line react/no-danger
+                        dangerouslySetInnerHTML={{ __html: preview.html }}
+                      />
+                    ) : (
+                      <pre className="small mb-0" style={{ whiteSpace: 'pre-wrap', maxHeight: 320, overflow: 'auto' }}>
+                        {preview.body}
+                      </pre>
+                    )}
                   </div>
                 )}
               </div>

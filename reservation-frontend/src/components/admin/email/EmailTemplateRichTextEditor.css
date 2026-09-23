@@ -1,0 +1,68 @@
+.email-rte {
+  border: 1px solid rgba(42, 93, 159, 0.18);
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.email-rte--disabled {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.email-rte-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid rgba(42, 93, 159, 0.12);
+  background: #f7f9fc;
+}
+
+.email-rte-toolbar__btn {
+  min-width: 2rem;
+}
+
+.email-rte-toolbar__color {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+.email-rte-toolbar__color input[type='color'] {
+  width: 2rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 1px solid rgba(42, 93, 159, 0.25);
+  border-radius: 0.35rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.email-rte-surface {
+  min-height: 280px;
+}
+
+.email-rte-surface .tiptap,
+.email-rte-surface .ProseMirror {
+  min-height: 280px;
+  padding: 0.85rem 1rem 1.25rem;
+  outline: none;
+  font-family: Arial, Helvetica, 'Microsoft JhengHei', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #222;
+}
+
+.email-rte-surface .ProseMirror p.is-editor-empty:first-child::before {
+  color: #8a97a8;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.email-rte-surface .ProseMirror p {
+  margin: 0 0 0.65em;
+}
