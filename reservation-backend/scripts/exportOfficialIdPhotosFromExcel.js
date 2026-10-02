@@ -124,7 +124,7 @@ function resolvePhotoPath(photoIndex, row) {
 
 async function loadSharp() {
   try {
-    // eslint-disable-next-line import/no-extraneous-dependencies, global-require
+    // eslint-disable-next-line global-require
     return require('sharp');
   } catch (_) {
     return null;

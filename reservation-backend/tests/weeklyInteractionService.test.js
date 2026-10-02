@@ -1,3 +1,15 @@
+const mockWeeklyReportFindByPk = jest.fn();
+const mockWeeklyInteractionEventFindAll = jest.fn();
+
+jest.mock('../models', () => ({
+  WeeklyReport: {
+    findByPk: (...args) => mockWeeklyReportFindByPk(...args),
+  },
+  WeeklyInteractionEvent: {
+    findAll: (...args) => mockWeeklyInteractionEventFindAll(...args),
+  },
+}));
+
 const {
   gradeQuiz,
   getAnalytics,
@@ -6,6 +18,10 @@ const {
 const { sanitizeBlockProps } = require('../services/weeklyBlockService');
 
 describe('weeklyInteractionService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('normalizeVoterKey', () => {
     it('accepts valid anonymous keys', () => {
       expect(normalizeVoterKey('abc12345')).toBe('abc12345');
@@ -38,8 +54,10 @@ describe('weeklyInteractionService', () => {
 
   describe('getAnalytics', () => {
     it('returns null for missing report', async () => {
+      mockWeeklyReportFindByPk.mockResolvedValueOnce(null);
       const data = await getAnalytics(999999);
       expect(data).toBeNull();
+      expect(mockWeeklyInteractionEventFindAll).not.toHaveBeenCalled();
     });
   });
 });

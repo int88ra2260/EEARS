@@ -117,6 +117,7 @@ jest.mock('../services/waitlistService', () => ({
 
 jest.mock('../utils/reservationTime', () => ({
   calculateReservationTime: jest.fn(() => new Date()),
+  getCancellationDeadline: jest.fn(() => ({ deadline: { isValid: () => true, valueOf: () => Infinity } })),
 }));
 
 jest.mock('../utils/validators', () => ({
