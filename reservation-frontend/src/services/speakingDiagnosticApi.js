@@ -2,6 +2,7 @@ import { fetchClient } from '../utils/fetchClient';
 
 const TASKS_URL = '/api/speaking-diagnostic/tasks';
 const ATTEMPTS_URL = '/api/speaking-diagnostic/attempts';
+const ADMIN_ATTEMPTS_URL = '/api/admin/speaking-diagnostic/attempts';
 
 async function parseEnvelope(res, fallbackMessage) {
   const json = await res.json().catch(() => ({}));
@@ -41,5 +42,36 @@ export async function submitSpeakingAttempt(payload) {
     body: form,
   });
   return parseEnvelope(res, '送出口說錄音失敗');
+}
+
+function authHeaders(token) {
+  return { Authorization: `Bearer ${token}` };
+}
+
+function buildQuery(params = {}) {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') qs.set(key, String(value));
+  });
+  const query = qs.toString();
+  return query ? `?${query}` : '';
+}
+
+export async function fetchSpeakingDiagnosticAttempts(token, params = {}, options = {}) {
+  const res = await fetchClient(`${ADMIN_ATTEMPTS_URL}${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '載入口說診斷紀錄失敗');
+}
+
+export async function saveSpeakingDiagnosticRating(token, attemptUid, rating, options = {}) {
+  const res = await fetchClient(`${ADMIN_ATTEMPTS_URL}/${encodeURIComponent(attemptUid)}/ratings`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(rating),
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '儲存口說評分失敗');
 }
 

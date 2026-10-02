@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Microphone, Stop, ChartBar, Waveform } from '@phosphor-icons/react';
 import PageHeader from '../components/layout/PageHeader';
 import { fetchSpeakingTasks, submitSpeakingAttempt } from '../services/speakingDiagnosticApi';
 import { READ_ALOUD_TASKS } from '../data/speakingDiagnostic/readAloudTasks';
@@ -82,6 +83,60 @@ function formatMs(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function formatPercent(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '--';
+  return `${Math.round(n)}%`;
+}
+
+function formatNumber(value, unit = '') {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '--';
+  return `${Number.isInteger(n) ? n : n.toFixed(1)}${unit}`;
+}
+
+function buildLocalWordResults(targetText, transcript) {
+  const target = wordsOf(targetText);
+  const response = wordsOf(transcript);
+  const counts = new Map();
+  response.forEach((word) => counts.set(word, (counts.get(word) || 0) + 1));
+  return target.map((word, index) => {
+    const count = counts.get(word) || 0;
+    if (count > 0) {
+      counts.set(word, count - 1);
+      return { index, word, status: 'matched' };
+    }
+    return { index, word, status: response.length ? 'missing' : 'unknown' };
+  });
+}
+
+function ScoreDial({ value, label = 'Overall' }) {
+  const display = formatPercent(value);
+  return (
+    <div className="speaking-score-dial" aria-label={`${label} ${display}`}>
+      <span>{display}</span>
+      <small>{label}</small>
+    </div>
+  );
+}
+
+function MetricBar({ label, value, detail }) {
+  const n = Number(value);
+  const width = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
+  return (
+    <div className="speaking-metric-bar">
+      <div className="speaking-metric-bar__head">
+        <span>{label}</span>
+        <strong>{formatPercent(value)}</strong>
+      </div>
+      <div className="speaking-metric-bar__track">
+        <span style={{ width: `${width}%` }} />
+      </div>
+      {detail ? <small>{detail}</small> : null}
+    </div>
+  );
+}
+
 export default function SpeakingDiagnosticPage() {
   const [tasks, setTasks] = useState(READ_ALOUD_TASKS.map((task) => ({ ...task, taskKey: task.id })));
   const [selectedTaskKey, setSelectedTaskKey] = useState('ra-a2-campus-library');
@@ -126,6 +181,13 @@ export default function SpeakingDiagnosticPage() {
   );
 
   const transcriptWordCount = useMemo(() => wordsOf(transcript).length, [transcript]);
+  const wordResults = useMemo(() => (
+    result?.wordResults?.length
+      ? result.wordResults
+      : buildLocalWordResults(selectedTask?.targetText, transcript)
+  ), [result, selectedTask?.targetText, transcript]);
+  const presentationScores = result?.presentationScores || result?.automatedScores?.presentationScores || {};
+  const overallPercent = presentationScores.overallPercent;
 
   const startRecording = async () => {
     setError('');
@@ -252,38 +314,51 @@ export default function SpeakingDiagnosticPage() {
           </div>
 
           <div className="speaking-tool__main">
-            <div className="speaking-prompt">
-              <div className="speaking-prompt__meta">
+            <div className="speaking-practice-stage">
+              <div className="speaking-stage-score">
+                <ScoreDial value={overallPercent} label={result ? 'Score' : 'Ready'} />
+              </div>
+              <div className="speaking-stage-meta">
                 <span>{selectedTask?.level}</span>
                 <span>{selectedTask?.estimatedSeconds || 15}s target</span>
                 <span>{selectedTask?.targetWords || wordsOf(selectedTask?.targetText).length} words</span>
               </div>
-              <h2>{selectedTask?.title}</h2>
-              <p>{selectedTask?.targetText}</p>
-            </div>
-
-            <div className="speaking-recorder">
-              <div className="speaking-recorder__controls">
-                {!recording ? (
-                  <button className="btn btn-primary" type="button" onClick={startRecording}>
-                    Start recording
-                  </button>
-                ) : (
-                  <button className="btn btn-danger" type="button" onClick={stopRecording}>
-                    Stop
-                  </button>
-                )}
-                <span className="text-muted">
-                  {recording ? 'Recording...' : durationMs ? `Recorded ${formatMs(durationMs)}` : 'Ready'}
-                </span>
+              <div className="speaking-stage-center">
+                <h2>{selectedTask?.title}</h2>
+                <button
+                  className={`speaking-mic-button${recording ? ' speaking-mic-button--recording' : ''}`}
+                  type="button"
+                  onClick={recording ? stopRecording : startRecording}
+                  aria-label={recording ? 'Stop recording' : 'Start recording'}
+                >
+                  {recording ? <Stop size={38} weight="fill" /> : <Microphone size={46} />}
+                </button>
+                <div className="speaking-stage-status">
+                  {recording ? 'Recording your line' : durationMs ? `Recorded ${formatMs(durationMs)}` : 'Click the microphone and read the line'}
+                </div>
               </div>
-
-              {audioUrl ? (
-                <audio className="speaking-audio" controls src={audioUrl}>
-                  <track kind="captions" />
-                </audio>
-              ) : null}
+              <div className="speaking-line-strip" aria-label="Read aloud line">
+                {wordResults.map((item) => (
+                  <span
+                    key={`${item.index}-${item.word}`}
+                    className={`speaking-word speaking-word--${item.status}`}
+                  >
+                    {item.word}
+                  </span>
+                ))}
+              </div>
+              <div className="speaking-stage-footer">
+                <span><Waveform size={18} /> {clientFeatures?.pauseCount ?? 0} pauses</span>
+                <span>{durationMs ? formatMs(durationMs) : '0.0s'} / {selectedTask?.estimatedSeconds || 15}.0s</span>
+                <span><ChartBar size={18} /> {result ? formatPercent(presentationScores.completionPercent) : 'completion pending'}</span>
+              </div>
             </div>
+
+            {audioUrl ? (
+              <audio className="speaking-audio" controls src={audioUrl}>
+                <track kind="captions" />
+              </audio>
+            ) : null}
 
             <label className="form-label fw-semibold mt-3" htmlFor="speaking-transcript">
               Transcript（選填，未接 ASR 前可貼上人工或瀏覽器轉錄）
@@ -322,12 +397,40 @@ export default function SpeakingDiagnosticPage() {
 
             {result ? (
               <section className="speaking-result" aria-label="Automated evidence result">
-                <h3>Evidence summary</h3>
+                <div className="speaking-result__header">
+                  <div>
+                    <h3>Attempt result</h3>
+                    <p>完成度來自 transcript 對 target line 的比對；fluency 目前是診斷 proxy，尚未校準為正式 CEFR 分數。</p>
+                  </div>
+                  <ScoreDial value={overallPercent} label="Overall" />
+                </div>
+                <div className="speaking-metric-grid">
+                  <MetricBar
+                    label="Completion"
+                    value={presentationScores.completionPercent}
+                    detail="target words covered"
+                  />
+                  <MetricBar
+                    label="Fluency"
+                    value={presentationScores.fluencyPercent}
+                    detail="speech rate + pauses"
+                  />
+                  <MetricBar
+                    label="Pace"
+                    value={presentationScores.pacePercent}
+                    detail={`${formatNumber(result.features?.speechRateWpm)} WPM`}
+                  />
+                  <MetricBar
+                    label="Pause control"
+                    value={presentationScores.pauseControlPercent}
+                    detail={`${result.features?.pauseCount ?? 0} pauses, avg ${formatMs(result.features?.averagePauseDurationMs)}`}
+                  />
+                </div>
                 <div className="speaking-evidence-grid">
-                  <div><strong>{result.features?.speechRateWpm ?? '-'}</strong><span>speech WPM</span></div>
-                  <div><strong>{result.features?.articulationRateWpm ?? '-'}</strong><span>articulation WPM</span></div>
-                  <div><strong>{result.features?.completionRate ?? '-'}</strong><span>completion</span></div>
-                  <div><strong>{result.automatedScores?.fluencyProxy ?? '-'}</strong><span>fluency proxy</span></div>
+                  <div><strong>{formatNumber(result.features?.speechRateWpm)}</strong><span>speech WPM</span></div>
+                  <div><strong>{formatNumber(result.features?.articulationRateWpm)}</strong><span>articulation WPM</span></div>
+                  <div><strong>{formatPercent(presentationScores.similarityPercent)}</strong><span>line similarity</span></div>
+                  <div><strong>{formatNumber(result.automatedScores?.fluencyProxy)}</strong><span>fluency proxy</span></div>
                 </div>
                 <p className="text-muted mb-0">{result.automatedScores?.scoreCaution}</p>
               </section>

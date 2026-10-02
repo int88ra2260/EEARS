@@ -132,6 +132,7 @@ const LearningAnalyticsSettingsPage = lazy(() => import('./pages/admin/LearningA
 const LearningAnalyticsKpiReportPage = lazy(() => import('./pages/admin/LearningAnalyticsKpiReportPage'));
 const ImportCenterPage = lazy(() => import('./pages/admin/ImportCenterPage'));
 const ImportRunHistoryPage = lazy(() => import('./pages/admin/ImportRunHistoryPage'));
+const SpeakingDiagnosticAdminPage = lazy(() => import('./pages/admin/SpeakingDiagnosticAdminPage'));
 
 /** 舊版後台 URL → 現行入口，並附帶一次性 migrated 提示 */
 function AdminLegacyRedirect({ to, fromLabel }) {
@@ -601,6 +602,7 @@ function AppContent() {
               <Route path="learning-journey" element={<LearningJourneyDashboardPage />} />
               <Route path="learning-journey/operations" element={<LearningJourneyOperationsPage />} />
               <Route path="learning-journey/students/:studentId" element={<LearningJourneyStudentProfilePage />} />
+              <Route path="speaking-diagnostic" element={<SpeakingDiagnosticAdminPage />} />
               <Route path="learning-analytics" element={<LearningAnalyticsLayout />}>
                 <Route index element={<Navigate to="overview" replace />} />
                 <Route path="overview" element={<LearningAnalyticsOverviewPage />} />

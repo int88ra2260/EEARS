@@ -472,6 +472,12 @@ export const ADMIN_ROUTE_ACCESS = [
     anyPermissions: [P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS],
   },
   {
+    pattern: '/admin/speaking-diagnostic',
+    label: '口說診斷紀錄',
+    allowAdminOrExecutive: true,
+    anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
+  },
+  {
     pattern: '/admin/analytics/overview',
     label: '活動營運總覽',
     allowAdminOrExecutive: true,

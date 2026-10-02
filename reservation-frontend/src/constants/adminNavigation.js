@@ -426,6 +426,16 @@ export const ADMIN_NAV_SECTIONS = [
         breadcrumbLabel: '英語學習歷程中心',
       },
       {
+        id: 'speaking-diagnostic',
+        label: '口說診斷紀錄',
+        path: '/admin/speaking-diagnostic',
+        matchPrefixes: ['/admin/speaking-diagnostic'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '口說診斷紀錄',
+        breadcrumbLabel: '口說診斷',
+        searchTerms: ['speaking', '口說', 'fluency', 'pronunciation', 'EnglishCentral'],
+      },
+      {
         id: 'learning-journey-import',
         label: '學習歷程資料匯入',
         path: '/admin/learning-journey/import',

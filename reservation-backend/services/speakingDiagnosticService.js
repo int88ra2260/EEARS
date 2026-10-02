@@ -1,10 +1,8 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
-const { Op } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
-const { SpeakingTask, SpeakingAttempt } = require('../models');
+const { SpeakingTask, SpeakingAttempt, SpeakingHumanRating } = require('../models');
 const { READ_ALOUD_TASKS } = require('../constants/speakingDiagnosticTaskBank');
 
 const ANALYSIS_VERSION = 'v0';
@@ -61,6 +59,20 @@ function levenshtein(a, b) {
   return prev[b.length];
 }
 
+function buildWordResults(targetTokens, responseTokens) {
+  if (!targetTokens.length) return [];
+  const responseCounts = new Map();
+  responseTokens.forEach((word) => responseCounts.set(word, (responseCounts.get(word) || 0) + 1));
+  return targetTokens.map((word, index) => {
+    const count = responseCounts.get(word) || 0;
+    if (count > 0) {
+      responseCounts.set(word, count - 1);
+      return { index, word, status: 'matched' };
+    }
+    return { index, word, status: responseTokens.length ? 'missing' : 'unknown' };
+  });
+}
+
 function sequenceSimilarity(targetTokens, responseTokens) {
   if (!targetTokens.length) return null;
   const distance = levenshtein(targetTokens, responseTokens);
@@ -68,18 +80,62 @@ function sequenceSimilarity(targetTokens, responseTokens) {
 }
 
 function wordCoverage(targetTokens, responseTokens) {
-  if (!targetTokens.length) return null;
-  const responseCounts = new Map();
-  responseTokens.forEach((word) => responseCounts.set(word, (responseCounts.get(word) || 0) + 1));
-  let matched = 0;
-  targetTokens.forEach((word) => {
-    const count = responseCounts.get(word) || 0;
-    if (count > 0) {
-      matched += 1;
-      responseCounts.set(word, count - 1);
+  const results = buildWordResults(targetTokens, responseTokens);
+  if (!results.length) return null;
+  const matched = results.filter((row) => row.status === 'matched').length;
+  return Number((matched / results.length).toFixed(4));
+}
+
+function rateToPercent(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(Math.max(0, Math.min(1, n)) * 100);
+}
+
+function proxyToPercent(value, max = 2) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(Math.max(0, Math.min(max, n)) / max * 100);
+}
+
+function buildPaceScore(speechRateWpm) {
+  const n = Number(speechRateWpm);
+  if (!Number.isFinite(n)) return null;
+  if (n >= 95 && n <= 165) return 100;
+  if (n >= 80 && n < 95) return 84;
+  if (n > 165 && n <= 190) return 78;
+  if (n >= 60 && n < 80) return 64;
+  if (n > 190) return 58;
+  return 46;
+}
+
+function buildPauseScore({ pauseFrequencyPerMinute, averagePauseDurationMs }) {
+  const freq = Number(pauseFrequencyPerMinute);
+  const avg = Number(averagePauseDurationMs);
+  if (!Number.isFinite(freq) && !Number.isFinite(avg)) return null;
+  let score = 100;
+  if (Number.isFinite(freq)) score -= Math.max(0, freq - 6) * 4;
+  if (Number.isFinite(avg)) score -= Math.max(0, avg - 700) / 20;
+  return Math.round(Math.max(30, Math.min(100, score)));
+}
+
+function weightedOverall(scores) {
+  const weights = [
+    ['completionPercent', 0.45],
+    ['fluencyPercent', 0.25],
+    ['pacePercent', 0.15],
+    ['pauseControlPercent', 0.15],
+  ];
+  let sum = 0;
+  let weightSum = 0;
+  weights.forEach(([key, weight]) => {
+    const value = Number(scores[key]);
+    if (Number.isFinite(value)) {
+      sum += value * weight;
+      weightSum += weight;
     }
   });
-  return Number((matched / targetTokens.length).toFixed(4));
+  return weightSum ? Math.round(sum / weightSum) : null;
 }
 
 function parseClientFeatures(raw) {
@@ -91,71 +147,6 @@ function parseClientFeatures(raw) {
   } catch (_) {
     return {};
   }
-}
-
-function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures }) {
-  const targetTokens = tokenize(task.targetText);
-  const responseTokens = tokenize(transcript);
-  const durationMinutes = durationMs ? durationMs / 60000 : null;
-  const spokenWords = responseTokens.length || clampNumber(clientFeatures?.spokenWordEstimate, { min: 0, max: 5000 });
-  const speechRateWpm = durationMinutes && spokenWords != null
-    ? Number((spokenWords / durationMinutes).toFixed(2))
-    : null;
-  const totalPauseMs = clampNumber(clientFeatures?.totalPauseMs, { min: 0, max: 60 * 60 * 1000 });
-  const phonationMinutes = durationMs && totalPauseMs != null
-    ? Math.max(0.001, (durationMs - totalPauseMs) / 60000)
-    : null;
-  const articulationRateWpm = phonationMinutes && spokenWords != null
-    ? Number((spokenWords / phonationMinutes).toFixed(2))
-    : null;
-  const pauseCount = clampNumber(clientFeatures?.pauseCount, { min: 0, max: 1000 });
-  const averagePauseDurationMs = pauseCount && totalPauseMs != null
-    ? Math.round(totalPauseMs / pauseCount)
-    : clampNumber(clientFeatures?.averagePauseDurationMs, { min: 0, max: 60000 });
-  const pauseFrequencyPerMinute = durationMinutes && pauseCount != null
-    ? Number((pauseCount / durationMinutes).toFixed(2))
-    : null;
-
-  const completionRate = responseTokens.length
-    ? wordCoverage(targetTokens, responseTokens)
-    : null;
-  const transcriptSimilarity = responseTokens.length
-    ? sequenceSimilarity(targetTokens, responseTokens)
-    : null;
-
-  const features = {
-    mode: 'controlled_read_aloud',
-    analysisVersion: ANALYSIS_VERSION,
-    targetWordCount: targetTokens.length,
-    transcriptWordCount: responseTokens.length || null,
-    durationMs,
-    speechRateWpm,
-    articulationRateWpm,
-    pauseCount,
-    pauseFrequencyPerMinute,
-    averagePauseDurationMs,
-    totalPauseMs,
-    longPauseCount: clampNumber(clientFeatures?.longPauseCount, { min: 0, max: 1000 }),
-    completionRate,
-    transcriptSimilarity,
-    acousticPlaceholders: {
-      phonemeAccuracy: null,
-      stress: null,
-      rhythm: null,
-      pitchProsody: null,
-      note: 'Reserved for forced alignment or speech assessment API integration.',
-    },
-    clientFeatures,
-  };
-
-  const automatedScores = {
-    wordCompletion: completionRate,
-    fluencyProxy: buildFluencyProxy({ speechRateWpm, pauseFrequencyPerMinute, averagePauseDurationMs }),
-    transcriptSimilarity,
-    scoreCaution: 'Diagnostic evidence only; not a calibrated CEFR speaking score.',
-  };
-
-  return { features, automatedScores };
 }
 
 function buildFluencyProxy({ speechRateWpm, pauseFrequencyPerMinute, averagePauseDurationMs }) {
@@ -176,6 +167,80 @@ function buildFluencyProxy({ speechRateWpm, pauseFrequencyPerMinute, averagePaus
   return Number(Math.min(2, score).toFixed(2));
 }
 
+function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures }) {
+  const targetTokens = tokenize(task.targetText);
+  const responseTokens = tokenize(transcript);
+  const wordResults = buildWordResults(targetTokens, responseTokens);
+  const durationMinutes = durationMs ? durationMs / 60000 : null;
+  const spokenWords = responseTokens.length || clampNumber(clientFeatures?.spokenWordEstimate, { min: 0, max: 5000 });
+  const speechRateWpm = durationMinutes && spokenWords != null
+    ? Number((spokenWords / durationMinutes).toFixed(2))
+    : null;
+  const totalPauseMs = clampNumber(clientFeatures?.totalPauseMs, { min: 0, max: 60 * 60 * 1000 });
+  const phonationMinutes = durationMs && totalPauseMs != null
+    ? Math.max(0.001, (durationMs - totalPauseMs) / 60000)
+    : null;
+  const articulationRateWpm = phonationMinutes && spokenWords != null
+    ? Number((spokenWords / phonationMinutes).toFixed(2))
+    : null;
+  const pauseCount = clampNumber(clientFeatures?.pauseCount, { min: 0, max: 1000 });
+  const averagePauseDurationMs = pauseCount && totalPauseMs != null
+    ? Math.round(totalPauseMs / pauseCount)
+    : clampNumber(clientFeatures?.averagePauseDurationMs, { min: 0, max: 60000 });
+  const pauseFrequencyPerMinute = durationMinutes && pauseCount != null
+    ? Number((pauseCount / durationMinutes).toFixed(2))
+    : null;
+
+  const completionRate = responseTokens.length ? wordCoverage(targetTokens, responseTokens) : null;
+  const transcriptSimilarity = responseTokens.length ? sequenceSimilarity(targetTokens, responseTokens) : null;
+
+  const features = {
+    mode: 'controlled_read_aloud',
+    analysisVersion: ANALYSIS_VERSION,
+    targetWordCount: targetTokens.length,
+    transcriptWordCount: responseTokens.length || null,
+    durationMs,
+    speechRateWpm,
+    articulationRateWpm,
+    pauseCount,
+    pauseFrequencyPerMinute,
+    averagePauseDurationMs,
+    totalPauseMs,
+    longPauseCount: clampNumber(clientFeatures?.longPauseCount, { min: 0, max: 1000 }),
+    completionRate,
+    transcriptSimilarity,
+    wordResults,
+    acousticPlaceholders: {
+      phonemeAccuracy: null,
+      stress: null,
+      rhythm: null,
+      pitchProsody: null,
+      note: 'Reserved for forced alignment or speech assessment API integration.',
+    },
+    clientFeatures,
+  };
+
+  const fluencyProxy = buildFluencyProxy({ speechRateWpm, pauseFrequencyPerMinute, averagePauseDurationMs });
+  const presentationScores = {
+    completionPercent: rateToPercent(completionRate),
+    similarityPercent: rateToPercent(transcriptSimilarity),
+    fluencyPercent: proxyToPercent(fluencyProxy),
+    pacePercent: buildPaceScore(speechRateWpm),
+    pauseControlPercent: buildPauseScore({ pauseFrequencyPerMinute, averagePauseDurationMs }),
+  };
+  presentationScores.overallPercent = weightedOverall(presentationScores);
+
+  const automatedScores = {
+    wordCompletion: completionRate,
+    fluencyProxy,
+    transcriptSimilarity,
+    presentationScores,
+    scoreCaution: 'Diagnostic evidence only; not a calibrated CEFR speaking score.',
+  };
+
+  return { features, automatedScores, presentationScores, wordResults };
+}
+
 function toTaskDto(task) {
   return {
     id: task.id,
@@ -190,6 +255,23 @@ function toTaskDto(task) {
     focusTags: task.focusTags || [],
     constructTags: task.constructTags || [],
     version: task.version,
+  };
+}
+
+function toRatingDto(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    raterUserId: row.raterUserId,
+    fluency: row.fluency,
+    pronunciationIntelligibility: row.pronunciationIntelligibility,
+    grammar: row.grammar,
+    vocabulary: row.vocabulary,
+    taskAchievement: row.taskAchievement,
+    comments: row.comments,
+    rubricVersion: row.rubricVersion,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -249,7 +331,7 @@ async function submitSpeakingAttempt({ body, file }) {
   const durationMs = clampNumber(body.durationMs, { min: 0, max: 10 * 60 * 1000 });
   const transcript = String(body.transcript || '').trim().slice(0, 8000) || null;
   const clientFeatures = parseClientFeatures(body.clientFeatures);
-  const { features, automatedScores } = buildAutomatedAnalysis({
+  const { features, automatedScores, presentationScores, wordResults } = buildAutomatedAnalysis({
     task,
     transcript,
     durationMs,
@@ -278,9 +360,49 @@ async function submitSpeakingAttempt({ body, file }) {
     task: toTaskDto(task),
     features,
     automatedScores,
+    presentationScores,
+    wordResults,
     audioUrl: `/${row.audioPath}`,
     nextStep: 'Teacher rubric rating and ASR/forced-alignment integration can be added on this attempt record.',
   };
+}
+
+function normalizeRatingValue(value, field) {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > 5) {
+    const err = new Error(`${field} 必須為 1-5 的整數`);
+    err.status = 400;
+    err.code = 'INVALID_RATING_VALUE';
+    throw err;
+  }
+  return n;
+}
+
+async function rateSpeakingAttempt(attemptUid, body = {}, user = {}) {
+  const attempt = await SpeakingAttempt.findOne({ where: { attemptUid } });
+  if (!attempt) {
+    const err = new Error('找不到口說紀錄');
+    err.status = 404;
+    err.code = 'ATTEMPT_NOT_FOUND';
+    throw err;
+  }
+  const payload = {
+    attemptId: attempt.id,
+    raterUserId: user?.id || null,
+    fluency: normalizeRatingValue(body.fluency, 'fluency'),
+    pronunciationIntelligibility: normalizeRatingValue(body.pronunciationIntelligibility, 'pronunciationIntelligibility'),
+    grammar: normalizeRatingValue(body.grammar, 'grammar'),
+    vocabulary: normalizeRatingValue(body.vocabulary, 'vocabulary'),
+    taskAchievement: normalizeRatingValue(body.taskAchievement, 'taskAchievement'),
+    comments: String(body.comments || '').trim().slice(0, 4000) || null,
+    rubricVersion: 'v0',
+  };
+  const existing = await SpeakingHumanRating.findOne({
+    where: { attemptId: attempt.id, raterUserId: payload.raterUserId },
+  });
+  const row = existing ? await existing.update(payload) : await SpeakingHumanRating.create(payload);
+  return toRatingDto(row);
 }
 
 async function listRecentAttempts(query = {}) {
@@ -290,7 +412,10 @@ async function listRecentAttempts(query = {}) {
   if (studentId) where.studentId = studentId;
   const rows = await SpeakingAttempt.findAll({
     where,
-    include: [{ model: SpeakingTask, as: 'task' }],
+    include: [
+      { model: SpeakingTask, as: 'task' },
+      { model: SpeakingHumanRating, as: 'humanRatings' },
+    ],
     order: [['submittedAt', 'DESC']],
     limit,
   });
@@ -303,7 +428,10 @@ async function listRecentAttempts(query = {}) {
     transcript: row.transcript,
     features: row.features,
     automatedScores: row.automatedScores,
+    presentationScores: row.automatedScores?.presentationScores || null,
+    wordResults: row.features?.wordResults || [],
     audioUrl: `/${row.audioPath}`,
+    humanRatings: (row.humanRatings || []).map(toRatingDto),
   }));
 }
 
@@ -313,6 +441,7 @@ module.exports = {
   listSpeakingTasks,
   submitSpeakingAttempt,
   listRecentAttempts,
+  rateSpeakingAttempt,
   normalizeText,
   tokenize,
 };
