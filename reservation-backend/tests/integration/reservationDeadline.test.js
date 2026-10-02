@@ -1,4 +1,16 @@
 const dayjs = require('dayjs');
+const ENGLISH_TABLE_CONFIG = {
+  code: 'english_table',
+  displayName: 'English Table',
+  openRule: { type: 'day_before', days: 1, hour: 12, minute: 0 },
+  cutoffHours: 2,
+};
+
+jest.mock('../../services/eventTypeService', () => ({
+  resolveTypeConfigSync: jest.fn(() => ENGLISH_TABLE_CONFIG),
+  resolveTypeConfig: jest.fn(async () => ENGLISH_TABLE_CONFIG),
+}));
+
 const { calculateReservationTime } = require('../../utils/reservationTime');
 
 jest.mock('../../models', () => ({
