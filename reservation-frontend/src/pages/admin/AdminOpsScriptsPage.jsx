@@ -6,7 +6,13 @@ import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner';
 import { P } from '../../constants/permissions';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
-import { fetchBackupOpsStatus, runBackupJob } from '../../services/opsScriptsApi';
+import {
+  fetchBackupOpsStatus,
+  fetchGitHubOpsStatus,
+  fetchMigrationOpsStatus,
+  runBackupJob,
+  runMigrationJob,
+} from '../../services/opsScriptsApi';
 import EwlSyncPanel from '../../components/learningJourneyV3/EwlSyncPanel';
 import useToast from '../../components/ui/useToast';
 import '../../styles/learning-journey-import.css';
@@ -30,7 +36,9 @@ function jobBadge(status) {
 /**
  * 管理員維運腳本控制台
  * /admin/ops-scripts
+ * - GitHub／部署狀態（唯讀）
  * - 資料庫備份（正式 scripts/backup-db.bat）
+ * - 套用尚未執行的 Sequelize migration（只往上，不還原）
  * - 英文寫作工坊（EWL）同步
  */
 export default function AdminOpsScriptsPage() {
@@ -45,6 +53,14 @@ export default function AdminOpsScriptsPage() {
   const [health, setHealth] = useState(null);
   const [job, setJob] = useState(null);
   const [running, setRunning] = useState(false);
+  const [migrateLoading, setMigrateLoading] = useState(true);
+  const [migrateError, setMigrateError] = useState('');
+  const [pendingMigrations, setPendingMigrations] = useState([]);
+  const [migrateJob, setMigrateJob] = useState(null);
+  const [migrateRunning, setMigrateRunning] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(true);
+  const [githubError, setGithubError] = useState('');
+  const [github, setGithub] = useState(null);
 
   const load = useCallback(async () => {
     if (!token || !isAdmin) return;
@@ -61,9 +77,53 @@ export default function AdminOpsScriptsPage() {
     }
   }, [token, isAdmin]);
 
+  const loadMigrations = useCallback(async () => {
+    if (!token || !isAdmin) return;
+    setMigrateLoading(true);
+    setMigrateError('');
+    try {
+      const data = await fetchMigrationOpsStatus(token);
+      setPendingMigrations(Array.isArray(data?.pending) ? data.pending : []);
+      setMigrateJob(data?.job || null);
+    } catch (err) {
+      setMigrateError(err.message || '無法載入 migration 狀態');
+    } finally {
+      setMigrateLoading(false);
+    }
+  }, [token, isAdmin]);
+
+  const loadGitHub = useCallback(async ({ refresh = false } = {}) => {
+    if (!token || !isAdmin) return;
+    setGithubLoading(true);
+    setGithubError('');
+    try {
+      const data = await fetchGitHubOpsStatus(token, { refresh });
+      setGithub(data || null);
+    } catch (err) {
+      setGithubError(err.message || '無法載入 GitHub 狀態');
+    } finally {
+      setGithubLoading(false);
+    }
+  }, [token, isAdmin]);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadMigrations();
+    loadGitHub();
+  }, [load, loadMigrations, loadGitHub]);
+
+  const githubBusy = Boolean(
+    github?.github?.workflows?.some((item) => item.inProgress)
+    || github?.github?.runners?.some((item) => item.busy)
+  );
+
+  useEffect(() => {
+    if (!githubBusy) return undefined;
+    const timer = setInterval(() => {
+      loadGitHub({ refresh: true });
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [githubBusy, loadGitHub]);
 
   useEffect(() => {
     if (job?.status !== 'running') return undefined;
@@ -78,6 +138,20 @@ export default function AdminOpsScriptsPage() {
     }, 4000);
     return () => clearInterval(timer);
   }, [job?.status, token]);
+
+  useEffect(() => {
+    if (migrateJob?.status !== 'running') return undefined;
+    const timer = setInterval(async () => {
+      try {
+        const data = await fetchMigrationOpsStatus(token);
+        setPendingMigrations(Array.isArray(data?.pending) ? data.pending : []);
+        setMigrateJob(data?.job || null);
+      } catch {
+        // ignore poll errors
+      }
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [migrateJob?.status, token]);
 
   const handleRunBackup = async () => {
     const ok = window.confirm(
@@ -98,6 +172,28 @@ export default function AdminOpsScriptsPage() {
     }
   };
 
+  const handleRunMigrate = async () => {
+    const preview = pendingMigrations.slice(0, 8).join('\n');
+    const more = pendingMigrations.length > 8 ? `\n…共 ${pendingMigrations.length} 個` : '';
+    const ok = window.confirm(
+      `確定要套用尚未執行的資料庫 migration？\n只會執行 db:migrate，不會還原。\n\n${preview || '（目前清單是空的）'}${more}`
+    );
+    if (!ok) return;
+    setMigrateRunning(true);
+    setMigrateError('');
+    try {
+      const data = await runMigrationJob(token);
+      setMigrateJob(data);
+      toast.success(data?.message || '已開始套用 migration');
+      loadMigrations();
+    } catch (err) {
+      setMigrateError(err.message || '啟動 migration 失敗');
+      toast.error(err.message || '啟動 migration 失敗');
+    } finally {
+      setMigrateRunning(false);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <main className="lj-import-page">
@@ -111,7 +207,7 @@ export default function AdminOpsScriptsPage() {
       <header className="lj-import-page__header">
         <p className="lj-import-page__kicker">系統維運</p>
         <p className="lj-import-page__lede">
-          由管理員直接控制資料庫備份腳本，以及英文寫作工坊（EWL）資料同步。高風險操作請先確認環境與時段。
+          查看 GitHub 與這台機器的部署狀態，並由管理員執行資料庫備份、套用尚未執行的 migration，以及英文寫作工坊（EWL）資料同步。高風險操作請先確認環境與時段。
         </p>
         <nav className="lj-import-page__nav" aria-label="相關頁面">
           <Link to="/admin/diagnostics">系統診斷</Link>
@@ -120,6 +216,144 @@ export default function AdminOpsScriptsPage() {
           <Link to="/admin/logs">操作紀錄</Link>
         </nav>
       </header>
+
+      <section className="lj-import-block mb-4" aria-labelledby="ops-github-title">
+        <div className="lj-import-block__head">
+          <div className="lj-import-block__title-group">
+            <span className="lj-import-block__kind">GITHUB</span>
+            <h2 id="ops-github-title" className="lj-import-block__title">GitHub 與部署</h2>
+            <p className="lj-import-block__desc mb-0">
+              唯讀。在別的電腦把變更合併進 <code>main</code> 之後，這台機器的 Actions runner 會自動部署。
+              此頁不會拉碼，也不會重啟後端。
+            </p>
+          </div>
+        </div>
+        {githubError ? <Alert variant="danger" className="mt-3 mb-0">{githubError}</Alert> : null}
+        {githubLoading && !github ? (
+          <div className="d-flex align-items-center gap-2 mt-3 text-muted">
+            <Spinner animation="border" size="sm" />
+            <span>讀取 GitHub 狀態…</span>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+              <Badge bg={github?.sync?.tone || 'secondary'}>{github?.sync?.label || '—'}</Badge>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => loadGitHub({ refresh: true })}
+                disabled={githubLoading}
+              >
+                {githubLoading ? <Spinner animation="border" size="sm" className="me-2" /> : null}
+                重新整理
+              </Button>
+            </div>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <div className="border rounded p-3 h-100">
+                  <strong>這台機器</strong>
+                  <dl className="row small mb-0 mt-2">
+                    <dt className="col-4 text-muted">分支</dt>
+                    <dd className="col-8">{github?.local?.branch || '—'}</dd>
+                    <dt className="col-4 text-muted">commit</dt>
+                    <dd className="col-8"><code>{github?.local?.shortSha || '—'}</code></dd>
+                    <dt className="col-4 text-muted">說明</dt>
+                    <dd className="col-8">{github?.local?.subject || '—'}</dd>
+                    <dt className="col-4 text-muted">時間</dt>
+                    <dd className="col-8 mb-0">
+                      {github?.local?.committedAt
+                        ? new Date(github.local.committedAt).toLocaleString('zh-TW', { hour12: false })
+                        : '—'}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+              <div className="col-md-6">
+                <div className="border rounded p-3 h-100">
+                  <strong>GitHub main</strong>
+                  <dl className="row small mb-0 mt-2">
+                    <dt className="col-4 text-muted">commit</dt>
+                    <dd className="col-8"><code>{github?.remote?.shortSha || '—'}</code></dd>
+                    <dt className="col-4 text-muted">說明</dt>
+                    <dd className="col-8">{github?.remote?.subject || '—'}</dd>
+                    <dt className="col-4 text-muted">時間</dt>
+                    <dd className="col-8">
+                      {github?.remote?.committedAt
+                        ? new Date(github.remote.committedAt).toLocaleString('zh-TW', { hour12: false })
+                        : '—'}
+                    </dd>
+                    <dt className="col-4 text-muted">連結</dt>
+                    <dd className="col-8 mb-0">
+                      {github?.repoUrl ? (
+                        <a href={github.repoUrl} target="_blank" rel="noreferrer">開啟儲存庫</a>
+                      ) : '—'}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            {github?.fetchError ? (
+              <Alert variant="warning" className="mt-3 mb-0 small">
+                無法向 GitHub 更新遠端版本（{github.fetchError}）。上面的 main 可能是上次抓到的內容。
+              </Alert>
+            ) : null}
+            {github?.local?.dirtyTrackedCount > 0 ? (
+              <Alert variant="warning" className="mt-3 mb-0 small">
+                這台機器有 {github.local.dirtyTrackedCount} 個已追蹤、尚未提交的變更。下次自動部署會把它們清掉。
+              </Alert>
+            ) : null}
+            <div className="row g-3 mt-1">
+              <div className="col-md-6">
+                <div className="border rounded p-3 h-100">
+                  <strong>最近的 CI／部署</strong>
+                  {github?.github?.note ? <p className="small text-muted mt-2 mb-0">{github.github.note}</p> : null}
+                  {github?.github?.error ? <Alert variant="warning" className="mt-2 mb-0 small">{github.github.error}</Alert> : null}
+                  <ul className="list-unstyled small mb-0 mt-2">
+                    {(github?.github?.workflows || []).map((item) => (
+                      <li key={item.name} className="d-flex justify-content-between gap-2 py-1">
+                        <span>
+                          {item.name}
+                          {item.sha ? <code className="ms-2">{item.sha}</code> : null}
+                        </span>
+                        <span>
+                          <Badge bg={item.tone}>{item.label}</Badge>
+                          {item.url ? (
+                            <a className="ms-2" href={item.url} target="_blank" rel="noreferrer">查看</a>
+                          ) : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {github?.actionsUrl ? (
+                    <p className="small mb-0 mt-2">
+                      <a href={github.actionsUrl} target="_blank" rel="noreferrer">開啟 Actions</a>
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="col-md-6">
+                <div className="border rounded p-3 h-100">
+                  <strong>這台機器的 runner</strong>
+                  {(github?.github?.runners || []).length ? (
+                    <ul className="list-unstyled small mb-0 mt-2">
+                      {github.github.runners.map((item) => (
+                        <li key={item.name} className="d-flex justify-content-between py-1">
+                          <span>{item.name}</span>
+                          <Badge bg={item.tone}>{item.label}</Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="small text-muted mt-2 mb-0">
+                      {github?.github?.configured ? '沒有讀到 runner。' : '設定 token 後才會顯示 Idle 或部署中。'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="lj-import-block mb-4" aria-labelledby="ops-backup-title">
         <div className="lj-import-block__head">
@@ -222,6 +456,54 @@ export default function AdminOpsScriptsPage() {
                 ) : null}
               </div>
             </div>
+          </div>
+        )}
+      </section>
+
+      <section className="lj-import-block mb-4" aria-labelledby="ops-migrate-title">
+        <div className="lj-import-block__head">
+          <div className="lj-import-block__title-group">
+            <span className="lj-import-block__kind">DB</span>
+            <h2 id="ops-migrate-title" className="lj-import-block__title">套用資料庫 migration</h2>
+            <p className="lj-import-block__desc mb-0">
+              自動部署不會改資料表。這裡只執行 <code>npx sequelize-cli db:migrate</code>，把尚未跑過的 migration 往上套用。
+              已執行過的會略過。沒有還原按鈕。部署本身已經會重啟後端；若套用後畫面仍報缺少欄位，再到伺服器執行 <code>scripts\ops\restart-backend.bat</code>。
+            </p>
+          </div>
+        </div>
+        {migrateError ? <Alert variant="danger" className="mt-3 mb-0">{migrateError}</Alert> : null}
+        {migrateLoading ? (
+          <div className="d-flex align-items-center gap-2 mt-3 text-muted">
+            <Spinner animation="border" size="sm" />
+            <span>載入 migration 狀態…</span>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <strong>尚未執行 {pendingMigrations.length} 個</strong>
+              {jobBadge(migrateJob?.status)}
+            </div>
+            {pendingMigrations.length ? (
+              <ul className="small mb-3">
+                {pendingMigrations.map((name) => <li key={name}><code>{name}</code></li>)}
+              </ul>
+            ) : (
+              <p className="small text-muted mb-3">目前沒有尚未執行的 migration。</p>
+            )}
+            <p className="small mb-3">{migrateJob?.message || '尚未執行'}</p>
+            {migrateJob?.output ? (
+              <pre className="small bg-light border rounded p-2 mb-3" style={{ whiteSpace: 'pre-wrap' }}>{migrateJob.output}</pre>
+            ) : null}
+            <Button
+              variant="primary"
+              onClick={handleRunMigrate}
+              disabled={migrateRunning || migrateJob?.status === 'running' || pendingMigrations.length === 0}
+            >
+              {(migrateRunning || migrateJob?.status === 'running') && (
+                <Spinner animation="border" size="sm" className="me-2" />
+              )}
+              套用尚未執行的 migration
+            </Button>
           </div>
         )}
       </section>

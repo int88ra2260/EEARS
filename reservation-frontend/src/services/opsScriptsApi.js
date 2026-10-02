@@ -43,3 +43,26 @@ export async function runBackupJob(token) {
   });
   return parseJson(res);
 }
+
+export async function fetchGitHubOpsStatus(token, { refresh = false } = {}) {
+  const query = refresh ? '?refresh=1' : '';
+  const res = await fetchClientThrow(`/api/admin/ops-scripts/github${query}`, {
+    headers: authHeaders(token),
+  });
+  return parseJson(res);
+}
+
+export async function fetchMigrationOpsStatus(token) {
+  const res = await fetchClientThrow('/api/admin/ops-scripts/migrations', {
+    headers: authHeaders(token),
+  });
+  return parseJson(res);
+}
+
+export async function runMigrationJob(token) {
+  const res = await fetchClientThrow('/api/admin/ops-scripts/migrations/run', {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  return parseJson(res);
+}

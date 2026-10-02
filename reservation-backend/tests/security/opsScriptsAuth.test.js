@@ -26,10 +26,22 @@ const mockStart = jest.fn();
 const mockHealth = jest.fn();
 const mockJob = jest.fn();
 
+const mockMigrateStatus = jest.fn();
+const mockMigrateJob = jest.fn();
+const mockMigrateStart = jest.fn();
+const mockGitHub = jest.fn();
+
+jest.mock('../../services/githubOpsStatusService', () => ({
+  getGitHubOpsStatus: (...args) => mockGitHub(...args),
+}));
+
 jest.mock('../../services/opsScriptsService', () => ({
   getBackupHealthSnapshot: (...args) => mockHealth(...args),
   getBackupJobStatus: (...args) => mockJob(...args),
   startBackupJob: (...args) => mockStart(...args),
+  getMigrationStatus: (...args) => mockMigrateStatus(...args),
+  getMigrateJobStatus: (...args) => mockMigrateJob(...args),
+  startMigrateJob: (...args) => mockMigrateStart(...args),
 }));
 
 const adminOpsScriptsRouter = require('../../routes/adminOpsScriptsRouter');
@@ -49,6 +61,14 @@ describe('adminOpsScriptsRouter auth', () => {
     mockHealth.mockReturnValue({ ok: true, code: 'OK' });
     mockJob.mockReturnValue({ status: 'idle' });
     mockStart.mockReturnValue({ status: 'running' });
+    mockMigrateStatus.mockReset();
+    mockMigrateJob.mockReset();
+    mockMigrateStart.mockReset();
+    mockMigrateStatus.mockResolvedValue({ pending: [], pendingCount: 0, job: { status: 'idle' } });
+    mockMigrateJob.mockReturnValue({ status: 'idle', pending: [], output: '' });
+    mockMigrateStart.mockResolvedValue({ status: 'running', pending: ['a.js'], output: '' });
+    mockGitHub.mockReset();
+    mockGitHub.mockResolvedValue({ sync: { state: 'synced', label: '已與 GitHub main 一致' } });
   });
 
   it('rejects unauthenticated requests', async () => {
@@ -98,5 +118,41 @@ describe('adminOpsScriptsRouter auth', () => {
       .set('x-user-role', 'admin');
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('BACKUP_JOB_RUNNING');
+  });
+
+  it('allows admin to read pending migrations', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/ops-scripts/migrations')
+      .set('x-user-role', 'admin');
+    expect(res.status).toBe(200);
+    expect(res.body.data.pendingCount).toBe(0);
+  });
+
+  it('allows admin to read GitHub status', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/ops-scripts/github')
+      .set('x-user-role', 'admin');
+    expect(res.status).toBe(200);
+    expect(res.body.data.sync.state).toBe('synced');
+  });
+
+  it('rejects non-admin GitHub status reads', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/ops-scripts/github')
+      .set('x-user-role', 'teacher');
+    expect(res.status).toBe(403);
+    expect(mockGitHub).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-admin migrate runs', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .post('/api/admin/ops-scripts/migrations/run')
+      .set('x-user-role', 'teacher');
+    expect(res.status).toBe(403);
+    expect(mockMigrateStart).not.toHaveBeenCalled();
   });
 });

@@ -187,10 +187,208 @@ function _resetBackupJobForTests() {
   };
 }
 
+const BACKEND_DIR = path.resolve(__dirname, '..');
+const MIGRATIONS_DIR = path.join(BACKEND_DIR, 'migrations');
+
+/** @type {{
+ *   status: 'idle'|'running'|'success'|'failed',
+ *   startedAt: string|null,
+ *   finishedAt: string|null,
+ *   exitCode: number|null,
+ *   message: string,
+ *   output: string,
+ *   pending: string[],
+ * }} */
+let migrateJob = {
+  status: 'idle',
+  startedAt: null,
+  finishedAt: null,
+  exitCode: null,
+  message: '尚未執行',
+  output: '',
+  pending: [],
+};
+
+function diffPendingMigrations(fileNames, executedNames) {
+  const done = new Set((executedNames || []).map((name) => String(name || '').trim()).filter(Boolean));
+  return (fileNames || [])
+    .map((name) => String(name || '').trim())
+    .filter((name) => name.endsWith('.js') && !done.has(name))
+    .sort();
+}
+
+function listMigrationFileNames() {
+  if (!fs.existsSync(MIGRATIONS_DIR)) return [];
+  return fs.readdirSync(MIGRATIONS_DIR).filter((name) => name.endsWith('.js'));
+}
+
+async function readExecutedMigrationNames() {
+  const { sequelize } = require('../models');
+  try {
+    const rows = await sequelize.query('SELECT name FROM SequelizeMeta', {
+      type: sequelize.QueryTypes.SELECT,
+    });
+    return (rows || []).map((row) => row.name);
+  } catch (error) {
+    const code = error?.original?.code || error?.parent?.code;
+    const message = String(error?.message || '');
+    if (code === 'ER_NO_SUCH_TABLE' || /SequelizeMeta/i.test(message)) return [];
+    throw error;
+  }
+}
+
+async function getMigrationStatus() {
+  const pending = diffPendingMigrations(listMigrationFileNames(), await readExecutedMigrationNames());
+  return {
+    pending,
+    pendingCount: pending.length,
+    job: getMigrateJobStatus(),
+  };
+}
+
+function getMigrateJobStatus() {
+  return {
+    ...migrateJob,
+    pending: [...migrateJob.pending],
+  };
+}
+
+function operatorFromUser(user, requestId) {
+  return {
+    auditRequestId: requestId || `ops-migrate-${Date.now()}`,
+    operator: {
+      operatorId: user?.id ?? null,
+      operatorRole: user?.role ?? null,
+      operatorName: user?.name || user?.user || null,
+    },
+  };
+}
+
+/**
+ * 只執行 sequelize-cli db:migrate（往上套用尚未執行的 migration）。
+ * 不接受客戶端參數，也不提供 undo。
+ */
+async function startMigrateJob({ user, requestId } = {}) {
+  if (migrateJob.status === 'running') {
+    const err = new Error('資料庫 migration 執行中，請稍後再試');
+    err.status = 409;
+    err.code = 'MIGRATE_JOB_RUNNING';
+    throw err;
+  }
+
+  const pending = diffPendingMigrations(listMigrationFileNames(), await readExecutedMigrationNames());
+  const { auditRequestId, operator } = operatorFromUser(user, requestId);
+  const startedAt = new Date().toISOString();
+
+  if (!pending.length) {
+    migrateJob = {
+      status: 'success',
+      startedAt,
+      finishedAt: startedAt,
+      exitCode: 0,
+      message: '沒有尚未執行的 migration',
+      output: '',
+      pending: [],
+    };
+    return getMigrateJobStatus();
+  }
+
+  migrateJob = {
+    status: 'running',
+    startedAt,
+    finishedAt: null,
+    exitCode: null,
+    message: `正在套用 ${pending.length} 個 migration`,
+    output: '',
+    pending,
+  };
+
+  logAuditAsync({
+    module: 'ops',
+    action: 'db_migrate_start',
+    entityType: 'OpsScript',
+    entityId: 'db-migrate',
+    targetSummary: `套用尚未執行的 migration（${pending.length}）`,
+    afterData: { pending, startedAt },
+    requestId: auditRequestId,
+    ...operator,
+  });
+
+  const child = spawn('npx', ['sequelize-cli', 'db:migrate'], {
+    cwd: BACKEND_DIR,
+    windowsHide: true,
+    shell: true,
+    env: process.env,
+  });
+
+  let output = '';
+  const append = (chunk) => {
+    output = `${output}${chunk.toString()}`.slice(-12000);
+    migrateJob = { ...migrateJob, output };
+  };
+  if (child.stdout) child.stdout.on('data', append);
+  if (child.stderr) child.stderr.on('data', append);
+
+  const finalize = (exitCode, message, status) => {
+    const finishedAt = new Date().toISOString();
+    migrateJob = {
+      ...migrateJob,
+      status,
+      finishedAt,
+      exitCode,
+      message,
+      output,
+    };
+    logAuditAsync({
+      module: 'ops',
+      action: status === 'success' ? 'db_migrate_success' : 'db_migrate_failed',
+      entityType: 'OpsScript',
+      entityId: 'db-migrate',
+      targetSummary: message,
+      afterData: { exitCode, status, finishedAt, pending },
+      status: status === 'success' ? 'success' : 'failed',
+      errorMessage: status === 'success' ? null : message,
+      requestId: auditRequestId,
+      ...operator,
+    });
+  };
+
+  child.on('error', (err) => {
+    finalize(null, `無法啟動 migration：${err.message}`, 'failed');
+  });
+  child.on('close', (code) => {
+    const exitCode = typeof code === 'number' ? code : null;
+    if (exitCode === 0) {
+      finalize(exitCode, 'migration 已套用', 'success');
+    } else {
+      finalize(exitCode, `migration 失敗（exit ${exitCode ?? 'null'}）`, 'failed');
+    }
+  });
+
+  return getMigrateJobStatus();
+}
+
+function _resetMigrateJobForTests() {
+  migrateJob = {
+    status: 'idle',
+    startedAt: null,
+    finishedAt: null,
+    exitCode: null,
+    message: '尚未執行',
+    output: '',
+    pending: [],
+  };
+}
+
 module.exports = {
   getBackupHealthSnapshot,
   getBackupJobStatus,
   startBackupJob,
   getBackupScriptPath,
   _resetBackupJobForTests,
+  diffPendingMigrations,
+  getMigrationStatus,
+  getMigrateJobStatus,
+  startMigrateJob,
+  _resetMigrateJobForTests,
 };
