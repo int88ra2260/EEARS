@@ -55,7 +55,7 @@ describe('reservation / cancellation 2-hour cutoff', () => {
   });
 
   it('can reserve before cutoff', () => {
-    jest.setSystemTime(new Date('2026-05-08T08:00:00+08:00'));
+    jest.setSystemTime(new Date('2026-05-08T08:00:00'));
     const event = {
       eventType: 'English Table',
       date: '2026-05-08',
@@ -66,7 +66,7 @@ describe('reservation / cancellation 2-hour cutoff', () => {
   });
 
   it('cannot reserve inside 2-hour cutoff', () => {
-    jest.setSystemTime(new Date('2026-05-08T11:10:00+08:00'));
+    jest.setSystemTime(new Date('2026-05-08T11:10:00'));
     const event = {
       eventType: 'English Table',
       date: '2026-05-08',
@@ -77,7 +77,7 @@ describe('reservation / cancellation 2-hour cutoff', () => {
   });
 
   it('cannot reserve after event started', () => {
-    jest.setSystemTime(new Date('2026-05-08T12:10:00+08:00'));
+    jest.setSystemTime(new Date('2026-05-08T12:10:00'));
     const event = {
       eventType: 'English Table',
       date: '2026-05-08',
@@ -88,7 +88,7 @@ describe('reservation / cancellation 2-hour cutoff', () => {
   });
 
   it('can cancel before cutoff', async () => {
-    jest.setSystemTime(new Date('2026-05-08T08:30:00+08:00'));
+    jest.setSystemTime(new Date('2026-05-08T08:30:00'));
     const destroy = jest.fn().mockResolvedValue(undefined);
     Reservation.findByPk.mockResolvedValue({
       studentId: 'B123456789',
@@ -110,7 +110,7 @@ describe('reservation / cancellation 2-hour cutoff', () => {
   });
 
   it('cannot cancel inside 2-hour cutoff', async () => {
-    jest.setSystemTime(new Date('2026-05-08T10:30:00+08:00'));
+    jest.setSystemTime(new Date('2026-05-08T10:30:00'));
     Reservation.findByPk.mockResolvedValue({
       studentId: 'B123456789',
       studentName: 'Tester',
@@ -131,7 +131,7 @@ describe('reservation / cancellation 2-hour cutoff', () => {
   });
 
   it('cannot cancel after event started', async () => {
-    jest.setSystemTime(new Date('2026-05-08T12:10:00+08:00'));
+    jest.setSystemTime(new Date('2026-05-08T12:10:00'));
     Reservation.findByPk.mockResolvedValue({
       studentId: 'B123456789',
       studentName: 'Tester',
