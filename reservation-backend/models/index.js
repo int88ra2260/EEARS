@@ -90,6 +90,9 @@ const MigrationQuarantine = require('./MigrationQuarantine');
 const LearningJourneyImportHistory = require('./LearningJourneyImportHistory');
 const LearningJourneyOperationRun = require('./LearningJourneyOperationRun');
 const LearningTraceEvent = require('./LearningTraceEvent');
+const SpeakingTask = require('./SpeakingTask');
+const SpeakingAttempt = require('./SpeakingAttempt');
+const SpeakingHumanRating = require('./SpeakingHumanRating');
 const LjStudentEvent = require('./LjStudentEvent');
 const LjAnalyticStudent = require('./LjAnalyticStudent');
 const LjAnalyticExam = require('./LjAnalyticExam');
@@ -121,6 +124,11 @@ const EtLeaderAttendance = require('./EtLeaderAttendance');
 const EtLeaderCheckinToken = require('./EtLeaderCheckinToken');
 const EtLeaderPayProfile = require('./EtLeaderPayProfile');
 const EtSessionTaskMark = require('./EtSessionTaskMark');
+
+SpeakingTask.hasMany(SpeakingAttempt, { foreignKey: 'taskId', as: 'attempts', onDelete: 'RESTRICT' });
+SpeakingAttempt.belongsTo(SpeakingTask, { foreignKey: 'taskId', as: 'task' });
+SpeakingAttempt.hasMany(SpeakingHumanRating, { foreignKey: 'attemptId', as: 'humanRatings', onDelete: 'CASCADE' });
+SpeakingHumanRating.belongsTo(SpeakingAttempt, { foreignKey: 'attemptId', as: 'attempt' });
 
 EnglishLearningPassport.hasMany(EnglishLearningSubmission, {
   foreignKey: 'passportId',
@@ -430,6 +438,9 @@ module.exports = {
   LearningJourneyImportHistory,
   LearningJourneyOperationRun,
   LearningTraceEvent,
+  SpeakingTask,
+  SpeakingAttempt,
+  SpeakingHumanRating,
   LjStudentEvent,
   LjAnalyticStudent,
   LjAnalyticExam,

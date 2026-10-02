@@ -53,7 +53,8 @@
     "security:check": "node scripts/security-check.js",
     "weekly:import-draft": "node scripts/import-weekly-draft.js",
     "english-test:check-semester-null": "node scripts/check-english-test-registration-semester-null.js",
-    "english-test:populate-semester": "node scripts/populate-semester-for-registrations.js"
+    "english-test:populate-semester": "node scripts/populate-semester-for-registrations.js",
+    "speaking:diagnostic:migrate": "node scripts/run-speaking-diagnostic-migration.js"
   },
   "keywords": [],
   "author": "",

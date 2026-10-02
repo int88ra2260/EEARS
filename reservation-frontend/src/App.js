@@ -32,6 +32,7 @@ const WordBridgePage = lazy(() => import('./pages/WordBridgePage'));
 const ListeningLadderPage = lazy(() => import('./pages/ListeningLadderPage'));
 const VocabularyDepthPage = lazy(() => import('./pages/VocabularyDepthPage'));
 const VocabularySizePage = lazy(() => import('./pages/VocabularySizePage'));
+const SpeakingDiagnosticPage = lazy(() => import('./pages/SpeakingDiagnosticPage'));
 const ActivityPhrasebookPage = lazy(() => import('./pages/ActivityPhrasebookPage'));
 const WeeklyPage = lazy(() => import('./pages/WeeklyPage'));
 const WeeklyPreviewPage = lazy(() => import('./pages/WeeklyPreviewPage'));
@@ -445,6 +446,7 @@ function AppContent() {
             <Route path="/practice/listening-ladder" element={<ListeningLadderPage />} />
             <Route path="/practice/vocabulary-depth" element={<VocabularyDepthPage />} />
             <Route path="/practice/vocabulary-size" element={<VocabularySizePage />} />
+            <Route path="/practice/speaking-diagnostic" element={<SpeakingDiagnosticPage />} />
             {/* Legacy redirects */}
             <Route path="/activities/word-bridge" element={<Navigate to="/practice/word-bridge" replace />} />
             <Route path="/activities/games/listening-ladder" element={<Navigate to="/practice/listening-ladder" replace />} />
