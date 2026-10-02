@@ -106,6 +106,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '錄取',
     '英檢管理',
   ],
+  'learning-outcomes': ['學習成果', '學習歷程', '護照', '成效', 'LA', 'B2', 'CEFR'],
   'learning-journey': [
     'LJ',
     'LJ V3',
@@ -141,6 +142,16 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     'operation run',
   ],
   'bestep-import': ['BESTEP', '培力英檢匯入', 'LR', 'SW', '出席匯入'],
+  'speaking-diagnostic': [
+    '口說',
+    '口說診斷',
+    'speaking',
+    'fluency',
+    'pronunciation',
+    '錄音',
+    '逐字比對',
+    'rubric',
+  ],
 
   surveys: ['問卷', '回饋', 'gate', '作答'],
   'survey-center': [
@@ -206,7 +217,6 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '刪除批次',
   ],
 
-  'learning-analytics': ['LA', '成效', '分析', '模型'],
   'learning-analytics-overview': ['KPI', '總覽', '趨勢比較', '中心成效'],
   'learning-analytics-kpi-report': ['B2 KPI', '一鍵報表', 'KPI 報表'],
   'learning-analytics-cohorts': ['入學屆別', 'cohort', '群體'],
@@ -215,8 +225,6 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   'learning-analytics-skills': ['四技能', 'GSE', '技能成長'],
   'learning-analytics-students': ['學習軌跡', '學生歷程', '個人分析'],
   'learning-analytics-raw': ['raw data', '原始資料', '明細資料'],
-  'learning-analytics-insights': ['insights', '進階', '決策支援'],
-  'learning-analytics-model-runs': ['模型', 'model run', '分析批次'],
   'learning-analytics-settings': ['LVA', '公式', '模組設定', '分析設定', '資料版本'],
 
   analytics: ['報表', '分析', 'KPI'],
@@ -297,6 +305,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '日誌',
   ],
   'system-diagnostics': ['診斷', 'ping', '健康檢查', 'API 診斷'],
+  'system-ops-scripts': ['備份', 'backup', '寫作工坊', 'EWL', '同步', '腳本', '維運'],
 };
 
 /**
