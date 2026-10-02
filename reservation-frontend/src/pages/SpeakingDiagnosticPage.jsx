@@ -29,6 +29,11 @@ function wordsOf(text) {
     .filter(Boolean);
 }
 
+function getSpeechRecognitionConstructor() {
+  if (typeof window === 'undefined') return null;
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
 async function analyzeAudioBlob(blob, durationMs) {
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
   if (!blob || !durationMs || !AudioContextCtor) return {};
@@ -147,12 +152,33 @@ export default function SpeakingDiagnosticPage() {
   const [audioUrl, setAudioUrl] = useState('');
   const [durationMs, setDurationMs] = useState(null);
   const [clientFeatures, setClientFeatures] = useState(null);
+  const [speechRecognitionAvailable, setSpeechRecognitionAvailable] = useState(false);
+  const [speechStatus, setSpeechStatus] = useState('idle');
+  const [interimTranscript, setInterimTranscript] = useState('');
+  const [speechError, setSpeechError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const mediaRecorderRef = useRef(null);
+  const speechRecognitionRef = useRef(null);
+  const speechShouldListenRef = useRef(false);
+  const speechFinalTranscriptRef = useRef('');
   const chunksRef = useRef([]);
   const startedAtRef = useRef(null);
+
+  useEffect(() => {
+    setSpeechRecognitionAvailable(Boolean(getSpeechRecognitionConstructor()));
+    return () => {
+      speechShouldListenRef.current = false;
+      if (speechRecognitionRef.current) {
+        try {
+          speechRecognitionRef.current.stop();
+        } catch {
+          // The browser may already have stopped recognition.
+        }
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -189,8 +215,97 @@ export default function SpeakingDiagnosticPage() {
   const presentationScores = result?.presentationScores || result?.automatedScores?.presentationScores || {};
   const overallPercent = presentationScores.overallPercent;
 
+  const startSpeechRecognition = () => {
+    const Recognition = getSpeechRecognitionConstructor();
+    if (!Recognition) {
+      setSpeechStatus('unsupported');
+      setSpeechError('This browser does not support Web Speech API. You can still type the transcript manually.');
+      return;
+    }
+
+    speechShouldListenRef.current = true;
+    speechFinalTranscriptRef.current = '';
+    setInterimTranscript('');
+    setSpeechError('');
+
+    const recognition = new Recognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setSpeechStatus('listening');
+    };
+
+    recognition.onresult = (event) => {
+      let finalText = speechFinalTranscriptRef.current;
+      let interimText = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const text = event.results[i]?.[0]?.transcript || '';
+        if (event.results[i].isFinal) {
+          finalText = `${finalText} ${text}`.trim();
+        } else {
+          interimText = `${interimText} ${text}`.trim();
+        }
+      }
+
+      speechFinalTranscriptRef.current = finalText;
+      setInterimTranscript(interimText);
+      setTranscript(`${finalText} ${interimText}`.trim());
+    };
+
+    recognition.onerror = (event) => {
+      const message = event?.error === 'not-allowed'
+        ? 'Speech recognition permission was blocked. Audio recording may still work.'
+        : `Speech recognition stopped: ${event?.error || 'unknown error'}`;
+      setSpeechError(message);
+      setSpeechStatus('error');
+    };
+
+    recognition.onend = () => {
+      if (speechShouldListenRef.current) {
+        window.setTimeout(() => {
+          if (!speechShouldListenRef.current) return;
+          try {
+            recognition.start();
+          } catch {
+            setSpeechStatus('error');
+          }
+        }, 250);
+        return;
+      }
+      setSpeechStatus(speechFinalTranscriptRef.current ? 'ready' : 'idle');
+    };
+
+    speechRecognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch (err) {
+      setSpeechStatus('error');
+      setSpeechError(err?.message || 'Unable to start browser speech recognition.');
+    }
+  };
+
+  const stopSpeechRecognition = () => {
+    speechShouldListenRef.current = false;
+    setInterimTranscript('');
+    if (speechRecognitionRef.current) {
+      try {
+        speechRecognitionRef.current.stop();
+      } catch {
+        // The browser may already have stopped recognition.
+      }
+    }
+  };
+
   const startRecording = async () => {
     setError('');
+    setSpeechError('');
+    setSpeechStatus('idle');
+    setTranscript('');
+    setInterimTranscript('');
     setResult(null);
     setAudioBlob(null);
     setClientFeatures(null);
@@ -221,12 +336,14 @@ export default function SpeakingDiagnosticPage() {
       startedAtRef.current = now;
       setRecording(true);
       recorder.start();
+      startSpeechRecognition();
     } catch (err) {
       setError(err?.message || '無法啟動麥克風，請確認瀏覽器權限。');
     }
   };
 
   const stopRecording = () => {
+    stopSpeechRecognition();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -300,6 +417,10 @@ export default function SpeakingDiagnosticPage() {
                     onClick={() => {
                       setSelectedTaskKey(key);
                       setResult(null);
+                      setTranscript('');
+                      setInterimTranscript('');
+                      setSpeechError('');
+                      setSpeechStatus('idle');
                     }}
                   >
                     <span className="speaking-task-option__level">{task.level}</span>
@@ -336,6 +457,11 @@ export default function SpeakingDiagnosticPage() {
                 <div className="speaking-stage-status">
                   {recording ? 'Recording your line' : durationMs ? `Recorded ${formatMs(durationMs)}` : 'Click the microphone and read the line'}
                 </div>
+                <div className={`speaking-speech-status speaking-speech-status--${speechStatus}`}>
+                  {speechRecognitionAvailable
+                    ? `Browser transcript: ${speechStatus === 'listening' ? 'listening' : speechStatus === 'ready' ? 'ready' : speechStatus === 'error' ? 'needs manual check' : 'standby'}`
+                    : 'Browser transcript unavailable'}
+                </div>
               </div>
               <div className="speaking-line-strip" aria-label="Read aloud line">
                 {wordResults.map((item) => (
@@ -361,7 +487,7 @@ export default function SpeakingDiagnosticPage() {
             ) : null}
 
             <label className="form-label fw-semibold mt-3" htmlFor="speaking-transcript">
-              Transcript（選填，未接 ASR 前可貼上人工或瀏覽器轉錄）
+              Transcript（Web Speech API 會自動填入，也可人工修正）
             </label>
             <textarea
               id="speaking-transcript"
@@ -369,8 +495,16 @@ export default function SpeakingDiagnosticPage() {
               rows={3}
               value={transcript}
               onChange={(event) => setTranscript(event.target.value)}
-              placeholder="Paste or type what the student said. Word completion and similarity use this field for now."
+              placeholder="Click the microphone and read the line. The browser transcript will appear here when supported."
             />
+            {interimTranscript ? (
+              <div className="speaking-live-transcript">
+                Listening: {interimTranscript}
+              </div>
+            ) : null}
+            {speechError ? (
+              <div className="speaking-speech-note">{speechError}</div>
+            ) : null}
 
             {clientFeatures ? (
               <div className="speaking-evidence-grid" aria-label="Browser audio evidence">
