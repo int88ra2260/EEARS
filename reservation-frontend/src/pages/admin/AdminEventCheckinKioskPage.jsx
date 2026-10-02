@@ -171,7 +171,22 @@ export default function AdminEventCheckinKioskPage() {
             id="kiosk-passport"
             label="計入英語實踐歷程護照（與課堂加分擇一）"
             checked={k.countsTowardPassport}
-            onChange={(e) => k.setCountsTowardPassport(e.target.checked)}
+            onChange={(e) => {
+              k.setCountsTowardPassport(e.target.checked);
+              if (e.target.checked) k.setExcludeFromClassCredit(false);
+            }}
+            disabled={k.checkinBusy || !k.canCheckinNow || k.excludeFromClassCredit}
+            className="mb-2"
+          />
+          <Form.Check
+            type="checkbox"
+            id="kiosk-attendance-only"
+            label="未帶學生證：到場不計點（不記未到，也不計課堂加分與護照）"
+            checked={k.excludeFromClassCredit}
+            onChange={(e) => {
+              k.setExcludeFromClassCredit(e.target.checked);
+              if (e.target.checked) k.setCountsTowardPassport(false);
+            }}
             disabled={k.checkinBusy || !k.canCheckinNow}
             className="mb-0"
           />
@@ -182,10 +197,12 @@ export default function AdminEventCheckinKioskPage() {
               disabled={k.checkinBusy || !k.canCheckinNow}
             >
               {k.checkinBusy
-                ? '簽到中…'
-                : !k.todayEvent && k.canManageEvents
-                  ? '確認補簽到'
-                  : '確認簽到'}
+                ? '處理中…'
+                : k.excludeFromClassCredit
+                  ? '確認到場（不計點）'
+                  : !k.todayEvent && k.canManageEvents
+                    ? '確認補簽到'
+                    : '確認簽到'}
             </Button>
             <Button
               variant="outline-secondary"
@@ -226,6 +243,7 @@ export default function AdminEventCheckinKioskPage() {
                   <strong>{row.studentId}</strong>
                   {' '}
                   {row.studentName || row.name || ''}
+                  {isEt ? `｜${row.group || '—'}` : ''}
                   <span className="text-muted ms-2">已簽到</span>
                 </button>
               </li>
@@ -236,6 +254,7 @@ export default function AdminEventCheckinKioskPage() {
                   <strong>{row.studentId}</strong>
                   {' '}
                   {row.studentName || row.name || ''}
+                  {isEt ? `｜${row.group || '—'}` : ''}
                   <span className="text-danger ms-2">已登記違規</span>
                 </button>
               </li>
@@ -254,6 +273,9 @@ export default function AdminEventCheckinKioskPage() {
         >
           <p className="admin-checkin-kiosk__feedback-title">{k.feedback.title}</p>
           <p className="admin-checkin-kiosk__feedback-detail">{k.feedback.detail}</p>
+          {isEt && k.feedback.group != null ? (
+            <p className="admin-checkin-kiosk__feedback-detail">組別：{k.feedback.group || '—'}</p>
+          ) : null}
           {k.feedback.tone !== 'success' ? (
             <div className="admin-checkin-kiosk__actions justify-content-center">
               <Button variant="outline-secondary" onClick={k.resetToIdle}>繼續下一位</Button>

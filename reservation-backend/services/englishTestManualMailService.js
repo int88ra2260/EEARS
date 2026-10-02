@@ -6,6 +6,8 @@ const {
   EnglishTestRegistration,
   EnglishTestMailTemplate,
   EnglishTestMailSend,
+  EnglishTestMailBin,
+  EnglishTestMailBinMember,
 } = require('../models');
 const { EMAIL_TEMPLATE_CATALOG } = require('./emailTemplateCatalog');
 const {
@@ -24,6 +26,9 @@ const logger = require('../utils/logger');
 
 const MAX_BATCH = 200;
 const MAX_TEMPLATES = 100;
+const MAX_BINS = 10;
+const MAX_BIN_MEMBERS = 200;
+const DEFAULT_BIN_NAMES = ['寄件區1', '寄件區2', '寄件區3'];
 /** 自訂／貼上內容走培力英檢寄件帳號，不對應郵件設定裡的某一封 */
 const MANUAL_TRANSPORT_KEY = 'englishTestManualSend';
 
@@ -408,6 +413,128 @@ async function sendToSelected({
   };
 }
 
+async function ensureDefaultMailBins() {
+  const count = await EnglishTestMailBin.count();
+  if (count > 0) return;
+  await EnglishTestMailBin.bulkCreate(DEFAULT_BIN_NAMES.map((name, index) => ({
+    name,
+    sortOrder: index + 1,
+  })));
+}
+
+async function listMailBins() {
+  await ensureDefaultMailBins();
+  const bins = await EnglishTestMailBin.findAll({
+    order: [['sortOrder', 'ASC'], ['id', 'ASC']],
+  });
+  const binIds = bins.map((bin) => bin.id);
+  const members = binIds.length
+    ? await EnglishTestMailBinMember.findAll({
+      where: { binId: binIds },
+      order: [['id', 'ASC']],
+    })
+    : [];
+  const registrationIds = [...new Set(members.map((member) => Number(member.registrationId)))];
+  const registrations = registrationIds.length
+    ? await EnglishTestRegistration.findAll({
+      where: { id: registrationIds },
+      attributes: ['id', 'studentId', 'name', 'studentNameZh', 'email'],
+    })
+    : [];
+  const registrationById = new Map(registrations.map((row) => [Number(row.id), row]));
+  const membersByBin = new Map();
+  for (const member of members) {
+    const list = membersByBin.get(member.binId) || [];
+    const registration = registrationById.get(Number(member.registrationId));
+    list.push({
+      registrationId: member.registrationId,
+      studentId: registration?.studentId || null,
+      studentName: registration ? (registration.studentNameZh || registration.name || '') : null,
+      email: registration?.email || null,
+      missing: !registration,
+    });
+    membersByBin.set(member.binId, list);
+  }
+  return bins.map((bin) => ({
+    id: bin.id,
+    name: bin.name,
+    sortOrder: bin.sortOrder,
+    members: membersByBin.get(bin.id) || [],
+  }));
+}
+
+async function createMailBin(name) {
+  const nextName = String(name || '').trim();
+  if (!nextName || nextName.length > 40) {
+    throw fail(400, '請填寫寄件區名稱（40 字以內）', 'INVALID_BIN_NAME');
+  }
+  const count = await EnglishTestMailBin.count();
+  if (count >= MAX_BINS) {
+    throw fail(400, `最多 ${MAX_BINS} 個寄件區`, 'TOO_MANY_BINS');
+  }
+  const duplicate = await EnglishTestMailBin.findOne({ where: { name: nextName } });
+  if (duplicate) {
+    throw fail(400, '已有同名寄件區', 'DUPLICATE_BIN_NAME');
+  }
+  const row = await EnglishTestMailBin.create({
+    name: nextName,
+    sortOrder: count + 1,
+  });
+  return { id: row.id, name: row.name, sortOrder: row.sortOrder, members: [] };
+}
+
+async function deleteMailBin(binId) {
+  const bin = await EnglishTestMailBin.findByPk(Number(binId));
+  if (!bin) throw fail(404, '找不到寄件區', 'MAIL_BIN_NOT_FOUND');
+  await EnglishTestMailBinMember.destroy({ where: { binId: bin.id } });
+  await bin.destroy();
+  return { ok: true };
+}
+
+async function addMailBinMembers(binId, ids) {
+  const registrationIds = parseIds(ids);
+  const bin = await EnglishTestMailBin.findByPk(Number(binId));
+  if (!bin) throw fail(404, '找不到寄件區', 'MAIL_BIN_NOT_FOUND');
+  const existing = await EnglishTestMailBinMember.findAll({
+    where: { binId: bin.id },
+    attributes: ['registrationId'],
+  });
+  const existingIds = new Set(existing.map((row) => Number(row.registrationId)));
+  const found = await EnglishTestRegistration.findAll({
+    where: { id: registrationIds },
+    attributes: ['id'],
+  });
+  const foundIds = new Set(found.map((row) => Number(row.id)));
+  if (registrationIds.some((id) => !foundIds.has(id))) {
+    throw fail(400, '有勾選的報名不存在', 'REGISTRATION_NOT_FOUND');
+  }
+  const toAdd = registrationIds.filter((id) => !existingIds.has(id));
+  if (existingIds.size + toAdd.length > MAX_BIN_MEMBERS) {
+    throw fail(400, `每個寄件區最多 ${MAX_BIN_MEMBERS} 人`, 'BIN_FULL');
+  }
+  if (toAdd.length) {
+    await EnglishTestMailBinMember.bulkCreate(toAdd.map((registrationId) => ({
+      binId: bin.id,
+      registrationId,
+    })));
+  }
+  return {
+    added: toAdd.length,
+    skipped: registrationIds.length - toAdd.length,
+    total: existingIds.size + toAdd.length,
+  };
+}
+
+async function removeMailBinMembers(binId, ids) {
+  const registrationIds = parseIds(ids);
+  const bin = await EnglishTestMailBin.findByPk(Number(binId));
+  if (!bin) throw fail(404, '找不到寄件區', 'MAIL_BIN_NOT_FOUND');
+  const removed = await EnglishTestMailBinMember.destroy({
+    where: { binId: bin.id, registrationId: registrationIds },
+  });
+  return { removed };
+}
+
 module.exports = {
   MANUAL_TRANSPORT_KEY,
   listSelectableCatalogTemplates,
@@ -417,4 +544,9 @@ module.exports = {
   deleteCustomTemplate,
   listSendLogs,
   sendToSelected,
+  listMailBins,
+  createMailBin,
+  deleteMailBin,
+  addMailBinMembers,
+  removeMailBinMembers,
 };

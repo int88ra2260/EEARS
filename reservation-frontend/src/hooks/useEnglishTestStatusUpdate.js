@@ -5,6 +5,8 @@ import { useState, useCallback } from 'react';
 import { fetchRegistrationById, updateRegistration } from '../services/englishTestApi';
 import useConfirm from '../components/ui/useConfirm';
 import { getEnglishTestStatusEmailConfirm } from '../utils/englishTestStatusEmailConfirm';
+import { buildSelectedMailPreview } from '../utils/englishTestEmailPreview';
+import EnglishTestOutgoingMailPreview from '../components/english-test/EnglishTestOutgoingMailPreview';
 
 export function useEnglishTestStatusUpdate({
   token,
@@ -29,7 +31,29 @@ export function useEnglishTestStatusUpdate({
     if (!id) return;
 
     if (newStatus === 'revision' || newStatus === 'failed') {
-      const ok = await confirm(getEnglishTestStatusEmailConfirm({ status: newStatus, count: 1 }));
+      const recipientLabel = selectedRegistration
+        ? `${selectedRegistration.name || '這位學生'}（${selectedRegistration.studentId || '學號未填'}）`
+        : '這一筆報名';
+      const ok = await confirm({
+        ...getEnglishTestStatusEmailConfirm({
+          status: newStatus,
+          count: 1,
+          semester: selectedRegistration?.semester,
+        }),
+        confirmText: '確認並寄出',
+        detail: (
+          <EnglishTestOutgoingMailPreview
+            preview={buildSelectedMailPreview({
+              kind: newStatus,
+              semester: selectedRegistration?.semester,
+              count: 1,
+              recipientLabel,
+              reasons,
+              reasonOther: other,
+            })}
+          />
+        ),
+      });
       if (!ok) return;
     }
 

@@ -156,7 +156,7 @@ async function listDeadlines() {
 }
 
 /**
- * 全站累計（僅參考）：學期內所有已簽到，不含護照篩選
+ * 全站累計（僅參考）：學期內已簽到。護照場次仍計入；到場不計點不計時數。
  */
 async function computeSiteTotals(studentId, semesterRange, activityType = 'All') {
   const sid = cleanStudentId(studentId);
@@ -174,7 +174,8 @@ async function computeSiteTotals(studentId, semesterRange, activityType = 'All')
   const rows = await sequelize.query(
     `SELECT e.eventType AS eventType,
             CASE WHEN e.date >= '${ENGLISH_TABLE_45_MIN_FROM}' THEN 1 ELSE 0 END AS et45,
-            COUNT(r.id) AS count
+            COUNT(r.id) AS count,
+            SUM(CASE WHEN COALESCE(r.exclude_from_class_credit, 0) = 0 THEN 1 ELSE 0 END) AS creditCount
      FROM Reservations r
      INNER JOIN Events e ON r.eventId = e.id
      WHERE r.studentId = :studentId
@@ -189,8 +190,9 @@ async function computeSiteTotals(studentId, semesterRange, activityType = 'All')
   let attendedCountTotal = 0;
   for (const row of rows) {
     const count = Number(row.count) || 0;
+    const creditCount = Number(row.creditCount) || 0;
     attendedCountTotal += count;
-    totalHours += count * hoursForEventType(row.eventType, {
+    totalHours += creditCount * hoursForEventType(row.eventType, {
       use45MinEnglishTable: Number(row.et45) === 1,
     });
   }
@@ -203,7 +205,7 @@ async function computeSiteTotals(studentId, semesterRange, activityType = 'All')
 }
 
 /**
- * 可配置庫存：已簽到且未計入護照
+ * 可配置庫存：已簽到、未計入護照、且非到場不計點
  */
 async function computeEarnedInventory(studentId, semesterRange) {
   const sid = cleanStudentId(studentId);
@@ -216,6 +218,7 @@ async function computeEarnedInventory(studentId, semesterRange) {
      WHERE r.studentId = :studentId
        AND r.checkinStatus = '已簽到'
        AND (r.counts_toward_passport = 0 OR r.counts_toward_passport IS NULL)
+       AND (r.exclude_from_class_credit = 0 OR r.exclude_from_class_credit IS NULL)
        AND e.date BETWEEN :startDate AND :endDate
      GROUP BY e.eventType, et45`,
     {

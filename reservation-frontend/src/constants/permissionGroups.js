@@ -139,6 +139,7 @@ export const PERMISSION_FIELD_META = {
   [P.CAN_VIEW_SURVEY_REPAIR_AUDIT]: { label: '問卷修復稽核', description: '修復紀錄與稽核。', systemOnly: false },
   [P.CAN_VIEW_CLASSES]: { label: '班級檢視', description: '班級與成員檢視。', systemOnly: false },
   [P.CAN_MANAGE_CLASSES]: { label: '班級管理', description: '班級資料維護。', systemOnly: false },
+  [P.CAN_MANAGE_CLASS_CREDIT]: { label: '活動時數分配', description: '查詢並調整學生課堂加分總時數、截止日與提醒信。', systemOnly: false },
   [P.CAN_IMPORT_BESTEP]: { label: 'BESTEP 匯入', description: '匯入 BESTEP 資料。', systemOnly: false },
   [P.CAN_EXPORT_BESTEP]: { label: 'BESTEP 匯出', description: '匯出 BESTEP 資料。', systemOnly: false },
   [P.CAN_VIEW_ENGLISH_TEST_METRICS]: { label: '英檢總覽指標', description: '英檢儀表板聚合指標。', systemOnly: false },
@@ -246,7 +247,7 @@ export const PERMISSION_GROUPS = [
     id: 'classes_bestep',
     title: '班級與 BESTEP',
     blurb: '班級資料與 BESTEP 匯入匯出。',
-    keys: [P.CAN_VIEW_CLASSES, P.CAN_MANAGE_CLASSES, P.CAN_IMPORT_BESTEP, P.CAN_EXPORT_BESTEP],
+    keys: [P.CAN_VIEW_CLASSES, P.CAN_MANAGE_CLASSES, P.CAN_MANAGE_CLASS_CREDIT, P.CAN_IMPORT_BESTEP, P.CAN_EXPORT_BESTEP],
   },
   {
     id: 'english_lj_reports',

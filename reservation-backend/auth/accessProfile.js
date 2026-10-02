@@ -341,6 +341,7 @@ function buildBasePermissionSet(user) {
         P.CAN_MANAGE_SETTINGS,
         P.CAN_MANAGE_ACCOUNTS,
         P.CAN_RESET_PASSWORDS,
+        P.CAN_MANAGE_CLASS_CREDIT,
       ]);
     } else if (staff === 'curriculum_lead') {
       addAll(perms, [...curriculumLead, ...officeStaffCommon]);
@@ -382,6 +383,7 @@ function buildBasePermissionSet(user) {
         // 帳號治理（不可管理 admin／執行長，見 teacherController）
         P.CAN_MANAGE_ACCOUNTS,
         P.CAN_RESET_PASSWORDS,
+        P.CAN_MANAGE_CLASS_CREDIT,
       ]);
     } else {
       addAll(perms, [...eventLead, ...officeStaffCommon]);

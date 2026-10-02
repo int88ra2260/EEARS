@@ -86,6 +86,7 @@ export const STAFF_LEVEL_SUMMARY = {
       '公告與週報',
       '學生端內容',
       'ET Leader 帳號管理',
+      '活動時數分配',
       '變更密碼',
     ],
   },
@@ -111,6 +112,7 @@ export const STAFF_LEVEL_SUMMARY = {
       '公告與週報',
       '學生端內容',
       '帳號管理（不含 admin／執行長）',
+      '活動時數分配',
     ],
   },
 };

@@ -11,6 +11,19 @@ jest.mock('../models', () => ({
     create: jest.fn(),
     findAndCountAll: jest.fn(),
   },
+  EnglishTestMailBin: {
+    count: jest.fn(),
+    findAll: jest.fn(),
+    findByPk: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    bulkCreate: jest.fn(),
+  },
+  EnglishTestMailBinMember: {
+    findAll: jest.fn(),
+    bulkCreate: jest.fn(),
+    destroy: jest.fn(),
+  },
 }));
 
 jest.mock('../config/email', () => {
@@ -29,7 +42,13 @@ jest.mock('../services/emailTemplateService', () => {
   };
 });
 
-const { EnglishTestRegistration, EnglishTestMailTemplate, EnglishTestMailSend } = require('../models');
+const {
+  EnglishTestRegistration,
+  EnglishTestMailTemplate,
+  EnglishTestMailSend,
+  EnglishTestMailBin,
+  EnglishTestMailBinMember,
+} = require('../models');
 const { sendRawMail } = require('../config/email');
 const { buildMailOptions } = require('../services/emailTemplateService');
 const service = require('../services/englishTestManualMailService');
@@ -158,5 +177,39 @@ describe('englishTestManualMailService', () => {
       bodyTemplate: '內文',
     })).rejects.toMatchObject({ status: 400, code: 'INVALID_TEMPLATE_NAME' });
     expect(EnglishTestMailTemplate.create).not.toHaveBeenCalled();
+  });
+
+  test('listMailBins seeds three default zones when none exist', async () => {
+    EnglishTestMailBin.count.mockResolvedValue(0);
+    EnglishTestMailBin.bulkCreate.mockResolvedValue([]);
+    EnglishTestMailBin.findAll.mockResolvedValue([
+      { id: 1, name: '寄件區1', sortOrder: 1 },
+      { id: 2, name: '寄件區2', sortOrder: 2 },
+      { id: 3, name: '寄件區3', sortOrder: 3 },
+    ]);
+    EnglishTestMailBinMember.findAll.mockResolvedValue([]);
+
+    const bins = await service.listMailBins();
+
+    expect(EnglishTestMailBin.bulkCreate).toHaveBeenCalledWith([
+      { name: '寄件區1', sortOrder: 1 },
+      { name: '寄件區2', sortOrder: 2 },
+      { name: '寄件區3', sortOrder: 3 },
+    ]);
+    expect(bins.map((bin) => bin.name)).toEqual(['寄件區1', '寄件區2', '寄件區3']);
+  });
+
+  test('addMailBinMembers skips people already in the zone', async () => {
+    EnglishTestMailBin.findByPk.mockResolvedValue({ id: 1 });
+    EnglishTestMailBinMember.findAll.mockResolvedValue([{ registrationId: 9 }]);
+    EnglishTestRegistration.findAll.mockResolvedValue([{ id: 9 }, { id: 10 }]);
+    EnglishTestMailBinMember.bulkCreate.mockResolvedValue([]);
+
+    const result = await service.addMailBinMembers(1, [9, 10]);
+
+    expect(result).toEqual({ added: 1, skipped: 1, total: 2 });
+    expect(EnglishTestMailBinMember.bulkCreate).toHaveBeenCalledWith([
+      { binId: 1, registrationId: 10 },
+    ]);
   });
 });

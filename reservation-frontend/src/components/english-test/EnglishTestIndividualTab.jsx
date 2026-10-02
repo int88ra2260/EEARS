@@ -4,6 +4,7 @@ import StatsVisualization from './StatsVisualization';
 import BulkActionToolbar from './BulkActionToolbar';
 import EnhancedTable from './EnhancedTable';
 import { ENGLISH_TEST_PAGE_SIZE_OPTIONS } from '../../hooks/useEnglishTestRegistrations';
+import { isValidSemester } from '../../utils/semesterUtils';
 
 const SUB_TABS = [
   { key: 'all', label: '全部' },
@@ -108,6 +109,7 @@ export default function EnglishTestIndividualTab({
   const semesterFilterLabel = advancedFilters?.semester
     ? String(advancedFilters.semester).trim()
     : '';
+  const hasSemesterScope = isValidSemester(semesterFilterLabel);
   const exportExcelLabel = semesterFilterLabel
     ? `${exportScopeLabel} · ${semesterFilterLabel}`
     : exportScopeLabel;
@@ -302,14 +304,16 @@ export default function EnglishTestIndividualTab({
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
-                    disabled={panelBusy || statusFilter !== 'success' || (stats.success || 0) === 0}
+                    disabled={panelBusy || !hasSemesterScope || statusFilter !== 'success' || (stats.success || 0) === 0}
                     aria-busy={sendingEmailKind === 'success' || undefined}
                     title={
                       sendingEmailKind === 'success'
                         ? '報名成功信寄送中'
-                        : statusFilter !== 'success'
+                        : !hasSemesterScope
+                          ? '請先指定單一學期再寄信'
+                          : statusFilter !== 'success'
                           ? '請先切到「報名成功」再寄信'
-                          : undefined
+                          : `只寄給學期 ${semesterFilterLabel} 的報名成功者`
                     }
                     onClick={() => onSendStatusEmails('success')}
                   >
@@ -325,14 +329,16 @@ export default function EnglishTestIndividualTab({
                   <button
                     type="button"
                     className="btn btn-outline-info btn-sm"
-                    disabled={panelBusy || statusFilter !== 'success'}
+                    disabled={panelBusy || !hasSemesterScope || statusFilter !== 'success'}
                     aria-busy={sendingEmailKind === 'group_promo' || undefined}
                     title={
                       sendingEmailKind === 'group_promo'
                         ? '團體推廣信寄送中'
-                        : statusFilter !== 'success'
+                        : !hasSemesterScope
+                          ? '請先指定單一學期再寄信'
+                          : statusFilter !== 'success'
                           ? '請先切到「報名成功」'
-                          : '對四項皆報考者發送團體推廣信'
+                          : `只寄給學期 ${semesterFilterLabel}、四項皆報考者`
                     }
                     onClick={() => onSendStatusEmails('group_promo')}
                   >
@@ -348,14 +354,16 @@ export default function EnglishTestIndividualTab({
                   <button
                     type="button"
                     className="btn btn-outline-secondary btn-sm"
-                    disabled={panelBusy || statusFilter !== 'failed' || (stats.failed || 0) === 0}
+                    disabled={panelBusy || !hasSemesterScope || statusFilter !== 'failed' || (stats.failed || 0) === 0}
                     aria-busy={sendingEmailKind === 'failed' || undefined}
                     title={
                       sendingEmailKind === 'failed'
                         ? '報名失敗信寄送中'
-                        : statusFilter !== 'failed'
+                        : !hasSemesterScope
+                          ? '請先指定單一學期再寄信'
+                          : statusFilter !== 'failed'
                           ? '請先切到「報名失敗」再寄信'
-                          : undefined
+                          : `只寄給學期 ${semesterFilterLabel} 的報名失敗者`
                     }
                     onClick={() => onSendStatusEmails('failed')}
                   >
@@ -367,6 +375,14 @@ export default function EnglishTestIndividualTab({
                     ) : (
                       '寄報名失敗信'
                     )}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm"
+                    disabled={panelBusy}
+                    onClick={() => manualMail?.openPanel('bins')}
+                  >
+                    寄件區
                   </button>
                   <button
                     type="button"
@@ -496,7 +512,9 @@ export default function EnglishTestIndividualTab({
           onBulkSetSuccess={onBulkSetSuccess}
           onBulkSetFailed={onBulkSetFailed}
           onOpenManualSend={() => manualMail?.openPanel('send')}
+          onOpenMailBins={() => manualMail?.openPanel('bins')}
           showBulkSetSuccess={statusFilter === 'approved'}
+          semester={semesterFilterLabel}
         />
       )}
 

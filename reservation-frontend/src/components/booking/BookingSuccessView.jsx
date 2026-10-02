@@ -87,73 +87,61 @@ export default function BookingSuccessView({
   };
 
   return (
-    <div>
-      <div className="d-flex align-items-start gap-2">
+    <div className="booking-success">
+      <div className="d-flex align-items-center gap-2">
         <div
-          className="rounded-circle d-flex align-items-center justify-content-center"
-          style={{ width: 44, height: 44, backgroundColor: '#198754', color: 'white' }}
+          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+          style={{ width: 36, height: 36, backgroundColor: '#198754', color: 'white' }}
         >
           <i className="fas fa-check" />
         </div>
         <div>
-          <h4 className="mb-1">預約成功！</h4>
-          <p className="text-muted mb-0">已完成此次預約流程，接下來請依建議完成後續事項。</p>
+          <h4 className="mb-0">預約成功！</h4>
+          <p className="text-muted mb-0 small">已完成此次預約，請留意下方提醒。</p>
         </div>
       </div>
 
-      <div className="mt-3">
-        <div className="alert alert-info mb-3">
-          <strong>活動資訊：</strong>
-          <div className="mt-2">
+      <div className="alert alert-warning py-2 mt-2 mb-2">
+        <strong>請攜帶學生證。</strong>
+        參加活動請務必攜帶學生證。現場簽到時需出示學生證，才能計入課堂加分。
+      </div>
+
+      <div className="booking-success__columns">
+        <div className="alert alert-info py-2 mb-2 mb-md-0">
+          <strong>活動資訊</strong>
+          <div className="mt-1">
             <div><strong>活動名稱：</strong> {eventName}</div>
             <div><strong>日期：</strong> {eventDate}</div>
             <div><strong>時間：</strong> {eventStart} - {eventEnd}</div>
             <div><strong>地點：</strong> {locationLabel}</div>
             {openStartLabel && openEndLabel ? (
-              <div className="mt-2">
+              <>
                 <div><strong>開放時間：</strong> {openStartLabel}</div>
                 <div><strong>截止時間：</strong> {openEndLabel}</div>
-              </div>
+              </>
             ) : null}
           </div>
         </div>
 
-        <div className="alert alert-secondary mb-0">
-          <strong>已送出預約的提示：</strong>
-          <div className="mt-2">
-            <strong>預約編號／現場簽到碼：</strong> {bookingIdLabel}
-          </div>
-          <div className="mt-3 d-flex flex-column align-items-center">
+        <div className="alert alert-secondary py-2 mb-2 mb-md-0 text-center">
+          <div><strong>預約編號／現場簽到碼</strong></div>
+          <div className="mt-1">{bookingIdLabel}</div>
+          <div className="booking-success__qr mt-2">
             <canvas ref={canvasRef} aria-label={`簽到 QR ${bookingIdLabel}`} />
-            {qrError ? <div className="small text-danger mt-1">{qrError}</div> : null}
-            <div className="small text-muted mt-1">活動現場請出示此 QR 或簽到碼</div>
           </div>
-          <div className="mt-2">
-            <strong>建立時間：</strong> {successAtLabel}
-          </div>
-          <div className="mt-2">
-            預約資訊與簽到 QR 將寄送至 <strong>{emailLabel}</strong>。
-          </div>
-          <div className="mt-2">
-            若無法參加，請在<strong>活動開始前至少 2 小時</strong>取消，否則可能記違規。
-          </div>
-          <div className="mt-2 text-muted">
-            若稍後未收到通知，請先確認垃圾信匣，或前往「我的預約」查詢與取消。
-          </div>
-          <div className="mt-2 text-muted">
-            請保留此預約編號，可作為預約成功與現場簽到的依據。
-          </div>
-        </div>
-
-        <div className="alert alert-light border mt-3 mb-0">
-          <strong>活動前語言支援：</strong>
-          <div className="mt-1">
-            出發前可先看應答指南與常用句，暖身後再參加會更有把握。
-          </div>
+          {qrError ? <div className="small text-danger mt-1">{qrError}</div> : null}
+          <div className="small text-muted mt-1">活動現場請出示此 QR 或簽到碼</div>
+          <div className="small text-muted mt-1">建立時間：{successAtLabel}</div>
         </div>
       </div>
 
-      <div className="mt-3 d-flex flex-column flex-sm-row flex-wrap gap-2">
+      <p className="small text-muted mb-0 mt-2">
+        預約資訊將寄至 <strong>{emailLabel}</strong>。
+        若無法參加，請在<strong>活動開始前至少 2 小時</strong>取消，否則可能記違規。
+        未收到信請先看垃圾信匣，或到「我的預約」查詢。
+      </p>
+
+      <div className="mt-2 d-flex flex-column flex-sm-row flex-wrap gap-2">
         <Button variant="primary" onClick={handleMyReservations}>
           查看我的預約
         </Button>

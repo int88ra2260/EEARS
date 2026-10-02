@@ -11,6 +11,7 @@ import LearningPartnerManagement from './LearningPartnerManagement';
 import ExemptionReviewSection from './english-test/ExemptionReviewSection';
 import EnglishTestIndividualTab from './english-test/EnglishTestIndividualTab';
 import EnglishTestManualMailModal from './english-test/EnglishTestManualMailModal';
+import EnglishTestOutgoingMailPreview from './english-test/EnglishTestOutgoingMailPreview';
 import EnglishTestStudentRosterTab from './english-test/EnglishTestStudentRosterTab';
 import EnglishTestLegacyDetailModal from './english-test/EnglishTestLegacyDetailModal';
 import EnglishTestStatusModal from './english-test/EnglishTestStatusModal';
@@ -62,7 +63,10 @@ export default function EnglishTestManagement() {
     selectedRows, setSelectedRows, handleBulkApprove, handleBulkReject,
     handleBulkDelete, handleBulkSetSuccess, handleBulkSetFailed,
   } = m.bulk;
-  const { sendingEmails, sendingEmailKind, sendingEmailLabel, handleSendStatusEmails } = m.emails;
+  const {
+    sendingEmails, sendingEmailKind, sendingEmailLabel, handleSendStatusEmails,
+    outgoingMail, closeOutgoingMail, confirmOutgoingMail,
+  } = m.emails;
   const manualMail = m.manualMail;
 
   const {
@@ -216,7 +220,15 @@ export default function EnglishTestManagement() {
 
   const handleClearFilters = () => {
     setSearchTerm('');
-    setAdvancedFilters({ dateFrom: '', dateTo: '', examTypes: [], grades: [], isLowIncome: '', hasDisabilityCard: '' });
+    setAdvancedFilters((prev) => ({
+      dateFrom: '',
+      dateTo: '',
+      examTypes: [],
+      grades: [],
+      isLowIncome: '',
+      hasDisabilityCard: '',
+      semester: prev?.semester || '',
+    }));
     setCurrentPage(1);
     loadRegistrations();
   };
@@ -524,6 +536,27 @@ export default function EnglishTestManagement() {
           variant={confirmModal.config.variant}
           onConfirm={confirmModal.config.onConfirm}
           onCancel={() => closeConfirm()}
+        />
+      )}
+
+      {outgoingMail && (
+        <ConfirmModal
+          show
+          wide
+          title="請確認寄送內容"
+          message={(
+            <EnglishTestOutgoingMailPreview
+              preview={outgoingMail.preview}
+              loading={outgoingMail.loading}
+              error={outgoingMail.error}
+            />
+          )}
+          confirmLabel="確認並寄出"
+          cancelLabel="取消"
+          variant="warning"
+          confirmDisabled={outgoingMail.loading || Boolean(outgoingMail.error) || !outgoingMail.total}
+          onConfirm={confirmOutgoingMail}
+          onCancel={closeOutgoingMail}
         />
       )}
     </div>

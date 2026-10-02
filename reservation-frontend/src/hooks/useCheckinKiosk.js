@@ -16,6 +16,10 @@ function isEventToday(dateStr) {
 }
 
 function applyPassportToast(data) {
+  if (data?.excludeFromClassCredit) {
+    showSuccessMessage(data.message || '已登記到場，不計課堂加分、不記未到');
+    return;
+  }
   const grant = data?.passportGrant;
   if (grant?.status === 'granted') {
     showSuccessMessage(grant.message || '簽到成功，已累計護照點數');
@@ -48,6 +52,7 @@ export function useCheckinKiosk({ token, accessProfile, eventId }) {
   const [selected, setSelected] = useState(null);
   const [matchResult, setMatchResult] = useState(null);
   const [countsTowardPassport, setCountsTowardPassport] = useState(false);
+  const [excludeFromClassCredit, setExcludeFromClassCredit] = useState(false);
   const [checkinBusy, setCheckinBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [scanMode, setScanMode] = useState(true);
@@ -115,6 +120,7 @@ export function useCheckinKiosk({ token, accessProfile, eventId }) {
     setSelected(null);
     setMatchResult(null);
     setCountsTowardPassport(false);
+    setExcludeFromClassCredit(false);
     setFeedback(null);
     focusInput();
   }, [focusInput]);
@@ -122,10 +128,11 @@ export function useCheckinKiosk({ token, accessProfile, eventId }) {
   const goConfirm = useCallback((reservation) => {
     setSelected(reservation);
     setCountsTowardPassport(false);
+    setExcludeFromClassCredit(false);
     setPhase('confirm');
   }, []);
 
-  const performCheckin = useCallback(async (reservation, { passport = false } = {}) => {
+  const performCheckin = useCallback(async (reservation, { passport = false, excludeFromClassCredit: attendanceOnly = false } = {}) => {
     if (!reservation || !eventId) return false;
     if (!canCheckinStudents || !canAccessCurrentEvent) {
       showErrorMessage('您沒有簽到權限');
@@ -149,7 +156,8 @@ export function useCheckinKiosk({ token, accessProfile, eventId }) {
     setCheckinBusy(true);
     try {
       const data = await checkinEventReservation(token, eventId, reservation.id, {
-        countsTowardPassport: !!passport,
+        countsTowardPassport: !!passport && !attendanceOnly,
+        excludeFromClassCredit: !!attendanceOnly,
       });
       applyPassportToast(data);
       setPayload((prev) => {
@@ -163,6 +171,7 @@ export function useCheckinKiosk({ token, accessProfile, eventId }) {
                 checkinStatus: '已簽到',
                 checkinTime: data.checkinTime,
                 countsTowardPassport: !!data.countsTowardPassport,
+                excludeFromClassCredit: !!data.excludeFromClassCredit,
                 passportPointsStatus: data.passportPointsStatus || null,
               }
               : r),
@@ -171,12 +180,14 @@ export function useCheckinKiosk({ token, accessProfile, eventId }) {
       setPhase('feedback');
       setFeedback({
         tone: 'success',
-        title: '簽到成功',
+        title: data.excludeFromClassCredit ? '已登記到場（不計點）' : '簽到成功',
         detail: `${reservation.studentId} ${reservation.studentName || reservation.name || ''}`,
+        group: reservation.group || '',
       });
       setSelected(null);
       setQuery('');
       setCountsTowardPassport(false);
+      setExcludeFromClassCredit(false);
       window.setTimeout(() => {
         setFeedback(null);
         setPhase('idle');
@@ -232,6 +243,7 @@ export function useCheckinKiosk({ token, accessProfile, eventId }) {
         tone: 'info',
         title: '已簽到',
         detail: `${row.studentId} ${row.studentName || row.name || ''} 已完成簽到。`,
+        group: row.group || '',
       });
       if (scanMode) focusInput();
       return;
@@ -243,6 +255,7 @@ export function useCheckinKiosk({ token, accessProfile, eventId }) {
         tone: 'danger',
         title: '已登記違規',
         detail: `${row.studentId} ${row.studentName || row.name || ''} 已登記違規，無法在此簽到。`,
+        group: row.group || '',
       });
       if (scanMode) focusInput();
       return;
@@ -261,8 +274,11 @@ export function useCheckinKiosk({ token, accessProfile, eventId }) {
 
   const handleCheckin = useCallback(async () => {
     if (!selected) return;
-    await performCheckin(selected, { passport: countsTowardPassport });
-  }, [selected, performCheckin, countsTowardPassport]);
+    await performCheckin(selected, {
+      passport: countsTowardPassport,
+      excludeFromClassCredit,
+    });
+  }, [selected, performCheckin, countsTowardPassport, excludeFromClassCredit]);
 
   return {
     inputRef,
@@ -276,6 +292,8 @@ export function useCheckinKiosk({ token, accessProfile, eventId }) {
     selected,
     countsTowardPassport,
     setCountsTowardPassport,
+    excludeFromClassCredit,
+    setExcludeFromClassCredit,
     checkinBusy,
     feedback,
     eventName,

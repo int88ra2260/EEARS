@@ -482,6 +482,65 @@ function summarizeAppliedFilters(query = {}) {
   return filters;
 }
 
+const SEMESTER_CODE = /^\d{3}-[12]$/;
+
+function normalizeSemesterCode(semester) {
+  const sem = String(semester ?? '').trim();
+  return SEMESTER_CODE.test(sem) ? sem : '';
+}
+
+/**
+ * 一鍵狀態信的查詢條件。必須指定單一學期，避免連同其他學期一起寄出。
+ * @param {{ status?: string, semester?: string }} input
+ * @returns {object}
+ */
+function buildStatusEmailWhere({ status, semester } = {}) {
+  const sem = normalizeSemesterCode(semester);
+  if (!sem) {
+    const err = new Error('請指定單一學期（例如 115-1）後再寄信，避免寄到其他學期');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (status === 'group_promo') {
+    return { status: 'success', examType: 'LRSW', semester: sem };
+  }
+  if (status === 'success' || status === 'failed') {
+    return { status, semester: sem };
+  }
+  const err = new Error('請提供 status：success、failed 或 group_promo');
+  err.statusCode = 400;
+  throw err;
+}
+
+/**
+ * 批次改狀態前確認每一筆都属于指定學期。不符則整批取消（含寄信）。
+ * @param {Array<{ id: number|string, semester?: string|null }>} registrations
+ * @param {Array<number|string>} ids
+ * @param {string} semester
+ * @returns {string|null}
+ */
+function registrationSemesterMismatchMessage(registrations, ids, semester) {
+  const sem = normalizeSemesterCode(semester);
+  if (!sem) return '請指定單一學期後再批次更新，避免改到其他學期並寄出通知信';
+
+  const list = Array.isArray(registrations) ? registrations : [];
+  const wanted = new Set((Array.isArray(ids) ? ids : []).map((id) => String(id)));
+  const found = new Set();
+  let offSemester = 0;
+
+  list.forEach((row) => {
+    const id = String(row && row.id);
+    if (!wanted.has(id) || found.has(id)) return;
+    found.add(id);
+    if (String(row.semester || '').trim() !== sem) offSemester += 1;
+  });
+
+  const missing = [...wanted].filter((id) => !found.has(id)).length;
+  const bad = offSemester + missing;
+  if (bad === 0) return null;
+  return `選取的資料有 ${bad} 筆不屬於學期 ${sem}（或已不存在）。已取消更新與寄信，請重新篩選該學期後再操作。`;
+}
+
 module.exports = {
   expandExamTypes,
   buildRegistrationListWhere,
@@ -491,6 +550,9 @@ module.exports = {
   parseOrderedIds,
   applyOrderedIds,
   summarizeAppliedFilters,
+  normalizeSemesterCode,
+  buildStatusEmailWhere,
+  registrationSemesterMismatchMessage,
   VALID_SORT_FIELDS,
   MAX_SORT_LEVELS,
   MAX_ORDERED_IDS,

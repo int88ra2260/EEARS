@@ -53,14 +53,17 @@ function AdminEventReservationTable({
           <div className="d-flex align-items-center gap-2">
             <span className="small text-muted text-nowrap">排序</span>
             <div className="btn-group btn-group-sm" role="group">
-              {['studentId', 'name', 'checkinStatus'].map((field) => (
+              {(isEt
+                ? ['studentId', 'name', 'group', 'checkinStatus']
+                : ['studentId', 'name', 'checkinStatus']
+              ).map((field) => (
                 <button
                   key={field}
                   type="button"
                   className={`btn ${reservationSortField === field ? 'btn-primary' : 'btn-outline-primary'}`}
                   onClick={() => onSort(field)}
                 >
-                  {field === 'studentId' ? '學號' : field === 'name' ? '姓名' : '狀態'}
+                  {field === 'studentId' ? '學號' : field === 'name' ? '姓名' : field === 'group' ? '組別' : '狀態'}
                   {reservationSortField === field && (reservationSortOrder === 'asc' ? ' ↑' : ' ↓')}
                 </button>
               ))}
@@ -119,6 +122,11 @@ function AdminEventReservationTable({
                     {reservation.checkinTime && (
                       <div className="small text-muted">{dayjs(reservation.checkinTime).format('HH:mm')}</div>
                     )}
+                    {reservation.excludeFromClassCredit ? (
+                      <div className="mt-1">
+                        <span className="badge bg-secondary">到場不計點</span>
+                      </div>
+                    ) : null}
                     {reservation.countsTowardPassport && (
                       <div className="mt-1">
                         <span

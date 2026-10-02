@@ -41,19 +41,40 @@ function metadataWonAward(metadata) {
   return false;
 }
 
+/** 自學軟體試卷：未填回數視為 1 回（舊資料）；非法值回 null。 */
+function parseSessionCount(metadata) {
+  const raw = metadata && metadata.sessionCount;
+  if (raw == null || raw === '') return 1;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 100) return null;
+  return n;
+}
+
+function rulePoint(rule, key, fallback) {
+  if (!rule || rule[key] == null || rule[key] === '') return fallback;
+  const n = Number(rule[key]);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function calculateSuggestedPoints(ruleCode, metadata = {}, rule = null) {
   const base = rule ? rule.basePoints : null;
   switch (ruleCode) {
     case RULE_CODES.ENGLISH_COMPETITION:
-      return metadataWonAward(metadata) ? 50 : 20;
+      return metadataWonAward(metadata)
+        ? rulePoint(rule, 'bonusPoints', 50)
+        : rulePoint(rule, 'basePoints', 20);
     case RULE_CODES.EXTERNAL_EXAM:
-      return calculateExternalExamPoints(metadata);
+      return calculateExternalExamPoints(metadata, rule);
     case RULE_CODES.ENGLISH_COURSE:
-      return 60;
+      return rulePoint(rule, 'basePoints', 60);
     case RULE_CODES.TUTOR_CONSULTATION:
     case RULE_CODES.ASSIGNED_TASK:
-    case RULE_CODES.SELF_STUDY_SOFTWARE:
       return base != null ? base : 2;
+    case RULE_CODES.SELF_STUDY_SOFTWARE: {
+      const basePoints = base != null ? Number(base) : 2;
+      const count = parseSessionCount(metadata);
+      return basePoints * (count == null ? 1 : count);
+    }
     case RULE_CODES.SELF_LEARNING_ACTIVITY:
     case RULE_CODES.COLLEGE_ENGLISH_CORNER:
       return base != null ? base : 5;
@@ -62,17 +83,19 @@ function calculateSuggestedPoints(ruleCode, metadata = {}, rule = null) {
   }
 }
 
-function calculateExternalExamPoints(metadata = {}) {
+function calculateExternalExamPoints(metadata = {}, rule = null) {
   const examType = String(metadata.examType || metadata.exam_type || '').toUpperCase();
   const score = parseNumericScore(metadata.score ?? metadata.examScore);
   const level = String(metadata.level || metadata.examLevel || '').trim();
+  const basePoints = rulePoint(rule, 'basePoints', 20);
+  const bonusPoints = rulePoint(rule, 'bonusPoints', 40);
 
   for (const t of EXTERNAL_EXAM_BONUS_THRESHOLDS) {
     if (examType && t.examType !== examType) continue;
-    if (t.minScore != null && score != null && score >= t.minScore) return 40;
-    if (t.minLevel && level && level.includes(t.minLevel)) return 40;
+    if (t.minScore != null && score != null && score >= t.minScore) return bonusPoints;
+    if (t.minLevel && level && level.includes(t.minLevel)) return bonusPoints;
   }
-  return 20;
+  return basePoints;
 }
 
 function meetsDirectEnglishStandard(metadata = {}) {
@@ -163,6 +186,14 @@ async function validateApproval({
     return { ok: false, code: 'RULE_NOT_FOUND', message: '點數規則不存在或已停用' };
   }
 
+  if (ruleCode === RULE_CODES.SELF_STUDY_SOFTWARE && parseSessionCount(metadata) == null) {
+    return {
+      ok: false,
+      code: 'INVALID_SESSION_COUNT',
+      message: '本次完成回數須為 1 到 100 的整數',
+    };
+  }
+
   const suggested = calculateSuggestedPoints(ruleCode, metadata, rule);
   const points = pointsToApprove != null ? Number(pointsToApprove) : suggested;
   if (!Number.isFinite(points) || points < 0) {
@@ -211,6 +242,7 @@ async function validateApproval({
 
 module.exports = {
   weekKeyFromDate,
+  parseSessionCount,
   calculateSuggestedPoints,
   calculateExternalExamPoints,
   meetsDirectEnglishStandard,

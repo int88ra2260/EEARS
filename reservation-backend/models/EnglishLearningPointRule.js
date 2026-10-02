@@ -7,6 +7,7 @@ const EnglishLearningPointRule = sequelize.define('EnglishLearningPointRule', {
   name: { type: DataTypes.STRING(200), allowNull: false },
   description: { type: DataTypes.TEXT, allowNull: true },
   basePoints: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0, field: 'base_points' },
+  bonusPoints: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true, field: 'bonus_points' },
   maxPointsPerWeek: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true, field: 'max_points_per_week' },
   maxPointsTotal: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true, field: 'max_points_total' },
   isOnceOnly: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false, field: 'is_once_only' },

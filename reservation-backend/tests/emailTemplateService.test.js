@@ -11,12 +11,20 @@ const {
 } = require('../services/emailTemplateService');
 const { getEmailTemplateDefaultSource } = require('../services/emailTemplateDefaultSources');
 const EmailTemplateOverride = require('../models/EmailTemplateOverride');
+const {
+  isReservationSuccessCheckinQrEnabled,
+} = require('../services/reservationCheckinQrSettings');
 
 jest.mock('../models/EmailTemplateOverride', () => ({
   findAll: jest.fn(),
   findOne: jest.fn(),
   create: jest.fn(),
   destroy: jest.fn(),
+}));
+
+jest.mock('../services/reservationCheckinQrSettings', () => ({
+  isReservationSuccessCheckinQrEnabled: jest.fn().mockResolvedValue(false),
+  setReservationSuccessCheckinQrEnabled: jest.fn().mockResolvedValue(false),
 }));
 
 describe('emailTemplateService', () => {
@@ -119,7 +127,61 @@ describe('emailTemplateService', () => {
     expect(vars.cancellationCode).toBe('X1');
   });
 
-  test('buildMailOptions attaches check-in QR for reservationSuccess', async () => {
+  test('buildMailOptions omits check-in QR when the switch is off', async () => {
+    isReservationSuccessCheckinQrEnabled.mockResolvedValue(false);
+    const mail = await buildMailOptions('reservationSuccess', {
+      studentName: 'Ann',
+      studentId: 'B1',
+      studentEmail: 'a@b.com',
+      eventName: 'Demo',
+      eventType: 'English Club',
+      date: '2026-08-12',
+      startTime: '18:00',
+      endTime: '19:30',
+      location: 'Lib',
+      cancellationCode: 'ABC',
+      reservationId: 360,
+      bookingCode: 'R-000360',
+    });
+    expect(mail.text).toContain('請務必攜帶學生證');
+    expect(String(mail.html || '')).not.toContain('cid:eears-checkin-qr');
+    expect(mail.attachments || []).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ cid: 'eears-checkin-qr' }),
+      ])
+    );
+  });
+
+  test('buildMailOptions still adds the student ID reminder when the body override omits it', async () => {
+    EmailTemplateOverride.findAll.mockResolvedValue([
+      {
+        templateKey: 'reservationSuccess',
+        subjectTemplate: null,
+        bodyTemplate: '已預約 {{eventName}}',
+        isEnabled: true,
+        attachmentsJson: null,
+      },
+    ]);
+    invalidateEmailTemplateOverrideCache();
+    const mail = await buildMailOptions('reservationSuccess', {
+      studentName: 'Ann',
+      studentId: 'B1',
+      studentEmail: 'a@b.com',
+      eventName: 'Demo',
+      eventType: 'English Club',
+      date: '2026-08-12',
+      startTime: '18:00',
+      endTime: '19:30',
+      location: 'Lib',
+      cancellationCode: 'ABC',
+      reservationId: 360,
+    });
+    expect(mail.text.startsWith('【請攜帶學生證】')).toBe(true);
+    expect(mail.text).toContain('已預約 Demo');
+  });
+
+  test('buildMailOptions attaches check-in QR for reservationSuccess when enabled', async () => {
+    isReservationSuccessCheckinQrEnabled.mockResolvedValue(true);
     const mail = await buildMailOptions('reservationSuccess', {
       studentName: 'Ann',
       studentId: 'B1',

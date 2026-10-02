@@ -123,11 +123,22 @@ export async function exportRegistrationPhotos(token, params) {
   return res.blob();
 }
 
-export async function sendStatusEmails(token, status) {
+export async function previewStatusEmails(token, status, semester) {
   const res = await fetchClient(`${BASE}/send-status-emails`, {
     method: 'POST',
     headers: authHeaders(token, { 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, semester, dryRun: true }),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || data.message || '無法計算收件人數');
+  return data;
+}
+
+export async function sendStatusEmails(token, status, semester) {
+  const res = await fetchClient(`${BASE}/send-status-emails`, {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ status, semester }),
   });
   const data = await parseJson(res);
   if (!res.ok) {
@@ -293,6 +304,56 @@ export async function fetchEnglishTestMailSends(token, params) {
   const res = await fetchClient(`${MAIL_BASE}/mail-sends?${qs}`, { headers: authHeaders(token) });
   const data = await parseJson(res);
   if (!res.ok) throw new Error(data.error || '載入寄信紀錄失敗');
+  return data;
+}
+
+export async function fetchEnglishTestMailBins(token) {
+  const res = await fetchClient(`${MAIL_BASE}/mail-bins`, { headers: authHeaders(token) });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '載入寄件區失敗');
+  return data.data || [];
+}
+
+export async function createEnglishTestMailBin(token, name) {
+  const res = await fetchClient(`${MAIL_BASE}/mail-bins`, {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ name }),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '建立寄件區失敗');
+  return data.data;
+}
+
+export async function deleteEnglishTestMailBin(token, id) {
+  const res = await fetchClient(`${MAIL_BASE}/mail-bins/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '刪除寄件區失敗');
+  return data;
+}
+
+export async function addEnglishTestMailBinMembers(token, id, ids) {
+  const res = await fetchClient(`${MAIL_BASE}/mail-bins/${id}/members`, {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ ids }),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '加入寄件區失敗');
+  return data;
+}
+
+export async function removeEnglishTestMailBinMembers(token, id, ids) {
+  const res = await fetchClient(`${MAIL_BASE}/mail-bins/${id}/members`, {
+    method: 'DELETE',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ ids }),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || '移出寄件區失敗');
   return data;
 }
 

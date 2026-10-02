@@ -64,6 +64,8 @@ const {
   summarizeAppliedFilters,
   parseOrderedIds,
   applyOrderedIds,
+  buildStatusEmailWhere,
+  registrationSemesterMismatchMessage,
 } = require('../utils/englishTestRegistrationListFilters');
 const {
   attachSemesterSequences,
@@ -2258,7 +2260,7 @@ router.put('/english-test/registrations/:id/files', ...englishRegReviewAuth,
 // API: 批量更新報名狀態（新增）
 router.post('/english-test/registrations/bulk-update', ...englishRegReviewAuth, async (req, res) => {
   try {
-    const { ids, status, rejectionReasons, rejectionOther } = req.body;
+    const { ids, status, rejectionReasons, rejectionOther, semester } = req.body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: '請提供要更新的報名 ID 列表' });
@@ -2290,6 +2292,15 @@ router.post('/english-test/registrations/bulk-update', ...englishRegReviewAuth, 
       where: { id: { [Op.in]: ids } },
       attributes: ['id', 'status', 'semester']
     });
+    const semesterMismatch = registrationSemesterMismatchMessage(
+      registrationsBeforeUpdate,
+      ids,
+      semester
+    );
+    if (semesterMismatch) {
+      return res.status(400).json({ error: semesterMismatch });
+    }
+
     const hadSuccessStatus = registrationsBeforeUpdate.some(reg => reg.status === 'success');
     const willBecomeSuccess = status === 'success';
     const willLeaveSuccess = hadSuccessStatus && status !== 'success';
@@ -2444,6 +2455,7 @@ router.post('/english-test/registrations/bulk-update', ...englishRegReviewAuth, 
       afterData: {
         idCount: ids.length,
         status,
+        semester: String(semester || '').trim(),
         updatedCount,
         emailSent,
         emailFailed,
@@ -2866,6 +2878,51 @@ router.delete('/english-test/mail-templates/:id', ...englishRegReviewAuth, async
   }
 });
 
+router.get('/english-test/mail-bins', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const data = await englishTestManualMailService.listMailBins();
+    res.json({ data });
+  } catch (error) {
+    respondManualMailError(res, error, '讀取培力英檢寄件區錯誤');
+  }
+});
+
+router.post('/english-test/mail-bins', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const data = await englishTestManualMailService.createMailBin(req.body?.name);
+    res.status(201).json({ data });
+  } catch (error) {
+    respondManualMailError(res, error, '建立培力英檢寄件區錯誤');
+  }
+});
+
+router.delete('/english-test/mail-bins/:id', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const data = await englishTestManualMailService.deleteMailBin(req.params.id);
+    res.json(data);
+  } catch (error) {
+    respondManualMailError(res, error, '刪除培力英檢寄件區錯誤');
+  }
+});
+
+router.post('/english-test/mail-bins/:id/members', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const data = await englishTestManualMailService.addMailBinMembers(req.params.id, req.body?.ids);
+    res.json(data);
+  } catch (error) {
+    respondManualMailError(res, error, '加入培力英檢寄件區錯誤');
+  }
+});
+
+router.delete('/english-test/mail-bins/:id/members', ...englishRegReviewAuth, async (req, res) => {
+  try {
+    const data = await englishTestManualMailService.removeMailBinMembers(req.params.id, req.body?.ids);
+    res.json(data);
+  } catch (error) {
+    respondManualMailError(res, error, '移出培力英檢寄件區錯誤');
+  }
+});
+
 router.get('/english-test/mail-sends', ...englishRegReviewAuth, async (req, res) => {
   try {
     const data = await englishTestManualMailService.listSendLogs({
@@ -2916,32 +2973,39 @@ router.post('/english-test/registrations/send-selected-emails', ...englishRegRev
 // API: 一鍵發送報名成功/報名失敗/團體推廣信
 router.post('/english-test/registrations/send-status-emails', ...englishRegReviewAuth, async (req, res) => {
   try {
-    const { status } = req.body;
-    if (!status || !['success', 'failed', 'group_promo'].includes(status)) {
-      return res.status(400).json({ error: '請提供 status：success、failed 或 group_promo' });
+    const { status, semester } = req.body;
+    let where;
+    try {
+      where = buildStatusEmailWhere({ status, semester });
+    } catch (err) {
+      return res.status(err.statusCode || 400).json({ error: err.message });
+    }
+
+    if (req.body.dryRun === true) {
+      const total = await EnglishTestRegistration.count({ where });
+      return res.json({
+        dryRun: true,
+        total,
+        semester: where.semester,
+        status,
+      });
     }
 
     let list;
     let template;
     if (status === 'group_promo') {
-      list = await EnglishTestRegistration.findAll({
-        where: {
-          status: 'success',
-          examType: 'LRSW'
-        }
-      });
+      list = await EnglishTestRegistration.findAll({ where });
       template = 'englishTestRegistrationGroupPromo';
     } else {
-      list = await EnglishTestRegistration.findAll({
-        where: { status }
-      });
+      list = await EnglishTestRegistration.findAll({ where });
       template = status === 'success' ? 'englishTestRegistrationFinalSuccess' : 'englishTestRegistrationFinalFailure';
     }
 
     if (list.length === 0) {
-      const noMsg = status === 'success' ? '沒有報名成功狀態的報名者'
-        : status === 'failed' ? '沒有報名失敗狀態的報名者'
-          : '沒有符合條件者（報名成功且四項皆報考）';
+      const semLabel = where.semester;
+      const noMsg = status === 'success' ? `學期 ${semLabel} 沒有報名成功狀態的報名者`
+        : status === 'failed' ? `學期 ${semLabel} 沒有報名失敗狀態的報名者`
+          : `學期 ${semLabel} 沒有符合條件者（報名成功且四項皆報考）`;
       return res.json({
         message: noMsg,
         sent: 0,
@@ -2996,9 +3060,10 @@ router.post('/english-test/registrations/send-status-emails', ...englishRegRevie
       action: 'send_status_emails',
       entityType: 'EnglishTestEmailBatch',
       entityId: `send-status-emails:${status}`,
-      targetSummary: `status=${status}`,
+      targetSummary: `status=${status}; semester=${where.semester}`,
       afterData: {
         template,
+        semester: where.semester,
         sent,
         failed,
         total: list.length,

@@ -50,6 +50,13 @@ const Reservation = sequelize.define('Reservation', {
     field: 'counts_toward_passport',
     comment: '學生聲明此預約要累計英語實踐歷程護照點數（與課堂加分擇一）',
   },
+  excludeFromClassCredit: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    field: 'exclude_from_class_credit',
+    comment: '到場不計點（未帶學生證）：已簽到但不計課堂加分與護照，活動結束檢查不記預約未到',
+  },
   passportPointsStatus: {
     type: DataTypes.STRING(32),
     allowNull: true,

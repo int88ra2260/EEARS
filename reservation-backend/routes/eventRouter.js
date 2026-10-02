@@ -30,6 +30,7 @@ const { buildReservationGroupsForDisplay } = require('../services/etGrouping/etR
 const { normalizeEventCapacityInput, formatCapacityPayload } = require('../utils/eventCapacity');
 const eventTypeService = require('../services/eventTypeService');
 const { DEFAULT_EVENT_TYPE_CODE } = require('../constants/eventTypeCatalog');
+const { parseCheckinPointIntent } = require('../utils/checkinPointIntent');
 const {
   assertCanAccessEvent,
   buildEventScopeWhere,
@@ -479,6 +480,7 @@ router.get(
           checkinStatus: r.checkinStatus || '未簽到',
           checkinTime: r.checkinTime,
           countsTowardPassport: !!r.countsTowardPassport,
+          excludeFromClassCredit: !!r.excludeFromClassCredit,
           passportPointsStatus: r.passportPointsStatus || null,
           passportSubmissionId: r.passportSubmissionId || null,
           group: null,
@@ -1041,17 +1043,16 @@ router.post(
       checkinStatus: reservation.checkinStatus || null,
       checkinTime: reservation.checkinTime || null,
       countsTowardPassport: !!reservation.countsTowardPassport,
+      excludeFromClassCredit: !!reservation.excludeFromClassCredit,
       passportPointsStatus: reservation.passportPointsStatus || null,
     };
-    const countsTowardPassport = req.body?.countsTowardPassport === true
-      || req.body?.countsTowardPassport === 'true'
-      || req.body?.countsTowardPassport === 1
-      || req.body?.countsTowardPassport === '1';
+    const { countsTowardPassport, excludeFromClassCredit } = parseCheckinPointIntent(req.body);
 
     await reservation.update({
       checkinStatus: '已簽到',
       checkinTime: new Date(),
-      countsTowardPassport: !!countsTowardPassport,
+      countsTowardPassport,
+      excludeFromClassCredit,
     });
 
     let passportGrant = null;
@@ -1087,6 +1088,7 @@ router.post(
         checkinStatus: '已簽到',
         checkinTime: reservation.checkinTime || null,
         countsTowardPassport: !!reservation.countsTowardPassport,
+        excludeFromClassCredit: !!reservation.excludeFromClassCredit,
         passportPointsStatus: reservation.passportPointsStatus || null,
         passportGrant,
       },
@@ -1094,9 +1096,10 @@ router.post(
     });
 
     res.json({ 
-      message: "簽到成功",
+      message: excludeFromClassCredit ? '已登記到場（不計點）' : '簽到成功',
       checkinTime: reservation.checkinTime,
       countsTowardPassport: !!reservation.countsTowardPassport,
+      excludeFromClassCredit: !!reservation.excludeFromClassCredit,
       passportPointsStatus: reservation.passportPointsStatus || null,
       passportGrant,
     });

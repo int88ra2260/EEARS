@@ -51,6 +51,7 @@ export default function AdminEmailTemplatesPage() {
   const [attachments, setAttachments] = useState([]);
   const [editorResetKey, setEditorResetKey] = useState('init');
   const [isEnabled, setIsEnabled] = useState(true);
+  const [includeCheckinQr, setIncludeCheckinQr] = useState(false);
   const [notes, setNotes] = useState('');
   const [preview, setPreview] = useState(null);
   const [testTo, setTestTo] = useState('');
@@ -92,10 +93,11 @@ export default function AdminEmailTemplatesPage() {
     setAttachments(Array.isArray(selected.attachments) ? selected.attachments : []);
     setEditorResetKey(`${selected.key}-${selected.override?.updatedAt || 'base'}`);
     setIsEnabled(selected.isEnabled !== false);
+    setIncludeCheckinQr(selected.key === 'reservationSuccess' ? selected.includeCheckinQr === true : false);
     setNotes(selected.override?.notes || '');
     setPreview(null);
     setDirty(false);
-  }, [selected?.key, selected?.override?.updatedAt, selected?.isEnabled, selected?.editableSubject, selected?.editableBody, selected?.attachments, selected?.baselineEditableBody, selected?.codeDefaultBody]);
+  }, [selected?.key, selected?.override?.updatedAt, selected?.isEnabled, selected?.includeCheckinQr, selected?.editableSubject, selected?.editableBody, selected?.attachments, selected?.baselineEditableBody, selected?.codeDefaultBody]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -167,6 +169,7 @@ export default function AdminEmailTemplatesPage() {
         bodyTemplate: bodyTemplatePayload,
         attachments: attachmentsPayload,
         isEnabled,
+        includeCheckinQr: selected.key === 'reservationSuccess' ? includeCheckinQr : undefined,
         notes: notes.trim() === '' ? null : notes,
       });
       setTemplates((prev) => prev.map((t) => (t.key === data.key ? data : t)));
@@ -203,6 +206,7 @@ export default function AdminEmailTemplatesPage() {
         subjectTemplate: subjectTemplate.trim() === '' ? null : subjectTemplate,
         bodyTemplate: bodyTemplate.trim() === '' ? null : bodyTemplate,
         attachments,
+        includeCheckinQr: selected.key === 'reservationSuccess' ? includeCheckinQr : undefined,
       });
       setPreview(data);
       if (data.warnings?.length) toast.warning(data.warnings.join('；'));
@@ -225,6 +229,7 @@ export default function AdminEmailTemplatesPage() {
         subjectTemplate: subjectTemplate.trim() === '' ? null : subjectTemplate,
         bodyTemplate: bodyTemplate.trim() === '' ? null : bodyTemplate,
         attachments,
+        includeCheckinQr: selected.key === 'reservationSuccess' ? includeCheckinQr : undefined,
       });
       toast.success(`測試信已寄出：${data.subject}`);
       if (data.warnings?.length) toast.warning(data.warnings.join('；'));
@@ -343,6 +348,29 @@ export default function AdminEmailTemplatesPage() {
                     </label>
                   </div>
                 </div>
+
+                {selected.key === 'reservationSuccess' && (
+                  <div className="border rounded p-3 mb-3">
+                    <div className="form-check form-switch mb-1">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="et-include-checkin-qr"
+                        checked={includeCheckinQr}
+                        onChange={(e) => {
+                          setIncludeCheckinQr(e.target.checked);
+                          setDirty(true);
+                        }}
+                      />
+                      <label className="form-check-label" htmlFor="et-include-checkin-qr">
+                        寄出時附上現場簽到 QR Code
+                      </label>
+                    </div>
+                    <div className="small text-muted">
+                      尚未使用掃碼設備時請關閉。關閉後，預約成功信不會在內文上方附加 QR 圖。變更後需按儲存才會套用到正式寄信。
+                    </div>
+                  </div>
+                )}
 
                 {(selected.editorHints || []).length > 0 && (
                   <div className="alert alert-info py-2 small mb-3">

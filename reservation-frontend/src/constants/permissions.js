@@ -25,6 +25,7 @@ export const P = {
   CAN_VIEW_SURVEY_REPAIR_AUDIT: 'can_view_survey_repair_audit',
   CAN_VIEW_CLASSES: 'can_view_classes',
   CAN_MANAGE_CLASSES: 'can_manage_classes',
+  CAN_MANAGE_CLASS_CREDIT: 'can_manage_class_credit',
   CAN_IMPORT_BESTEP: 'can_import_bestep',
   CAN_EXPORT_BESTEP: 'can_export_bestep',
   CAN_VIEW_ENGLISH_TEST_METRICS: 'can_view_english_test_metrics',

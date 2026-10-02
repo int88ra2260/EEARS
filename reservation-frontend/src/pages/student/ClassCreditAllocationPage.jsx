@@ -357,7 +357,7 @@ export default function ClassCreditAllocationPage() {
           </Row>
 
           <Alert variant="info" className="small">
-            簽到時若勾選「計入護照」，該場次不會進入待分配時數。
+            簽到時若勾選「計入護照」，或現場登記「到場不計點」（未帶學生證），該場次不會進入待分配時數。
             本學期若只有一門課，系統會自動把全部可配置時數歸該課；多門課請自行拆分，逾期未配置時老師端會顯示「未配置」。
           </Alert>
 

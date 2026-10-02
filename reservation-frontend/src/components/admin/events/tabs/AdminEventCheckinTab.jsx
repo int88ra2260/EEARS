@@ -54,9 +54,9 @@ function AdminEventCheckinTab({ tabProps }) {
     setPassportFlags((prev) => ({ ...prev, [reservationId]: checked }));
   };
 
-  const handleCheckinClick = async (reservation) => {
-    const countsTowardPassport = !!passportFlags[reservation.id];
-    await p.handleCheckin(reservation.id, { countsTowardPassport });
+  const handleCheckinClick = async (reservation, { excludeFromClassCredit = false } = {}) => {
+    const countsTowardPassport = !excludeFromClassCredit && !!passportFlags[reservation.id];
+    await p.handleCheckin(reservation.id, { countsTowardPassport, excludeFromClassCredit });
   };
 
   const canCheckinNow = p.canCheckinStudents
@@ -82,8 +82,9 @@ function AdminEventCheckinTab({ tabProps }) {
           ) : null}
         </p>
         <Alert variant="light" className="border small py-2 mb-3">
-          若學生聲明<strong>累計護照點數</strong>（與課堂加分擇一），請勾選「計入護照」後再簽到。
+          若學生聲明<strong>累計護照點數</strong>（與課堂加分擇一），請勾選「計入」後再簽到。
           已簽到且勾選者會自動入「英語增能活動」點數（每次 5 點，最多 12 次／60 點）；無護照者會暫存，開通後補發。
+          人有到但沒帶學生證時，請按「到場不計點」：狀態為已簽到，活動結束不會記未到，這場也不計課堂加分與護照。
         </Alert>
         {p.resBlocking ? (
           <div className="text-center py-5 text-muted">
@@ -170,19 +171,30 @@ function AdminEventCheckinTab({ tabProps }) {
                               </td>
                               <td>
                                 {canCheckinNow ? (
-                                  <Button
-                                    variant="success"
-                                    size="sm"
-                                    className="fw-semibold"
-                                    onClick={() => handleCheckinClick(reservation)}
-                                    disabled={p.checkinLoading[reservation.id]}
-                                  >
-                                    {p.checkinLoading[reservation.id]
-                                      ? '簽到中…'
-                                      : !p.isEventToday(p.currentEventDate) && p.canManageEvents
-                                        ? '補簽到'
-                                        : '簽到'}
-                                  </Button>
+                                  <div className="d-flex flex-column gap-1">
+                                    <Button
+                                      variant="success"
+                                      size="sm"
+                                      className="fw-semibold"
+                                      onClick={() => handleCheckinClick(reservation)}
+                                      disabled={p.checkinLoading[reservation.id]}
+                                    >
+                                      {p.checkinLoading[reservation.id]
+                                        ? '簽到中…'
+                                        : !p.isEventToday(p.currentEventDate) && p.canManageEvents
+                                          ? '補簽到'
+                                          : '簽到'}
+                                    </Button>
+                                    <Button
+                                      variant="outline-secondary"
+                                      size="sm"
+                                      onClick={() => handleCheckinClick(reservation, { excludeFromClassCredit: true })}
+                                      disabled={p.checkinLoading[reservation.id] || !!passportFlags[reservation.id]}
+                                      title="未帶學生證：登記到場，不計課堂加分與護照，也不記未到"
+                                    >
+                                      到場不計點
+                                    </Button>
+                                  </div>
                                 ) : (
                                   <span className="text-muted small">不可簽到</span>
                                 )}
@@ -209,7 +221,7 @@ function AdminEventCheckinTab({ tabProps }) {
                           <th>姓名</th>
                           {isEt && <th>組別</th>}
                           <th>時間</th>
-                          <th>護照</th>
+                          <th>點數</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -231,7 +243,9 @@ function AdminEventCheckinTab({ tabProps }) {
                                   : '—'}
                               </td>
                               <td>
-                                {reservation.countsTowardPassport ? (
+                                {reservation.excludeFromClassCredit ? (
+                                  <span className="badge bg-secondary">到場不計點</span>
+                                ) : reservation.countsTowardPassport ? (
                                   <span className="badge bg-primary">
                                     {reservation.passportPointsStatus === 'granted'
                                       ? '已入點'
@@ -242,7 +256,7 @@ function AdminEventCheckinTab({ tabProps }) {
                                           : '計入'}
                                   </span>
                                 ) : (
-                                  <span className="text-muted small">—</span>
+                                  <span className="text-muted small">課堂加分</span>
                                 )}
                               </td>
                             </tr>

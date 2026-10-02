@@ -8,6 +8,8 @@ export default function ConfirmModal({
   confirmLabel = '確定',
   cancelLabel = '取消',
   variant = 'primary',
+  wide = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel
 }) {
@@ -36,7 +38,7 @@ export default function ConfirmModal({
       aria-modal="true"
       aria-labelledby="confirmModalTitle"
     >
-      <div className="modal-dialog modal-dialog-centered">
+      <div className={`modal-dialog modal-dialog-centered modal-dialog-scrollable${wide ? ' modal-lg' : ''}`}>
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title" id="confirmModalTitle">{title}</h5>
@@ -62,7 +64,7 @@ export default function ConfirmModal({
               type="button"
               className={`btn btn-${variant}`}
               onClick={handleConfirm}
-              disabled={busy}
+              disabled={busy || confirmDisabled}
               aria-busy={busy || undefined}
             >
               {busy ? (

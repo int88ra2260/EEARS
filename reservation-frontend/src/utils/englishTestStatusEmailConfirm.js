@@ -2,17 +2,19 @@
  * 培力英檢後台：會寄信給學生的狀態變更防呆文案。
  */
 
-export function getEnglishTestStatusEmailConfirm({ status, count = 1 } = {}) {
+export function getEnglishTestStatusEmailConfirm({ status, count = 1, semester } = {}) {
   const n = Number(count) || 1;
   const plural = n > 1 ? `${n} 位學生` : '該學生';
+  const sem = String(semester || '').trim();
+  const semHint = sem ? `（只限學期 ${sem}，不會寄給其他學期）` : '';
 
   if (status === 'revision') {
     return {
       title: '確認寄送「請修正」通知信？',
       description:
         n > 1
-          ? `將把選取的 ${n} 筆改為「請修正」，並立即寄送通知信給學生。確定繼續？`
-          : '將把狀態改為「請修正」，並立即寄送通知信給該學生。確定繼續？',
+          ? `將把選取的 ${n} 筆改為「請修正」，並立即寄送通知信給學生${semHint}。確定繼續？`
+          : `將把狀態改為「請修正」，並立即寄送通知信給該學生${semHint}。確定繼續？`,
       confirmText: '確認並寄信',
       cancelText: '取消',
       variant: 'warning',
@@ -24,8 +26,8 @@ export function getEnglishTestStatusEmailConfirm({ status, count = 1 } = {}) {
       title: '確認寄送「報名失敗」通知信？',
       description:
         n > 1
-          ? `將把選取的 ${n} 筆改為「報名失敗」，並立即寄送通知信給學生。確定繼續？`
-          : '將把狀態改為「報名失敗」，並立即寄送通知信給該學生。確定繼續？',
+          ? `將把選取的 ${n} 筆改為「報名失敗」，並立即寄送通知信給學生${semHint}。確定繼續？`
+          : `將把狀態改為「報名失敗」，並立即寄送通知信給該學生${semHint}。確定繼續？`,
       confirmText: '確認並寄信',
       cancelText: '取消',
       variant: 'warning',
@@ -34,7 +36,7 @@ export function getEnglishTestStatusEmailConfirm({ status, count = 1 } = {}) {
 
   return {
     title: '確認寄送通知信？',
-    description: `此操作將寄送通知信給${plural}。確定繼續？`,
+    description: `此操作將寄送通知信給${plural}${semHint}。確定繼續？`,
     confirmText: '確認並寄信',
     cancelText: '取消',
     variant: 'warning',
@@ -44,11 +46,14 @@ export function getEnglishTestStatusEmailConfirm({ status, count = 1 } = {}) {
 const BATCH_WAIT_HINT =
   '人數較多或郵件伺服器偏慢時，可能需要數分鐘；確認後請留意頁面上的「寄送中」提示，完成後會再通知您。';
 
-export function getEnglishTestBatchEmailConfirm(status) {
+export function getEnglishTestBatchEmailConfirm(status, semester) {
+  const sem = String(semester || '').trim();
+  const scope = sem ? `學期 ${sem} 的` : '目前篩選學期的';
+  const onlyThisSemester = '不會寄給其他學期的報名者。';
   if (status === 'success') {
     return {
       title: '確認寄送通知信？',
-      message: `將對目前所有「報名成功」者寄送通知信。此操作無法撤回。${BATCH_WAIT_HINT}`,
+      message: `將對${scope}所有「報名成功」者寄送通知信。${onlyThisSemester}此操作無法撤回。${BATCH_WAIT_HINT}`,
       confirmLabel: '確認並寄信',
       variant: 'warning',
     };
@@ -56,7 +61,7 @@ export function getEnglishTestBatchEmailConfirm(status) {
   if (status === 'failed') {
     return {
       title: '確認寄送通知信？',
-      message: `將對目前所有「報名失敗」者寄送通知信。此操作無法撤回。${BATCH_WAIT_HINT}`,
+      message: `將對${scope}所有「報名失敗」者寄送通知信。${onlyThisSemester}此操作無法撤回。${BATCH_WAIT_HINT}`,
       confirmLabel: '確認並寄信',
       variant: 'warning',
     };
@@ -64,7 +69,7 @@ export function getEnglishTestBatchEmailConfirm(status) {
   if (status === 'group_promo') {
     return {
       title: '確認寄送團體推廣信？',
-      message: `將對所有「報名成功」且「四項皆報考」者寄送團體推廣信。此操作無法撤回。${BATCH_WAIT_HINT}`,
+      message: `將對${scope}「報名成功」且「四項皆報考」者寄送團體推廣信。${onlyThisSemester}此操作無法撤回。${BATCH_WAIT_HINT}`,
       confirmLabel: '確認並寄信',
       variant: 'warning',
     };

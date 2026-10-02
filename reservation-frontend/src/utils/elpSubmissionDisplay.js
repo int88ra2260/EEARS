@@ -24,5 +24,9 @@ export function formatSubmissionMetadata(ruleCode, metadataJson = {}) {
     rows.push({ label: field.label, value: String(val) });
   });
 
+  if (ruleCode === 'SELF_STUDY_SOFTWARE' && metadataJson.roundNumber && metadataJson.sessionCount == null) {
+    rows.push({ label: '第幾回', value: String(metadataJson.roundNumber) });
+  }
+
   return rows;
 }

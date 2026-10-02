@@ -17,7 +17,7 @@ import {
   deleteElpSubmission,
   openElpCertificationCertificate,
 } from '../../services/englishLearningPassportApi';
-import { RULE_LIMIT_HINTS } from '../../constants/elpFormConfig';
+import { formatRuleLimitHint } from '../../constants/elpFormConfig';
 import elpStudentGuideImage from '../../assets/elp-student-guide.png';
 import '../../components/englishLearningPassport/elp.css';
 
@@ -472,7 +472,7 @@ export default function EnglishLearningPassportPage() {
                 {rules.map((rule) => (
                   <div key={rule.code} className="elp-rule-card">
                     <h6>{rule.name}</h6>
-                    <span className="elp-rule-hint">{RULE_LIMIT_HINTS[rule.code] || `基礎 ${rule.basePoints} 點`}</span>
+                    <span className="elp-rule-hint">{formatRuleLimitHint(rule)}</span>
                     {rule.description ? (
                       <p className="elp-rule-desc">{rule.description}</p>
                     ) : null}

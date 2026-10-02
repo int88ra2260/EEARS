@@ -296,7 +296,7 @@ export default function EventBookingModal({ show, event, onClose }) {
         centered={!isMobile}
         fullscreen={isMobile ? 'sm-down' : false}
         scrollable={isMobile}
-        className={`event-booking-modal${isMobileSessionPanel ? ' event-booking-modal--mobile-session' : ''}`}
+        className={`event-booking-modal${isMobileSessionPanel ? ' event-booking-modal--mobile-session' : ''}${bookingStep === 3 ? ' event-booking-modal--success' : ''}`}
         dialogClassName="event-booking-modal__dialog"
         style={isMobile ? { zIndex: 1055 } : {}}
       >

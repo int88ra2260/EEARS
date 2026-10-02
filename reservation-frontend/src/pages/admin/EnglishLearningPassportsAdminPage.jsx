@@ -617,7 +617,7 @@ export default function EnglishLearningPassportsAdminPage() {
                     <tr key={r.id}>
                       <td><code>{r.code}</code></td>
                       <td>{r.name}</td>
-                      <td>{r.basePoints}</td>
+                      <td>{r.bonusPoints != null ? `${r.basePoints} / ${r.bonusPoints}` : r.basePoints}</td>
                       <td>{r.maxPointsPerWeek ?? '—'}</td>
                       <td>{r.maxPointsTotal ?? '—'}</td>
                       <td>{r.isOnceOnly ? '是' : '否'}</td>

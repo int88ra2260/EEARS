@@ -134,6 +134,7 @@ router.post('/:key/preview', async (req, res, next) => {
       bodyTemplate: body.bodyTemplate,
       attachments: body.attachments,
       data: body.data,
+      includeCheckinQr: body.includeCheckinQr,
     });
     res.json({ success: true, data: preview });
   } catch (err) {
@@ -153,6 +154,7 @@ router.post('/:key/test-send', async (req, res, next) => {
       bodyTemplate: body.bodyTemplate,
       attachments: body.attachments,
       data: body.data,
+      includeCheckinQr: body.includeCheckinQr,
     });
     res.json({ success: true, data: result });
   } catch (err) {

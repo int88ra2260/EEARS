@@ -59,6 +59,8 @@ const EmailLog = require('./EmailLog');
 const EmailTemplateOverride = require('./EmailTemplateOverride');
 const EnglishTestMailTemplate = require('./EnglishTestMailTemplate');
 const EnglishTestMailSend = require('./EnglishTestMailSend');
+const EnglishTestMailBin = require('./EnglishTestMailBin');
+const EnglishTestMailBinMember = require('./EnglishTestMailBinMember');
 const SystemLog = require('./SystemLog');
 const Notification = require('./Notification');
 const RolePermission = require('./RolePermission');
@@ -407,6 +409,8 @@ module.exports = {
   EmailTemplateOverride,
   EnglishTestMailTemplate,
   EnglishTestMailSend,
+  EnglishTestMailBin,
+  EnglishTestMailBinMember,
   SystemLog,
   Notification,
   RolePermission,

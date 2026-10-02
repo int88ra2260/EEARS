@@ -38,11 +38,19 @@ export async function fetchEventViolations(token, eventId) {
   return Array.isArray(data) ? data : [];
 }
 
-export async function checkinEventReservation(token, eventId, reservationId, { countsTowardPassport = false } = {}) {
+export async function checkinEventReservation(token, eventId, reservationId, {
+  countsTowardPassport = false,
+  excludeFromClassCredit = false,
+} = {}) {
+  const attendanceOnly = !!excludeFromClassCredit;
   const res = await fetchClient(`${API_EVENTS}/${eventId}/checkin`, {
     method: 'POST',
     headers: authHeaders(token, { 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ reservationId, countsTowardPassport: !!countsTowardPassport }),
+    body: JSON.stringify({
+      reservationId,
+      countsTowardPassport: !!countsTowardPassport && !attendanceOnly,
+      excludeFromClassCredit: attendanceOnly,
+    }),
   });
   const data = await parseJson(res);
   if (!res.ok) {

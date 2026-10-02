@@ -34,6 +34,7 @@ const P = {
   // 班級 / BESTEP
   CAN_VIEW_CLASSES: 'can_view_classes',
   CAN_MANAGE_CLASSES: 'can_manage_classes',
+  CAN_MANAGE_CLASS_CREDIT: 'can_manage_class_credit',
   CAN_IMPORT_BESTEP: 'can_import_bestep',
   CAN_EXPORT_BESTEP: 'can_export_bestep',
 

@@ -1,13 +1,19 @@
 'use strict';
 
 const express = require('express');
-const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
+const { authMiddleware, requireAnyPermission, P } = require('../middlewares/auth');
 const auditLogService = require('../services/auditLogService');
 const classCreditAllocationService = require('../services/classCreditAllocationService');
 
 const router = express.Router();
 
-const manageAuth = [authMiddleware, requirePermission(P.CAN_MANAGE_CLASSES)];
+const manageAuth = [
+  authMiddleware,
+  requireAnyPermission(
+    [P.CAN_MANAGE_CLASS_CREDIT, P.CAN_MANAGE_CLASSES],
+    '需要活動時數分配權限',
+  ),
+];
 
 router.get('/nav-enabled', ...manageAuth, async (req, res, next) => {
   try {

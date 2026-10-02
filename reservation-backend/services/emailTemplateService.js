@@ -17,6 +17,10 @@ const {
   normalizeAttachmentsInput,
   buildNodemailerAttachments,
 } = require('./emailTemplateAttachmentService');
+const {
+  isReservationSuccessCheckinQrEnabled,
+  setReservationSuccessCheckinQrEnabled,
+} = require('./reservationCheckinQrSettings');
 
 /** 覆寫快取：避免每次寄信都打 DB */
 let overrideCache = null;
@@ -228,6 +232,35 @@ function getEmailTemplatesFn() {
   return require('../config/email').emailTemplates;
 }
 
+const STUDENT_ID_REMINDER_TEXT = `【請攜帶學生證】
+參加活動請務必攜帶學生證。現場簽到時需出示學生證，才能計入課堂加分。
+
+[Bring your student ID]
+Please bring your student ID card. Show it at check-in so the session can count toward class credit.`;
+
+const STUDENT_ID_REMINDER_HTML = `<div style="border:1px solid #f0c36d;border-radius:8px;padding:12px 14px;margin:0 0 16px;background:#fff8e8">
+  <p style="margin:0 0 6px;font-weight:700">請攜帶學生證</p>
+  <p style="margin:0">參加活動請務必攜帶學生證。現場簽到時需出示學生證，才能計入課堂加分。</p>
+  <p style="margin:8px 0 0;color:#52606d">Please bring your student ID card. Show it at check-in so the session can count toward class credit.</p>
+</div>`;
+
+/** 正文尚未提到學生證時，在信的開頭補上攜帶提醒。 */
+function ensureStudentIdReminder(mail) {
+  if (!mail) return mail;
+  const text = String(mail.text || '');
+  const html = String(mail.html || '');
+  if (text.includes('學生證') || html.includes('學生證')) return mail;
+  const next = { ...mail, text: `${STUDENT_ID_REMINDER_TEXT}\n\n${text}` };
+  if (html.trim()) {
+    if (/<body[^>]*>/i.test(html)) {
+      next.html = html.replace(/<body([^>]*)>/i, `<body$1>${STUDENT_ID_REMINDER_HTML}`);
+    } else {
+      next.html = `${STUDENT_ID_REMINDER_HTML}${html}`;
+    }
+  }
+  return next;
+}
+
 function renderCodeDefault(templateKey, data) {
   const templates = getEmailTemplatesFn();
   const fn = templates && templates[templateKey];
@@ -297,6 +330,12 @@ async function buildMailOptions(templateKey, data, draft = {}) {
   }
 
   if (templateKey === 'reservationSuccess') {
+    const reminded = ensureStudentIdReminder(built);
+    Object.assign(built, reminded);
+    const includeQr = typeof draft.includeCheckinQr === 'boolean'
+      ? draft.includeCheckinQr
+      : await isReservationSuccessCheckinQrEnabled();
+    if (!includeQr) return built;
     // eslint-disable-next-line global-require
     const { attachReservationCheckinQr } = require('./reservationCheckinQrService');
     return attachReservationCheckinQr(built, data || {});
@@ -322,6 +361,7 @@ function serializeOverride(row) {
 
 async function listEmailTemplates() {
   const map = await loadOverrideMap({ force: true });
+  const includeCheckinQr = await isReservationSuccessCheckinQrEnabled();
   return EMAIL_TEMPLATE_CATALOG.map((entry) => {
     const override = map.get(entry.key);
     let codeDefaultSubject = null;
@@ -370,13 +410,19 @@ async function listEmailTemplates() {
 
     const editorHints = [];
     if (entry.key === 'reservationSuccess') {
-      editorHints.push(
-        '實際寄出時會自動附加現場簽到 QR 圖片（內嵌附件）；純文字客戶端可見簽到碼。'
-      );
-      const bodyForHint = String(editableBody || '');
-      if (!bodyForHint.includes('{{bookingCode}}') && !bodyForHint.includes('現場簽到')) {
+      if (includeCheckinQr) {
         editorHints.push(
-          '目前正文未含 {{bookingCode}}／現場簽到段落；建議「還原系統預設文案」，寄信時仍會自動補上簽到碼與 QR。'
+          '已開啟現場簽到 QR。實際寄出時會在內文上方附加 QR 圖片；純文字客戶端可見簽到碼。'
+        );
+        const bodyForHint = String(editableBody || '');
+        if (!bodyForHint.includes('{{bookingCode}}') && !bodyForHint.includes('現場簽到')) {
+          editorHints.push(
+            '目前正文未含 {{bookingCode}}／現場簽到段落；寄信時仍會自動補上簽到碼與 QR。'
+          );
+        }
+      } else {
+        editorHints.push(
+          '目前關閉現場簽到 QR。寄出的確認信不會在內文上方附加 QR 圖。'
         );
       }
     }
@@ -406,6 +452,7 @@ async function listEmailTemplates() {
       effectiveBody,
       sampleData: sample,
       editorHints,
+      includeCheckinQr: entry.key === 'reservationSuccess' ? includeCheckinQr : null,
     };
   });
 }
@@ -421,7 +468,7 @@ async function getEmailTemplateDetail(templateKey) {
   return list.find((t) => t.key === templateKey) || null;
 }
 
-async function previewEmailTemplate(templateKey, { subjectTemplate, bodyTemplate, attachments, data } = {}) {
+async function previewEmailTemplate(templateKey, { subjectTemplate, bodyTemplate, attachments, data, includeCheckinQr } = {}) {
   const entry = getEmailTemplateCatalogEntry(templateKey);
   if (!entry) {
     const err = new Error('EMAIL_TEMPLATE_NOT_FOUND');
@@ -466,31 +513,39 @@ async function previewEmailTemplate(templateKey, { subjectTemplate, bodyTemplate
 
   let checkinQr = null;
   if (templateKey === 'reservationSuccess') {
-    // eslint-disable-next-line global-require
-    const {
-      attachReservationCheckinQr,
-      buildCheckinQrPreviewFromMail,
-    } = require('./reservationCheckinQrService');
-    const withQr = await attachReservationCheckinQr(
-      {
-        to: codeBuilt.to,
-        subject,
-        text: body,
-        html: html || undefined,
-      },
-      sample
-    );
-    subject = withQr.subject || subject;
-    body = withQr.text || body;
-    checkinQr = buildCheckinQrPreviewFromMail(withQr);
-    html = checkinQr?.htmlPreview || withQr.html || html;
-    if (!checkinQr) {
-      warnings.push('簽到 QR 預覽產生失敗；實際寄信仍會嘗試附加 QR。');
-    }
-    if (bodyTemplate != null && String(bodyTemplate).trim() !== '') {
-      const draft = String(bodyTemplate);
-      if (!draft.includes('{{bookingCode}}') && !draft.includes('現場簽到')) {
-        warnings.push('目前文案未含 {{bookingCode}}／現場簽到；實際寄信仍會自動補上簽到碼與 QR。');
+    const reminded = ensureStudentIdReminder({ text: body, html: html || '' });
+    body = reminded.text;
+    if (reminded.html) html = reminded.html;
+    const includeQr = typeof includeCheckinQr === 'boolean'
+      ? includeCheckinQr
+      : await isReservationSuccessCheckinQrEnabled();
+    if (includeQr) {
+      // eslint-disable-next-line global-require
+      const {
+        attachReservationCheckinQr,
+        buildCheckinQrPreviewFromMail,
+      } = require('./reservationCheckinQrService');
+      const withQr = await attachReservationCheckinQr(
+        {
+          to: codeBuilt.to,
+          subject,
+          text: body,
+          html: html || undefined,
+        },
+        sample
+      );
+      subject = withQr.subject || subject;
+      body = withQr.text || body;
+      checkinQr = buildCheckinQrPreviewFromMail(withQr);
+      html = checkinQr?.htmlPreview || withQr.html || html;
+      if (!checkinQr) {
+        warnings.push('簽到 QR 預覽產生失敗；若開關為開啟，實際寄信仍會嘗試附加 QR。');
+      }
+      if (bodyTemplate != null && String(bodyTemplate).trim() !== '') {
+        const draft = String(bodyTemplate);
+        if (!draft.includes('{{bookingCode}}') && !draft.includes('現場簽到')) {
+          warnings.push('目前文案未含 {{bookingCode}}／現場簽到；寄信時仍會自動補上簽到碼與 QR。');
+        }
       }
     }
   }
@@ -579,6 +634,10 @@ async function upsertEmailTemplateOverride(templateKey, payload, userId) {
     });
   }
 
+  if (templateKey === 'reservationSuccess' && typeof payload.includeCheckinQr === 'boolean') {
+    await setReservationSuccessCheckinQrEnabled(payload.includeCheckinQr);
+  }
+
   invalidateEmailTemplateOverrideCache();
 
   return {
@@ -601,7 +660,7 @@ async function resetEmailTemplateOverride(templateKey) {
   return { ok: true };
 }
 
-async function sendTestEmail(templateKey, { to, subjectTemplate, bodyTemplate, attachments, data } = {}) {
+async function sendTestEmail(templateKey, { to, subjectTemplate, bodyTemplate, attachments, data, includeCheckinQr } = {}) {
   const entry = getEmailTemplateCatalogEntry(templateKey);
   if (!entry) {
     const err = new Error('EMAIL_TEMPLATE_NOT_FOUND');
@@ -630,13 +689,15 @@ async function sendTestEmail(templateKey, { to, subjectTemplate, bodyTemplate, a
     bodyTemplate: draftBody,
     attachments: draftAttachments,
     data: sample,
+    includeCheckinQr,
   });
 
-  // 與正式寄信同一條組信路徑（含 reservationSuccess QR）
+  // 與正式寄信同一條組信路徑（reservationSuccess 是否附 QR 依開關）
   const mailOptions = await buildMailOptions(templateKey, sample, {
     subjectTemplate: draftSubject,
     bodyTemplate: draftBody,
     attachments: draftAttachments,
+    includeCheckinQr,
     skipDisabledCheck: true,
   });
 

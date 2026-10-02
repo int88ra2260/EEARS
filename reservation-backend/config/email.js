@@ -231,6 +231,9 @@ const emailTemplates = {
 時間：${data.startTime} - ${data.endTime}
 地點：${eventLocation.zh}
 
+【請攜帶學生證】
+參加活動請務必攜帶學生證。現場簽到時需出示學生證，才能計入課堂加分。
+
 【重要通知】活動規定修改：114-1學期起不再提供活動補蓋章服務，請同學們務必準時參加活動。
 
 【取消預約驗證碼】
@@ -240,7 +243,7 @@ const emailTemplates = {
 請妥善保管此驗證碼，取消預約時需要輸入此驗證碼才能完成取消。
 
 【現場簽到碼】
-請於活動現場出示下列簽到碼（或確認信中的 QR）：
+請於活動現場出示下列簽到碼：
 簽到碼：${data.bookingCode || (data.reservationId != null ? `R-${String(data.reservationId).padStart(6, '0')}` : 'N/A')}
 
 ${activityInfo.chineseReminder}
@@ -260,6 +263,9 @@ Date: ${data.date}
 Time: ${data.startTime} - ${data.endTime}
 Location: ${eventLocation.en}
 
+[Bring your student ID]
+Please bring your student ID card. Show it at check-in so the session can count toward class credit.
+
 [Important Notice] Policy Update: Starting from Semester 114-1, make-up stamping services for activities will no longer be provided. Please ensure you attend activities on time.
 
 [Cancellation Code]
@@ -269,7 +275,7 @@ Verification Code: ${data.cancellationCode || 'N/A'}
 Please keep this code safe. You will need to enter this code when canceling your reservation.
 
 [On-site Check-in Code]
-Please show the following code (or the QR in this email) at the venue:
+Please show the following code at the venue:
 Check-in Code: ${data.bookingCode || (data.reservationId != null ? `R-${String(data.reservationId).padStart(6, '0')}` : 'N/A')}
 
 ${activityInfo.englishReminder}

@@ -11,7 +11,7 @@ import {
   fetchElpRules,
   deleteElpSubmission,
 } from '../../services/englishLearningPassportApi';
-import { RULE_FORM_FIELDS, buildSubmissionPayload, validateRuleForm } from '../../constants/elpFormConfig';
+import { resolveFormFields, buildSubmissionPayload, validateRuleForm } from '../../constants/elpFormConfig';
 import '../../components/englishLearningPassport/elp.css';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -92,7 +92,11 @@ export default function EnglishLearningPassportSubmissionPage() {
     };
   }, [student, student?.studentId, id, isNew, navigate]);
 
-  const fields = RULE_FORM_FIELDS[ruleCode] || [];
+  const selectedRule = rules.find((r) => r.code === ruleCode) || null;
+  const fields = resolveFormFields(ruleCode, selectedRule);
+  const sessionBase = Number(selectedRule?.basePoints) > 0 ? Number(selectedRule.basePoints) : 2;
+  const sessionCount = Number(form.sessionCount);
+  const sessionPoints = Number.isInteger(sessionCount) && sessionCount > 0 ? sessionCount * sessionBase : null;
 
   const handleFile = (key, file) => {
     if (!file) return;
@@ -111,7 +115,10 @@ export default function EnglishLearningPassportSubmissionPage() {
   const handleSave = async (andSubmit = false) => {
     setError('');
     if (andSubmit) {
-      const validationError = validateRuleForm(ruleCode, form, files, { hasExistingAttachments });
+      const validationError = validateRuleForm(ruleCode, form, files, {
+        hasExistingAttachments,
+        rule: rules.find((r) => r.code === ruleCode) || null,
+      });
       if (validationError) {
         setError(validationError);
         return;
@@ -249,12 +256,32 @@ export default function EnglishLearningPassportSubmissionPage() {
                 <Form.Control
                   type={field.type}
                   value={form[field.key] || ''}
+                  min={field.min}
+                  max={field.max}
+                  step={field.type === 'number' ? 1 : undefined}
+                  placeholder={field.placeholder}
                   onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
                   required={field.required}
                 />
+                {field.key === 'sessionCount' ? (
+                  <Form.Text className="text-muted">
+                    每回 {sessionBase} 點
+                    {sessionPoints != null ? `，本次申請 ${sessionPoints} 點` : ''}
+                    {selectedRule?.maxPointsPerWeek != null ? `（每週上限 ${selectedRule.maxPointsPerWeek} 點）` : ''}
+                  </Form.Text>
+                ) : null}
               </Form.Group>
             );
           })}
+
+          {ruleCode === 'ENGLISH_COURSE' && selectedRule ? (
+            <p className="small text-muted mb-0">本次申請 {selectedRule.basePoints} 點</p>
+          ) : null}
+          {ruleCode === 'EXTERNAL_EXAM' && selectedRule ? (
+            <p className="small text-muted mb-0">
+              有效成績 {selectedRule.basePoints} 點，達門檻 {selectedRule.bonusPoints ?? 40} 點（依成績是否達門檻）
+            </p>
+          ) : null}
 
           <Row className="g-2 mt-2 align-items-center">
             <Col xs="auto">

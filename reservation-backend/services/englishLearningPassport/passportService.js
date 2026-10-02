@@ -203,7 +203,7 @@ function passportToPublic(passport) {
   };
 }
 
-function submissionToPublic(sub, { includeAttachments = false } = {}) {
+function submissionToPublic(sub, { includeAttachments = false, rule = null } = {}) {
   const s = sub.toJSON ? sub.toJSON() : sub;
   const out = {
     id: s.id,
@@ -222,7 +222,7 @@ function submissionToPublic(sub, { includeAttachments = false } = {}) {
     rejectionReason: s.rejectionReason,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
-    suggestedPoints: calculateSuggestedPoints(s.ruleCode, s.metadataJson || {}),
+    suggestedPoints: calculateSuggestedPoints(s.ruleCode, s.metadataJson || {}, rule),
     meetsDirectEnglishStandard:
       s.ruleCode === 'EXTERNAL_EXAM' ? meetsDirectEnglishStandard(s.metadataJson || {}) : false,
   };
@@ -315,6 +315,10 @@ async function getStudentDashboard(ctx) {
   const rejected = submissions.filter((s) => s.status === SUBMISSION_STATUS.REJECTED);
 
   const pendingPoints = pending.reduce((sum, s) => sum + (s.pointsRequested || 0), 0);
+  const [rules, ruleByCode] = await Promise.all([
+    listEnabledRules(),
+    loadRuleMap(),
+  ]);
 
   return {
     passport: passportToPublic(passport),
@@ -326,9 +330,17 @@ async function getStudentDashboard(ctx) {
       pendingCount: pending.length,
       threshold: CERTIFICATION_THRESHOLD,
     },
-    submissions: submissions.map((s) => submissionToPublic(s, { includeAttachments: true })),
-    rules: await listEnabledRules(),
+    submissions: submissions.map((s) => submissionToPublic(s, {
+      includeAttachments: true,
+      rule: ruleByCode.get(s.ruleCode) || null,
+    })),
+    rules,
   };
+}
+
+async function loadRuleMap(transaction) {
+  const rules = await EnglishLearningPointRule.findAll({ transaction });
+  return new Map(rules.map((rule) => [rule.code, rule]));
 }
 
 async function listEnabledRules() {
@@ -343,6 +355,7 @@ async function listEnabledRules() {
       name: j.name,
       description: j.description,
       basePoints: j.basePoints,
+      bonusPoints: j.bonusPoints,
       maxPointsPerWeek: j.maxPointsPerWeek,
       maxPointsTotal: j.maxPointsTotal,
       isOnceOnly: j.isOnceOnly,
@@ -521,10 +534,10 @@ async function createSubmission(ctx, payload, req) {
       action: 'submission_create',
       targetType: 'EnglishLearningSubmission',
       targetId: submission.id,
-      after: submissionToPublic(submission),
+      after: submissionToPublic(submission, { rule }),
     });
 
-    return submissionToPublic(submission);
+    return submissionToPublic(submission, { rule });
   });
 }
 
@@ -546,7 +559,8 @@ async function getSubmissionForStudent(ctx, submissionId) {
     err.code = 'SUBMISSION_NOT_FOUND';
     throw err;
   }
-  return submissionToPublic(submission, { includeAttachments: true });
+  const rule = await EnglishLearningPointRule.findOne({ where: { code: submission.ruleCode } });
+  return submissionToPublic(submission, { includeAttachments: true, rule });
 }
 
 async function updateSubmission(ctx, submissionId, payload, req) {
@@ -603,10 +617,10 @@ async function updateSubmission(ctx, submissionId, payload, req) {
       targetType: 'EnglishLearningSubmission',
       targetId: submission.id,
       before,
-      after: submissionToPublic(submission),
+      after: submissionToPublic(submission, { rule }),
     });
 
-    return submissionToPublic(submission);
+    return submissionToPublic(submission, { rule });
   });
 }
 
@@ -673,11 +687,17 @@ async function submitSubmission(ctx, submissionId, req) {
       throw err;
     }
 
-    const before = submissionToPublic(submission);
+    const before = submissionToPublic(submission, { rule });
+    const suggested = calculateSuggestedPoints(
+      submission.ruleCode,
+      submission.metadataJson || {},
+      rule,
+    );
     await submission.update(
       {
         status: SUBMISSION_STATUS.SUBMITTED,
         submittedAt: new Date(),
+        pointsRequested: suggested,
         rejectionReason: null,
       },
       { transaction },
@@ -690,10 +710,10 @@ async function submitSubmission(ctx, submissionId, req) {
       targetType: 'EnglishLearningSubmission',
       targetId: submission.id,
       before,
-      after: submissionToPublic(submission),
+      after: submissionToPublic(submission, { rule }),
     });
 
-    return submissionToPublic(submission);
+    return submissionToPublic(submission, { rule });
   });
 }
 
@@ -865,10 +885,14 @@ async function getPassportDetailAdmin(passportId) {
     limit: 100,
   });
 
+  const ruleByCode = await loadRuleMap();
   return {
     passport: passportToPublic(passport),
     pointsByRule: byRule,
-    submissions: submissions.map((s) => submissionToPublic(s, { includeAttachments: true })),
+    submissions: submissions.map((s) => submissionToPublic(s, {
+      includeAttachments: true,
+      rule: ruleByCode.get(s.ruleCode) || null,
+    })),
     auditLogs: auditLogs.map((l) => l.toJSON()),
   };
 }
@@ -1137,8 +1161,12 @@ async function listSubmissionsAdmin(filters = {}) {
     offset: Number(filters.offset) || 0,
   });
 
+  const ruleByCode = await loadRuleMap();
   return rows.map((s) => {
-    const pub = submissionToPublic(s, { includeAttachments: true });
+    const pub = submissionToPublic(s, {
+      includeAttachments: true,
+      rule: ruleByCode.get(s.ruleCode) || null,
+    });
     pub.studentName = s.passport ? s.passport.studentName : null;
     pub.studentEmail = s.passport ? s.passport.studentEmail : null;
     return pub;
@@ -1158,7 +1186,8 @@ async function getSubmissionAdmin(submissionId) {
     err.code = 'SUBMISSION_NOT_FOUND';
     throw err;
   }
-  const pub = submissionToPublic(submission, { includeAttachments: true });
+  const rule = await EnglishLearningPointRule.findOne({ where: { code: submission.ruleCode } });
+  const pub = submissionToPublic(submission, { includeAttachments: true, rule });
   pub.studentName = submission.passport ? submission.passport.studentName : null;
   pub.studentEmail = submission.passport ? submission.passport.studentEmail : null;
   pub.passport = submission.passport ? passportToPublic(submission.passport) : null;
@@ -1420,7 +1449,7 @@ function buildRulePatchFromPayload(payload, { includeCode = false } = {}) {
     }
     patch.basePoints = basePoints;
   }
-  const optionalNums = ['maxPointsPerWeek', 'maxPointsTotal', 'sortOrder'];
+  const optionalNums = ['maxPointsPerWeek', 'maxPointsTotal', 'sortOrder', 'bonusPoints'];
   optionalNums.forEach((key) => {
     if (payload[key] === undefined) return;
     if (payload[key] === null || payload[key] === '') {
@@ -1430,6 +1459,12 @@ function buildRulePatchFromPayload(payload, { includeCode = false } = {}) {
     const n = Number(payload[key]);
     patch[key] = Number.isFinite(n) ? n : null;
   });
+  if (patch.bonusPoints != null && patch.bonusPoints < 0) {
+    const err = new Error('加碼點數須為 0 以上的數字');
+    err.status = 400;
+    err.code = 'INVALID_BONUS_POINTS';
+    throw err;
+  }
   ['isOnceOnly', 'requiresAttachment', 'isEnabled'].forEach((key) => {
     if (payload[key] !== undefined) patch[key] = !!payload[key];
   });
@@ -1462,6 +1497,7 @@ async function createRuleAdmin(payload, req) {
     name: patch.name,
     description: patch.description ?? null,
     basePoints: patch.basePoints,
+    bonusPoints: patch.bonusPoints ?? null,
     maxPointsPerWeek: patch.maxPointsPerWeek ?? null,
     maxPointsTotal: patch.maxPointsTotal ?? null,
     isOnceOnly: patch.isOnceOnly ?? false,
@@ -1490,7 +1526,7 @@ async function updateRuleAdmin(ruleId, payload, req) {
   }
   const before = rule.toJSON();
   const allowed = [
-    'name', 'description', 'basePoints', 'maxPointsPerWeek',
+    'name', 'description', 'basePoints', 'bonusPoints', 'maxPointsPerWeek',
     'maxPointsTotal', 'isOnceOnly', 'requiresAttachment', 'isEnabled', 'sortOrder',
   ];
   const patch = {};
@@ -1513,6 +1549,20 @@ async function updateRuleAdmin(ruleId, payload, req) {
       throw err;
     }
     patch.basePoints = basePoints;
+  }
+  if (patch.bonusPoints !== undefined) {
+    if (patch.bonusPoints === null || patch.bonusPoints === '') {
+      patch.bonusPoints = null;
+    } else {
+      const bonusPoints = Number(patch.bonusPoints);
+      if (!Number.isFinite(bonusPoints) || bonusPoints < 0) {
+        const err = new Error('加碼點數須為 0 以上的數字');
+        err.status = 400;
+        err.code = 'INVALID_BONUS_POINTS';
+        throw err;
+      }
+      patch.bonusPoints = bonusPoints;
+    }
   }
   await rule.update(patch);
   await logElpAudit({

@@ -7,6 +7,7 @@ const EMPTY = {
   name: '',
   description: '',
   basePoints: '',
+  bonusPoints: '',
   maxPointsPerWeek: '',
   maxPointsTotal: '',
   isOnceOnly: false,
@@ -22,6 +23,7 @@ function toForm(rule) {
     name: rule.name || '',
     description: rule.description || '',
     basePoints: rule.basePoints ?? '',
+    bonusPoints: rule.bonusPoints ?? '',
     maxPointsPerWeek: rule.maxPointsPerWeek ?? '',
     maxPointsTotal: rule.maxPointsTotal ?? '',
     isOnceOnly: !!rule.isOnceOnly,
@@ -30,6 +32,8 @@ function toForm(rule) {
     sortOrder: rule.sortOrder ?? '',
   };
 }
+
+const BONUS_RULE_CODES = new Set(['ENGLISH_COMPETITION', 'EXTERNAL_EXAM']);
 
 function toPayload(form, { includeCode = false } = {}) {
   const numOrNull = (v) => {
@@ -48,10 +52,27 @@ function toPayload(form, { includeCode = false } = {}) {
     isEnabled: !!form.isEnabled,
     sortOrder: Number(form.sortOrder) || 0,
   };
+  const code = (includeCode ? form.code : form.code).trim().toUpperCase();
+  if (BONUS_RULE_CODES.has(code)) {
+    payload.bonusPoints = numOrNull(form.bonusPoints);
+  }
   if (includeCode) {
-    payload.code = form.code.trim().toUpperCase();
+    payload.code = code;
   }
   return payload;
+}
+
+function pointLabels(code) {
+  if (code === 'ENGLISH_COURSE') {
+    return { base: '預設點數', baseHelp: '每門課程核准時給點', bonus: null, bonusHelp: '' };
+  }
+  if (code === 'ENGLISH_COMPETITION') {
+    return { base: '預設點數', baseHelp: '未得獎時給點', bonus: '加碼點數', bonusHelp: '得獎時給點' };
+  }
+  if (code === 'EXTERNAL_EXAM') {
+    return { base: '預設點數', baseHelp: '未達門檻時給點', bonus: '加碼點數', bonusHelp: '達門檻時給點' };
+  }
+  return { base: '預設點數', baseHelp: '', bonus: null, bonusHelp: '' };
 }
 
 export default function EnglishLearningRuleEditModal({
@@ -89,6 +110,14 @@ export default function EnglishLearningRuleEditModal({
       setError('預設點數須為 0 以上的數字');
       return;
     }
+    const ruleCode = (isCreate ? form.code : (rule?.code || form.code)).trim().toUpperCase();
+    if (BONUS_RULE_CODES.has(ruleCode)) {
+      const bonus = form.bonusPoints;
+      if (bonus !== '' && bonus != null && (!Number.isFinite(Number(bonus)) || Number(bonus) < 0)) {
+        setError('加碼點數須為 0 以上的數字');
+        return;
+      }
+    }
     setSaving(true);
     setError('');
     try {
@@ -106,6 +135,8 @@ export default function EnglishLearningRuleEditModal({
       setSaving(false);
     }
   };
+
+  const labels = pointLabels(form.code);
 
   return (
     <Modal show={show} onHide={onHide} size="lg">
@@ -153,7 +184,7 @@ export default function EnglishLearningRuleEditModal({
           <div className="row g-3">
             <div className="col-md-4">
               <Form.Group>
-                <Form.Label>預設點數 <span className="text-danger">*</span></Form.Label>
+                <Form.Label>{labels.base} <span className="text-danger">*</span></Form.Label>
                 <Form.Control
                   type="number"
                   min={0}
@@ -161,8 +192,25 @@ export default function EnglishLearningRuleEditModal({
                   onChange={(e) => handleChange('basePoints', e.target.value)}
                   required
                 />
+                {labels.baseHelp ? (
+                  <Form.Text className="text-muted">{labels.baseHelp}</Form.Text>
+                ) : null}
               </Form.Group>
             </div>
+            {labels.bonus ? (
+              <div className="col-md-4">
+                <Form.Group>
+                  <Form.Label>{labels.bonus}</Form.Label>
+                  <Form.Control
+                    type="number"
+                    min={0}
+                    value={form.bonusPoints}
+                    onChange={(e) => handleChange('bonusPoints', e.target.value)}
+                  />
+                  <Form.Text className="text-muted">{labels.bonusHelp}</Form.Text>
+                </Form.Group>
+              </div>
+            ) : null}
             <div className="col-md-4">
               <Form.Group>
                 <Form.Label>每週上限</Form.Label>

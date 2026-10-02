@@ -7,6 +7,8 @@ const {
   summarizeAppliedFilters,
   parseOrderedIds,
   applyOrderedIds,
+  buildStatusEmailWhere,
+  registrationSemesterMismatchMessage,
   MAX_SORT_LEVELS,
 } = require('../utils/englishTestRegistrationListFilters');
 
@@ -272,6 +274,49 @@ describe('englishTestRegistrationListFilters', () => {
 
     it('includes orderedIdsCount when provided', () => {
       expect(summarizeAppliedFilters({ orderedIds: '1,2,3' }).orderedIdsCount).toBe(3);
+    });
+  });
+
+  describe('buildStatusEmailWhere', () => {
+    it('scopes success emails to one semester', () => {
+      expect(buildStatusEmailWhere({ status: 'success', semester: '115-1' })).toEqual({
+        status: 'success',
+        semester: '115-1',
+      });
+    });
+
+    it('scopes group promo to LRSW in that semester', () => {
+      expect(buildStatusEmailWhere({ status: 'group_promo', semester: '115-1' })).toEqual({
+        status: 'success',
+        examType: 'LRSW',
+        semester: '115-1',
+      });
+    });
+
+    it('rejects missing semester so other terms are not emailed', () => {
+      expect(() => buildStatusEmailWhere({ status: 'success', semester: '' })).toThrow(/單一學期/);
+      expect(() => buildStatusEmailWhere({ status: 'success', semester: 'all' })).toThrow(/單一學期/);
+    });
+
+    it('rejects a batch when any selected row is another semester', () => {
+      const message = registrationSemesterMismatchMessage(
+        [
+          { id: 1, semester: '115-1' },
+          { id: 2, semester: '114-2' },
+        ],
+        [1, 2],
+        '115-1'
+      );
+      expect(message).toContain('115-1');
+      expect(message).toContain('取消');
+    });
+
+    it('accepts a batch when every row matches the semester', () => {
+      expect(registrationSemesterMismatchMessage(
+        [{ id: 1, semester: '115-1' }],
+        ['1'],
+        '115-1'
+      )).toBeNull();
     });
   });
 });

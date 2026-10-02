@@ -39,6 +39,38 @@ describe('getAdminRoleHomePath', () => {
   });
 });
 
+function staffToken(staffLevel) {
+  const payload = Buffer.from(JSON.stringify({
+    role: 'office_staff',
+    staffLevel,
+  })).toString('base64url');
+  return `e30.${payload}.sig`;
+}
+
+describe('class credit allocation nav', () => {
+  function visibleIds(token) {
+    const profile = buildAccessProfile(token, 'office_staff');
+    const ctx = buildNavContextFromAccessProfile(profile);
+    const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, ctx);
+    const section = visible.find((item) => item.id === 'classes');
+    return (section?.children || []).map((child) => child.id);
+  }
+
+  it('shows allocation to deputy manager and event lead, not class overview', () => {
+    expect(visibleIds(staffToken('deputy_manager'))).toContain('class-credit-allocation');
+    expect(visibleIds(staffToken('deputy_manager'))).not.toContain('classes-overview');
+    expect(visibleIds(staffToken('event_lead'))).toContain('class-credit-allocation');
+    expect(canAccessAdminRoute(
+      buildAccessProfile(staffToken('event_lead'), 'office_staff'),
+      '/admin/classes/credit-allocation',
+    )).toBe(true);
+    expect(canAccessAdminRoute(
+      buildAccessProfile(staffToken('bestep_lead'), 'office_staff'),
+      '/admin/classes/credit-allocation',
+    )).toBe(false);
+  });
+});
+
 describe('getAdminRoleHomeLabel', () => {
   it('matches role-specific copy', () => {
     expect(getAdminRoleHomeLabel({ role: 'leader' })).toBe('返回我的帶班場次');

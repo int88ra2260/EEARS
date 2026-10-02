@@ -78,7 +78,7 @@ export const ADMIN_ROUTE_ACCESS = [
   {
     pattern: '/admin/classes/credit-allocation',
     label: '活動時數分配',
-    anyPermissions: [P.CAN_MANAGE_CLASSES],
+    anyPermissions: [P.CAN_MANAGE_CLASS_CREDIT, P.CAN_MANAGE_CLASSES],
   },
   {
     pattern: '/admin/classes/:classId',

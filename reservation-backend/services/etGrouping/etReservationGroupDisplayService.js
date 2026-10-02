@@ -43,6 +43,7 @@ function mapReservationRow(reservation, group) {
     checkinStatus: reservation.checkinStatus || '未簽到',
     checkinTime: reservation.checkinTime,
     countsTowardPassport: !!reservation.countsTowardPassport,
+    excludeFromClassCredit: !!reservation.excludeFromClassCredit,
     passportPointsStatus: reservation.passportPointsStatus || null,
     passportSubmissionId: reservation.passportSubmissionId || null,
     group,

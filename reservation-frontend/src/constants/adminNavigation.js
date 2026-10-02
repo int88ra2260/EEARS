@@ -50,6 +50,22 @@ export function isNavItemVisible(visibility, c) {
       return true;
     case 'canViewReport':
       return c.canViewReport;
+    case 'classSection': {
+      const set = c?.accessProfile?.permissionSet;
+      const canClass =
+        !!(set && set.has && (
+          set.has(P.CAN_VIEW_CLASSES)
+          || set.has(P.CAN_MANAGE_CLASSES)
+          || set.has(P.CAN_MANAGE_CLASS_CREDIT)
+        ));
+      return c.hasAdminRights || c.isTeacher || canClass;
+    }
+    case 'classCredit': {
+      const set = c?.accessProfile?.permissionSet;
+      return !!(set && set.has && (
+        set.has(P.CAN_MANAGE_CLASS_CREDIT) || set.has(P.CAN_MANAGE_CLASSES)
+      ));
+    }
     case 'classes': {
       const set = c?.accessProfile?.permissionSet;
       const canClass =
@@ -330,7 +346,7 @@ export const ADMIN_NAV_SECTIONS = [
   {
     id: 'classes',
     label: '班級與參與',
-    visibility: 'classes',
+    visibility: 'classSection',
     expandable: true,
     children: [
       {
@@ -347,7 +363,7 @@ export const ADMIN_NAV_SECTIONS = [
         label: '活動時數分配',
         path: '/admin/classes/credit-allocation',
         matchPrefixes: ['/admin/classes/credit-allocation'],
-        visibility: 'perm:can_manage_classes',
+        visibility: 'classCredit',
         pageTitle: '活動時數分配',
         breadcrumbLabel: '活動時數分配',
         searchTerms: ['課堂加分', '時數', '計點'],

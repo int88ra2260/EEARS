@@ -54,6 +54,7 @@ export default function ToastProvider({ children }) {
           confirmText: config?.confirmText || '確定',
           cancelText: config?.cancelText || '取消',
           variant: config?.variant || 'danger',
+          detail: config?.detail || null,
         },
       });
     });
@@ -159,6 +160,7 @@ export default function ToastProvider({ children }) {
             confirmText={confirmState.config?.confirmText}
             cancelText={confirmState.config?.cancelText}
             variant={confirmState.config?.variant}
+            detail={confirmState.config?.detail}
             onCancel={handleConfirmCancel}
             onConfirm={handleConfirmAccept}
           />

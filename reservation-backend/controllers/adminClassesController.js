@@ -1010,6 +1010,7 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
       e.eventType,
       CASE WHEN e.date >= '${ENGLISH_TABLE_45_MIN_FROM}' THEN 1 ELSE 0 END AS et45,
       COUNT(r.id) as count,
+      SUM(CASE WHEN COALESCE(r.exclude_from_class_credit, 0) = 0 THEN 1 ELSE 0 END) as creditCount,
       MAX(r.checkinTime) as lastAttend
     FROM Reservations r
     INNER JOIN Events e ON r.eventId = e.id
@@ -1068,7 +1069,8 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
   });
 
   attendedStats.forEach(stat => {
-    const count = parseInt(stat.count);
+    const count = parseInt(stat.count, 10);
+    const creditCount = stat.creditCount == null ? count : parseInt(stat.creditCount, 10);
     attendedCountTotal += count;
     
     const eventType = stat.eventType;
@@ -1085,9 +1087,9 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
       attendedByType.InternationalForum = count;
     }
 
-    // 計算總時數
+    // 到場不計點仍算出席，但不計入參考時數
     const hoursPerEvent = getEventTypeHours(eventType, stat.et45);
-    totalHours += count * hoursPerEvent;
+    totalHours += creditCount * hoursPerEvent;
 
     if (stat.lastAttend && (!lastAttendAt || stat.lastAttend > lastAttendAt)) {
       lastAttendAt = stat.lastAttend;

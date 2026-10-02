@@ -5,6 +5,9 @@ import {
   fetchEnglishTestMailSends,
   saveEnglishTestMailTemplate,
 } from '../../services/englishTestApi';
+import { getEnglishTestCatalogMailPreview } from '../../utils/englishTestEmailPreview';
+import EnglishTestOutgoingMailPreview from './EnglishTestOutgoingMailPreview';
+import EnglishTestMailBinsPanel from './EnglishTestMailBinsPanel';
 
 const PLACEHOLDER_HINT = '{{studentNameZh}}、{{studentId}}、{{name}}、{{email}}、{{examTypeZh}}、{{statusZh}}、{{rejectionReasonsText}}、{{registrationShortLink}}';
 
@@ -44,6 +47,8 @@ export default function EnglishTestManualMailModal({
   const [studentQuery, setStudentQuery] = useState('');
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [logError, setLogError] = useState('');
+  const [confirmingSend, setConfirmingSend] = useState(false);
+  const [queuedBin, setQueuedBin] = useState(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -70,6 +75,14 @@ export default function EnglishTestManualMailModal({
       cancelled = true;
     };
   }, [open, token]);
+
+  useEffect(() => {
+    if (!open) setQueuedBin(null);
+  }, [open]);
+
+  useEffect(() => {
+    setConfirmingSend(false);
+  }, [open, panel, source, templateKey, customTemplateId, subject, body, selectedIds.length, queuedBin]);
 
   useEffect(() => {
     if (!open || panel !== 'history') return undefined;
@@ -106,8 +119,41 @@ export default function EnglishTestManualMailModal({
     return data;
   };
 
+  const selectedCustom = custom.find((item) => String(item.id) === String(customTemplateId));
+  const selectedCatalog = catalog.find((item) => item.key === templateKey);
+  const catalogPreview = source === 'catalog' ? getEnglishTestCatalogMailPreview(templateKey) : null;
+  const recipientIds = queuedBin ? queuedBin.ids : selectedIds;
+  const manualPreview = {
+    audience: queuedBin
+      ? [
+        `寄件區「${queuedBin.name}」${recipientIds.length} 人`,
+        '只寄給這個寄件區裡的人，不會改報名狀態',
+        '不會寄給不在此區的人',
+      ]
+      : [
+        `已勾選 ${selectedIds.length} 人`,
+        '只寄給這些勾選的報名，不會改報名狀態',
+        '不會寄給未勾選的人',
+      ],
+    subject: source === 'adhoc'
+      ? subject
+      : source === 'custom'
+        ? (selectedCustom?.subjectTemplate || '（尚未選擇範本）')
+        : (catalogPreview?.subject || selectedCatalog?.name || '（尚未選擇範本）'),
+    body: source === 'adhoc'
+      ? body
+      : source === 'custom'
+        ? (selectedCustom?.bodyTemplate || '')
+        : (catalogPreview?.body || selectedCatalog?.description || '這封信使用郵件設定中的範本，個人欄位會依每位學生帶入。'),
+    personalNote: catalogPreview?.personalNote || '{{ }} 變數會在寄出時改成該生的資料。',
+  };
+  const manualPreviewReady = recipientIds.length > 0
+    && (source !== 'adhoc' || (String(subject).trim() && String(body).trim()))
+    && (source !== 'custom' || Boolean(selectedCustom))
+    && (source !== 'catalog' || Boolean(templateKey));
+
   const handleSend = async () => {
-    const payload = { ids: selectedIds, source };
+    const payload = { ids: recipientIds, source };
     if (source === 'catalog') payload.templateKey = templateKey;
     if (source === 'custom') payload.customTemplateId = Number(customTemplateId);
     if (source === 'adhoc') {
@@ -171,8 +217,20 @@ export default function EnglishTestManualMailModal({
           <div className="modal-body">
             <ul className="nav nav-tabs mb-3">
               <li className="nav-item">
-                <button type="button" className={`nav-link ${panel === 'send' ? 'active' : ''}`} onClick={() => onPanelChange('send')}>
+                <button
+                  type="button"
+                  className={`nav-link ${panel === 'send' ? 'active' : ''}`}
+                  onClick={() => {
+                    setQueuedBin(null);
+                    onPanelChange('send');
+                  }}
+                >
                   寄給所選
+                </button>
+              </li>
+              <li className="nav-item">
+                <button type="button" className={`nav-link ${panel === 'bins' ? 'active' : ''}`} onClick={() => onPanelChange('bins')}>
+                  寄件區
                 </button>
               </li>
               <li className="nav-item">
@@ -189,10 +247,16 @@ export default function EnglishTestManualMailModal({
 
             {optionsError && <div className="alert alert-danger py-2">{optionsError}</div>}
 
-            {panel === 'send' && (
+            {panel === 'send' && confirmingSend && (
+              <EnglishTestOutgoingMailPreview preview={manualPreview} />
+            )}
+
+            {panel === 'send' && !confirmingSend && (
               <>
                 <p className="small text-muted">
-                  已勾選 {selectedIds.length} 人。原本依狀態一鍵發信仍可使用。此處只寄給勾選的人，且不更改報名狀態。
+                  {queuedBin
+                    ? `將寄給寄件區「${queuedBin.name}」的 ${recipientIds.length} 人。按下寄信後會先顯示收件對象與信件內容，確認後才寄出。`
+                    : `已勾選 ${selectedIds.length} 人。按下寄信後會先顯示收件對象與信件內容，確認後才寄出。此處只寄給勾選的人，且不更改報名狀態。`}
                 </p>
                 <div className="mb-3">
                   <label className="form-label">信件來源</label>
@@ -244,6 +308,17 @@ export default function EnglishTestManualMailModal({
                 )}
                 <p className="small text-muted mb-0">可用變數：{PLACEHOLDER_HINT}</p>
               </>
+            )}
+
+            {panel === 'bins' && (
+              <EnglishTestMailBinsPanel
+                token={token}
+                selectedIds={selectedIds}
+                onUseBin={(bin) => {
+                  setQueuedBin(bin);
+                  onPanelChange('send');
+                }}
+              />
             )}
 
             {panel === 'templates' && (
@@ -344,14 +419,30 @@ export default function EnglishTestManualMailModal({
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={sending}>關閉</button>
+            {panel === 'send' && confirmingSend && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                disabled={sending}
+                onClick={() => setConfirmingSend(false)}
+              >
+                返回修改
+              </button>
+            )}
             {panel === 'send' && (
               <button
                 type="button"
                 className="btn btn-primary"
-                disabled={sending || selectedIds.length === 0 || (source === 'custom' && !customTemplateId) || (source === 'catalog' && !templateKey)}
-                onClick={handleSend}
+                disabled={sending || !manualPreviewReady}
+                onClick={() => {
+                  if (!confirmingSend) {
+                    setConfirmingSend(true);
+                    return;
+                  }
+                  handleSend();
+                }}
               >
-                {sending ? '寄送中…' : `寄給所選 ${selectedIds.length} 人`}
+                {sending ? '寄送中…' : confirmingSend ? '確認並寄出' : `預覽並寄給 ${recipientIds.length} 人`}
               </button>
             )}
           </div>

@@ -68,8 +68,17 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
   const settings = useRegistrationSetting({ token, showToast });
   const analytics = useEnglishTestAnalytics({ token, mainTab });
   const exportOps = useEnglishTestExport({ token, showToast });
-  const bulk = useEnglishTestBulkActions({ token, showToast, loadRegistrations: list.loadRegistrations });
-  const emails = useEnglishTestEmails({ token, openConfirm, showToast });
+  const bulk = useEnglishTestBulkActions({
+    token,
+    showToast,
+    loadRegistrations: list.loadRegistrations,
+    semester: list.advancedFilters.semester,
+  });
+  const emails = useEnglishTestEmails({
+    token,
+    showToast,
+    semester: list.advancedFilters.semester,
+  });
   const manualMail = useEnglishTestManualMail({ token, showToast });
 
   const detail = useEnglishTestDetail({
@@ -174,6 +183,11 @@ export function useEnglishTestManagement({ token, canViewEnglishTests }) {
   useEffect(() => {
     loadRegistrations();
   }, [loadRegistrations]);
+
+  // 學期、狀態或搜尋一變就清掉勾選，避免沿用上一學期的報名 ID 去批次改狀態、寄信
+  useEffect(() => {
+    bulk.setSelectedRows([]);
+  }, [list.advancedFilters.semester, list.statusFilter, list.searchTerm, bulk.setSelectedRows]);
 
   // 將主 Tab／狀態篩選寫入 URL，方便分享與重新整理還原
   useEffect(() => {

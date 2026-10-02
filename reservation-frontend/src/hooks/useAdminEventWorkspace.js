@@ -23,6 +23,7 @@ import {
 import { downloadBlob, exportEventReservations } from '../services/eventService';
 import { exportEventEtGrouping, downloadEtBlob } from '../services/etGroupingApi';
 import { isEnglishTableEventType } from '../utils/eventCapacityFields';
+import { sortAdminReservations } from '../utils/adminReservationListSort';
 
 export default function useAdminEventWorkspace({ token, userRole, accessProfile: ctxProfile, eventId, activeTab = 'reservations' }) {
   const { confirm } = useConfirm();
@@ -140,14 +141,18 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       if (!ok) return;
     }
 
-    const countsTowardPassport = !!options.countsTowardPassport;
+    const excludeFromClassCredit = !!options.excludeFromClassCredit;
+    const countsTowardPassport = !!options.countsTowardPassport && !excludeFromClassCredit;
     setCheckinLoading((prev) => ({ ...prev, [reservationId]: true }));
     try {
       const data = await checkinEventReservation(token, currentEventId, reservationId, {
         countsTowardPassport,
+        excludeFromClassCredit,
       });
       const grant = data.passportGrant;
-      if (grant?.status === 'granted') {
+      if (data.excludeFromClassCredit) {
+        showSuccessMessage(data.message || '已登記到場，不計課堂加分、不記未到');
+      } else if (grant?.status === 'granted') {
         showSuccessMessage(grant.message || '簽到成功，已累計護照點數');
       } else if (grant?.status === 'pending') {
         showSuccessMessage(grant.message || '簽到成功；護照點數已暫存待補發');
@@ -169,6 +174,7 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
                   checkinStatus: '已簽到',
                   checkinTime: data.checkinTime,
                   countsTowardPassport: !!data.countsTowardPassport,
+                  excludeFromClassCredit: !!data.excludeFromClassCredit,
                   passportPointsStatus: data.passportPointsStatus || null,
                 }
               : r
@@ -427,35 +433,10 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     }
   }, [reservationSortField]);
 
-  const sortedReservationData = useMemo(() => {
-    return [...reservationData].sort((a, b) => {
-      let aVal;
-      let bVal;
-      if (reservationSortField === 'studentId') {
-        aVal = a.studentId;
-        bVal = b.studentId;
-      } else if (reservationSortField === 'name') {
-        aVal = a.studentName || a.name;
-        bVal = b.studentName || b.name;
-      } else {
-        aVal = a[reservationSortField];
-        bVal = b[reservationSortField];
-      }
-      if (reservationSortField === 'checkinStatus') {
-        const statusOrder = { 已簽到: 1, 未簽到: 2, 已登記違規: 3 };
-        aVal = statusOrder[aVal] || 4;
-        bVal = statusOrder[bVal] || 4;
-      }
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-      if (reservationSortOrder === 'asc') {
-        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-      }
-      return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
-    });
-  }, [reservationData, reservationSortField, reservationSortOrder]);
+  const sortedReservationData = useMemo(
+    () => sortAdminReservations(reservationData, reservationSortField, reservationSortOrder),
+    [reservationData, reservationSortField, reservationSortOrder]
+  );
 
   const filteredReservationData = useMemo(() => {
     return sortedReservationData.filter((reservation) => {

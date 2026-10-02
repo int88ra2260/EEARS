@@ -4,6 +4,9 @@ import useConfirm from '../ui/useConfirm';
 import useToast from '../ui/useToast';
 import { rejectionReasonOptions } from '../../constants/englishTestRejectionReasons';
 import { getEnglishTestStatusEmailConfirm } from '../../utils/englishTestStatusEmailConfirm';
+import { buildSelectedMailPreview } from '../../utils/englishTestEmailPreview';
+import EnglishTestOutgoingMailPreview from './EnglishTestOutgoingMailPreview';
+import { isValidSemester } from '../../utils/semesterUtils';
 
 export default function BulkActionToolbar({
   selectedCount,
@@ -13,16 +16,26 @@ export default function BulkActionToolbar({
   onBulkSetSuccess,
   onBulkSetFailed,
   onOpenManualSend,
-  showBulkSetSuccess = false
+  onOpenMailBins,
+  showBulkSetSuccess = false,
+  semester = '',
 }) {
   const { confirm } = useConfirm();
   const toast = useToast();
+  const semesterCode = String(semester || '').trim();
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   const [rejectionModalType, setRejectionModalType] = useState('revision'); // 'revision' 或 'failed'
   const [rejectionReasons, setRejectionReasons] = useState([]);
   const [rejectionOther, setRejectionOther] = useState('');
 
+  const ensureSemester = () => {
+    if (isValidSemester(semesterCode)) return true;
+    toast.warning('請先在篩選條件指定單一學期（例如 115-1），再批次更新，避免改到其他學期並寄出通知信。');
+    return false;
+  };
+
   const handleBulkReject = () => {
+    if (!ensureSemester()) return;
     setRejectionModalType('revision');
     setShowRejectionModal(true);
     setRejectionReasons([]);
@@ -30,6 +43,7 @@ export default function BulkActionToolbar({
   };
 
   const handleBulkSetFailed = () => {
+    if (!ensureSemester()) return;
     setRejectionModalType('failed');
     setShowRejectionModal(true);
     setRejectionReasons([]);
@@ -60,10 +74,26 @@ export default function BulkActionToolbar({
     const otherSnapshot = rejectionOther;
     const typeSnapshot = rejectionModalType;
 
-    confirm(getEnglishTestStatusEmailConfirm({
-      status: typeSnapshot === 'failed' ? 'failed' : 'revision',
-      count: selectedCount,
-    })).then((ok) => {
+    const mailKind = typeSnapshot === 'failed' ? 'failed' : 'revision';
+    confirm({
+      ...getEnglishTestStatusEmailConfirm({
+        status: mailKind,
+        count: selectedCount,
+        semester: semesterCode,
+      }),
+      confirmText: '確認並寄出',
+      detail: (
+        <EnglishTestOutgoingMailPreview
+          preview={buildSelectedMailPreview({
+            kind: mailKind,
+            semester: semesterCode,
+            count: selectedCount,
+            reasons: reasonsSnapshot,
+            reasonOther: otherSnapshot,
+          })}
+        />
+      ),
+    }).then((ok) => {
       if (!ok) return;
       if (typeSnapshot === 'failed') {
         onBulkSetFailed && onBulkSetFailed(reasonsSnapshot, otherSnapshot);
@@ -93,9 +123,10 @@ export default function BulkActionToolbar({
               <button
                 className="btn btn-sm btn-success"
                 onClick={() => {
+                  if (!ensureSemester()) return;
                   confirm({
                     title: '確認批量通過？',
-                    description: `確定要批量通過 ${selectedCount} 筆記錄嗎？`,
+                    description: `確定要批量通過學期 ${semesterCode} 的 ${selectedCount} 筆記錄嗎？`,
                     confirmText: '批量通過',
                     cancelText: '取消',
                     variant: 'primary',
@@ -118,9 +149,10 @@ export default function BulkActionToolbar({
               <button
                 className="btn btn-sm btn-warning"
                 onClick={() => {
+                  if (!ensureSemester()) return;
                   confirm({
                     title: '確認批量設為審核中？',
-                    description: `確定要批量設為「審核中」 ${selectedCount} 筆記錄嗎？`,
+                    description: `確定要將學期 ${semesterCode} 的 ${selectedCount} 筆記錄設為「審核中」嗎？`,
                     confirmText: '更新',
                     cancelText: '取消',
                     variant: 'primary',
@@ -137,9 +169,10 @@ export default function BulkActionToolbar({
                 <button
                   className="btn btn-sm btn-outline-success"
                   onClick={() => {
+                    if (!ensureSemester()) return;
                     confirm({
                       title: '確認批量設為報名成功？',
-                      description: `確定要將選取的 ${selectedCount} 筆「已通過」設為「報名成功」嗎？`,
+                      description: `確定要將學期 ${semesterCode}、選取的 ${selectedCount} 筆「已通過」設為「報名成功」嗎？`,
                       confirmText: '更新',
                       cancelText: '取消',
                       variant: 'warning',
@@ -162,6 +195,16 @@ export default function BulkActionToolbar({
                 <i className="fas fa-ban me-1"></i>
                 批量設為報名失敗
               </button>
+              {onOpenMailBins && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={onOpenMailBins}
+                >
+                  <i className="fas fa-inbox me-1"></i>
+                  放入寄件區
+                </button>
+              )}
               {onOpenManualSend && (
                 <button
                   type="button"
