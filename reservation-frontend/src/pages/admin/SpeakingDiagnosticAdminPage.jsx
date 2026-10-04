@@ -268,9 +268,12 @@ export default function SpeakingDiagnosticAdminPage() {
 
               <div className="sd-admin-scores">
                 <ScorePill label="Completion" value={scores.completionPercent} />
+                <ScorePill label="Pronunciation" value={scores.pronunciationPercent} />
                 <ScorePill label="Fluency" value={scores.fluencyPercent} />
                 <ScorePill label="Pace" value={scores.pacePercent} />
                 <ScorePill label="Pause control" value={scores.pauseControlPercent} />
+                <ScorePill label="Task achievement" value={scores.taskAchievementPercent} />
+                <ScorePill label="Idea development" value={scores.ideaDevelopmentPercent} />
               </div>
 
               <audio className="sd-admin-audio" controls src={mediaUrl(selected.audioUrl)}>
@@ -282,10 +285,16 @@ export default function SpeakingDiagnosticAdminPage() {
                 <div><span>Articulation WPM</span><strong>{formatNumber(selected.features?.articulationRateWpm)}</strong></div>
                 <div><span>Pause count</span><strong>{selected.features?.pauseCount ?? '--'}</strong></div>
                 <div><span>Avg pause</span><strong>{formatNumber((selected.features?.averagePauseDurationMs || 0) / 1000)}s</strong></div>
+                <div><span>Word acoustic</span><strong>{formatDecimal(selected.features?.wordAcousticEvidence?.summary?.averageWordAcousticScore)}</strong></div>
+                <div><span>Low-conf words</span><strong>{selected.features?.wordAcousticEvidence?.summary?.lowConfidenceCount ?? '--'}</strong></div>
+                <div><span>Phones</span><strong>{selected.features?.phonemeEvidence?.summary?.phoneCount ?? '--'}</strong></div>
+                <div><span>Phone confidence</span><strong>{formatDecimal(selected.features?.phonemeEvidence?.summary?.averagePhoneConfidence)}</strong></div>
                 <div><span>Lexical diversity</span><strong>{formatNumber(selected.features?.transcriptEvidence?.lexicalDiversity)}</strong></div>
                 <div><span>Sophistication</span><strong>{formatNumber(selected.features?.transcriptEvidence?.lexicalSophistication)}</strong></div>
                 <div><span>Fillers</span><strong>{selected.features?.transcriptEvidence?.fillerCount ?? 0}</strong></div>
                 <div><span>Repetitions</span><strong>{selected.features?.transcriptEvidence?.repetitionCount ?? 0}</strong></div>
+                <div><span>Task relevance</span><strong>{formatDecimal(selected.features?.constructedResponseEvidence?.taskRelevanceProxy)}</strong></div>
+                <div><span>Idea development</span><strong>{formatDecimal(selected.features?.constructedResponseEvidence?.ideaDevelopmentProxy)}</strong></div>
               </div>
 
               <div className="sd-admin-wordline">

@@ -12,8 +12,41 @@ function clampNumber(value, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
   return Math.min(max, Math.max(min, n));
 }
 
-function normalizeText(value) {
+const NUMBER_WORDS_0_TO_59 = [
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+  'seventeen', 'eighteen', 'nineteen', 'twenty',
+  'twenty one', 'twenty two', 'twenty three', 'twenty four', 'twenty five',
+  'twenty six', 'twenty seven', 'twenty eight', 'twenty nine', 'thirty',
+  'thirty one', 'thirty two', 'thirty three', 'thirty four', 'thirty five',
+  'thirty six', 'thirty seven', 'thirty eight', 'thirty nine', 'forty',
+  'forty one', 'forty two', 'forty three', 'forty four', 'forty five',
+  'forty six', 'forty seven', 'forty eight', 'forty nine', 'fifty',
+  'fifty one', 'fifty two', 'fifty three', 'fifty four', 'fifty five',
+  'fifty six', 'fifty seven', 'fifty eight', 'fifty nine',
+];
+
+function numberToSpeechWords(value) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0 || n >= NUMBER_WORDS_0_TO_59.length) return String(value);
+  return NUMBER_WORDS_0_TO_59[n];
+}
+
+function normalizeSpokenNumbers(value) {
   return String(value || '')
+    .replace(/\b(\d{1,2})[:：](\d{2})\b/g, (_, hour, minute) => {
+      const hourWords = numberToSpeechWords(Number(hour));
+      const minuteNumber = Number(minute);
+      if (minute === '00') return hourWords + ' o clock';
+      if (minuteNumber > 0 && minuteNumber < 10) return hourWords + ' oh ' + numberToSpeechWords(minuteNumber);
+      return hourWords + ' ' + numberToSpeechWords(minuteNumber);
+    })
+    .replace(/\b([0-5]?\d)\b/g, (_, number) => numberToSpeechWords(Number(number)))
+    .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(twenty|thirty|forty|fifty)\b/g, '$1 $2');
+}
+
+function normalizeText(value) {
+  return normalizeSpokenNumbers(value)
     .toLowerCase()
     .replace(/[’']/g, '')
     .replace(/[^a-z0-9\s-]/g, ' ')
@@ -125,11 +158,27 @@ function normalizeExternalAlignment(raw, fallbackDurationMs) {
     };
   }).filter((word) => word.word);
 
+  const normalizedPhones = Array.isArray(parsed.phones) ? parsed.phones.map((phone, index) => {
+    const startMs = roundMs(phone.startMs != null ? phone.startMs : Number(phone.start) * 1000);
+    const endMs = roundMs(phone.endMs != null ? phone.endMs : Number(phone.end) * 1000);
+    return {
+      index: Number.isInteger(phone.index) ? phone.index : index,
+      phone: String(phone.phone || phone.label || '').trim(),
+      wordIndex: Number.isInteger(phone.wordIndex) ? phone.wordIndex : null,
+      word: phone.word ? normalizeText(phone.word) : null,
+      startMs,
+      endMs,
+      durationMs: startMs != null && endMs != null ? Math.max(0, endMs - startMs) : null,
+      confidence: clampNumber(phone.confidence, { min: 0, max: 1 }),
+      source: phone.source || parsed.engine || 'external_forced_alignment',
+    };
+  }).filter((phone) => phone.phone) : [];
+
   return {
     status: parsed.status || 'aligned',
     engine: parsed.engine || 'external_forced_alignment',
     words: normalizedWords,
-    phones: Array.isArray(parsed.phones) ? parsed.phones : [],
+    phones: normalizedPhones,
     metrics: parsed.metrics || buildAlignmentMetrics(normalizedWords, fallbackDurationMs),
     warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
   };

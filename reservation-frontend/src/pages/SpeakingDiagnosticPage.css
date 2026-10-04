@@ -274,6 +274,12 @@
   transform: translateY(1px) scale(0.98);
 }
 
+.speaking-mic-button:disabled,
+.speaking-task-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .speaking-mic-button:focus-visible,
 .speaking-task-option:focus-visible,
 .speaking-submit-row .btn:focus-visible,
