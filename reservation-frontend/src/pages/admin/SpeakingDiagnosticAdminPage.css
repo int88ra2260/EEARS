@@ -23,7 +23,32 @@
 .sd-admin-filter {
   display: flex;
   gap: 0.5rem;
-  min-width: min(100%, 24rem);
+  min-width: min(100%, 34rem);
+}
+
+.sd-admin-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.sd-admin-summary div {
+  border: 1px solid #dfe8f2;
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: #fbfdff;
+}
+
+.sd-admin-summary strong {
+  display: block;
+  color: #224f88;
+  font-size: 1.25rem;
+}
+
+.sd-admin-summary span {
+  color: #697386;
+  font-size: 0.82rem;
 }
 
 .sd-admin-layout {
@@ -107,6 +132,16 @@
 .sd-admin-detail__top p {
   font-size: 1.1rem;
   line-height: 1.55;
+}
+
+.sd-admin-rating-status {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  background: #eef7ff;
+  color: #245f9d;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .sd-admin-big-score {
@@ -220,6 +255,7 @@
   }
 
   .sd-admin-filter,
+  .sd-admin-summary,
   .sd-admin-scores,
   .sd-admin-evidence-table,
   .sd-admin-rating-grid {

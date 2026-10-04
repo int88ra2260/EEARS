@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Alert from 'react-bootstrap/Alert';
 import Spinner from 'react-bootstrap/Spinner';
 import {
+  downloadSpeakingDiagnosticResearchCsv,
   fetchSpeakingDiagnosticAttempts,
+  fetchSpeakingDiagnosticResearchSummary,
   saveSpeakingDiagnosticRating,
 } from '../../services/speakingDiagnosticApi';
 import '../SpeakingDiagnosticPage.css';
@@ -42,6 +44,12 @@ function formatNumber(value) {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
+function formatDecimal(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '--';
+  return n.toFixed(2);
+}
+
 function mediaUrl(url) {
   if (!url) return '';
   if (!url.startsWith('/')) return url;
@@ -65,8 +73,11 @@ export default function SpeakingDiagnosticAdminPage() {
   const [attempts, setAttempts] = useState([]);
   const [selectedUid, setSelectedUid] = useState('');
   const [studentId, setStudentId] = useState('');
+  const [ratingStatus, setRatingStatus] = useState('');
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [rating, setRating] = useState({
@@ -87,8 +98,12 @@ export default function SpeakingDiagnosticAdminPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await fetchSpeakingDiagnosticAttempts(token, { limit: 50, studentId });
+      const [data, summaryData] = await Promise.all([
+        fetchSpeakingDiagnosticAttempts(token, { limit: 100, studentId, ratingStatus }),
+        fetchSpeakingDiagnosticResearchSummary(token, { limit: 1000 }),
+      ]);
       setAttempts(Array.isArray(data) ? data : []);
+      setSummary(summaryData || null);
       setSelectedUid((prev) => (data || []).some((row) => row.attemptUid === prev) ? prev : data?.[0]?.attemptUid || '');
     } catch (err) {
       setAttempts([]);
@@ -96,7 +111,7 @@ export default function SpeakingDiagnosticAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [studentId, token]);
+  }, [studentId, ratingStatus, token]);
 
   useEffect(() => {
     load();
@@ -130,6 +145,28 @@ export default function SpeakingDiagnosticAdminPage() {
     }
   };
 
+  const exportCsv = async () => {
+    setExporting(true);
+    setError('');
+    setMessage('');
+    try {
+      const blob = await downloadSpeakingDiagnosticResearchCsv(token, { ratingStatus });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `speaking-diagnostic-research-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setMessage('已下載研究資料 CSV');
+    } catch (err) {
+      setError(err.message || '下載失敗');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const scores = selected?.presentationScores || selected?.automatedScores?.presentationScores || {};
   const wordResults = selected?.wordResults || selected?.features?.wordResults || [];
 
@@ -147,11 +184,36 @@ export default function SpeakingDiagnosticAdminPage() {
             onChange={(event) => setStudentId(event.target.value)}
             placeholder="依學號篩選"
           />
+          <select
+            className="form-select"
+            value={ratingStatus}
+            onChange={(event) => setRatingStatus(event.target.value)}
+            aria-label="評分狀態"
+          >
+            <option value="">全部評分狀態</option>
+            <option value="unrated">待評</option>
+            <option value="single_rated">已單評</option>
+            <option value="double_rated">已雙評</option>
+          </select>
           <button className="btn btn-outline-primary" type="button" onClick={load} disabled={loading}>
             查詢
           </button>
+          <button className="btn btn-outline-success" type="button" onClick={exportCsv} disabled={exporting}>
+            {exporting ? '匯出中...' : '匯出 CSV'}
+          </button>
         </div>
       </div>
+
+      {summary ? (
+        <section className="sd-admin-summary">
+          <div><strong>{summary.sample?.attempts ?? 0}</strong><span>attempts</span></div>
+          <div><strong>{summary.sample?.students ?? 0}</strong><span>students</span></div>
+          <div><strong>{summary.sample?.ratingStatusCounts?.unrated ?? 0}</strong><span>待評</span></div>
+          <div><strong>{summary.sample?.ratingStatusCounts?.double_rated ?? 0}</strong><span>已雙評</span></div>
+          <div><strong>{formatDecimal(summary.reliability?.byField?.fluency?.adjacentAgreement)}</strong><span>fluency adjacent</span></div>
+          <div><strong>{formatDecimal(summary.featureCorrelations?.fluencyPercent?.pearsonR)}</strong><span>feature-human r</span></div>
+        </section>
+      ) : null}
 
       {error ? <Alert variant="danger">{error}</Alert> : null}
       {message ? <Alert variant="success">{message}</Alert> : null}
@@ -177,7 +239,7 @@ export default function SpeakingDiagnosticAdminPage() {
                 <span className="sd-admin-attempt__score">{formatPercent(attemptScores.overallPercent)}</span>
                 <span>
                   <strong>{attempt.task?.title || 'Untitled task'}</strong>
-                  <small>{attempt.studentId || 'anonymous'} · {formatDate(attempt.submittedAt)}</small>
+                  <small>{attempt.studentId || 'anonymous'} · {formatDate(attempt.submittedAt)} · {attempt.ratingCount || 0} rating(s)</small>
                 </span>
               </button>
             );
@@ -194,6 +256,9 @@ export default function SpeakingDiagnosticAdminPage() {
                   <div className="sd-admin-kicker">{selected.task?.level} · {selected.task?.taskType}</div>
                   <h2>{selected.task?.title}</h2>
                   <p>{selected.task?.targetText}</p>
+                  <div className="sd-admin-rating-status">
+                    {selected.ratingStatus === 'double_rated' ? '已雙評' : selected.ratingStatus === 'single_rated' ? '已單評，建議補第二位老師' : '待老師評分'}
+                  </div>
                 </div>
                 <div className="sd-admin-big-score">
                   <strong>{formatPercent(scores.overallPercent)}</strong>
@@ -217,6 +282,10 @@ export default function SpeakingDiagnosticAdminPage() {
                 <div><span>Articulation WPM</span><strong>{formatNumber(selected.features?.articulationRateWpm)}</strong></div>
                 <div><span>Pause count</span><strong>{selected.features?.pauseCount ?? '--'}</strong></div>
                 <div><span>Avg pause</span><strong>{formatNumber((selected.features?.averagePauseDurationMs || 0) / 1000)}s</strong></div>
+                <div><span>Lexical diversity</span><strong>{formatNumber(selected.features?.transcriptEvidence?.lexicalDiversity)}</strong></div>
+                <div><span>Sophistication</span><strong>{formatNumber(selected.features?.transcriptEvidence?.lexicalSophistication)}</strong></div>
+                <div><span>Fillers</span><strong>{selected.features?.transcriptEvidence?.fillerCount ?? 0}</strong></div>
+                <div><span>Repetitions</span><strong>{selected.features?.transcriptEvidence?.repetitionCount ?? 0}</strong></div>
               </div>
 
               <div className="sd-admin-wordline">

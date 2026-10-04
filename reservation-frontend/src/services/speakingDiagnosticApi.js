@@ -2,6 +2,7 @@ import { fetchClient } from '../utils/fetchClient';
 
 const TASKS_URL = '/api/speaking-diagnostic/tasks';
 const ATTEMPTS_URL = '/api/speaking-diagnostic/attempts';
+const ADAPTIVE_SESSIONS_URL = '/api/speaking-diagnostic/adaptive-sessions';
 const ADMIN_ATTEMPTS_URL = '/api/admin/speaking-diagnostic/attempts';
 
 async function parseEnvelope(res, fallbackMessage) {
@@ -27,10 +28,47 @@ export async function fetchSpeakingTasks(params = {}, options = {}) {
   return parseEnvelope(res, '載入口說題目失敗');
 }
 
+export async function fetchNextSpeakingTask(params = {}, options = {}) {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') qs.set(key, String(value));
+  });
+  const query = qs.toString();
+  const res = await fetchClient(`/api/speaking-diagnostic/next-task${query ? `?${query}` : ''}`, {
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '取得下一題推薦失敗');
+}
+
+export async function createSpeakingAdaptiveSession(payload = {}, options = {}) {
+  const res = await fetchClient(ADAPTIVE_SESSIONS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '建立適應性口說測驗失敗');
+}
+
+export async function fetchSpeakingAdaptiveSession(sessionUid, params = {}, options = {}) {
+  const res = await fetchClient(`${ADAPTIVE_SESSIONS_URL}/${encodeURIComponent(sessionUid)}${buildQuery(params)}`, {
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '載入適應性口說測驗失敗');
+}
+
+export async function fetchSpeakingAdaptiveNextTask(sessionUid, options = {}) {
+  const res = await fetchClient(`${ADAPTIVE_SESSIONS_URL}/${encodeURIComponent(sessionUid)}/next-task`, {
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '取得適應性下一題失敗');
+}
+
 export async function submitSpeakingAttempt(payload) {
   const form = new FormData();
   form.set('taskKey', payload.taskKey);
   form.set('clientSessionId', payload.clientSessionId);
+  if (payload.adaptiveSessionUid) form.set('adaptiveSessionUid', payload.adaptiveSessionUid);
   if (payload.studentId) form.set('studentId', payload.studentId);
   if (payload.durationMs != null) form.set('durationMs', String(payload.durationMs));
   if (payload.transcript) form.set('transcript', payload.transcript);
@@ -63,6 +101,25 @@ export async function fetchSpeakingDiagnosticAttempts(token, params = {}, option
     signal: options.signal,
   });
   return parseEnvelope(res, '載入口說診斷紀錄失敗');
+}
+
+export async function fetchSpeakingDiagnosticResearchSummary(token, params = {}, options = {}) {
+  const res = await fetchClient(`/api/admin/speaking-diagnostic/research-summary${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '載入口說研究摘要失敗');
+}
+
+export async function downloadSpeakingDiagnosticResearchCsv(token, params = {}, options = {}) {
+  const res = await fetchClient(`/api/admin/speaking-diagnostic/research-export.csv${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  if (!res.ok) {
+    await parseEnvelope(res, '下載口說研究資料失敗');
+  }
+  return res.blob();
 }
 
 export async function saveSpeakingDiagnosticRating(token, attemptUid, rating, options = {}) {

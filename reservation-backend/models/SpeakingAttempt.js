@@ -9,6 +9,7 @@ const SpeakingAttempt = sequelize.define('SpeakingAttempt', {
   taskId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false, field: 'task_id' },
   studentId: { type: DataTypes.STRING(20), allowNull: true, field: 'student_id' },
   clientSessionId: { type: DataTypes.STRING(64), allowNull: false, field: 'client_session_id' },
+  adaptiveSessionUid: { type: DataTypes.STRING(64), allowNull: true, field: 'adaptive_session_uid' },
   submittedAt: { type: DataTypes.DATE, allowNull: false, field: 'submitted_at' },
   audioPath: { type: DataTypes.STRING(255), allowNull: false, field: 'audio_path' },
   audioMimeType: { type: DataTypes.STRING(80), allowNull: true, field: 'audio_mime_type' },

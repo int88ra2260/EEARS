@@ -95,6 +95,7 @@ const LearningTraceEvent = require('./LearningTraceEvent');
 const SpeakingTask = require('./SpeakingTask');
 const SpeakingAttempt = require('./SpeakingAttempt');
 const SpeakingHumanRating = require('./SpeakingHumanRating');
+const SpeakingAdaptiveSession = require('./SpeakingAdaptiveSession');
 const LjStudentEvent = require('./LjStudentEvent');
 const LjAnalyticStudent = require('./LjAnalyticStudent');
 const LjAnalyticExam = require('./LjAnalyticExam');
@@ -131,6 +132,8 @@ SpeakingTask.hasMany(SpeakingAttempt, { foreignKey: 'taskId', as: 'attempts', on
 SpeakingAttempt.belongsTo(SpeakingTask, { foreignKey: 'taskId', as: 'task' });
 SpeakingAttempt.hasMany(SpeakingHumanRating, { foreignKey: 'attemptId', as: 'humanRatings', onDelete: 'CASCADE' });
 SpeakingHumanRating.belongsTo(SpeakingAttempt, { foreignKey: 'attemptId', as: 'attempt' });
+SpeakingAdaptiveSession.hasMany(SpeakingAttempt, { foreignKey: 'adaptiveSessionUid', sourceKey: 'sessionUid', as: 'attempts' });
+SpeakingAttempt.belongsTo(SpeakingAdaptiveSession, { foreignKey: 'adaptiveSessionUid', targetKey: 'sessionUid', as: 'adaptiveSession' });
 
 EnglishLearningPassport.hasMany(EnglishLearningSubmission, {
   foreignKey: 'passportId',

@@ -54,7 +54,8 @@
     "weekly:import-draft": "node scripts/import-weekly-draft.js",
     "english-test:check-semester-null": "node scripts/check-english-test-registration-semester-null.js",
     "english-test:populate-semester": "node scripts/populate-semester-for-registrations.js",
-    "speaking:diagnostic:migrate": "node scripts/run-speaking-diagnostic-migration.js"
+    "speaking:diagnostic:migrate": "node scripts/run-speaking-diagnostic-migration.js",
+    "speaking:align:mfa:self-test": "node scripts/run-mfa-alignment.js --self-test"
   },
   "keywords": [],
   "author": "",
