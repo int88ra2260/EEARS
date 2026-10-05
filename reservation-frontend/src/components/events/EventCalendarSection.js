@@ -11,6 +11,7 @@ import { getEventAbbreviation } from '../../constants/eventTypes';
 import { getEventLocationDisplay } from '../../utils/eventLocation';
 import StatusBadge from '../ui/StatusBadge';
 import EventDeadlineHint from './EventDeadlineHint';
+import EnglishTableTopicPanel from './EnglishTableTopicPanel';
 import useToast from '../ui/useToast';
 import { isEnglishClubEventType, isEnglishTableEventType } from '../../utils/eventCapacityFields';
 import './eventHoverCard.css';
@@ -198,6 +199,11 @@ export default forwardRef(function EventCalendarSection({
                   </StatusBadge>
                 </div>
               )}
+              <EnglishTableTopicPanel
+                date={evt.date}
+                eventType={evt.eventType}
+                variant="compact"
+              />
               <div>
                 {t('home.eventHoverLocationLabel')} {getEventLocationDisplay(evt)}
               </div>
@@ -305,6 +311,11 @@ export default forwardRef(function EventCalendarSection({
           <div className="event-hover-card__time">
             {hoverPreview.evt.date} {hoverPreview.evt.startTime} – {hoverPreview.evt.endTime}
           </div>
+          <EnglishTableTopicPanel
+            date={hoverPreview.evt.date}
+            eventType={hoverPreview.evt.eventType}
+            variant="compact"
+          />
           {hoverPreview.locationLine && (
             <div className="event-hover-card__location">
               <span className="event-hover-card__location-label">{t('home.eventHoverLocationLabel')}</span>

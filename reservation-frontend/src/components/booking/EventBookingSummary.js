@@ -8,6 +8,7 @@ import { calculateReservationTime } from '../../utils/reservationTime';
 import { getEventLocationDisplay } from '../../utils/eventLocation';
 import { useLanguage } from '../../context/LanguageContext';
 import EventDeadlineHint from '../events/EventDeadlineHint';
+import EnglishTableTopicPanel from '../events/EnglishTableTopicPanel';
 import StatusBadge from '../ui/StatusBadge';
 import {
   DEFAULT_EVENT_TYPE_CODE,
@@ -115,6 +116,12 @@ export default function EventBookingSummary({
           )}
         </div>
       </div>
+
+      <EnglishTableTopicPanel
+        date={event.date}
+        eventType={event.eventType}
+        defaultOpen
+      />
 
       <details className="event-booking-summary__notes-details">
         <summary className="event-booking-summary__notes-summary">

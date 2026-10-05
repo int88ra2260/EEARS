@@ -727,6 +727,7 @@ router.get(
       createdAt: r.timestamp,
       eventId: r.Event ? r.Event.id : null,
       eventName: r.Event ? r.Event.name : '',
+      eventType: r.Event ? r.Event.eventType : '',
       date: r.Event ? r.Event.date : '',
       startTime: r.Event ? r.Event.startTime : '',
       endTime: r.Event ? r.Event.endTime : '',

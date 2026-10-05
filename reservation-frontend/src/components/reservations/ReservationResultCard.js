@@ -9,6 +9,7 @@ import { canCancelReservation } from '../../hooks/useReservationLookup';
 import { RESERVATION_CUTOFF_HOURS } from '../../constants/reservationRules';
 import StatusBadge from '../ui/StatusBadge';
 import { formatBookingCode } from '../../utils/bookingCode';
+import EnglishTableTopicPanel from '../events/EnglishTableTopicPanel';
 import './ReservationResultCard.css';
 
 export default function ReservationResultCard({
@@ -59,6 +60,11 @@ export default function ReservationResultCard({
           <span>地點：{record.location || '地點待公告'}</span>
         </div>
         <div className="text-muted small mt-1">{statusHelper}</div>
+        <EnglishTableTopicPanel
+          date={record.date}
+          eventType={record.eventType}
+          defaultOpen={false}
+        />
       </div>
       <div className="reservation-result-card-actions">
         {canCancel ? (

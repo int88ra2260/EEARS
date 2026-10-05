@@ -6,6 +6,7 @@ import { getEventLocationDisplay } from '../../utils/eventLocation';
 import { calculateReservationTime } from '../../utils/reservationTime';
 import { formatBookingCode } from '../../utils/bookingCode';
 import { eventTypeFilterToQueryParam } from '../../utils/eventTypeQuery';
+import EnglishTableTopicPanel from '../events/EnglishTableTopicPanel';
 
 export default function BookingSuccessView({
   event,
@@ -134,6 +135,12 @@ export default function BookingSuccessView({
           <div className="small text-muted mt-1">建立時間：{successAtLabel}</div>
         </div>
       </div>
+
+      <EnglishTableTopicPanel
+        date={safeEvent.date}
+        eventType={safeEvent.eventType}
+        defaultOpen
+      />
 
       <p className="small text-muted mb-0 mt-2">
         預約資訊將寄至 <strong>{emailLabel}</strong>。
