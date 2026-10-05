@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import {
   getEnglishTableTopic,
   listEnglishTableTopicDates,
+  listEnglishTableTopics,
   normalizeEnglishTableTopicDate,
 } from './englishTableTopics1151';
 
@@ -34,6 +35,16 @@ describe('englishTableTopics1151', () => {
     expect(session.topic).toBe('Choosing a First Job');
     expect(session.passageTitle).toMatch(/Salary Is the Top Priority/);
     expect(session.questions).toHaveLength(2);
+  });
+
+  test('lists sessions in date order so the semester catalog can group by week', () => {
+    const sessions = listEnglishTableTopics();
+    expect(sessions).toHaveLength(40);
+    expect(sessions[0].date).toBe('2026-09-21');
+    expect(sessions[sessions.length - 1].date).toBe('2026-12-10');
+    expect(sessions.map((session) => session.week)).toEqual(
+      expect.arrayContaining([3, 4, 5, 6, 9, 10, 11, 12, 13, 14]),
+    );
   });
 
   test('returns null when the date has no English Table topic', () => {

@@ -121,6 +121,7 @@ export default function EventBookingSummary({
         date={event.date}
         eventType={event.eventType}
         defaultOpen
+        showCatalogLink
       />
 
       <details className="event-booking-summary__notes-details">

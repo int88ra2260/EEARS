@@ -542,3 +542,9 @@ export function getEnglishTableTopic(dateInput) {
 export function listEnglishTableTopicDates() {
   return Object.keys(SESSIONS);
 }
+
+export function listEnglishTableTopics() {
+  return Object.entries(SESSIONS)
+    .map(([date, session]) => ({ date, ...session }))
+    .sort((left, right) => left.date.localeCompare(right.date));
+}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Navigate, useNavigate } from 'react-router-dom';
+import { useParams, Navigate, useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import EventList from '../components/EventList';
 import PageHeader from '../components/layout/PageHeader';
@@ -62,7 +62,7 @@ export default function ActivityCategoryPage() {
         title={pageTitle}
         lead={t('page.activityCategoryLead')}
       />
-      <div className="activity-category-cta mb-3">
+      <div className="activity-category-cta mb-3 d-flex flex-wrap gap-2">
         <button
           type="button"
           className="btn btn-outline-primary btn-sm"
@@ -70,6 +70,11 @@ export default function ActivityCategoryPage() {
         >
           {t('page.calendarBookingTitle')} →
         </button>
+        {slug === 'english-table' ? (
+          <Link to="/activities/english-table/topics" className="btn btn-outline-secondary btn-sm">
+            {t('page.etTopicsCta')}
+          </Link>
+        ) : null}
       </div>
       {resolved.phrasebookActivityType ? (
         <ActivityPhrasebookPanel activityType={resolved.phrasebookActivityType} maxItems={3} compact />

@@ -8,6 +8,7 @@ const DEFAULT_DESC_EN = 'National Sun Yat-sen University Center for EMI Excellen
 const PAGE_META = {
   '/': { zh: { title: DEFAULT_TITLE, desc: DEFAULT_DESC }, en: { title: DEFAULT_TITLE_EN, desc: DEFAULT_DESC_EN } },
   '/activities': { zh: { title: '活動總覽 | EEARS', desc: 'English Table、English Club、International Forum、BESTEP 等活動介紹與預約。' }, en: { title: 'Activities | EEARS', desc: 'English Table, English Club, International Forum, BESTEP — intro and reservation.' } },
+  '/activities/english-table/topics': { zh: { title: 'English Table 本學期主題 | EEARS', desc: '115-1 English Table 各週主題與討論題目。' }, en: { title: 'English Table topics | EEARS', desc: '115-1 English Table weekly topics and discussion questions.' } },
   '/announcements': { zh: { title: '最新公告 | EEARS', desc: 'EMI Center 最新公告與活動訊息。' }, en: { title: 'Announcements | EEARS', desc: 'EMI Center announcements and updates.' } },
   '/learning-resources': { zh: { title: '學習資源 | EEARS', desc: '練習遊戲、口說指南與英語學習素材。' }, en: { title: 'Learning Resources | EEARS', desc: 'Practice games, speaking guides, and English learning materials.' } },
   '/course-guide': { zh: { title: '修課說明 | EEARS', desc: '英文畢業標準、修課與認證規定說明。' }, en: { title: 'Course Guide | EEARS', desc: 'Graduation English standards, courses, and certification guide.' } },

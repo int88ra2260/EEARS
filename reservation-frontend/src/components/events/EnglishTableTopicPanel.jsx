@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { getEnglishTableTopic } from '../../data/englishTableTopics1151';
 import { isEnglishTableEventType } from '../../utils/eventCapacityFields';
@@ -17,6 +18,7 @@ export default function EnglishTableTopicPanel({
   eventType,
   variant = 'full',
   defaultOpen = true,
+  showCatalogLink = false,
 }) {
   const { t } = useLanguage();
   const detailsRef = useRef(null);
@@ -67,6 +69,11 @@ export default function EnglishTableTopicPanel({
               <li key={question}>{question}</li>
             ))}
           </ol>
+        ) : null}
+        {showCatalogLink ? (
+          <p className="et-topic__catalog">
+            <Link to="/activities/english-table/topics">{t('booking.etTopicCatalogLink')}</Link>
+          </p>
         ) : null}
       </div>
     </details>

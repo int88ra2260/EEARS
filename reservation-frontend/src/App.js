@@ -37,6 +37,7 @@ const ActivityPhrasebookPage = lazy(() => import('./pages/ActivityPhrasebookPage
 const WeeklyPage = lazy(() => import('./pages/WeeklyPage'));
 const WeeklyPreviewPage = lazy(() => import('./pages/WeeklyPreviewPage'));
 const ActivityDetailPage = lazy(() => import('./pages/ActivityDetailPage'));
+const EnglishTableTopicsPage = lazy(() => import('./pages/EnglishTableTopicsPage'));
 const AnnouncementsPage = lazy(() => import('./pages/AnnouncementsPage'));
 const AnnouncementDetailPage = lazy(() => import('./pages/AnnouncementDetailPage'));
 const MyReservationsPage = lazy(() => import('./pages/MyReservationsPage'));
@@ -455,6 +456,7 @@ function AppContent() {
             <Route path="/activities/games/vocabulary-size" element={<Navigate to="/practice/vocabulary-size" replace />} />
             <Route path="/guides/activity-phrasebook" element={<ActivityPhrasebookPage />} />
             <Route path="/guides/activity-phrasebook/:activityType" element={<ActivityPhrasebookPage />} />
+            <Route path="/activities/english-table/topics" element={<EnglishTableTopicsPage />} />
             <Route path="/activities/:slug" element={<ActivityDetailPage />} />
             <Route path="/my-reservations" element={<MyReservationsPage />} />
             <Route path="/announcements" element={<AnnouncementsPage />} />

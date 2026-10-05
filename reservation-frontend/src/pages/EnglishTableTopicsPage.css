@@ -1,0 +1,83 @@
+.et-topics-page {
+  padding-bottom: 2rem;
+}
+
+.et-topics-week + .et-topics-week {
+  margin-top: 1.5rem;
+}
+
+.et-topics-week h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  color: #1c3d6e;
+  font-size: 1.05rem;
+}
+
+.et-topics-week h2 span,
+.et-topics-day__date span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: #e7f0fb;
+  color: #224f88;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.et-topics-week__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.et-topics-day {
+  min-width: 0;
+  padding: 0.7rem 0.75rem 0.15rem;
+  border: 1px solid #d8e1ec;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.et-topics-day--today {
+  border-color: #2a5d9f;
+}
+
+.et-topics-day--past {
+  background: #f8fafc;
+}
+
+.et-topics-day__date {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.35rem;
+  color: #4b5563;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.et-topics-day .et-topic {
+  margin-top: 0;
+  border: 0;
+  background: transparent;
+}
+
+.et-topics-day .et-topic__summary {
+  padding: 0 0 0.65rem;
+}
+
+.et-topics-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 767px) {
+  .et-topics-week__grid {
+    grid-template-columns: 1fr;
+  }
+}

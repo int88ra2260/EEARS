@@ -79,6 +79,16 @@
   margin-top: 0.45rem;
 }
 
+.et-topic__catalog {
+  margin: 0.85rem 0 0;
+  font-size: 0.88rem;
+}
+
+.et-topic__catalog a {
+  color: #2a5d9f;
+  font-weight: 700;
+}
+
 .et-topic-compact {
   margin: 0 0 0.45rem;
   color: #1c3d6e;
