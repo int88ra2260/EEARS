@@ -1,5 +1,6 @@
 import React from 'react';
 import EventCapacityFields from './EventCapacityFields';
+import Time24Input from './Time24Input';
 import LocationSelectField from '../LocationSelectField';
 import ErrorAlert from '../shared/ErrorAlert';
 import { getDefaultCapacityFields } from '../../../utils/eventCapacityFields';
@@ -106,22 +107,18 @@ export default function AddEventForm({
         <div className="row g-2 mb-2">
           <div className="col-md-2">
             <label className="form-label">開始時間 *</label>
-            <input
-              type="time"
-              className="form-control"
+            <Time24Input
               required
               value={fields.startTime}
-              onChange={(e) => setField('startTime', e.target.value)}
+              onChange={(value) => setField('startTime', value)}
             />
           </div>
           <div className="col-md-2">
             <label className="form-label">結束時間 *</label>
-            <input
-              type="time"
-              className="form-control"
+            <Time24Input
               required
               value={fields.endTime}
-              onChange={(e) => setField('endTime', e.target.value)}
+              onChange={(value) => setField('endTime', value)}
             />
           </div>
           <div className="col-md-4">

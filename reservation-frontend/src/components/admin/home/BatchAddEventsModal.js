@@ -6,6 +6,7 @@ import { Modal, Form, Button } from 'react-bootstrap';
 import dayjs from 'dayjs';
 import LocationSelectField from '../LocationSelectField';
 import EventCapacityFields from './EventCapacityFields';
+import Time24Input from './Time24Input';
 import {
   getDefaultCapacityFields,
 } from '../../../utils/eventCapacityFields';
@@ -349,20 +350,18 @@ export default function BatchAddEventsModal({
             <div key={slot.id} className="d-flex flex-wrap align-items-end gap-2 mb-2">
               <div>
                 <Form.Label className="small mb-0">時段 {idx + 1} 開始</Form.Label>
-                <Form.Control
-                  type="time"
+                <Time24Input
                   size="sm"
                   value={slot.startTime}
-                  onChange={(e) => updateSlot(slot.id, 'startTime', e.target.value)}
+                  onChange={(value) => updateSlot(slot.id, 'startTime', value)}
                 />
               </div>
               <div>
                 <Form.Label className="small mb-0">結束</Form.Label>
-                <Form.Control
-                  type="time"
+                <Time24Input
                   size="sm"
                   value={slot.endTime}
-                  onChange={(e) => updateSlot(slot.id, 'endTime', e.target.value)}
+                  onChange={(value) => updateSlot(slot.id, 'endTime', value)}
                 />
               </div>
               {timeSlots.length > 1 && (
@@ -473,20 +472,18 @@ export default function BatchAddEventsModal({
                     </div>
                     <div className="batch-add-field">
                       <label className="form-label">開始 *</label>
-                      <Form.Control
-                        type="time"
+                      <Time24Input
                         size="sm"
                         value={event.startTime}
-                        onChange={(e) => handleUpdateEvent(index, 'startTime', e.target.value)}
+                        onChange={(value) => handleUpdateEvent(index, 'startTime', value)}
                       />
                     </div>
                     <div className="batch-add-field">
                       <label className="form-label">結束 *</label>
-                      <Form.Control
-                        type="time"
+                      <Time24Input
                         size="sm"
                         value={event.endTime}
-                        onChange={(e) => handleUpdateEvent(index, 'endTime', e.target.value)}
+                        onChange={(value) => handleUpdateEvent(index, 'endTime', value)}
                       />
                     </div>
                     <div className="batch-add-field batch-add-field--capacity">

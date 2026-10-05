@@ -620,6 +620,68 @@ Center for EMI Teaching Excellence
 全英語卓越教學中心 敬上
 `,
   },
+
+  violationRecordDeleted: {
+    subject: '【英語中心】違規紀錄已刪除通知',
+    body: `親愛的 {{studentName}}（{{studentId}}）您好，
+
+英語中心已刪除您一筆違規紀錄。
+紀錄時間：{{recordedAt}}
+原因：{{reason}}
+本學期尚餘違規：{{violationCount}} 次
+
+{{statusZh}}
+
+若有任何問題請聯繫:
+全英語卓越教學中心 (Center for EMI Teaching Excellence)
+Email: emicenter@mail.nsysu.edu.tw
+電話: (07)5252000#5808
+
+Dear {{studentName}} ({{studentId}}),
+
+One violation record has been removed.
+Date: {{recordedAt}}
+Reason: {{reason}}
+Violations remaining this semester: {{violationCount}}
+
+{{statusEn}}
+
+Center for EMI Teaching Excellence
+Email: emicenter@mail.nsysu.edu.tw
+Phone: (07) 525-2000 ext. 5808
+`,
+  },
+
+  classCreditAdjustmentNotice: {
+    subject: '【英語中心】{{semester}} 課堂加分時數已{{directionLabelZh}}',
+    body: `親愛的 {{studentName}}（{{studentId}}）您好，
+
+英語中心已為您{{directionLabelZh}} {{semester}} 的課堂加分時數。
+{{directionLabelZh}}時數：{{hours}} 小時（{{points}} 點）
+原因：{{note}}
+調整後本學期總時數：{{totalHours}} 小時（{{totalPoints}} 點）
+
+{{followUpZh}}
+
+若有任何問題請聯繫:
+全英語卓越教學中心 (Center for EMI Teaching Excellence)
+Email: emicenter@mail.nsysu.edu.tw
+電話: (07)5252000#5808
+
+Dear {{studentName}} ({{studentId}}),
+
+Your class-credit hours for semester {{semester}} have been {{directionLabelEn}}.
+Hours: {{hours}} ({{points}} points)
+Reason: {{note}}
+Total hours this semester: {{totalHours}} ({{totalPoints}} points)
+
+{{followUpEn}}
+
+Center for EMI Teaching Excellence
+Email: emicenter@mail.nsysu.edu.tw
+Phone: (07) 525-2000 ext. 5808
+`,
+  },
 };
 
 function getEmailTemplateDefaultSource(key) {

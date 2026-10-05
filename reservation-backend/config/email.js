@@ -1691,7 +1691,75 @@ Center for EMI Teaching Excellence
 Email: emicenter@mail.nsysu.edu.tw
 `
     };
-  }
+  },
+
+  violationRecordDeleted: (data) => ({
+    from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
+    to: data.email,
+    subject: '【英語中心】違規紀錄已刪除通知',
+    text: `
+親愛的 ${data.studentName || data.name || ''}（${data.studentId || ''}）您好，
+
+英語中心已刪除您一筆違規紀錄。
+紀錄時間：${data.recordedAt || ''}
+原因：${data.reason || '未填寫'}
+本學期尚餘違規：${data.violationCount ?? ''} 次
+
+${data.statusZh || ''}
+
+若有任何問題請聯繫:
+全英語卓越教學中心 (Center for EMI Teaching Excellence)
+Email: emicenter@mail.nsysu.edu.tw
+電話: (07)5252000#5808
+
+Dear ${data.studentName || data.name || ''} (${data.studentId || ''}),
+
+One violation record has been removed.
+Date: ${data.recordedAt || ''}
+Reason: ${data.reason || 'Not provided'}
+Violations remaining this semester: ${data.violationCount ?? ''}
+
+${data.statusEn || ''}
+
+Center for EMI Teaching Excellence
+Email: emicenter@mail.nsysu.edu.tw
+Phone: (07) 525-2000 ext. 5808
+`,
+  }),
+
+  classCreditAdjustmentNotice: (data) => ({
+    from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
+    to: data.studentEmail || data.email,
+    subject: `【英語中心】${data.semester || ''} 課堂加分時數已${data.directionLabelZh || '調整'}`,
+    text: `
+親愛的 ${data.studentName || ''}（${data.studentId || ''}）您好，
+
+英語中心已為您${data.directionLabelZh || '調整'} ${data.semester || ''} 的課堂加分時數。
+${data.directionLabelZh || '調整'}時數：${data.hours ?? ''} 小時（${data.points ?? ''} 點）
+原因：${data.note || ''}
+調整後本學期總時數：${data.totalHours ?? ''} 小時（${data.totalPoints ?? ''} 點）
+
+${data.followUpZh || ''}
+
+若有任何問題請聯繫:
+全英語卓越教學中心 (Center for EMI Teaching Excellence)
+Email: emicenter@mail.nsysu.edu.tw
+電話: (07)5252000#5808
+
+Dear ${data.studentName || ''} (${data.studentId || ''}),
+
+Your class-credit hours for semester ${data.semester || ''} have been ${data.directionLabelEn || 'updated'}.
+Hours: ${data.hours ?? ''} (${data.points ?? ''} points)
+Reason: ${data.note || ''}
+Total hours this semester: ${data.totalHours ?? ''} (${data.totalPoints ?? ''} points)
+
+${data.followUpEn || ''}
+
+Center for EMI Teaching Excellence
+Email: emicenter@mail.nsysu.edu.tw
+Phone: (07) 525-2000 ext. 5808
+`,
+  }),
 };
 
 // 根據模板類型選擇對應的 transporter 和發件人

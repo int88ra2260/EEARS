@@ -15,6 +15,7 @@ import { RESERVATION_CUTOFF_HOURS } from '../constants/reservationRules';
 import {
   batchMarkEventNoShow,
   checkinEventReservation,
+  correctEventCheckin,
   createEventViolation,
   deleteAdminReservation,
   importEventCardExcel,
@@ -130,7 +131,7 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       showErrorMessage('只能對當天的活動進行簽到');
       return;
     }
-    if (!isEventToday(currentEventDate) && canManageEvents) {
+    if (!options.alreadyConfirmed && !isEventToday(currentEventDate) && canManageEvents) {
       const ok = await confirm({
         title: '確認補簽到？',
         description: `此活動日期為 ${currentEventDate}，確定要進行補簽到嗎？`,
@@ -192,6 +193,55 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     canCheckinStudents,
     canManageEvents,
     confirm,
+    currentEventDate,
+    currentEventId,
+    isEventToday,
+    resv,
+    token,
+  ]);
+
+  const handleCorrectCheckin = useCallback(async (reservationId, mode) => {
+    if (!currentEventId) return;
+    if (!canCheckinStudents || !canAccessCurrentEvent) {
+      showErrorMessage('您沒有簽到權限');
+      return;
+    }
+    if (!isEventToday(currentEventDate) && !canManageEvents) {
+      showErrorMessage('只能更正當天的簽到');
+      return;
+    }
+    setCheckinLoading((prev) => ({ ...prev, [reservationId]: true }));
+    try {
+      const data = await correctEventCheckin(token, currentEventId, reservationId, mode);
+      showSuccessMessage(data.message || '已更正簽到');
+      resv.setPayload((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          reservations: (prev.reservations || []).map((r) =>
+            r.id === reservationId
+              ? {
+                  ...r,
+                  checkinStatus: data.checkinStatus,
+                  checkinTime: data.checkinTime,
+                  countsTowardPassport: !!data.countsTowardPassport,
+                  excludeFromClassCredit: !!data.excludeFromClassCredit,
+                  passportPointsStatus: data.passportPointsStatus || null,
+                }
+              : r
+          ),
+        };
+      });
+    } catch (error) {
+      console.error('更正簽到錯誤:', error);
+      showErrorMessage(error.message || '更正簽到失敗');
+    } finally {
+      setCheckinLoading((prev) => ({ ...prev, [reservationId]: false }));
+    }
+  }, [
+    canAccessCurrentEvent,
+    canCheckinStudents,
+    canManageEvents,
     currentEventDate,
     currentEventId,
     isEventToday,
@@ -585,6 +635,7 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       canManageEvents,
       checkinLoading,
       handleCheckin,
+      handleCorrectCheckin,
       isEventToday,
     }),
     [
@@ -599,6 +650,7 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
       canManageEvents,
       checkinLoading,
       handleCheckin,
+      handleCorrectCheckin,
       isEventToday,
     ],
   );

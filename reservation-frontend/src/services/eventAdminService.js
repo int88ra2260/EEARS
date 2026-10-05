@@ -59,6 +59,19 @@ export async function checkinEventReservation(token, eventId, reservationId, {
   return data;
 }
 
+export async function correctEventCheckin(token, eventId, reservationId, mode) {
+  const res = await fetchClient(`${API_EVENTS}/${eventId}/checkin/correct`, {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ reservationId, mode }),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) {
+    throw new Error(data.error || data.message || '更正簽到失敗');
+  }
+  return data;
+}
+
 export async function deleteAdminReservation(token, reservationId, { verificationCode } = {}) {
   const body = verificationCode != null && String(verificationCode).trim()
     ? { verificationCode: String(verificationCode).trim() }

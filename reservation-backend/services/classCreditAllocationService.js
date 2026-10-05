@@ -13,6 +13,7 @@ const {
   sequelize,
 } = require('../models');
 const { SEMESTER_RANGES } = require('../utils/semesterConstants');
+const { classCreditAdjustmentFollowUp } = require('../utils/studentNoticeCopy');
 const {
   roundHours,
   roundSignedHours,
@@ -742,6 +743,71 @@ async function createAdjustment({
   return serializeAdjustment(row, null);
 }
 
+async function notifyClassCreditAdjustment({
+  studentId, semester, hours, note,
+}) {
+  const sid = cleanStudentId(studentId);
+  const classes = await listStudentClasses(sid, semester);
+  const memberships = await ClassMembership.findAll({
+    where: { semester, studentId: sid },
+    attributes: ['studentName', 'email'],
+  });
+  const emails = [];
+  let studentName = classes[0]?.studentName || sid;
+  memberships.forEach((row) => {
+    const plain = row.toJSON ? row.toJSON() : row;
+    if (plain.studentName) studentName = plain.studentName;
+    if (plain.email) emails.push(String(plain.email).trim());
+  });
+  let email = pickRosterEmail(emails, '');
+  if (!email) {
+    const reservationEmails = await latestReservationEmails([sid]);
+    email = pickRosterEmail([], reservationEmails.get(sid));
+  }
+  if (!email) return { queued: false, reason: 'no_email' };
+
+  const range = SEMESTER_RANGES[semester];
+  const inventory = range
+    ? await computeAllocatableHours(sid, semester, range)
+    : { earnedHours: 0, earnedPoints: 0 };
+  const absHours = roundSignedHours(Math.abs(Number(hours) || 0));
+  const direction = Number(hours) < 0 ? 'deduct' : 'add';
+  const followUp = classCreditAdjustmentFollowUp({
+    direction,
+    classCount: classes.length,
+    className: classes[0]?.className || '',
+    allocationUrl: allocationPageUrl(),
+  });
+
+  const emailQueue = require('../utils/emailQueue');
+  try {
+    await emailQueue.enqueue('classCreditAdjustmentNotice', {
+      studentName,
+      studentId: sid,
+      studentEmail: email,
+      email,
+      semester,
+      directionLabelZh: direction === 'deduct' ? '扣除' : '增加',
+      directionLabelEn: direction === 'deduct' ? 'deducted' : 'added',
+      hours: String(absHours),
+      points: String(signedHoursToPoints(absHours)),
+      note: String(note || '').trim(),
+      totalHours: String(inventory.earnedHours ?? 0),
+      totalPoints: String(inventory.earnedPoints ?? 0),
+      followUpZh: followUp.followUpZh,
+      followUpEn: followUp.followUpEn,
+    }, {
+      requestId: `class-credit-adjustment:${sid}:${Date.now()}`,
+      relatedEntityType: 'class_credit_adjustment',
+      relatedEntityId: sid,
+    });
+    return { queued: true };
+  } catch (err) {
+    console.error('課堂加分調整通知加入佇列失敗:', err);
+    return { queued: false, reason: 'queue_failed' };
+  }
+}
+
 async function deleteAdjustment(id) {
   const row = await ClassCreditAdjustment.findByPk(id);
   if (!row) throw httpError(404, 'ADJUSTMENT_NOT_FOUND', '找不到這筆時數調整');
@@ -976,6 +1042,7 @@ module.exports = {
   getClassMemberCreditView,
   getAdminStudentCredit,
   createAdjustment,
+  notifyClassCreditAdjustment,
   deleteAdjustment,
   hoursToPoints,
   roundHours,

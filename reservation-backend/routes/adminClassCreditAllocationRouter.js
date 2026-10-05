@@ -103,7 +103,19 @@ router.post('/adjustments', ...manageAuth, async (req, res, next) => {
       req,
     });
 
-    return res.status(201).json({ success: true, data: created });
+    let emailNotice = { queued: false, reason: 'queue_failed' };
+    try {
+      emailNotice = await classCreditAllocationService.notifyClassCreditAdjustment({
+        studentId: created.studentId,
+        semester: created.semester,
+        hours: created.hours,
+        note: created.note,
+      });
+    } catch (mailErr) {
+      console.error('課堂加分調整通知失敗:', mailErr);
+    }
+
+    return res.status(201).json({ success: true, data: created, emailNotice });
   } catch (err) {
     if (err.status) {
       return res.status(err.status).json({

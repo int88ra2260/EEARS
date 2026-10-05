@@ -98,7 +98,10 @@ jest.mock('../models', () => ({
   },
   Reservation: { findByPk: (...args) => mockReservationFindByPk(...args), findAll: jest.fn().mockResolvedValue([]) },
   Event: { findByPk: (...args) => mockEventFindByPk(...args) },
-  EventViolation: { findOne: jest.fn().mockResolvedValue(null) },
+  EventViolation: {
+    findOne: jest.fn().mockResolvedValue(null),
+    findAll: jest.fn().mockResolvedValue([]),
+  },
   sequelize: { transaction: jest.fn().mockResolvedValue(mockTx) },
 }));
 
@@ -108,6 +111,10 @@ jest.mock('../services/accessControl/eventScopeGuard', () => ({
 
 jest.mock('../services/auditLogService', () => ({
   logAuditAsync: jest.fn(),
+}));
+
+jest.mock('../utils/emailQueue', () => ({
+  enqueue: jest.fn().mockResolvedValue('job'),
 }));
 
 function makeUser() {

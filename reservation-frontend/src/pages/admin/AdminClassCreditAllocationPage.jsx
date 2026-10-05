@@ -78,7 +78,7 @@ export default function AdminClassCreditAllocationPage() {
     if (!result) return;
     setSaving(true);
     try {
-      await createClassCreditAdjustment(token, {
+      const created = await createClassCreditAdjustment(token, {
         semester: result.semester,
         studentId: result.studentId,
         direction,
@@ -86,6 +86,11 @@ export default function AdminClassCreditAllocationPage() {
         note,
       });
       showSuccessMessage(direction === 'deduct' ? '已從總時數扣除' : '已增加總時數');
+      if (created?.emailNotice && created.emailNotice.queued === false) {
+        showErrorMessage(created.emailNotice.reason === 'no_email'
+          ? '時數已調整，但沒有可寄送的學生信箱，未寄出通知'
+          : '時數已調整，但通知信未能寄出');
+      }
       setHours('');
       setNote('');
       await lookup(result.semester, result.studentId);

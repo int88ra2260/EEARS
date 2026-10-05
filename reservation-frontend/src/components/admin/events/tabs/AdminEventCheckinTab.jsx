@@ -9,7 +9,9 @@ import Alert from 'react-bootstrap/Alert';
 import Spinner from 'react-bootstrap/Spinner';
 import dayjs from 'dayjs';
 import { EVENT_DETAIL_COPY } from '../../../../constants/adminEventDetailCopy';
+import useConfirm from '../../../ui/useConfirm';
 import { isEnglishTableEventType } from '../../../../utils/eventCapacityFields';
+import { buildCheckinConfirm, buildCorrectionConfirm } from '../../../../utils/checkinActionCopy';
 import './adminEventCheckinTab.css';
 
 function matchesSearch(reservation, q) {
@@ -21,6 +23,7 @@ function matchesSearch(reservation, q) {
 
 function AdminEventCheckinTab({ tabProps }) {
   const p = tabProps;
+  const { confirm } = useConfirm();
   const { eventId } = useParams();
   const [checkinSearchTerm, setCheckinSearchTerm] = useState('');
   const [passportFlags, setPassportFlags] = useState(() => ({}));
@@ -54,9 +57,42 @@ function AdminEventCheckinTab({ tabProps }) {
     setPassportFlags((prev) => ({ ...prev, [reservationId]: checked }));
   };
 
+  const askConfirm = async (copy) => confirm({
+    title: copy.title,
+    description: copy.description,
+    confirmText: copy.confirmText,
+    cancelText: copy.cancelText,
+    variant: copy.variant,
+    detail: (
+      <div className="border rounded p-2 bg-light small fw-semibold">
+        {copy.consequence}
+      </div>
+    ),
+  });
+
   const handleCheckinClick = async (reservation, { excludeFromClassCredit = false } = {}) => {
     const countsTowardPassport = !excludeFromClassCredit && !!passportFlags[reservation.id];
-    await p.handleCheckin(reservation.id, { countsTowardPassport, excludeFromClassCredit });
+    const copy = buildCheckinConfirm({
+      reservation,
+      excludeFromClassCredit,
+      countsTowardPassport,
+      isBackdate: !p.isEventToday(p.currentEventDate),
+      eventDate: p.currentEventDate,
+    });
+    const ok = await askConfirm(copy);
+    if (!ok) return;
+    await p.handleCheckin(reservation.id, {
+      countsTowardPassport,
+      excludeFromClassCredit,
+      alreadyConfirmed: true,
+    });
+  };
+
+  const handleCorrectClick = async (reservation, mode) => {
+    const copy = buildCorrectionConfirm({ reservation, mode });
+    const ok = await askConfirm(copy);
+    if (!ok) return;
+    await p.handleCorrectCheckin(reservation.id, mode);
   };
 
   const canCheckinNow = p.canCheckinStudents
@@ -143,7 +179,7 @@ function AdminEventCheckinTab({ tabProps }) {
                           <th>姓名</th>
                           {isEt && <th>組別</th>}
                           <th style={{ minWidth: '100px' }}>護照</th>
-                          <th style={{ minWidth: '120px' }}>簽到</th>
+                          <th style={{ minWidth: '148px' }}>簽到</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -171,7 +207,7 @@ function AdminEventCheckinTab({ tabProps }) {
                               </td>
                               <td>
                                 {canCheckinNow ? (
-                                  <div className="d-flex flex-column gap-1">
+                                  <div className="admin-event-checkin-tab__actions">
                                     <Button
                                       variant="success"
                                       size="sm"
@@ -185,6 +221,8 @@ function AdminEventCheckinTab({ tabProps }) {
                                           ? '補簽到'
                                           : '簽到'}
                                     </Button>
+                                    <span className="admin-event-checkin-tab__action-note">計入課堂加分</span>
+                                    <div className="admin-event-checkin-tab__split" />
                                     <Button
                                       variant="outline-secondary"
                                       size="sm"
@@ -194,6 +232,9 @@ function AdminEventCheckinTab({ tabProps }) {
                                     >
                                       到場不計點
                                     </Button>
+                                    <span className="admin-event-checkin-tab__action-note">
+                                      {passportFlags[reservation.id] ? '已勾護照，無法選這項' : '不計課堂加分'}
+                                    </span>
                                   </div>
                                 ) : (
                                   <span className="text-muted small">不可簽到</span>
@@ -222,12 +263,13 @@ function AdminEventCheckinTab({ tabProps }) {
                           {isEt && <th>組別</th>}
                           <th>時間</th>
                           <th>點數</th>
+                          <th>更正</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredCheckedIn.length === 0 ? (
                           <tr>
-                            <td colSpan={isEt ? 5 : 4} className="text-center text-muted">
+                            <td colSpan={isEt ? 6 : 5} className="text-center text-muted">
                               {q ? '沒有符合的已簽到名單' : '尚無已簽到學生'}
                             </td>
                           </tr>
@@ -257,6 +299,34 @@ function AdminEventCheckinTab({ tabProps }) {
                                   </span>
                                 ) : (
                                   <span className="text-muted small">課堂加分</span>
+                                )}
+                              </td>
+                              <td>
+                                {canCheckinNow ? (
+                                  <div className="admin-event-checkin-tab__remedy">
+                                    <Button
+                                      variant={reservation.excludeFromClassCredit ? 'outline-success' : 'outline-secondary'}
+                                      size="sm"
+                                      disabled={!!p.checkinLoading[reservation.id]}
+                                      onClick={() => handleCorrectClick(
+                                        reservation,
+                                        reservation.excludeFromClassCredit ? 'class_credit' : 'attendance_only',
+                                      )}
+                                    >
+                                      {reservation.excludeFromClassCredit ? '改計課堂加分' : '改為不計點'}
+                                    </Button>
+                                    <Button
+                                      variant="link"
+                                      size="sm"
+                                      className="admin-event-checkin-tab__undo"
+                                      disabled={!!p.checkinLoading[reservation.id]}
+                                      onClick={() => handleCorrectClick(reservation, 'undo')}
+                                    >
+                                      取消簽到
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted small">—</span>
                                 )}
                               </td>
                             </tr>

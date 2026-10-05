@@ -415,6 +415,57 @@ async function flushPendingEventPassportPointsForStudent(studentId, { req = null
   return results;
 }
 
+/**
+ * 更正或取消簽到時，收回這場已入的護照點數。沒有入點紀錄時不做事。
+ */
+async function revokePassportGrantForReservation({
+  reservation,
+  reason,
+  actorUserId = null,
+  req = null,
+  transaction,
+} = {}) {
+  const submissionId = reservation?.passportSubmissionId;
+  if (!submissionId || reservation.passportPointsStatus !== GRANT_STATUS.GRANTED) {
+    return { revoked: false };
+  }
+
+  const submission = await EnglishLearningSubmission.findByPk(submissionId, { transaction });
+  if (!submission || submission.status !== SUBMISSION_STATUS.APPROVED) {
+    return { revoked: false };
+  }
+
+  await submission.update(
+    {
+      status: SUBMISSION_STATUS.CANCELLED,
+      rejectionReason: reason || '簽到更正，收回本場護照點數',
+      reviewedBy: actorUserId || null,
+      reviewedAt: new Date(),
+    },
+    { transaction },
+  );
+
+  if (submission.passportId) {
+    await recalculatePassportPoints(submission.passportId, transaction, req);
+  }
+
+  if (typeof logElpAudit === 'function') {
+    await logElpAudit({
+      req,
+      action: 'submission_cancel_from_checkin_correction',
+      targetType: 'EnglishLearningSubmission',
+      targetId: submission.id,
+      after: {
+        studentId: reservation.studentId,
+        reservationId: reservation.id,
+        status: SUBMISSION_STATUS.CANCELLED,
+      },
+    });
+  }
+
+  return { revoked: true, submissionId: submission.id };
+}
+
 module.exports = {
   GRANT_STATUS,
   GRANT_SOURCE,
@@ -424,4 +475,5 @@ module.exports = {
   getUsageSummary,
   tryGrantPassportPointsForReservation,
   flushPendingEventPassportPointsForStudent,
+  revokePassportGrantForReservation,
 };

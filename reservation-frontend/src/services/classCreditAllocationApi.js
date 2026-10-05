@@ -114,7 +114,10 @@ export async function createClassCreditAdjustment(token, payload) {
   });
   const data = await parseJson(res);
   throwIfNotOk(res, data, '新增時數調整失敗');
-  return data.data;
+  return {
+    ...data.data,
+    emailNotice: data.emailNotice || null,
+  };
 }
 
 export async function deleteClassCreditAdjustment(token, id) {

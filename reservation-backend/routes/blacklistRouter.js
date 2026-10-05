@@ -9,6 +9,8 @@ const {
   enqueueBlacklistNotificationEmails,
   syncSemesterViolationCountAndMaybeBlacklist,
   afterViolationRecordDeleted,
+  enqueueViolationDeletedEmail,
+  clearStudentVisibleViolation,
 } = require('../services/blacklistEnforcementService');
 const { assertCanAccessEvent } = require('../services/accessControl/eventScopeGuard');
 const { getSemesterInfo } = require('../utils/eventSemesterFromDate');
@@ -425,11 +427,24 @@ router.delete('/:recordId', authMiddleware, requirePermission(P.CAN_MANAGE_BLACK
     }
 
     const deletedRecordedAt = record.recordedAt;
+    const deletedReason = record.reason;
+    // 學生進度看的是預約「已登記違規」，要先清掉，刪除才不會留下違規顯示
+    await clearStudentVisibleViolation(user.id, {
+      recordedAt: deletedRecordedAt,
+      reason: deletedReason,
+    });
     // 先刪除紀錄，再依當學期重算次數（僅刪當學期紀錄且次數 < 2 時解除黑名單）
     await record.destroy();
     await afterViolationRecordDeleted(user, deletedRecordedAt);
+    const emailNotice = await enqueueViolationDeletedEmail(user, {
+      recordedAt: deletedRecordedAt,
+      reason: deletedReason,
+    }, { requestId: req.requestId });
 
-    return res.json({ message: '已成功刪除該筆違規紀錄' });
+    return res.json({
+      message: '已成功刪除該筆違規紀錄',
+      emailNotice,
+    });
   } catch (err) {
     console.error('刪除違規紀錄錯誤:', err);
     return res.status(500).json({ message: '伺服器錯誤' });

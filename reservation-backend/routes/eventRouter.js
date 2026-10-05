@@ -31,6 +31,7 @@ const { normalizeEventCapacityInput, formatCapacityPayload } = require('../utils
 const eventTypeService = require('../services/eventTypeService');
 const { DEFAULT_EVENT_TYPE_CODE } = require('../constants/eventTypeCatalog');
 const { parseCheckinPointIntent } = require('../utils/checkinPointIntent');
+const { correctEventCheckin } = require('../services/checkinCorrectionService');
 const {
   assertCanAccessEvent,
   buildEventScopeWhere,
@@ -1107,6 +1108,83 @@ router.post(
     next(err);
   }
 });
+
+// 更正已簽到：改計課堂加分、改為到場不計點，或取消簽到
+// POST /api/events/:id/checkin/correct
+// body: { reservationId, mode: 'class_credit' | 'attendance_only' | 'undo' }
+router.post(
+  '/events/:id/checkin/correct',
+  authMiddleware,
+  loadEventForAccess,
+  requirePermissionAndEventAccess(P.CAN_CHECKIN_STUDENTS, accessEventType),
+  async (req, res, next) => {
+    try {
+      const { reservationId, mode } = req.body || {};
+      const eventId = req.params.id;
+      if (!reservationId) {
+        return res.status(400).json({ error: '請提供預約ID' });
+      }
+      if (!mode) {
+        return res.status(400).json({ error: '請提供更正方式' });
+      }
+
+      const event = req.accessEvent;
+      const today = new Date().toISOString().split('T')[0];
+      const canBackdateCheckin = hasPermission(req.user, P.CAN_MANAGE_EVENTS);
+      if (event.date !== today && !canBackdateCheckin) {
+        return res.status(400).json({ error: '只能更正當天的簽到' });
+      }
+
+      const reservation = await Reservation.findOne({
+        where: {
+          id: reservationId,
+          eventId,
+        },
+      });
+      if (!reservation) {
+        return res.status(404).json({ error: '找不到對應的預約記錄' });
+      }
+
+      const result = await correctEventCheckin({
+        reservation,
+        mode,
+        actorUserId: req.user?.id || null,
+        req,
+      });
+
+      auditLogService.logAuditAsync({
+        module: 'events',
+        action: 'checkin_correct',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        targetSummary: `eventId=${event.id};mode=${mode}`,
+        beforeData: result.before,
+        afterData: {
+          checkinStatus: result.checkinStatus,
+          checkinTime: result.checkinTime,
+          countsTowardPassport: result.countsTowardPassport,
+          excludeFromClassCredit: result.excludeFromClassCredit,
+          passportPointsStatus: result.passportPointsStatus,
+        },
+        req,
+      });
+
+      return res.json({
+        message: result.message,
+        checkinStatus: result.checkinStatus,
+        checkinTime: result.checkinTime,
+        countsTowardPassport: result.countsTowardPassport,
+        excludeFromClassCredit: result.excludeFromClassCredit,
+        passportPointsStatus: result.passportPointsStatus,
+      });
+    } catch (err) {
+      if (err.status === 400 || err.status === 404) {
+        return res.status(err.status).json({ error: err.message });
+      }
+      return next(err);
+    }
+  },
+);
 
 // 批次簽到 API
 // POST /api/events/:id/checkin/bulk

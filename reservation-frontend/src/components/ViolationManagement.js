@@ -207,6 +207,11 @@ function ViolationManagement() {
     if (result.success) {
       fetchBlacklistRecords(selectedViolationSemester);
       toast.success('違規紀錄已刪除');
+      if (result.data?.emailNotice && result.data.emailNotice.queued === false) {
+        toast.warning(result.data.emailNotice.reason === 'no_email'
+          ? '已刪除，但沒有可寄送的學生信箱，未寄出通知'
+          : '已刪除，但通知信未能寄出');
+      }
     } else {
       toast.error(result.error || '刪除失敗');
     }

@@ -6,6 +6,7 @@ import { Modal, Form, Button } from 'react-bootstrap';
 import ErrorAlert from '../shared/ErrorAlert';
 import LocationSelectField from '../LocationSelectField';
 import EventCapacityFields from './EventCapacityFields';
+import Time24Input from './Time24Input';
 import { getDefaultCapacityFields } from '../../../utils/eventCapacityFields';
 import {
   getEventTypeDisplayName,
@@ -124,20 +125,18 @@ export default function EditEventModal({
             <div className="col-md-6">
               <Form.Group className="mb-3">
                 <Form.Label>開始時間 *</Form.Label>
-                <Form.Control
-                  type="time"
+                <Time24Input
                   value={fields.startTime || ''}
-                  onChange={(e) => setField('startTime', e.target.value)}
+                  onChange={(value) => setField('startTime', value)}
                 />
               </Form.Group>
             </div>
             <div className="col-md-6">
               <Form.Group className="mb-3">
                 <Form.Label>結束時間 *</Form.Label>
-                <Form.Control
-                  type="time"
+                <Time24Input
                   value={fields.endTime || ''}
-                  onChange={(e) => setField('endTime', e.target.value)}
+                  onChange={(value) => setField('endTime', value)}
                 />
               </Form.Group>
             </div>
