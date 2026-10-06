@@ -1,7 +1,7 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import AdminEventCheckinTab from './AdminEventCheckinTab';
 
 const confirm = vi.fn();
@@ -51,37 +51,64 @@ function renderTab(extra = {}) {
 }
 
 describe('AdminEventCheckinTab', () => {
-  test('兩種簽到分開標示，按下去會先確認，取消就不會送出', async () => {
-    confirm.mockResolvedValue(false);
+  beforeEach(() => {
+    confirm.mockReset();
+  });
+
+  test('一般簽到直接送出，不先跳出確認', async () => {
     const tabProps = renderTab();
 
     expect(screen.getByText('計入課堂加分')).toBeInTheDocument();
     expect(screen.getByText('不計課堂加分')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '改為不計點' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '取消簽到' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '補簽到' }));
 
-    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: '確認補簽到？',
-      description: '王小明（A12345678）',
-      confirmText: '確認補簽到',
-    }));
-    await Promise.resolve();
-    expect(tabProps.handleCheckin).not.toHaveBeenCalled();
-  });
-
-  test('確認後才送出補簽到', async () => {
-    confirm.mockResolvedValue(true);
-    const tabProps = renderTab();
-
-    fireEvent.click(screen.getByRole('button', { name: '補簽到' }));
+    expect(confirm).not.toHaveBeenCalled();
     await vi.waitFor(() => {
       expect(tabProps.handleCheckin).toHaveBeenCalledWith(1, {
         countsTowardPassport: false,
         excludeFromClassCredit: false,
-        alreadyConfirmed: true,
       });
     });
+  });
+
+  test('English Table 待簽到不顯示組別，已簽到仍保留', () => {
+    renderTab({
+      currentEventType: 'english_table',
+      pendingCheckinRows: [
+        { id: 1, studentId: 'A12345678', studentName: '王小明', group: 'A', checkinStatus: '未簽到' },
+      ],
+      checkedInRows: [
+        {
+          id: 2,
+          studentId: 'B12345678',
+          studentName: '李小華',
+          group: 'B',
+          checkinStatus: '已簽到',
+          excludeFromClassCredit: false,
+          checkinTime: '2026-10-05T04:10:00.000Z',
+        },
+      ],
+    });
+
+    const pending = screen.getByText(/待簽到（/).closest('.admin-event-checkin-tab__panel');
+    const checkedIn = screen.getByText(/已簽到（/).closest('.admin-event-checkin-tab__panel');
+    expect(within(pending).queryByRole('columnheader', { name: '組別' })).not.toBeInTheDocument();
+    expect(within(checkedIn).getByRole('columnheader', { name: '組別' })).toBeInTheDocument();
+  });
+
+  test('到場不計點要先確認，取消就不會送出', async () => {
+    confirm.mockResolvedValue(false);
+    const tabProps = renderTab();
+
+    fireEvent.click(screen.getByRole('button', { name: '到場不計點' }));
+
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
+      title: '確認到場不計點？',
+      description: '王小明（A12345678）',
+      confirmText: '確認到場不計點',
+    }));
+    await Promise.resolve();
+    expect(tabProps.handleCheckin).not.toHaveBeenCalled();
   });
 });

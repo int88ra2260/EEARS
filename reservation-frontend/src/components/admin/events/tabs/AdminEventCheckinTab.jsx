@@ -72,18 +72,25 @@ function AdminEventCheckinTab({ tabProps }) {
 
   const handleCheckinClick = async (reservation, { excludeFromClassCredit = false } = {}) => {
     const countsTowardPassport = !excludeFromClassCredit && !!passportFlags[reservation.id];
+    if (!excludeFromClassCredit) {
+      await p.handleCheckin(reservation.id, {
+        countsTowardPassport,
+        excludeFromClassCredit: false,
+      });
+      return;
+    }
     const copy = buildCheckinConfirm({
       reservation,
-      excludeFromClassCredit,
-      countsTowardPassport,
+      excludeFromClassCredit: true,
+      countsTowardPassport: false,
       isBackdate: !p.isEventToday(p.currentEventDate),
       eventDate: p.currentEventDate,
     });
     const ok = await askConfirm(copy);
     if (!ok) return;
     await p.handleCheckin(reservation.id, {
-      countsTowardPassport,
-      excludeFromClassCredit,
+      countsTowardPassport: false,
+      excludeFromClassCredit: true,
       alreadyConfirmed: true,
     });
   };
@@ -177,7 +184,6 @@ function AdminEventCheckinTab({ tabProps }) {
                         <tr>
                           <th>學號</th>
                           <th>姓名</th>
-                          {isEt && <th>組別</th>}
                           <th style={{ minWidth: '100px' }}>護照</th>
                           <th style={{ minWidth: '148px' }}>簽到</th>
                         </tr>
@@ -185,7 +191,7 @@ function AdminEventCheckinTab({ tabProps }) {
                       <tbody>
                         {filteredPending.length === 0 ? (
                           <tr>
-                            <td colSpan={isEt ? 5 : 4} className="text-center text-muted">
+                            <td colSpan={4} className="text-center text-muted">
                               {q ? '沒有符合的待簽到名單' : EVENT_DETAIL_COPY.emptyPendingCheckin}
                             </td>
                           </tr>
@@ -194,7 +200,6 @@ function AdminEventCheckinTab({ tabProps }) {
                             <tr key={reservation.id}>
                               <td>{reservation.studentId}</td>
                               <td>{reservation.studentName || reservation.name}</td>
-                              {isEt && <td>{reservation.group || '—'}</td>}
                               <td>
                                 <Form.Check
                                   type="checkbox"
