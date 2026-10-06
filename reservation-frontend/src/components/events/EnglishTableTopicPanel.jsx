@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
-import { getEnglishTableTopic } from '../../data/englishTableTopics1151';
+import { getEnglishTableTopic, listEnglishTableWarmupLinks } from '../../data/englishTableTopics1151';
 import { isEnglishTableEventType } from '../../utils/eventCapacityFields';
 import './EnglishTableTopicPanel.css';
 
@@ -19,6 +19,7 @@ export default function EnglishTableTopicPanel({
   variant = 'full',
   defaultOpen = true,
   showCatalogLink = false,
+  showPracticeLinks = false,
 }) {
   const { t } = useLanguage();
   const detailsRef = useRef(null);
@@ -41,6 +42,7 @@ export default function EnglishTableTopicPanel({
 
   const formatLabel = t(FORMAT_KEYS[session.format] || 'booking.etTopicSummary');
   const weekLabel = t('booking.etTopicWeek', { week: session.week });
+  const warmupLinks = showPracticeLinks ? listEnglishTableWarmupLinks(date) : [];
 
   return (
     <details className="et-topic" ref={detailsRef}>
@@ -65,8 +67,15 @@ export default function EnglishTableTopicPanel({
         ) : null}
         {session.questions?.length ? (
           <ol className="et-topic__questions">
-            {session.questions.map((question) => (
-              <li key={question}>{question}</li>
+            {session.questions.map((question, index) => (
+              <li key={question}>
+                <span>{question}</span>
+                {warmupLinks[index] ? (
+                  <Link className="et-topic__practice-link" to={warmupLinks[index].href}>
+                    會前練習
+                  </Link>
+                ) : null}
+              </li>
             ))}
           </ol>
         ) : null}

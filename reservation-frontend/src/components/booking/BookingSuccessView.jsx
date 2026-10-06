@@ -140,6 +140,7 @@ export default function BookingSuccessView({
         date={safeEvent.date}
         eventType={safeEvent.eventType}
         defaultOpen
+        showPracticeLinks
       />
 
       <p className="small text-muted mb-0 mt-2">

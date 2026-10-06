@@ -3,11 +3,15 @@ import Alert from 'react-bootstrap/Alert';
 import Spinner from 'react-bootstrap/Spinner';
 import {
   downloadSpeakingDiagnosticResearchCsv,
+  createSpeakingDiagnosticAdminTask,
+  fetchSpeakingDiagnosticAdminTasks,
+  fetchSpeakingDiagnosticEcosystemSummary,
   fetchSpeakingDiagnosticAttempts,
   fetchSpeakingDiagnosticResearchSummary,
   recomputeSpeakingDiagnosticAlignment,
   recomputeSpeakingDiagnosticAlignmentBatch,
   saveSpeakingDiagnosticRating,
+  updateSpeakingDiagnosticAdminTask,
 } from '../../services/speakingDiagnosticApi';
 import '../SpeakingDiagnosticPage.css';
 import './SpeakingDiagnosticAdminPage.css';
@@ -19,6 +23,109 @@ const RUBRIC_FIELDS = [
   ['vocabulary', 'Vocabulary'],
   ['taskAchievement', 'Task achievement'],
 ];
+
+const EMPTY_TASK_FORM = {
+  taskKey: '',
+  level: 'B1',
+  taskType: 'campus_short_answer',
+  title: '',
+  prompt: '',
+  targetText: '',
+  estimatedSeconds: 45,
+  targetWords: 55,
+  discipline: 'General EMI',
+  communicationFunction: 'define_concept',
+  targetVocabularyText: '',
+  focusTagsText: 'ESAP, EMI',
+  constructTagsText: 'task_achievement, vocabulary, fluency',
+  teacherGoal: '',
+  linkedCourse: '',
+  linkedActivity: '',
+  suggestedSupportsText: 'English Table, 1-on-1 Consultation',
+  teacherNotes: '',
+  isActive: true,
+};
+
+const COMMUNICATION_FUNCTION_LABELS = {
+  read_aloud: 'Read aloud',
+  define_concept: 'Define a concept',
+  explain_process: 'Explain a process',
+  summarize_lecture: 'Summarize lecture',
+  ask_clarification: 'Ask clarification',
+  give_opinion: 'Give opinion',
+  describe_project: 'Describe project',
+  compare_ideas: 'Compare ideas',
+  presentation_microtask: 'Mini presentation',
+};
+
+function splitListText(value) {
+  return String(value || '')
+    .split(/[\n,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function joinList(value) {
+  return Array.isArray(value) ? value.join(', ') : '';
+}
+
+function taskToForm(task) {
+  if (!task) return EMPTY_TASK_FORM;
+  return {
+    taskKey: task.taskKey || '',
+    level: task.level || 'B1',
+    taskType: task.taskType || 'campus_short_answer',
+    title: task.title || '',
+    prompt: task.prompt || '',
+    targetText: task.targetText || '',
+    estimatedSeconds: task.estimatedSeconds || 45,
+    targetWords: task.targetWords || 55,
+    discipline: task.discipline || 'General EMI',
+    communicationFunction: task.communicationFunction || 'define_concept',
+    targetVocabularyText: joinList(task.targetVocabulary),
+    focusTagsText: joinList(task.focusTags),
+    constructTagsText: joinList(task.constructTags),
+    teacherGoal: task.teacherGoal || '',
+    linkedCourse: task.linkedCourse || '',
+    linkedActivity: task.linkedActivity || '',
+    suggestedSupportsText: joinList(task.suggestedSupports),
+    teacherNotes: task.teacherNotes || '',
+    isActive: task.isActive !== false,
+  };
+}
+
+function buildTaskPayload(form) {
+  return {
+    taskKey: form.taskKey,
+    level: form.level,
+    taskType: form.taskType,
+    title: form.title,
+    prompt: form.prompt,
+    targetText: form.targetText,
+    estimatedSeconds: Number(form.estimatedSeconds),
+    targetWords: Number(form.targetWords),
+    discipline: form.discipline,
+    communicationFunction: form.communicationFunction,
+    targetVocabulary: splitListText(form.targetVocabularyText),
+    focusTags: splitListText(form.focusTagsText),
+    constructTags: splitListText(form.constructTagsText),
+    teacherGoal: form.teacherGoal,
+    linkedCourse: form.linkedCourse,
+    linkedActivity: form.linkedActivity,
+    suggestedSupports: splitListText(form.suggestedSupportsText),
+    teacherNotes: form.teacherNotes,
+    isActive: form.isActive,
+  };
+}
+
+function validateTaskForm(form) {
+  if (!form.title.trim()) return '請輸入題目標題';
+  if (!form.prompt.trim() || form.prompt.trim().length < 8) return '請輸入至少 8 個字元的 prompt';
+  if (!form.targetText.trim() || form.targetText.trim().length < 8) return '請輸入目標回答或朗讀文字';
+  if (!Number.isFinite(Number(form.estimatedSeconds)) || Number(form.estimatedSeconds) < 5) return '建議秒數至少 5 秒';
+  if (!Number.isFinite(Number(form.targetWords)) || Number(form.targetWords) < 1) return '目標字數至少 1';
+  return '';
+}
 
 function formatDate(value) {
   if (!value) return '--';
@@ -80,8 +187,16 @@ export default function SpeakingDiagnosticAdminPage() {
   const [studentId, setStudentId] = useState('');
   const [ratingStatus, setRatingStatus] = useState('');
   const [summary, setSummary] = useState(null);
+  const [ecosystemSummary, setEcosystemSummary] = useState(null);
+  const [adminTasks, setAdminTasks] = useState([]);
+  const [taskFilters, setTaskFilters] = useState({ q: '', level: '', taskType: '', active: '' });
+  const [taskForm, setTaskForm] = useState(EMPTY_TASK_FORM);
+  const [editingTaskKey, setEditingTaskKey] = useState('');
+  const [activeTab, setActiveTab] = useState('ecosystem');
   const [loading, setLoading] = useState(false);
+  const [tasksLoading, setTasksLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingTask, setSavingTask] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
   const [error, setError] = useState('');
@@ -104,12 +219,14 @@ export default function SpeakingDiagnosticAdminPage() {
     setLoading(true);
     setError('');
     try {
-      const [data, summaryData] = await Promise.all([
+      const [data, summaryData, ecosystemData] = await Promise.all([
         fetchSpeakingDiagnosticAttempts(token, { limit: 100, studentId, ratingStatus }),
         fetchSpeakingDiagnosticResearchSummary(token, { limit: 1000 }),
+        fetchSpeakingDiagnosticEcosystemSummary(token, { limit: 1000 }),
       ]);
       setAttempts(Array.isArray(data) ? data : []);
       setSummary(summaryData || null);
+      setEcosystemSummary(ecosystemData || null);
       setSelectedUid((prev) => (data || []).some((row) => row.attemptUid === prev) ? prev : data?.[0]?.attemptUid || '');
     } catch (err) {
       setAttempts([]);
@@ -119,9 +236,27 @@ export default function SpeakingDiagnosticAdminPage() {
     }
   }, [studentId, ratingStatus, token]);
 
+  const loadTasks = useCallback(async () => {
+    setTasksLoading(true);
+    setError('');
+    try {
+      const data = await fetchSpeakingDiagnosticAdminTasks(token, { limit: 200, ...taskFilters });
+      setAdminTasks(Array.isArray(data?.tasks) ? data.tasks : []);
+    } catch (err) {
+      setAdminTasks([]);
+      setError(err.message || '載入 ESAP 題庫失敗');
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [taskFilters, token]);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
 
   useEffect(() => {
     const existing = selected?.humanRatings?.[0];
@@ -210,6 +345,59 @@ export default function SpeakingDiagnosticAdminPage() {
     }
   };
 
+  const resetTaskForm = () => {
+    setEditingTaskKey('');
+    setTaskForm(EMPTY_TASK_FORM);
+  };
+
+  const editTask = (task) => {
+    setEditingTaskKey(task.taskKey);
+    setTaskForm(taskToForm(task));
+    setActiveTab('tasks');
+  };
+
+  const saveTask = async () => {
+    const validation = validateTaskForm(taskForm);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+    setSavingTask(true);
+    setError('');
+    setMessage('');
+    try {
+      const payload = buildTaskPayload(taskForm);
+      if (editingTaskKey) {
+        await updateSpeakingDiagnosticAdminTask(token, editingTaskKey, payload);
+        setMessage('已更新 ESAP 口說題目');
+      } else {
+        await createSpeakingDiagnosticAdminTask(token, payload);
+        setMessage('已建立 ESAP 口說題目');
+      }
+      resetTaskForm();
+      await Promise.all([loadTasks(), load()]);
+    } catch (err) {
+      setError(err.message || '儲存 ESAP 題目失敗');
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
+  const toggleTaskActive = async (task) => {
+    setSavingTask(true);
+    setError('');
+    setMessage('');
+    try {
+      await updateSpeakingDiagnosticAdminTask(token, task.taskKey, { isActive: task.isActive === false });
+      setMessage(task.isActive === false ? '題目已啟用' : '題目已停用');
+      await loadTasks();
+    } catch (err) {
+      setError(err.message || '更新題目狀態失敗');
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
   const scores = selected?.presentationScores || selected?.automatedScores?.presentationScores || {};
   const wordResults = selected?.wordResults || selected?.features?.wordResults || [];
   const alignment = selected?.alignment || selected?.features?.alignment || null;
@@ -271,6 +459,176 @@ export default function SpeakingDiagnosticAdminPage() {
       {error ? <Alert variant="danger">{error}</Alert> : null}
       {message ? <Alert variant="success">{message}</Alert> : null}
 
+      <div className="sd-admin-tabs" role="tablist" aria-label="口說診斷工作區">
+        {[
+          ['ecosystem', 'EMI 成效總覽'],
+          ['tasks', 'ESAP 題庫管理'],
+          ['attempts', '作答與人評'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            className={activeTab === key ? 'sd-admin-tab sd-admin-tab--active' : 'sd-admin-tab'}
+            onClick={() => setActiveTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'ecosystem' ? (
+        <section className="sd-admin-panel">
+          <div className="sd-admin-panel__head">
+            <div>
+              <h2>EMI 學習生態成效</h2>
+              <p>把口說弱點、ESAP 任務、中心活動與後續追蹤放在同一張工作台。</p>
+            </div>
+            <button className="btn btn-outline-primary btn-sm" type="button" onClick={load} disabled={loading}>
+              {loading ? '更新中...' : '更新資料'}
+            </button>
+          </div>
+          {!ecosystemSummary && loading ? (
+            <div className="text-center py-4"><Spinner animation="border" size="sm" /> 載入中</div>
+          ) : null}
+          {ecosystemSummary ? (
+            <>
+              <div className="sd-admin-ecosystem-grid">
+                <div><strong>{ecosystemSummary.sample?.attempts ?? 0}</strong><span>診斷作答</span></div>
+                <div><strong>{ecosystemSummary.sample?.students ?? 0}</strong><span>學生數</span></div>
+                <div><strong>{ecosystemSummary.sample?.ratedAttempts ?? 0}</strong><span>已有人評</span></div>
+                <div><strong>{ecosystemSummary.recommendedSupports?.[0]?.support || '--'}</strong><span>目前最需要支援</span></div>
+              </div>
+              <div className="sd-admin-insight-grid">
+                <section>
+                  <h3>A2-B2 常見弱點</h3>
+                  {Object.entries(ecosystemSummary.weakConstructs || {}).map(([key, value]) => (
+                    <div className="sd-admin-bar-row" key={key}>
+                      <span>{key}</span>
+                      <strong>{value}</strong>
+                    </div>
+                  ))}
+                </section>
+                <section>
+                  <h3>中心活動需求</h3>
+                  {ecosystemSummary.recommendedSupports?.length ? ecosystemSummary.recommendedSupports.slice(0, 6).map((row) => (
+                    <div className="sd-admin-bar-row" key={row.support}>
+                      <span>{row.support}</span>
+                      <strong>{row.demand}</strong>
+                    </div>
+                  )) : <p className="text-muted small mb-0">尚未累積足夠作答資料。</p>}
+                </section>
+                <section>
+                  <h3>溝通任務表現</h3>
+                  {ecosystemSummary.byCommunicationFunction?.slice(0, 6).map((row) => (
+                    <div className="sd-admin-bar-row" key={row.key}>
+                      <span>{COMMUNICATION_FUNCTION_LABELS[row.key] || row.key}</span>
+                      <strong>{formatPercent(row.averageOverallPercent)}</strong>
+                    </div>
+                  ))}
+                </section>
+              </div>
+              <div className="sd-admin-data-table">
+                <div className="sd-admin-data-table__head">
+                  <span>活動/支援</span>
+                  <span>作答</span>
+                  <span>學生</span>
+                  <span>Fluency</span>
+                  <span>Task</span>
+                  <span>Vocabulary</span>
+                </div>
+                {(ecosystemSummary.byActivity || []).slice(0, 12).map((row) => (
+                  <div className="sd-admin-data-table__row" key={row.key}>
+                    <span>{row.key}</span>
+                    <span>{row.attempts}</span>
+                    <span>{row.students}</span>
+                    <span>{formatPercent(row.averageFluencyPercent)}</span>
+                    <span>{formatPercent(row.averageTaskAchievementPercent)}</span>
+                    <span>{formatPercent(row.averageVocabularyPercent)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : !loading ? (
+            <div className="text-muted small p-3">尚無 ecosystem evidence。學生送出錄音後會開始累積。</div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {activeTab === 'tasks' ? (
+        <section className="sd-admin-panel">
+          <div className="sd-admin-panel__head">
+            <div>
+              <h2>ESAP / EMI 題庫管理</h2>
+              <p>建立能對齊課程、活動與學科語彙的口說任務。</p>
+            </div>
+            <button className="btn btn-outline-secondary btn-sm" type="button" onClick={resetTaskForm}>
+              新增題目
+            </button>
+          </div>
+          <div className="sd-admin-task-workspace">
+            <form className="sd-admin-task-form" onSubmit={(event) => { event.preventDefault(); saveTask(); }}>
+              <h3>{editingTaskKey ? '編輯題目' : '新增題目'}</h3>
+              <div className="sd-admin-form-grid">
+                <label><span>Task key</span><input className="form-control" value={taskForm.taskKey} disabled={Boolean(editingTaskKey)} onChange={(event) => setTaskForm((prev) => ({ ...prev, taskKey: event.target.value }))} placeholder="esap-b1-define-concept" /></label>
+                <label><span>Level</span><select className="form-select" value={taskForm.level} onChange={(event) => setTaskForm((prev) => ({ ...prev, level: event.target.value }))}><option>A2</option><option>B1</option><option>B2</option></select></label>
+                <label><span>Task type</span><select className="form-select" value={taskForm.taskType} onChange={(event) => setTaskForm((prev) => ({ ...prev, taskType: event.target.value }))}><option value="read_aloud">read_aloud</option><option value="campus_short_answer">campus_short_answer</option><option value="picture_description">picture_description</option><option value="opinion_response">opinion_response</option></select></label>
+                <label><span>Communication</span><select className="form-select" value={taskForm.communicationFunction} onChange={(event) => setTaskForm((prev) => ({ ...prev, communicationFunction: event.target.value }))}>{Object.entries(COMMUNICATION_FUNCTION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                <label><span>Title</span><input className="form-control" value={taskForm.title} onChange={(event) => setTaskForm((prev) => ({ ...prev, title: event.target.value }))} /></label>
+                <label><span>Discipline</span><input className="form-control" value={taskForm.discipline} onChange={(event) => setTaskForm((prev) => ({ ...prev, discipline: event.target.value }))} /></label>
+                <label><span>Linked course</span><input className="form-control" value={taskForm.linkedCourse} onChange={(event) => setTaskForm((prev) => ({ ...prev, linkedCourse: event.target.value }))} /></label>
+                <label><span>Linked activity</span><input className="form-control" value={taskForm.linkedActivity} onChange={(event) => setTaskForm((prev) => ({ ...prev, linkedActivity: event.target.value }))} /></label>
+              </div>
+              <label><span>Prompt</span><textarea className="form-control" rows={3} value={taskForm.prompt} onChange={(event) => setTaskForm((prev) => ({ ...prev, prompt: event.target.value }))} /></label>
+              <label><span>Target answer / read-aloud text</span><textarea className="form-control" rows={3} value={taskForm.targetText} onChange={(event) => setTaskForm((prev) => ({ ...prev, targetText: event.target.value }))} /></label>
+              <div className="sd-admin-form-grid">
+                <label><span>Estimated seconds</span><input className="form-control" type="number" min="5" max="180" value={taskForm.estimatedSeconds} onChange={(event) => setTaskForm((prev) => ({ ...prev, estimatedSeconds: event.target.value }))} /></label>
+                <label><span>Target words</span><input className="form-control" type="number" min="1" max="500" value={taskForm.targetWords} onChange={(event) => setTaskForm((prev) => ({ ...prev, targetWords: event.target.value }))} /></label>
+              </div>
+              <label><span>Target vocabulary</span><textarea className="form-control" rows={2} value={taskForm.targetVocabularyText} onChange={(event) => setTaskForm((prev) => ({ ...prev, targetVocabularyText: event.target.value }))} placeholder="用逗號或換行分隔" /></label>
+              <label><span>Teacher goal</span><textarea className="form-control" rows={2} value={taskForm.teacherGoal} onChange={(event) => setTaskForm((prev) => ({ ...prev, teacherGoal: event.target.value }))} /></label>
+              <div className="sd-admin-form-grid">
+                <label><span>Focus tags</span><input className="form-control" value={taskForm.focusTagsText} onChange={(event) => setTaskForm((prev) => ({ ...prev, focusTagsText: event.target.value }))} /></label>
+                <label><span>Construct tags</span><input className="form-control" value={taskForm.constructTagsText} onChange={(event) => setTaskForm((prev) => ({ ...prev, constructTagsText: event.target.value }))} /></label>
+              </div>
+              <label><span>Suggested supports</span><input className="form-control" value={taskForm.suggestedSupportsText} onChange={(event) => setTaskForm((prev) => ({ ...prev, suggestedSupportsText: event.target.value }))} /></label>
+              <label className="sd-admin-checkbox"><input type="checkbox" checked={taskForm.isActive} onChange={(event) => setTaskForm((prev) => ({ ...prev, isActive: event.target.checked }))} /> 啟用題目</label>
+              <div className="sd-admin-form-actions">
+                <button className="btn btn-primary" type="submit" disabled={savingTask}>{savingTask ? '儲存中...' : '儲存題目'}</button>
+                <button className="btn btn-outline-secondary" type="button" onClick={resetTaskForm}>清空</button>
+              </div>
+            </form>
+            <div className="sd-admin-task-list">
+              <div className="sd-admin-task-filters">
+                <input className="form-control" placeholder="搜尋題目/課程/活動" value={taskFilters.q} onChange={(event) => setTaskFilters((prev) => ({ ...prev, q: event.target.value }))} />
+                <select className="form-select" value={taskFilters.level} onChange={(event) => setTaskFilters((prev) => ({ ...prev, level: event.target.value }))}><option value="">全部程度</option><option>A2</option><option>B1</option><option>B2</option></select>
+                <select className="form-select" value={taskFilters.active} onChange={(event) => setTaskFilters((prev) => ({ ...prev, active: event.target.value }))}><option value="">全部狀態</option><option value="true">啟用</option><option value="false">停用</option></select>
+              </div>
+              {tasksLoading ? <div className="text-center py-4"><Spinner animation="border" size="sm" /> 載入題庫中</div> : null}
+              {!tasksLoading && !adminTasks.length ? <div className="text-muted small p-3">尚無符合條件的題目。</div> : null}
+              {adminTasks.map((task) => (
+                <article className="sd-admin-task-card" key={task.taskKey}>
+                  <div>
+                    <strong>{task.title}</strong>
+                    <small>{task.level} · {task.taskType} · {task.discipline || 'General'} · {COMMUNICATION_FUNCTION_LABELS[task.communicationFunction] || task.communicationFunction || '--'}</small>
+                    <p>{task.prompt}</p>
+                    <div className="sd-admin-chipline">
+                      {(task.targetVocabulary || []).slice(0, 8).map((word) => <span key={word}>{word}</span>)}
+                    </div>
+                  </div>
+                  <div className="sd-admin-task-card__stats">
+                    <span>{task.usage?.attempts ?? 0} attempts</span>
+                    <span>{formatPercent(task.usage?.averageOverallPercent)} avg</span>
+                    <button className="btn btn-sm btn-outline-primary" type="button" onClick={() => editTask(task)}>編輯</button>
+                    <button className="btn btn-sm btn-outline-secondary" type="button" onClick={() => toggleTaskActive(task)} disabled={savingTask}>{task.isActive === false ? '啟用' : '停用'}</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {activeTab === 'attempts' ? (
       <div className="sd-admin-layout">
         <aside className="sd-admin-list">
           {loading ? (
@@ -444,6 +802,7 @@ export default function SpeakingDiagnosticAdminPage() {
           )}
         </section>
       </div>
+      ) : null}
     </div>
   );
 }

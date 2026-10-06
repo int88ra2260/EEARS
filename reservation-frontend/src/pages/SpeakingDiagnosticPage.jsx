@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Microphone, Stop, ChartBar, Waveform } from '@phosphor-icons/react';
+import { useLocation } from 'react-router-dom';
 import PageHeader from '../components/layout/PageHeader';
 import { createSpeakingAdaptiveSession, fetchNextSpeakingTask, fetchSpeakingTasks, submitSpeakingAttempt } from '../services/speakingDiagnosticApi';
 import { SPEAKING_TASKS } from '../data/speakingDiagnostic/readAloudTasks';
@@ -198,8 +199,12 @@ function getAdaptiveLabel(session) {
 }
 
 export default function SpeakingDiagnosticPage() {
+  const location = useLocation();
+  const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const requestedTaskKey = queryParams.get('taskKey') || '';
+  const sourceContext = queryParams.get('source') || '';
   const [tasks, setTasks] = useState(SPEAKING_TASKS.map((task) => ({ ...task, taskKey: task.id })));
-  const [selectedTaskKey, setSelectedTaskKey] = useState('ra-a2-campus-library');
+  const [selectedTaskKey, setSelectedTaskKey] = useState(requestedTaskKey || 'ra-a2-campus-library');
   const [studentId, setStudentId] = useState('');
   const [transcript, setTranscript] = useState('');
   const [recording, setRecording] = useState(false);
@@ -246,14 +251,21 @@ export default function SpeakingDiagnosticPage() {
       .then((data) => {
         if (Array.isArray(data.tasks) && data.tasks.length) {
           setTasks(data.tasks);
-          setSelectedTaskKey(data.tasks[0].taskKey);
+          const requested = requestedTaskKey && data.tasks.some((task) => task.taskKey === requestedTaskKey)
+            ? requestedTaskKey
+            : data.tasks[0].taskKey;
+          if (requestedTaskKey && requested !== requestedTaskKey) {
+            setError('找不到這題 English Table 練習，請稍後再試或改選其他題目。');
+          }
+          setSelectedTaskKey(requested);
         }
       })
       .catch(() => {
         // Local task bank remains available before migrations are applied.
+        if (requestedTaskKey) setError('暫時無法載入 English Table 練習題，請確認後端服務與題庫同步狀態。');
       });
     return () => controller.abort();
-  }, []);
+  }, [requestedTaskKey]);
 
   useEffect(() => {
     transcriptRef.current = transcript;
@@ -269,6 +281,7 @@ export default function SpeakingDiagnosticPage() {
     () => tasks.find((task) => (task.taskKey || task.id) === selectedTaskKey) || tasks[0],
     [selectedTaskKey, tasks],
   );
+  const isEnglishTableTask = selectedTask?.linkedActivity === 'English Table' || sourceContext === 'english-table';
 
   const isReadAloud = selectedTask?.taskType === 'read_aloud';
   const wordResults = useMemo(() => {
@@ -538,8 +551,8 @@ export default function SpeakingDiagnosticPage() {
     <div className="speaking-diagnostic-page">
       <PageHeader
         breadcrumbs={breadcrumbs}
-        title="EEARS Speaking Diagnostic"
-        lead="完成幾題口說任務，系統會依你的表現安排下一題並給出練習回饋。"
+        title={isEnglishTableTask ? 'English Table Speaking Warm-up' : 'EEARS Speaking Diagnostic'}
+        lead={isEnglishTableTask ? '先練習當天 English Table 題目，完成後可帶著回饋進到現場討論。' : '完成幾題口說任務，系統會依你的表現安排下一題並給出練習回饋。'}
       />
 
       <main className="container pb-5">
@@ -571,6 +584,13 @@ export default function SpeakingDiagnosticPage() {
                 {adaptiveStarting ? '啟動中...' : adaptiveSession ? '重新開始' : '開始'}
               </button>
             </div>
+
+            {isEnglishTableTask ? (
+              <div className="speaking-context-card">
+                <strong>English Table 練習</strong>
+                <span>這題會納入中心活動成效資料，後台可用來觀察學生會前準備、流暢度與內容發展。</span>
+              </div>
+            ) : null}
 
             <details className="speaking-task-picker">
               <summary>自行選題練習</summary>
@@ -609,6 +629,7 @@ export default function SpeakingDiagnosticPage() {
               <div className="speaking-stage-meta">
                 <span>{selectedTask?.level}</span>
                 <span>{TASK_TYPE_LABELS[selectedTask?.taskType] || selectedTask?.taskType}</span>
+                {selectedTask?.linkedActivity ? <span>{selectedTask.linkedActivity}</span> : null}
                 <span>{selectedTask?.estimatedSeconds || 15}s target</span>
               </div>
               <div className="speaking-stage-center">
@@ -655,6 +676,13 @@ export default function SpeakingDiagnosticPage() {
                 <div className="speaking-open-prompt" aria-label="Speaking prompt">
                   <span>{TASK_TYPE_LABELS[selectedTask?.taskType] || 'Speaking task'}</span>
                   <p>{selectedTask?.prompt}</p>
+                  {selectedTask?.targetVocabulary?.length ? (
+                    <div className="speaking-vocabulary-chips" aria-label="Suggested vocabulary">
+                      {selectedTask.targetVocabulary.slice(0, 8).map((word) => (
+                        <span key={word}>{word}</span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               )}
               <div className="speaking-stage-footer">

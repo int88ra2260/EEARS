@@ -51,6 +51,242 @@
   font-size: 0.82rem;
 }
 
+.sd-admin-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #dfe8f2;
+}
+
+.sd-admin-tab {
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #5c6f84;
+  font-weight: 800;
+  padding: 0.75rem 0.95rem;
+}
+
+.sd-admin-tab--active {
+  color: #224f88;
+  border-bottom-color: #22a6ad;
+}
+
+.sd-admin-panel {
+  border: 1px solid #dfe8f2;
+  border-radius: 8px;
+  background: #fff;
+  padding: 1rem;
+}
+
+.sd-admin-panel__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.sd-admin-panel h2 {
+  font-size: 1.25rem;
+  margin: 0 0 0.25rem;
+}
+
+.sd-admin-panel p {
+  color: #697386;
+  margin: 0;
+}
+
+.sd-admin-ecosystem-grid,
+.sd-admin-insight-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.sd-admin-ecosystem-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.sd-admin-ecosystem-grid div,
+.sd-admin-insight-grid section {
+  border: 1px solid #dfe8f2;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 0.85rem;
+}
+
+.sd-admin-ecosystem-grid strong {
+  display: block;
+  color: #224f88;
+  font-size: 1.2rem;
+}
+
+.sd-admin-ecosystem-grid span {
+  color: #697386;
+  font-size: 0.85rem;
+}
+
+.sd-admin-insight-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.sd-admin-insight-grid h3 {
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.sd-admin-bar-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid #edf2f7;
+  padding: 0.45rem 0;
+  color: #486179;
+}
+
+.sd-admin-bar-row:first-of-type {
+  border-top: 0;
+}
+
+.sd-admin-data-table {
+  border: 1px solid #dfe8f2;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sd-admin-data-table__head,
+.sd-admin-data-table__row {
+  display: grid;
+  grid-template-columns: 2fr repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.65rem 0.75rem;
+}
+
+.sd-admin-data-table__head {
+  background: #f4f8fc;
+  color: #486179;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.sd-admin-data-table__row {
+  border-top: 1px solid #edf2f7;
+}
+
+.sd-admin-task-workspace {
+  display: grid;
+  grid-template-columns: minmax(20rem, 31rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.sd-admin-task-form,
+.sd-admin-task-list {
+  border: 1px solid #dfe8f2;
+  border-radius: 8px;
+  padding: 0.9rem;
+  background: #fbfdff;
+}
+
+.sd-admin-task-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.sd-admin-task-form h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.sd-admin-form-grid,
+.sd-admin-task-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.sd-admin-task-filters {
+  grid-template-columns: 1.5fr 1fr 1fr;
+  margin-bottom: 0.75rem;
+}
+
+.sd-admin-task-form label {
+  display: grid;
+  gap: 0.3rem;
+  color: #486179;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.sd-admin-checkbox {
+  display: flex !important;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 0.45rem !important;
+}
+
+.sd-admin-form-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sd-admin-task-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.sd-admin-task-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9rem;
+  gap: 1rem;
+  border: 1px solid #dfe8f2;
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.8rem;
+}
+
+.sd-admin-task-card strong {
+  display: block;
+  color: #243244;
+}
+
+.sd-admin-task-card small {
+  display: block;
+  color: #697386;
+  margin: 0.2rem 0 0.45rem;
+}
+
+.sd-admin-task-card p {
+  color: #42566d;
+  margin: 0 0 0.55rem;
+}
+
+.sd-admin-chipline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sd-admin-chipline span {
+  border-radius: 999px;
+  background: #eef7ff;
+  color: #245f9d;
+  font-size: 0.75rem;
+  padding: 0.18rem 0.5rem;
+}
+
+.sd-admin-task-card__stats {
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+  color: #486179;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .sd-admin-layout {
   display: grid;
   grid-template-columns: minmax(17rem, 24rem) minmax(0, 1fr);
@@ -307,6 +543,11 @@
 
   .sd-admin-filter,
   .sd-admin-summary,
+  .sd-admin-ecosystem-grid,
+  .sd-admin-insight-grid,
+  .sd-admin-task-workspace,
+  .sd-admin-form-grid,
+  .sd-admin-task-filters,
   .sd-admin-scores,
   .sd-admin-evidence-table,
   .sd-admin-alignment-grid,

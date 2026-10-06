@@ -75,6 +75,7 @@ export default function EnglishTableTopicsPage() {
                       date={session.date}
                       eventType="english_table"
                       defaultOpen={week.week === focusWeek}
+                      showPracticeLinks
                     />
                   </article>
                 );

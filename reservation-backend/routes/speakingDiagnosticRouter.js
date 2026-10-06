@@ -8,6 +8,10 @@ const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
 const { createMulterUploadErrorHandler } = require('../middlewares/multerUploadError');
 const {
   listSpeakingTasks,
+  listAdminSpeakingTasks,
+  createSpeakingTask,
+  updateSpeakingTask,
+  getSpeakingEcosystemSummary,
   createAdaptiveSession,
   getAdaptiveSession,
   getAdaptiveNextTask,
@@ -158,6 +162,96 @@ router.get(
   },
 );
 
+router.get(
+  '/admin/speaking-diagnostic/tasks',
+  authMiddleware,
+  requirePermission(P.CAN_VIEW_LEARNING_ANALYTICS),
+  async (req, res, next) => {
+    try {
+      const data = await listAdminSpeakingTasks(req.query || {});
+      return res.json({ success: true, data, requestId: req.requestId });
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({
+          success: false,
+          code: err.code || 'SPEAKING_DIAGNOSTIC_ERROR',
+          message: err.message,
+          details: err.details,
+          requestId: req.requestId,
+        });
+      }
+      return next(err);
+    }
+  },
+);
+
+router.post(
+  '/admin/speaking-diagnostic/tasks',
+  authMiddleware,
+  requirePermission(P.CAN_VIEW_LEARNING_ANALYTICS),
+  async (req, res, next) => {
+    try {
+      const data = await createSpeakingTask(req.body || {});
+      return res.status(201).json({ success: true, data, requestId: req.requestId });
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({
+          success: false,
+          code: err.code || 'SPEAKING_DIAGNOSTIC_ERROR',
+          message: err.message,
+          details: err.details,
+          requestId: req.requestId,
+        });
+      }
+      return next(err);
+    }
+  },
+);
+
+router.patch(
+  '/admin/speaking-diagnostic/tasks/:taskKey',
+  authMiddleware,
+  requirePermission(P.CAN_VIEW_LEARNING_ANALYTICS),
+  async (req, res, next) => {
+    try {
+      const data = await updateSpeakingTask(req.params.taskKey, req.body || {});
+      return res.json({ success: true, data, requestId: req.requestId });
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({
+          success: false,
+          code: err.code || 'SPEAKING_DIAGNOSTIC_ERROR',
+          message: err.message,
+          details: err.details,
+          requestId: req.requestId,
+        });
+      }
+      return next(err);
+    }
+  },
+);
+
+router.get(
+  '/admin/speaking-diagnostic/ecosystem-summary',
+  authMiddleware,
+  requirePermission(P.CAN_VIEW_LEARNING_ANALYTICS),
+  async (req, res, next) => {
+    try {
+      const data = await getSpeakingEcosystemSummary(req.query || {});
+      return res.json({ success: true, data, requestId: req.requestId });
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({
+          success: false,
+          code: err.code || 'SPEAKING_DIAGNOSTIC_ERROR',
+          message: err.message,
+          requestId: req.requestId,
+        });
+      }
+      return next(err);
+    }
+  },
+);
 router.post(
   '/admin/speaking-diagnostic/attempts/:attemptUid/ratings',
   authMiddleware,

@@ -79,6 +79,26 @@
   margin-top: 0.45rem;
 }
 
+.et-topic__questions li {
+  padding-right: 0.2rem;
+}
+
+.et-topic__practice-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.45rem;
+  color: #2563eb;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.et-topic__practice-link:hover,
+.et-topic__practice-link:focus {
+  color: #174ea6;
+  text-decoration: underline;
+}
+
 .et-topic__catalog {
   margin: 0.85rem 0 0;
   font-size: 0.88rem;

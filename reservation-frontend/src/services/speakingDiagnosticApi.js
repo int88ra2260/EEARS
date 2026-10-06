@@ -111,6 +111,42 @@ export async function fetchSpeakingDiagnosticResearchSummary(token, params = {},
   return parseEnvelope(res, '載入口說研究摘要失敗');
 }
 
+export async function fetchSpeakingDiagnosticEcosystemSummary(token, params = {}, options = {}) {
+  const res = await fetchClient(`/api/admin/speaking-diagnostic/ecosystem-summary${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '載入口說生態系摘要失敗');
+}
+
+export async function fetchSpeakingDiagnosticAdminTasks(token, params = {}, options = {}) {
+  const res = await fetchClient(`/api/admin/speaking-diagnostic/tasks${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '載入 ESAP 口說題庫失敗');
+}
+
+export async function createSpeakingDiagnosticAdminTask(token, payload, options = {}) {
+  const res = await fetchClient('/api/admin/speaking-diagnostic/tasks', {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '建立 ESAP 口說題目失敗');
+}
+
+export async function updateSpeakingDiagnosticAdminTask(token, taskKey, payload, options = {}) {
+  const res = await fetchClient(`/api/admin/speaking-diagnostic/tasks/${encodeURIComponent(taskKey)}`, {
+    method: 'PATCH',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '更新 ESAP 口說題目失敗');
+}
+
 export async function downloadSpeakingDiagnosticResearchCsv(token, params = {}, options = {}) {
   const res = await fetchClient(`/api/admin/speaking-diagnostic/research-export.csv${buildQuery(params)}`, {
     headers: authHeaders(token),

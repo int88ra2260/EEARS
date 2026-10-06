@@ -1,5 +1,7 @@
 'use strict';
 
+const { ENGLISH_TABLE_WARMUP_TASKS } = require('./englishTableWarmupTaskBank');
+
 const READ_ALOUD_TASKS = [
   {
     "taskKey": "ra-a2-campus-library",
@@ -987,10 +989,11 @@ const CONSTRUCTED_RESPONSE_TASKS = [
   }
 ];
 
-const SPEAKING_TASKS = [...READ_ALOUD_TASKS, ...CONSTRUCTED_RESPONSE_TASKS];
+const SPEAKING_TASKS = [...READ_ALOUD_TASKS, ...CONSTRUCTED_RESPONSE_TASKS, ...ENGLISH_TABLE_WARMUP_TASKS];
 
 module.exports = {
   READ_ALOUD_TASKS,
   CONSTRUCTED_RESPONSE_TASKS,
+  ENGLISH_TABLE_WARMUP_TASKS,
   SPEAKING_TASKS,
 };

@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import {
   getEnglishTableTopic,
+  getEnglishTableWarmupTaskKey,
   listEnglishTableTopicDates,
   listEnglishTableTopics,
+  listEnglishTableWarmupLinks,
   normalizeEnglishTableTopicDate,
 } from './englishTableTopics1151';
 
@@ -51,5 +53,13 @@ describe('englishTableTopics1151', () => {
     expect(getEnglishTableTopic('2026-10-09')).toBeNull();
     expect(getEnglishTableTopic('')).toBeNull();
     expect(getEnglishTableTopic(null)).toBeNull();
+  });
+
+  test('builds stable speaking warm-up links for English Table questions', () => {
+    expect(getEnglishTableWarmupTaskKey('2026-10-05', 0)).toBe('et-115-1-20261005-q1');
+    const links = listEnglishTableWarmupLinks('2026-10-05');
+    expect(links).toHaveLength(6);
+    expect(links[0].href).toContain('/practice/speaking-diagnostic');
+    expect(links[0].href).toContain('source=english-table');
   });
 });

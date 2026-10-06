@@ -13,6 +13,25 @@ const CEFR_LEVELS = ['A2', 'B1', 'B2'];
 const ADAPTIVE_REQUIRED_CONSTRUCTS = ['fluency', 'pronunciation_intelligibility', 'grammar', 'vocabulary', 'task_achievement'];
 const ADAPTIVE_TASK_TYPE_SEQUENCE = ['read_aloud', 'campus_short_answer', 'picture_description', 'opinion_response'];
 const ADAPTIVE_DEFAULTS = Object.freeze({ minTasks: 4, maxTasks: 8, targetStandardError: 0.38 });
+const SPEAKING_TASK_TYPES = new Set(['read_aloud', 'campus_short_answer', 'picture_description', 'opinion_response']);
+const ESAP_COMMUNICATION_FUNCTIONS = new Set([
+  'read_aloud',
+  'define_concept',
+  'explain_process',
+  'summarize_lecture',
+  'ask_clarification',
+  'give_opinion',
+  'describe_project',
+  'compare_ideas',
+  'presentation_microtask',
+]);
+const SUPPORT_BY_CONSTRUCT = Object.freeze({
+  fluency: ['English Table', 'Speaking Salon'],
+  pronunciation_intelligibility: ['Pronunciation Clinic', '1-on-1 Consultation'],
+  vocabulary: ['ESAP Vocabulary Lab', 'English Club'],
+  grammar: ['Sentence Pattern Workshop', 'Writing Workshop'],
+  task_achievement: ['Presentation Workshop', '1-on-1 Consultation'],
+});
 
 function normalizeStudentId(value) {
   if (value == null || value === '') return null;
@@ -32,6 +51,98 @@ function clampNumber(value, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
   return Math.min(max, Math.max(min, n));
 }
 
+function cleanString(value, max = 255) {
+  const trimmed = String(value || '').trim();
+  return trimmed ? trimmed.slice(0, max) : null;
+}
+
+function normalizeStringList(value, { maxItems = 24, maxLength = 80 } = {}) {
+  const raw = Array.isArray(value)
+    ? value
+    : String(value || '').split(/[\n,;]+/);
+  return uniqueArray(raw
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .map((item) => item.slice(0, maxLength)))
+    .slice(0, maxItems);
+}
+
+function slugifyTaskKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+function buildTaskValidationError(message, details = {}) {
+  const err = new Error(message);
+  err.status = 400;
+  err.code = 'INVALID_SPEAKING_TASK';
+  err.details = details;
+  return err;
+}
+
+function normalizeSpeakingTaskPayload(body = {}, { partial = false } = {}) {
+  const payload = {};
+  const taskKey = cleanString(body.taskKey, 80);
+  if (taskKey != null || !partial) {
+    const normalizedKey = slugifyTaskKey(taskKey || `${body.level || 'b1'}-${body.title || Date.now()}`);
+    if (!/^[a-z0-9][a-z0-9-]{2,79}$/.test(normalizedKey)) throw buildTaskValidationError('taskKey 必須是 3-80 字元的小寫英數或連字號');
+    payload.taskKey = normalizedKey;
+  }
+  const level = cleanString(body.level, 10)?.toUpperCase();
+  if (level != null || !partial) {
+    if (!CEFR_RANK[level]) throw buildTaskValidationError('level 必須是 A2、B1 或 B2');
+    payload.level = level;
+  }
+  const taskType = cleanString(body.taskType, 40);
+  if (taskType != null || !partial) {
+    if (!SPEAKING_TASK_TYPES.has(taskType)) throw buildTaskValidationError('taskType 不支援');
+    payload.taskType = taskType;
+  }
+  const title = cleanString(body.title, 120);
+  if (title != null || !partial) {
+    if (!title || title.length < 3) throw buildTaskValidationError('title 至少需要 3 個字元');
+    payload.title = title;
+  }
+  const prompt = cleanString(body.prompt, 5000);
+  if (prompt != null || !partial) {
+    if (!prompt || prompt.length < 8) throw buildTaskValidationError('prompt 至少需要 8 個字元');
+    payload.prompt = prompt;
+  }
+  const targetText = cleanString(body.targetText, 5000);
+  if (targetText != null || !partial) {
+    if (!targetText || targetText.length < 8) throw buildTaskValidationError('targetText 至少需要 8 個字元');
+    payload.targetText = targetText;
+  }
+  if (body.estimatedSeconds != null || !partial) {
+    payload.estimatedSeconds = clampNumber(body.estimatedSeconds, { min: 5, max: 180 }) || 45;
+  }
+  if (body.targetWords != null || !partial) {
+    payload.targetWords = clampNumber(body.targetWords, { min: 1, max: 500 }) || Math.max(1, tokenize(targetText || prompt || '').length);
+  }
+  if (body.focusTags != null || !partial) payload.focusTags = normalizeStringList(body.focusTags, { maxItems: 16 });
+  if (body.constructTags != null || !partial) {
+    const constructs = normalizeStringList(body.constructTags, { maxItems: 8 });
+    payload.constructTags = constructs.length ? constructs : ['task_achievement'];
+  }
+  if (body.discipline != null || !partial) payload.discipline = cleanString(body.discipline, 80);
+  if (body.communicationFunction != null || !partial) {
+    const fn = cleanString(body.communicationFunction, 80) || (payload.taskType === 'read_aloud' ? 'read_aloud' : 'define_concept');
+    payload.communicationFunction = ESAP_COMMUNICATION_FUNCTIONS.has(fn) ? fn : 'define_concept';
+  }
+  if (body.targetVocabulary != null || !partial) payload.targetVocabulary = normalizeStringList(body.targetVocabulary, { maxItems: 40, maxLength: 80 });
+  if (body.teacherGoal != null || !partial) payload.teacherGoal = cleanString(body.teacherGoal, 2000);
+  if (body.linkedCourse != null || !partial) payload.linkedCourse = cleanString(body.linkedCourse, 120);
+  if (body.linkedActivity != null || !partial) payload.linkedActivity = cleanString(body.linkedActivity, 120);
+  if (body.suggestedSupports != null || !partial) payload.suggestedSupports = normalizeStringList(body.suggestedSupports, { maxItems: 12, maxLength: 120 });
+  if (body.teacherNotes != null || !partial) payload.teacherNotes = cleanString(body.teacherNotes, 4000);
+  if (body.isActive != null) payload.isActive = body.isActive === true || body.isActive === 'true' || body.isActive === 1 || body.isActive === '1';
+  if (!partial && payload.isActive == null) payload.isActive = true;
+  payload.version = cleanString(body.version, 30) || 'v0';
+  return payload;
+}
 const NUMBER_WORDS_0_TO_59 = [
   'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
   'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
@@ -465,8 +576,10 @@ function keywordOverlap(sourceTokens, responseTokens) {
 
 function buildConstructedResponseEvidence(task, transcript, transcriptEvidence) {
   const responseTokens = contentTokens(transcript);
-  const promptTokens = contentTokens(`${task.prompt || ''} ${task.targetText || ''} ${(task.focusTags || []).join(' ')}`);
+  const targetVocabulary = normalizeStringList(task.targetVocabulary || [], { maxItems: 40 });
+  const promptTokens = contentTokens(`${task.prompt || ''} ${task.targetText || ''} ${(task.focusTags || []).join(' ')} ${targetVocabulary.join(' ')} ${task.teacherGoal || ''}`);
   const overlap = keywordOverlap(promptTokens, responseTokens);
+  const vocabularyOverlap = keywordOverlap(targetVocabulary.map((word) => normalizeText(word)).join(' ').split(' ').filter(Boolean), responseTokens);
   const tokens = tokenize(transcript);
   const hasReason = tokens.some((word) => ['because', 'since', 'therefore', 'so'].includes(word));
   const hasExample = tokens.some((word) => ['example', 'instance'].includes(word));
@@ -501,6 +614,9 @@ function buildConstructedResponseEvidence(task, transcript, transcriptEvidence) 
   return {
     taskKeywordCount: overlap.sourceCount,
     matchedTaskKeywords: overlap.matched.slice(0, 24),
+    targetVocabulary,
+    matchedTargetVocabulary: vocabularyOverlap.matched.slice(0, 24),
+    targetVocabularyCoverage: vocabularyOverlap.coverage,
     taskRelevanceProxy: overlap.coverage,
     ideaDevelopmentProxy: Number(ideaDevelopmentProxy.toFixed(4)),
     taskAchievementProxy: Number(taskAchievementProxy.toFixed(4)),
@@ -729,6 +845,15 @@ function toTaskDto(task) {
     targetWords: task.targetWords,
     focusTags: task.focusTags || [],
     constructTags: task.constructTags || [],
+    discipline: task.discipline || null,
+    communicationFunction: task.communicationFunction || null,
+    targetVocabulary: task.targetVocabulary || [],
+    teacherGoal: task.teacherGoal || null,
+    linkedCourse: task.linkedCourse || null,
+    linkedActivity: task.linkedActivity || null,
+    suggestedSupports: task.suggestedSupports || [],
+    teacherNotes: task.teacherNotes || null,
+    isActive: task.isActive,
     version: task.version,
   };
 }
@@ -1156,6 +1281,197 @@ async function updateAdaptiveSessionAfterAttempt({ sessionUid, task, attempt, pr
   return toAdaptiveSessionDto(session, next.task, next.decision);
 }
 
+function taskMatchesAdminFilters(task, query = {}) {
+  const q = String(query.q || '').trim().toLowerCase();
+  const level = String(query.level || '').trim().toUpperCase();
+  const taskType = String(query.taskType || '').trim();
+  const discipline = String(query.discipline || '').trim().toLowerCase();
+  const communicationFunction = String(query.communicationFunction || '').trim();
+  if (level && task.level !== level) return false;
+  if (taskType && task.taskType !== taskType) return false;
+  if (discipline && String(task.discipline || '').toLowerCase() !== discipline) return false;
+  if (communicationFunction && task.communicationFunction !== communicationFunction) return false;
+  if (query.active === 'true' && !task.isActive) return false;
+  if (query.active === 'false' && task.isActive) return false;
+  if (!q) return true;
+  const haystack = [
+    task.taskKey,
+    task.title,
+    task.prompt,
+    task.targetText,
+    task.discipline,
+    task.communicationFunction,
+    task.teacherGoal,
+    task.linkedCourse,
+    task.linkedActivity,
+    ...(task.focusTags || []),
+    ...(task.constructTags || []),
+    ...(task.targetVocabulary || []),
+  ].join(' ').toLowerCase();
+  return haystack.includes(q);
+}
+
+async function listAdminSpeakingTasks(query = {}) {
+  await ensureSeedTasks();
+  const limit = Math.max(1, Math.min(Number(query.limit) || 200, 500));
+  const rows = await SpeakingTask.findAll({ order: [['updatedAt', 'DESC'], ['id', 'DESC']] });
+  const tasks = rows.filter((task) => taskMatchesAdminFilters(task, query)).slice(0, limit).map(toTaskDto);
+  const attempts = await SpeakingAttempt.findAll({
+    include: [{ model: SpeakingTask, as: 'task' }],
+    order: [['submittedAt', 'DESC']],
+    limit: 2000,
+  });
+  const byTaskKey = new Map();
+  attempts.forEach((attempt) => {
+    const taskKey = attempt.task?.taskKey;
+    if (!taskKey) return;
+    const item = byTaskKey.get(taskKey) || { attempts: 0, students: new Set(), overall: [], fluency: [], taskAchievement: [], vocabulary: [] };
+    item.attempts += 1;
+    if (attempt.studentId) item.students.add(attempt.studentId);
+    const scores = attempt.automatedScores?.presentationScores || {};
+    if (Number.isFinite(Number(scores.overallPercent))) item.overall.push(Number(scores.overallPercent));
+    if (Number.isFinite(Number(scores.fluencyPercent))) item.fluency.push(Number(scores.fluencyPercent));
+    if (Number.isFinite(Number(scores.taskAchievementPercent))) item.taskAchievement.push(Number(scores.taskAchievementPercent));
+    if (Number.isFinite(Number(scores.vocabularyPercent))) item.vocabulary.push(Number(scores.vocabularyPercent));
+    byTaskKey.set(taskKey, item);
+  });
+  return {
+    tasks: tasks.map((task) => {
+      const stats = byTaskKey.get(task.taskKey);
+      return {
+        ...task,
+        usage: stats ? {
+          attempts: stats.attempts,
+          students: stats.students.size,
+          averageOverallPercent: stats.overall.length ? Number(mean(stats.overall).toFixed(1)) : null,
+          averageFluencyPercent: stats.fluency.length ? Number(mean(stats.fluency).toFixed(1)) : null,
+          averageTaskAchievementPercent: stats.taskAchievement.length ? Number(mean(stats.taskAchievement).toFixed(1)) : null,
+          averageVocabularyPercent: stats.vocabulary.length ? Number(mean(stats.vocabulary).toFixed(1)) : null,
+        } : { attempts: 0, students: 0, averageOverallPercent: null, averageFluencyPercent: null, averageTaskAchievementPercent: null, averageVocabularyPercent: null },
+      };
+    }),
+    filters: {
+      levels: CEFR_LEVELS,
+      taskTypes: Array.from(SPEAKING_TASK_TYPES),
+      communicationFunctions: Array.from(ESAP_COMMUNICATION_FUNCTIONS),
+    },
+  };
+}
+
+async function createSpeakingTask(body = {}) {
+  const payload = normalizeSpeakingTaskPayload(body);
+  const existing = await SpeakingTask.findOne({ where: { taskKey: payload.taskKey } });
+  if (existing) throw buildTaskValidationError('taskKey 已存在，請換一個代碼', { taskKey: payload.taskKey });
+  const row = await SpeakingTask.create(payload);
+  return toTaskDto(row);
+}
+
+async function updateSpeakingTask(taskKey, body = {}) {
+  const key = slugifyTaskKey(taskKey);
+  const row = await SpeakingTask.findOne({ where: { taskKey: key } });
+  if (!row) {
+    const err = new Error('找不到口說任務');
+    err.status = 404;
+    err.code = 'TASK_NOT_FOUND';
+    throw err;
+  }
+  const payload = normalizeSpeakingTaskPayload(body, { partial: true });
+  delete payload.taskKey;
+  await row.update(payload);
+  return toTaskDto(row);
+}
+
+function buildWeakConstructCounts(attempts) {
+  const counts = Object.fromEntries(ADAPTIVE_REQUIRED_CONSTRUCTS.map((key) => [key, 0]));
+  attempts.forEach((attempt) => {
+    const scores = attempt.automatedScores?.presentationScores || {};
+    const entries = [
+      ['fluency', scores.fluencyPercent],
+      ['pronunciation_intelligibility', scores.pronunciationPercent],
+      ['grammar', scores.grammarPercent],
+      ['vocabulary', scores.vocabularyPercent],
+      ['task_achievement', scores.taskAchievementPercent],
+    ];
+    entries.forEach(([key, value]) => {
+      const n = Number(value);
+      if (Number.isFinite(n) && n < 65) counts[key] += 1;
+    });
+  });
+  return counts;
+}
+
+async function getSpeakingEcosystemSummary(query = {}) {
+  await ensureSeedTasks();
+  const limit = Math.max(1, Math.min(Number(query.limit) || 1000, 5000));
+  const rows = await SpeakingAttempt.findAll({
+    include: [
+      { model: SpeakingTask, as: 'task' },
+      { model: SpeakingHumanRating, as: 'humanRatings' },
+    ],
+    order: [['submittedAt', 'DESC']],
+    limit,
+  });
+  const students = new Set(rows.map((row) => row.studentId).filter(Boolean));
+  const byLevel = {};
+  const byDiscipline = {};
+  const byActivity = {};
+  const byFunction = {};
+  rows.forEach((row) => {
+    const task = row.task || {};
+    const scores = row.automatedScores?.presentationScores || {};
+    const buckets = [
+      [byLevel, task.level || 'unknown'],
+      [byDiscipline, task.discipline || 'general'],
+      [byActivity, task.linkedActivity || 'unlinked'],
+      [byFunction, task.communicationFunction || task.taskType || 'unknown'],
+    ];
+    buckets.forEach(([bucket, key]) => {
+      const item = bucket[key] || { attempts: 0, students: new Set(), overall: [], fluency: [], taskAchievement: [], vocabulary: [], ideaDevelopment: [] };
+      item.attempts += 1;
+      if (row.studentId) item.students.add(row.studentId);
+      if (Number.isFinite(Number(scores.overallPercent))) item.overall.push(Number(scores.overallPercent));
+      if (Number.isFinite(Number(scores.fluencyPercent))) item.fluency.push(Number(scores.fluencyPercent));
+      if (Number.isFinite(Number(scores.taskAchievementPercent))) item.taskAchievement.push(Number(scores.taskAchievementPercent));
+      if (Number.isFinite(Number(scores.vocabularyPercent))) item.vocabulary.push(Number(scores.vocabularyPercent));
+      if (Number.isFinite(Number(scores.ideaDevelopmentPercent))) item.ideaDevelopment.push(Number(scores.ideaDevelopmentPercent));
+      bucket[key] = item;
+    });
+  });
+  const serializeBucket = (bucket) => Object.entries(bucket).map(([key, item]) => ({
+    key,
+    attempts: item.attempts,
+    students: item.students.size,
+    averageOverallPercent: item.overall.length ? Number(mean(item.overall).toFixed(1)) : null,
+    averageFluencyPercent: item.fluency.length ? Number(mean(item.fluency).toFixed(1)) : null,
+    averageTaskAchievementPercent: item.taskAchievement.length ? Number(mean(item.taskAchievement).toFixed(1)) : null,
+    averageVocabularyPercent: item.vocabulary.length ? Number(mean(item.vocabulary).toFixed(1)) : null,
+    averageIdeaDevelopmentPercent: item.ideaDevelopment.length ? Number(mean(item.ideaDevelopment).toFixed(1)) : null,
+  })).sort((a, b) => b.attempts - a.attempts);
+  const weakConstructs = buildWeakConstructCounts(rows);
+  const recommendedSupportMap = {};
+  Object.entries(weakConstructs).forEach(([construct, count]) => {
+    if (!count) return;
+    (SUPPORT_BY_CONSTRUCT[construct] || []).forEach((support) => {
+      recommendedSupportMap[support] = (recommendedSupportMap[support] || 0) + count;
+    });
+  });
+  return {
+    sample: {
+      attempts: rows.length,
+      students: students.size,
+      ratedAttempts: rows.filter((row) => ratingCount(row) > 0).length,
+    },
+    byLevel: serializeBucket(byLevel),
+    byDiscipline: serializeBucket(byDiscipline),
+    byActivity: serializeBucket(byActivity),
+    byCommunicationFunction: serializeBucket(byFunction),
+    weakConstructs,
+    recommendedSupports: Object.entries(recommendedSupportMap)
+      .map(([support, demand]) => ({ support, demand }))
+      .sort((a, b) => b.demand - a.demand),
+    interpretation: 'Use this dashboard as operational evidence: match weak constructs to center activities, then compare pre/post attempts after students participate.',
+  };
+}
 async function listSpeakingTasks(query = {}) {
   await ensureSeedTasks();
   const where = { isActive: true };
@@ -1692,6 +2008,10 @@ module.exports = {
   getAdaptiveSession,
   getAdaptiveNextTask,
   listSpeakingTasks,
+  listAdminSpeakingTasks,
+  createSpeakingTask,
+  updateSpeakingTask,
+  getSpeakingEcosystemSummary,
   getNextSpeakingTask,
   submitSpeakingAttempt,
   listRecentAttempts,

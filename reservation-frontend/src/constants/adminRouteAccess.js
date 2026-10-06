@@ -479,7 +479,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/speaking-diagnostic',
-    label: '口說診斷紀錄',
+    label: 'ESAP 口說診斷',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },

@@ -55,6 +55,26 @@
   background: #fbfdff;
 }
 
+.speaking-context-card {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+  border: 1px solid #cde9df;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #f3fbf8;
+}
+
+.speaking-context-card strong {
+  color: #1d5f4a;
+}
+
+.speaking-context-card span {
+  color: #4b635c;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 .speaking-task-picker {
   margin-top: 1rem;
 }
@@ -384,6 +404,23 @@
   color: #f5f8fb;
   font-size: clamp(1rem, 1.45vw, 1.18rem);
   line-height: 1.55;
+}
+
+.speaking-vocabulary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+}
+
+.speaking-vocabulary-chips span {
+  margin: 0;
+  border: 1px solid rgba(157, 230, 239, 0.34);
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  color: #ddfbff;
+  font-size: 0.78rem;
+  text-transform: none;
 }
 
 .speaking-stage-footer {

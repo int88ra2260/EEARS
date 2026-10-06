@@ -427,13 +427,13 @@ export const ADMIN_NAV_SECTIONS = [
       },
       {
         id: 'speaking-diagnostic',
-        label: '口說診斷紀錄',
+        label: 'ESAP 口說診斷',
         path: '/admin/speaking-diagnostic',
         matchPrefixes: ['/admin/speaking-diagnostic'],
         visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '口說診斷紀錄',
-        breadcrumbLabel: '口說診斷',
-        searchTerms: ['speaking', '口說', 'fluency', 'pronunciation', 'EnglishCentral'],
+        pageTitle: 'ESAP 口說診斷',
+        breadcrumbLabel: 'ESAP 口說',
+        searchTerms: ['speaking', '口說', 'fluency', 'pronunciation', 'EnglishCentral', 'ESAP', 'EMI'],
       },
       {
         id: 'learning-journey-import',
