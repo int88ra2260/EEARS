@@ -1,5 +1,6 @@
 import React from 'react';
 import SystemErrorPage from '../../pages/SystemErrorPage';
+import { isStaleChunkLoadError, reloadOnceForStaleChunk } from '../../utils/chunkLoadRecovery';
 
 function extractRequestId(error) {
   if (!error) return null;
@@ -18,19 +19,26 @@ function extractRequestId(error) {
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, recoveringChunk: false };
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, error };
+    return { hasError: true, error, recoveringChunk: isStaleChunkLoadError(error) };
   }
 
   componentDidCatch(error, errorInfo) {
+    if (this.state.recoveringChunk) {
+      if (!reloadOnceForStaleChunk(error)) {
+        this.setState({ recoveringChunk: false });
+      }
+      return;
+    }
     // eslint-disable-next-line no-console
     console.error('[System ErrorBoundary caught]', error, errorInfo);
   }
 
   render() {
+    if (this.state.recoveringChunk) return null;
     if (this.state.hasError) {
       return <SystemErrorPage requestId={extractRequestId(this.state.error)} />;
     }

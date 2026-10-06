@@ -231,7 +231,7 @@ function buildFluencyProxy({ speechRateWpm, pauseFrequencyPerMinute, averagePaus
 }
 
 function isRealAlignment(alignment) {
-  return alignment && alignment.status && !['baseline', 'no_target_words', 'audio_missing'].includes(alignment.status);
+  return alignment && ['aligned', 'partial'].includes(String(alignment.status || '').toLowerCase());
 }
 
 function buildAlignmentWordResults(targetTokens, alignment) {
@@ -394,6 +394,33 @@ function buildPhonemeEvidence(alignment) {
       evidenceLevel: 'phoneme_timing_confidence',
     },
     phones: normalizedPhones.slice(0, 240),
+  };
+}
+function buildPronunciationConfidenceEvidence(alignment) {
+  if (!isRealAlignment(alignment)) {
+    return {
+      status: 'requires_aligned_attempt',
+      engine: alignment?.engine || null,
+      reason: 'GOP/phone posterior evidence is intentionally separate and requires a real aligned attempt.',
+      summary: null,
+      phones: [],
+      words: [],
+    };
+  }
+  return {
+    status: 'not_configured',
+    engine: alignment.engine,
+    reason: 'Forced alignment is available, but GOP/phone posterior scoring has not been enabled yet. Do not mix this placeholder into pronunciationPercent.',
+    summary: {
+      evidenceLevel: 'alignment_without_gop',
+      alignedWordCount: Array.isArray(alignment.words) ? alignment.words.length : 0,
+      phoneCount: Array.isArray(alignment.phones) ? alignment.phones.length : 0,
+      averageGopScore: null,
+      averagePhonePosterior: null,
+      lowConfidencePhoneCount: null,
+    },
+    phones: [],
+    words: [],
   };
 }
 const COMMON_WORDS = new Set([
@@ -579,6 +606,7 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
   const transcriptEvidence = buildTranscriptEvidence(transcript);
   const wordAcousticEvidence = isReadAloud ? buildWordAcousticEvidence(wordResults, alignment, targetTokens) : null;
   const phonemeEvidence = isReadAloud ? buildPhonemeEvidence(alignment) : null;
+  const pronunciationConfidenceEvidence = isReadAloud ? buildPronunciationConfidenceEvidence(alignment) : null;
   const constructedResponseEvidence = !isReadAloud ? buildConstructedResponseEvidence(task, transcript, transcriptEvidence) : null;
   const wordAcousticScore = wordAcousticEvidence?.summary?.averageWordAcousticScore ?? null;
   const phonemeScore = phonemeEvidence?.summary?.averagePhoneConfidence ?? null;
@@ -613,11 +641,13 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
     alignment,
     wordAcousticEvidence,
     phonemeEvidence,
+    pronunciationConfidenceEvidence,
     pronunciationEvidenceRate,
     transcriptEvidence,
     constructedResponseEvidence,
     acousticPlaceholders: {
       phonemeAccuracy: phonemeEvidence?.summary?.averagePhoneConfidence ?? null,
+      gopScore: pronunciationConfidenceEvidence?.summary?.averageGopScore ?? null,
       wordAcousticScore: wordAcousticEvidence?.summary?.averageWordAcousticScore ?? null,
       stress: null,
       rhythm: null,
@@ -667,6 +697,7 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
       pronunciationEvidenceRate,
       wordAcousticSummary: wordAcousticEvidence?.summary || null,
       phonemeSummary: phonemeEvidence?.summary || null,
+      pronunciationConfidenceSummary: pronunciationConfidenceEvidence?.summary || null,
     } : null,
     languageEvidence: {
       lexicalDiversity: transcriptEvidence.lexicalDiversity,
@@ -1375,6 +1406,54 @@ async function realignSpeakingAttempt(attemptUid) {
     audioUrl: `/${attempt.audioPath}`,
   };
 }
+async function realignSpeakingAttemptsBatch(options = {}) {
+  const limit = Math.max(1, Math.min(Number(options.limit) || 25, 100));
+  const studentId = normalizeStudentId(options.studentId);
+  const where = {};
+  if (studentId) where.studentId = studentId;
+  const rows = await SpeakingAttempt.findAll({
+    where,
+    include: [{ model: SpeakingTask, as: 'task', where: { taskType: 'read_aloud' } }],
+    order: [['submittedAt', 'DESC']],
+    limit,
+  });
+  const results = [];
+  for (const row of rows) {
+    try {
+      const data = await realignSpeakingAttempt(row.attemptUid);
+      results.push({
+        attemptUid: row.attemptUid,
+        taskKey: row.task?.taskKey || null,
+        status: data.alignment?.status || null,
+        engine: data.alignment?.engine || null,
+        wordCount: Array.isArray(data.alignment?.words) ? data.alignment.words.length : 0,
+        phoneCount: Array.isArray(data.alignment?.phones) ? data.alignment.phones.length : 0,
+        warnings: data.alignment?.warnings || [],
+      });
+    } catch (error) {
+      results.push({
+        attemptUid: row.attemptUid,
+        taskKey: row.task?.taskKey || null,
+        status: 'failed',
+        engine: null,
+        wordCount: 0,
+        phoneCount: 0,
+        warnings: [error.message || 'recompute failed'],
+      });
+    }
+  }
+  const succeeded = results.filter((row) => ['aligned', 'partial', 'baseline'].includes(String(row.status || '').toLowerCase())).length;
+  const aligned = results.filter((row) => ['aligned', 'partial'].includes(String(row.status || '').toLowerCase())).length;
+  const failed = results.filter((row) => row.status === 'failed' || String(row.status || '').includes('error')).length;
+  return {
+    requestedLimit: limit,
+    processed: results.length,
+    aligned,
+    succeeded,
+    failed,
+    results,
+  };
+}
 async function listRecentAttempts(query = {}) {
   const limit = Math.max(1, Math.min(Number(query.limit) || 50, 200));
   const where = {};
@@ -1618,6 +1697,7 @@ module.exports = {
   listRecentAttempts,
   rateSpeakingAttempt,
   realignSpeakingAttempt,
+  realignSpeakingAttemptsBatch,
   getSpeakingResearchSummary,
   exportSpeakingResearchCsv,
   normalizeText,

@@ -5,6 +5,9 @@ import './index.css';
 import './styles/design-system.css';
 import App from './App';
 import { LanguageProvider } from './context/LanguageContext';
+import { installChunkLoadRecovery } from './utils/chunkLoadRecovery';
+
+installChunkLoadRecovery();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

@@ -170,11 +170,16 @@ const uploadsPath = path.join(__dirname, 'uploads');
 app.use('/uploads', express.static(uploadsPath));
 
 // 提供前端靜態檔案（假設 React build 資料夾與 server.js 同層）
+const { isMissingFrontendAssetPath } = require('./utils/spaAssetFallback');
 const buildPath = path.join(__dirname, 'build');
 app.use(express.static(buildPath, {
-  // Vite hashed assets 可長期快取；HTML 由 fallback 另設 no-cache
+  // Vite hashed assets 可長期快取；HTML 每次向伺服器確認，避免部署後還用舊的程式清單
   setHeaders(res, filePath) {
     const normalized = String(filePath || '').replace(/\\/g, '/');
+    if (normalized.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+      return;
+    }
     if (normalized.includes('/assets/')) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       return;
@@ -195,6 +200,9 @@ app.get('*', (req, res) => {
       message: `No handler for ${req.method} ${apiPath}`,
       requestId: req.requestId || null,
     });
+  }
+  if (isMissingFrontendAssetPath(apiPath)) {
+    return res.status(404).type('text/plain').send('Not found');
   }
   res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(path.join(buildPath, 'index.html'));

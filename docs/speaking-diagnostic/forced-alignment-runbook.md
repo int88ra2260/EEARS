@@ -12,7 +12,7 @@ When a read-aloud attempt is submitted:
 4. If no external command is configured, the backend creates a baseline timing alignment from target text and recording duration.
 5. The response includes `alignment`, `features.alignment`, and alignment-derived metrics.
 
-The baseline alignment is not a pronunciation model. It is a development fallback so the UI and data shape can be tested before MFA or another real aligner is installed.
+The baseline alignment is not a pronunciation model. It is a development fallback so the UI and data shape can be tested before MFA or another real aligner is installed. Baseline alignment should not produce `wordAcousticEvidence`, `phonemeEvidence`, `pronunciationPercent`, `Word acoustic`, `Phones`, or `Phone confidence`; those fields require a real external aligner.
 
 ## External aligner contract
 

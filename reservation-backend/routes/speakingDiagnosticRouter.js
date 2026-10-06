@@ -16,6 +16,7 @@ const {
   listRecentAttempts,
   rateSpeakingAttempt,
   realignSpeakingAttempt,
+  realignSpeakingAttemptsBatch,
   getSpeakingResearchSummary,
   exportSpeakingResearchCsv,
 } = require('../services/speakingDiagnosticService');
@@ -225,6 +226,27 @@ router.get(
   },
 );
 
+router.post(
+  '/admin/speaking-diagnostic/attempts/alignment/recompute-batch',
+  authMiddleware,
+  requirePermission(P.CAN_VIEW_LEARNING_ANALYTICS),
+  async (req, res, next) => {
+    try {
+      const data = await realignSpeakingAttemptsBatch(req.body || {});
+      return res.json({ success: true, data, requestId: req.requestId });
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({
+          success: false,
+          code: err.code || 'SPEAKING_DIAGNOSTIC_ERROR',
+          message: err.message,
+          requestId: req.requestId,
+        });
+      }
+      return next(err);
+    }
+  },
+);
 router.post(
   '/admin/speaking-diagnostic/attempts/:attemptUid/alignment/recompute',
   authMiddleware,

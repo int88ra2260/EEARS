@@ -213,6 +213,57 @@
   line-height: 1.7;
 }
 
+.sd-admin-alignment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.sd-admin-alignment-grid section {
+  border: 1px solid #dfe8f2;
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: #fbfdff;
+}
+
+.sd-admin-alignment-grid h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.65rem;
+  color: #243244;
+}
+
+.sd-admin-token-table {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.sd-admin-token-table span {
+  display: grid;
+  gap: 0.1rem;
+  border: 1px solid #d7e3ef;
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  background: #fff;
+}
+
+.sd-admin-token-table strong {
+  color: #224f88;
+  font-size: 0.86rem;
+}
+
+.sd-admin-token-table small {
+  color: #697386;
+  font-size: 0.72rem;
+}
+
+.sd-admin-token-table--phones span {
+  min-width: 4.4rem;
+}
+
 .sd-admin-rating {
   margin-top: 1rem;
   border-top: 1px solid #edf2f7;
@@ -258,6 +309,7 @@
   .sd-admin-summary,
   .sd-admin-scores,
   .sd-admin-evidence-table,
+  .sd-admin-alignment-grid,
   .sd-admin-rating-grid {
     grid-template-columns: 1fr;
     display: grid;

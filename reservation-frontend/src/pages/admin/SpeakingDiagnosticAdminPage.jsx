@@ -5,6 +5,8 @@ import {
   downloadSpeakingDiagnosticResearchCsv,
   fetchSpeakingDiagnosticAttempts,
   fetchSpeakingDiagnosticResearchSummary,
+  recomputeSpeakingDiagnosticAlignment,
+  recomputeSpeakingDiagnosticAlignmentBatch,
   saveSpeakingDiagnosticRating,
 } from '../../services/speakingDiagnosticApi';
 import '../SpeakingDiagnosticPage.css';
@@ -33,18 +35,21 @@ function formatDate(value) {
 }
 
 function formatPercent(value) {
+  if (value == null || value === '') return '--';
   const n = Number(value);
   if (!Number.isFinite(n)) return '--';
   return `${Math.round(n)}%`;
 }
 
 function formatNumber(value) {
+  if (value == null || value === '') return '--';
   const n = Number(value);
   if (!Number.isFinite(n)) return '--';
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 function formatDecimal(value) {
+  if (value == null || value === '') return '--';
   const n = Number(value);
   if (!Number.isFinite(n)) return '--';
   return n.toFixed(2);
@@ -78,6 +83,7 @@ export default function SpeakingDiagnosticAdminPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [recomputing, setRecomputing] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [rating, setRating] = useState({
@@ -167,8 +173,52 @@ export default function SpeakingDiagnosticAdminPage() {
     }
   };
 
+  const recomputeSelected = async () => {
+    if (!selected) return;
+    setRecomputing(true);
+    setError('');
+    setMessage('');
+    try {
+      const data = await recomputeSpeakingDiagnosticAlignment(token, selected.attemptUid);
+      const status = data?.alignment?.status || '--';
+      const wordCount = data?.alignment?.words?.length ?? 0;
+      const phoneCount = data?.alignment?.phones?.length ?? 0;
+      setMessage(`已重新計算：${status}，${wordCount} words，${phoneCount} phones`);
+      await load();
+    } catch (err) {
+      setError(err.message || '重新計算失敗');
+    } finally {
+      setRecomputing(false);
+    }
+  };
+
+  const recomputeBatch = async () => {
+    setRecomputing(true);
+    setError('');
+    setMessage('');
+    try {
+      const data = await recomputeSpeakingDiagnosticAlignmentBatch(token, {
+        limit: 25,
+        studentId,
+      });
+      setMessage(`批次重算完成：processed ${data?.processed ?? 0}，aligned ${data?.aligned ?? 0}，failed ${data?.failed ?? 0}`);
+      await load();
+    } catch (err) {
+      setError(err.message || '批次重新計算失敗');
+    } finally {
+      setRecomputing(false);
+    }
+  };
+
   const scores = selected?.presentationScores || selected?.automatedScores?.presentationScores || {};
   const wordResults = selected?.wordResults || selected?.features?.wordResults || [];
+  const alignment = selected?.alignment || selected?.features?.alignment || null;
+  const alignmentWords = Array.isArray(alignment?.words) ? alignment.words : [];
+  const alignmentPhones = Array.isArray(alignment?.phones) ? alignment.phones : [];
+  const wordAcousticStatus = selected?.features?.wordAcousticEvidence?.status;
+  const phonemeStatus = selected?.features?.phonemeEvidence?.status;
+  const pronunciationConfidenceStatus = selected?.features?.pronunciationConfidenceEvidence?.status;
+  const constructedStatus = selected?.task?.taskType === 'read_aloud' ? 'read_aloud_not_applicable' : selected?.features?.constructedResponseEvidence ? 'available' : 'missing';
 
   return (
     <div className="sd-admin-page">
@@ -200,6 +250,9 @@ export default function SpeakingDiagnosticAdminPage() {
           </button>
           <button className="btn btn-outline-success" type="button" onClick={exportCsv} disabled={exporting}>
             {exporting ? '匯出中...' : '匯出 CSV'}
+          </button>
+          <button className="btn btn-outline-secondary" type="button" onClick={recomputeBatch} disabled={recomputing}>
+            {recomputing ? '重算中...' : '批次重算'}
           </button>
         </div>
       </div>
@@ -259,6 +312,14 @@ export default function SpeakingDiagnosticAdminPage() {
                   <div className="sd-admin-rating-status">
                     {selected.ratingStatus === 'double_rated' ? '已雙評' : selected.ratingStatus === 'single_rated' ? '已單評，建議補第二位老師' : '待老師評分'}
                   </div>
+                  <button
+                    className="btn btn-sm btn-outline-secondary mt-2"
+                    type="button"
+                    onClick={recomputeSelected}
+                    disabled={recomputing}
+                  >
+                    {recomputing ? '重算中...' : '重新計算 alignment'}
+                  </button>
                 </div>
                 <div className="sd-admin-big-score">
                   <strong>{formatPercent(scores.overallPercent)}</strong>
@@ -289,12 +350,17 @@ export default function SpeakingDiagnosticAdminPage() {
                 <div><span>Low-conf words</span><strong>{selected.features?.wordAcousticEvidence?.summary?.lowConfidenceCount ?? '--'}</strong></div>
                 <div><span>Phones</span><strong>{selected.features?.phonemeEvidence?.summary?.phoneCount ?? '--'}</strong></div>
                 <div><span>Phone confidence</span><strong>{formatDecimal(selected.features?.phonemeEvidence?.summary?.averagePhoneConfidence)}</strong></div>
+                <div><span>GOP status</span><strong>{pronunciationConfidenceStatus || '--'}</strong></div>
+                <div><span>Alignment status</span><strong>{alignment?.status || '--'}</strong></div>
                 <div><span>Lexical diversity</span><strong>{formatNumber(selected.features?.transcriptEvidence?.lexicalDiversity)}</strong></div>
                 <div><span>Sophistication</span><strong>{formatNumber(selected.features?.transcriptEvidence?.lexicalSophistication)}</strong></div>
                 <div><span>Fillers</span><strong>{selected.features?.transcriptEvidence?.fillerCount ?? 0}</strong></div>
                 <div><span>Repetitions</span><strong>{selected.features?.transcriptEvidence?.repetitionCount ?? 0}</strong></div>
                 <div><span>Task relevance</span><strong>{formatDecimal(selected.features?.constructedResponseEvidence?.taskRelevanceProxy)}</strong></div>
                 <div><span>Idea development</span><strong>{formatDecimal(selected.features?.constructedResponseEvidence?.ideaDevelopmentProxy)}</strong></div>
+              </div>
+              <div className="text-muted small mt-2">
+                Evidence status: word acoustic {wordAcousticStatus || '--'} · phoneme {phonemeStatus || '--'} · GOP {pronunciationConfidenceStatus || '--'} · constructed response {constructedStatus}
               </div>
 
               <div className="sd-admin-wordline">
@@ -306,6 +372,39 @@ export default function SpeakingDiagnosticAdminPage() {
                     {word.word}
                   </span>
                 ))}
+              </div>
+
+              <div className="sd-admin-alignment-grid">
+                <section>
+                  <h3>Alignment words</h3>
+                  {alignmentWords.length ? (
+                    <div className="sd-admin-token-table">
+                      {alignmentWords.slice(0, 80).map((word, index) => (
+                        <span key={`${word.word}-${word.startMs}-${index}`}>
+                          <strong>{word.word}</strong>
+                          <small>{formatNumber(word.startMs)}-{formatNumber(word.endMs)}ms</small>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted small mb-0">尚未取得 word boundaries。</p>
+                  )}
+                </section>
+                <section>
+                  <h3>Phones</h3>
+                  {alignmentPhones.length ? (
+                    <div className="sd-admin-token-table sd-admin-token-table--phones">
+                      {alignmentPhones.slice(0, 120).map((phone, index) => (
+                        <span key={`${phone.phone}-${phone.startMs}-${index}`}>
+                          <strong>{phone.phone}</strong>
+                          <small>{formatNumber(phone.startMs)}-{formatNumber(phone.endMs)}ms</small>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted small mb-0">尚未取得 phone boundaries。若 MFA 模型未輸出 phones，這裡會維持空白。</p>
+                  )}
+                </section>
               </div>
 
               <div className="sd-admin-rating">

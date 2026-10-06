@@ -132,3 +132,22 @@ export async function saveSpeakingDiagnosticRating(token, attemptUid, rating, op
   return parseEnvelope(res, '儲存口說評分失敗');
 }
 
+export async function recomputeSpeakingDiagnosticAlignment(token, attemptUid, options = {}) {
+  const res = await fetchClient(`${ADMIN_ATTEMPTS_URL}/${encodeURIComponent(attemptUid)}/alignment/recompute`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '重新計算 forced alignment 失敗');
+}
+
+export async function recomputeSpeakingDiagnosticAlignmentBatch(token, payload = {}, options = {}) {
+  const res = await fetchClient(`${ADMIN_ATTEMPTS_URL}/alignment/recompute-batch`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: options.signal,
+  });
+  return parseEnvelope(res, '批次重新計算 forced alignment 失敗');
+}
+

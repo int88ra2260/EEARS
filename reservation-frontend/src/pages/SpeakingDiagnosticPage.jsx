@@ -122,12 +122,14 @@ function formatMs(ms) {
 }
 
 function formatPercent(value) {
+  if (value == null || value === '') return '--';
   const n = Number(value);
   if (!Number.isFinite(n)) return '--';
   return `${Math.round(n)}%`;
 }
 
 function formatNumber(value, unit = '') {
+  if (value == null || value === '') return '--';
   const n = Number(value);
   if (!Number.isFinite(n)) return '--';
   return `${Number.isInteger(n) ? n : n.toFixed(1)}${unit}`;
