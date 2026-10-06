@@ -90,7 +90,7 @@ export default function AdminSurveyRulesPage() {
     try {
       const [data, types] = await Promise.all([
         fetchSurveyCenterOptions(token),
-        fetchPublicEventTypes({ force: true }),
+        fetchPublicEventTypes(),
       ]);
       setOptions({
         semesters: data.semesters || [],

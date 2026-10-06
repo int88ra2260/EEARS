@@ -186,6 +186,11 @@ export const PERMISSION_FIELD_META = {
     description: '學習有伴管理端功能。',
     systemOnly: false,
   },
+  [P.CAN_USE_TRIP_COUNT]: {
+    label: '旅遊分帳',
+    description: '建立自己的旅程分帳，並查看建議轉帳。',
+    systemOnly: false,
+  },
 };
 
 export const PERMISSION_GROUPS = [
@@ -288,7 +293,7 @@ export const PERMISSION_GROUPS = [
     id: 'other',
     title: '其他模組',
     blurb: '其餘獨立產品模組。',
-    keys: [P.CAN_MANAGE_LEARNING_PARTNER_ADMIN],
+    keys: [P.CAN_MANAGE_LEARNING_PARTNER_ADMIN, P.CAN_USE_TRIP_COUNT],
   },
 ];
 

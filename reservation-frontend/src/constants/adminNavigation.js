@@ -835,6 +835,16 @@ export const ADMIN_NAV_SECTIONS = [
         breadcrumbLabel: '維運腳本',
         searchTerms: ['備份', 'backup', '寫作工坊', 'EWL', '同步', '腳本', '維運'],
       },
+      {
+        id: 'system-trip-count',
+        label: '旅遊分帳',
+        path: '/admin/trip-counts',
+        matchPrefixes: ['/admin/trip-counts'],
+        visibility: 'perm:can_use_trip_count',
+        pageTitle: '旅遊分帳',
+        breadcrumbLabel: '旅遊分帳',
+        searchTerms: ['分帳', '旅遊', 'TripCount', '結算', '轉帳'],
+      },
     ],
   },
 ];

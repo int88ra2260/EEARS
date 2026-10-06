@@ -114,7 +114,7 @@ export function useAdminEventOperations({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const list = await fetchPublicEventTypes({ force: true });
+      const list = await fetchPublicEventTypes();
       if (!cancelled) setEventTypeCatalog(Array.isArray(list) ? list : []);
     })();
     return () => { cancelled = true; };

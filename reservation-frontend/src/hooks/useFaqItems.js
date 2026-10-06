@@ -26,7 +26,7 @@ export default function useFaqItems() {
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      fetchSiteContent({ force: true })
+      fetchSiteContent()
         .then((data) => {
           if (cancelled) return;
           const list = Array.isArray(data?.faq) ? data.faq.filter((item) => item.isActive !== false) : [];

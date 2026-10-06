@@ -119,7 +119,6 @@ export default function LearningJourneyDashboardPage() {
     returned: 0
   });
   const [studentFilterOptions, setStudentFilterOptions] = useState({ departments: [], grades: [] });
-  const [studentsReloadToken, setStudentsReloadToken] = useState(0);
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
   const [breakdownRows, setBreakdownRows] = useState([]);
@@ -161,22 +160,6 @@ export default function LearningJourneyDashboardPage() {
     updateStudentQuery({ semester: nextValue }, { resetPage: true });
   };
 
-  const loadB2Report = useCallback(async (semesterOverride) => {
-    const sem = String((semesterOverride ?? semesterId) || '').trim();
-    if (!sem || !token) return;
-    setKpiLoading(true);
-    setKpiError('');
-    try {
-      const data = await getLearningJourneyV3B2Report(token, sem);
-      setB2Report(data || null);
-    } catch (err) {
-      setB2Report(null);
-      setKpiError(err.message || '讀取 B2 KPI 失敗');
-    } finally {
-      setKpiLoading(false);
-    }
-  }, [token, semesterId]);
-
   useEffect(() => {
     if (initialSemesterSynced.current) return;
     initialSemesterSynced.current = true;
@@ -187,10 +170,26 @@ export default function LearningJourneyDashboardPage() {
 
   useEffect(() => {
     const sem = String(semesterId || '').trim();
-    if (!sem) return;
-    loadB2Report(sem);
-    setStudentsReloadToken((v) => v + 1);
-  }, [semesterId, loadB2Report]);
+    if (!sem || !token) return undefined;
+    const controller = new AbortController();
+    setKpiLoading(true);
+    setKpiError('');
+    getLearningJourneyV3B2Report(token, sem, { signal: controller.signal })
+      .then((data) => {
+        if (!controller.signal.aborted) setB2Report(data || null);
+      })
+      .catch((err) => {
+        if (err?.name === 'AbortError') return;
+        if (!controller.signal.aborted) {
+          setB2Report(null);
+          setKpiError(err.message || '讀取 B2 KPI 失敗');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setKpiLoading(false);
+      });
+    return () => controller.abort();
+  }, [token, semesterId]);
 
   useEffect(() => {
     const params = new URLSearchParams(searchText);
@@ -282,23 +281,31 @@ export default function LearningJourneyDashboardPage() {
     return () => controller.abort();
   }, [
     token,
-    studentsReloadToken,
     studentQuery,
     updateStudentQuery
   ]);
 
   useEffect(() => {
     const sem = String(semesterId || '').trim();
-    if (!sem) return;
+    if (!sem || !token) return undefined;
+    const controller = new AbortController();
     setBreakdownLoading(true);
     setBreakdownError('');
-    getLearningJourneyV3Breakdown(token, sem, activeBreakdown)
-      .then((data) => setBreakdownRows(Array.isArray(data) ? data : []))
-      .catch((err) => {
-        setBreakdownRows([]);
-        setBreakdownError(err.message || '讀取分項統計失敗');
+    getLearningJourneyV3Breakdown(token, sem, activeBreakdown, { signal: controller.signal })
+      .then((data) => {
+        if (!controller.signal.aborted) setBreakdownRows(Array.isArray(data) ? data : []);
       })
-      .finally(() => setBreakdownLoading(false));
+      .catch((err) => {
+        if (err?.name === 'AbortError') return;
+        if (!controller.signal.aborted) {
+          setBreakdownRows([]);
+          setBreakdownError(err.message || '讀取分項統計失敗');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setBreakdownLoading(false);
+      });
+    return () => controller.abort();
   }, [token, semesterId, activeBreakdown]);
 
   if (!canViewLj) {

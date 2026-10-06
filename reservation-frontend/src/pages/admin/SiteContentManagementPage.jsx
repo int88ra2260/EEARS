@@ -879,7 +879,7 @@ export default function SiteContentManagementPage({ embedded = false, forcedSect
     let cancelled = false;
     (async () => {
       try {
-        const list = await fetchPublicEventTypes({ force: true });
+        const list = await fetchPublicEventTypes();
         if (!cancelled) setEventTypes(Array.isArray(list) ? list : []);
       } catch {
         if (!cancelled) setEventTypes([]);

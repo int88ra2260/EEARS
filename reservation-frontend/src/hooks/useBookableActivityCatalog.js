@@ -23,7 +23,7 @@ export default function useBookableActivityCatalog() {
     let cancelled = false;
     (async () => {
       try {
-        const list = await fetchPublicEventTypes({ force: true });
+        const list = await fetchPublicEventTypes();
         if (cancelled) return;
         const bookable = buildBookableActivityCards(
           Array.isArray(list) && list.length ? list : DEFAULT_EVENT_TYPES

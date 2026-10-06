@@ -51,6 +51,7 @@ export const P = {
   CAN_VIEW_ENGLISH_TEST_TRACKING: 'can_view_english_test_tracking',
   CAN_MANAGE_ENGLISH_TEST_TRACKING: 'can_manage_english_test_tracking',
   CAN_VIEW_INTERNAL_DIAGNOSTICS: 'can_view_internal_diagnostics',
+  CAN_USE_TRIP_COUNT: 'can_use_trip_count',
   CAN_MANAGE_LEARNING_PARTNER_ADMIN: 'can_manage_learning_partner_admin',
   CAN_VIEW_ENGLISH_LEARNING_PASSPORTS: 'can_view_english_learning_passports',
   CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS: 'can_manage_english_learning_passports',

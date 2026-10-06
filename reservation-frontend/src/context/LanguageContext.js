@@ -29,7 +29,7 @@ export function LanguageProvider({ children }) {
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      fetchSiteContent({ force: true })
+      fetchSiteContent()
         .then((data) => {
           if (!cancelled && data?.textOverrides) {
             setTextOverrides(data.textOverrides);

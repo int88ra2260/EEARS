@@ -30,7 +30,7 @@ export default function AccountScopeEditor({ customScopes, setCustomScopes }) {
       setLoading(true);
       setLoadError('');
       try {
-        const list = await fetchPublicEventTypes({ force: true });
+        const list = await fetchPublicEventTypes();
         if (!cancelled && Array.isArray(list) && list.length) {
           setEventTypes(list.filter((r) => r.isActive !== false));
         }

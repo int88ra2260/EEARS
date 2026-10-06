@@ -118,7 +118,7 @@ function EventList({ initialTab: initialTabProp }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const list = await fetchPublicEventTypes({ force: true });
+      const list = await fetchPublicEventTypes();
       if (!cancelled && Array.isArray(list) && list.length) {
         setEventTypeCatalog(list.filter((r) => r.isActive !== false));
       }

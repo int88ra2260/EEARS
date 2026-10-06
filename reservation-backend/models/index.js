@@ -108,6 +108,10 @@ const LearningAnalyticsFilterReference = require('./LearningAnalyticsFilterRefer
 const LearningAnalyticsLvaConfig = require('./LearningAnalyticsLvaConfig');
 const LearningAnalyticsKpiPolicy = require('./LearningAnalyticsKpiPolicy');
 const JobRun = require('./JobRun');
+const TripCount = require('./TripCount');
+const TripCountMember = require('./TripCountMember');
+const TripCountExpense = require('./TripCountExpense');
+const TripCountShare = require('./TripCountShare');
 const ImportRollbackManifest = require('./ImportRollbackManifest');
 const EventWaitlistEntry = require('./EventWaitlistEntry');
 const EnglishLearningPassport = require('./EnglishLearningPassport');
@@ -228,6 +232,15 @@ EtLeaderAttendance.belongsTo(Teacher, { foreignKey: 'markedBy', as: 'marker' });
 Event.hasOne(EtLeaderCheckinToken, { foreignKey: 'eventId', as: 'leaderCheckinToken', onDelete: 'CASCADE' });
 EtLeaderCheckinToken.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
 EtLeaderCheckinToken.belongsTo(Teacher, { foreignKey: 'createdBy', as: 'creator' });
+
+TripCount.hasMany(TripCountMember, { foreignKey: 'tripId', as: 'members', onDelete: 'CASCADE' });
+TripCountMember.belongsTo(TripCount, { foreignKey: 'tripId', as: 'trip' });
+TripCount.hasMany(TripCountExpense, { foreignKey: 'tripId', as: 'expenses', onDelete: 'CASCADE' });
+TripCountExpense.belongsTo(TripCount, { foreignKey: 'tripId', as: 'trip' });
+TripCountExpense.belongsTo(TripCountMember, { foreignKey: 'payerMemberId', as: 'payer' });
+TripCountExpense.hasMany(TripCountShare, { foreignKey: 'expenseId', as: 'shares', onDelete: 'CASCADE' });
+TripCountShare.belongsTo(TripCountExpense, { foreignKey: 'expenseId', as: 'expense' });
+TripCountShare.belongsTo(TripCountMember, { foreignKey: 'memberId', as: 'member' });
 
 EtLeaderPayProfile.belongsTo(Teacher, { foreignKey: 'leaderTeacherId', as: 'leader' });
 Teacher.hasOne(EtLeaderPayProfile, { foreignKey: 'leaderTeacherId', as: 'leaderPayProfile' });
@@ -460,6 +473,10 @@ module.exports = {
   LearningAnalyticsLvaConfig,
   LearningAnalyticsKpiPolicy,
   JobRun,
+  TripCount,
+  TripCountMember,
+  TripCountExpense,
+  TripCountShare,
   ImportRollbackManifest,
   EventWaitlistEntry,
   EnglishLearningPassport,

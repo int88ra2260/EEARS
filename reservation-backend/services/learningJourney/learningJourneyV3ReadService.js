@@ -332,36 +332,7 @@ async function loadStudentActivityData(studentId, semesterId, warnings, opts = {
     warnings.push(buildWarning('activitySummary', 'ACTIVITY_PARTICIPATION_SOURCE_UNAVAILABLE', 'activity_participations 查詢失敗，已改查 reservations'));
   }
 
-  const syncFromReservations = async (reservationRows = null) => {
-    if (!sem || activitySourceUnavailable) return;
-    const syncStats = await syncStudentActivitiesFromReservations({
-      studentId: sid,
-      semesterId: sem,
-      dryRun: false,
-      studentName,
-      reservationRows
-    });
-    if (Array.isArray(syncStats.errors) && syncStats.errors.length) {
-      warnings.push(buildWarning(
-        'activitySummary',
-        'ACTIVITY_SYNC_FROM_RESERVATIONS_PARTIAL',
-        `活動參與同步部分失敗（${syncStats.errors.length} 筆）`
-      ));
-    }
-    activityRows = await queryParticipationRows(sid, sem);
-  };
-
   if (!activityRows.length) {
-    try {
-      await syncFromReservations();
-    } catch (_) {
-      warnings.push(buildWarning('activitySummary', 'ACTIVITY_SYNC_FROM_RESERVATIONS_FAILED', '活動參與同步失敗，已改查 reservations'));
-    }
-  }
-
-  if (activityRows.length) {
-    activityRecords = await enrichActivityRecordsWithEvents(mapParticipationRowsToActivityRecords(activityRows));
-  } else {
     let reservationRows = [];
     try {
       reservationRows = await fetchReservationActivityRows({
@@ -376,7 +347,21 @@ async function loadStudentActivityData(studentId, semesterId, warnings, opts = {
 
     if (reservationRows.length && sem && !activitySourceUnavailable) {
       try {
-        await syncFromReservations(reservationRows);
+        const syncStats = await syncStudentActivitiesFromReservations({
+          studentId: sid,
+          semesterId: sem,
+          dryRun: false,
+          studentName,
+          reservationRows
+        });
+        if (Array.isArray(syncStats.errors) && syncStats.errors.length) {
+          warnings.push(buildWarning(
+            'activitySummary',
+            'ACTIVITY_SYNC_FROM_RESERVATIONS_PARTIAL',
+            `活動參與同步部分失敗（${syncStats.errors.length} 筆）`
+          ));
+        }
+        activityRows = await queryParticipationRows(sid, sem);
       } catch (_) {
         warnings.push(buildWarning('activitySummary', 'ACTIVITY_SYNC_FROM_RESERVATIONS_FAILED', '活動參與同步失敗，已改查 reservations'));
       }
@@ -391,6 +376,8 @@ async function loadStudentActivityData(studentId, semesterId, warnings, opts = {
         ? 'ACTIVITY_PARTICIPATION_SOURCE_UNAVAILABLE'
         : 'NO_ACTIVITY_PARTICIPATIONS_FOUND';
     }
+  } else {
+    activityRecords = await enrichActivityRecordsWithEvents(mapParticipationRowsToActivityRecords(activityRows));
   }
 
   const aggregates = buildActivityAggregates(activityRecords);

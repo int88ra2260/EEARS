@@ -24,7 +24,7 @@ export default function ActivityCategoryPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const list = await fetchPublicEventTypes({ force: true });
+      const list = await fetchPublicEventTypes();
       if (!cancelled) {
         setEventTypes(Array.isArray(list) && list.length ? list : DEFAULT_EVENT_TYPES);
       }

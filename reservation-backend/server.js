@@ -83,6 +83,7 @@ const adminEmailTemplatesRouter = require('./routes/adminEmailTemplatesRouter');
 const studentsRouter = require('./routes/studentsRouter');
 const importRunHistoryRouter = require('./routes/importRunHistoryRouter');
 const adminOpsScriptsRouter = require('./routes/adminOpsScriptsRouter');
+const tripCountRouter = require('./routes/tripCountRouter');
 const { isLearningJourneyV3ReadModelEnabled } = require('./services/learningJourney/learningJourneyFeatureFlags');
 
 const app = express();
@@ -161,6 +162,7 @@ app.use('/api/admin/logs', adminLogsRouter);
 app.use('/api/admin/email-templates', adminEmailTemplatesRouter);
 app.use('/api/admin/import-runs', importRunHistoryRouter);
 app.use('/api/admin/ops-scripts', adminOpsScriptsRouter);
+app.use('/api/admin/trip-counts', tripCountRouter);
 app.use('/api', studentsRouter);
 
 // 提供上傳檔案的靜態服務

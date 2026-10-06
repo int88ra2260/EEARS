@@ -382,15 +382,15 @@ export default function AdminOpsScriptsPage() {
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <strong>健康檢查</strong>
                   {health?.ok ? (
-                    <Badge bg="success">OK</Badge>
+                    <Badge bg="success">正常</Badge>
                   ) : (
-                    <Badge bg="danger">{health?.code || 'FAIL'}</Badge>
+                    <Badge bg="danger">異常</Badge>
                   )}
                 </div>
                 <dl className="row small mb-0">
                   <dt className="col-4 text-muted">目錄</dt>
                   <dd className="col-8">{health?.dir || '—'}</dd>
-                  <dt className="col-4 text-muted">pattern</dt>
+                  <dt className="col-4 text-muted">檔名規則</dt>
                   <dd className="col-8">{health?.pattern || '—'}</dd>
                   <dt className="col-4 text-muted">允許時效</dt>
                   <dd className="col-8">{health?.maxAgeHours != null ? `${health.maxAgeHours} 小時` : '—'}</dd>

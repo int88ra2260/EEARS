@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Button, Spinner } from 'react-bootstrap';
 import { Link, useOutletContext } from 'react-router-dom';
 import useToast from '../../components/ui/useToast';
 import { KPI_STATUS, useAdminDashboardProduct } from '../../hooks/useAdminDashboardProduct';
@@ -13,50 +13,21 @@ function latencyCategory(latencyMs) {
   return 'abnormal';
 }
 
-function KpiCard({ title, timeLabel, status, value, onRefresh, hint, diagnostic }) {
+function KpiCard({ title, timeLabel, status, value, onRefresh, hint, requestId }) {
   const isLoading = status === KPI_STATUS.LOADING;
   const isEmpty = status === KPI_STATUS.EMPTY;
   const isError = status === KPI_STATUS.ERROR;
 
   const display =
-    isLoading ? null : isError ? 'N/A' : isEmpty ? 0 : typeof value === 'number' ? value : value ?? 0;
-
-  const d = diagnostic || null;
+    isLoading ? null : isError ? '—' : isEmpty ? 0 : typeof value === 'number' ? value : value ?? 0;
 
   const helper = isLoading
-    ? '載入中...'
+    ? ''
     : isError
-      ? d?.errorBrief || 'API 請求失敗'
+      ? hint || '暫時無法取得'
       : isEmpty
-        ? '目前無資料'
+        ? '目前沒有資料'
         : hint || '';
-
-  const requestId = d?.requestId || null;
-  const lastUpdatedAt = d?.lastUpdatedAt || null;
-  const source = d?.source || '';
-
-  const statusLabel = isLoading ? 'loading' : isError ? 'error' : isEmpty ? 'empty' : 'success';
-
-  const tooltipContent = (
-    <div style={{ maxWidth: 260 }}>
-      <div className="small text-muted mb-2">{source}</div>
-      <div className="small">
-        <div>最後更新：{lastUpdatedAt ? lastUpdatedAt : '--'}</div>
-        <div>狀態：{statusLabel}</div>
-        {isError ? (
-          <>
-            <div className="mt-1">錯誤：{helper}</div>
-            {requestId ? <div>錯誤識別碼：{requestId}</div> : <div>錯誤識別碼：--</div>}
-            {requestId ? (
-              <div className="mt-1">
-                <Link to={`/admin/logs?requestId=${encodeURIComponent(requestId)}`}>查看操作紀錄</Link>
-              </div>
-            ) : null}
-          </>
-        ) : null}
-      </div>
-    </div>
-  );
 
   return (
     <div className="card h-100 shadow-sm">
@@ -66,25 +37,14 @@ function KpiCard({ title, timeLabel, status, value, onRefresh, hint, diagnostic 
             <div className="text-muted small">{title}</div>
             {timeLabel ? <div className="small text-muted mt-1">{timeLabel}</div> : null}
           </div>
-          <div className="d-flex align-items-start gap-1">
-            <OverlayTrigger
-              placement="left"
-              overlay={<Tooltip id={`kpi-tip-${String(title).replace(/\\s+/g, '-').replace(/[^\\w-]/g, '')}`}>{tooltipContent}</Tooltip>}
-            >
-              <Button variant="link" size="sm" disabled={isLoading} title="KPI 診斷資訊">
-                ℹ️
-              </Button>
-            </OverlayTrigger>
-            <Button
-              variant="link"
-              size="sm"
-              disabled={isLoading}
-              title="重新整理此 KPI"
-              onClick={onRefresh}
-            >
-              🔄
-            </Button>
-          </div>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            disabled={isLoading}
+            onClick={onRefresh}
+          >
+            更新
+          </Button>
         </div>
 
         <div className="mt-2">
@@ -98,7 +58,14 @@ function KpiCard({ title, timeLabel, status, value, onRefresh, hint, diagnostic 
           )}
         </div>
 
-        <div className={`small mt-2 ${isError ? 'text-danger' : isEmpty ? 'text-muted' : 'text-muted'}`}>{helper}</div>
+        {helper ? (
+          <div className={`small mt-2 ${isError ? 'text-danger' : 'text-muted'}`}>{helper}</div>
+        ) : null}
+        {isError && requestId ? (
+          <div className="small mt-1">
+            <Link to={`/admin/logs?requestId=${encodeURIComponent(requestId)}`}>查看操作紀錄</Link>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -154,7 +121,7 @@ export default function AdminDashboardProduct() {
       </div>
 
       <div className="alert alert-light border small mb-3">
-        統計時間範圍語意：今日預約數＝今日 00:00 至目前；活動數＝近 7 天；英檢/公告依其狀態分類計算。
+        今日預約以建立時間計算，活動數看近 7 天，英檢與公告看目前待處理的筆數。
       </div>
 
       <div className="card shadow-sm mb-4">
@@ -275,13 +242,10 @@ export default function AdminDashboardProduct() {
             timeLabel="今日"
             status={kpiTodayReservations.status}
             value={kpiTodayReservations.value}
-            hint="時間範圍：今日 00:00 至現在（依預約建立時間）"
-            diagnostic={{
-              source: '資料來源：GET /api/reservations（統計今日預約數）',
-              lastUpdatedAt: kpiTodayReservations.lastUpdatedAt,
-              requestId: kpiTodayReservations.requestId,
-              errorBrief: kpiTodayReservations.errorBrief,
-            }}
+            hint={kpiTodayReservations.status === KPI_STATUS.ERROR
+              ? (kpiTodayReservations.errorBrief || '暫時無法取得')
+              : '從今日 00:00 到現在'}
+            requestId={kpiTodayReservations.requestId}
             onRefresh={() => handleCardRefresh('reservations')}
           />
         </div>
@@ -291,13 +255,10 @@ export default function AdminDashboardProduct() {
             timeLabel="近 7 天"
             status={kpiRecentEvents.status}
             value={kpiRecentEvents.value}
-            hint="時間範圍：近 7 天內（以活動日期判斷）"
-            diagnostic={{
-              source: '資料來源：GET /api/events（統計近 7 天活動數）',
-              lastUpdatedAt: kpiRecentEvents.lastUpdatedAt,
-              requestId: kpiRecentEvents.requestId,
-              errorBrief: kpiRecentEvents.errorBrief,
-            }}
+            hint={kpiRecentEvents.status === KPI_STATUS.ERROR
+              ? (kpiRecentEvents.errorBrief || '暫時無法取得')
+              : '以活動日期計算'}
+            requestId={kpiRecentEvents.requestId}
             onRefresh={() => handleCardRefresh('events')}
           />
         </div>
@@ -307,13 +268,10 @@ export default function AdminDashboardProduct() {
             timeLabel="待處理"
             status={kpiEnglishPending.status}
             value={kpiEnglishPending.value}
-            hint="時間範圍：目前狀態為 pending 的報名"
-            diagnostic={{
-              source: '資料來源：GET /api/english-test/registrations/metrics/pending-count',
-              lastUpdatedAt: kpiEnglishPending.lastUpdatedAt,
-              requestId: kpiEnglishPending.requestId,
-              errorBrief: kpiEnglishPending.errorBrief,
-            }}
+            hint={kpiEnglishPending.status === KPI_STATUS.ERROR
+              ? (kpiEnglishPending.errorBrief || '暫時無法取得')
+              : '狀態為待審核的報名'}
+            requestId={kpiEnglishPending.requestId}
             onRefresh={() => handleCardRefresh('english')}
           />
         </div>
@@ -323,13 +281,10 @@ export default function AdminDashboardProduct() {
             timeLabel="草稿總數"
             status={kpiAnnouncementDraft.status}
             value={kpiAnnouncementDraft.value}
-            hint="時間範圍：目前狀態為 draft 的公告"
-            diagnostic={{
-              source: '資料來源：GET /api/admin/announcements?status=draft（統計草稿數）',
-              lastUpdatedAt: kpiAnnouncementDraft.lastUpdatedAt,
-              requestId: kpiAnnouncementDraft.requestId,
-              errorBrief: kpiAnnouncementDraft.errorBrief,
-            }}
+            hint={kpiAnnouncementDraft.status === KPI_STATUS.ERROR
+              ? (kpiAnnouncementDraft.errorBrief || '暫時無法取得')
+              : '尚未發布的公告'}
+            requestId={kpiAnnouncementDraft.requestId}
             onRefresh={() => handleCardRefresh('announcements')}
           />
         </div>
@@ -428,7 +383,7 @@ export default function AdminDashboardProduct() {
                   </Button>
                 </div>
               ) : recentViolations.length === 0 ? (
-                <div className="text-muted small">目前沒有待處理項目 🎉</div>
+                <div className="text-muted small">這個學期目前沒有違規提醒。</div>
               ) : (
                 <ul className="list-group list-group-flush">
                   {recentViolations.map((v, idx) => (

@@ -6,6 +6,7 @@ import { getReliabilityFault, makeDevRequestId } from '../utils/reliabilityFault
 import { buildAccessProfile, hasPermission } from '../utils/accessControl';
 import { P } from '../constants/permissions';
 import { countTodayEvents } from '../utils/adminDashboardTodos';
+import { getCurrentSemester } from '../utils/semesterUtils';
 import {
   fetchBlacklistBySemester,
   fetchDashboardEvents,
@@ -21,16 +22,6 @@ export const KPI_STATUS = {
   EMPTY: 'empty',
   ERROR: 'error',
 };
-
-function getSemesterInfo(date) {
-  const eventDate = new Date(date);
-  const year = eventDate.getFullYear();
-  const month = eventDate.getMonth() + 1;
-  if (year === 2025 && month >= 2 && month <= 7) return '113-2';
-  if ((year === 2025 && month >= 8) || (year === 2026 && month <= 1)) return '114-1';
-  if (year === 2026 && month >= 2 && month <= 7) return '114-2';
-  return '113-2';
-}
 
 function withinNextDays(dateStr, days) {
   if (!dateStr) return false;
@@ -209,8 +200,7 @@ export function useAdminDashboardProduct({ token, userRole, toast }) {
     }
     setViolationsSectionStatus(KPI_STATUS.LOADING);
     try {
-      const semester = getSemesterInfo(new Date().toISOString().slice(0, 10));
-      const list = await fetchBlacklistBySemester(token, userRole, semester);
+      const list = await fetchBlacklistBySemester(token, userRole, getCurrentSemester());
       setViolations(list);
       setViolationsSectionStatus(list.length === 0 ? KPI_STATUS.EMPTY : KPI_STATUS.SUCCESS);
     } catch (_) {

@@ -81,6 +81,9 @@ const P = {
   // 診斷
   CAN_VIEW_INTERNAL_DIAGNOSTICS: 'can_view_internal_diagnostics',
 
+  // 旅遊分帳（只看到自己建立的旅程）
+  CAN_USE_TRIP_COUNT: 'can_use_trip_count',
+
   // 學習有伴（後台管理端）
   CAN_MANAGE_LEARNING_PARTNER_ADMIN: 'can_manage_learning_partner_admin',
 

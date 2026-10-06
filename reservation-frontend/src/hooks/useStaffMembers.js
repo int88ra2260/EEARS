@@ -19,7 +19,7 @@ export default function useStaffMembers() {
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      fetchSiteContent({ force: true })
+      fetchSiteContent()
         .then((data) => {
           if (cancelled) return;
           const faculty = data?.staff?.faculty;

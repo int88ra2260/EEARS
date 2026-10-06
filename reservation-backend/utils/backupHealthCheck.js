@@ -92,7 +92,7 @@ function evaluateBackupHealth(options = {}) {
     return {
       ok: false,
       code: 'BACKUP_FILE_NOT_FOUND',
-      message: `資料夾內無符合 pattern「${pattern}」的備份檔`,
+      message: `資料夾內沒有符合檔名規則「${pattern}」的備份檔`,
       dir,
       pattern,
       maxAgeHours,

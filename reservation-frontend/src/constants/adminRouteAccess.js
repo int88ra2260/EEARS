@@ -233,6 +233,12 @@ export const ADMIN_ROUTE_ACCESS = [
     roles: ['admin'],
     denyStaffLevels: DEPUTY_DENIED_STAFF_LEVELS,
   },
+  {
+    pattern: '/admin/trip-counts',
+    exact: false,
+    label: '旅遊分帳',
+    anyPermissions: [P.CAN_USE_TRIP_COUNT],
+  },
 
   {
     pattern: '/admin/english-test',

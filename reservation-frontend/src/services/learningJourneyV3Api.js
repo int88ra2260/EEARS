@@ -29,10 +29,10 @@ async function parseEnvelope(res) {
   return data;
 }
 
-export async function getLearningJourneyV3B2Report(token, semesterId) {
+export async function getLearningJourneyV3B2Report(token, semesterId, options = {}) {
   const res = await fetchClient(
     `${BASE_URL}/semesters/${encodeURIComponent(semesterId)}/b2-report`,
-    { headers: authHeaders(token) }
+    { headers: authHeaders(token), signal: options.signal }
   );
   return parseEnvelope(res);
 }
@@ -50,12 +50,12 @@ export async function getLearningJourneyV3Students(token, semesterId, params = {
   return parseEnvelope(res);
 }
 
-export async function getLearningJourneyV3Breakdown(token, semesterId, groupBy) {
+export async function getLearningJourneyV3Breakdown(token, semesterId, groupBy, options = {}) {
   const qs = new URLSearchParams();
   qs.set('groupBy', groupBy);
   const res = await fetchClient(
     `${BASE_URL}/semesters/${encodeURIComponent(semesterId)}/breakdown?${qs.toString()}`,
-    { headers: authHeaders(token) }
+    { headers: authHeaders(token), signal: options.signal }
   );
   return parseEnvelope(res);
 }

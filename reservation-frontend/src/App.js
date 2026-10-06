@@ -111,6 +111,7 @@ const LearningJourneyDashboardPage = lazy(() => import('./pages/admin/LearningJo
 const LearningJourneyImportHubPage = lazy(() => import('./pages/admin/LearningJourneyImportHubPage'));
 const AdminEwlSyncPage = lazy(() => import('./pages/admin/AdminEwlSyncPage'));
 const AdminOpsScriptsPage = lazy(() => import('./pages/admin/AdminOpsScriptsPage'));
+const TripCountPage = lazy(() => import('./pages/admin/TripCountPage'));
 const EnglishLearningPassportPage = lazy(() => import('./pages/student/EnglishLearningPassportPage'));
 const StudentProgressPage = lazy(() => import('./pages/student/StudentProgressPage'));
 const ClassCreditAllocationPage = lazy(() => import('./pages/student/ClassCreditAllocationPage'));
@@ -577,6 +578,8 @@ function AppContent() {
               <Route path="settings/email-templates" element={<AdminEmailTemplatesPage />} />
               <Route path="diagnostics" element={<InternalDiagnosticsPage />} />
               <Route path="ops-scripts" element={<AdminOpsScriptsPage />} />
+              <Route path="trip-counts" element={<TripCountPage />} />
+              <Route path="trip-counts/:tripId" element={<TripCountPage />} />
               <Route path="english-test" element={<EnglishTestManagement />} />
               {/* legacy route (redirect only)
                   kept for backward compatibility

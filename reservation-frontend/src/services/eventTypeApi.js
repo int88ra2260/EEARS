@@ -25,10 +25,14 @@ async function handleErr(res, fallback) {
 
 /** @type {{ list: object[], at: number } | null} */
 let publicCache = null;
+let publicPending = null;
+let publicRequestGeneration = 0;
 const TTL = 30_000;
 
 export function invalidateEventTypeClientCache() {
   publicCache = null;
+  publicPending = null;
+  publicRequestGeneration += 1;
 }
 
 /** 同步讀取公開目錄快取（可能為 null） */
@@ -36,22 +40,38 @@ export function getCachedPublicEventTypes() {
   return publicCache?.list || null;
 }
 
+function startPublicEventTypeRequest() {
+  const generation = ++publicRequestGeneration;
+  const request = (async () => {
+    try {
+      const res = await fetchClient(`${API}/event-types`);
+      if (!res.ok) throw new Error('load failed');
+      const body = await res.json();
+      const list = Array.isArray(body.data) ? body.data : [];
+      if (generation === publicRequestGeneration) {
+        publicCache = { list, at: Date.now() };
+      }
+      return list;
+    } catch (_) {
+      const fallback = DEFAULT_EVENT_TYPES.filter((r) => r.isActive).map((r) => ({ ...r }));
+      if (!publicCache && generation === publicRequestGeneration) {
+        publicCache = { list: fallback, at: Date.now() };
+      }
+      return fallback;
+    }
+  })().finally(() => {
+    if (publicPending === request) publicPending = null;
+  });
+  publicPending = request;
+  return request;
+}
+
 export async function fetchPublicEventTypes({ force = false } = {}) {
   if (!force && publicCache && Date.now() - publicCache.at < TTL) {
     return publicCache.list;
   }
-  try {
-    const res = await fetchClient(`${API}/event-types`);
-    if (!res.ok) throw new Error('load failed');
-    const body = await res.json();
-    const list = Array.isArray(body.data) ? body.data : [];
-    publicCache = { list, at: Date.now() };
-    return list;
-  } catch (_) {
-    const fallback = DEFAULT_EVENT_TYPES.filter((r) => r.isActive).map((r) => ({ ...r }));
-    if (!publicCache) publicCache = { list: fallback, at: Date.now() };
-    return fallback;
-  }
+  if (!force && publicPending) return publicPending;
+  return startPublicEventTypeRequest();
 }
 
 export async function fetchAdminEventTypes(token) {
