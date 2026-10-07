@@ -40,18 +40,10 @@ async function cancelReservationPublic({
   return { cancelled: true, reservation, reason: null };
 }
 
-async function cancelReservationByAdmin({ reservationId, verificationCode }) {
+async function cancelReservationByAdmin({ reservationId }) {
   const reservation = await Reservation.findByPk(reservationId, { include: [Event] });
   if (!reservation) {
     return { cancelled: false, reservation: null, reason: 'not_found' };
-  }
-
-  const code = String(verificationCode || '').trim();
-  if (!reservation.cancellationCode) {
-    return { cancelled: false, reservation, reason: 'missing_reservation_code' };
-  }
-  if (!code || reservation.cancellationCode !== code) {
-    return { cancelled: false, reservation, reason: 'invalid_code' };
   }
 
   await reservation.destroy();

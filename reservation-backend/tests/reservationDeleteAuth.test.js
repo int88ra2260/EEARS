@@ -265,6 +265,27 @@ describe('DELETE /api/reservations/:id auth regression', () => {
     expect(reservation.destroy).not.toHaveBeenCalled();
   });
 
+  it('後台：管理端不需驗證碼即可刪除', async () => {
+    const reservation = makeReservation({
+      eventType: 'English Table',
+      cancellationCode: '111222',
+    });
+    mockReservationFindByPk.mockResolvedValueOnce(reservation);
+    mockCancelReservationByAdmin.mockImplementationOnce(async () => {
+      await reservation.destroy();
+      return { cancelled: true, reservation, reason: null };
+    });
+
+    const res = await request(app)
+      .delete('/api/admin/reservations/99')
+      .set('Authorization', 'Bearer manage-events-et');
+
+    expect(res.status).toBe(200);
+    expect(String(res.body.message || '')).toContain('cancelled');
+    expect(mockCancelReservationByAdmin).toHaveBeenCalledWith({ reservationId: '99' });
+    expect(reservation.destroy).toHaveBeenCalledTimes(1);
+  });
+
   it('後台：管理端新路由可刪除成功', async () => {
     const reservation = makeReservation({
       eventType: 'English Table',

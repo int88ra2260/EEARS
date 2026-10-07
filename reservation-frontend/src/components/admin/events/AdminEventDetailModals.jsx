@@ -6,10 +6,7 @@ import Alert from 'react-bootstrap/Alert';
 
 function AdminEventDetailModals({
   cancelTarget,
-  cancelVerificationCode,
-  cancelCodeError,
   cancelSubmitting,
-  onCancelCodeChange,
   onCloseCancel,
   onSubmitCancel,
   violationModalProps,
@@ -24,36 +21,21 @@ function AdminEventDetailModals({
         </Modal.Header>
         <Modal.Body>
           <Alert variant="warning" className="small mb-3">
-            此操作不受活動開始前 2 小時限制，但必須輸入該筆預約確認信中的取消驗證碼。送出後會刪除此預約紀錄，且無法復原。
+            此操作不需要學生信箱裡的取消驗證碼，也不受活動開始前截止時間限制。送出後會刪除此預約紀錄，且無法復原。
           </Alert>
-          <div className="mb-3">
-            <div className="small text-muted">學生</div>
+          <div className="mb-2">
+            <div className="small text-muted">學號／姓名</div>
             <div className="fw-semibold">
               {cancelTarget?.studentId} {cancelTarget?.studentName || cancelTarget?.name}
             </div>
           </div>
-          <Form.Group>
-            <Form.Label>取消驗證碼</Form.Label>
-            <Form.Control
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={cancelVerificationCode}
-              onChange={(e) => onCancelCodeChange(e.target.value)}
-              placeholder="請輸入 6 位數驗證碼"
-              maxLength={6}
-              disabled={cancelSubmitting}
-              autoFocus
-            />
-            <Form.Text className="text-muted">
-              驗證碼來源為學生預約成功通知信；系統會與該筆預約儲存的驗證碼比對。
-            </Form.Text>
-          </Form.Group>
-          {cancelCodeError ? (
-            <Alert variant="danger" className="py-2 mt-3 mb-0">
-              {cancelCodeError}
-            </Alert>
-          ) : null}
+          <div className="mb-2">
+            <div className="small text-muted">預約信箱</div>
+            <div>{cancelTarget?.studentEmail || '（未提供）'}</div>
+          </div>
+          <p className="small text-muted mb-0">
+            取消通知會寄到這個信箱。若學生當初填錯，這封信也不會送到本人。
+          </p>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={onCloseCancel} disabled={cancelSubmitting}>

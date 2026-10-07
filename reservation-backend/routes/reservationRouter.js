@@ -623,7 +623,6 @@ router.delete(
   requirePermission(P.CAN_MANAGE_RESERVATIONS),
   async (req, res) => {
     try {
-      const body = req.body || {};
       const reservation = await Reservation.findByPk(req.params.id, { include: [Event] });
       if (!reservation) {
         return res.status(404).json({ success: false, message: 'Reservation not found.' });
@@ -636,16 +635,8 @@ router.delete(
 
       const result = await reservationService.cancelReservationByAdmin({
         reservationId: req.params.id,
-        operator: req.user,
-        verificationCode: body.verificationCode || body.cancellationCode,
       });
       if (!result.cancelled) {
-        if (result.reason === 'invalid_code') {
-          return res.status(400).json({ success: false, message: '驗證碼錯誤，請確認後再試。' });
-        }
-        if (result.reason === 'missing_reservation_code') {
-          return res.status(400).json({ success: false, message: '此預約沒有驗證碼，無法使用驗證碼取消。' });
-        }
         return res.status(404).json({ success: false, message: 'Reservation not found.' });
       }
 

@@ -258,19 +258,14 @@ export default function useAdminEventWorkspace({ token, userRole, accessProfile:
     return now.isBefore(twoHoursBefore);
   };
 
-  const handleDeleteReservation = useCallback(async (reservationId, studentId, studentName, verificationCode) => {
+  const handleDeleteReservation = useCallback(async (reservationId) => {
     if (!canManageEvents || !canAccessCurrentEvent) {
       showErrorMessage('您沒有刪除預約權限');
       return false;
     }
-    const code = String(verificationCode || '').trim();
-    if (!code) {
-      showErrorMessage('請輸入該筆預約的取消驗證碼');
-      return false;
-    }
 
     try {
-      await deleteAdminReservation(token, reservationId, { verificationCode: code });
+      await deleteAdminReservation(token, reservationId);
       showSuccessMessage('已成功刪除預約紀錄');
       await resv.refresh();
       await meta.reload();

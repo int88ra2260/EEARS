@@ -49,8 +49,6 @@ export default function AdminEventDetailTabs({
   const setTabKey = onSelect || setInternalKey;
 
   const [cancelTarget, setCancelTarget] = useState(null);
-  const [cancelVerificationCode, setCancelVerificationCode] = useState('');
-  const [cancelCodeError, setCancelCodeError] = useState('');
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
   const showGrouping = Boolean(groupingTabProps?.visible);
@@ -58,39 +56,23 @@ export default function AdminEventDetailTabs({
 
   const openCancelReservationModal = useCallback((reservation) => {
     setCancelTarget(reservation);
-    setCancelVerificationCode('');
-    setCancelCodeError('');
   }, []);
 
   const closeCancelReservationModal = useCallback(() => {
     if (cancelSubmitting) return;
     setCancelTarget(null);
-    setCancelVerificationCode('');
-    setCancelCodeError('');
   }, [cancelSubmitting]);
 
   const submitCancelReservation = useCallback(async () => {
     if (!cancelTarget) return;
-    const code = cancelVerificationCode.trim();
-    if (!code) {
-      setCancelCodeError('請輸入該筆預約的取消驗證碼。');
-      return;
-    }
 
     setCancelSubmitting(true);
-    setCancelCodeError('');
-    const ok = await reservationsTabProps.handleDeleteReservation(
-      cancelTarget.id,
-      cancelTarget.studentId,
-      cancelTarget.studentName || cancelTarget.name,
-      code,
-    );
+    const ok = await reservationsTabProps.handleDeleteReservation(cancelTarget.id);
     setCancelSubmitting(false);
     if (ok) {
       setCancelTarget(null);
-      setCancelVerificationCode('');
     }
-  }, [cancelTarget, cancelVerificationCode, reservationsTabProps]);
+  }, [cancelTarget, reservationsTabProps]);
 
   const handleOpenViolationTab = useCallback(
     (studentId) => {
@@ -173,13 +155,7 @@ export default function AdminEventDetailTabs({
 
       <AdminEventDetailModals
         cancelTarget={cancelTarget}
-        cancelVerificationCode={cancelVerificationCode}
-        cancelCodeError={cancelCodeError}
         cancelSubmitting={cancelSubmitting}
-        onCancelCodeChange={(value) => {
-          setCancelVerificationCode(value);
-          if (cancelCodeError) setCancelCodeError('');
-        }}
         onCloseCancel={closeCancelReservationModal}
         onSubmitCancel={submitCancelReservation}
         violationModalProps={violationModalProps}

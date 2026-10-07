@@ -19,7 +19,7 @@ jest.mock('../../models', () => ({
 }));
 
 const { Reservation } = require('../../models');
-const { cancelReservationPublic } = require('../../services/reservationService');
+const { cancelReservationPublic, cancelReservationByAdmin } = require('../../services/reservationService');
 
 describe('reservation / cancellation 2-hour cutoff', () => {
   beforeEach(() => {
@@ -149,6 +149,22 @@ describe('reservation / cancellation 2-hour cutoff', () => {
     });
     expect(result.cancelled).toBe(false);
     expect(result.reason).toBe('time_window_closed');
+  });
+
+  it('admin can cancel without a verification code', async () => {
+    const destroy = jest.fn().mockResolvedValue(undefined);
+    Reservation.findByPk.mockResolvedValue({
+      id: 9,
+      studentId: 'B123456789',
+      studentEmail: 'wrong@example.com',
+      cancellationCode: 'ABC123',
+      Event: { id: 3, date: '2026-05-08', startTime: '12:00:00' },
+      destroy,
+    });
+    const result = await cancelReservationByAdmin({ reservationId: 9 });
+    expect(result.cancelled).toBe(true);
+    expect(result.reason).toBeNull();
+    expect(destroy).toHaveBeenCalledTimes(1);
   });
 });
 

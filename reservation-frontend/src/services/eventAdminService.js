@@ -72,14 +72,10 @@ export async function correctEventCheckin(token, eventId, reservationId, mode) {
   return data;
 }
 
-export async function deleteAdminReservation(token, reservationId, { verificationCode } = {}) {
-  const body = verificationCode != null && String(verificationCode).trim()
-    ? { verificationCode: String(verificationCode).trim() }
-    : undefined;
+export async function deleteAdminReservation(token, reservationId) {
   const res = await fetchClient(`${API_ADMIN_RESERVATIONS}/${reservationId}`, {
     method: 'DELETE',
-    headers: authHeaders(token, body ? { 'Content-Type': 'application/json' } : {}),
-    body: body ? JSON.stringify(body) : undefined,
+    headers: authHeaders(token),
   });
   const data = await parseJson(res);
   if (!res.ok) {
