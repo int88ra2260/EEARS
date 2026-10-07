@@ -13,6 +13,7 @@ import './StudentRecordShell.css';
 const TABS = [
   { id: 'reservations', to: '/my-reservations', labelKey: 'nav.myReservations' },
   { id: 'progress', to: '/student/progress', labelKey: 'nav.myProgress' },
+  { id: 'speaking', to: '/student/speaking-portfolio', labelKey: 'nav.speakingPortfolio' },
   { id: 'credit', to: '/student/class-credit-allocation', labelKey: 'nav.classCreditAllocation', gated: true },
 ];
 

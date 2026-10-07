@@ -4,6 +4,7 @@ import {
   getEnglishTableWarmupTaskKey,
   listEnglishTableTopicDates,
   listEnglishTableTopics,
+  listEnglishTableReviewLinks,
   listEnglishTableWarmupLinks,
   normalizeEnglishTableTopicDate,
 } from './englishTableTopics1151';
@@ -61,5 +62,9 @@ describe('englishTableTopics1151', () => {
     expect(links).toHaveLength(6);
     expect(links[0].href).toContain('/practice/speaking-diagnostic');
     expect(links[0].href).toContain('source=english-table');
+    expect(links[0].href).toContain('phase=pre');
+    const reviewLinks = listEnglishTableReviewLinks('2026-10-05');
+    expect(reviewLinks[0].href).toContain('phase=post');
+    expect(reviewLinks[0].taskKey).toBe(links[0].taskKey);
   });
 });

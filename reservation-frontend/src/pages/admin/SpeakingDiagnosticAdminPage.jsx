@@ -58,6 +58,13 @@ const COMMUNICATION_FUNCTION_LABELS = {
   presentation_microtask: 'Mini presentation',
 };
 
+const ACTIVITY_PHASE_LABELS = {
+  pre_activity: '會前',
+  post_activity: '會後',
+  diagnostic: '診斷',
+  unspecified: '未標記',
+};
+
 function splitListText(value) {
   return String(value || '')
     .split(/[\n,;]+/)
@@ -526,6 +533,15 @@ export default function SpeakingDiagnosticAdminPage() {
                     </div>
                   ))}
                 </section>
+                <section>
+                  <h3>Before / After 資料</h3>
+                  {ecosystemSummary.byPhase?.length ? ecosystemSummary.byPhase.map((row) => (
+                    <div className="sd-admin-bar-row" key={row.key}>
+                      <span>{ACTIVITY_PHASE_LABELS[row.key] || row.key}</span>
+                      <strong>{row.attempts}</strong>
+                    </div>
+                  )) : <p className="text-muted small mb-0">尚未標記活動前後資料。</p>}
+                </section>
               </div>
               <div className="sd-admin-data-table">
                 <div className="sd-admin-data-table__head">
@@ -650,7 +666,7 @@ export default function SpeakingDiagnosticAdminPage() {
                 <span className="sd-admin-attempt__score">{formatPercent(attemptScores.overallPercent)}</span>
                 <span>
                   <strong>{attempt.task?.title || 'Untitled task'}</strong>
-                  <small>{attempt.studentId || 'anonymous'} · {formatDate(attempt.submittedAt)} · {attempt.ratingCount || 0} rating(s)</small>
+                  <small>{attempt.studentId || 'anonymous'} · {formatDate(attempt.submittedAt)} · {ACTIVITY_PHASE_LABELS[attempt.context?.activityPhase] || '未標記'} · {attempt.ratingCount || 0} rating(s)</small>
                 </span>
               </button>
             );
@@ -667,6 +683,13 @@ export default function SpeakingDiagnosticAdminPage() {
                   <div className="sd-admin-kicker">{selected.task?.level} · {selected.task?.taskType}</div>
                   <h2>{selected.task?.title}</h2>
                   <p>{selected.task?.targetText}</p>
+                  {selected.context ? (
+                    <p className="text-muted small mb-2">
+                      {selected.context.linkedActivity || selected.task?.linkedActivity || 'Speaking Diagnostic'} · {ACTIVITY_PHASE_LABELS[selected.context.activityPhase] || selected.context.activityPhase || '未標記'}
+                      {selected.context.activityDate ? ` · ${selected.context.activityDate}` : ''}
+                      {selected.context.activityQuestionNumber ? ` · Q${selected.context.activityQuestionNumber}` : ''}
+                    </p>
+                  ) : null}
                   <div className="sd-admin-rating-status">
                     {selected.ratingStatus === 'double_rated' ? '已雙評' : selected.ratingStatus === 'single_rated' ? '已單評，建議補第二位老師' : '待老師評分'}
                   </div>

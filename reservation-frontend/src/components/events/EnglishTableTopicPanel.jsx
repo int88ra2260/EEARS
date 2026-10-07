@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
-import { getEnglishTableTopic, listEnglishTableWarmupLinks } from '../../data/englishTableTopics1151';
+import { getEnglishTableTopic, listEnglishTableReviewLinks, listEnglishTableWarmupLinks } from '../../data/englishTableTopics1151';
+import { loadSpeakingPortfolio, saveSpeakingPortfolioCard } from '../../services/speakingPortfolioStore';
 import { isEnglishTableEventType } from '../../utils/eventCapacityFields';
 import './EnglishTableTopicPanel.css';
 
@@ -20,10 +21,12 @@ export default function EnglishTableTopicPanel({
   defaultOpen = true,
   showCatalogLink = false,
   showPracticeLinks = false,
+  showReviewLinks = false,
 }) {
   const { t } = useLanguage();
   const detailsRef = useRef(null);
   const session = isEnglishTableEventType(eventType) ? getEnglishTableTopic(date) : null;
+  const [savedKeys, setSavedKeys] = useState(() => new Set(loadSpeakingPortfolio().cards.map((item) => item.stableKey)));
 
   useEffect(() => {
     if (detailsRef.current) detailsRef.current.open = Boolean(defaultOpen);
@@ -43,6 +46,24 @@ export default function EnglishTableTopicPanel({
   const formatLabel = t(FORMAT_KEYS[session.format] || 'booking.etTopicSummary');
   const weekLabel = t('booking.etTopicWeek', { week: session.week });
   const warmupLinks = showPracticeLinks ? listEnglishTableWarmupLinks(date) : [];
+  const reviewLinks = showReviewLinks ? listEnglishTableReviewLinks(date) : [];
+  const baseTags = useMemo(() => ['English Table', session.format, session.topic].filter(Boolean), [session.format, session.topic]);
+
+  const saveQuestionCard = (question, index) => {
+    const stableKey = `english-table:${date}:q${index + 1}`;
+    saveSpeakingPortfolioCard({
+      stableKey,
+      type: 'prompt',
+      source: 'English Table',
+      title: `${session.topic} Q${index + 1}`,
+      prompt: question,
+      sample: 'A2: I think... because...\nB1: One reason is... For example...\nB2: From my perspective..., although...',
+      level: index < 2 ? 'A2' : index < 4 ? 'B1' : 'B2',
+      tags: baseTags,
+      href: warmupLinks[index]?.href || reviewLinks[index]?.href || '/student/speaking-portfolio',
+    });
+    setSavedKeys((prev) => new Set([...prev, stableKey]));
+  };
 
   return (
     <details className="et-topic" ref={detailsRef}>
@@ -75,6 +96,18 @@ export default function EnglishTableTopicPanel({
                     會前練習
                   </Link>
                 ) : null}
+                {reviewLinks[index] ? (
+                  <Link className="et-topic__practice-link et-topic__practice-link--review" to={reviewLinks[index].href}>
+                    活動後複習
+                  </Link>
+                ) : null}
+                <button
+                  className="et-topic__save-card"
+                  type="button"
+                  onClick={() => saveQuestionCard(question, index)}
+                >
+                  {savedKeys.has(`english-table:${date}:q${index + 1}`) ? '已收藏' : '收藏題目'}
+                </button>
               </li>
             ))}
           </ol>

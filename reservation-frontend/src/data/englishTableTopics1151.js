@@ -44,6 +44,18 @@ export function listEnglishTableTopics() {
     .sort((left, right) => left.date.localeCompare(right.date));
 }
 
+function buildEnglishTablePracticeHref({ date, questionIndex, phase }) {
+  const taskKey = getEnglishTableWarmupTaskKey(date, questionIndex);
+  const params = new URLSearchParams({
+    source: 'english-table',
+    phase,
+    date,
+    question: String(questionIndex + 1),
+    taskKey,
+  });
+  return `/practice/speaking-diagnostic?${params.toString()}`;
+}
+
 export function listEnglishTableWarmupLinks(dateInput) {
   const date = normalizeEnglishTableTopicDate(dateInput);
   const session = getEnglishTableTopic(date);
@@ -53,6 +65,19 @@ export function listEnglishTableWarmupLinks(dateInput) {
     question,
     questionNumber: index + 1,
     taskKey: getEnglishTableWarmupTaskKey(date, index),
-    href: `/practice/speaking-diagnostic?source=english-table&taskKey=${encodeURIComponent(getEnglishTableWarmupTaskKey(date, index))}`,
+    href: buildEnglishTablePracticeHref({ date, questionIndex: index, phase: 'pre' }),
+  }));
+}
+
+export function listEnglishTableReviewLinks(dateInput) {
+  const date = normalizeEnglishTableTopicDate(dateInput);
+  const session = getEnglishTableTopic(date);
+  if (!date || !session?.questions?.length) return [];
+  return session.questions.map((question, index) => ({
+    date,
+    question,
+    questionNumber: index + 1,
+    taskKey: getEnglishTableWarmupTaskKey(date, index),
+    href: buildEnglishTablePracticeHref({ date, questionIndex: index, phase: 'post' }),
   }));
 }

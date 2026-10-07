@@ -65,6 +65,7 @@ export default function ReservationResultCard({
           eventType={record.eventType}
           defaultOpen={false}
           showPracticeLinks
+          showReviewLinks
         />
       </div>
       <div className="reservation-result-card-actions">

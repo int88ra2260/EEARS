@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Microphone, Stop, ChartBar, Waveform } from '@phosphor-icons/react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PageHeader from '../components/layout/PageHeader';
 import { createSpeakingAdaptiveSession, fetchNextSpeakingTask, fetchSpeakingTasks, submitSpeakingAttempt } from '../services/speakingDiagnosticApi';
+import { saveSpeakingPortfolioAttempt } from '../services/speakingPortfolioStore';
 import { SPEAKING_TASKS } from '../data/speakingDiagnostic/readAloudTasks';
 import './SpeakingDiagnosticPage.css';
 
@@ -198,11 +199,50 @@ function getAdaptiveLabel(session) {
   return `第 ${(session.progress?.completedCount || 0) + 1} 題`;
 }
 
+function normalizeActivityPhase(value, source) {
+  const phase = String(value || '').trim().toLowerCase();
+  if (phase === 'post' || phase === 'review' || phase === 'post_activity') return 'post_activity';
+  if (phase === 'pre' || phase === 'warmup' || phase === 'pre_activity') return 'pre_activity';
+  return source === 'english-table' ? 'pre_activity' : 'diagnostic';
+}
+
+function activityPhaseCopy(phase) {
+  if (phase === 'post_activity') {
+    return {
+      title: 'English Table Speaking Review',
+      lead: '活動後再回答一次，把現場討論轉成自己的口說進步紀錄。',
+      label: '活動後複習',
+      context: '這次錄音會標記為活動後複習，後台可和會前練習比較 fluency、字彙與想法發展。',
+      statusDone: '已完成活動後複習',
+    };
+  }
+  if (phase === 'pre_activity') {
+    return {
+      title: 'English Table Speaking Warm-up',
+      lead: '先練習當天 English Table 題目，完成後可帶著回饋進到現場討論。',
+      label: '會前練習',
+      context: '這次錄音會標記為會前練習，後台可用來觀察學生準備、流暢度與內容發展。',
+      statusDone: '已完成會前練習',
+    };
+  }
+  return {
+    title: 'EEARS Speaking Diagnostic',
+    lead: '完成幾題口說任務，系統會依你的表現安排下一題並給出練習回饋。',
+    label: '口說診斷',
+    context: '',
+    statusDone: '已完成本題',
+  };
+}
+
 export default function SpeakingDiagnosticPage() {
   const location = useLocation();
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const requestedTaskKey = queryParams.get('taskKey') || '';
   const sourceContext = queryParams.get('source') || '';
+  const activityPhase = normalizeActivityPhase(queryParams.get('phase'), sourceContext);
+  const activityDate = queryParams.get('date') || '';
+  const activityQuestionNumber = queryParams.get('question') || '';
+  const pageCopy = activityPhaseCopy(activityPhase);
   const [tasks, setTasks] = useState(SPEAKING_TASKS.map((task) => ({ ...task, taskKey: task.id })));
   const [selectedTaskKey, setSelectedTaskKey] = useState(requestedTaskKey || 'ra-a2-campus-library');
   const [studentId, setStudentId] = useState('');
@@ -222,6 +262,7 @@ export default function SpeakingDiagnosticPage() {
   const [speechError, setSpeechError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [portfolioSaved, setPortfolioSaved] = useState(false);
   const [error, setError] = useState('');
   const mediaRecorderRef = useRef(null);
   const speechRecognitionRef = useRef(null);
@@ -282,6 +323,7 @@ export default function SpeakingDiagnosticPage() {
     [selectedTaskKey, tasks],
   );
   const isEnglishTableTask = selectedTask?.linkedActivity === 'English Table' || sourceContext === 'english-table';
+  const showAdaptiveControls = !isEnglishTableTask;
 
   const isReadAloud = selectedTask?.taskType === 'read_aloud';
   const wordResults = useMemo(() => {
@@ -411,9 +453,37 @@ export default function SpeakingDiagnosticPage() {
           ...(features || {}),
           spokenWordEstimate,
           browserUserAgent: navigator.userAgent,
+          context: {
+            source: sourceContext || (isEnglishTableTask ? 'english-table' : 'diagnostic'),
+            activityPhase,
+            linkedActivity: selectedTask.linkedActivity || (isEnglishTableTask ? 'English Table' : null),
+            activityDate: activityDate || null,
+            activityQuestionNumber: activityQuestionNumber || null,
+            requestedTaskKey: requestedTaskKey || null,
+            pagePath: `${location.pathname}${location.search}`,
+          },
         },
       });
       setResult(data);
+      const scores = data.presentationScores || data.automatedScores?.presentationScores || {};
+      saveSpeakingPortfolioAttempt({
+        attemptUid: data.attemptUid,
+        taskKey: selectedTask.taskKey || selectedTask.id,
+        title: selectedTask.title,
+        source: isEnglishTableTask ? 'English Table' : 'Speaking Diagnostic',
+        activityPhase,
+        submittedAt: new Date().toISOString(),
+        overallPercent: scores.overallPercent,
+        fluencyPercent: scores.fluencyPercent,
+        vocabularyPercent: scores.vocabularyPercent,
+        taskAchievementPercent: scores.taskAchievementPercent,
+        ideaDevelopmentPercent: scores.ideaDevelopmentPercent,
+        transcriptWordCount: data.features?.transcriptWordCount,
+        speechRateWpm: data.features?.speechRateWpm,
+        advice: getResultMessage(scores.overallPercent),
+        href: `${location.pathname}${location.search}`,
+      });
+      setPortfolioSaved(true);
       const completed = Array.from(new Set([...completedTaskKeys, selectedTask.taskKey || selectedTask.id]));
       setCompletedTaskKeys(completed);
       if (data.adaptiveSession) {
@@ -446,6 +516,7 @@ export default function SpeakingDiagnosticPage() {
     speechFinalTranscriptRef.current = '';
     setInterimTranscript('');
     setResult(null);
+    setPortfolioSaved(false);
     setAudioBlob(null);
     setClientFeatures(null);
     setDurationMs(null);
@@ -498,6 +569,7 @@ export default function SpeakingDiagnosticPage() {
 
   const clearAttemptState = () => {
     setResult(null);
+    setPortfolioSaved(false);
     setTranscript('');
     transcriptRef.current = '';
     speechFinalTranscriptRef.current = '';
@@ -551,8 +623,8 @@ export default function SpeakingDiagnosticPage() {
     <div className="speaking-diagnostic-page">
       <PageHeader
         breadcrumbs={breadcrumbs}
-        title={isEnglishTableTask ? 'English Table Speaking Warm-up' : 'EEARS Speaking Diagnostic'}
-        lead={isEnglishTableTask ? '先練習當天 English Table 題目，完成後可帶著回饋進到現場討論。' : '完成幾題口說任務，系統會依你的表現安排下一題並給出練習回饋。'}
+        title={isEnglishTableTask ? pageCopy.title : 'EEARS Speaking Diagnostic'}
+        lead={isEnglishTableTask ? pageCopy.lead : '完成幾題口說任務，系統會依你的表現安排下一題並給出練習回饋。'}
       />
 
       <main className="container pb-5">
@@ -570,25 +642,27 @@ export default function SpeakingDiagnosticPage() {
               />
             </div>
 
-            <div className="speaking-adaptive-card">
-              <div>
-                <strong>{adaptiveSession ? getAdaptiveLabel(adaptiveSession) : '適應性測驗'}</strong>
-                <span>{adaptiveSession ? `${adaptiveCompletedCount}/${adaptiveSession.maxTasks} 題 · 目前估計 ${adaptiveSession.currentLevel}` : '依作答結果安排下一題'}</span>
+            {showAdaptiveControls ? (
+              <div className="speaking-adaptive-card">
+                <div>
+                  <strong>{adaptiveSession ? getAdaptiveLabel(adaptiveSession) : '適應性測驗'}</strong>
+                  <span>{adaptiveSession ? `${adaptiveCompletedCount}/${adaptiveSession.maxTasks} 題 · 目前估計 ${adaptiveSession.currentLevel}` : '依作答結果安排下一題'}</span>
+                </div>
+                <button
+                  className="btn btn-outline-primary btn-sm"
+                  type="button"
+                  disabled={adaptiveStarting || recording || submitting}
+                  onClick={handleStartAdaptiveSession}
+                >
+                  {adaptiveStarting ? '啟動中...' : adaptiveSession ? '重新開始' : '開始'}
+                </button>
               </div>
-              <button
-                className="btn btn-outline-primary btn-sm"
-                type="button"
-                disabled={adaptiveStarting || recording || submitting}
-                onClick={handleStartAdaptiveSession}
-              >
-                {adaptiveStarting ? '啟動中...' : adaptiveSession ? '重新開始' : '開始'}
-              </button>
-            </div>
+            ) : null}
 
             {isEnglishTableTask ? (
               <div className="speaking-context-card">
-                <strong>English Table 練習</strong>
-                <span>這題會納入中心活動成效資料，後台可用來觀察學生會前準備、流暢度與內容發展。</span>
+                <strong>{pageCopy.label}</strong>
+                <span>{pageCopy.context}</span>
               </div>
             ) : null}
 
@@ -630,6 +704,7 @@ export default function SpeakingDiagnosticPage() {
                 <span>{selectedTask?.level}</span>
                 <span>{TASK_TYPE_LABELS[selectedTask?.taskType] || selectedTask?.taskType}</span>
                 {selectedTask?.linkedActivity ? <span>{selectedTask.linkedActivity}</span> : null}
+                {isEnglishTableTask ? <span>{pageCopy.label}</span> : null}
                 <span>{selectedTask?.estimatedSeconds || 15}s target</span>
               </div>
               <div className="speaking-stage-center">
@@ -650,7 +725,7 @@ export default function SpeakingDiagnosticPage() {
                     : submitting
                       ? '正在送出並分析...'
                       : result
-                        ? '已完成本題'
+                        ? pageCopy.statusDone
                         : durationMs
                           ? `已錄音 ${formatMs(durationMs)}`
                           : '按下麥克風開始'}
@@ -741,6 +816,11 @@ export default function SpeakingDiagnosticPage() {
                 >
                   重新送出
                 </button>
+              ) : null}
+              {portfolioSaved ? (
+                <Link className="btn btn-outline-primary" to="/student/speaking-portfolio">
+                  查看口說紀錄
+                </Link>
               ) : null}
             </div>
 

@@ -323,6 +323,27 @@ function parseClientFeatures(raw) {
   }
 }
 
+function normalizeAttemptContext(clientFeatures = {}, task = {}) {
+  const raw = clientFeatures.context && typeof clientFeatures.context === 'object' && !Array.isArray(clientFeatures.context)
+    ? clientFeatures.context
+    : {};
+  const source = cleanString(raw.source, 80) || (task.linkedActivity === 'English Table' ? 'english-table' : 'diagnostic');
+  const rawPhase = String(raw.activityPhase || raw.phase || '').trim().toLowerCase();
+  let activityPhase = 'diagnostic';
+  if (rawPhase === 'pre' || rawPhase === 'warmup' || rawPhase === 'pre_activity') activityPhase = 'pre_activity';
+  else if (rawPhase === 'post' || rawPhase === 'review' || rawPhase === 'post_activity') activityPhase = 'post_activity';
+  else if (source === 'english-table') activityPhase = 'pre_activity';
+  return {
+    source,
+    activityPhase,
+    linkedActivity: cleanString(raw.linkedActivity, 120) || task.linkedActivity || null,
+    activityDate: cleanString(raw.activityDate, 30),
+    activityQuestionNumber: cleanString(raw.activityQuestionNumber, 20),
+    requestedTaskKey: cleanString(raw.requestedTaskKey, 80),
+    pagePath: cleanString(raw.pagePath, 500),
+  };
+}
+
 function buildFluencyProxy({ speechRateWpm, pauseFrequencyPerMinute, averagePauseDurationMs }) {
   if (speechRateWpm == null && pauseFrequencyPerMinute == null && averagePauseDurationMs == null) return null;
   let score = 1;
@@ -737,6 +758,7 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
     mode: isReadAloud ? 'controlled_read_aloud' : 'constructed_response',
     analysisVersion: ANALYSIS_VERSION,
     taskType: task.taskType,
+    context: normalizeAttemptContext(clientFeatures, task),
     targetWordCount: isReadAloud ? targetTokens.length : task.targetWords || null,
     transcriptWordCount: responseTokens.length || null,
     durationMs,
@@ -942,6 +964,7 @@ function toAttemptDto(row) {
     features: row.features,
     automatedScores: row.automatedScores,
     presentationScores: row.automatedScores?.presentationScores || null,
+    context: row.features?.context || null,
     wordResults: row.features?.wordResults || [],
     alignment: row.features?.alignment || null,
     audioUrl: `/${row.audioPath}`,
@@ -1416,6 +1439,7 @@ async function getSpeakingEcosystemSummary(query = {}) {
   const byDiscipline = {};
   const byActivity = {};
   const byFunction = {};
+  const byPhase = {};
   rows.forEach((row) => {
     const task = row.task || {};
     const scores = row.automatedScores?.presentationScores || {};
@@ -1424,6 +1448,7 @@ async function getSpeakingEcosystemSummary(query = {}) {
       [byDiscipline, task.discipline || 'general'],
       [byActivity, task.linkedActivity || 'unlinked'],
       [byFunction, task.communicationFunction || task.taskType || 'unknown'],
+      [byPhase, row.features?.context?.activityPhase || 'unspecified'],
     ];
     buckets.forEach(([bucket, key]) => {
       const item = bucket[key] || { attempts: 0, students: new Set(), overall: [], fluency: [], taskAchievement: [], vocabulary: [], ideaDevelopment: [] };
@@ -1465,6 +1490,7 @@ async function getSpeakingEcosystemSummary(query = {}) {
     byDiscipline: serializeBucket(byDiscipline),
     byActivity: serializeBucket(byActivity),
     byCommunicationFunction: serializeBucket(byFunction),
+    byPhase: serializeBucket(byPhase),
     weakConstructs,
     recommendedSupports: Object.entries(recommendedSupportMap)
       .map(([support, demand]) => ({ support, demand }))
@@ -1893,6 +1919,7 @@ async function exportSpeakingResearchCsv(query = {}) {
   const attempts = rows.map(toAttemptDto).filter((row) => !status || row.ratingStatus === status);
   const headers = [
     'attempt_uid', 'student_id', 'submitted_at', 'task_key', 'level', 'task_type', 'task_title',
+    'context_source', 'activity_phase', 'linked_activity', 'activity_date', 'activity_question_number',
     'rating_status', 'rating_count', 'human_rating_mean',
     'duration_ms', 'transcript_word_count', 'target_word_count',
     'speech_rate_wpm', 'articulation_rate_wpm', 'pause_count', 'pause_frequency_per_minute',
@@ -1925,6 +1952,11 @@ async function exportSpeakingResearchCsv(query = {}) {
       row.task?.level,
       row.task?.taskType,
       row.task?.title,
+      row.context?.source,
+      row.context?.activityPhase,
+      row.context?.linkedActivity,
+      row.context?.activityDate,
+      row.context?.activityQuestionNumber,
       row.ratingStatus,
       row.ratingCount,
       row.humanRatingMean != null ? Number(row.humanRatingMean).toFixed(3) : '',
