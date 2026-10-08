@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
+const { alignWithResidentWorker, RESIDENT_ENGINE } = require('./speakingMfaWorkerHost');
 
 function readStdin() {
   return new Promise((resolve) => {
@@ -42,6 +43,32 @@ function makeResult(status, warnings = [], extra = {}) {
     metrics: extra.metrics || null,
     warnings,
   };
+}
+
+function pathEnvKey() {
+  return Object.keys(process.env).find((key) => key.toLowerCase() === 'path') || 'Path';
+}
+
+function condaEnvBinDirs(command) {
+  if (!command || !fs.existsSync(command)) return [];
+  const commandPath = path.resolve(command);
+  const parent = path.dirname(commandPath);
+  const envRoot = path.basename(parent).toLowerCase() === 'scripts' ? path.dirname(parent) : parent;
+  return [
+    path.join(envRoot, 'Library', 'bin'),
+    path.join(envRoot, 'Library', 'mingw-w64', 'bin'),
+    path.join(envRoot, 'Library', 'usr', 'bin'),
+    path.join(envRoot, 'Scripts'),
+    envRoot,
+  ].filter((dir) => fs.existsSync(dir));
+}
+
+function withCondaLibraryPath(command) {
+  const dirs = condaEnvBinDirs(command);
+  if (!dirs.length) return undefined;
+  const key = pathEnvKey();
+  const current = process.env[key] || '';
+  return { [key]: `${dirs.join(path.delimiter)}${path.delimiter}${current}` };
 }
 
 function run(command, args, options = {}) {
@@ -259,6 +286,27 @@ async function main() {
     return;
   }
 
+  const textGridPath = path.join(outputDir, `${attemptName}.TextGrid`);
+  const resident = await alignWithResidentWorker({
+    wavPath,
+    textPath: labPath,
+    outputPath: textGridPath,
+  });
+  if (resident.available) {
+    if (!resident.ok || !fs.existsSync(textGridPath)) {
+      emit(makeResult('mfa_error', [resident.error || 'MFA worker completed without a TextGrid.']));
+      if (process.env.SPEAKING_MFA_KEEP_TEMP !== '1') fs.rmSync(workDir, { recursive: true, force: true });
+      return;
+    }
+    const parsed = textGridToAlignment(textGridPath, payload.durationMs);
+    parsed.engine = RESIDENT_ENGINE;
+    emit(parsed);
+    if (process.env.SPEAKING_MFA_KEEP_TEMP !== '1') {
+      fs.rmSync(workDir, { recursive: true, force: true });
+    }
+    return;
+  }
+
   const mfaArgs = [
     'align',
     quoteArg(corpusDir),
@@ -268,7 +316,7 @@ async function main() {
     '--clean',
     '--overwrite',
   ];
-  const aligned = await run(mfa, mfaArgs, { cwd: workDir });
+  const aligned = await run(mfa, mfaArgs, { cwd: workDir, env: withCondaLibraryPath(mfa) });
   if (aligned.code !== 0) {
     emit(makeResult('mfa_error', [aligned.stderr || aligned.stdout || 'mfa align failed.']));
     return;

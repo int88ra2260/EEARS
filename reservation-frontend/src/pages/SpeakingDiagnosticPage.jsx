@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import PageHeader from '../components/layout/PageHeader';
 import { createSpeakingAdaptiveSession, fetchNextSpeakingTask, fetchSpeakingTasks, submitSpeakingAttempt } from '../services/speakingDiagnosticApi';
 import { saveSpeakingPortfolioAttempt } from '../services/speakingPortfolioStore';
+import { englishTableFollowUp, englishTablePhraseTips } from '../utils/englishTableFollowUp';
 import { SPEAKING_TASKS } from '../data/speakingDiagnostic/readAloudTasks';
 import './SpeakingDiagnosticPage.css';
 
@@ -69,6 +70,28 @@ function getSpeechRecognitionConstructor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
+const SPEECH_BLOCKED_MESSAGE = '瀏覽器沒有開放語音辨識。錄音仍可送出，伺服器會依錄音產生逐字稿。';
+
+function microphoneErrorMessage(error) {
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    return '手機必須用 https 開啟這個頁面才能錄音。目前的網址不是安全連線，瀏覽器會直接拒絕麥克風。';
+  }
+  const name = error?.name || '';
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    return '手機拒絕了麥克風。請用 Safari 或 Chrome 開啟這個 https 頁面並允許麥克風。從 Line 或其他 App 內建瀏覽器開啟時，通常無法錄音。';
+  }
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    return '找不到麥克風。請確認沒有其他 App 正在使用麥克風。';
+  }
+  return '無法啟動麥克風，請確認瀏覽器權限。';
+}
+
+function pickAudioRecorderOptions() {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') return undefined;
+  const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((type) => MediaRecorder.isTypeSupported(type));
+  return mimeType ? { mimeType } : undefined;
+}
+
 async function analyzeAudioBlob(blob, durationMs) {
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
   if (!blob || !durationMs || !AudioContextCtor) return {};
@@ -119,8 +142,8 @@ async function analyzeAudioBlob(blob, durationMs) {
 }
 
 function formatMs(ms) {
-  if (!ms) return '0.0s';
-  return `${(ms / 1000).toFixed(1)}s`;
+  if (!ms) return '0.0 秒';
+  return `${(ms / 1000).toFixed(1)} 秒`;
 }
 
 function formatPercent(value) {
@@ -130,16 +153,27 @@ function formatPercent(value) {
   return `${Math.round(n)}%`;
 }
 
-function formatNumber(value, unit = '') {
-  if (value == null || value === '') return '--';
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '--';
-  return `${Number.isInteger(n) ? n : n.toFixed(1)}${unit}`;
-}
-
-function buildNeutralWordResults(targetText) {
-  const target = wordsOf(targetText);
-  return target.map((word, index) => ({ index, word, status: 'unknown' }));
+function readAloudPieces(targetText, wordResults) {
+  const text = String(targetText || '');
+  const pieces = [];
+  const pattern = /[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)?/g;
+  let last = 0;
+  let wordIndex = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (match.index > last) {
+      pieces.push({ kind: 'text', text: text.slice(last, match.index), key: `gap-${last}` });
+    }
+    pieces.push({
+      kind: 'word',
+      text: match[0],
+      status: wordResults?.[wordIndex]?.status || 'unknown',
+      key: `word-${wordIndex}`,
+    });
+    wordIndex += 1;
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) pieces.push({ kind: 'text', text: text.slice(last), key: `gap-${last}` });
+  return pieces;
 }
 
 function ScoreDial({ value, label = '總分' }) {
@@ -169,6 +203,56 @@ function MetricBar({ label, value, detail }) {
   );
 }
 
+const TASK_TYPE_ORDER = ['read_aloud', 'picture_description', 'campus_short_answer', 'opinion_response'];
+const TASK_LEVELS = ['A2', 'B1', 'B2'];
+
+function englishTableTopic(task) {
+  const title = String(task?.title || '');
+  const match = title.match(/:\s*(.+?)\s+Q\d+/i);
+  return match ? match[1].trim() : '其他';
+}
+
+function TaskChoice({ task, active, disabled, onSelect }) {
+  const key = task.taskKey || task.id;
+  return (
+    <button
+      className={`speaking-task-option${active ? ' speaking-task-option--active' : ''}`}
+      type="button"
+      disabled={disabled}
+      onClick={() => onSelect(task, key)}
+    >
+      <span className="speaking-task-option__level">{task.level}</span>
+      <span>
+        <strong>{task.title}</strong>
+        <small>{TASK_TYPE_LABELS[task.taskType] || task.taskType}</small>
+      </span>
+    </button>
+  );
+}
+
+function TaskGroup({ label, tasks, selectedTaskKey, disabled, onSelect }) {
+  if (!tasks.length) return null;
+  return (
+    <details className="speaking-task-group speaking-task-group--nested">
+      <summary>{label} · {tasks.length}</summary>
+      <div className="speaking-task-list">
+        {tasks.map((task) => {
+          const key = task.taskKey || task.id;
+          return (
+            <TaskChoice
+              key={key}
+              task={task}
+              active={key === selectedTaskKey}
+              disabled={disabled}
+              onSelect={onSelect}
+            />
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
 const TASK_TYPE_LABELS = {
   read_aloud: '朗讀',
   picture_description: '圖片描述',
@@ -176,21 +260,54 @@ const TASK_TYPE_LABELS = {
   opinion_response: '意見表達',
 };
 
+const PICTURE_TASK_IMAGES = {
+  'pd-a2-campus-cafe': '/speaking-diagnostic/pd-a2-campus-cafe.jpg',
+  'pd-a2-rainy-campus': '/speaking-diagnostic/pd-a2-rainy-campus.jpg',
+  'pd-b1-group-project-room': '/speaking-diagnostic/pd-b1-group-project-room.jpg',
+  'pd-b2-sustainable-campus-poster': '/speaking-diagnostic/pd-b2-sustainable-campus-poster.jpg',
+};
+
+function pictureForTask(task) {
+  return PICTURE_TASK_IMAGES[task?.taskKey] || PICTURE_TASK_IMAGES[task?.id] || '';
+}
+
 function getTaskInstruction(task) {
   if (!task) return '按下麥克風開始作答。';
-  if (task.taskType === 'read_aloud') return '請清楚朗讀下方句子。';
+  if (task.taskType === 'read_aloud') return '請清楚朗讀下面這幾句，並把句尾念出來。';
   if (task.taskType === 'picture_description') return '請描述你看到的情境，並補充一個細節。';
   if (task.taskType === 'campus_short_answer') return '請用完整句子回答這個校園情境。';
   return '請說明你的看法，並給一個理由。';
 }
 
+function EnglishTableNextLine({ transcript, prompt }) {
+  const followUp = englishTableFollowUp(transcript, prompt);
+  const item = englishTablePhraseTips(transcript, prompt)[0];
+
+  return (
+    <div className="speaking-next-line">
+      <p className="speaking-next-line__lead">{followUp.cue}</p>
+      {followUp.say ? (
+        <div className="speaking-next-line__phrase">
+          {item ? <span>{item.scenarioTitleZh}</span> : null}
+          <strong>{followUp.say}</strong>
+          {item ? (
+            <Link to={`/guides/activity-phrasebook/english-table#${item.id}`}>
+              其他說法
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function getResultMessage(score) {
   const n = Number(score);
   if (!Number.isFinite(n)) return '已收到你的錄音。';
-  if (n >= 82) return '表現穩定，下一題可能會更有挑戰。';
-  if (n >= 65) return '完成度不錯，請繼續保持清楚和穩定的語速。';
-  if (n >= 45) return '已完成作答，下一題會協助確認你的程度。';
-  return '建議放慢速度、說完整一些，再繼續下一題。';
+  if (n >= 82) return '大部分的字都念到了。下一題可能會更有挑戰。';
+  if (n >= 65) return '多數的字有念到。請再看標成沒聽到的字。';
+  if (n >= 45) return '還有一些字沒有被聽到。請對著句子再念一次。';
+  return '很多字沒有被聽到。請對著句子再清楚念一次。';
 }
 
 function getAdaptiveLabel(session) {
@@ -210,18 +327,18 @@ function activityPhaseCopy(phase) {
   if (phase === 'post_activity') {
     return {
       title: 'English Table Speaking Review',
-      lead: '活動後再回答一次，把現場討論轉成自己的口說進步紀錄。',
+      lead: '活動後再答一次。系統會留下你說的第一句，給 Leader 當開場，不是分數。',
       label: '活動後複習',
-      context: '這次錄音會標記為活動後複習，後台可和會前練習比較 fluency、字彙與想法發展。',
+      context: '請填學號，Leader 才對得到你。現場討論的勾選仍在活動結束後另外做。',
       statusDone: '已完成活動後複習',
     };
   }
   if (phase === 'pre_activity') {
     return {
       title: 'English Table Speaking Warm-up',
-      lead: '先練習當天 English Table 題目，完成後可帶著回饋進到現場討論。',
+      lead: '先練當天題目。錄完會看到系統聽到的句子，並給你一句現場可以接的話。',
       label: '會前練習',
-      context: '這次錄音會標記為會前練習，後台可用來觀察學生準備、流暢度與內容發展。',
+      context: '請填學號。Leader 只會看到你這組的第一句，用來開場，不是分數。',
       statusDone: '已完成會前練習',
     };
   }
@@ -264,6 +381,7 @@ export default function SpeakingDiagnosticPage() {
   const [result, setResult] = useState(null);
   const [portfolioSaved, setPortfolioSaved] = useState(false);
   const [error, setError] = useState('');
+  const practiceStageRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const speechRecognitionRef = useRef(null);
   const speechShouldListenRef = useRef(false);
@@ -323,28 +441,28 @@ export default function SpeakingDiagnosticPage() {
     [selectedTaskKey, tasks],
   );
   const isEnglishTableTask = selectedTask?.linkedActivity === 'English Table' || sourceContext === 'english-table';
+  const selectedIsEnglishTableQuestion = selectedTask?.linkedActivity === 'English Table';
   const showAdaptiveControls = !isEnglishTableTask;
 
   const isReadAloud = selectedTask?.taskType === 'read_aloud';
-  const wordResults = useMemo(() => {
-    if (!isReadAloud) return [];
-    return result?.wordResults?.length
-      ? result.wordResults
-      : buildNeutralWordResults(selectedTask?.targetText);
-  }, [isReadAloud, result, selectedTask?.targetText]);
-  const alignment = result?.alignment || result?.features?.alignment || null;
+  const readAloudLine = useMemo(
+    () => (isReadAloud ? readAloudPieces(selectedTask?.targetText, result?.wordResults) : []),
+    [isReadAloud, result, selectedTask?.targetText],
+  );
+  const showEndingLegend = readAloudLine.some((piece) => piece.status === 'ending');
   const presentationScores = result?.presentationScores || result?.automatedScores?.presentationScores || {};
-  const overallPercent = presentationScores.overallPercent;
+  const overallPercent = presentationScores.completionPercent;
   const resultTaskType = result?.task?.taskType || selectedTask?.taskType;
   const resultIsReadAloud = resultTaskType === 'read_aloud';
   const taskInstruction = getTaskInstruction(selectedTask);
+  const pictureSrc = pictureForTask(selectedTask);
   const adaptiveCompletedCount = adaptiveSession?.progress?.completedCount || 0;
 
   const startSpeechRecognition = () => {
     const Recognition = getSpeechRecognitionConstructor();
     if (!Recognition) {
       setSpeechStatus('unsupported');
-      setSpeechError('此瀏覽器不支援自動逐字稿，仍會儲存錄音，但完成度可能較不準。');
+      setSpeechError('此瀏覽器不支援自動逐字稿，仍會儲存錄音。伺服器會依錄音產生逐字稿。');
       return;
     }
 
@@ -384,11 +502,10 @@ export default function SpeakingDiagnosticPage() {
     };
 
     recognition.onerror = (event) => {
-      const message = event?.error === 'not-allowed'
-        ? '瀏覽器封鎖語音辨識權限，錄音仍可送出，但完成度可能較不準。'
-        : `語音辨識已停止：${event?.error || 'unknown error'}`;
-      setSpeechError(message);
+      const blocked = event?.error === 'not-allowed' || event?.error === 'service-not-allowed';
+      setSpeechError(blocked ? SPEECH_BLOCKED_MESSAGE : '語音辨識已停止，錄音仍可送出。');
       setSpeechStatus('error');
+      speechShouldListenRef.current = false;
     };
 
     recognition.onend = () => {
@@ -409,9 +526,10 @@ export default function SpeakingDiagnosticPage() {
     speechRecognitionRef.current = recognition;
     try {
       recognition.start();
-    } catch (err) {
+    } catch {
+      speechShouldListenRef.current = false;
       setSpeechStatus('error');
-      setSpeechError(err?.message || 'Unable to start browser speech recognition.');
+      setSpeechError(SPEECH_BLOCKED_MESSAGE);
     }
   };
 
@@ -439,7 +557,7 @@ export default function SpeakingDiagnosticPage() {
     try {
       const nextTranscript = transcriptText || '';
       const nextTranscriptWordCount = wordsOf(nextTranscript).length;
-      const spokenWordEstimate = nextTranscriptWordCount || (isReadAloud ? selectedTask.targetWords || wordsOf(selectedTask.targetText).length : 0);
+      const spokenWordEstimate = nextTranscriptWordCount || 0;
       const data = await submitSpeakingAttempt({
         taskKey: selectedTask.taskKey || selectedTask.id,
         studentId,
@@ -456,7 +574,7 @@ export default function SpeakingDiagnosticPage() {
           context: {
             source: sourceContext || (isEnglishTableTask ? 'english-table' : 'diagnostic'),
             activityPhase,
-            linkedActivity: selectedTask.linkedActivity || (isEnglishTableTask ? 'English Table' : null),
+            linkedActivity: selectedTask.linkedActivity || null,
             activityDate: activityDate || null,
             activityQuestionNumber: activityQuestionNumber || null,
             requestedTaskKey: requestedTaskKey || null,
@@ -470,17 +588,18 @@ export default function SpeakingDiagnosticPage() {
         attemptUid: data.attemptUid,
         taskKey: selectedTask.taskKey || selectedTask.id,
         title: selectedTask.title,
-        source: isEnglishTableTask ? 'English Table' : 'Speaking Diagnostic',
+        source: selectedIsEnglishTableQuestion ? 'English Table' : 'Speaking Diagnostic',
         activityPhase,
         submittedAt: new Date().toISOString(),
-        overallPercent: scores.overallPercent,
+        overallPercent: scores.completionPercent,
+        completionPercent: scores.completionPercent,
         fluencyPercent: scores.fluencyPercent,
         vocabularyPercent: scores.vocabularyPercent,
         taskAchievementPercent: scores.taskAchievementPercent,
         ideaDevelopmentPercent: scores.ideaDevelopmentPercent,
         transcriptWordCount: data.features?.transcriptWordCount,
         speechRateWpm: data.features?.speechRateWpm,
-        advice: getResultMessage(scores.overallPercent),
+        advice: getResultMessage(scores.completionPercent),
         href: `${location.pathname}${location.search}`,
       });
       setPortfolioSaved(true);
@@ -494,7 +613,7 @@ export default function SpeakingDiagnosticPage() {
       }
       fetchNextSpeakingTask({
         currentLevel: selectedTask.level,
-        previousOverallPercent: data.presentationScores?.overallPercent || data.automatedScores?.presentationScores?.overallPercent,
+        previousOverallPercent: data.presentationScores?.completionPercent || data.automatedScores?.presentationScores?.completionPercent,
         completedTaskKeys: completed.join(','),
         taskType: selectedTask.taskType,
       })
@@ -521,10 +640,20 @@ export default function SpeakingDiagnosticPage() {
     setClientFeatures(null);
     setDurationMs(null);
     chunksRef.current = [];
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setError('這個瀏覽器不支援錄音。請改用 Safari 或 Chrome。');
+      return;
+    }
+    if (window.isSecureContext === false) {
+      setError(microphoneErrorMessage());
+      return;
+    }
+    let stream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorderOptions = MediaRecorder.isTypeSupported('audio/webm') ? { mimeType: 'audio/webm' } : undefined;
-      const recorder = new MediaRecorder(stream, recorderOptions);
+      const streamPromise = navigator.mediaDevices.getUserMedia({ audio: true });
+      startSpeechRecognition();
+      stream = await streamPromise;
+      const recorder = new MediaRecorder(stream, pickAudioRecorderOptions());
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) chunksRef.current.push(event.data);
@@ -553,9 +682,11 @@ export default function SpeakingDiagnosticPage() {
       startedAtRef.current = now;
       setRecording(true);
       recorder.start();
-      startSpeechRecognition();
     } catch (err) {
-      setError(err?.message || '無法啟動麥克風，請確認瀏覽器權限。');
+      stream?.getTracks().forEach((track) => track.stop());
+      stopSpeechRecognition();
+      setRecording(false);
+      setError(microphoneErrorMessage(err));
     }
   };
 
@@ -589,6 +720,12 @@ export default function SpeakingDiagnosticPage() {
     if (!task?.taskKey) return;
     setSelectedTaskKey(task.taskKey);
     clearAttemptState();
+    practiceStageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const retrySameTask = () => {
+    clearAttemptState();
+    practiceStageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleStartAdaptiveSession = async () => {
@@ -623,7 +760,7 @@ export default function SpeakingDiagnosticPage() {
     <div className="speaking-diagnostic-page">
       <PageHeader
         breadcrumbs={breadcrumbs}
-        title={isEnglishTableTask ? pageCopy.title : 'EEARS Speaking Diagnostic'}
+        title={isEnglishTableTask ? pageCopy.title : '口說診斷'}
         lead={isEnglishTableTask ? pageCopy.lead : '完成幾題口說任務，系統會依你的表現安排下一題並給出練習回饋。'}
       />
 
@@ -668,54 +805,73 @@ export default function SpeakingDiagnosticPage() {
 
             <details className="speaking-task-picker">
               <summary>自行選題練習</summary>
-              <div className="speaking-task-list" aria-label="Speaking diagnostic tasks">
-                {tasks.map((task) => {
-                  const key = task.taskKey || task.id;
-                  const active = key === selectedTaskKey;
-                  return (
-                    <button
-                      className={`speaking-task-option${active ? ' speaking-task-option--active' : ''}`}
-                      key={key}
-                      type="button"
-                      disabled={recording || submitting}
-                      onClick={() => {
-                        selectTaskForNextAttempt({ ...task, taskKey: key });
-                        setNextTaskRecommendation(null);
-                      }}
-                    >
-                      <span className="speaking-task-option__level">{task.level}</span>
-                      <span>
-                        <strong>{task.title}</strong>
-                        <small>{TASK_TYPE_LABELS[task.taskType] || task.taskType}</small>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              {TASK_LEVELS.map((level) => {
+                const levelTasks = tasks.filter((task) => task.level === level);
+                if (!levelTasks.length) return null;
+                const coreTasks = levelTasks.filter((task) => task.linkedActivity !== 'English Table');
+                const tableTasks = levelTasks.filter((task) => task.linkedActivity === 'English Table');
+                const topics = [...new Set(tableTasks.map(englishTableTopic))];
+                return (
+                  <details key={level} className="speaking-task-group">
+                    <summary>{level}</summary>
+                    {TASK_TYPE_ORDER.map((type) => (
+                      <TaskGroup
+                        key={type}
+                        label={TASK_TYPE_LABELS[type] || type}
+                        tasks={coreTasks.filter((task) => task.taskType === type)}
+                        selectedTaskKey={selectedTaskKey}
+                        disabled={recording || submitting}
+                        onSelect={(task, key) => {
+                          selectTaskForNextAttempt({ ...task, taskKey: key });
+                          setNextTaskRecommendation(null);
+                        }}
+                      />
+                    ))}
+                    {tableTasks.length ? (
+                      <details className="speaking-task-group speaking-task-group--nested">
+                        <summary>English Table · {tableTasks.length}</summary>
+                        {topics.map((topic) => (
+                          <TaskGroup
+                            key={topic}
+                            label={topic}
+                            tasks={tableTasks.filter((task) => englishTableTopic(task) === topic)}
+                            selectedTaskKey={selectedTaskKey}
+                            disabled={recording || submitting}
+                            onSelect={(task, key) => {
+                              selectTaskForNextAttempt({ ...task, taskKey: key });
+                              setNextTaskRecommendation(null);
+                            }}
+                          />
+                        ))}
+                      </details>
+                    ) : null}
+                  </details>
+                );
+              })}
             </details>
           </div>
 
           <div className="speaking-tool__main">
-            <div className="speaking-practice-stage">
-              <div className="speaking-stage-score">
-                <ScoreDial value={overallPercent} label={result ? '分數' : '準備'} />
-              </div>
+              <div className="speaking-practice-stage" ref={practiceStageRef}>
               <div className="speaking-stage-meta">
                 <span>{selectedTask?.level}</span>
                 <span>{TASK_TYPE_LABELS[selectedTask?.taskType] || selectedTask?.taskType}</span>
                 {selectedTask?.linkedActivity ? <span>{selectedTask.linkedActivity}</span> : null}
                 {isEnglishTableTask ? <span>{pageCopy.label}</span> : null}
-                <span>{selectedTask?.estimatedSeconds || 15}s target</span>
+                <span>建議 {selectedTask?.estimatedSeconds || 15} 秒</span>
               </div>
               <div className="speaking-stage-center">
                 <h2>{selectedTask?.title}</h2>
                 <p className="speaking-stage-instruction">{taskInstruction}</p>
+                {pictureSrc ? (
+                  <img className="speaking-picture" src={pictureSrc} alt="" />
+                ) : null}
                 <button
                   className={`speaking-mic-button${recording ? ' speaking-mic-button--recording' : ''}`}
                   type="button"
                   onClick={recording ? stopRecording : startRecording}
                   disabled={submitting}
-                  aria-label={recording ? 'Stop recording' : 'Start recording'}
+                  aria-label={recording ? '停止錄音' : '開始錄音'}
                 >
                   {recording ? <Stop size={38} weight="fill" /> : <Microphone size={46} />}
                 </button>
@@ -723,33 +879,47 @@ export default function SpeakingDiagnosticPage() {
                   {recording
                     ? '正在錄音，完成後再按一次停止'
                     : submitting
-                      ? '正在送出並分析...'
+                      ? '正在聽寫並計算回饋'
                       : result
                         ? pageCopy.statusDone
                         : durationMs
                           ? `已錄音 ${formatMs(durationMs)}`
                           : '按下麥克風開始'}
                 </div>
-                {speechRecognitionAvailable ? null : (
+                {speechError ? (
                   <div className="speaking-speech-status speaking-speech-status--unsupported">
-                    此瀏覽器不支援自動逐字稿，完成度可能較不準
+                    {speechError}
+                  </div>
+                ) : speechRecognitionAvailable ? null : (
+                  <div className="speaking-speech-status speaking-speech-status--unsupported">
+                    此瀏覽器不支援自動逐字稿，伺服器會依錄音產生逐字稿
                   </div>
                 )}
               </div>
               {isReadAloud ? (
-                <div className="speaking-line-strip" aria-label="Read aloud line">
-                  {wordResults.map((item) => (
-                    <span
-                      key={`${item.index}-${item.word}`}
-                      className={`speaking-word speaking-word--${item.status}`}
-                    >
-                      {item.word}
-                    </span>
+                <div className="speaking-line-strip" aria-label="朗讀句子">
+                  {readAloudLine.map((piece) => (
+                    piece.kind === 'word' ? (
+                      <span key={piece.key} className={`speaking-word speaking-word--${piece.status}`}>
+                        {piece.text}
+                      </span>
+                    ) : (
+                      <span key={piece.key}>{piece.text}</span>
+                    )
                   ))}
+                  {result ? (
+                    <div className="speaking-word-legend">
+                      <span><i className="speaking-word-legend__swatch speaking-word-legend__swatch--matched" aria-hidden="true" />有聽到</span>
+                      <span><i className="speaking-word-legend__swatch speaking-word-legend__swatch--missing" aria-hidden="true" />沒聽到</span>
+                      {showEndingLegend ? (
+                        <span><i className="speaking-word-legend__swatch speaking-word-legend__swatch--ending" aria-hidden="true" />字尾不清楚</span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="speaking-open-prompt" aria-label="Speaking prompt">
-                  <span>{TASK_TYPE_LABELS[selectedTask?.taskType] || 'Speaking task'}</span>
+                  <span>{TASK_TYPE_LABELS[selectedTask?.taskType] || '口說題'}</span>
                   <p>{selectedTask?.prompt}</p>
                   {selectedTask?.targetVocabulary?.length ? (
                     <div className="speaking-vocabulary-chips" aria-label="Suggested vocabulary">
@@ -762,7 +932,7 @@ export default function SpeakingDiagnosticPage() {
               )}
               <div className="speaking-stage-footer">
                 <span><Waveform size={18} /> {recording ? '錄音中' : submitting ? '分析中' : result ? '已完成' : audioBlob ? '已錄音' : '尚未錄音'}</span>
-                <span>{durationMs ? formatMs(durationMs) : '0.0s'} / {selectedTask?.estimatedSeconds || 15}.0s</span>
+                <span>{durationMs ? formatMs(durationMs) : '0.0 秒'} / {selectedTask?.estimatedSeconds || 15} 秒</span>
                 <span><ChartBar size={18} /> {result ? formatPercent(overallPercent) : submitting ? '分析中' : '等待作答'}</span>
               </div>
             </div>
@@ -776,9 +946,6 @@ export default function SpeakingDiagnosticPage() {
               ) : (
                 <p className="speaking-review-panel__empty">錄音完成後可以在這裡回放。</p>
               )}
-              {speechError ? (
-                <div className="speaking-speech-note">{speechError}</div>
-              ) : null}
             </details>
 
             {adaptiveSession ? (
@@ -801,9 +968,9 @@ export default function SpeakingDiagnosticPage() {
                 {recording
                   ? '停止錄音後會自動送出。'
                   : submitting
-                    ? '正在送出錄音並產生回饋。'
+                    ? '請留在此頁，聽寫完成後會出現回饋。'
                     : result
-                      ? '本題已完成分析。'
+                      ? (selectedIsEnglishTableQuestion ? '本題已記下。現場會用你最後一次的回答。' : '本題已完成分析。')
                       : audioBlob
                         ? '錄音已完成。若沒有自動送出，可重新送出。'
                         : '按下麥克風開始，停止後會自動送出。'}
@@ -817,7 +984,7 @@ export default function SpeakingDiagnosticPage() {
                   重新送出
                 </button>
               ) : null}
-              {portfolioSaved ? (
+              {portfolioSaved && !selectedIsEnglishTableQuestion ? (
                 <Link className="btn btn-outline-primary" to="/student/speaking-portfolio">
                   查看口說紀錄
                 </Link>
@@ -825,110 +992,76 @@ export default function SpeakingDiagnosticPage() {
             </div>
 
             {result ? (
-              <section className="speaking-result" aria-label="Speaking result">
-                <div className="speaking-result__header">
-                  <div>
-                    <h3>本題回饋</h3>
-                    <p>{getResultMessage(overallPercent)}</p>
-                  </div>
-                  <ScoreDial value={overallPercent} label="總分" />
-                </div>
-                <div className="speaking-metric-grid">
-                  <MetricBar
-                    label="完成度"
-                    value={presentationScores.completionPercent}
-                    detail={resultIsReadAloud ? '目標文字覆蓋' : '回答長度'}
-                  />
-                  {resultIsReadAloud ? (
-                    <MetricBar
-                      label="發音清晰度"
-                      value={presentationScores.pronunciationPercent}
-                      detail="對齊與發音 evidence"
-                    />
-                  ) : (
-                    <MetricBar
-                      label="任務達成"
-                      value={presentationScores.taskAchievementPercent}
-                      detail="是否回應題目要求"
-                    />
-                  )}
-                  <MetricBar
-                    label="流暢度"
-                    value={presentationScores.fluencyPercent}
-                    detail="語速與停頓"
-                  />
-                  <MetricBar
-                    label="語速"
-                    value={presentationScores.pacePercent}
-                    detail={`${formatNumber(result.features?.speechRateWpm)} WPM`}
-                  />
-                </div>
-                <details className="speaking-diagnostics-panel">
-                  <summary>查看詳細診斷</summary>
-                  <div className="speaking-evidence-grid">
-                    <div><strong>{formatPercent(presentationScores.pauseControlPercent)}</strong><span>停頓控制</span></div>
-                    <div><strong>{formatNumber(result.features?.speechRateWpm)}</strong><span>speech WPM</span></div>
-                    <div><strong>{resultIsReadAloud ? formatPercent(presentationScores.similarityPercent) : formatPercent(presentationScores.vocabularyPercent)}</strong><span>{resultIsReadAloud ? '相似度' : '字彙'}</span></div>
-                    <div><strong>{result.features?.transcriptWordCount ?? 0}</strong><span>辨識字數</span></div>
-                  </div>
-                  {!resultIsReadAloud ? (
-                    <div className="speaking-evidence-grid speaking-evidence-grid--compact">
-                      <div><strong>{formatPercent(presentationScores.taskAchievementPercent)}</strong><span>任務達成</span></div>
-                      <div><strong>{formatPercent(presentationScores.ideaDevelopmentPercent)}</strong><span>想法發展</span></div>
-                      <div><strong>{formatPercent(presentationScores.grammarPercent)}</strong><span>語法表現</span></div>
-                      <div><strong>{formatPercent(presentationScores.coherencePercent)}</strong><span>組織連貫</span></div>
-                      <div><strong>{formatNumber(result.features?.transcriptEvidence?.lexicalDiversity)}</strong><span>用字變化</span></div>
-                      <div><strong>{result.features?.transcriptEvidence?.repetitionCount ?? 0}</strong><span>重複次數</span></div>
-                    </div>
-                  ) : (
-                    <div className="speaking-evidence-grid speaking-evidence-grid--compact">
-                      <div><strong>{formatPercent(presentationScores.pronunciationPercent)}</strong><span>發音 evidence</span></div>
-                      <div><strong>{formatPercent(result.features?.wordAcousticEvidence?.summary?.averageWordAcousticScore != null ? result.features.wordAcousticEvidence.summary.averageWordAcousticScore * 100 : null)}</strong><span>word acoustic</span></div>
-                      <div><strong>{result.features?.wordAcousticEvidence?.summary?.lowConfidenceCount ?? '--'}</strong><span>低信心字</span></div>
-                      <div><strong>{result.features?.phonemeEvidence?.summary?.phoneCount ?? 0}</strong><span>phoneme 數</span></div>
-                    </div>
-                  )}
-                  {alignment && alignment.status !== 'not_applicable' ? (
-                    <div className="speaking-alignment-panel">
-                      <div className="speaking-alignment-panel__head">
-                        <div>
-                          <h4>朗讀對齊資料</h4>
-                          <p>{alignment.status}</p>
-                        </div>
-                        <span>{alignment.metrics?.alignedWordCount ?? alignment.words?.length ?? 0} words</span>
+              <section className="speaking-result" aria-label="本題回饋">
+                {selectedIsEnglishTableQuestion ? (
+                  <>
+                    <div className="speaking-result__header">
+                      <div>
+                        <h3>本題回饋</h3>
+                        <p>現場會用你最後一次的回答。</p>
                       </div>
-                      {alignment.words?.length ? (
-                        <div className="speaking-alignment-words">
-                          {alignment.words.slice(0, 14).map((item) => (
-                            <span key={`${item.index}-${item.word}-${item.startMs}`}>
-                              <strong>{item.word}</strong>
-                              <small>{formatMs(item.startMs)}-{formatMs(item.endMs)}</small>
-                            </span>
-                          ))}
-                        </div>
+                    </div>
+                    <div className="speaking-heard">
+                      <span>系統聽到</span>
+                      <p>{String(result.transcript || '').trim() || '沒有辨識到英文。'}</p>
+                    </div>
+                    <EnglishTableNextLine transcript={result.transcript} prompt={selectedTask?.prompt || ''} />
+                    <div className="speaking-next-task">
+                      <div>
+                        <strong>同一題</strong>
+                        <span>現場會看你最後一次的回答</span>
+                      </div>
+                      <button className="btn btn-primary" type="button" onClick={retrySameTask}>
+                        再答一次
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="speaking-result__header">
+                      <div>
+                        <h3>本題回饋</h3>
+                        <p>{getResultMessage(overallPercent)}</p>
+                      </div>
+                      <ScoreDial value={overallPercent} label="總分" />
+                    </div>
+                    <div className="speaking-heard">
+                      <span>系統聽到</span>
+                      <p>{String(result.transcript || '').trim() || '沒有辨識到英文，所以和內容有關的分數是空的。'}</p>
+                      {result.features?.weakEndings?.length ? (
+                        <p className="speaking-heard__note">
+                          這些字的字尾 s 幾乎沒有聲音，所以沒有算成念對：{result.features.weakEndings.join('、')}
+                        </p>
                       ) : null}
                     </div>
-                  ) : null}
-                </details>
-                {nextTaskRecommendation?.task ? (
-                  <div className="speaking-next-task">
-                    <div>
-                      <strong>{adaptiveSession?.status === 'completed' ? '測驗已完成' : '下一題'}</strong>
-                      <span>{nextTaskRecommendation.task.level} · {nextTaskRecommendation.task.title}</span>
+                    {nextTaskRecommendation?.task ? (
+                      <div className="speaking-next-task">
+                        <div>
+                          <strong>{adaptiveSession?.status === 'completed' ? '測驗已完成' : '下一題'}</strong>
+                          <span>{nextTaskRecommendation.task.level} · {nextTaskRecommendation.task.title}</span>
+                        </div>
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={() => {
+                            selectTaskForNextAttempt(nextTaskRecommendation.task);
+                            setNextTaskRecommendation(null);
+                          }}
+                        >
+                          開始下一題
+                        </button>
+                      </div>
+                    ) : null}
+                    <div className="speaking-metric-grid">
+                      <MetricBar
+                        label="完成度"
+                        value={presentationScores.completionPercent}
+                        detail={resultIsReadAloud ? '有聽到的目標字' : '長度，並依題目用字下修'}
+                      />
                     </div>
-                    <button
-                      className="btn btn-outline-primary"
-                      type="button"
-                      onClick={() => {
-                        selectTaskForNextAttempt(nextTaskRecommendation.task);
-                        setNextTaskRecommendation(null);
-                      }}
-                    >
-                      開始下一題
-                    </button>
-                  </div>
-                ) : null}
-                <p className="text-muted mb-0">此回饋用於練習診斷，不是正式檢定分數。</p>
+                    <p className="text-muted mb-0">此回饋用於練習診斷，不是正式檢定分數。</p>
+                  </>
+                )}
               </section>
             ) : null}
           </div>

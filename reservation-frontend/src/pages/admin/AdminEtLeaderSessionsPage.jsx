@@ -13,7 +13,7 @@ import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom
 import { P } from '../../constants/permissions';
 import { hasPermission } from '../../utils/accessControl';
 import { getSemesterOptions } from '../../utils/adminReportUtils';
-import { checkInLeaderAttendance, fetchMyLeaderSessions } from '../../services/etGroupingApi';
+import { checkInLeaderAttendance, fetchEventPracticeBriefs, fetchMyLeaderSessions } from '../../services/etGroupingApi';
 import { showErrorMessage, showSuccessMessage } from '../../utils/errorHandler';
 
 function attendanceBadge(row) {
@@ -38,6 +38,10 @@ export default function AdminEtLeaderSessionsPage() {
   const [checkInEvent, setCheckInEvent] = useState(null);
   const [checkInToken, setCheckInToken] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [briefEvent, setBriefEvent] = useState(null);
+  const [briefs, setBriefs] = useState([]);
+  const [briefsLoading, setBriefsLoading] = useState(false);
+  const [briefsError, setBriefsError] = useState('');
 
   const loadSessions = useCallback(async () => {
     if (!token || !canAccess) return;
@@ -85,6 +89,27 @@ export default function AdminEtLeaderSessionsPage() {
   const closeCheckIn = () => {
     setCheckInEvent(null);
     setCheckInToken('');
+  };
+
+  const openBriefs = async (row) => {
+    setBriefEvent(row);
+    setBriefs([]);
+    setBriefsError('');
+    setBriefsLoading(true);
+    try {
+      const data = await fetchEventPracticeBriefs(token, row.eventId);
+      setBriefs(data.briefs || []);
+    } catch (e) {
+      setBriefsError(e.message || '無法載入會前回答');
+    } finally {
+      setBriefsLoading(false);
+    }
+  };
+
+  const closeBriefs = () => {
+    setBriefEvent(null);
+    setBriefs([]);
+    setBriefsError('');
   };
 
   const handleSubmitCheckIn = async () => {
@@ -135,7 +160,7 @@ export default function AdminEtLeaderSessionsPage() {
             </Col>
           </Row>
           <p className="small text-muted mb-0 mt-2">
-            活動當天請向現場行政取得簽到 QR／簽到碼，完成出席簽到後再進行任務勾選。無需簽退。
+            活動前可看你這組已填學號的會前回答，用第一句開場。活動當天先完成出席簽到；學生簽到後再勾任務成效。會前練習不是入場條件。
           </p>
         </Card.Body>
       </Card>
@@ -157,11 +182,7 @@ export default function AdminEtLeaderSessionsPage() {
             <Button size="sm" variant="outline-primary" onClick={() => navigate('/admin/et-grouping/settings')}>
               前往 ET 分組設定
             </Button>
-          ) : (
-            <Button size="sm" variant="outline-secondary" onClick={() => navigate('/admin/operations')}>
-              前往活動列表
-            </Button>
-          )}
+          ) : null}
         </Alert>
       ) : null}
 
@@ -202,6 +223,14 @@ export default function AdminEtLeaderSessionsPage() {
                         出席簽到
                       </Button>
                     ) : null}
+                    <Button
+                      size="sm"
+                      variant="outline-primary"
+                      className="me-1"
+                      onClick={() => openBriefs(row)}
+                    >
+                      會前回答
+                    </Button>
                     <Button
                       size="sm"
                       variant="primary"
@@ -251,6 +280,65 @@ export default function AdminEtLeaderSessionsPage() {
           <Button variant="success" onClick={handleSubmitCheckIn} disabled={submitting}>
             {submitting ? '簽到中…' : '確認簽到'}
           </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={Boolean(briefEvent)} onHide={closeBriefs} centered scrollable>
+        <Modal.Header closeButton>
+          <Modal.Title className="fs-6">會前回答</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {briefEvent ? (
+            <p className="mb-2">
+              <strong>{briefEvent.name}</strong>
+              <span className="text-muted small ms-2">{briefEvent.date}</span>
+            </p>
+          ) : null}
+          <p className="small text-muted">
+            只列出你這組、而且練習時有填對學號的學生。這是開場用的第一句，不是分數。
+          </p>
+          {briefsLoading ? (
+            <div className="d-flex align-items-center gap-2">
+              <Spinner animation="border" size="sm" />
+              <span>載入會前回答…</span>
+            </div>
+          ) : null}
+          {briefsError ? <Alert variant="danger">{briefsError}</Alert> : null}
+          {!briefsLoading && !briefsError && !briefs.length ? (
+            <Alert variant="info" className="mb-0">這組還沒有對到學號的會前練習。現場仍照題目討論。</Alert>
+          ) : null}
+          {!briefsLoading && briefs.length ? (
+            <Table size="sm" responsive className="mb-0">
+              <thead>
+                <tr>
+                  <th>學生</th>
+                  <th>題號</th>
+                  <th>系統聽到的第一句</th>
+                  <th>可以怎麼接</th>
+                </tr>
+              </thead>
+              <tbody>
+                {briefs.map((brief) => (
+                  <tr key={`${brief.studentId}-${brief.phase || 'any'}-${brief.questionNumber || '0'}`}>
+                    <td>
+                      {brief.studentName}
+                      {brief.groupLabel ? <div className="small text-muted">{brief.groupLabel}</div> : null}
+                    </td>
+                    <td className="text-nowrap">
+                      {brief.questionNumber ? `第 ${brief.questionNumber} 題` : '—'}
+                      {brief.phase === 'post' ? <div className="small text-muted">活動後</div> : null}
+                      {brief.phase === 'pre' ? <div className="small text-muted">會前</div> : null}
+                    </td>
+                    <td>{brief.heard || '沒有辨識到英文'}</td>
+                    <td>{brief.cue}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          ) : null}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={closeBriefs}>關閉</Button>
         </Modal.Footer>
       </Modal>
     </div>

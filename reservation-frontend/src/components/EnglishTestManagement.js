@@ -321,6 +321,10 @@ export default function EnglishTestManagement() {
         <EnglishTestStudentRosterTab token={token} />
       )}
 
+      {!canManageEnglishTests && mainTab === 'roster' && (
+        <div className="alert alert-warning">您沒有管理在學名單比對的權限。</div>
+      )}
+
       {canManageLearningPartner && mainTab === 'group' && (
         <LearningPartnerManagement token={token} accessProfile={accessProfile} />
       )}

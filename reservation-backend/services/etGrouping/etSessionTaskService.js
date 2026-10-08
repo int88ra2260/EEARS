@@ -1,10 +1,12 @@
 'use strict';
 
+const { Op } = require('sequelize');
 const {
   Event,
   Reservation,
   EtEventGroupAssignment,
   EtSessionTaskMark,
+  SpeakingAttempt,
   sequelize,
 } = require('../../models');
 const { listTaskTemplate } = require('./etTaskTemplateService');
@@ -16,6 +18,12 @@ const {
   MARKING_GRACE_DAYS,
 } = require('./etTaskScope');
 const { isEnglishTableEventType } = require('../../utils/eventCapacity');
+const {
+  dateKey,
+  leaderDiscussionCue,
+  firstHeardSentence,
+  isEnglishTablePractice,
+} = require('./etPracticeBrief');
 
 async function loadEventContext(eventId) {
   const event = await Event.findByPk(eventId, {
@@ -195,7 +203,102 @@ async function saveTaskMarks(eventId, payload = [], {
   }
 }
 
+async function listPracticeBriefs(eventId, {
+  userId,
+  canManage = false,
+  canMark = false,
+} = {}) {
+  const event = await loadEventContext(eventId);
+  const leaderGroups = canManage ? null : await getLeaderGroupLabels(eventId, userId);
+
+  if (!canManage && !canMark) {
+    throw Object.assign(new Error('無權限檢視會前練習'), { status: 403 });
+  }
+  if (!canManage && (!leaderGroups || !leaderGroups.length)) {
+    throw Object.assign(new Error('您尚未被指派為本場 Leader'), { status: 403 });
+  }
+
+  const [reservations, assignments] = await Promise.all([
+    Reservation.findAll({
+      where: { eventId },
+      attributes: ['id', 'studentId', 'studentName', 'group'],
+    }),
+    EtEventGroupAssignment.findAll({
+      where: { eventId },
+      attributes: ['reservationId', 'groupLabel'],
+    }),
+  ]);
+  const assignmentMap = new Map(assignments.map((row) => [row.reservationId, row]));
+  let students = reservations.map((reservation) => ({
+    studentId: String(reservation.studentId || '').trim(),
+    studentName: reservation.studentName,
+    groupLabel: assignmentMap.get(reservation.id)?.groupLabel || reservation.group || null,
+  })).filter((student) => student.studentId);
+
+  if (!canManage && leaderGroups) {
+    const allowed = new Set(leaderGroups);
+    students = students.filter((student) => allowed.has(student.groupLabel));
+  }
+
+  const nameById = new Map(students.map((student) => [student.studentId, student]));
+  const ids = [...nameById.keys()];
+  if (!ids.length) {
+    return { eventDate: dateKey(event.date), briefs: [] };
+  }
+
+  const day = dateKey(event.date);
+  const start = new Date(`${day}T00:00:00+08:00`);
+  const where = { studentId: { [Op.in]: ids } };
+  if (!Number.isNaN(start.getTime())) {
+    where.submittedAt = {
+      [Op.between]: [
+        new Date(start.getTime() - 14 * 24 * 60 * 60 * 1000),
+        new Date(start.getTime() + 8 * 24 * 60 * 60 * 1000),
+      ],
+    };
+  }
+
+  const attempts = await SpeakingAttempt.findAll({
+    where,
+    attributes: ['studentId', 'transcript', 'submittedAt', 'features'],
+    order: [['submittedAt', 'DESC']],
+    limit: 400,
+  });
+
+  const seen = new Set();
+  const briefs = [];
+  attempts.forEach((attempt) => {
+    if (!isEnglishTablePractice(attempt.features, event.date)) return;
+    const studentId = String(attempt.studentId || '').trim();
+    const student = nameById.get(studentId);
+    if (!student) return;
+    const context = attempt.features?.context || {};
+    const question = context.activityQuestionNumber || '';
+    const phase = context.activityPhase || '';
+    const key = `${studentId}:${question}:${phase}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    briefs.push({
+      studentId,
+      studentName: student.studentName || studentId,
+      groupLabel: student.groupLabel || null,
+      questionNumber: question || null,
+      phase: phase || null,
+      heard: firstHeardSentence(attempt.transcript),
+      cue: leaderDiscussionCue(attempt.transcript),
+    });
+  });
+
+  briefs.sort((a, b) => (
+    String(a.studentName).localeCompare(String(b.studentName), 'zh-Hant')
+    || Number(a.questionNumber || 0) - Number(b.questionNumber || 0)
+  ));
+
+  return { eventDate: day, briefs };
+}
+
 module.exports = {
   getTaskMarksMatrix,
   saveTaskMarks,
+  listPracticeBriefs,
 };

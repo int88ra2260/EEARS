@@ -79,6 +79,7 @@ export function saveSpeakingPortfolioAttempt(attempt) {
     activityPhase: attempt.activityPhase || 'diagnostic',
     submittedAt: attempt.submittedAt || nowIso(),
     overallPercent: attempt.overallPercent ?? null,
+    completionPercent: attempt.completionPercent ?? attempt.overallPercent ?? null,
     fluencyPercent: attempt.fluencyPercent ?? null,
     vocabularyPercent: attempt.vocabularyPercent ?? null,
     taskAchievementPercent: attempt.taskAchievementPercent ?? null,

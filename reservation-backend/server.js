@@ -285,6 +285,28 @@ sequelize.authenticate()
     app.listen(port, '0.0.0.0',() => {
       logger.simple.success(`後端伺服器運行中，port：${port}`);
       logger.simple.success('系統已準備就緒！');
+
+      const { ensureSpeakingMfaWorker, workerConfigured } = require('./scripts/speakingMfaWorkerHost');
+      if (workerConfigured()) {
+        logger.simple.info('MFA 常駐對齊程序載入中');
+        ensureSpeakingMfaWorker({ recycle: true })
+          .then((ready) => {
+            if (ready) logger.simple.success('MFA 常駐對齊程序已就緒');
+            else logger.simple.error('MFA 常駐對齊程序未能啟動，朗讀對齊會改走一次性 mfa align');
+          })
+          .catch((error) => logger.error('MFA 常駐對齊程序啟動失敗', error));
+      }
+
+      const { ensureSpeakingWhisperWorker, workerConfigured: whisperConfigured } = require('./scripts/speakingWhisperWorkerHost');
+      if (whisperConfigured()) {
+        logger.simple.info('Whisper 常駐辨識程序載入中');
+        ensureSpeakingWhisperWorker({ recycle: true })
+          .then((ready) => {
+            if (ready) logger.simple.success('Whisper 常駐辨識程序已就緒');
+            else logger.simple.error('Whisper 常駐辨識程序未能啟動，沒有瀏覽器聽寫時完成度與發音清晰度會沒有逐字稿');
+          })
+          .catch((error) => logger.error('Whisper 常駐辨識程序啟動失敗', error));
+      }
       
       // 啟動學習有伴過期檢查定時任務（每 15 分鐘執行一次）
       const cronInterval = 15 * 60 * 1000; // 15 分鐘

@@ -36,6 +36,8 @@ const {
   assertCanAccessEvent,
   buildEventScopeWhere,
 } = require('../services/accessControl/eventScopeGuard');
+const { decideEventMetaAccess } = require('../services/etGrouping/eventMetaAccess');
+const { getLeaderGroupLabels } = require('../services/etGrouping/etLeaderService');
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
@@ -58,6 +60,24 @@ async function loadEventForAccess(req, res, next) {
 
 function accessEventType(req) {
   return req.accessEvent?.eventType || req.query?.eventType || req.body?.eventType;
+}
+
+async function allowEventMetaReader(req, res, next) {
+  try {
+    const needsLeaderCheck = !hasPermission(req.user, P.CAN_VIEW_RESERVATIONS)
+      && hasPermission(req.user, P.CAN_MARK_ET_SESSION_TASKS);
+    const labels = needsLeaderCheck
+      ? await getLeaderGroupLabels(req.params.id, req.user?.id)
+      : [];
+    const decision = decideEventMetaAccess(req.user, accessEventType(req), labels.length);
+    if (decision === 'ok') return next();
+    if (decision === 'unassigned') {
+      return res.status(403).json({ error: '您尚未被指派為本場 Leader' });
+    }
+    return res.status(403).json({ error: '權限不足' });
+  } catch (err) {
+    return next(err);
+  }
 }
 
 function sendScopeDenied(res, err) {
@@ -159,7 +179,7 @@ router.get(
   '/events/:id/meta',
   authMiddleware,
   loadEventForAccess,
-  requirePermissionAndEventAccess(P.CAN_VIEW_RESERVATIONS, accessEventType),
+  allowEventMetaReader,
   async (req, res, next) => {
   try {
     const event = await Event.findByPk(req.params.id, {

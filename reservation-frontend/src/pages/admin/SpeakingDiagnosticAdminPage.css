@@ -352,6 +352,19 @@
   gap: 1rem;
 }
 
+.sd-admin-heard {
+  font-size: 0.95rem;
+  color: #253244;
+}
+
+.sd-admin-heard span {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: #315d8f;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .sd-admin-kicker {
   color: #2a5d9f;
   font-size: 0.82rem;

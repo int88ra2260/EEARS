@@ -213,6 +213,50 @@ export const PHRASEBOOK_ITEMS = [
     sortOrder: 80,
     isActive: true,
   },
+  {
+    id: 'pb_et_009',
+    activityType: 'English Table',
+    scenarioTitleZh: '補一個理由',
+    scenarioTitleEn: 'Add a reason',
+    scenarioDescriptionZh: '你已經有看法，但還沒說為什麼。現場只要再補一句 because。',
+    scenarioDescriptionEn: 'You have an opinion, but not yet a reason. Add one because sentence.',
+    responseDirectionZh: '先說看法，再用 because 接一個具體原因。一句就夠。',
+    responseDirectionEn: 'State your view, then add one concrete reason with because.',
+    levels: ['A2', 'B1', 'B2'],
+    phrases: [
+      { level: 'A2', labelZh: '基礎版', labelEn: 'Basic', text: 'I like this place because it is quiet.', noteZh: '看法加一個原因。', noteEn: 'Opinion plus one reason.' },
+      { level: 'B1', labelZh: '自然版', labelEn: 'Natural', text: 'I would choose the library because I can focus there before an exam.', noteZh: '原因要和題目有關。', noteEn: 'Keep the reason on the topic.' },
+      { level: 'B2', labelZh: '進階版', labelEn: 'Advanced', text: 'I prefer a quiet cafe because it gives me enough time to think without missing the discussion.', noteZh: '原因可以帶一點條件。', noteEn: 'A reason can include a condition.' },
+    ],
+    patterns: [{ zh: 'I think ______ because ______.', en: 'I think ______ because ______.' }],
+    tips: { zh: '先講看法，再接 because。理由停在一句，把下一句留給別人。', en: 'Give the view, then because. Stop after one reason so others can join.' },
+    avoid: { zh: '避免只說 I like it 或 It is good 就停下來。', en: "Don't stop at I like it or It is good." },
+    tags: ['reason'],
+    sortOrder: 35,
+    isActive: true,
+  },
+  {
+    id: 'pb_et_010',
+    activityType: 'English Table',
+    scenarioTitleZh: '舉一個自己的例子',
+    scenarioTitleEn: 'Give your own example',
+    scenarioDescriptionZh: '你想讓理由更清楚，可以用自己的一次經驗來說明。',
+    scenarioDescriptionEn: 'You want the reason to be clearer by adding one experience of your own.',
+    responseDirectionZh: '用 For example 接一件自己做過的事，不要換題。',
+    responseDirectionEn: 'Use For example and one thing you actually did. Stay on the topic.',
+    levels: ['A2', 'B1', 'B2'],
+    phrases: [
+      { level: 'A2', labelZh: '基礎版', labelEn: 'Basic', text: 'For example, I study in the library.', noteZh: '一個地方或一件事即可。', noteEn: 'One place or one event is enough.' },
+      { level: 'B1', labelZh: '自然版', labelEn: 'Natural', text: 'For example, last week I studied at a cafe and it was too noisy.', noteZh: '加上時間，聽起來更具體。', noteEn: 'A time makes it more concrete.' },
+      { level: 'B2', labelZh: '進階版', labelEn: 'Advanced', text: 'For instance, when I prepared for an exam, the library helped me stay focused.', noteZh: '例子要回頭支持你的理由。', noteEn: 'The example should support your reason.' },
+    ],
+    patterns: [{ zh: 'For example, ______.', en: 'For example, ______.' }],
+    tips: { zh: '用自己的經驗，一句就夠，再說回原本的看法。', en: 'Use your own experience in one sentence, then return to your point.' },
+    avoid: { zh: '避免講一個和題目無關的長故事。', en: "Don't tell a long story that leaves the topic." },
+    tags: ['example'],
+    sortOrder: 36,
+    isActive: true,
+  },
   // English Club
   {
     id: 'pb_ec_001',
@@ -633,6 +677,10 @@ export function getPhrasebookItems(filters = {}) {
  */
 export function getQuickPrepItems(activityType, limit = 3) {
   return getPhrasebookItems({ activityType }).slice(0, limit);
+}
+
+export function getPhrasebookItemById(id) {
+  return PHRASEBOOK_ITEMS.find((item) => item.isActive && item.id === id) || null;
 }
 
 export const PHRASEBOOK_ACTIVITY_TABS = [

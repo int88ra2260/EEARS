@@ -5,6 +5,7 @@ import useAdminEventWorkspace from '../../hooks/useAdminEventWorkspace';
 import AdminEventDetailTabs from '../../components/admin/events/AdminEventDetailTabs';
 import AdminEventDetailHeader from '../../components/admin/events/AdminEventDetailHeader';
 import { EVENT_DETAIL_COPY } from '../../constants/adminEventDetailCopy';
+import { getAdminRoleHomeLabel, getAdminRoleHomePath } from '../../constants/adminNavigation';
 import {
   buildEventDetailSearchParams,
   resolveEventDetailTab,
@@ -92,8 +93,8 @@ export default function AdminEventDetailPage() {
       <div className="alert alert-danger">
         {ws.detailError}
         <div className="mt-2">
-          <Link to="/admin/operations" className="btn btn-outline-primary btn-sm">
-            返回活動列表
+          <Link to={getAdminRoleHomePath(accessProfile)} className="btn btn-outline-primary btn-sm">
+            {getAdminRoleHomeLabel(accessProfile)}
           </Link>
         </div>
       </div>

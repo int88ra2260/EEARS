@@ -120,11 +120,12 @@ export default function ImportTaskCard({ card, accessProfile }) {
 
         {card.importPath ? (
           <p className="import-center-card__next small text-muted mb-2">
-            {statusTier === 'export_only'
-              ? '下一步：前往對應頁下載或匯出'
-              : card.kind === 'sync'
-                ? '下一步：前往對應頁執行同步或查詢'
-                : '下一步：前往對應頁選學期／活動後上傳'}
+            {card.nextHint
+              || (statusTier === 'export_only'
+                ? '下一步：前往對應頁下載或匯出'
+                : card.kind === 'sync'
+                  ? '下一步：前往對應頁執行同步或查詢'
+                  : '下一步：前往對應頁選學期／活動後上傳')}
           </p>
         ) : null}
 

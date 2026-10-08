@@ -4,6 +4,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { SpeakingTask, SpeakingAttempt, SpeakingHumanRating, SpeakingAdaptiveSession } = require('../models');
 const { alignSpeakingAttempt } = require('./speakingForcedAlignmentService');
+const { transcribeSpeakingAudio } = require('../scripts/speakingWhisperWorkerHost');
 const { SPEAKING_TASKS } = require('../constants/speakingDiagnosticTaskBank');
 
 const ANALYSIS_VERSION = 'v0';
@@ -228,23 +229,72 @@ function sequenceSimilarity(targetTokens, responseTokens) {
   return Number(Math.max(0, 1 - distance / targetTokens.length).toFixed(4));
 }
 
-function wordCoverage(targetTokens, responseTokens) {
-  const results = buildWordResults(targetTokens, responseTokens);
-  if (!results.length) return null;
-  const matched = results.filter((row) => row.status === 'matched').length;
-  return Number((matched / results.length).toFixed(4));
+const WEAK_FINAL_SIBILANT_MS = 30;
+
+function weakFinalSibilantWords(alignment) {
+  if (!isRealAlignment(alignment)) return [];
+  const words = Array.isArray(alignment.words) ? alignment.words : [];
+  const phones = Array.isArray(alignment.phones) ? alignment.phones : [];
+  const phonesByWord = new Map();
+  phones.forEach((phone) => {
+    if (!Number.isInteger(phone.wordIndex)) return;
+    const rows = phonesByWord.get(phone.wordIndex) || [];
+    rows.push(phone);
+    phonesByWord.set(phone.wordIndex, rows);
+  });
+  const weak = [];
+  words.forEach((word, index) => {
+    const spoken = (phonesByWord.get(Number.isInteger(word.index) ? word.index : index) || [])
+      .filter((phone) => {
+        const label = String(phone.phone || '').trim().toUpperCase();
+        return label && !['SIL', 'SP', 'SPN', ''].includes(label);
+      });
+    const last = spoken[spoken.length - 1];
+    if (!last) return;
+    const label = String(last.phone || '').trim().toUpperCase();
+    const duration = Number(last.endMs) - Number(last.startMs);
+    if ((label === 'S' || label === 'Z') && Number.isFinite(duration) && duration < WEAK_FINAL_SIBILANT_MS) {
+      const normalized = normalizeText(word.word);
+      if (normalized) weak.push(normalized);
+    }
+  });
+  return weak;
+}
+
+function stemPlural(word) {
+  if (word.length < 4) return word;
+  if (/(ches|shes|ses|xes|zes)$/.test(word) && word.length > 4) return word.slice(0, -2);
+  if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+  return word;
+}
+
+function tokensWithoutWeakEndings(tokens, weakWords) {
+  const remaining = new Map();
+  weakWords.forEach((word) => remaining.set(word, (remaining.get(word) || 0) + 1));
+  return tokens.map((token) => {
+    const left = remaining.get(token) || 0;
+    if (!left) return token;
+    remaining.set(token, left - 1);
+    return stemPlural(token);
+  });
+}
+
+function markWeakEndings(wordResults, weakWords) {
+  const remaining = new Map();
+  weakWords.forEach((word) => remaining.set(word, (remaining.get(word) || 0) + 1));
+  return wordResults.map((row) => {
+    const left = remaining.get(row.word) || 0;
+    if (row.status !== 'matched' || !left) return row;
+    remaining.set(row.word, left - 1);
+    return { ...row, status: 'ending' };
+  });
 }
 
 function rateToPercent(value) {
+  if (value == null || value === '') return null;
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.round(Math.max(0, Math.min(1, n)) * 100);
-}
-
-function proxyToPercent(value, max = 2) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  return Math.round(Math.max(0, Math.min(max, n)) / max * 100);
 }
 
 function buildPaceScore(speechRateWpm) {
@@ -266,50 +316,6 @@ function buildPauseScore({ pauseFrequencyPerMinute, averagePauseDurationMs }) {
   if (Number.isFinite(freq)) score -= Math.max(0, freq - 6) * 4;
   if (Number.isFinite(avg)) score -= Math.max(0, avg - 700) / 20;
   return Math.round(Math.max(30, Math.min(100, score)));
-}
-
-function weightedReadAloudOverall(scores) {
-  const weights = [
-    ['completionPercent', 0.35],
-    ['pronunciationPercent', 0.25],
-    ['fluencyPercent', 0.2],
-    ['pacePercent', 0.1],
-    ['pauseControlPercent', 0.1],
-  ];
-  let sum = 0;
-  let weightSum = 0;
-  weights.forEach(([key, weight]) => {
-    const value = Number(scores[key]);
-    if (Number.isFinite(value)) {
-      sum += value * weight;
-      weightSum += weight;
-    }
-  });
-  return weightSum ? Math.round(sum / weightSum) : null;
-}
-
-function weightedConstructedOverall(scores) {
-  const weights = [
-    ['completionPercent', 0.1],
-    ['taskAchievementPercent', 0.2],
-    ['ideaDevelopmentPercent', 0.12],
-    ['fluencyPercent', 0.16],
-    ['pacePercent', 0.1],
-    ['pauseControlPercent', 0.1],
-    ['vocabularyPercent', 0.1],
-    ['grammarPercent', 0.06],
-    ['coherencePercent', 0.06],
-  ];
-  let sum = 0;
-  let weightSum = 0;
-  weights.forEach(([key, weight]) => {
-    const value = Number(scores[key]);
-    if (Number.isFinite(value)) {
-      sum += value * weight;
-      weightSum += weight;
-    }
-  });
-  return weightSum ? Math.round(sum / weightSum) : null;
 }
 
 function parseClientFeatures(raw) {
@@ -346,20 +352,23 @@ function normalizeAttemptContext(clientFeatures = {}, task = {}) {
 
 function buildFluencyProxy({ speechRateWpm, pauseFrequencyPerMinute, averagePauseDurationMs }) {
   if (speechRateWpm == null && pauseFrequencyPerMinute == null && averagePauseDurationMs == null) return null;
-  let score = 1;
+  let score = 0;
   if (speechRateWpm != null) {
-    if (speechRateWpm >= 90 && speechRateWpm <= 170) score += 0.45;
-    else if (speechRateWpm >= 60 && speechRateWpm < 90) score += 0.25;
+    if (speechRateWpm >= 90 && speechRateWpm <= 170) score += 0.5;
+    else if ((speechRateWpm >= 60 && speechRateWpm < 90) || (speechRateWpm > 170 && speechRateWpm <= 190)) score += 0.25;
+    else score += 0.08;
   }
   if (pauseFrequencyPerMinute != null) {
-    if (pauseFrequencyPerMinute <= 8) score += 0.35;
-    else if (pauseFrequencyPerMinute <= 14) score += 0.2;
+    if (pauseFrequencyPerMinute <= 8) score += 0.3;
+    else if (pauseFrequencyPerMinute <= 14) score += 0.15;
+    else score += 0.05;
   }
   if (averagePauseDurationMs != null) {
     if (averagePauseDurationMs <= 900) score += 0.2;
     else if (averagePauseDurationMs <= 1600) score += 0.1;
+    else score += 0.04;
   }
-  return Number(Math.min(2, score).toFixed(2));
+  return Number(Math.min(1, score).toFixed(4));
 }
 
 function isRealAlignment(alignment) {
@@ -412,6 +421,13 @@ function weightedAverage(values) {
   return Number((nums.reduce((sum, value) => sum + value, 0) / nums.length).toFixed(4));
 }
 
+function combinePronunciationEvidence(intelligibility, acoustic, phone) {
+  if (!Number.isFinite(intelligibility)) return null;
+  const timing = [acoustic, phone].filter(Number.isFinite);
+  if (!timing.length) return intelligibility;
+  return Number(Math.min(intelligibility, weightedAverage(timing)).toFixed(4));
+}
+
 function buildWordAcousticEvidence(wordResults, alignment, targetTokens) {
   if (!Array.isArray(wordResults) || !wordResults.length || !isRealAlignment(alignment)) {
     return {
@@ -443,7 +459,7 @@ function buildWordAcousticEvidence(wordResults, alignment, targetTokens) {
     const scoreParts = [durationScore, confidenceScore].filter(Number.isFinite);
     const acousticScore = word.status === 'aligned' && scoreParts.length
       ? Number(Math.max(0, Math.min(1, weightedAverage(scoreParts) - gapPenalty)).toFixed(4))
-      : word.status === 'aligned' ? 0.6 : 0;
+      : word.status === 'aligned' ? null : 0;
     return {
       index: word.index,
       word: word.word,
@@ -609,18 +625,13 @@ function buildConstructedResponseEvidence(task, transcript, transcriptEvidence) 
   const hasLimitation = tokens.some((word) => ['limit', 'limitation', 'problem', 'risk', 'however', 'but'].includes(word));
   const verbLikeCount = tokens.filter((word) => /(ed|ing|s)$/.test(word) || ['am', 'is', 'are', 'was', 'were', 'be', 'have', 'has', 'do', 'does'].includes(word)).length;
   const ideaDevelopmentProxy = Math.max(0, Math.min(1,
-    0.25
-    + Math.min(0.25, (transcriptEvidence.wordCount || 0) / Math.max(20, task.targetWords || 40) * 0.25)
-    + (hasReason ? 0.15 : 0)
-    + (hasExample ? 0.1 : 0)
-    + (hasContrast ? 0.1 : 0)
-    + Math.min(0.15, (transcriptEvidence.discourseMarkerCount || 0) * 0.04)
+    Math.min(0.3, (transcriptEvidence.wordCount || 0) / Math.max(20, task.targetWords || 40) * 0.3)
+    + (hasReason ? 0.25 : 0)
+    + (hasExample ? 0.15 : 0)
+    + (hasContrast ? 0.15 : 0)
+    + Math.min(0.15, (transcriptEvidence.discourseMarkerCount || 0) * 0.05)
   ));
-  let taskAchievementProxy = Math.max(0, Math.min(1,
-    0.35
-    + (overlap.coverage || 0) * 0.35
-    + Math.min(0.2, (transcriptEvidence.wordCount || 0) / Math.max(1, task.targetWords || 40) * 0.2)
-  ));
+  let taskAchievementProxy = (overlap.coverage || 0) * 0.85;
   if (task.taskType === 'opinion_response' && hasOpinion) taskAchievementProxy += 0.08;
   if (task.taskType === 'picture_description' && verbLikeCount >= 2) taskAchievementProxy += 0.08;
   if (task.taskType === 'campus_short_answer' && (hasReason || tokens.some((word) => ['can', 'could', 'please', 'would'].includes(word)))) taskAchievementProxy += 0.08;
@@ -684,8 +695,14 @@ function buildTranscriptEvidence(transcript) {
   const lexicalSophistication = sophisticated.length / tokens.length;
   const meanWordsPerSentence = tokens.length / sentenceCount;
   const disfluencyPenalty = Math.min(0.5, (fillerCount + repairMarkerCount + repetitionCount) / Math.max(1, tokens.length));
-  const grammarControlProxy = Math.max(0, Math.min(1, 0.55 + Math.min(0.25, subordinatorCount * 0.05) + Math.min(0.2, meanWordsPerSentence / 80) - disfluencyPenalty));
-  const coherenceProxy = Math.max(0, Math.min(1, 0.45 + Math.min(0.35, discourseMarkerCount * 0.08) + Math.min(0.2, subordinatorCount * 0.04) - Math.min(0.25, repetitionCount * 0.04)));
+  const hasGrammarEvidence = subordinatorCount > 0 || fillerCount > 0 || repairMarkerCount > 0 || repetitionCount > 0;
+  const grammarControlProxy = hasGrammarEvidence
+    ? Math.max(0, Math.min(1, Math.min(1, subordinatorCount * 0.2) - disfluencyPenalty))
+    : null;
+  const hasCoherenceEvidence = discourseMarkerCount > 0 || subordinatorCount > 0 || repetitionCount > 0;
+  const coherenceProxy = hasCoherenceEvidence
+    ? Math.max(0, Math.min(1, Math.min(0.7, discourseMarkerCount * 0.2) + Math.min(0.3, subordinatorCount * 0.1) - Math.min(0.5, repetitionCount * 0.1)))
+    : null;
   return {
     wordCount: tokens.length,
     uniqueWordCount: unique.size,
@@ -699,8 +716,8 @@ function buildTranscriptEvidence(transcript) {
     subordinatorCount,
     sentenceCount,
     meanWordsPerSentence: Number(meanWordsPerSentence.toFixed(2)),
-    grammarControlProxy: Number(grammarControlProxy.toFixed(4)),
-    coherenceProxy: Number(coherenceProxy.toFixed(4)),
+    grammarControlProxy: grammarControlProxy == null ? null : Number(grammarControlProxy.toFixed(4)),
+    coherenceProxy: coherenceProxy == null ? null : Number(coherenceProxy.toFixed(4)),
   };
 }
 
@@ -708,14 +725,20 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
   const isReadAloud = task.taskType === 'read_aloud';
   const targetTokens = isReadAloud ? tokenize(task.targetText) : [];
   const responseTokens = tokenize(transcript);
-  const transcriptWordResults = isReadAloud ? buildWordResults(targetTokens, responseTokens) : [];
+  const weakEndings = isReadAloud ? weakFinalSibilantWords(alignment) : [];
+  const scoredTokens = isReadAloud ? tokensWithoutWeakEndings(responseTokens, weakEndings) : responseTokens;
+  const transcriptWordResults = isReadAloud
+    ? markWeakEndings(buildWordResults(targetTokens, responseTokens), weakEndings)
+    : [];
   const alignmentWordResults = isReadAloud ? buildAlignmentWordResults(targetTokens, alignment) : null;
-  const wordResults = alignmentWordResults || transcriptWordResults;
-  const alignedWordCount = isReadAloud && alignmentWordResults?.length
-    ? alignmentWordResults.filter((row) => row.status === 'aligned').length
-    : null;
+  const timingWordResults = alignmentWordResults || transcriptWordResults;
+  const wordResults = isReadAloud && responseTokens.length
+    ? transcriptWordResults
+    : timingWordResults.map((row) => (row.status === 'aligned' ? { ...row, status: 'unknown' } : row));
   const durationMinutes = durationMs ? durationMs / 60000 : null;
-  const spokenWords = responseTokens.length || alignedWordCount || clampNumber(clientFeatures?.spokenWordEstimate, { min: 0, max: 5000 });
+  const spokenWords = responseTokens.length
+    ? responseTokens.length
+    : (isReadAloud ? null : clampNumber(clientFeatures?.spokenWordEstimate, { min: 0, max: 5000 }));
   const speechRateWpm = durationMinutes && spokenWords != null
     ? Number((spokenWords / durationMinutes).toFixed(2))
     : null;
@@ -734,25 +757,33 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
     ? Number((pauseCount / durationMinutes).toFixed(2))
     : null;
 
-  const transcriptCompletionRate = isReadAloud && responseTokens.length ? wordCoverage(targetTokens, responseTokens) : null;
+  const transcriptCompletionRate = isReadAloud && responseTokens.length && transcriptWordResults.length
+    ? Number((transcriptWordResults.filter((row) => row.status === 'matched').length / transcriptWordResults.length).toFixed(4))
+    : null;
   const alignmentCompletionRate = isReadAloud && alignmentWordResults?.length
     ? Number((alignmentWordResults.filter((row) => row.status === 'aligned').length / alignmentWordResults.length).toFixed(4))
     : null;
-  const completionRate = alignmentCompletionRate != null ? alignmentCompletionRate : transcriptCompletionRate;
-  const transcriptSimilarity = isReadAloud && responseTokens.length ? sequenceSimilarity(targetTokens, responseTokens) : null;
+  const transcriptSimilarity = isReadAloud && responseTokens.length ? sequenceSimilarity(targetTokens, scoredTokens) : null;
   const transcriptEvidence = buildTranscriptEvidence(transcript);
-  const wordAcousticEvidence = isReadAloud ? buildWordAcousticEvidence(wordResults, alignment, targetTokens) : null;
+  const wordAcousticEvidence = isReadAloud ? buildWordAcousticEvidence(alignmentWordResults || [], alignment, targetTokens) : null;
   const phonemeEvidence = isReadAloud ? buildPhonemeEvidence(alignment) : null;
   const pronunciationConfidenceEvidence = isReadAloud ? buildPronunciationConfidenceEvidence(alignment) : null;
   const constructedResponseEvidence = !isReadAloud ? buildConstructedResponseEvidence(task, transcript, transcriptEvidence) : null;
   const wordAcousticScore = wordAcousticEvidence?.summary?.averageWordAcousticScore ?? null;
   const phonemeScore = phonemeEvidence?.summary?.averagePhoneConfidence ?? null;
   const pronunciationEvidenceRate = isReadAloud
-    ? weightedAverage([wordAcousticScore, phonemeScore, alignmentCompletionRate].filter(Number.isFinite))
+    ? combinePronunciationEvidence(transcriptSimilarity, wordAcousticScore, phonemeScore)
     : null;
   const responseTargetRate = !isReadAloud && task.targetWords
     ? Number(Math.min(1, responseTokens.length / task.targetWords).toFixed(4))
     : null;
+  const relevance = constructedResponseEvidence?.taskRelevanceProxy;
+  const openCompletionRate = responseTargetRate == null
+    ? null
+    : (relevance == null
+      ? responseTargetRate
+      : Number((responseTargetRate * (0.25 + 0.75 * relevance)).toFixed(4)));
+  const completionRate = isReadAloud ? transcriptCompletionRate : openCompletionRate;
 
   const features = {
     mode: isReadAloud ? 'controlled_read_aloud' : 'constructed_response',
@@ -769,7 +800,8 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
     averagePauseDurationMs,
     totalPauseMs,
     longPauseCount: clampNumber(clientFeatures?.longPauseCount, { min: 0, max: 1000 }),
-    completionRate: isReadAloud ? completionRate : responseTargetRate,
+    completionRate,
+    weakEndings: [...new Set(weakEndings)],
     responseTargetRate,
     transcriptCompletionRate,
     alignmentCompletionRate,
@@ -791,7 +823,7 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
       rhythm: null,
       pitchProsody: null,
       note: isReadAloud
-        ? 'Word-level evidence is active when a real forced aligner returns word timings; phoneme evidence is populated when the aligner returns phones.'
+        ? 'Read-aloud completion and pronunciation follow how much of the target text the transcript matched. Alignment timing can lower pronunciation; it does not raise it.'
         : 'Constructed response tasks use transcript, fluency, and semantic proxy evidence first; open-response pronunciation can be added after open-response alignment is available.',
     },
     clientFeatures,
@@ -800,18 +832,20 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
   const fluencyProxy = buildFluencyProxy({ speechRateWpm, pauseFrequencyPerMinute, averagePauseDurationMs });
   const grammarPercent = rateToPercent(transcriptEvidence.grammarControlProxy);
   const coherencePercent = rateToPercent(transcriptEvidence.coherenceProxy);
-  const vocabularyPercent = rateToPercent(Math.min(1,
-    (Number(transcriptEvidence.lexicalDiversity) || 0) * 0.65
-    + (Number(transcriptEvidence.lexicalSophistication) || 0) * 1.2,
-  ));
+  const vocabularyPercent = transcriptEvidence.wordCount
+    ? rateToPercent(Math.min(1,
+      (Number(transcriptEvidence.lexicalDiversity) || 0) * 0.65
+      + (Number(transcriptEvidence.lexicalSophistication) || 0) * 1.2,
+    ))
+    : null;
   const taskAchievementPercent = rateToPercent(constructedResponseEvidence?.taskAchievementProxy);
   const ideaDevelopmentPercent = rateToPercent(constructedResponseEvidence?.ideaDevelopmentProxy);
   const pronunciationPercent = rateToPercent(pronunciationEvidenceRate);
   const presentationScores = {
-    completionPercent: isReadAloud ? rateToPercent(completionRate) : rateToPercent(responseTargetRate),
+    completionPercent: rateToPercent(completionRate),
     similarityPercent: rateToPercent(transcriptSimilarity),
     pronunciationPercent: isReadAloud ? pronunciationPercent : null,
-    fluencyPercent: proxyToPercent(fluencyProxy),
+    fluencyPercent: rateToPercent(fluencyProxy),
     pacePercent: buildPaceScore(speechRateWpm),
     pauseControlPercent: buildPauseScore({ pauseFrequencyPerMinute, averagePauseDurationMs }),
     vocabularyPercent: isReadAloud ? null : vocabularyPercent,
@@ -820,9 +854,7 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
     taskAchievementPercent: isReadAloud ? null : taskAchievementPercent,
     ideaDevelopmentPercent: isReadAloud ? null : ideaDevelopmentPercent,
   };
-  presentationScores.overallPercent = isReadAloud
-    ? weightedReadAloudOverall(presentationScores)
-    : weightedConstructedOverall(presentationScores);
+  presentationScores.overallPercent = presentationScores.completionPercent;
 
   const automatedScores = {
     wordCompletion: isReadAloud ? completionRate : null,
@@ -976,14 +1008,35 @@ function toAttemptDto(row) {
 }
 
 async function ensureSeedTasks() {
-  const existing = await SpeakingTask.findAll({ attributes: ['taskKey'] });
+  const existing = await SpeakingTask.findAll({
+    attributes: ['id', 'taskKey', 'taskType', 'targetText', 'prompt', 'estimatedSeconds', 'targetWords'],
+  });
   const existingKeys = new Set(existing.map((row) => row.taskKey));
   const missing = SPEAKING_TASKS.filter((task) => !existingKeys.has(task.taskKey));
-  if (!missing.length) return;
-  await SpeakingTask.bulkCreate(
-    missing.map((task) => ({ ...task, isActive: true, version: 'v0' })),
-    { ignoreDuplicates: true },
-  );
+  if (missing.length) {
+    await SpeakingTask.bulkCreate(
+      missing.map((task) => ({ ...task, isActive: true, version: 'v0' })),
+      { ignoreDuplicates: true },
+    );
+  }
+  const byKey = new Map(existing.map((row) => [row.taskKey, row]));
+  const updates = [];
+  SPEAKING_TASKS.forEach((task) => {
+    if (task.taskType !== 'read_aloud' && task.taskType !== 'picture_description') return;
+    const row = byKey.get(task.taskKey);
+    if (!row) return;
+    const sameText = row.targetText === task.targetText && row.prompt === task.prompt;
+    const sameSize = Number(row.estimatedSeconds) === Number(task.estimatedSeconds)
+      && Number(row.targetWords) === Number(task.targetWords);
+    if (sameText && sameSize) return;
+    updates.push(row.update({
+      targetText: task.targetText,
+      prompt: task.prompt,
+      estimatedSeconds: task.estimatedSeconds,
+      targetWords: task.targetWords,
+    }));
+  });
+  if (updates.length) await Promise.all(updates);
 }
 
 function normalizeCompletedTaskKeys(value) {
@@ -1337,7 +1390,7 @@ function taskMatchesAdminFilters(task, query = {}) {
 async function listAdminSpeakingTasks(query = {}) {
   await ensureSeedTasks();
   const limit = Math.max(1, Math.min(Number(query.limit) || 200, 500));
-  const rows = await SpeakingTask.findAll({ order: [['updatedAt', 'DESC'], ['id', 'DESC']] });
+  const rows = await SpeakingTask.findAll({ order: [['updated_at', 'DESC'], ['id', 'DESC']] });
   const tasks = rows.filter((task) => taskMatchesAdminFilters(task, query)).slice(0, limit).map(toTaskDto);
   const attempts = await SpeakingAttempt.findAll({
     include: [{ model: SpeakingTask, as: 'task' }],
@@ -1546,6 +1599,14 @@ async function getNextSpeakingTask(query = {}) {
   };
 }
 
+function resolveAttemptTranscript(browserTranscript, whisperText, whisperSource) {
+  const browser = String(browserTranscript || '').trim().slice(0, 8000);
+  if (browser) return { transcript: browser, transcriptSource: 'browser' };
+  const whisper = String(whisperText || '').trim().slice(0, 8000);
+  if (whisper) return { transcript: whisper, transcriptSource: whisperSource || 'faster-whisper:small.en' };
+  return { transcript: null, transcriptSource: null };
+}
+
 async function submitSpeakingAttempt({ body, file }) {
   await ensureSeedTasks();
   if (!file) {
@@ -1573,7 +1634,7 @@ async function submitSpeakingAttempt({ body, file }) {
   }
 
   const durationMs = clampNumber(body.durationMs, { min: 0, max: 10 * 60 * 1000 });
-  const transcript = String(body.transcript || '').trim().slice(0, 8000) || null;
+  const browserTranscript = String(body.transcript || '').trim().slice(0, 8000) || null;
   const adaptiveSessionUid = String(body.adaptiveSessionUid || '').trim() || null;
   if (adaptiveSessionUid) {
     const adaptiveSession = await SpeakingAdaptiveSession.findOne({ where: { sessionUid: adaptiveSessionUid } });
@@ -1592,22 +1653,33 @@ async function submitSpeakingAttempt({ body, file }) {
   }
   const clientFeatures = parseClientFeatures(body.clientFeatures);
   const attemptUid = uuidv4();
-  const alignment = task.taskType === 'read_aloud'
-    ? await alignSpeakingAttempt({
+  const whisperPromise = browserTranscript
+    ? Promise.resolve(null)
+    : transcribeSpeakingAudio(file.path).catch((error) => ({ text: '', error: error.message }));
+  const alignmentPromise = task.taskType === 'read_aloud'
+    ? alignSpeakingAttempt({
       audioPath: file.path,
       targetText: task.targetText,
-      transcript,
+      transcript: browserTranscript,
       durationMs,
       attemptUid,
     })
-    : {
+    : Promise.resolve({
       status: 'not_applicable',
       engine: 'constructed_response_v0',
       words: [],
       phones: [],
       metrics: {},
       warnings: ['Forced alignment is skipped for constructed-response tasks.'],
-    };
+    });
+  const [whisper, alignment] = await Promise.all([whisperPromise, alignmentPromise]);
+  const { transcript, transcriptSource } = resolveAttemptTranscript(
+    browserTranscript,
+    whisper?.text,
+    whisper?.source,
+  );
+  clientFeatures.transcriptSource = transcriptSource;
+  if (whisper?.error) clientFeatures.whisperError = String(whisper.error).slice(0, 500);
   const { features, automatedScores, presentationScores, wordResults } = buildAutomatedAnalysis({
     task,
     transcript,
@@ -1648,6 +1720,7 @@ async function submitSpeakingAttempt({ body, file }) {
     automatedScores,
     presentationScores,
     wordResults,
+    transcript,
     alignment,
     adaptiveSession,
     audioUrl: `/${row.audioPath}`,
@@ -2036,6 +2109,7 @@ async function exportSpeakingResearchCsv(query = {}) {
 module.exports = {
   ANALYSIS_VERSION,
   buildAutomatedAnalysis,
+  resolveAttemptTranscript,
   createAdaptiveSession,
   getAdaptiveSession,
   getAdaptiveNextTask,

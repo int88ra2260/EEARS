@@ -129,8 +129,7 @@ export default function SpeakingPortfolioPage() {
                     </div>
                     <div className="speaking-portfolio-attempt__metrics">
                       <div><strong>{formatPercent(attempt.overallPercent)}</strong><span>總分</span></div>
-                      <div><strong>{formatPercent(attempt.fluencyPercent)}</strong><span>流暢</span></div>
-                      <div><strong>{attempt.transcriptWordCount ?? '--'}</strong><span>字數</span></div>
+                      <div><strong>{formatPercent(attempt.completionPercent ?? attempt.overallPercent)}</strong><span>完成度</span></div>
                     </div>
                     {attempt.advice ? <p>{attempt.advice}</p> : null}
                     {attempt.href ? <Link className="btn btn-sm btn-outline-primary" to={attempt.href}>再練一次</Link> : null}

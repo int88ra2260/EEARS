@@ -305,6 +305,13 @@ export async function saveEtTaskTemplate(token, items, { semesterId } = {}) {
   return handleResponse(res, '儲存任務模板失敗');
 }
 
+export async function fetchEventPracticeBriefs(token, eventId) {
+  const res = await fetchClient(`${API_BASE}/events/${eventId}/practice-briefs`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res, '載入會前回答失敗');
+}
+
 export async function fetchEventTaskMarks(token, eventId) {
   const res = await fetchClient(`${API_BASE}/events/${eventId}/task-marks`, {
     headers: authHeaders(token),

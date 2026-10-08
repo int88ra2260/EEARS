@@ -1,4 +1,5 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import PhraseLevelExamples from './PhraseLevelExamples';
 import PhrasePatternBlock, { PhraseTipBlock, PhraseAvoidBlock } from './PhrasePatternBlock';
@@ -6,15 +7,25 @@ import './ActivityPhrasebook.css';
 
 export default function PhraseScenarioCard({ item, defaultOpen = false }) {
   const { lang } = useLanguage();
+  const { hash } = useLocation();
   const isZh = lang === 'zh';
-  const [open, setOpen] = useState(defaultOpen);
+  const highlighted = hash === `#${item.id}`;
+  const [open, setOpen] = useState(defaultOpen || highlighted);
   const panelId = useId();
+
+  useEffect(() => {
+    if (!highlighted) return undefined;
+    setOpen(true);
+    const node = document.getElementById(item.id);
+    if (node) node.scrollIntoView({ block: 'start' });
+    return undefined;
+  }, [highlighted, item.id]);
   const title = isZh ? item.scenarioTitleZh : item.scenarioTitleEn;
   const description = isZh ? item.scenarioDescriptionZh : item.scenarioDescriptionEn;
   const direction = isZh ? item.responseDirectionZh : item.responseDirectionEn;
 
   return (
-    <article className="phrase-scenario-card">
+    <article id={item.id} className="phrase-scenario-card">
       <h3 className="phrase-scenario-card__heading">
         <button
           type="button"

@@ -212,7 +212,7 @@ export default function BestepImportPage() {
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <p className="text-muted small mb-0">
           <i className="fas fa-file-upload me-2" aria-hidden="true"></i>
-          由 Excel 匯入 LR（聽讀）、SW（說寫）等 BESTEP 出席資料。
+          出席與成績分兩個分頁。聽讀（LR）、說寫（SW）出席各傳一次；成績傳一次後會自動同步到學習歷程，不必再匯到學習歷程的英檢成績。
         </p>
         <Button 
           variant="outline-secondary" 
@@ -376,6 +376,7 @@ export default function BestepImportPage() {
                   <li>系統會自動計算總分、整體等級和達標狀態</li>
                   <li>可點「下載成績匯入範例」取得標準表頭與填寫說明</li>
                   <li>只有「報名成功」（status='success'）的學生才會被匯入</li>
+                  <li>寫入後會自動同步到學習歷程考試紀錄與學習成效。同一份培力成績不要再從「英檢成績匯入（學習歷程）」上傳</li>
                 </ul>
               </Alert>
 

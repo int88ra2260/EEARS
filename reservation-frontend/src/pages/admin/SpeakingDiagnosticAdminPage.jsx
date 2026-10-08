@@ -409,6 +409,9 @@ export default function SpeakingDiagnosticAdminPage() {
   const wordResults = selected?.wordResults || selected?.features?.wordResults || [];
   const alignment = selected?.alignment || selected?.features?.alignment || null;
   const alignmentWords = Array.isArray(alignment?.words) ? alignment.words : [];
+  const acousticWords = Array.isArray(selected?.features?.wordAcousticEvidence?.words)
+    ? selected.features.wordAcousticEvidence.words
+    : [];
   const alignmentPhones = Array.isArray(alignment?.phones) ? alignment.phones : [];
   const wordAcousticStatus = selected?.features?.wordAcousticEvidence?.status;
   const phonemeStatus = selected?.features?.phonemeEvidence?.status;
@@ -683,6 +686,10 @@ export default function SpeakingDiagnosticAdminPage() {
                   <div className="sd-admin-kicker">{selected.task?.level} · {selected.task?.taskType}</div>
                   <h2>{selected.task?.title}</h2>
                   <p>{selected.task?.targetText}</p>
+                  <p className="sd-admin-heard">
+                    <span>系統聽到</span>
+                    {String(selected.transcript || '').trim() || '沒有逐字稿'}
+                  </p>
                   {selected.context ? (
                     <p className="text-muted small mb-2">
                       {selected.context.linkedActivity || selected.task?.linkedActivity || 'Speaking Diagnostic'} · {ACTIVITY_PHASE_LABELS[selected.context.activityPhase] || selected.context.activityPhase || '未標記'}
@@ -728,7 +735,7 @@ export default function SpeakingDiagnosticAdminPage() {
                 <div><span>Pause count</span><strong>{selected.features?.pauseCount ?? '--'}</strong></div>
                 <div><span>Avg pause</span><strong>{formatNumber((selected.features?.averagePauseDurationMs || 0) / 1000)}s</strong></div>
                 <div><span>Word acoustic</span><strong>{formatDecimal(selected.features?.wordAcousticEvidence?.summary?.averageWordAcousticScore)}</strong></div>
-                <div><span>Low-conf words</span><strong>{selected.features?.wordAcousticEvidence?.summary?.lowConfidenceCount ?? '--'}</strong></div>
+                <div><span>Low-conf words</span><strong>{acousticWords.some((word) => word.confidence != null && Number.isFinite(Number(word.confidence))) ? (selected.features?.wordAcousticEvidence?.summary?.lowConfidenceCount ?? 0) : '--'}</strong></div>
                 <div><span>Phones</span><strong>{selected.features?.phonemeEvidence?.summary?.phoneCount ?? '--'}</strong></div>
                 <div><span>Phone confidence</span><strong>{formatDecimal(selected.features?.phonemeEvidence?.summary?.averagePhoneConfidence)}</strong></div>
                 <div><span>GOP status</span><strong>{pronunciationConfidenceStatus || '--'}</strong></div>

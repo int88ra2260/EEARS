@@ -754,6 +754,20 @@ router.put(
   }
 );
 
+router.get('/events/:id/practice-briefs', viewTaskMarksAuth, async (req, res, next) => {
+  try {
+    const { canManage, canMark } = req.etTaskAccess;
+    const data = await etSessionTaskService.listPracticeBriefs(req.params.id, {
+      userId: req.user?.id,
+      canManage,
+      canMark,
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    return handleServiceError(res, err, next);
+  }
+});
+
 router.get('/events/:id/task-marks', viewTaskMarksAuth, async (req, res, next) => {
   try {
     const { canManage, canMark } = req.etTaskAccess;
