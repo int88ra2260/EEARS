@@ -82,6 +82,10 @@ function serializeAttendance(row) {
     method: row.method,
     markedBy: row.markedBy || null,
     note: row.note || null,
+    payReleasedAt: row.payReleasedAt || null,
+    payReleaseNote: row.payReleaseNote || null,
+    markingOpenUntil: row.markingOpenUntil || null,
+    markingOpenNote: row.markingOpenNote || null,
     leaderName: row.leader?.name || null,
   };
 }

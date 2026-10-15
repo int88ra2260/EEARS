@@ -4,6 +4,9 @@ const {
   taskAppliesToBand,
   filterTasksForBand,
   isMarkingWindowOpen,
+  isLeaderMarkingOpen,
+  markingDaysLeft,
+  resolveMarkingExtensionUntil,
 } = require('../services/etGrouping/etTaskScope');
 
 describe('etTaskScope', () => {
@@ -42,5 +45,21 @@ describe('etTaskScope', () => {
     const afterDeadline = new Date('2026-07-14T10:00:00+08:00');
     expect(isMarkingWindowOpen(event, { now: beforeDeadline, graceDays: 3 })).toBe(true);
     expect(isMarkingWindowOpen(event, { now: afterDeadline, graceDays: 3 })).toBe(false);
+  });
+
+  it('keeps a leader window open only until an admin extension', () => {
+    const event = { date: '2026-10-15', endTime: '12:55' };
+    const now = new Date('2026-10-20T09:00:00+08:00');
+    const attendance = { markingOpenUntil: '2026-10-21T18:00:00+08:00' };
+    expect(isLeaderMarkingOpen(event, null, { now })).toBe(false);
+    expect(isLeaderMarkingOpen(event, attendance, { now })).toBe(true);
+    expect(markingDaysLeft(event, attendance, { now })).toBeGreaterThan(0);
+  });
+
+  it('rejects a marking extension beyond seven days', () => {
+    const now = new Date('2026-10-20T09:00:00+08:00');
+    expect(() => resolveMarkingExtensionUntil('2026-10-28T09:00:00+08:00', { now })).toThrow('補勾期限最多 7 天');
+    const accepted = resolveMarkingExtensionUntil('2026-10-22T09:00:00+08:00', { now });
+    expect(accepted.toISOString()).toBe(new Date('2026-10-22T09:00:00+08:00').toISOString());
   });
 });

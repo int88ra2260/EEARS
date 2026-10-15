@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
-import { getEnglishTableTopic, listEnglishTableReviewLinks, listEnglishTableWarmupLinks } from '../../data/englishTableTopics1151';
+import { getEnglishTableTopic, listEnglishTableReviewLinks, listEnglishTableWarmupLinks, normalizeEnglishTableTopicDate } from '../../data/englishTableTopics1151';
 import { loadSpeakingPortfolio, saveSpeakingPortfolioCard } from '../../services/speakingPortfolioStore';
 import { isEnglishTableEventType } from '../../utils/eventCapacityFields';
 import './EnglishTableTopicPanel.css';
@@ -14,6 +14,37 @@ const FORMAT_KEYS = {
   holiday: 'booking.etFormatHoliday',
 };
 
+function recallForQuestion(topicDate, questionNumber, serverMap) {
+  const server = serverMap?.[String(questionNumber)] || null;
+  if (server?.heard || server?.say) return server;
+  const attempts = loadSpeakingPortfolio().attempts || [];
+  return attempts.find((item) => (
+    item.activityDate === topicDate
+    && String(item.questionNumber) === String(questionNumber)
+    && (item.heard || item.say)
+  )) || null;
+}
+
+function PracticeRecall({ practice }) {
+  if (!practice?.heard && !practice?.say) return null;
+  return (
+    <details className="et-topic__recall">
+      <summary>看上次的說法</summary>
+      {practice.heard ? (
+        <p><span>上次聽到</span>{practice.heard}</p>
+      ) : null}
+      {practice.say ? (
+        <p><span>可以接這句</span>{practice.say}</p>
+      ) : null}
+      {practice.phraseId ? (
+        <Link to={`/guides/activity-phrasebook/english-table#${practice.phraseId}`}>
+          打開這張句庫卡
+        </Link>
+      ) : null}
+    </details>
+  );
+}
+
 export default function EnglishTableTopicPanel({
   date,
   eventType,
@@ -22,11 +53,17 @@ export default function EnglishTableTopicPanel({
   showCatalogLink = false,
   showPracticeLinks = false,
   showReviewLinks = false,
+  practiceByQuestion = null,
 }) {
   const { t } = useLanguage();
   const detailsRef = useRef(null);
   const session = isEnglishTableEventType(eventType) ? getEnglishTableTopic(date) : null;
+  const topicDate = normalizeEnglishTableTopicDate(date);
   const [savedKeys, setSavedKeys] = useState(() => new Set(loadSpeakingPortfolio().cards.map((item) => item.stableKey)));
+  const baseTags = useMemo(
+    () => ['English Table', session?.format, session?.topic].filter(Boolean),
+    [session?.format, session?.topic],
+  );
 
   useEffect(() => {
     if (detailsRef.current) detailsRef.current.open = Boolean(defaultOpen);
@@ -47,7 +84,6 @@ export default function EnglishTableTopicPanel({
   const weekLabel = t('booking.etTopicWeek', { week: session.week });
   const warmupLinks = showPracticeLinks ? listEnglishTableWarmupLinks(date) : [];
   const reviewLinks = showReviewLinks ? listEnglishTableReviewLinks(date) : [];
-  const baseTags = useMemo(() => ['English Table', session.format, session.topic].filter(Boolean), [session.format, session.topic]);
 
   const saveQuestionCard = (question, index) => {
     const stableKey = `english-table:${date}:q${index + 1}`;
@@ -108,6 +144,7 @@ export default function EnglishTableTopicPanel({
                 >
                   {savedKeys.has(`english-table:${date}:q${index + 1}`) ? '已收藏' : '收藏題目'}
                 </button>
+                <PracticeRecall practice={recallForQuestion(topicDate, index + 1, practiceByQuestion)} />
               </li>
             ))}
           </ol>

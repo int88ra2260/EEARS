@@ -17,6 +17,28 @@ jest.mock('../services/etGrouping/etLeaderAttendanceService', () => ({
   }),
 }));
 
+jest.mock('../services/etGrouping/etLeaderPayGate', () => {
+  const actual = jest.requireActual('../services/etGrouping/etLeaderPayGate');
+  return {
+    ...actual,
+    loadPayGateMap: jest.fn(async ({ attendances }) => {
+      const map = new Map();
+      (attendances || []).forEach((att) => {
+        map.set(`${att.eventId}:${att.leaderTeacherId}`, {
+          status: 'ready',
+          payable: true,
+          checkedInCount: 1,
+          incompleteCount: 0,
+          markingOpen: false,
+          daysLeft: 0,
+          releaseNote: null,
+        });
+      });
+      return map;
+    }),
+  };
+});
+
 const {
   Teacher,
   Event,
@@ -24,6 +46,7 @@ const {
   EtLeaderPayProfile,
   EtEventGroupLeader,
 } = require('../models');
+const { loadPayGateMap } = require('../services/etGrouping/etLeaderPayGate');
 const {
   parseYearMonth,
   computeEventHours,
@@ -139,6 +162,56 @@ describe('etLeaderPayrollService', () => {
     expect(report.totals.leaderCount).toBe(2);
     expect(report.totals.hours).toBe(5);
     expect(report.totals.amount).toBe(960);
+  });
+
+  test('buildMonthlyPayroll leaves unmarked sessions out of the payable total', async () => {
+    Event.findAll.mockResolvedValue([
+      {
+        id: 1,
+        name: 'ET A',
+        date: '2026-09-10',
+        startTime: '14:00',
+        endTime: '16:00',
+        eventType: 'English Table',
+      },
+    ]);
+    EtLeaderAttendance.findAll.mockResolvedValue([
+      {
+        eventId: 1,
+        leaderTeacherId: 7,
+        status: 'on_time',
+        method: 'qr',
+        checkInAt: new Date('2026-09-10T14:00:00+08:00'),
+        note: null,
+        leader: { id: 7, name: 'Alice', studentId: 'A123', email: 'a@test.com' },
+      },
+    ]);
+    EtEventGroupLeader.findAll.mockResolvedValue([
+      { eventId: 1, leaderTeacherId: 7, groupLabel: 'Group 1' },
+    ]);
+    EtLeaderPayProfile.findAll.mockResolvedValue([
+      { leaderTeacherId: 7, seniorityYears: 2, hourlyRate: 200, note: null },
+    ]);
+    loadPayGateMap.mockResolvedValueOnce(new Map([
+      ['1:7', {
+        status: 'pending',
+        payable: false,
+        checkedInCount: 4,
+        incompleteCount: 3,
+        markingOpen: true,
+        daysLeft: 2,
+        releaseNote: null,
+      }],
+    ]));
+
+    const report = await buildMonthlyPayroll({ yearMonth: '2026-09' });
+    expect(report.rows).toHaveLength(0);
+    expect(report.pending).toHaveLength(1);
+    expect(report.pending[0].scheduledHours).toBe(2);
+    expect(report.pending[0].hours).toBe(0);
+    expect(report.pending[0].subtotal).toBe(0);
+    expect(report.pending[0].potentialAmount).toBe(400);
+    expect(report.totals.amount).toBe(0);
   });
 
   test('upsertPayProfile validates and saves', async () => {

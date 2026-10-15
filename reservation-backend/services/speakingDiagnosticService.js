@@ -6,6 +6,8 @@ const { SpeakingTask, SpeakingAttempt, SpeakingHumanRating, SpeakingAdaptiveSess
 const { alignSpeakingAttempt } = require('./speakingForcedAlignmentService');
 const { transcribeSpeakingAudio } = require('../scripts/speakingWhisperWorkerHost');
 const { SPEAKING_TASKS } = require('../constants/speakingDiagnosticTaskBank');
+const { describePracticeGain } = require('./etGrouping/etPracticeProgress');
+const { buildEnglishTablePracticeNote } = require('./etGrouping/englishTablePracticeNote');
 
 const ANALYSIS_VERSION = 'v0';
 const CLIENT_SESSION_RE = /^[a-zA-Z0-9_-]{4,64}$/;
@@ -36,14 +38,12 @@ const SUPPORT_BY_CONSTRUCT = Object.freeze({
 
 function normalizeStudentId(value) {
   if (value == null || value === '') return null;
-  const trimmed = String(value).trim();
-  if (!/^\d{8,10}$/.test(trimmed)) {
-    const err = new Error('學號格式不正確');
-    err.status = 400;
-    err.code = 'INVALID_STUDENT_ID';
-    throw err;
-  }
-  return trimmed;
+  const trimmed = String(value).trim().toUpperCase();
+  if (/^[BMDNIJ]\d{9}$/.test(trimmed) || /^\d{8,10}$/.test(trimmed)) return trimmed;
+  const err = new Error('學號格式不正確');
+  err.status = 400;
+  err.code = 'INVALID_STUDENT_ID';
+  throw err;
 }
 
 function clampNumber(value, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
@@ -785,11 +785,20 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
       : Number((responseTargetRate * (0.25 + 0.75 * relevance)).toFixed(4)));
   const completionRate = isReadAloud ? transcriptCompletionRate : openCompletionRate;
 
+  const context = normalizeAttemptContext(clientFeatures, task);
+  const linkedToEnglishTable = context.source === 'english-table' || context.linkedActivity === 'English Table';
+  const practiceNote = !isReadAloud && linkedToEnglishTable
+    ? {
+      ...buildEnglishTablePracticeNote(transcript, task.prompt),
+      heard: String(transcript || '').replace(/\s+/g, ' ').trim().slice(0, 500),
+    }
+    : null;
+
   const features = {
     mode: isReadAloud ? 'controlled_read_aloud' : 'constructed_response',
     analysisVersion: ANALYSIS_VERSION,
     taskType: task.taskType,
-    context: normalizeAttemptContext(clientFeatures, task),
+    context,
     targetWordCount: isReadAloud ? targetTokens.length : task.targetWords || null,
     transcriptWordCount: responseTokens.length || null,
     durationMs,
@@ -815,6 +824,7 @@ function buildAutomatedAnalysis({ task, transcript, durationMs, clientFeatures, 
     pronunciationEvidenceRate,
     transcriptEvidence,
     constructedResponseEvidence,
+    ...(practiceNote ? { practiceNote } : {}),
     acousticPlaceholders: {
       phonemeAccuracy: phonemeEvidence?.summary?.averagePhoneConfidence ?? null,
       gopScore: pronunciationConfidenceEvidence?.summary?.averageGopScore ?? null,
@@ -1713,6 +1723,17 @@ async function submitSpeakingAttempt({ body, file }) {
     presentationScores,
   });
 
+  let practiceComparison = null;
+  try {
+    practiceComparison = await englishTablePracticeComparison({
+      studentId: row.studentId,
+      transcript,
+      features,
+    });
+  } catch (_err) {
+    practiceComparison = null;
+  }
+
   return {
     attemptUid: row.attemptUid,
     task: toTaskDto(task),
@@ -1724,8 +1745,39 @@ async function submitSpeakingAttempt({ body, file }) {
     alignment,
     adaptiveSession,
     audioUrl: `/${row.audioPath}`,
+    practiceComparison,
+    practiceNote: features.practiceNote || null,
     nextStep: 'Teacher rubric rating and ASR/forced-alignment integration can be added on this attempt record.',
   };
+}
+
+async function englishTablePracticeComparison({ studentId, transcript, features }) {
+  const context = features?.context;
+  if (!context || context.activityPhase !== 'post_activity') return null;
+  const linked = context.linkedActivity === 'English Table' || context.source === 'english-table';
+  if (!linked) return null;
+  if (!studentId) {
+    return { gained: null, message: '填了學號，活動後再練一次，才能和會前那次比較。' };
+  }
+  const rows = await SpeakingAttempt.findAll({
+    where: { studentId },
+    attributes: ['transcript', 'submittedAt', 'features'],
+    order: [['submittedAt', 'DESC']],
+    limit: 40,
+  });
+  const question = String(context.activityQuestionNumber || '');
+  const date = String(context.activityDate || '');
+  const prior = rows.find((item) => {
+    const priorContext = item.features?.context || {};
+    return priorContext.activityPhase === 'pre_activity'
+      && String(priorContext.activityDate || '') === date
+      && String(priorContext.activityQuestionNumber || '') === question
+      && (priorContext.linkedActivity === 'English Table' || priorContext.source === 'english-table');
+  });
+  if (!prior) {
+    return { gained: null, message: '還沒有同一題的會前錄音。這次先留一句現場可以接的話。' };
+  }
+  return describePracticeGain(prior.transcript, transcript);
 }
 
 function normalizeRatingValue(value, field) {
@@ -2128,4 +2180,5 @@ module.exports = {
   exportSpeakingResearchCsv,
   normalizeText,
   tokenize,
+  normalizeStudentId,
 };

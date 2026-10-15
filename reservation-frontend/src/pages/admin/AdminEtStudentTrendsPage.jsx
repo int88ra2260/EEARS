@@ -13,6 +13,7 @@ import { P } from '../../constants/permissions';
 import { hasPermission } from '../../utils/accessControl';
 import { getSemesterOptions } from '../../utils/adminReportUtils';
 import { fetchStudentEtTrends } from '../../services/etGroupingApi';
+import EtOutcomeReadingGuide from '../../components/etGrouping/EtOutcomeReadingGuide';
 
 export default function AdminEtStudentTrendsPage() {
   const { token, accessProfile } = useOutletContext();
@@ -70,6 +71,14 @@ export default function AdminEtStudentTrendsPage() {
 
   const trend = data?.trend || {};
   const links = data?.links || {};
+  const exam = data?.examComparison || null;
+
+  const formatSigned = (value) => {
+    if (value == null || value === '') return '—';
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '—';
+    return n > 0 ? `+${n}` : `${n}`;
+  };
 
   return (
     <div className="admin-et-student-trends-page">
@@ -78,6 +87,8 @@ export default function AdminEtStudentTrendsPage() {
           返回場次報表
         </Button>
       </div>
+
+      <EtOutcomeReadingGuide items={data?.readingGuide} />
 
       <Card className="mb-3">
         <Card.Body>
@@ -178,6 +189,39 @@ export default function AdminEtStudentTrendsPage() {
             </Col>
           </Row>
 
+          {exam ? (
+            <Card className="mb-3">
+              <Card.Body>
+                <div className="fw-semibold mb-2">同測英檢對照</div>
+                {exam.hasGrowth ? (
+                  <Row className="g-3">
+                    <Col md={3}>
+                      <div className="text-muted small">前測 → 後測</div>
+                      <div>{exam.preDate || '—'} → {exam.postDate || '—'}</div>
+                    </Col>
+                    <Col md={3}>
+                      <div className="text-muted small">平均原始分差</div>
+                      <div className="fw-semibold">{formatSigned(exam.avgRawDelta)}</div>
+                    </Col>
+                    <Col md={3}>
+                      <div className="text-muted small">平均 GSE 差</div>
+                      <div className="fw-semibold">{formatSigned(exam.avgGseDelta)}</div>
+                    </Col>
+                    <Col md={3}>
+                      <div className="text-muted small">配對筆數</div>
+                      <div>{exam.pairCount || 0}</div>
+                    </Col>
+                  </Row>
+                ) : (
+                  <div className="text-muted">最新分析快照沒有可計算的同測前後測。任務完成率仍可單獨看。</div>
+                )}
+                {exam.resolutionWarning?.reason ? (
+                  <Alert variant="warning" className="small mt-3 mb-0">{exam.resolutionWarning.reason}</Alert>
+                ) : null}
+              </Card.Body>
+            </Card>
+          ) : null}
+
           {data.disclaimer ? (
             <Alert variant="light" className="border small">{data.disclaimer}</Alert>
           ) : null}
@@ -193,6 +237,8 @@ export default function AdminEtStudentTrendsPage() {
                   <th>能力帶</th>
                   <th>簽到</th>
                   <th>任務完成</th>
+                  <th>相對考試</th>
+                  <th>口說練習</th>
                 </tr>
               </thead>
               <tbody>
@@ -209,10 +255,12 @@ export default function AdminEtStudentTrendsPage() {
                     </td>
                     <td>{point.checkinStatus || '—'}</td>
                     <td>
-                      {point.taskTotal
-                        ? `${point.taskCompleted || 0}/${point.taskTotal} (${point.taskCompletionRate ?? '—'}%)`
+                      {point.taskCompletionRate != null
+                        ? `${point.taskCompleted || 0}/${point.taskTotal} (${point.taskCompletionRate}%)`
                         : '—'}
                     </td>
+                    <td>{point.examTiming?.label || '—'}</td>
+                    <td>{point.practiceMove || '未練'}</td>
                   </tr>
                 ))}
               </tbody>

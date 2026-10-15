@@ -100,6 +100,23 @@ export default function EtStudentParticipationPanel({
         </div>
       </div>
 
+      {insights.examComparison?.hasGrowth ? (
+        <p className="small mb-2">
+          同測原始分平均
+          {' '}
+          {Number(insights.examComparison.avgRawDelta) > 0 ? '+' : ''}
+          {insights.examComparison.avgRawDelta ?? '—'}
+          {insights.examComparison.preDate
+            ? `（${insights.examComparison.preDate} → ${insights.examComparison.postDate || '—'}）`
+            : ''}
+          {insights.examComparison.resolutionWarning?.reason
+            ? `。${insights.examComparison.resolutionWarning.reason}`
+            : ''}
+        </p>
+      ) : (
+        <p className="small text-muted mb-2">最新分析快照沒有可計算的同測前後測。</p>
+      )}
+
       {insights.disclaimer ? (
         <p className="small text-muted mb-2">{insights.disclaimer}</p>
       ) : null}
@@ -114,6 +131,7 @@ export default function EtStudentParticipationPanel({
                 <th>組別</th>
                 <th>簽到</th>
                 <th>任務</th>
+                <th>口說練習</th>
               </tr>
             </thead>
             <tbody>
@@ -134,6 +152,7 @@ export default function EtStudentParticipationPanel({
                       ? `${session.taskCompleted || 0}/${session.taskTotal}`
                       : '—'}
                   </td>
+                  <td>{session.practiceMove || '未練'}</td>
                 </tr>
               ))}
             </tbody>

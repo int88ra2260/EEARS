@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import EnglishTableTopicPanel from './EnglishTableTopicPanel';
 
 vi.mock('../../context/LanguageContext', () => ({
@@ -38,5 +39,32 @@ describe('EnglishTableTopicPanel', () => {
     );
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  test('shows the last saved sentence for a practiced question', () => {
+    render(
+      <MemoryRouter>
+        <EnglishTableTopicPanel
+          date="2026-10-05"
+          eventType="english_table"
+          defaultOpen
+          practiceByQuestion={{
+            1: {
+              heard: 'I bought a book online.',
+              say: 'I bought a book online because ______.',
+              phraseId: 'pb_et_009',
+            },
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('看上次的說法')).toBeInTheDocument();
+    expect(screen.getByText('I bought a book online.')).toBeInTheDocument();
+    expect(screen.getByText('I bought a book online because ______.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '打開這張句庫卡' })).toHaveAttribute(
+      'href',
+      '/guides/activity-phrasebook/english-table#pb_et_009',
+    );
   });
 });

@@ -126,6 +126,44 @@
   background: #dcecff;
 }
 
+.et-topic__recall {
+  display: block;
+  margin: 0.4rem 0 0.15rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: #fff;
+  color: #243244;
+}
+
+.et-topic__recall summary {
+  cursor: pointer;
+  color: #315d8f;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.et-topic__recall p {
+  margin: 0.4rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.et-topic__recall span {
+  display: block;
+  margin-bottom: 0.1rem;
+  color: #6b5e54;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.et-topic__recall a {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: #2a5d9f;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .et-topic__catalog {
   margin: 0.85rem 0 0;
   font-size: 0.88rem;

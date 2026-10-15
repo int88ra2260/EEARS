@@ -9,6 +9,7 @@ import {
   fetchEventTaskMarks,
   saveEventTaskMarks,
 } from '../../../../services/etGroupingApi';
+import { notifyLeaderMarkingAttention } from '../../../../hooks/useLeaderMarkingAttention';
 import { showErrorMessage, showSuccessMessage } from '../../../../utils/errorHandler';
 import { isEnglishTableEventType } from '../../../../utils/eventCapacityFields';
 
@@ -99,6 +100,7 @@ export default function AdminEventTaskMarksTab({ tabProps }) {
       });
       const data = await saveEventTaskMarks(token, eventId, marks);
       setMatrix(data);
+      notifyLeaderMarkingAttention();
       showSuccessMessage('任務勾選已儲存');
     } catch (e) {
       showErrorMessage(e.message || '儲存失敗');
@@ -134,9 +136,11 @@ export default function AdminEventTaskMarksTab({ tabProps }) {
         <div className="small text-muted mb-1">勾選說明</div>
         <div>
           僅已簽到學生可勾選。任務項目依學生能力帶別自動篩選。
-          {matrix?.markingOpen
-            ? ` 補登期限：活動結束後 ${matrix.markingGraceDays} 天內。`
-            : ' 補登期限已過，僅能檢視。'}
+          {matrix?.markingExtendedUntil
+            ? ` 行政已開放補勾到 ${new Date(matrix.markingExtendedUntil).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}。這是例外，離活動當天越遠越不能代表現場。`
+            : matrix?.markingOpen
+              ? ' 請在離場前勾完。活動當下最準，超過結束後 3 天就不能再勾，也不會計薪。'
+              : ' 補登期限已過，目前只能看。若這場還沒勾完，請聯絡行政開放補勾。'}
         </div>
         {matrix?.scope === 'leader' && matrix.leaderGroups?.length > 0 && (
           <div className="small mt-2">

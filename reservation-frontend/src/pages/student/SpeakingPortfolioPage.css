@@ -189,6 +189,23 @@
   font-size: 0.75rem;
 }
 
+.speaking-portfolio-attempt__line {
+  margin-top: 0.65rem;
+}
+
+.speaking-portfolio-attempt__line span {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: #647386;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.speaking-portfolio-attempt__line p {
+  margin: 0;
+  color: #243244;
+}
+
 .speaking-portfolio-empty {
   padding: 1rem;
   color: #647386;

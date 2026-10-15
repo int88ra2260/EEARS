@@ -24,6 +24,11 @@ const etStudentTrendService = require('../services/etGrouping/etStudentTrendServ
 const etActivityRecommendationService = require('../services/etGrouping/etActivityRecommendationService');
 const etLeaderAttendanceService = require('../services/etGrouping/etLeaderAttendanceService');
 const etLeaderPayrollService = require('../services/etGrouping/etLeaderPayrollService');
+const {
+  setPayRelease,
+  setMarkingExtension,
+  listLeaderMarkingAttention,
+} = require('../services/etGrouping/etLeaderPayGate');
 const auditLogService = require('../services/auditLogService');
 
 async function loadEventForAccess(req, res, next) {
@@ -496,6 +501,20 @@ router.get(
 );
 
 router.get(
+  '/my-sessions/attention',
+  authMiddleware,
+  requirePermission(P.CAN_MARK_ET_SESSION_TASKS),
+  async (req, res, next) => {
+    try {
+      const data = await listLeaderMarkingAttention(req.user?.id);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.get(
   '/my-sessions',
   authMiddleware,
   requirePermission(P.CAN_MARK_ET_SESSION_TASKS),
@@ -563,6 +582,82 @@ router.get('/payroll/monthly', payrollViewAuth, async (req, res, next) => {
     return handleServiceError(res, err, next);
   }
 });
+
+router.get(
+  '/payroll/me',
+  authMiddleware,
+  requirePermission(P.CAN_MARK_ET_SESSION_TASKS),
+  async (req, res, next) => {
+    try {
+      const data = await etLeaderPayrollService.buildMyPayroll({
+        leaderTeacherId: req.user?.id,
+        yearMonth: req.query.yearMonth || req.query.month,
+      });
+      res.json({ success: true, data });
+    } catch (err) {
+      return handleServiceError(res, err, next);
+    }
+  }
+);
+
+router.put(
+  '/payroll/marking-extensions',
+  authMiddleware,
+  requirePermission(P.CAN_MANAGE_ET_GROUPING),
+  async (req, res, next) => {
+    try {
+      const data = await setMarkingExtension({
+        eventId: req.body?.eventId,
+        leaderTeacherId: req.body?.leaderTeacherId,
+        note: req.body?.note,
+        until: req.body?.until,
+        open: req.body?.open !== false,
+        userId: req.user?.id,
+      });
+      auditLogService.logAuditAsync({
+        module: 'et_grouping',
+        action: data.markingOpenUntil ? 'open_leader_marking_extension' : 'revoke_leader_marking_extension',
+        entityType: 'EtLeaderAttendance',
+        entityId: Number(req.body?.eventId),
+        targetSummary: `eventId=${req.body?.eventId};leader=${req.body?.leaderTeacherId}`,
+        afterData: data,
+        req,
+      });
+      res.json({ success: true, data });
+    } catch (err) {
+      return handleServiceError(res, err, next);
+    }
+  }
+);
+
+router.put(
+  '/payroll/releases',
+  authMiddleware,
+  requirePermission(P.CAN_MANAGE_ET_GROUPING),
+  async (req, res, next) => {
+    try {
+      const data = await setPayRelease({
+        eventId: req.body?.eventId,
+        leaderTeacherId: req.body?.leaderTeacherId,
+        note: req.body?.note,
+        released: req.body?.released !== false,
+        userId: req.user?.id,
+      });
+      auditLogService.logAuditAsync({
+        module: 'et_grouping',
+        action: data.payReleasedAt ? 'release_leader_pay' : 'revoke_leader_pay_release',
+        entityType: 'EtLeaderAttendance',
+        entityId: Number(req.body?.eventId),
+        targetSummary: `eventId=${req.body?.eventId};leader=${req.body?.leaderTeacherId}`,
+        afterData: data,
+        req,
+      });
+      res.json({ success: true, data });
+    } catch (err) {
+      return handleServiceError(res, err, next);
+    }
+  }
+);
 
 router.get(
   '/payroll/monthly/export',

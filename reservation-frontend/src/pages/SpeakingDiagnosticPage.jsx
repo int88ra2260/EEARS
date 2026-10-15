@@ -5,6 +5,7 @@ import PageHeader from '../components/layout/PageHeader';
 import { createSpeakingAdaptiveSession, fetchNextSpeakingTask, fetchSpeakingTasks, submitSpeakingAttempt } from '../services/speakingDiagnosticApi';
 import { saveSpeakingPortfolioAttempt } from '../services/speakingPortfolioStore';
 import { englishTableFollowUp, englishTablePhraseTips } from '../utils/englishTableFollowUp';
+import { getPhrasebookItemById } from '../data/learningContent/phrasebookItems';
 import { SPEAKING_TASKS } from '../data/speakingDiagnostic/readAloudTasks';
 import './SpeakingDiagnosticPage.css';
 
@@ -279,12 +280,21 @@ function getTaskInstruction(task) {
   return '請說明你的看法，並給一個理由。';
 }
 
-function EnglishTableNextLine({ transcript, prompt }) {
-  const followUp = englishTableFollowUp(transcript, prompt);
-  const item = englishTablePhraseTips(transcript, prompt)[0];
+function EnglishTableNextLine({ transcript, prompt, comparison, practiceNote }) {
+  const followUp = practiceNote?.say
+    ? {
+      cue: practiceNote.cue || '',
+      say: practiceNote.say,
+      phraseIds: practiceNote.phraseId ? [practiceNote.phraseId] : [],
+    }
+    : englishTableFollowUp(transcript, prompt);
+  const item = followUp.phraseIds[0]
+    ? getPhrasebookItemById(followUp.phraseIds[0])
+    : englishTablePhraseTips(transcript, prompt)[0];
 
   return (
     <div className="speaking-next-line">
+      {comparison?.message ? <p className="speaking-next-line__lead">{comparison.message}</p> : null}
       <p className="speaking-next-line__lead">{followUp.cue}</p>
       {followUp.say ? (
         <div className="speaking-next-line__phrase">
@@ -584,6 +594,8 @@ export default function SpeakingDiagnosticPage() {
       });
       setResult(data);
       const scores = data.presentationScores || data.automatedScores?.presentationScores || {};
+      const note = data.practiceNote || null;
+      const heard = String(note?.heard || data.transcript || '').replace(/\s+/g, ' ').trim().slice(0, 500);
       saveSpeakingPortfolioAttempt({
         attemptUid: data.attemptUid,
         taskKey: selectedTask.taskKey || selectedTask.id,
@@ -599,8 +611,14 @@ export default function SpeakingDiagnosticPage() {
         ideaDevelopmentPercent: scores.ideaDevelopmentPercent,
         transcriptWordCount: data.features?.transcriptWordCount,
         speechRateWpm: data.features?.speechRateWpm,
-        advice: getResultMessage(scores.completionPercent),
+        advice: note?.cue || getResultMessage(scores.completionPercent),
         href: `${location.pathname}${location.search}`,
+        heard,
+        say: note?.say || '',
+        phraseId: note?.phraseId || '',
+        cue: note?.cue || '',
+        activityDate: activityDate || '',
+        questionNumber: activityQuestionNumber || '',
       });
       setPortfolioSaved(true);
       const completed = Array.from(new Set([...completedTaskKeys, selectedTask.taskKey || selectedTask.id]));
@@ -768,14 +786,17 @@ export default function SpeakingDiagnosticPage() {
         <section className="speaking-tool">
           <div className="speaking-tool__sidebar">
             <div className="speaking-side-section">
-              <label className="form-label fw-semibold" htmlFor="speaking-student-id">學號（選填）</label>
+              <label className="form-label fw-semibold" htmlFor="speaking-student-id">
+                {isEnglishTableTask ? '學號（請填，Leader 才對得到你）' : '學號（選填）'}
+              </label>
               <input
                 id="speaking-student-id"
                 className="form-control"
                 value={studentId}
                 onChange={(event) => setStudentId(event.target.value)}
-                placeholder="例如 412345678"
-                inputMode="numeric"
+                placeholder={isEnglishTableTask ? '例如 B141030028' : '例如 412345678'}
+                inputMode={isEnglishTableTask ? 'text' : 'numeric'}
+                autoCapitalize="characters"
               />
             </div>
 
@@ -984,7 +1005,7 @@ export default function SpeakingDiagnosticPage() {
                   重新送出
                 </button>
               ) : null}
-              {portfolioSaved && !selectedIsEnglishTableQuestion ? (
+              {portfolioSaved ? (
                 <Link className="btn btn-outline-primary" to="/student/speaking-portfolio">
                   查看口說紀錄
                 </Link>
@@ -1005,7 +1026,12 @@ export default function SpeakingDiagnosticPage() {
                       <span>系統聽到</span>
                       <p>{String(result.transcript || '').trim() || '沒有辨識到英文。'}</p>
                     </div>
-                    <EnglishTableNextLine transcript={result.transcript} prompt={selectedTask?.prompt || ''} />
+                    <EnglishTableNextLine
+                      transcript={result.transcript}
+                      prompt={selectedTask?.prompt || ''}
+                      comparison={result.practiceComparison}
+                      practiceNote={result.practiceNote}
+                    />
                     <div className="speaking-next-task">
                       <div>
                         <strong>同一題</strong>

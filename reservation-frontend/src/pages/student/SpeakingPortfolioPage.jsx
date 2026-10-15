@@ -63,7 +63,7 @@ export default function SpeakingPortfolioPage() {
           <div>
             <p className="speaking-portfolio-kicker">Speaking Portfolio</p>
             <h2>我的口說紀錄</h2>
-            <p>這裡只保留你主動收藏的題目卡和本機練習摘要；不會取代正式學習歷程。</p>
+            <p>這台瀏覽器會留下聽到的句子和建議說法。換手機或清掉瀏覽資料後，請到「我的英語進度」用學號、姓名、Email 再查一次。</p>
           </div>
           <div className="speaking-portfolio-stats">
             <div><strong>{stats.cards}</strong><span>收藏卡</span></div>
@@ -131,8 +131,27 @@ export default function SpeakingPortfolioPage() {
                       <div><strong>{formatPercent(attempt.overallPercent)}</strong><span>總分</span></div>
                       <div><strong>{formatPercent(attempt.completionPercent ?? attempt.overallPercent)}</strong><span>完成度</span></div>
                     </div>
+                    {attempt.heard ? (
+                      <div className="speaking-portfolio-attempt__line">
+                        <span>系統聽到</span>
+                        <p>{attempt.heard}</p>
+                      </div>
+                    ) : null}
+                    {attempt.say ? (
+                      <div className="speaking-portfolio-attempt__line">
+                        <span>可以接這句</span>
+                        <p>{attempt.say}</p>
+                      </div>
+                    ) : null}
                     {attempt.advice ? <p>{attempt.advice}</p> : null}
-                    {attempt.href ? <Link className="btn btn-sm btn-outline-primary" to={attempt.href}>再練一次</Link> : null}
+                    <div className="speaking-portfolio-card__actions">
+                      {attempt.phraseId ? (
+                        <Link className="btn btn-sm btn-outline-primary" to={`/guides/activity-phrasebook/english-table#${attempt.phraseId}`}>
+                          句庫卡片
+                        </Link>
+                      ) : null}
+                      {attempt.href ? <Link className="btn btn-sm btn-outline-primary" to={attempt.href}>再練一次</Link> : null}
+                    </div>
                   </article>
                 ))}
               </div>

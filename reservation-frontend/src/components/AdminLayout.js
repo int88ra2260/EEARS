@@ -179,6 +179,7 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
         <AdminSidebar
           pathname={location.pathname}
           navContext={navContext}
+          token={token}
           mobileOpen={!isMobileNav || mobileMenuOpen}
           onNavigate={() => isMobileNav && setMobileMenuOpen(false)}
         />

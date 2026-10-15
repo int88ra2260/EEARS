@@ -1,29 +1,36 @@
 'use strict';
 
+const { Op } = require('sequelize');
 const { Reservation, Event, EtEventGroupAssignment, EtSessionTaskMark } = require('../../models');
 const { getSemesterInfo } = require('../../utils/eventSemesterFromDate');
 const { listTaskTemplate } = require('./etTaskTemplateService');
 const { filterTasksForBand } = require('./etTaskScope');
+const { computeApplicableCompletion, isCheckedInStatus } = require('./etTaskCompletion');
 const { ENGLISH_TABLE_EVENT_TYPE_ALIASES } = require('../../utils/eventCapacity');
-const { Op } = require('sequelize');
+const {
+  OBSERVATION_DISCLAIMER,
+  READING_GUIDE,
+  classifySessionTiming,
+} = require('./etExamObservation');
+const { loadLatestExamsByStudent, summaryForStudent } = require('./etExamObservationLoader');
+const {
+  loadEnglishTableAttempts,
+  summarizeStudentPractice,
+  formatPracticeMove,
+} = require('./etPracticeProgress');
 
-async function computeCompletion(eventId, reservationId, bandCode, semesterId) {
-  const [marks, templateData] = await Promise.all([
-    EtSessionTaskMark.findAll({
-      where: { eventId, reservationId, completed: true },
-      attributes: ['id'],
-    }),
-    listTaskTemplate({ semesterId }),
-  ]);
-  const applicable = filterTasksForBand(templateData.items || [], bandCode);
-  const total = applicable.length;
-  if (!total) return { completed: 0, total: 0, rate: null };
-  const completed = marks.length;
-  return {
-    completed,
-    total,
-    rate: Math.round((completed / total) * 1000) / 10,
-  };
+async function loadTemplates(semesterIds) {
+  const cache = new Map();
+  await Promise.all([...semesterIds].map(async (semesterId) => {
+    const key = semesterId == null ? 'null' : String(semesterId);
+    cache.set(key, await listTaskTemplate({ semesterId }));
+  }));
+  return cache;
+}
+
+function templateItems(cache, semesterId) {
+  const key = semesterId == null ? 'null' : String(semesterId);
+  return cache.get(key)?.items || [];
 }
 
 async function getStudentEtTrends(studentId, { semesterLabel = null } = {}) {
@@ -41,22 +48,52 @@ async function getStudentEtTrends(studentId, { semesterLabel = null } = {}) {
     order: [[{ model: Event }, 'date', 'ASC'], ['id', 'ASC']],
   });
 
-  const points = [];
-  for (const reservation of reservations) {
+  const selected = reservations.filter((reservation) => {
+    if (!semesterLabel || semesterLabel === 'all') return true;
+    return getSemesterInfo(reservation.Event.date) === semesterLabel;
+  });
+
+  const reservationIds = selected.map((reservation) => reservation.id);
+  const semesterIds = new Set(selected.map((reservation) => reservation.Event.semesterId));
+  const [assignments, marks, templates, examLoad, practiceAttempts] = await Promise.all([
+    reservationIds.length
+      ? EtEventGroupAssignment.findAll({ where: { reservationId: { [Op.in]: reservationIds } } })
+      : [],
+    reservationIds.length
+      ? EtSessionTaskMark.findAll({
+        where: { reservationId: { [Op.in]: reservationIds }, completed: true },
+        attributes: ['reservationId', 'taskItemId', 'completed'],
+      })
+      : [],
+    loadTemplates(semesterIds),
+    loadLatestExamsByStudent([sid]),
+    loadEnglishTableAttempts([sid]),
+  ]);
+
+  const assignmentByReservation = new Map(assignments.map((row) => [row.reservationId, row]));
+  const marksByReservation = new Map();
+  for (const mark of marks) {
+    if (!marksByReservation.has(mark.reservationId)) marksByReservation.set(mark.reservationId, []);
+    marksByReservation.get(mark.reservationId).push(mark);
+  }
+
+  const examComparison = {
+    ...summaryForStudent(examLoad.byStudent, sid),
+    snapshotVersion: examLoad.snapshotVersion,
+  };
+
+  const points = selected.map((reservation) => {
     const event = reservation.Event;
-    if (semesterLabel && semesterLabel !== 'all' && getSemesterInfo(event.date) !== semesterLabel) {
-      continue;
-    }
-    const assignment = await EtEventGroupAssignment.findOne({
-      where: { eventId: event.id, reservationId: reservation.id },
-    });
-    const taskStats = await computeCompletion(
-      event.id,
-      reservation.id,
-      assignment?.bandCode || null,
-      event.semesterId
+    const assignment = assignmentByReservation.get(reservation.id) || null;
+    const checkedIn = isCheckedInStatus(reservation.checkinStatus);
+    const applicable = filterTasksForBand(templateItems(templates, event.semesterId), assignment?.bandCode || null);
+    const taskStats = computeApplicableCompletion(
+      applicable,
+      marksByReservation.get(reservation.id) || [],
+      { checkedIn }
     );
-    points.push({
+    const examTiming = classifySessionTiming(event.date, examComparison);
+    return {
       eventId: event.id,
       eventName: event.name,
       date: event.date,
@@ -68,15 +105,17 @@ async function getStudentEtTrends(studentId, { semesterLabel = null } = {}) {
       taskCompleted: taskStats.completed,
       taskTotal: taskStats.total,
       taskCompletionRate: taskStats.rate,
-    });
-  }
+      examTiming,
+      practiceMove: formatPracticeMove(summarizeStudentPractice(practiceAttempts, event.date)),
+    };
+  });
 
-  const rates = points.map((p) => p.taskCompletionRate).filter((v) => v != null);
+  const rates = points.map((point) => point.taskCompletionRate).filter((value) => value != null);
   const trend = {
     sessionCount: points.length,
-    checkedInCount: points.filter((p) => p.checkinStatus === '已簽到').length,
+    checkedInCount: points.filter((point) => point.checkinStatus === '已簽到').length,
     avgCompletionRate: rates.length
-      ? Math.round((rates.reduce((a, b) => a + b, 0) / rates.length) * 10) / 10
+      ? Math.round((rates.reduce((sum, value) => sum + value, 0) / rates.length) * 10) / 10
       : null,
     latestCompletionRate: rates.length ? rates[rates.length - 1] : null,
   };
@@ -86,11 +125,13 @@ async function getStudentEtTrends(studentId, { semesterLabel = null } = {}) {
     semesterLabel: semesterLabel || 'all',
     trend,
     points,
+    examComparison,
+    readingGuide: READING_GUIDE,
     links: {
       learningJourney: `/admin/learning-journey/students/${encodeURIComponent(sid)}`,
       learningAnalytics: `/admin/learning-analytics/students/${encodeURIComponent(sid)}`,
     },
-    disclaimer: '學期趨勢為觀察性統計，不代表學習成效因果。',
+    disclaimer: OBSERVATION_DISCLAIMER,
   };
 }
 

@@ -14,6 +14,12 @@ const EtLeaderAttendance = sequelize.define(
     method: { type: DataTypes.STRING(20), allowNull: false },
     markedBy: { type: DataTypes.INTEGER, allowNull: true, field: 'marked_by' },
     note: { type: DataTypes.STRING(255), allowNull: true },
+    payReleasedAt: { type: DataTypes.DATE, allowNull: true, field: 'pay_released_at' },
+    payReleaseNote: { type: DataTypes.STRING(255), allowNull: true, field: 'pay_release_note' },
+    payReleasedBy: { type: DataTypes.INTEGER, allowNull: true, field: 'pay_released_by' },
+    markingOpenUntil: { type: DataTypes.DATE, allowNull: true, field: 'marking_open_until' },
+    markingOpenNote: { type: DataTypes.STRING(255), allowNull: true, field: 'marking_open_note' },
+    markingOpenedBy: { type: DataTypes.INTEGER, allowNull: true, field: 'marking_opened_by' },
   },
   {
     tableName: 'et_leader_attendances',

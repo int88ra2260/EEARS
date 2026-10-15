@@ -28,6 +28,7 @@ const { Op } = require('sequelize');
 const auditLogService = require('../services/auditLogService');
 const { newImportBatchId } = require('../utils/importBatchId');
 const importRollbackManifestService = require('../services/importRollbackManifestService');
+const { attachEnglishTablePractice } = require('../services/studentSpeakingPracticeService');
 const notificationService = require('../services/notificationService');
 const reservationService = require('../services/reservationService');
 const waitlistService = require('../services/waitlistService');
@@ -724,6 +725,12 @@ router.get(
       endTime: r.Event ? r.Event.endTime : '',
       location: r.Event ? r.Event.location : null
     }));
+    let responseData = data;
+    try {
+      responseData = await attachEnglishTablePractice(data, studentId);
+    } catch (practiceErr) {
+      console.error('Reservation practice lookup failed:', practiceErr.message);
+    }
     publicLookupAudit(req, {
       action: 'reservation_public_lookup',
       entityType: 'Reservation',
@@ -732,9 +739,9 @@ router.get(
       payload: { studentId, studentName, studentEmail },
     });
     return genericLookupResponse(res, {
-      found: data.length > 0,
+      found: responseData.length > 0,
       message: 'Request processed.',
-      data,
+      data: responseData,
     });
   } catch (err) {
     console.error('查詢預約失敗:', err);

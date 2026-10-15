@@ -8,7 +8,7 @@ import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import Table from 'react-bootstrap/Table';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { P } from '../../constants/permissions';
 import { hasPermission } from '../../utils/accessControl';
 import { getSemesterOptions } from '../../utils/adminReportUtils';
@@ -18,6 +18,25 @@ import {
   fetchEtGroupingReportsSummary,
 } from '../../services/etGroupingApi';
 import { showErrorMessage, showSuccessMessage } from '../../utils/errorHandler';
+import EtOutcomeReadingGuide from '../../components/etGrouping/EtOutcomeReadingGuide';
+
+function formatPracticeCoverage(coverage) {
+  if (!coverage) return '—';
+  const pre = coverage.preStudentCount || 0;
+  const pair = coverage.pairStudentCount || 0;
+  if (!pair) return pre ? `會前 ${pre} 人` : '會前 0 人';
+  if (coverage.privacySuppressed) return `會前 ${pre} 人，前後都練 ${pair} 人，樣本不足`;
+  return `會前 ${pre} 人，前後都練 ${pair} 人，多了理由或例子：${coverage.gainedStudentCount ?? 0} 人`;
+}
+
+function formatExamCoverage(coverage) {
+  if (!coverage) return '—';
+  const count = coverage.growthSampleSize || 0;
+  if (!coverage.privacySuppressed) {
+    return `${count} 人，原始分平均 > 0：${coverage.improvedStudentCount ?? 0} 人`;
+  }
+  return count === 0 ? '0 人' : `${count} 人，樣本不足`;
+}
 
 export default function AdminEtGroupingReportsPage() {
   const { token, accessProfile } = useOutletContext();
@@ -86,7 +105,17 @@ export default function AdminEtGroupingReportsPage() {
         >
           學生學期趨勢
         </Button>
+        <Button
+          as={Link}
+          to="/admin/learning-analytics/offerings?dimension=activity"
+          variant="outline-secondary"
+          size="sm"
+        >
+          細項分析（個別活動）
+        </Button>
       </div>
+
+      <EtOutcomeReadingGuide items={summary?.readingGuide} />
 
       <Card className="mb-3 border-0 shadow-sm">
         <Card.Body>
@@ -147,6 +176,8 @@ export default function AdminEtGroupingReportsPage() {
                 <th>Leader 出席</th>
                 <th>學生已簽到</th>
                 <th>任務完成率</th>
+                <th>可計算前後測</th>
+                <th>口說練習</th>
                 <th />
               </tr>
             </thead>
@@ -171,6 +202,12 @@ export default function AdminEtGroupingReportsPage() {
                   <td>{row.taskStats?.checkedIn ?? 0}</td>
                   <td>
                     {row.taskStats?.completionRate != null ? `${row.taskStats.completionRate}%` : '—'}
+                  </td>
+                  <td className="small">
+                    {formatExamCoverage(row.examCoverage)}
+                  </td>
+                  <td className="small">
+                    {formatPracticeCoverage(row.practiceCoverage)}
                   </td>
                   <td>
                     <Button

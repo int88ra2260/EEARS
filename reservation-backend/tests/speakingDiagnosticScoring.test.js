@@ -1,6 +1,18 @@
 'use strict';
 
-const { buildAutomatedAnalysis, resolveAttemptTranscript } = require('../services/speakingDiagnosticService');
+const { buildAutomatedAnalysis, resolveAttemptTranscript, normalizeStudentId } = require('../services/speakingDiagnosticService');
+
+describe('normalizeStudentId', () => {
+  it('accepts a campus id and a numeric id', () => {
+    expect(normalizeStudentId(' b141030028 ')).toBe('B141030028');
+    expect(normalizeStudentId('412345678')).toBe('412345678');
+    expect(normalizeStudentId('')).toBeNull();
+  });
+
+  it('rejects an id that is neither form', () => {
+    expect(() => normalizeStudentId('ABC')).toThrow(/學號格式不正確/);
+  });
+});
 
 const TARGET = 'The library is open until eight';
 

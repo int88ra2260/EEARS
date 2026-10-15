@@ -13,6 +13,19 @@ const { listGroupLeaders } = require('./etLeaderService');
 const { buildPreferenceAssignmentsForEvent } = require('./etLeaderPreferenceService');
 const etSessionTaskService = require('./etSessionTaskService');
 const { computeTaskStatsFromMatrix } = require('./etGroupingExportService');
+const { isCheckedInStatus } = require('./etTaskCompletion');
+const {
+  READING_GUIDE,
+  OBSERVATION_DISCLAIMER,
+  summarizeEventExamCoverage,
+} = require('./etExamObservation');
+const { loadLatestExamsByStudent, summaryForStudent } = require('./etExamObservationLoader');
+const {
+  loadEnglishTableAttempts,
+  attemptsByStudent,
+  summarizeStudentPractice,
+  summarizeEventPracticeCoverage,
+} = require('./etPracticeProgress');
 
 async function queryEtEvents({
   semesterId = null,
@@ -64,6 +77,8 @@ async function buildEventReportRow(event) {
     groupStatsMap.get(label).studentCount += 1;
   }
 
+  let reservationCount = assignments.length;
+  let checkedInStudentIds = [];
   let taskStats = {
     checkedIn: 0,
     eligibleMarks: 0,
@@ -76,6 +91,11 @@ async function buildEventReportRow(event) {
       canMark: true,
     });
     taskStats = computeTaskStatsFromMatrix(matrix);
+    reservationCount = (matrix.students || []).length;
+    checkedInStudentIds = (matrix.students || [])
+      .filter((student) => isCheckedInStatus(student.checkinStatus))
+      .map((student) => student.studentId)
+      .filter(Boolean);
   } catch (_err) {
     // 無任務模板或尚未設定時略過
   }
@@ -113,7 +133,8 @@ async function buildEventReportRow(event) {
     semesterId: event.semesterId,
     groupingMode: event.groupingMode || 'legacy_sequential',
     groupCount,
-    reservationCount: assignments.length,
+    reservationCount,
+    checkedInStudentIds,
     leaderCount: groupLeaders.filter((row) => row.leaderTeacherId).length,
     leaders: groupLeaders,
     groups: Array.from(groupStatsMap.values()).sort((a, b) => a.groupLabel.localeCompare(b.groupLabel, 'zh-Hant')),
@@ -123,13 +144,67 @@ async function buildEventReportRow(event) {
   };
 }
 
+async function attachExamCoverage(rows) {
+  const studentIds = [];
+  for (const row of rows) {
+    for (const studentId of row.checkedInStudentIds || []) studentIds.push(studentId);
+  }
+  let examLoad = { snapshotVersion: null, byStudent: new Map() };
+  try {
+    examLoad = await loadLatestExamsByStudent(studentIds);
+  } catch (_err) {
+    examLoad = { snapshotVersion: null, byStudent: new Map() };
+  }
+  return rows.map((row) => {
+    const summaries = (row.checkedInStudentIds || []).map((studentId) => (
+      summaryForStudent(examLoad.byStudent, studentId)
+    ));
+    const rest = { ...row };
+    delete rest.checkedInStudentIds;
+    return {
+      ...rest,
+      examCoverage: {
+        ...summarizeEventExamCoverage(summaries),
+        snapshotVersion: examLoad.snapshotVersion,
+      },
+    };
+  });
+}
+
+async function attachPracticeCoverage(rows) {
+  const studentIds = [];
+  for (const row of rows) {
+    for (const studentId of row.checkedInStudentIds || []) studentIds.push(studentId);
+  }
+  let attempts = [];
+  try {
+    attempts = await loadEnglishTableAttempts(studentIds);
+  } catch (_err) {
+    attempts = [];
+  }
+  const byStudent = attemptsByStudent(attempts);
+  return rows.map((row) => {
+    const summaries = (row.checkedInStudentIds || []).map((studentId) => (
+      summarizeStudentPractice(byStudent.get(String(studentId).trim()) || [], row.date)
+    ));
+    return {
+      ...row,
+      practiceCoverage: summarizeEventPracticeCoverage(summaries),
+    };
+  });
+}
+
 async function getReportsSummary(filters = {}) {
   const events = await queryEtEvents(filters);
   const rows = await Promise.all(events.map((event) => buildEventReportRow(event)));
+  const withPractice = await attachPracticeCoverage(rows);
+  const withCoverage = await attachExamCoverage(withPractice);
   return {
     filters,
-    totalEvents: rows.length,
-    events: rows,
+    totalEvents: withCoverage.length,
+    events: withCoverage,
+    readingGuide: READING_GUIDE,
+    disclaimer: OBSERVATION_DISCLAIMER,
   };
 }
 
@@ -184,10 +259,36 @@ async function listMyLeaderSessions(teacherId, filters = {}) {
   }));
 
   const etLeaderAttendanceService = require('./etLeaderAttendanceService');
+  const { loadPayGateMap } = require('./etLeaderPayGate');
   const attendanceMap = await etLeaderAttendanceService.getAttendanceMapForEvents(
     sessions.map((s) => s.eventId),
     teacherId
   );
+  const attendances = [];
+  const groupLabelMap = new Map();
+  sessions.forEach((item) => {
+    const attendance = attendanceMap.get(`${item.eventId}:${teacherId}`) || null;
+    groupLabelMap.set(`${item.eventId}:${teacherId}`, item.groupLabels);
+    if (attendance) {
+      attendances.push({ ...attendance, eventId: item.eventId, leaderTeacherId: teacherId });
+    }
+  });
+  let payGates = new Map();
+  try {
+    payGates = await loadPayGateMap({
+      events: sessions.map((item) => ({
+        id: item.eventId,
+        date: item.date,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        semesterId: item.semesterId,
+      })),
+      attendances,
+      groupLabelMap,
+    });
+  } catch (err) {
+    console.error('Leader session pay gate failed:', err.message);
+  }
 
   return sessions.map((item) => {
     const attendance = attendanceMap.get(`${item.eventId}:${teacherId}`) || null;
@@ -204,6 +305,15 @@ async function listMyLeaderSessions(teacherId, filters = {}) {
       ...item,
       attendance,
       derivedStatus,
+      payGate: payGates.get(`${item.eventId}:${teacherId}`) || {
+        status: 'unchecked',
+        payable: false,
+        checkedInCount: 0,
+        incompleteCount: 0,
+        markingOpen: false,
+        daysLeft: null,
+        releaseNote: null,
+      },
     };
   });
 }
@@ -225,10 +335,16 @@ async function writeReportsSummaryExcel(filters, res) {
     { header: 'Leader遲到', key: 'leaderLate', width: 10 },
     { header: '已簽到', key: 'checkedIn', width: 8 },
     { header: '任務完成率%', key: 'completionRate', width: 14 },
+    { header: '可計算前後測人數', key: 'growthSampleSize', width: 18 },
+    { header: '原始分平均進步人數', key: 'improvedStudentCount', width: 20 },
+    { header: '會前練習人數', key: 'preStudentCount', width: 14 },
+    { header: '同一題前後都練人數', key: 'pairStudentCount', width: 20 },
+    { header: '活動後多了理由或例子人數', key: 'gainedStudentCount', width: 26 },
     { header: '分組模式', key: 'groupingMode', width: 14 },
   ];
 
   for (const row of summary.events) {
+    const coverage = row.examCoverage || {};
     sheet.addRow({
       eventId: row.eventId,
       name: row.name,
@@ -242,6 +358,15 @@ async function writeReportsSummaryExcel(filters, res) {
       leaderLate: row.leaderAttendance?.late ?? '',
       checkedIn: row.taskStats.checkedIn,
       completionRate: row.taskStats.completionRate ?? '',
+      growthSampleSize: coverage.growthSampleSize ?? 0,
+      improvedStudentCount: coverage.privacySuppressed
+        ? '樣本不足'
+        : (coverage.improvedStudentCount ?? ''),
+      preStudentCount: row.practiceCoverage?.preStudentCount ?? 0,
+      pairStudentCount: row.practiceCoverage?.pairStudentCount ?? 0,
+      gainedStudentCount: row.practiceCoverage?.privacySuppressed
+        ? '樣本不足'
+        : (row.practiceCoverage?.gainedStudentCount ?? ''),
       groupingMode: row.groupingMode,
     });
   }

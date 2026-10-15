@@ -66,6 +66,7 @@ export default function ReservationResultCard({
           defaultOpen={false}
           showPracticeLinks
           showReviewLinks
+          practiceByQuestion={record.practiceByQuestion}
         />
       </div>
       <div className="reservation-result-card-actions">

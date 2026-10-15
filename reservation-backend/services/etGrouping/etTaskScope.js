@@ -1,6 +1,8 @@
 'use strict';
 
 const MARKING_GRACE_DAYS = 3;
+const MARKING_EXTENSION_DEFAULT_DAYS = 2;
+const MARKING_EXTENSION_MAX_DAYS = 7;
 
 const B1_PLUS_BANDS = new Set(['ET-B1', 'ET-B2', 'ET-C1']);
 const B2_PLUS_BANDS = new Set(['ET-B2', 'ET-C1']);
@@ -42,6 +44,55 @@ function isMarkingWindowOpen(event, { now = new Date(), graceDays = MARKING_GRAC
   return now <= deadline;
 }
 
+function parseTimestamp(value) {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function markingDeadlineMs(event, attendance, { graceDays = MARKING_GRACE_DAYS } = {}) {
+  const endAt = parseEventEndDate(event);
+  const graceMs = endAt ? endAt.getTime() + graceDays * 24 * 60 * 60 * 1000 : null;
+  const extension = parseTimestamp(attendance?.markingOpenUntil);
+  if (graceMs == null && !extension) return null;
+  return Math.max(graceMs || 0, extension ? extension.getTime() : 0);
+}
+
+function isLeaderMarkingOpen(event, attendance, { now = new Date(), graceDays = MARKING_GRACE_DAYS } = {}) {
+  const deadline = markingDeadlineMs(event, attendance, { graceDays });
+  if (deadline == null) return true;
+  return now.getTime() <= deadline;
+}
+
+function markingDaysLeft(event, attendance, { now = new Date(), graceDays = MARKING_GRACE_DAYS } = {}) {
+  const graceOpen = isMarkingWindowOpen(event, { now, graceDays });
+  const deadline = markingDeadlineMs(event, graceOpen ? null : attendance, { graceDays });
+  if (deadline == null) return null;
+  const remaining = deadline - now.getTime();
+  if (remaining < 0) return 0;
+  return Math.ceil(remaining / (24 * 60 * 60 * 1000));
+}
+
+function resolveMarkingExtensionUntil(until, {
+  now = new Date(),
+  maxDays = MARKING_EXTENSION_MAX_DAYS,
+  defaultDays = MARKING_EXTENSION_DEFAULT_DAYS,
+} = {}) {
+  const fallback = new Date(now.getTime() + defaultDays * 24 * 60 * 60 * 1000);
+  const parsed = until ? parseTimestamp(until) : fallback;
+  if (!parsed) {
+    throw Object.assign(new Error('補勾期限格式不正確'), { status: 400 });
+  }
+  if (parsed.getTime() <= now.getTime()) {
+    throw Object.assign(new Error('補勾期限必須晚於現在'), { status: 400 });
+  }
+  const max = now.getTime() + maxDays * 24 * 60 * 60 * 1000;
+  if (parsed.getTime() > max + 60 * 1000) {
+    throw Object.assign(new Error(`補勾期限最多 ${maxDays} 天`), { status: 400 });
+  }
+  return parsed;
+}
+
 function serializeTaskItem(item) {
   return {
     id: item.id,
@@ -58,9 +109,14 @@ function serializeTaskItem(item) {
 
 module.exports = {
   MARKING_GRACE_DAYS,
+  MARKING_EXTENSION_DEFAULT_DAYS,
+  MARKING_EXTENSION_MAX_DAYS,
   taskAppliesToBand,
   filterTasksForBand,
   parseEventEndDate,
   isMarkingWindowOpen,
+  isLeaderMarkingOpen,
+  markingDaysLeft,
+  resolveMarkingExtensionUntil,
   serializeTaskItem,
 };

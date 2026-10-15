@@ -13,6 +13,8 @@ const {
 const passportService = require('../englishLearningPassport/passportService');
 const { CERTIFICATION_THRESHOLD } = require('../englishLearningPassport/constants');
 const { buildActivitySection } = require('./studentProgressActivityUtils');
+const { EVENT_TYPES } = require('../../constants/eventTypes');
+const { listEnglishTablePracticeItems } = require('../studentSpeakingPracticeService');
 const {
   dedupeCourseRecords,
   dedupeBestepScoresBySemester,
@@ -226,6 +228,19 @@ async function getStudentProgressRead(rawCtx) {
   }
 
   const activities = buildActivitySection(reservations);
+  const hasEnglishTable = reservations.some((row) => row.eventType === EVENT_TYPES.ENGLISH_TABLE);
+  let speakingPractice = null;
+  if (hasEnglishTable) {
+    try {
+      speakingPractice = await listEnglishTablePracticeItems({
+        studentId: ctx.studentId,
+        reservations,
+      });
+    } catch (err) {
+      console.error('Student progress speaking practice failed:', err.message);
+      speakingPractice = null;
+    }
+  }
 
   return {
     found: true,
@@ -250,6 +265,7 @@ async function getStudentProgressRead(rawCtx) {
         disclaimer: '考試資料來自本系統匯入或報名紀錄，正式成績請以考試中心／教務公告為準。',
       },
       passport,
+      speakingPractice,
     },
   };
 }

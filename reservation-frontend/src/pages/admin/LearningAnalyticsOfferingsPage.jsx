@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Alert from 'react-bootstrap/Alert';
 import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
@@ -509,7 +510,11 @@ export default function LearningAnalyticsOfferingsPage() {
     scopeKeys: OFFERING_SCOPE_KEYS,
     defaultSemester: 'current',
   });
-  const [dimension, setDimension] = useState('course');
+  const [searchParams] = useSearchParams();
+  const requestedDimension = searchParams.get('dimension');
+  const [dimension, setDimension] = useState(
+    DIMENSION_OPTIONS.some((opt) => opt.value === requestedDimension) ? requestedDimension : 'course',
+  );
   const [instructorGrouping, setInstructorGrouping] = useState('by_semester');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

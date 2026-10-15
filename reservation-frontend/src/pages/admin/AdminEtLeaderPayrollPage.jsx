@@ -20,6 +20,8 @@ import {
   exportLeaderPayrollMonthly,
   fetchLeaderPayProfiles,
   fetchLeaderPayrollMonthly,
+  extendLeaderMarking,
+  releaseLeaderPay,
   saveLeaderPayProfile,
 } from '../../services/etGroupingApi';
 import { showErrorMessage, showSuccessMessage } from '../../utils/errorHandler';
@@ -29,6 +31,24 @@ function currentYearMonth() {
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
   return `${y}-${m}`;
+}
+
+function formatUntil(value) {
+  if (!value) return '';
+  return new Date(value).toLocaleString('zh-TW', {
+    timeZone: 'Asia/Taipei',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+}
+
+function defaultExtensionLocal() {
+  const when = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`;
 }
 
 function money(n) {
@@ -58,6 +78,13 @@ export default function AdminEtLeaderPayrollPage() {
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [drafts, setDrafts] = useState({});
   const [savingId, setSavingId] = useState(null);
+  const [releaseTarget, setReleaseTarget] = useState(null);
+  const [releaseNote, setReleaseNote] = useState('');
+  const [releasing, setReleasing] = useState(false);
+  const [extendTarget, setExtendTarget] = useState(null);
+  const [extendNote, setExtendNote] = useState('');
+  const [extendUntil, setExtendUntil] = useState(defaultExtensionLocal);
+  const [extending, setExtending] = useState(false);
 
   const loadReport = useCallback(async () => {
     if (!token || !canView || !yearMonth) return;
@@ -164,6 +191,50 @@ export default function AdminEtLeaderPayrollPage() {
     [report]
   );
 
+  const handleExtend = async () => {
+    if (!canManage || !extendTarget) return;
+    setExtending(true);
+    try {
+      await extendLeaderMarking(token, {
+        eventId: extendTarget.eventId,
+        leaderTeacherId: extendTarget.leaderTeacherId,
+        note: extendNote,
+        until: new Date(extendUntil).toISOString(),
+        open: true,
+      });
+      showSuccessMessage('已開放這位 Leader 補勾');
+      setExtendTarget(null);
+      setExtendNote('');
+      setExtendUntil(defaultExtensionLocal());
+      await loadReport();
+    } catch (e) {
+      showErrorMessage(e.message || '開放補勾失敗');
+    } finally {
+      setExtending(false);
+    }
+  };
+
+  const handleRelease = async () => {
+    if (!canManage || !releaseTarget) return;
+    setReleasing(true);
+    try {
+      await releaseLeaderPay(token, {
+        eventId: releaseTarget.eventId,
+        leaderTeacherId: releaseTarget.leaderTeacherId,
+        note: releaseNote,
+        released: true,
+      });
+      showSuccessMessage('已放行這場計薪');
+      setReleaseTarget(null);
+      setReleaseNote('');
+      await loadReport();
+    } catch (e) {
+      showErrorMessage(e.message || '放行失敗');
+    } finally {
+      setReleasing(false);
+    }
+  };
+
   if (!canView) {
     return <Alert variant="warning">您沒有檢視 Leader 支薪報表的權限。</Alert>;
   }
@@ -174,7 +245,7 @@ export default function AdminEtLeaderPayrollPage() {
         <Card.Body>
           <h1 className="h5 mb-1">Leader 支薪報表</h1>
           <p className="small text-muted mb-0">
-            依出席簽到計算時數（活動開始至結束）；時薪依各 Leader 年資設定。遲到與行政補登仍計入支薪，並於備註標示。
+            簽到之後，Leader 應在活動當下把必填任務勾完，當天最準。3 天內沒勾完的場次不計時數、不計金額。行政可以開放該 Leader 再補勾一次，補完才計薪。放行計薪只用於名單對不上、無法補勾的例外，原因會留在備註。
           </p>
         </Card.Body>
       </Card>
@@ -229,7 +300,134 @@ export default function AdminEtLeaderPayrollPage() {
                 場次 {totals?.sessionCount ?? 0}｜
                 時數 {totals?.hours ?? 0}｜
                 合計 NT$ {money(totals?.amount)}
+                {(report.pending || []).length ? `｜未計入 ${report.pending.length} 場` : ''}
               </div>
+              {(report.pending || []).length ? (
+                <Card className="border-0 shadow-sm mb-3">
+                  <Card.Body>
+                    <h2 className="h6">未計入</h2>
+                    <p className="small text-muted">這些場次已簽到，但必填任務還沒勾完。3 天內請 Leader 自己勾完。超過 3 天可開放補勾，補完才進合計。放行計薪不會代替勾選。</p>
+                    <Table responsive size="sm" className="mb-0 align-middle">
+                      <thead>
+                        <tr>
+                          <th>Leader</th>
+                          <th>日期</th>
+                          <th>活動</th>
+                          <th>未勾</th>
+                          <th>表訂時數</th>
+                          <th>完成後金額</th>
+                          <th />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.pending.map((session) => (
+                          <tr key={`${session.leaderTeacherId}-${session.eventId}`}>
+                            <td>{session.leaderName}</td>
+                            <td>{session.date}</td>
+                            <td>{session.eventName}</td>
+                            <td>{session.incompleteCount ?? '—'}</td>
+                            <td>{session.scheduledHours}</td>
+                            <td>NT$ {money(session.potentialAmount)}</td>
+                            <td className="text-nowrap">
+                              <div className="small text-muted mb-1">
+                                {session.payStatus === 'expired'
+                                  ? '已過 3 天'
+                                  : session.extended
+                                    ? `補勾至 ${formatUntil(session.markingOpenUntil)}`
+                                    : `還有 ${session.daysLeft ?? 0} 天`}
+                              </div>
+                              {canManage && session.payStatus === 'expired' ? (
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  className="me-1"
+                                  onClick={() => {
+                                    setExtendTarget(session);
+                                    setExtendNote('');
+                                    setExtendUntil(defaultExtensionLocal());
+                                    setReleaseTarget(null);
+                                  }}
+                                >
+                                  開放補勾
+                                </Button>
+                              ) : null}
+                              {canManage && session.payStatus !== 'released' ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline-primary"
+                                  onClick={() => {
+                                    setReleaseTarget(session);
+                                    setReleaseNote('');
+                                    setExtendTarget(null);
+                                  }}
+                                >
+                                  放行計薪
+                                </Button>
+                              ) : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                    {extendTarget ? (
+                      <div className="mt-3">
+                        <Form.Label className="small mb-1">
+                          開放 {extendTarget.leaderName}／{extendTarget.date} 補勾
+                        </Form.Label>
+                        <p className="small text-muted mb-2">
+                          評分在活動當下最準。開放後這位 Leader 可以再補勾，最多 7 天，補完才會計薪。
+                        </p>
+                        <Form.Control
+                          size="sm"
+                          className="mb-2"
+                          value={extendNote}
+                          onChange={(e) => setExtendNote(e.target.value)}
+                          placeholder="例如：當天網路不穩，隔天補勾"
+                        />
+                        <Form.Control
+                          size="sm"
+                          type="datetime-local"
+                          value={extendUntil}
+                          onChange={(e) => setExtendUntil(e.target.value)}
+                        />
+                        <div className="d-flex gap-2 mt-2">
+                          <Button
+                            size="sm"
+                            onClick={handleExtend}
+                            disabled={extending || extendNote.trim().length < 2 || !extendUntil}
+                          >
+                            {extending ? '儲存中…' : '確認開放'}
+                          </Button>
+                          <Button size="sm" variant="outline-secondary" onClick={() => setExtendTarget(null)}>
+                            取消
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                    {releaseTarget ? (
+                      <div className="mt-3">
+                        <Form.Label className="small mb-1">
+                          放行 {releaseTarget.leaderName}／{releaseTarget.date} 的原因
+                        </Form.Label>
+                        <Form.Control
+                          size="sm"
+                          value={releaseNote}
+                          onChange={(e) => setReleaseNote(e.target.value)}
+                          placeholder="例如：現場名單對不上，改由行政確認"
+                        />
+                        <div className="d-flex gap-2 mt-2">
+                          <Button size="sm" onClick={handleRelease} disabled={releasing || releaseNote.trim().length < 2}>
+                            {releasing ? '儲存中…' : '確認放行'}
+                          </Button>
+                          <Button size="sm" variant="outline-secondary" onClick={() => setReleaseTarget(null)}>
+                            取消
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </Card.Body>
+                </Card>
+              ) : null}
               <Table responsive hover size="sm" className="bg-white border align-middle">
                 <thead>
                   <tr>

@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import StudentRecordShell from '../../components/student/StudentRecordShell';
 import ReservationLookupSection from '../../components/reservations/ReservationLookupSection';
 import { fetchStudentProgress } from '../../services/studentProgressApi';
+import { getEnglishTableTopic, listEnglishTableReviewLinks, listEnglishTableWarmupLinks } from '../../data/englishTableTopics1151';
 import { setVoluntaryStudentId } from '../../utils/learningStudentLink';
 import { loadReservationIdentity, saveReservationIdentity } from '../../utils/studentIdentityStorage';
 import { useLanguage } from '../../context/LanguageContext';
@@ -38,6 +39,73 @@ function formatEventWhen(record) {
   if (!record?.date) return '—';
   const time = record.startTime ? ` ${record.startTime}` : '';
   return `${record.date}${time}`;
+}
+
+const PRACTICE_PHASE_LABELS = {
+  pre_activity: '會前',
+  post_activity: '活動後',
+};
+
+function practiceReplayHref(item) {
+  const links = item.activityPhase === 'post_activity'
+    ? listEnglishTableReviewLinks(item.activityDate)
+    : listEnglishTableWarmupLinks(item.activityDate);
+  const index = Number(item.questionNumber) - 1;
+  return links[index]?.href || '/activities/english-table/topics';
+}
+
+function practiceQuestionText(item) {
+  const session = getEnglishTableTopic(item.activityDate);
+  const index = Number(item.questionNumber) - 1;
+  return session?.questions?.[index] || `第 ${item.questionNumber} 題`;
+}
+
+function SpeakingPracticeSection({ practice }) {
+  const items = practice?.items || [];
+  return (
+    <section className="student-progress-card public-card student-progress-card--wide mt-3">
+      <h2 className="h5">口說練習</h2>
+      <p className="text-muted small">{practice?.disclaimer}</p>
+      {items.length ? (
+        <ul className="student-progress-practice-list list-unstyled mb-0">
+          {items.map((item) => (
+            <li key={item.attemptUid || `${item.activityDate}-${item.questionNumber}-${item.activityPhase}`} className="student-progress-practice">
+              <div className="student-progress-practice__meta">
+                <span>{item.activityDate}</span>
+                <span>{PRACTICE_PHASE_LABELS[item.activityPhase] || '練習'}</span>
+                <span>第 {item.questionNumber} 題</span>
+              </div>
+              <p className="student-progress-practice__question">{practiceQuestionText(item)}</p>
+              {item.heard ? (
+                <div className="student-progress-practice__line">
+                  <span>上次聽到</span>
+                  <p>{item.heard}</p>
+                </div>
+              ) : null}
+              {item.say ? (
+                <div className="student-progress-practice__line">
+                  <span>可以接這句</span>
+                  <p>{item.say}</p>
+                </div>
+              ) : null}
+              <div className="d-flex flex-wrap gap-2 mt-2">
+                {item.phraseId ? (
+                  <Link className="btn btn-outline-primary btn-sm" to={`/guides/activity-phrasebook/english-table#${item.phraseId}`}>
+                    句庫卡片
+                  </Link>
+                ) : null}
+                <Link className="btn btn-outline-primary btn-sm" to={practiceReplayHref(item)}>
+                  再練一次
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted small mb-0">這幾場 English Table 還沒有留下練習句子。打開預約裡的「會前練習」，先說一次。</p>
+      )}
+    </section>
+  );
 }
 
 function ActivityStatusBadge({ status, t }) {
@@ -141,6 +209,7 @@ export default function StudentProgressPage() {
   const englishTests = progress?.exams?.englishTestRegistrations || [];
   const bestepScores = progress?.exams?.bestep?.scores || [];
   const bestepAttendance = progress?.exams?.bestep?.attendance || [];
+  const speakingPractice = progress?.speakingPractice;
   const hasExamData = englishTests.length > 0 || bestepScores.length > 0 || bestepAttendance.length > 0;
 
   return (
@@ -199,6 +268,8 @@ export default function StudentProgressPage() {
                 </Link>
               </div>
             </section>
+
+            {speakingPractice ? <SpeakingPracticeSection practice={speakingPractice} /> : null}
 
             {passport?.hasRecord ? (
               <section className="student-progress-card public-card">

@@ -11,16 +11,19 @@ import {
   isSidebarSingleSectionActive,
 } from '../../constants/adminNavigation';
 import useLearningPartnerOpsAttention from '../../hooks/useLearningPartnerOpsAttention';
+import useLeaderMarkingAttention from '../../hooks/useLeaderMarkingAttention';
 import { LP_OPS_ATTENTION_PATH } from '../../utils/learningPartnerOpsAttention';
 import UnreadAttentionDot from '../learning-partner/UnreadAttentionDot';
 
-export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavigate }) {
+export default function AdminSidebar({ pathname, navContext, token, mobileOpen, onNavigate }) {
   const visible = useMemo(() => filterVisibleNav(ADMIN_NAV_SECTIONS, navContext), [navContext]);
   const active = useMemo(() => getSidebarActiveState(pathname, navContext), [pathname, navContext]);
   const [navQuery, setNavQuery] = useState('');
   const { showAttention: showLpOpsAttention } = useLearningPartnerOpsAttention(
     navContext?.accessProfile
   );
+  const { count: leaderMarkingCount } = useLeaderMarkingAttention(token, navContext?.accessProfile);
+  const showLeaderMarking = leaderMarkingCount > 0;
 
   const filteredVisible = useMemo(
     () => filterAdminNavByQuery(visible, navQuery),
@@ -63,6 +66,14 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
       return { ...prev, english: true };
     });
   }, [showLpOpsAttention]);
+
+  useEffect(() => {
+    if (!showLeaderMarking) return;
+    setExpandedSections((prev) => {
+      if (prev.events) return prev;
+      return { ...prev, events: true };
+    });
+  }, [showLeaderMarking]);
 
   useEffect(() => {
     const q = navQuery.trim();
@@ -112,6 +123,7 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
   const renderLeafLink = (section, leaf) => {
     const childActive = isSidebarChildActive(active, section.id, leaf.id);
     const showDot = leaf.id === 'english-registration' && showLpOpsAttention;
+    const showMarkingDot = leaf.id === 'et-leader-sessions' && showLeaderMarking;
     return (
       <li key={leaf.id}>
         <Link
@@ -121,6 +133,9 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
         >
           <span>{leaf.label}</span>
           {showDot ? <UnreadAttentionDot label="請查看學習有伴營運成效" /> : null}
+          {showMarkingDot ? (
+            <UnreadAttentionDot label={`還有 ${leaderMarkingCount} 場任務沒在當下勾完`} />
+          ) : null}
         </Link>
       </li>
     );
@@ -163,7 +178,11 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
           if (section.children?.length) {
             const expanded = isExpanded(section.id);
             const sectionHasActive = active.sectionId === section.id;
-            const sectionShowDot = section.id === 'english' && showLpOpsAttention;
+            const sectionShowDot = (section.id === 'english' && showLpOpsAttention)
+              || (section.id === 'events' && showLeaderMarking);
+            const sectionDotLabel = section.id === 'events'
+              ? `還有 ${leaderMarkingCount} 場任務沒在當下勾完`
+              : '請查看學習有伴營運成效';
             return (
               <li key={section.id} className="mb-1">
                 <button
@@ -176,7 +195,7 @@ export default function AdminSidebar({ pathname, navContext, mobileOpen, onNavig
                 >
                   <span className="admin-sidebar__section-label-row">
                     <span>{section.label}</span>
-                    {sectionShowDot ? <UnreadAttentionDot label="請查看學習有伴營運成效" /> : null}
+                    {sectionShowDot ? <UnreadAttentionDot label={sectionDotLabel} /> : null}
                   </span>
                   <span className="admin-sidebar__chevron" aria-hidden>
                     {expanded ? '▼' : '▶'}

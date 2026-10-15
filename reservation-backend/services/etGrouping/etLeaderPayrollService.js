@@ -10,6 +10,7 @@ const {
   EtEventGroupLeader,
 } = require('../../models');
 const { getEventWindow } = require('./etLeaderAttendanceService');
+const { loadPayGateMap } = require('./etLeaderPayGate');
 const { ENGLISH_TABLE_EVENT_TYPE_ALIASES } = require('../../utils/eventCapacity');
 
 const PAYABLE_STATUSES = Object.freeze(['on_time', 'late', 'manual']);
@@ -163,6 +164,7 @@ async function buildMonthlyPayroll({ yearMonth } = {}) {
       dateFrom,
       dateTo,
       rows: [],
+      pending: [],
       totals: { sessionCount: 0, hours: 0, amount: 0, leaderCount: 0 },
     };
   }
@@ -198,7 +200,14 @@ async function buildMonthlyPayroll({ yearMonth } = {}) {
     groupLabelMap.get(key).push(a.groupLabel);
   }
 
+  const payGates = await loadPayGateMap({
+    events,
+    attendances,
+    groupLabelMap,
+  });
+
   const byLeader = new Map();
+  const pending = [];
 
   for (const att of attendances) {
     const event = eventMap.get(att.eventId);
@@ -207,10 +216,39 @@ async function buildMonthlyPayroll({ yearMonth } = {}) {
     const profile = profileMap.get(att.leaderTeacherId);
     const hourlyRate = roundMoney(profile?.hourlyRate ?? 0);
     const seniorityYears = roundHours(profile?.seniorityYears ?? 0);
-    const subtotal = roundMoney(hours * hourlyRate);
+    const gate = payGates.get(`${att.eventId}:${att.leaderTeacherId}`) || {
+      status: 'pending',
+      payable: false,
+      checkedInCount: 0,
+      incompleteCount: null,
+      markingOpen: true,
+      daysLeft: null,
+      releaseNote: null,
+    };
+    const payable = gate.payable === true;
+    const subtotal = payable ? roundMoney(hours * hourlyRate) : 0;
     const statusNote = STATUS_NOTE[att.status] || att.status;
     const adminNote = att.note || '';
-    const remarkParts = [statusNote, adminNote].filter(Boolean);
+    const extensionLabel = gate.markingOpenUntil
+      ? new Intl.DateTimeFormat('zh-TW', {
+        timeZone: 'Asia/Taipei',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      }).format(new Date(gate.markingOpenUntil))
+      : '';
+    const gateNote = gate.status === 'released'
+      ? `行政放行：${gate.releaseNote || ''}`
+      : gate.status === 'pending' && gate.extended
+        ? `行政已開放補勾至 ${extensionLabel}`
+        : gate.status === 'pending'
+          ? `任務未勾完${gate.daysLeft != null ? `，還有 ${gate.daysLeft} 天` : ''}`
+          : gate.status === 'expired'
+            ? '任務未勾完，已過補登期限'
+            : '';
+    const remarkParts = [statusNote, adminNote, gateNote].filter(Boolean);
     const groupLabels = groupLabelMap.get(`${att.eventId}:${att.leaderTeacherId}`) || [];
 
     const session = {
@@ -220,14 +258,30 @@ async function buildMonthlyPayroll({ yearMonth } = {}) {
       startTime: event.startTime,
       endTime: event.endTime,
       groupLabels,
-      hours,
+      hours: payable ? hours : 0,
+      scheduledHours: hours,
       status: att.status,
+      payStatus: gate.status,
+      checkedInCount: gate.checkedInCount,
+      incompleteCount: gate.incompleteCount,
+      markingOpen: gate.markingOpen,
+      daysLeft: gate.daysLeft,
+      extended: gate.extended === true,
+      markingOpenUntil: gate.markingOpenUntil || null,
       method: att.method,
       checkInAt: att.checkInAt,
       hourlyRate,
       subtotal,
+      potentialAmount: roundMoney(hours * hourlyRate),
       note: remarkParts.join('；') || null,
+      leaderTeacherId: att.leaderTeacherId,
+      leaderName: att.leader?.name || `Leader #${att.leaderTeacherId}`,
     };
+
+    if (!payable) {
+      pending.push(session);
+      continue;
+    }
 
     if (!byLeader.has(att.leaderTeacherId)) {
       byLeader.set(att.leaderTeacherId, {
@@ -246,7 +300,6 @@ async function buildMonthlyPayroll({ yearMonth } = {}) {
     }
 
     const bucket = byLeader.get(att.leaderTeacherId);
-    // Prefer current profile values (may update mid-month)
     bucket.seniorityYears = seniorityYears;
     bucket.hourlyRate = hourlyRate;
     bucket.profileNote = profile?.note || null;
@@ -280,7 +333,7 @@ async function buildMonthlyPayroll({ yearMonth } = {}) {
   );
   totals.leaderCount = rows.length;
 
-  return { yearMonth: month, dateFrom, dateTo, rows, totals };
+  return { yearMonth: month, dateFrom, dateTo, rows, pending, totals };
 }
 
 async function exportMonthlyPayrollExcel(res, { yearMonth } = {}) {
@@ -354,11 +407,57 @@ async function exportMonthlyPayrollExcel(res, { yearMonth } = {}) {
     }
   }
 
+  const held = workbook.addWorksheet('未計入');
+  held.columns = [
+    { header: '姓名', key: 'name', width: 16 },
+    { header: '日期', key: 'date', width: 12 },
+    { header: '活動', key: 'eventName', width: 28 },
+    { header: '組別', key: 'groups', width: 14 },
+    { header: '表訂時數', key: 'scheduledHours', width: 12 },
+    { header: '已簽到學生', key: 'checkedInCount', width: 12 },
+    { header: '未勾必填', key: 'incompleteCount', width: 12 },
+    { header: '狀態', key: 'payStatus', width: 14 },
+    { header: '備註', key: 'note', width: 36 },
+  ];
+  for (const session of report.pending || []) {
+    held.addRow({
+      name: session.leaderName,
+      date: session.date,
+      eventName: session.eventName,
+      groups: (session.groupLabels || []).join(', '),
+      scheduledHours: session.scheduledHours,
+      checkedInCount: session.checkedInCount,
+      incompleteCount: session.incompleteCount,
+      payStatus: session.payStatus,
+      note: session.note || '',
+    });
+  }
+
   const filename = `et-leader-payroll-${report.yearMonth}.xlsx`;
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   await workbook.xlsx.write(res);
   return report;
+}
+
+async function buildMyPayroll({ leaderTeacherId, yearMonth } = {}) {
+  const teacherId = Number(leaderTeacherId);
+  const report = await buildMonthlyPayroll({ yearMonth });
+  const mine = (report.rows || []).find((row) => row.leaderTeacherId === teacherId) || null;
+  const pending = (report.pending || []).filter((session) => session.leaderTeacherId === teacherId);
+  return {
+    yearMonth: report.yearMonth,
+    dateFrom: report.dateFrom,
+    dateTo: report.dateTo,
+    hourlyRate: mine?.hourlyRate ?? pending[0]?.hourlyRate ?? 0,
+    seniorityYears: mine?.seniorityYears ?? 0,
+    sessionCount: mine?.sessionCount ?? 0,
+    hours: mine?.hours ?? 0,
+    subtotal: mine?.subtotal ?? 0,
+    note: mine?.note || (mine?.hourlyRate === 0 ? '尚未設定時薪' : null),
+    sessions: mine?.sessions || [],
+    pending,
+  };
 }
 
 module.exports = {
@@ -368,5 +467,6 @@ module.exports = {
   listPayProfiles,
   upsertPayProfile,
   buildMonthlyPayroll,
+  buildMyPayroll,
   exportMonthlyPayrollExcel,
 };

@@ -9,11 +9,13 @@ import Modal from 'react-bootstrap/Modal';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import Table from 'react-bootstrap/Table';
-import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { P } from '../../constants/permissions';
 import { hasPermission } from '../../utils/accessControl';
 import { getSemesterOptions } from '../../utils/adminReportUtils';
-import { checkInLeaderAttendance, fetchEventPracticeBriefs, fetchMyLeaderSessions } from '../../services/etGroupingApi';
+import UnreadAttentionDot from '../../components/learning-partner/UnreadAttentionDot';
+import { notifyLeaderMarkingAttention } from '../../hooks/useLeaderMarkingAttention';
+import { checkInLeaderAttendance, fetchEventPracticeBriefs, fetchLeaderMarkingAttention, fetchMyLeaderPayroll, fetchMyLeaderSessions } from '../../services/etGroupingApi';
 import { showErrorMessage, showSuccessMessage } from '../../utils/errorHandler';
 
 function attendanceBadge(row) {
@@ -23,6 +25,40 @@ function attendanceBadge(row) {
   if (status === 'manual') return <Badge bg="info">行政補登</Badge>;
   if (status === 'absent') return <Badge bg="secondary">未出席</Badge>;
   return <Badge bg="light" text="dark" className="border">未簽到</Badge>;
+}
+
+function currentYearMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function money(value) {
+  return Number(value || 0).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
+}
+
+function formatUntil(value) {
+  if (!value) return '';
+  return new Date(value).toLocaleString('zh-TW', {
+    timeZone: 'Asia/Taipei',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+}
+
+function payBadge(gate) {
+  if (!gate || gate.status === 'unchecked') return <Badge bg="light" text="dark" className="border">未計薪</Badge>;
+  if (gate.status === 'ready') return <Badge bg="success">已計入</Badge>;
+  if (gate.status === 'released') return <Badge bg="info">行政放行</Badge>;
+  if (gate.status === 'pending') {
+    if (gate.extended) return <Badge bg="warning" text="dark">已開放補勾</Badge>;
+    const days = gate.daysLeft > 0 ? `，還有 ${gate.daysLeft} 天` : '';
+    return <Badge bg="warning" text="dark">待勾任務{days}</Badge>;
+  }
+  if (gate.status === 'expired') return <Badge bg="secondary">已過補登</Badge>;
+  return <Badge bg="light" text="dark" className="border">未計薪</Badge>;
 }
 
 export default function AdminEtLeaderSessionsPage() {
@@ -35,6 +71,8 @@ export default function AdminEtLeaderSessionsPage() {
   const [selectedSemester, setSelectedSemester] = useState(semesterOptions[0]?.value || 'all');
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
+  const [pay, setPay] = useState(null);
+  const [attention, setAttention] = useState(null);
   const [checkInEvent, setCheckInEvent] = useState(null);
   const [checkInToken, setCheckInToken] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -49,6 +87,19 @@ export default function AdminEtLeaderSessionsPage() {
     try {
       const rows = await fetchMyLeaderSessions(token, { semester: selectedSemester });
       setSessions(rows || []);
+      try {
+        const mine = await fetchMyLeaderPayroll(token, currentYearMonth());
+        setPay(mine);
+      } catch {
+        setPay(null);
+      }
+      try {
+        const notice = await fetchLeaderMarkingAttention(token);
+        setAttention(notice);
+        notifyLeaderMarkingAttention();
+      } catch {
+        setAttention(null);
+      }
       return rows || [];
     } catch (e) {
       showErrorMessage(e.message || '載入帶班場次失敗');
@@ -160,10 +211,65 @@ export default function AdminEtLeaderSessionsPage() {
             </Col>
           </Row>
           <p className="small text-muted mb-0 mt-2">
-            活動前可看你這組已填學號的會前回答，用第一句開場。活動當天先完成出席簽到；學生簽到後再勾任務成效。會前練習不是入場條件。
+            活動當天先完成出席簽到，並在離場前把必填任務勾完。當天勾選最準。勾是或勾否都算，空白不算。超過 3 天就不能再勾，這場也不會計薪，要行政另外開放補勾。時數用活動表訂時間。
           </p>
         </Card.Body>
       </Card>
+
+      {attention?.count > 0 ? (
+        <Alert variant="warning">
+          <div className="fw-semibold">還有 {attention.count} 場任務沒勾完</div>
+          <p className="small mb-2">
+            請在活動結束當下勾完，當天最準。超過 3 天就不能再勾，這場也不會計入薪水。若已經超過，請聯絡行政開放補勾；補完才會計薪。
+          </p>
+          <ul className="small mb-0">
+            {(attention.items || []).map((item) => (
+              <li key={item.eventId}>
+                {item.date} {item.eventName}
+                {item.status === 'expired'
+                  ? '：已過補登，請聯絡行政開放補勾'
+                  : item.extended
+                    ? `：行政已開放補勾到 ${formatUntil(item.markingOpenUntil)}`
+                    : `：請現在勾完${item.daysLeft > 0 ? `，還有 ${item.daysLeft} 天` : ''}`}
+                {item.status !== 'expired' ? (
+                  <Link className="ms-2" to={`/admin/operations/${item.eventId}?tab=taskMarks`}>去勾選</Link>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </Alert>
+      ) : null}
+
+      {pay && (sessions.length > 0 || pay.sessionCount > 0 || pay.pending?.length) ? (
+        <Card className="mb-3 border-0 shadow-sm">
+          <Card.Body>
+            <div className="d-flex flex-wrap justify-content-between gap-2">
+              <div>
+                <h2 className="h6 mb-1">{pay.yearMonth} 出席與預期薪水</h2>
+                <p className="small text-muted mb-0">
+                  已計入 {pay.sessionCount} 場、{pay.hours} 小時。
+                  {pay.pending?.length ? ` 另有 ${pay.pending.length} 場已簽到但任務未完成，完成後才會計入。` : ''}
+                  {Number(pay.hourlyRate) <= 0 ? ' 時薪尚未設定，金額先顯示 0。' : ''}
+                </p>
+              </div>
+              <div className="text-end">
+                <div className="small text-muted">目前計入</div>
+                <div className="fs-5 fw-semibold">NT$ {money(pay.subtotal)}</div>
+              </div>
+            </div>
+            {(pay.pending || []).length ? (
+              <ul className="small mb-0 mt-2">
+                {pay.pending.map((session) => (
+                  <li key={session.eventId}>
+                    {session.date} {session.eventName}：{session.note || '任務未完成'}
+                    {Number(session.potentialAmount) > 0 ? `（完成後 NT$ ${money(session.potentialAmount)}）` : ''}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </Card.Body>
+        </Card>
+      ) : null}
 
       {loading ? (
         <div className="d-flex align-items-center gap-2 py-4">
@@ -194,7 +300,8 @@ export default function AdminEtLeaderSessionsPage() {
               <th>時間</th>
               <th>活動</th>
               <th>負責組別</th>
-              <th>出席</th>
+              <th>簽到</th>
+              <th>計薪</th>
               <th />
             </tr>
           </thead>
@@ -212,6 +319,7 @@ export default function AdminEtLeaderSessionsPage() {
                     ))}
                   </td>
                   <td>{attendanceBadge(row)}</td>
+                  <td>{payBadge(row.payGate)}</td>
                   <td className="text-nowrap">
                     {!checkedIn && row.derivedStatus !== 'absent' ? (
                       <Button
@@ -236,6 +344,9 @@ export default function AdminEtLeaderSessionsPage() {
                       variant="primary"
                       onClick={() => navigate(`/admin/operations/${row.eventId}?tab=taskMarks`)}
                     >
+                      {row.payGate?.status === 'pending' ? (
+                        <UnreadAttentionDot className="me-1" label="這場還沒勾完" />
+                      ) : null}
                       任務成效
                     </Button>
                   </td>
@@ -326,11 +437,18 @@ export default function AdminEtLeaderSessionsPage() {
                     </td>
                     <td className="text-nowrap">
                       {brief.questionNumber ? `第 ${brief.questionNumber} 題` : '—'}
-                      {brief.phase === 'post' ? <div className="small text-muted">活動後</div> : null}
-                      {brief.phase === 'pre' ? <div className="small text-muted">會前</div> : null}
+                      {brief.phase === 'post_activity' || brief.phase === 'post' ? <div className="small text-muted">活動後</div> : null}
+                      {brief.phase === 'pre_activity' || brief.phase === 'pre' ? <div className="small text-muted">會前</div> : null}
                     </td>
                     <td>{brief.heard || '沒有辨識到英文'}</td>
-                    <td>{brief.cue}</td>
+                    <td>
+                      {brief.cue}
+                      {brief.phraseId ? (
+                        <div>
+                          <Link to={`/guides/activity-phrasebook/english-table#${brief.phraseId}`}>對應句庫</Link>
+                        </div>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>

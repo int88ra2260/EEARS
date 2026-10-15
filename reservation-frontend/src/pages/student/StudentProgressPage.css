@@ -188,3 +188,45 @@
   border-bottom: none;
 }
 
+.student-progress-practice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.student-progress-practice {
+  padding: 0.85rem;
+  border: 1px solid var(--color-border-soft, #e8e0d8);
+  border-radius: 8px;
+  background: var(--color-bg-secondary, #fbf8f4);
+}
+
+.student-progress-practice__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  color: var(--pub-text-secondary, #6b5e54);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.student-progress-practice__question {
+  margin: 0.35rem 0 0;
+  font-weight: 600;
+}
+
+.student-progress-practice__line {
+  margin-top: 0.55rem;
+}
+
+.student-progress-practice__line span {
+  display: block;
+  color: var(--pub-text-secondary, #6b5e54);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.student-progress-practice__line p {
+  margin: 0.15rem 0 0;
+}
+

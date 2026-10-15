@@ -88,6 +88,12 @@ export function saveSpeakingPortfolioAttempt(attempt) {
     speechRateWpm: attempt.speechRateWpm ?? null,
     advice: attempt.advice || '',
     href: attempt.href || '',
+    heard: attempt.heard || '',
+    say: attempt.say || '',
+    phraseId: attempt.phraseId || '',
+    cue: attempt.cue || '',
+    activityDate: attempt.activityDate || '',
+    questionNumber: attempt.questionNumber ? String(attempt.questionNumber) : '',
   };
   const attempts = existingIndex >= 0
     ? store.attempts.map((item, index) => (index === existingIndex ? nextAttempt : item))

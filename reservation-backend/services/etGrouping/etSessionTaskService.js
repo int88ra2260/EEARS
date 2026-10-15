@@ -6,6 +6,7 @@ const {
   Reservation,
   EtEventGroupAssignment,
   EtSessionTaskMark,
+  EtLeaderAttendance,
   SpeakingAttempt,
   sequelize,
 } = require('../../models');
@@ -14,6 +15,7 @@ const { getLeaderGroupLabels } = require('./etLeaderService');
 const {
   filterTasksForBand,
   isMarkingWindowOpen,
+  isLeaderMarkingOpen,
   serializeTaskItem,
   MARKING_GRACE_DAYS,
 } = require('./etTaskScope');
@@ -23,6 +25,7 @@ const {
   leaderDiscussionCue,
   firstHeardSentence,
   isEnglishTablePractice,
+  phraseIdForTranscript,
 } = require('./etPracticeBrief');
 
 async function loadEventContext(eventId) {
@@ -49,6 +52,24 @@ function buildStudentRows(reservations, assignmentMap) {
       canMark: (reservation.checkinStatus || '未簽到') === '已簽到',
     };
   });
+}
+
+async function markingAccess(event, { userId, canManage }) {
+  let attendance = null;
+  if (!canManage && userId) {
+    attendance = await EtLeaderAttendance.findOne({
+      where: { eventId: event.id, leaderTeacherId: userId },
+    });
+  }
+  const graceOpen = isMarkingWindowOpen(event);
+  const markingOpen = isLeaderMarkingOpen(event, canManage ? null : attendance);
+  const usingExtension = !canManage && !graceOpen && markingOpen && attendance?.markingOpenUntil;
+  return {
+    markingOpen,
+    markingGraceDays: MARKING_GRACE_DAYS,
+    markingExtendedUntil: usingExtension ? attendance.markingOpenUntil : null,
+    markingOpenNote: usingExtension ? (attendance.markingOpenNote || null) : null,
+  };
 }
 
 async function getTaskMarksMatrix(eventId, {
@@ -101,7 +122,7 @@ async function getTaskMarksMatrix(eventId, {
     return { ...student, tasks: taskMarks };
   });
 
-  const markingOpen = isMarkingWindowOpen(event);
+  const access = await markingAccess(event, { userId, canManage });
 
   return {
     event: {
@@ -113,8 +134,7 @@ async function getTaskMarksMatrix(eventId, {
     template: templateData.template,
     taskItems: taskItems.map(serializeTaskItem),
     students: tasksByStudent,
-    markingOpen,
-    markingGraceDays: MARKING_GRACE_DAYS,
+    ...access,
     scope: canManage ? 'all' : 'leader',
     leaderGroups: leaderGroups || [],
   };
@@ -129,8 +149,12 @@ async function saveTaskMarks(eventId, payload = [], {
   if (!canManage && !canMark) {
     throw Object.assign(new Error('無權限儲存任務勾選'), { status: 403 });
   }
-  if (!isMarkingWindowOpen(event)) {
-    throw Object.assign(new Error(`任務勾選已超過補登期限（活動結束後 ${MARKING_GRACE_DAYS} 天）`), { status: 400 });
+  const access = await markingAccess(event, { userId, canManage });
+  if (!access.markingOpen) {
+    throw Object.assign(
+      new Error(`任務勾選已超過補登期限（活動結束後 ${MARKING_GRACE_DAYS} 天）。請由行政開放補勾。`),
+      { status: 400 }
+    );
   }
 
   const leaderGroups = canManage ? null : await getLeaderGroupLabels(eventId, userId);
@@ -286,6 +310,7 @@ async function listPracticeBriefs(eventId, {
       phase: phase || null,
       heard: firstHeardSentence(attempt.transcript),
       cue: leaderDiscussionCue(attempt.transcript),
+      phraseId: phraseIdForTranscript(attempt.transcript),
     });
   });
 

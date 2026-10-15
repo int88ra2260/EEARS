@@ -48,9 +48,17 @@ function isEnglishTablePractice(features, eventDate) {
   return activity === 'English Table';
 }
 
+function phraseIdForTranscript(transcript) {
+  const cue = leaderDiscussionCue(transcript);
+  if (cue.includes('because')) return 'pb_et_009';
+  if (cue.includes('例子')) return 'pb_et_010';
+  return 'pb_et_005';
+}
+
 module.exports = {
   dateKey,
   leaderDiscussionCue,
   firstHeardSentence,
   isEnglishTablePractice,
+  phraseIdForTranscript,
 };

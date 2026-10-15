@@ -139,6 +139,13 @@ export async function fetchLeaderManagementEvents(token, { semester, date } = {}
   return handleResponse(res, '載入 Leader 管理場次失敗');
 }
 
+export async function fetchLeaderMarkingAttention(token) {
+  const res = await fetchClient(`${API_BASE}/my-sessions/attention`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res, '載入待勾任務失敗');
+}
+
 export async function fetchMyLeaderSessions(token, { semester } = {}) {
   const qs = semester && semester !== 'all' ? `?semester=${encodeURIComponent(semester)}` : '';
   const res = await fetchClient(`${API_BASE}/my-sessions${qs}`, {
@@ -271,6 +278,32 @@ export async function fetchLeaderPayrollMonthly(token, yearMonth) {
     headers: authHeaders(token),
   });
   return handleResponse(res, '載入 Leader 支薪月報失敗');
+}
+
+export async function fetchMyLeaderPayroll(token, yearMonth) {
+  const qs = yearMonth ? `?yearMonth=${encodeURIComponent(yearMonth)}` : '';
+  const res = await fetchClient(`${API_BASE}/payroll/me${qs}`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res, '載入個人出席薪水失敗');
+}
+
+export async function extendLeaderMarking(token, body) {
+  const res = await fetchClient(`${API_BASE}/payroll/marking-extensions`, {
+    method: 'PUT',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res, '開放補勾失敗');
+}
+
+export async function releaseLeaderPay(token, body) {
+  const res = await fetchClient(`${API_BASE}/payroll/releases`, {
+    method: 'PUT',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res, '更新計薪放行失敗');
 }
 
 export async function exportLeaderPayrollMonthly(token, yearMonth) {
