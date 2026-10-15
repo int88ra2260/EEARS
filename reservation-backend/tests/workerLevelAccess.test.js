@@ -57,12 +57,12 @@ describe('workerLevel access matrix', () => {
     expect(p.finalScopes).toEqual([]);
   });
 
-  it('passport_ops: English Learning Passport ops without rules', () => {
+  it('passport_ops: review submissions only', () => {
     const p = profileFor('passport_ops');
-    expect(p.permissionSet.has(P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS)).toBe(true);
-    expect(p.permissionSet.has(P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS)).toBe(true);
     expect(p.permissionSet.has(P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS)).toBe(true);
-    expect(p.permissionSet.has(P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS)).toBe(true);
+    expect(p.permissionSet.has(P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS)).toBe(false);
+    expect(p.permissionSet.has(P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS)).toBe(false);
+    expect(p.permissionSet.has(P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS)).toBe(false);
     expect(p.permissionSet.has(P.CAN_MANAGE_ENGLISH_LEARNING_RULES)).toBe(false);
     expect(p.permissionSet.has(P.CAN_MANAGE_SETTINGS)).toBe(false);
     expect(p.permissionSet.has(P.CAN_VIEW_EVENTS_ADMIN)).toBe(false);

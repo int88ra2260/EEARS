@@ -173,9 +173,16 @@ export default function EnglishLearningPassportsAdminPage() {
   const canRules = hasPermission(accessProfile, P.CAN_MANAGE_ENGLISH_LEARNING_RULES);
   const canMutateRules = canView || canRules;
 
-  const rawTab = searchParams.get('tab') || 'passports';
-  const initialTab = rawTab === 'certifications' ? 'passports' : rawTab;
-  const [tab, setTab] = useState(initialTab);
+  const visibleTabs = [
+    canView ? 'passports' : null,
+    canReview ? 'submissions' : null,
+    (canRules || canView) ? 'rules' : null,
+    canManage ? 'page-ui' : null,
+  ].filter(Boolean);
+  const requestedTab = searchParams.get('tab') === 'certifications'
+    ? 'passports'
+    : (searchParams.get('tab') || '');
+  const tab = visibleTabs.includes(requestedTab) ? requestedTab : (visibleTabs[0] || 'passports');
   const [passports, setPassports] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [rules, setRules] = useState([]);
@@ -233,14 +240,8 @@ export default function EnglishLearningPassportsAdminPage() {
 
   useEffect(() => { reload(); }, [reload]);
 
-  useEffect(() => {
-    const urlTab = searchParams.get('tab');
-    if (urlTab && urlTab !== tab) setTab(urlTab);
-  }, [searchParams, tab]);
-
   const handleSelectTab = (key) => {
-    const next = key || 'passports';
-    setTab(next);
+    const next = visibleTabs.includes(key) ? key : (visibleTabs[0] || 'passports');
     setSelectedIds(new Set());
     if (next === 'passports' && !['pending', 'active', 'rejected', 'completed', 'revoked', ''].includes(filters.status)) {
       setFilters((f) => ({ ...f, status: '' }));
@@ -469,12 +470,16 @@ export default function EnglishLearningPassportsAdminPage() {
       )}
 
       <Tab.Container activeKey={tab} onSelect={handleSelectTab}>
-        <Nav variant="tabs" className="elp-admin-tabs mb-3">
-          {canView && <Nav.Item><Nav.Link eventKey="passports">護照申請</Nav.Link></Nav.Item>}
-          {canReview && <Nav.Item><Nav.Link eventKey="submissions">點數審核</Nav.Link></Nav.Item>}
-          {(canRules || canView) && <Nav.Item><Nav.Link eventKey="rules">規則設定</Nav.Link></Nav.Item>}
-          {canManage && <Nav.Item><Nav.Link eventKey="page-ui">學生頁面</Nav.Link></Nav.Item>}
-        </Nav>
+        {visibleTabs.length > 1 ? (
+          <Nav variant="tabs" className="elp-admin-tabs mb-3">
+            {canView && <Nav.Item><Nav.Link eventKey="passports">護照申請</Nav.Link></Nav.Item>}
+            {canReview && <Nav.Item><Nav.Link eventKey="submissions">點數審核</Nav.Link></Nav.Item>}
+            {(canRules || canView) && <Nav.Item><Nav.Link eventKey="rules">規則設定</Nav.Link></Nav.Item>}
+            {canManage && <Nav.Item><Nav.Link eventKey="page-ui">學生頁面</Nav.Link></Nav.Item>}
+          </Nav>
+        ) : tab === 'submissions' ? (
+          <h5 className="mb-3">點數審核</h5>
+        ) : null}
 
         {tab === 'page-ui' && canManage ? (
           <ElpStudentPageUiEditor token={token} />

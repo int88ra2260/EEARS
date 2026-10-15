@@ -82,6 +82,14 @@ export function isNavItemVisible(visibility, c) {
         ));
       return c.hasAdminRights || canEnglish;
     }
+    case 'englishLearningPassport': {
+      const set = c?.accessProfile?.permissionSet;
+      return !!(set && set.has && (
+        set.has(P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS)
+        || set.has(P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS)
+        || set.has(P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS)
+      ));
+    }
     case 'learningOutcomes': {
       const set = c?.accessProfile?.permissionSet;
       const canLearningOutcomes =
@@ -409,7 +417,7 @@ export const ADMIN_NAV_SECTIONS = [
         label: '英語實踐歷程護照',
         path: '/admin/english-learning-passports',
         matchPrefixes: ['/admin/english-learning-passports'],
-        visibility: 'perm:can_view_english_learning_passports',
+        visibility: 'englishLearningPassport',
         pageTitle: '英語實踐歷程護照',
         breadcrumbLabel: '英語實踐歷程護照',
       },

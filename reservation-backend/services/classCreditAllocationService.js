@@ -249,6 +249,121 @@ async function computeEarnedInventory(studentId, semesterRange) {
   };
 }
 
+function flagOn(value) {
+  return value === true || value === 1 || value === '1';
+}
+
+/**
+ * 單筆已簽到是否計入課堂時數。護照與到場不計點不計入，與 computeEarnedInventory 相同。
+ */
+function classifyCreditCheckin({
+  eventType,
+  eventDate,
+  countsTowardPassport,
+  excludeFromClassCredit,
+}) {
+  const rawHours = hoursForEventType(eventType, { eventDate });
+  if (flagOn(countsTowardPassport)) {
+    return {
+      hours: 0,
+      rawHours,
+      creditStatus: 'passport',
+      creditStatusLabel: '計入護照',
+    };
+  }
+  if (flagOn(excludeFromClassCredit)) {
+    return {
+      hours: 0,
+      rawHours,
+      creditStatus: 'excluded',
+      creditStatusLabel: '到場不計點',
+    };
+  }
+  if (!(rawHours > 0)) {
+    return {
+      hours: 0,
+      rawHours: 0,
+      creditStatus: 'zero',
+      creditStatusLabel: '不計時數',
+    };
+  }
+  return {
+    hours: rawHours,
+    rawHours,
+    creditStatus: 'counted',
+    creditStatusLabel: '計入時數',
+  };
+}
+
+function toIsoDate(value) {
+  if (value == null || value === '') return '';
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const matched = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return matched ? matched[1] : '';
+}
+
+function toClockTime(value) {
+  if (value == null || value === '') return '';
+  const matched = String(value).trim().match(/^(\d{1,2}:\d{2})/);
+  return matched ? matched[1] : '';
+}
+
+function mapCreditCheckinRow(row) {
+  const eventDate = toIsoDate(row.eventDate);
+  const classified = classifyCreditCheckin({
+    eventType: row.eventType,
+    eventDate,
+    countsTowardPassport: row.countsTowardPassport,
+    excludeFromClassCredit: row.excludeFromClassCredit,
+  });
+  return {
+    reservationId: row.reservationId,
+    eventId: row.eventId,
+    eventName: row.eventName || '（未命名活動）',
+    eventDate,
+    startTime: toClockTime(row.startTime),
+    eventType: row.eventType || '',
+    ...classified,
+    points: hoursToPoints(classified.hours),
+    rawPoints: hoursToPoints(classified.rawHours),
+  };
+}
+
+/** 本學期已簽到明細，供管理員對照時數來源。 */
+async function listStudentCreditRecords(studentId, semesterRange) {
+  const sid = cleanStudentId(studentId);
+  const rows = await sequelize.query(
+    `SELECT r.id AS reservationId,
+            r.counts_toward_passport AS countsTowardPassport,
+            r.exclude_from_class_credit AS excludeFromClassCredit,
+            e.id AS eventId,
+            e.name AS eventName,
+            e.date AS eventDate,
+            e.startTime AS startTime,
+            e.eventType AS eventType
+     FROM Reservations r
+     INNER JOIN Events e ON r.eventId = e.id
+     WHERE r.studentId = :studentId
+       AND r.checkinStatus = '已簽到'
+       AND e.date BETWEEN :startDate AND :endDate
+     ORDER BY e.date DESC, e.startTime DESC, r.id DESC`,
+    {
+      replacements: {
+        studentId: sid,
+        startDate: semesterRange.start,
+        endDate: semesterRange.end,
+      },
+      type: sequelize.QueryTypes.SELECT,
+    },
+  );
+  return rows.map(mapCreditCheckinRow);
+}
+
 async function listStudentClasses(studentId, semester) {
   const sid = cleanStudentId(studentId);
   const memberships = await ClassMembership.findAll({
@@ -419,6 +534,7 @@ async function getStudentAllocationDashboard(studentId, semester) {
   const site = await computeSiteTotals(sid, range);
   const deadline = await getDeadlineIso(semester);
   const locked = isPastDeadline(deadline);
+  const records = await listStudentCreditRecords(sid, range);
 
   await sequelize.transaction(async (transaction) => {
     await ensureAutoAllocationForSingleClass(
@@ -482,6 +598,7 @@ async function getStudentAllocationDashboard(studentId, semester) {
     siteTotalHours: site.siteTotalHours,
     sitePointScore: site.sitePointScore,
     classes: classAllocations,
+    records,
   };
 }
 
@@ -1047,6 +1164,8 @@ module.exports = {
   hoursToPoints,
   roundHours,
   resolveAllocationStatus,
+  classifyCreditCheckin,
+  mapCreditCheckinRow,
   resolveAdjustmentHours,
   classifyReminderCandidate,
   buildAllocationReminderPreview,

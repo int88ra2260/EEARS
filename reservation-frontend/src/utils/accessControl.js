@@ -132,10 +132,7 @@ function buildBasePermissionSet(user) {
       ]);
     } else if (worker === 'passport_ops') {
       addAll(perms, [
-        P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS,
-        P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS,
         P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS,
-        P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
       ]);
     } else {
       addAll(perms, [

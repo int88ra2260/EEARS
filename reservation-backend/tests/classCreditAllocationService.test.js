@@ -52,6 +52,98 @@ describe('classCreditHours', () => {
   });
 });
 
+describe('classifyCreditCheckin', () => {
+  const { classifyCreditCheckin, mapCreditCheckinRow } = require('../services/classCreditAllocationService');
+
+  test('checked-in English Table from 115-1 counts 0.75 hours', () => {
+    expect(classifyCreditCheckin({
+      eventType: 'english_table',
+      eventDate: '2026-09-15',
+      countsTowardPassport: 0,
+      excludeFromClassCredit: 0,
+    })).toMatchObject({
+      hours: 0.75,
+      rawHours: 0.75,
+      creditStatus: 'counted',
+      creditStatusLabel: '計入時數',
+    });
+  });
+
+  test('passport check-in does not count toward class hours', () => {
+    expect(classifyCreditCheckin({
+      eventType: 'english_club',
+      eventDate: '2026-09-15',
+      countsTowardPassport: 1,
+      excludeFromClassCredit: false,
+    })).toMatchObject({
+      hours: 0,
+      rawHours: 1,
+      creditStatus: 'passport',
+      creditStatusLabel: '計入護照',
+    });
+  });
+
+  test('no-credit attendance and unknown types do not count', () => {
+    expect(classifyCreditCheckin({
+      eventType: 'job_talk',
+      eventDate: '2026-09-15',
+      countsTowardPassport: '0',
+      excludeFromClassCredit: '1',
+    })).toMatchObject({
+      hours: 0,
+      rawHours: 1,
+      creditStatus: 'excluded',
+    });
+    expect(classifyCreditCheckin({
+      eventType: 'workshop',
+      eventDate: '2026-09-15',
+    })).toMatchObject({
+      hours: 0,
+      rawHours: 0,
+      creditStatus: 'zero',
+    });
+  });
+
+  test('maps a check-in row for the admin lookup', () => {
+    expect(mapCreditCheckinRow({
+      reservationId: 12,
+      eventId: 8,
+      eventName: 'English Table A',
+      eventDate: '2026-09-15',
+      startTime: '12:10:00',
+      eventType: 'english_table',
+      countsTowardPassport: 0,
+      excludeFromClassCredit: 0,
+    })).toMatchObject({
+      reservationId: 12,
+      eventName: 'English Table A',
+      eventDate: '2026-09-15',
+      startTime: '12:10',
+      hours: 0.75,
+      points: 1.5,
+      creditStatus: 'counted',
+    });
+  });
+
+  test('a Date object still uses the calendar day for 45-minute English Table', () => {
+    expect(mapCreditCheckinRow({
+      reservationId: 13,
+      eventId: 9,
+      eventName: 'English Table B',
+      eventDate: new Date(2026, 8, 15),
+      startTime: '18:00:00',
+      eventType: 'ET',
+      countsTowardPassport: 0,
+      excludeFromClassCredit: 0,
+    })).toMatchObject({
+      eventDate: '2026-09-15',
+      startTime: '18:00',
+      hours: 0.75,
+      creditStatus: 'counted',
+    });
+  });
+});
+
 describe('resolveAllocationStatus', () => {
   const { resolveAllocationStatus } = require('../services/classCreditAllocationService');
 

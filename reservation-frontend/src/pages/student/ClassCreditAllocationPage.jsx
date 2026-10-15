@@ -2,7 +2,6 @@
  * 學生端：課堂加分配置（單課自動歸屬；多課可拆分）
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import StudentRecordShell from '../../components/student/StudentRecordShell';
 import {
@@ -18,6 +17,7 @@ import {
 } from '../../utils/studentIdentityStorage';
 import { CLASS_DETAIL_SEMESTER_OPTIONS } from '../../utils/classDetailHelpers';
 import { getCurrentSemester } from '../../utils/semesterUtils';
+import { getEventTypeDisplayName } from '../../constants/eventTypeCatalog';
 import '../../styles/public-ui.css';
 
 const STORAGE_KEY = 'eears_class_credit_student';
@@ -57,8 +57,20 @@ function formatHours(h) {
   return String(Math.round(n * 100) / 100);
 }
 
+function formatRecordDate(iso) {
+  const matched = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!matched) return iso || '—';
+  return `${Number(matched[1])}年${Number(matched[2])}月${Number(matched[3])}日`;
+}
+
+function creditStatusBadge(status, label) {
+  if (status === 'counted') return <Badge bg="success">{label || '已計點'}</Badge>;
+  if (status === 'passport') return <Badge bg="info">{label || '計入護照'}</Badge>;
+  if (status === 'excluded') return <Badge bg="warning" text="dark">{label || '到場不計點'}</Badge>;
+  return <Badge bg="secondary">{label || '不計點'}</Badge>;
+}
+
 export default function ClassCreditAllocationPage() {
-  const navigate = useNavigate();
   const [navEnabled, setNavEnabled] = useState(null);
   const [student, setStudent] = useState(() => loadStoredStudent());
   const [form, setForm] = useState(() => loadStoredStudent() || {
@@ -110,12 +122,6 @@ export default function ClassCreditAllocationPage() {
     loadDashboard(student, semester);
     return undefined;
   }, [navEnabled, student, semester, loadDashboard]);
-
-  useEffect(() => {
-    if (dashboard?.classCount !== 1) return undefined;
-    navigate('/student/progress', { replace: true });
-    return undefined;
-  }, [dashboard, navigate]);
 
   const handleIdentify = (e) => {
     e.preventDefault();
@@ -180,14 +186,6 @@ export default function ClassCreditAllocationPage() {
             課堂加分配置入口已關閉。若需配置時數，請洽英語中心。
           </Alert>
         </StudentRecordShell>
-      </div>
-    );
-  }
-
-  if (dashboard?.classCount === 1) {
-    return (
-      <div className="container py-5 text-center">
-        <Spinner animation="border" />
       </div>
     );
   }
@@ -360,6 +358,58 @@ export default function ClassCreditAllocationPage() {
             簽到時若勾選「計入護照」，或現場登記「到場不計點」（未帶學生證），該場次不會進入待分配時數。
             本學期若只有一門課，系統會自動把全部可配置時數歸該課；多門課請自行拆分，逾期未配置時老師端會顯示「未配置」。
           </Alert>
+
+          <Card className="mb-3">
+            <Card.Header className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <span>本學期參加活動</span>
+              <span className="fw-semibold">目前總點數 {dashboard.earnedPoints ?? 0} 點</span>
+            </Card.Header>
+            <Card.Body className="p-0">
+              {Number(dashboard.poolAdjustmentHours) ? (
+                <div className="px-3 pt-3 small text-muted">
+                  總點數已含後台{dashboard.poolAdjustmentHours > 0 ? '增加' : '扣除'} {formatHours(Math.abs(dashboard.poolAdjustmentHours))} 時。
+                </div>
+              ) : null}
+              {(dashboard.records || []).length === 0 ? (
+                <div className="p-4 text-muted">本學期還沒有已簽到的活動。</div>
+              ) : (
+                <Table responsive className="mb-0 align-middle">
+                  <thead className="table-light">
+                    <tr>
+                      <th>日期</th>
+                      <th>活動</th>
+                      <th>點數</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboard.records.map((row) => (
+                      <tr key={row.reservationId}>
+                        <td className="text-nowrap">
+                          {formatRecordDate(row.eventDate)}
+                          {row.startTime ? <div className="small text-muted">{row.startTime}</div> : null}
+                        </td>
+                        <td>
+                          {row.eventName || '（未命名活動）'}
+                          <div className="small text-muted">{getEventTypeDisplayName(row.eventType)}</div>
+                        </td>
+                        <td>
+                          {row.points ?? 0} 點
+                          {row.creditStatus !== 'counted' ? (
+                            <div className="mt-1">
+                              {creditStatusBadge(row.creditStatus, row.creditStatusLabel)}
+                              {Number(row.rawPoints) > 0 ? (
+                                <div className="small text-muted">本場 {row.rawPoints} 點，未計入總點數</div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </Card.Body>
+          </Card>
 
           <Card>
             <Card.Header className="d-flex justify-content-between align-items-center">

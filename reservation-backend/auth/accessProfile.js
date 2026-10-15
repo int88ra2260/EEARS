@@ -252,11 +252,9 @@ function buildBasePermissionSet(user) {
         P.CAN_MANAGE_SITE_CONTENT,
       ]);
     } else if (worker === 'passport_ops') {
+      // 實踐歷程工讀：只審點數，不看護照申請、規則、匯出或學生頁面
       addAll(perms, [
-        P.CAN_VIEW_ENGLISH_LEARNING_PASSPORTS,
-        P.CAN_MANAGE_ENGLISH_LEARNING_PASSPORTS,
         P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS,
-        P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
       ]);
     } else {
       // 未知 level：保守沿用活動營運

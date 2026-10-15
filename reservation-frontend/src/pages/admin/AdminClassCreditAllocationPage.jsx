@@ -10,6 +10,7 @@ import {
   fetchAdminClassCreditStudent,
 } from '../../services/classCreditAllocationApi';
 import { CLASS_DETAIL_SEMESTER_OPTIONS } from '../../utils/classDetailHelpers';
+import { getEventTypeDisplayName } from '../../constants/eventTypeCatalog';
 import { getCurrentSemester } from '../../utils/semesterUtils';
 import { showErrorMessage, showSuccessMessage } from '../../utils/errorHandler';
 
@@ -26,6 +27,13 @@ function formatPlainHours(h) {
   const n = Number(h);
   if (!Number.isFinite(n)) return '0';
   return String(Math.round(n * 100) / 100);
+}
+
+function creditStatusBadge(status, label) {
+  if (status === 'counted') return <Badge bg="success">{label || '計入時數'}</Badge>;
+  if (status === 'passport') return <Badge bg="info">{label || '計入護照'}</Badge>;
+  if (status === 'excluded') return <Badge bg="warning" text="dark">{label || '到場不計點'}</Badge>;
+  return <Badge bg="secondary">{label || '不計時數'}</Badge>;
 }
 
 export default function AdminClassCreditAllocationPage() {
@@ -233,6 +241,51 @@ export default function AdminClassCreditAllocationPage() {
                     </tbody>
                   </Table>
                 </>
+              )}
+            </Card.Body>
+          </Card>
+
+          <Card className="mb-4">
+            <Card.Header>
+              <h5 className="mb-0">簽到紀錄</h5>
+              <div className="small text-muted mt-1">
+                本學期已簽到的活動。計入時數的場次加總為上方「簽到」時數；計入護照或到場不計點的場次不計入課堂時數。
+              </div>
+            </Card.Header>
+            <Card.Body>
+              {(result.records || []).length === 0 ? (
+                <div className="text-muted">本學期沒有已簽到的活動。</div>
+              ) : (
+                <Table responsive hover size="sm" className="mb-0 align-middle">
+                  <thead>
+                    <tr>
+                      <th>日期</th>
+                      <th>活動</th>
+                      <th>類型</th>
+                      <th>計入時數</th>
+                      <th>狀態</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.records.map((row) => (
+                      <tr key={row.reservationId}>
+                        <td className="text-nowrap">
+                          {row.eventDate || '—'}
+                          {row.startTime ? <div className="small text-muted">{row.startTime}</div> : null}
+                        </td>
+                        <td>{row.eventName || '（未命名活動）'}</td>
+                        <td>{getEventTypeDisplayName(row.eventType)}</td>
+                        <td>
+                          {formatPlainHours(row.hours)} 時
+                          {row.creditStatus !== 'counted' && Number(row.rawHours) > 0 ? (
+                            <div className="small text-muted">場次 {formatPlainHours(row.rawHours)} 時</div>
+                          ) : null}
+                        </td>
+                        <td>{creditStatusBadge(row.creditStatus, row.creditStatusLabel)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
               )}
             </Card.Body>
           </Card>

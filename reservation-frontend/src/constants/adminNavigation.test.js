@@ -174,6 +174,13 @@ describe('getDefaultExpandedSectionIds', () => {
     const ids = getDefaultExpandedSectionIds(ctx, visible);
     expect(ids.has('learning-outcomes')).toBe(true);
     expect(ids.has('english')).toBe(false);
+    const profile = ctx.accessProfile;
+    expect(profile.permissionSet.has('can_review_english_learning_submissions')).toBe(true);
+    expect(profile.permissionSet.has('can_view_english_learning_passports')).toBe(false);
+    expect(canAccessAdminRoute(profile, '/admin/english-learning-passports')).toBe(true);
+    expect(canAccessAdminRoute(profile, '/admin/english-learning-passports/1')).toBe(false);
+    const childIds = visible.find((section) => section.id === 'learning-outcomes')?.children?.map((child) => child.id);
+    expect(childIds).toContain('english-learning-passport');
   });
 });
 

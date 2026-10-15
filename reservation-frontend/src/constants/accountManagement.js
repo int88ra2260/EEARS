@@ -64,12 +64,9 @@ export const WORKER_LEVEL_SUMMARY = {
     permissions: ['公告與週報', '學生端內容', '變更密碼'],
   },
   passport_ops: {
-    description: '負責英語實踐歷程護照檢視、管理、審核與匯出（不含規則設定）。',
+    description: '負責英語實踐歷程的點數審核（不含護照申請、規則設定、匯出與學生頁面）。',
     permissions: [
-      '實踐歷程護照檢視',
-      '實踐歷程護照管理',
-      '繳交審核',
-      '匯出',
+      '點數審核',
       '變更密碼',
     ],
   },

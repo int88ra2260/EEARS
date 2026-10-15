@@ -45,16 +45,20 @@ try {
     [System.IO.File]::WriteAllText($cnfPath, $cnfBody, [System.Text.UTF8Encoding]::new($false))
 } catch { Write-Error ("Failed to write temporary my.cnf. mysqldump_path='{0}'" -f $dumpExe); exit 4 }
 try {
+    # mysqldump opens the output file itself. PowerShell -RedirectStandardOutput
+    # together with -NoNewWindow hands it a bad stdout handle and fails with
+    # "Got errno 9 on write" (seen nightly from 2026-10-09).
+    if (Test-Path -LiteralPath $sqlFile) { Remove-Item -LiteralPath $sqlFile -Force }
     $process = Start-Process -FilePath $dumpExe `
         -ArgumentList @(
             "--defaults-extra-file=$cnfPath",
             "--single-transaction",
             "--routines",
             "--triggers",
+            "--result-file=$sqlFile",
             $dbName
         ) `
-        -NoNewWindow `
-        -RedirectStandardOutput $sqlFile `
+        -WindowStyle Hidden `
         -RedirectStandardError $stderrFile `
         -PassThru `
         -Wait
