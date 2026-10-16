@@ -27,7 +27,7 @@ export default function PublicLayout({ children, homeBanner = null }) {
     return (
       <main
         id="main-content"
-        className={`app-main mt-3 mb-4${isAdmin ? ' app-main--admin' : ' container'}`}
+        className={isAdmin ? 'app-main app-main--admin' : 'app-main mt-3 mb-4 container'}
         style={{ flex: '1 1 auto' }}
         tabIndex={-1}
       >

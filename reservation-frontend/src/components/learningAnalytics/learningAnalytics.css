@@ -850,10 +850,10 @@
   cursor: not-allowed;
 }
 
-.la-explorer-preset span,
-.la-explorer-field em {
-  font-style: normal;
-  font-size: 0.7rem;
+.la-explorer-pending {
+  margin: 0.15rem 0 0.55rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
   color: #8a5a12;
 }
 

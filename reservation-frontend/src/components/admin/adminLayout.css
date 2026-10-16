@@ -1,11 +1,10 @@
 /* 後台 Sidebar + 主內容區（minimalist-ui：暖色單色、扁平、行政可讀） */
 
-/* PublicLayout 殼層：略過全域 .container 1200px，改約 90% 視窗寬 */
+/* PublicLayout 殼層：後台佔滿視窗寬，不再留左右木紋邊 */
 .app-main--admin {
-  width: 90%;
+  width: 100%;
   max-width: none;
-  margin-left: auto;
-  margin-right: auto;
+  margin: 0;
   padding-left: 0;
   padding-right: 0;
 }

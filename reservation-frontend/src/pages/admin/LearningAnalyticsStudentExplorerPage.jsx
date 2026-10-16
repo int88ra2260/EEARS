@@ -110,6 +110,13 @@ function reasonFor(unavailable, id) {
   return unavailable.find((item) => item.id === id)?.reason || '';
 }
 
+function displayName(row) {
+  const name = String(row.studentName || '').trim();
+  const id = String(row.studentId || '').trim();
+  if (!name || name.toUpperCase() === id.toUpperCase()) return '';
+  return name;
+}
+
 export default function LearningAnalyticsStudentExplorerPage() {
   const token = localStorage.getItem('token') || '';
   const [draft, setDraft] = useState({ ...EMPTY_FILTERS });
@@ -156,6 +163,12 @@ export default function LearningAnalyticsStudentExplorerPage() {
     setOffset(0);
   };
 
+  const selectFilter = (patch) => {
+    setDraft((current) => ({ ...current, ...patch }));
+    setApplied((current) => ({ ...current, ...patch }));
+    setOffset(0);
+  };
+
   const clearChip = (key) => {
     const next = { ...applied, [key]: '' };
     setDraft(next);
@@ -171,19 +184,22 @@ export default function LearningAnalyticsStudentExplorerPage() {
     <div className="la-explorer">
       <aside className="la-explorer-filters" aria-label="篩選條件">
         <div className="la-explorer-presets" role="group" aria-label="預設條件">
-          {PRESETS.map((preset) => (
+          {PRESETS.filter((preset) => !preset.disabled).map((preset) => (
             <button
               key={preset.id}
               type="button"
-              className={`la-explorer-preset${preset.disabled ? ' is-disabled' : ''}`}
-              disabled={preset.disabled}
-              title={preset.disabled ? reasonFor(unavailable, preset.needs) : preset.label}
+              className="la-explorer-preset"
               onClick={() => applyFilters({ ...preset.filters })}
             >
               {preset.label}
-              {preset.disabled ? <span>待補資料</span> : null}
             </button>
           ))}
+          <p
+            className="la-explorer-pending"
+            title={PRESETS.filter((preset) => preset.disabled).map((preset) => reasonFor(unavailable, preset.needs)).filter(Boolean).join(' ')}
+          >
+            待補：初・中級學生、尚待後測、修課 × 前後測
+          </p>
         </div>
 
         <form
@@ -207,8 +223,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
               <span>系所</span>
               <Form.Select
                 size="sm"
-                value={draft.department}
-                onChange={(event) => patchDraft({ department: event.target.value })}
+                value={applied.department}
+                onChange={(event) => selectFilter({ department: event.target.value })}
               >
                 <option value="">全部系所</option>
                 {(data?.options?.departments || []).map((name) => (
@@ -220,8 +236,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
               <span>入學年度</span>
               <Form.Select
                 size="sm"
-                value={draft.cohort}
-                onChange={(event) => patchDraft({ cohort: event.target.value })}
+                value={applied.cohort}
+                onChange={(event) => selectFilter({ cohort: event.target.value })}
               >
                 <option value="">全部年度</option>
                 {(data?.options?.cohorts || []).map((year) => (
@@ -233,38 +249,27 @@ export default function LearningAnalyticsStudentExplorerPage() {
               <span>學測英文級分至少</span>
               <Form.Select
                 size="sm"
-                value={draft.minBaselineScore}
-                onChange={(event) => patchDraft({ minBaselineScore: event.target.value })}
+                value={applied.minBaselineScore}
+                onChange={(event) => selectFilter({ minBaselineScore: event.target.value })}
               >
                 {SCORE_OPTIONS.map((option) => (
                   <option key={option.value || 'any'} value={option.value}>{option.label}</option>
                 ))}
               </Form.Select>
             </label>
-            <label className="la-explorer-field">
-              <span>起始分級 <em>待補資料</em></span>
-              <Form.Select size="sm" disabled value="">
-                <option>尚不能篩選</option>
-              </Form.Select>
-              <small>{reasonFor(unavailable, 'placement')}</small>
-            </label>
+            <p className="la-explorer-pending" title={reasonFor(unavailable, 'placement')}>
+              起始分級待補，目前不能篩。
+            </p>
           </details>
 
           <details className="la-explorer-group" open>
             <summary>學習紀錄</summary>
             <label className="la-explorer-field">
-              <span>EAP／ESP 修課 <em>待補資料</em></span>
-              <Form.Select size="sm" disabled value="">
-                <option>尚不能篩選</option>
-              </Form.Select>
-              <small>{reasonFor(unavailable, 'eap_esp')}</small>
-            </label>
-            <label className="la-explorer-field">
               <span>有效英檢</span>
               <Form.Select
                 size="sm"
-                value={draft.hasValidExam}
-                onChange={(event) => patchDraft({ hasValidExam: event.target.value })}
+                value={applied.hasValidExam}
+                onChange={(event) => selectFilter({ hasValidExam: event.target.value })}
               >
                 {EXAM_OPTIONS.map((option) => (
                   <option key={option.value || 'any'} value={option.value}>{option.label}</option>
@@ -272,28 +277,27 @@ export default function LearningAnalyticsStudentExplorerPage() {
               </Form.Select>
             </label>
             <label className="la-explorer-field">
-              <span>英檢配對 <em>待補資料</em></span>
-              <Form.Select size="sm" disabled value="">
-                <option>尚不能篩選</option>
-              </Form.Select>
-              <small>{reasonFor(unavailable, 'exam_pairing')}</small>
-            </label>
-            <label className="la-explorer-field">
               <span>活動認列時數至少</span>
               <Form.Select
                 size="sm"
-                value={draft.minActivityHours}
-                onChange={(event) => patchDraft({ minActivityHours: event.target.value })}
+                value={applied.minActivityHours}
+                onChange={(event) => selectFilter({ minActivityHours: event.target.value })}
               >
                 {HOURS_OPTIONS.map((option) => (
                   <option key={option.value || 'any'} value={option.value}>{option.label}</option>
                 ))}
               </Form.Select>
             </label>
+            <p
+              className="la-explorer-pending"
+              title={[reasonFor(unavailable, 'eap_esp'), reasonFor(unavailable, 'exam_pairing')].filter(Boolean).join(' ')}
+            >
+              EAP／ESP 修課、英檢配對待補，目前不能篩。
+            </p>
           </details>
 
           <div className="la-explorer-actions">
-            <Button type="submit" variant="primary" size="sm">套用篩選</Button>
+            <Button type="submit" variant="primary" size="sm">搜尋</Button>
             <Button type="button" variant="outline-secondary" size="sm" onClick={() => applyFilters({ ...EMPTY_FILTERS })}>
               重設
             </Button>
@@ -306,7 +310,7 @@ export default function LearningAnalyticsStudentExplorerPage() {
           <div>
             <h2 className="la-explorer-title">學生探索</h2>
             <p className="la-explorer-lead">
-              調整左側條件後按「套用篩選」。往下看名單時，篩選區會留在畫面左側。
+              下拉選單會立即重查。搜尋姓名或學號後按「搜尋」。
               {data?.snapshotVersion ? ` 資料版本 ${data.snapshotVersion}。` : ''}
             </p>
           </div>
@@ -373,7 +377,9 @@ export default function LearningAnalyticsStudentExplorerPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.items.map((row) => (
+                  {data.items.map((row) => {
+                    const name = displayName(row);
+                    return (
                     <tr key={row.studentId}>
                       <td>
                         <Link
@@ -383,7 +389,7 @@ export default function LearningAnalyticsStudentExplorerPage() {
                         >
                           {row.studentId}
                         </Link>
-                        <div className="small text-muted">{row.studentName || '尚無名冊姓名'}</div>
+                        {name ? <div className="small text-muted">{name}</div> : null}
                       </td>
                       <td>{row.department || '—'}</td>
                       <td>{row.cohort || '—'}</td>
@@ -393,7 +399,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
                       <td>{row.retestFlag ? '是' : '否'}</td>
                       <td>{formatHours(row.totalActivityHours)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
