@@ -26,7 +26,7 @@ export default function LearningAnalyticsDataHealth({ meta, error, snapshotVersi
   if (!meta) return null;
 
   const counts = meta.tableCounts || {};
-  const warnings = meta.warnings || [];
+  const warnings = (meta.warnings || []).filter((line) => line !== meta.examSnapshotStaleMessage);
   const recommended = meta.recommendedSnapshot || {};
   const recommendedStudents = recommended.studentCount;
   const recommendedExams = recommended.examCount;
@@ -34,6 +34,17 @@ export default function LearningAnalyticsDataHealth({ meta, error, snapshotVersi
   const activeLabel = resolveSnapshotLabel(meta, activeVersion);
   const usingRecommended = !activeVersion
     || activeVersion === String(recommended.version || meta.recommendedSnapshotVersion || '');
+
+  const staleAlert = meta.examSnapshotStaleMessage ? (
+    <Alert variant="warning" className="mb-3">
+      <div className="fw-semibold mb-1">{meta.examSnapshotStaleMessage}</div>
+      <div className="small">
+        技能頁讀的是全域分析快照。英檢匯入會排程重建；完成前這段數字仍是上一版。
+        {' '}
+        <Link to="/admin/learning-journey/operations">查看重建進度</Link>
+      </div>
+    </Alert>
+  ) : null;
 
   if (!meta.hasAnalyticData) {
     return (
@@ -49,7 +60,9 @@ export default function LearningAnalyticsDataHealth({ meta, error, snapshotVersi
   }
 
   return (
-    <div className="la-data-ready">
+    <>
+      {staleAlert}
+      <div className="la-data-ready">
       <div>
         最新資料 {recommendedStudents ?? '—'} 人、英檢 {recommendedExams ?? '—'} 筆
         {counts.lj_student_events != null ? `、學習事件 ${counts.lj_student_events} 筆` : ''}
@@ -76,5 +89,6 @@ export default function LearningAnalyticsDataHealth({ meta, error, snapshotVersi
         </ul>
       ) : null}
     </div>
+    </>
   );
 }

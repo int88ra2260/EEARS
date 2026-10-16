@@ -46,6 +46,11 @@ const NAV_GROUPS = [
         hint: '左側篩選，右側看名單',
       },
       {
+        to: '/admin/learning-analytics/tracking-cohorts',
+        label: '追蹤名單',
+        hint: '固定一批學生，之後回來看變化',
+      },
+      {
         to: '/admin/learning-analytics/students',
         label: '個人軌跡',
         hint: '從名單點進輔導摘要',

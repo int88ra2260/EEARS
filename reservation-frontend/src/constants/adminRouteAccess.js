@@ -447,6 +447,18 @@ export const ADMIN_ROUTE_ACCESS = [
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
+    pattern: '/admin/learning-analytics/tracking-cohorts',
+    label: '追蹤名單',
+    allowAdminOrExecutive: true,
+    anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
+  },
+  {
+    pattern: '/admin/learning-analytics/tracking-cohorts/:id',
+    label: '追蹤名單對照',
+    allowAdminOrExecutive: true,
+    anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
+  },
+  {
     pattern: '/admin/learning-analytics/students',
     label: '個人軌跡',
     allowAdminOrExecutive: true,

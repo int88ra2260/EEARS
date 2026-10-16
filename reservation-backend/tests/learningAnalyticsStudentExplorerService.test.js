@@ -4,11 +4,17 @@ const { Op } = require('sequelize');
 const { getStudentExplorer } = require('../services/learningAnalytics/learningAnalyticsStudentExplorerService');
 
 jest.mock('../models', () => ({
+  sequelize: {
+    escape: (value) => `'${String(value).replace(/'/g, "''")}'`,
+    literal: (sql) => ({ val: sql }),
+  },
   LjAnalyticStudent: {
     findAll: jest.fn(),
     count: jest.fn(),
     findOne: jest.fn(),
   },
+  LjAnalyticExam: { findAll: jest.fn() },
+  LjStudentEvent: { findAll: jest.fn() },
   Student: { findAll: jest.fn() },
   EtStudentMaster: { findAll: jest.fn() },
 }));
@@ -17,7 +23,12 @@ jest.mock('../services/learningJourney/analytics/timelineReadService', () => ({
   resolveLatestSnapshotVersion: jest.fn().mockResolvedValue('global-test'),
 }));
 
-const { LjAnalyticStudent, Student, EtStudentMaster } = require('../models');
+const { LjAnalyticStudent, LjAnalyticExam, LjStudentEvent, Student, EtStudentMaster } = require('../models');
+const {
+  matchPlacementLabel,
+  placementStudentSubquery,
+  examPhaseSubquery,
+} = require('../services/learningAnalytics/learningAnalyticsStudentExplorerService');
 
 describe('learningAnalyticsStudentExplorerService', () => {
   beforeEach(() => {
@@ -46,6 +57,8 @@ describe('learningAnalyticsStudentExplorerService', () => {
     });
     LjAnalyticStudent.count.mockResolvedValue(1);
     LjAnalyticStudent.findOne.mockResolvedValue({ avgHours: '8.5' });
+    LjAnalyticExam.findAll.mockResolvedValue([]);
+    LjStudentEvent.findAll.mockResolvedValue([]);
     Student.findAll.mockResolvedValue([{ studentId: 'D001', nameZh: '王小明' }]);
     EtStudentMaster.findAll.mockResolvedValue([]);
   });
@@ -70,15 +83,15 @@ describe('learningAnalyticsStudentExplorerService', () => {
       keyword: '',
       department: '電機工程學系',
       cohort: '',
-      minBaselineScore: null,
-      minActivityHours: 6,
+      placement: '',
       hasValidExam: null,
+      hasPreTest: null,
+      hasPostTest: null,
+      minActivityHours: 6,
+      courseType: '',
+      minCourseHours: null,
     });
-    expect(result.unavailableFilters.map((item) => item.id)).toEqual([
-      'placement',
-      'eap_esp',
-      'exam_pairing',
-    ]);
+    expect(result.unavailableFilters).toBeUndefined();
     expect(result.summary).toEqual({
       matched: 1,
       withValidExam: 1,
@@ -93,6 +106,7 @@ describe('learningAnalyticsStudentExplorerService', () => {
     });
     expect(result.options.departments).toEqual(['化學系', '電機工程學系']);
     expect(result.options.cohorts).toEqual(['113', '114']);
+    expect(result.options.placements).toEqual(['初級', '中級', '中高級', '高級']);
   });
 
   it('restricts keyword search to roster and master student ids', async () => {
@@ -106,6 +120,24 @@ describe('learningAnalyticsStudentExplorerService', () => {
     await getStudentExplorer({ keyword: '承恩' });
 
     const where = LjAnalyticStudent.count.mock.calls[0][0].where;
-    expect(where.studentId[Op.in]).toEqual(expect.arrayContaining(['D11400001', '承恩']));
+    expect(where[Op.and][0].studentId[Op.in]).toEqual(expect.arrayContaining(['D11400001', '承恩']));
+  });
+
+  it('treats placement labels without confusing 中級 and 中高級', () => {
+    expect(matchPlacementLabel('學測 12 · 中高級')).toBe('中高級');
+    expect(matchPlacementLabel('英文分級：中級')).toBe('中級');
+    expect(matchPlacementLabel('高級')).toBe('高級');
+    expect(matchPlacementLabel('B1')).toBeNull();
+  });
+
+  it('keeps GSAT out of pre-test and post-test student queries', () => {
+    expect(placementStudentSubquery('中級')).toContain("event_type = 'baseline_score'");
+    expect(placementStudentSubquery('中級')).toContain('NOT LIKE \'%中高級%\'');
+    expect(placementStudentSubquery('not-a-level')).toBeNull();
+
+    const sql = examPhaseSubquery('global-test', ['pre_test', 'single']);
+    expect(sql).toContain("UPPER(instrument) <> 'GSAT'");
+    expect(sql).toContain("'pre_test'");
+    expect(sql).toContain("'single'");
   });
 });

@@ -65,12 +65,12 @@ export const FILTER_FIELD_HINTS = Object.freeze({
   cohort: '選項來自分析資料中的入學年度（級），例如 113、114。',
   college: '選項來自分析資料中的學院，以及分析設定中手動新增的項目。',
   department: '選項來自分析資料中的系所，以及分析設定中手動新增的項目。',
-  baseline_level: '依學生基線英語能力（CEFR 等級）篩選群體。',
+  baseline_level: '只比對已另行記載的 CEFR。學測級分與起始分級不會換算成 CEFR。',
   exposure_level: '依考前累積的英語課程與活動參與時數分級。',
   has_valid_exam: '是否有納入分析的有效英檢成績。',
   retest_flag: '是否曾有前後測可計算成長的英檢紀錄。',
   is_b2plus: '是否已達 B2 以上認證（依分析快照計算，非單一學期名冊）。',
-  instrument: '篩選特定英檢工具之成績紀錄。',
+  instrument: '篩選特定英檢工具之成績紀錄。學測英文是入學起始分級，不是英檢前測，因此不列在這裡。',
   skill: '篩選特定技能維度（聽說讀寫等）之成長或成績。',
   evidence_quality: '依學生資料完整度（基線、英檢筆數等）篩選。',
   matching_caliper: '數字愈小，對照學生的背景要愈接近。多半可留空用預設。',
@@ -169,7 +169,6 @@ export const INSTRUMENT_OPTIONS = [
   { value: 'IELTS', label: 'IELTS' },
   { value: 'TOEFL', label: 'TOEFL' },
   { value: 'GEPT', label: 'GEPT' },
-  { value: 'GSAT', label: 'GSAT（學測）' },
 ];
 
 export const SKILL_OPTIONS = [

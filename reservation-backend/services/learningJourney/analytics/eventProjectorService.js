@@ -520,6 +520,7 @@ async function projectBaselineEvents(studentIds, enrollmentMap) {
       excludeFlag: false,
       reasonCode: null,
       timing: TIMING.ENTRY,
+      // 占位入學基準；學測分數匯入後仍屬起始分級，不是英檢前測。
       instrument: 'GSAT',
       skill: SKILL_UNSPECIFIED,
       rawScore: null,

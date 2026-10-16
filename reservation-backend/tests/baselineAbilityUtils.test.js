@@ -1,31 +1,31 @@
 'use strict';
 
 const {
-  inferGsatOverallCefr,
   resolveBaselineCefrBand,
   applyBaselineLevelFilter,
 } = require('../services/learningAnalytics/baselineAbilityUtils');
 
 describe('baselineAbilityUtils', () => {
-  it('maps GSAT score to CEFR band', () => {
-    expect(inferGsatOverallCefr(12)).toBe('B1');
-    expect(inferGsatOverallCefr(15)).toBe('B2');
-    expect(inferGsatOverallCefr(5)).toBe('BELOW_A1');
-  });
-
-  it('resolves baseline from english score when baselineCefr is empty', () => {
-    const band = resolveBaselineCefrBand({
+  it('does not turn a GSAT score or placement label into CEFR', () => {
+    expect(resolveBaselineCefrBand({
       baselineCefr: null,
-      baselineEnglishScore: 12,
-      baselineLevel: '學測 12',
-    });
-    expect(band).toBe('B1');
+      baselineEnglishScore: 15,
+      baselineLevel: '學測 15 · 英文高級',
+    })).toBeNull();
   });
 
-  it('filters students by baseline_level CEFR option', () => {
+  it('keeps an explicitly stored CEFR', () => {
+    expect(resolveBaselineCefrBand({
+      baselineCefr: 'B1',
+      baselineEnglishScore: 12,
+      baselineLevel: '英文中級',
+    })).toBe('B1');
+  });
+
+  it('filters students only by an explicit baseline CEFR', () => {
     const students = [
-      { studentId: 'A', baselineEnglishScore: 12, baselineLevel: '學測 12' },
-      { studentId: 'B', baselineEnglishScore: 16, baselineLevel: '學測 16' },
+      { studentId: 'A', baselineCefr: 'B1', baselineEnglishScore: 8, baselineLevel: '英文初級' },
+      { studentId: 'B', baselineCefr: null, baselineEnglishScore: 15, baselineLevel: '英文高級' },
     ];
     const filtered = applyBaselineLevelFilter(students, { baseline_level: 'B1' });
     expect(filtered.map((s) => s.studentId)).toEqual(['A']);

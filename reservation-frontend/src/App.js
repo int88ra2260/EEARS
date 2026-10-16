@@ -129,6 +129,7 @@ const LearningAnalyticsOfferingsPage = lazy(() => import('./pages/admin/Learning
 const LearningAnalyticsResourcesPage = lazy(() => import('./pages/admin/LearningAnalyticsResourcesPage'));
 const LearningAnalyticsSkillsPage = lazy(() => import('./pages/admin/LearningAnalyticsSkillsPage'));
 const LearningAnalyticsStudentExplorerPage = lazy(() => import('./pages/admin/LearningAnalyticsStudentExplorerPage'));
+const LearningAnalyticsTrackingCohortsPage = lazy(() => import('./pages/admin/LearningAnalyticsTrackingCohortsPage'));
 const LearningAnalyticsStudentJourneyPage = lazy(() => import('./pages/admin/LearningAnalyticsStudentJourneyPage'));
 const LearningAnalyticsStudentDetailPage = lazy(() => import('./pages/admin/LearningAnalyticsStudentDetailPage'));
 const LearningAnalyticsRawDataPage = lazy(() => import('./pages/admin/LearningAnalyticsRawDataPage'));
@@ -620,6 +621,8 @@ function AppContent() {
                 <Route path="skills" element={<LearningAnalyticsSkillsPage />} />
                 <Route path="skills/:studentId" element={<LearningAnalyticsStudentDetailPage focus="skills" />} />
                 <Route path="explore" element={<LearningAnalyticsStudentExplorerPage />} />
+                <Route path="tracking-cohorts" element={<LearningAnalyticsTrackingCohortsPage />} />
+                <Route path="tracking-cohorts/:id" element={<LearningAnalyticsTrackingCohortsPage />} />
                 <Route path="students" element={<LearningAnalyticsStudentJourneyPage />} />
                 <Route path="students/:studentId" element={<LearningAnalyticsStudentDetailPage />} />
                 <Route path="raw-data" element={<LearningAnalyticsRawDataPage />} />

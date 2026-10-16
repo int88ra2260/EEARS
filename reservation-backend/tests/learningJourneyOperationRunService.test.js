@@ -114,7 +114,8 @@ describe('learningJourneyOperationRunService', () => {
         requestId: expect.any(Object)
       })
     }));
-    expect(LearningJourneyOperationRun.findAll).toHaveBeenCalledWith(expect.objectContaining({
+    expect(LearningJourneyOperationRun.findAll).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      attributes: ['id'],
       where: expect.objectContaining({
         archivedAt: null,
         semesterId: '114-2',
@@ -124,6 +125,13 @@ describe('learningJourneyOperationRunService', () => {
       limit: 5,
       offset: 0
     }));
+    const loadedAttributes = LearningJourneyOperationRun.findAll.mock.calls[1][0].attributes
+      .map((attribute) => (Array.isArray(attribute) ? attribute[1] : attribute));
+    expect(loadedAttributes).toEqual(expect.arrayContaining(['id', 'warningsLength', 'resultSummary']));
+    expect(loadedAttributes).not.toContain('beforeSummary');
+    expect(loadedAttributes).not.toContain('afterSummary');
+    expect(loadedAttributes).not.toContain('diffSummary');
+    expect(loadedAttributes).not.toContain('warnings');
     expect(result.items).toHaveLength(1);
     expect(result.pagination).toEqual(expect.objectContaining({
       limit: 5,

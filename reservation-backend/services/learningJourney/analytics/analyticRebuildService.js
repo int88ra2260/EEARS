@@ -19,7 +19,7 @@ const { deriveEnrollmentTerm } = require('../utils/semIndexCalculator');
 const { assertBeforeExposure } = require('../utils/eventQualityAssertions');
 const { buildSnapshotVersion } = require('../utils/snapshotVersion');
 const { getCefrRank, getCefrFromRank } = require('../utils/cefr');
-const { inferGsatOverallCefr, normalizeBaselineCefrKey } = require('../../learningAnalytics/baselineAbilityUtils');
+const { normalizeBaselineCefrKey } = require('../../learningAnalytics/baselineAbilityUtils');
 const { projectAllEvents, normSid, loadEnrollmentMeta } = require('./eventProjectorService');
 const { resolveRebuildStudentIds } = require('./analyticStudentIdResolver');
 const {
@@ -28,6 +28,7 @@ const {
   pickPrimaryInstrument,
   resolveTestPhase,
   sumResourceInExposureWindow,
+  isPlacementBaselineInstrument,
 } = require('./examSessionService');
 
 function nfkcStudentKey(studentId) {
@@ -94,7 +95,9 @@ function sumResourceBefore(examDate, resources) {
 }
 
 function buildAnalyticExamRows(events, snapshotVersion, derivedAt) {
-  const examEvents = events.filter((e) => e.eventType === EVENT_TYPES.EXAM);
+  const examEvents = events.filter((e) => (
+    e.eventType === EVENT_TYPES.EXAM && !isPlacementBaselineInstrument(e.instrument)
+  ));
   const resourceEvents = events.filter((e) =>
     [EVENT_TYPES.COURSE, EVENT_TYPES.ACTIVITY].includes(e.eventType) && isIncludedEvent(e)
   );
@@ -286,9 +289,9 @@ function buildAnalyticStudentRows(events, enrollmentMap, rosterMap, snapshotVers
     const hasValidExam = validExamDates.length > 0;
     const bestRanks = SKILLS.map((sk) => getCefrRank(bestBySkill[sk]?.cefrLevel)).filter((r) => r != null);
     const bestCefrRank = bestRanks.length ? Math.max(...bestRanks) : null;
-    const baselineCefr = normalizeBaselineCefrKey(baseline?.cefrLevel)
-      || inferGsatOverallCefr(baseline?.rawScore != null ? num(baseline.rawScore) : null)
-      || null;
+    const baselineCefr = isPlacementBaselineInstrument(baseline?.instrument)
+      ? null
+      : normalizeBaselineCefrKey(baseline?.cefrLevel);
 
     students.push({
       studentId,
@@ -299,7 +302,7 @@ function buildAnalyticStudentRows(events, enrollmentMap, rosterMap, snapshotVers
       admissionType: null,
       isOverseasStudent: !!roster.isOverseasStudent,
       baselineEnglishScore: baseline?.rawScore != null ? num(baseline.rawScore) : null,
-      baselineLevel: baselineCefr || baseline?.subtitle || null,
+      baselineLevel: baseline?.subtitle || null,
       baselineCefr,
       examCount: primaryRounds.length || new Set(validExams.map((e) => `${e.examDate}|${e.instrument}`)).size,
       retestFlag: hasRetest,

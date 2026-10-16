@@ -2,6 +2,7 @@
 
 const {
   buildAnalyticExamRows,
+  buildAnalyticStudentRows,
   sumResourceBefore,
 } = require('../services/learningJourney/analytics/analyticRebuildService');
 const { EVENT_TYPES, EVENT_STATUS } = require('../constants/learningJourneyEventConstants');
@@ -185,5 +186,57 @@ describe('analyticRebuildService', () => {
     const bestep = rows.find((r) => r.instrument === 'BESTEP');
     expect(bestep.deltaRawScore).toBeNull();
     expect(bestep.improvedFlag).toBeNull();
+  });
+
+  it('does not store GSAT placement as a pre-test exam row', () => {
+    const events = [
+      {
+        id: 20,
+        studentId: 'S001',
+        eventType: EVENT_TYPES.EXAM,
+        eventDate: '2024-07-01',
+        instrument: 'GSAT',
+        skill: 'listening',
+        rawScore: 13,
+        excludeFlag: false,
+        status: EVENT_STATUS.VALID,
+      },
+      {
+        id: 21,
+        studentId: 'S001',
+        eventType: EVENT_TYPES.EXAM,
+        eventDate: '2025-06-01',
+        instrument: 'BESTEP',
+        skill: 'listening',
+        rawScore: 100,
+        excludeFlag: false,
+        status: EVENT_STATUS.VALID,
+      },
+    ];
+    const rows = buildAnalyticExamRows(events, snapshotVersion, derivedAt);
+    expect(rows.map((row) => row.instrument)).toEqual(['BESTEP']);
+    expect(rows[0].testPhase).toBe('single');
+  });
+
+  it('does not turn a GSAT score or placement label into baseline CEFR', () => {
+    const events = [
+      {
+        id: 30,
+        studentId: 'S001',
+        eventType: EVENT_TYPES.BASELINE,
+        eventDate: '2024-09-01',
+        instrument: 'GSAT',
+        skill: 'unspecified',
+        rawScore: 13,
+        cefrLevel: 'B2',
+        subtitle: '學測 13 · 英文高級',
+        excludeFlag: false,
+        status: EVENT_STATUS.VALID,
+      },
+    ];
+    const { students } = buildAnalyticStudentRows(events, new Map(), new Map(), snapshotVersion, derivedAt);
+    expect(students[0].baselineEnglishScore).toBe(13);
+    expect(students[0].baselineLevel).toBe('學測 13 · 英文高級');
+    expect(students[0].baselineCefr).toBeNull();
   });
 });

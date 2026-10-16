@@ -278,6 +278,7 @@ function summarizeGrowthEpisodes(exams, studentById) {
 
   return {
     retestRows: retestRows.length,
+    retestStudentCount: new Set(retestRows.map((exam) => exam.studentId).filter(Boolean)).size,
     bySkill: skills.sort((a, b) => a.skill.localeCompare(b.skill)),
     sampleEpisodes: episodes,
     estimateType: DESCRIPTIVE_ESTIMATE,

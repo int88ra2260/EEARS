@@ -334,8 +334,8 @@ export default function LearningAnalyticsSkillsPage() {
             <Col sm={6} lg={2}>
               <MetricCard
                 label="有前後測人數"
-                value={growth?.summary?.retestCount ?? data.growthEpisodes?.retestRows ?? 0}
-                hint="才能計算個人進步"
+                value={growth?.summary?.retestCount ?? data.growthEpisodes?.retestStudentCount ?? 0}
+                hint="同一人只計一次；至少一項技能有前測與後測分差"
               />
             </Col>
             <Col sm={6} lg={2}>

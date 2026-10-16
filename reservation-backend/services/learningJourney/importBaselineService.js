@@ -11,7 +11,6 @@ const {
 } = require('../../constants/learningJourneyEventConstants');
 const { deriveEnrollmentTerm, computeSemIndex } = require('./utils/semIndexCalculator');
 const { rebuildAnalytics } = require('./analytics/analyticRebuildService');
-const { inferGsatOverallCefr } = require('../learningAnalytics/baselineAbilityUtils');
 
 function normSid(s) {
   return String(s || '').trim().toUpperCase();
@@ -130,10 +129,11 @@ async function importBaseline(file, options = {}) {
         excludeFlag: false,
         reasonCode: null,
         timing: TIMING.ENTRY,
+        // 學測只作為入學起始分級，不寫入英檢梯次，也不標成前測。
         instrument: 'GSAT',
         skill: SKILL_UNSPECIFIED,
         rawScore: r.gsatScore,
-        cefrLevel: inferGsatOverallCefr(r.gsatScore),
+        cefrLevel: null,
         hours: null,
         title: '入學基準（學測英文）',
         subtitle: r.englishPlacementLabel

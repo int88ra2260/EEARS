@@ -52,8 +52,42 @@ function warningsCount(warnings) {
   return Array.isArray(warnings) ? warnings.length : 0;
 }
 
+const LIST_ROW_ATTRIBUTES = [
+  'id',
+  'operationType',
+  'semesterId',
+  'status',
+  'requestId',
+  'executedByUsername',
+  'startedAt',
+  'finishedAt',
+  'durationMs',
+  'errorCode',
+  'errorMessage',
+  'archivedAt',
+  'archivedByUsername',
+  'cleanupRequestId',
+  'resultSummary',
+  'dryRun',
+  [fn('JSON_LENGTH', col('warnings')), 'warningsLength'],
+];
+
+const CLEANUP_SAMPLE_ATTRIBUTES = [
+  'id',
+  'operationType',
+  'semesterId',
+  'status',
+  'startedAt',
+  'requestId',
+  'archivedAt',
+  'cleanupRequestId',
+];
+
 function serializeListRow(row) {
   const j = typeof row?.toJSON === 'function' ? row.toJSON() : row;
+  const warningsLength = j.warningsLength == null || j.warningsLength === ''
+    ? null
+    : Number(j.warningsLength);
   return {
     id: j.id,
     operationType: j.operationType,
@@ -64,7 +98,7 @@ function serializeListRow(row) {
     startedAt: j.startedAt,
     finishedAt: j.finishedAt,
     durationMs: j.durationMs,
-    warningsCount: warningsCount(j.warnings),
+    warningsCount: Number.isFinite(warningsLength) ? warningsLength : warningsCount(j.warnings),
     errorCode: j.errorCode,
     errorMessage: j.errorMessage,
     archivedAt: j.archivedAt,
@@ -273,16 +307,37 @@ async function markFailed(runOrId, payload = {}) {
   return row;
 }
 
+async function findOrderedRows(where, { order, limit, offset, attributes }) {
+  const idRows = await LearningJourneyOperationRun.findAll({
+    where,
+    attributes: ['id'],
+    order,
+    limit,
+    offset,
+  });
+  const ids = idRows.map((row) => row.id).filter((id) => id != null);
+  if (!ids.length) return [];
+  const rows = await LearningJourneyOperationRun.findAll({
+    where: { id: { [Op.in]: ids } },
+    attributes,
+  });
+  const byId = new Map(rows.map((row) => [String(row.id), row]));
+  return ids.map((id) => byId.get(String(id))).filter(Boolean);
+}
+
 async function findRunningByType(operationType) {
   if (!operationType) return null;
-  return LearningJourneyOperationRun.findOne({
+  const latest = await LearningJourneyOperationRun.findOne({
     where: {
       operationType: String(operationType).trim(),
       status: STATUSES.RUNNING,
       archivedAt: null,
     },
+    attributes: ['id'],
     order: [['startedAt', 'DESC']],
   });
+  if (!latest) return null;
+  return LearningJourneyOperationRun.findByPk(latest.id);
 }
 
 async function updateProgress(runOrId, payload = {}) {
@@ -304,11 +359,11 @@ async function listRuns(query = {}) {
   const total = typeof LearningJourneyOperationRun.count === 'function'
     ? await LearningJourneyOperationRun.count({ where })
     : null;
-  const rows = await LearningJourneyOperationRun.findAll({
-    where,
+  const rows = await findOrderedRows(where, {
     order: [['startedAt', 'DESC'], ['id', 'DESC']],
     limit,
-    offset
+    offset,
+    attributes: LIST_ROW_ATTRIBUTES,
   });
   return {
     items: rows.map(serializeListRow),
@@ -327,11 +382,11 @@ async function exportRuns(query = {}) {
   const total = typeof LearningJourneyOperationRun.count === 'function'
     ? await LearningJourneyOperationRun.count({ where })
     : null;
-  const rows = await LearningJourneyOperationRun.findAll({
-    where,
+  const rows = await findOrderedRows(where, {
     order: [['startedAt', 'DESC'], ['id', 'DESC']],
     limit,
-    offset: 0
+    offset: 0,
+    attributes: LIST_ROW_ATTRIBUTES,
   });
   return {
     items: rows.map(serializeListRow),
@@ -350,11 +405,11 @@ async function cleanupDryRun(criteria = {}) {
   const matchedCount = typeof LearningJourneyOperationRun.count === 'function'
     ? await LearningJourneyOperationRun.count({ where })
     : null;
-  const rows = await LearningJourneyOperationRun.findAll({
-    where,
+  const rows = await findOrderedRows(where, {
     order: [['startedAt', 'ASC'], ['id', 'ASC']],
     limit: 5000,
-    offset: 0
+    offset: 0,
+    attributes: CLEANUP_SAMPLE_ATTRIBUTES,
   });
   const items = rows.map(serializeCleanupSampleRow);
   const byStatus = {};

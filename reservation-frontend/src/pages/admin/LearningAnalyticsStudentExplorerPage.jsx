@@ -2,28 +2,47 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
+import Modal from 'react-bootstrap/Modal';
+import Pagination from 'react-bootstrap/Pagination';
 import Spinner from 'react-bootstrap/Spinner';
 import { Link } from 'react-router-dom';
-import { getLearningAnalyticsStudentExplorer } from '../../services/learningAnalyticsService';
+import {
+  createLearningAnalyticsTrackingCohort,
+  exportLearningAnalyticsStudentExplorer,
+  getLearningAnalyticsStudentExplorer,
+} from '../../services/learningAnalyticsService';
 import { pushRecentStudent, studentTrajectoryPath } from '../../utils/learningAnalyticsRecentStudents';
+import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
+import { P } from '../../constants/permissions';
 
 const PAGE_SIZE = 40;
+
+function pageWindow(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+  const pages = [1, total, current - 1, current, current + 1]
+    .filter((page, index, list) => page >= 1 && page <= total && list.indexOf(page) === index)
+    .sort((a, b) => a - b);
+  const items = [];
+  let previous = 0;
+  for (const page of pages) {
+    if (page - previous > 1) items.push('…');
+    items.push(page);
+    previous = page;
+  }
+  return items;
+}
 
 const EMPTY_FILTERS = Object.freeze({
   keyword: '',
   department: '',
   cohort: '',
-  minBaselineScore: '',
-  hasValidExam: '',
+  placement: '',
+  hasPreTest: '',
+  hasPostTest: '',
   minActivityHours: '',
+  courseType: '',
+  minCourseHours: '',
 });
-
-const SCORE_OPTIONS = [
-  { value: '', label: '不限' },
-  { value: '8', label: '8' },
-  { value: '10', label: '10' },
-  { value: '13', label: '13' },
-];
 
 const HOURS_OPTIONS = [
   { value: '', label: '不限' },
@@ -32,60 +51,53 @@ const HOURS_OPTIONS = [
   { value: '12', label: '12 小時' },
 ];
 
-const EXAM_OPTIONS = [
+const COURSE_HOURS_OPTIONS = [
   { value: '', label: '不限' },
-  { value: 'true', label: '有有效英檢' },
-  { value: 'false', label: '無有效英檢' },
+  { value: '18', label: '18 小時' },
+  { value: '36', label: '36 小時' },
+  { value: '54', label: '54 小時' },
 ];
 
-const FALLBACK_UNAVAILABLE = [
-  {
-    id: 'placement',
-    label: '起始分級',
-    reason: '分析快照只有 CEFR，沒有初級／中級／中高級／高級這套分級。',
-  },
-  {
-    id: 'eap_esp',
-    label: 'EAP／ESP 修課',
-    reason: '學生快照沒有「已修畢 EAP／ESP」旗標。',
-  },
-  {
-    id: 'exam_pairing',
-    label: '英檢配對',
-    reason: '不能判斷有前測尚無後測，也不能判斷指定技能是否進步。',
-  },
+const PHASE_OPTIONS = [
+  { value: '', label: '不限' },
+  { value: 'true', label: '有' },
+  { value: 'false', label: '無' },
 ];
 
-const PRESETS = [
-  { id: 'all', label: '全部學生', disabled: false, filters: EMPTY_FILTERS },
-  {
-    id: 'activity6',
-    label: '活動參與 ≥ 6 小時',
-    disabled: false,
-    filters: { ...EMPTY_FILTERS, minActivityHours: '6' },
-  },
-  { id: 'low', label: '初・中級學生', disabled: true, needs: 'placement' },
-  { id: 'awaitPost', label: '尚待後測', disabled: true, needs: 'exam_pairing' },
-  { id: 'coursePair', label: '修課 × 前後測', disabled: true, needs: 'eap_esp' },
-];
+const PLACEMENT_OPTIONS = ['初級', '中級', '中高級', '高級'];
 
 function filtersToParams(filters, offset) {
   return {
     keyword: filters.keyword.trim(),
     department: filters.department,
     cohort: filters.cohort,
-    min_baseline_score: filters.minBaselineScore,
-    has_valid_exam: filters.hasValidExam,
+    placement: filters.placement,
+    has_pre_test: filters.hasPreTest,
+    has_post_test: filters.hasPostTest,
     min_activity_hours: filters.minActivityHours,
+    course_type: filters.courseType,
+    min_course_hours: filters.minCourseHours,
     limit: PAGE_SIZE,
     offset,
   };
 }
 
-function formatScore(value) {
-  if (value == null || value === '') return '—';
-  const n = Number(value);
-  return Number.isFinite(n) ? String(n) : '—';
+function filtersToExportParams(filters) {
+  const params = filtersToParams(filters, 0);
+  delete params.limit;
+  delete params.offset;
+  return params;
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function formatHours(value) {
@@ -96,18 +108,25 @@ function formatHours(value) {
 
 function buildChips(filters) {
   const chips = [];
-  if (filters.keyword.trim()) chips.push({ key: 'keyword', label: `搜尋 ${filters.keyword.trim()}` });
+  if (filters.keyword.trim()) chips.push({ key: 'keyword', label: `姓名或學號 ${filters.keyword.trim()}` });
   if (filters.department) chips.push({ key: 'department', label: filters.department });
   if (filters.cohort) chips.push({ key: 'cohort', label: `入學 ${filters.cohort}` });
-  if (filters.minBaselineScore) chips.push({ key: 'minBaselineScore', label: `學測 ≥ ${filters.minBaselineScore}` });
-  if (filters.hasValidExam === 'true') chips.push({ key: 'hasValidExam', label: '有有效英檢' });
-  if (filters.hasValidExam === 'false') chips.push({ key: 'hasValidExam', label: '無有效英檢' });
+  if (filters.placement) chips.push({ key: 'placement', label: `起始分級 ${filters.placement}` });
+  if (filters.hasPreTest === 'true') chips.push({ key: 'hasPreTest', label: '有前測' });
+  if (filters.hasPreTest === 'false') chips.push({ key: 'hasPreTest', label: '無前測' });
+  if (filters.hasPostTest === 'true') chips.push({ key: 'hasPostTest', label: '有後測' });
+  if (filters.hasPostTest === 'false') chips.push({ key: 'hasPostTest', label: '無後測' });
   if (filters.minActivityHours) chips.push({ key: 'minActivityHours', label: `活動 ≥ ${filters.minActivityHours} 小時` });
+  if (filters.courseType) chips.push({ key: 'courseType', label: `修課 ${filters.courseType}` });
+  if (filters.minCourseHours) chips.push({ key: 'minCourseHours', label: `修課 ≥ ${filters.minCourseHours} 小時` });
   return chips;
 }
 
-function reasonFor(unavailable, id) {
-  return unavailable.find((item) => item.id === id)?.reason || '';
+function examPhaseLabel(row) {
+  if (row.hasPreTest && row.hasPostTest) return '前後測';
+  if (row.hasPreTest) return '前測';
+  if (row.hasPostTest) return '後測';
+  return row.hasValidExam ? '有效' : '無';
 }
 
 function displayName(row) {
@@ -119,12 +138,22 @@ function displayName(row) {
 
 export default function LearningAnalyticsStudentExplorerPage() {
   const token = localStorage.getItem('token') || '';
+  const accessProfile = useMemo(() => buildAccessProfile(token), [token]);
+  const canExport = hasPermission(accessProfile, P.CAN_EXPORT_LEARNING_ANALYTICS);
   const [draft, setDraft] = useState({ ...EMPTY_FILTERS });
   const [applied, setApplied] = useState({ ...EMPTY_FILTERS });
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
+  const [exportError, setExportError] = useState('');
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [cohortName, setCohortName] = useState('');
+  const [savingCohort, setSavingCohort] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [savedCohort, setSavedCohort] = useState(null);
   const [data, setData] = useState(null);
+  const [pageDraft, setPageDraft] = useState('1');
 
   const queryKey = JSON.stringify(applied);
 
@@ -147,12 +176,18 @@ export default function LearningAnalyticsStudentExplorerPage() {
     };
   }, [token, queryKey, offset, applied]);
 
-  const unavailable = data?.unavailableFilters?.length ? data.unavailableFilters : FALLBACK_UNAVAILABLE;
   const chips = useMemo(() => buildChips(applied), [applied]);
   const summary = data?.summary;
   const total = data?.pagination?.total ?? 0;
+  const totalPages = total === 0 ? 0 : Math.ceil(total / PAGE_SIZE);
+  const currentPage = total === 0 ? 0 : Math.floor(offset / PAGE_SIZE) + 1;
   const pageStart = total === 0 ? 0 : offset + 1;
   const pageEnd = Math.min(offset + (data?.items?.length || 0), total);
+  const pageItems = pageWindow(currentPage || 1, Math.max(totalPages, 1));
+
+  useEffect(() => {
+    if (currentPage > 0) setPageDraft(String(currentPage));
+  }, [currentPage]);
 
   const patchDraft = (patch) => setDraft((current) => ({ ...current, ...patch }));
 
@@ -180,28 +215,61 @@ export default function LearningAnalyticsStudentExplorerPage() {
     pushRecentStudent({ studentId: row.studentId, name: row.studentName });
   };
 
+  const exportLimit = data?.options?.exportRowLimit || 5000;
+
+  const goToPage = (page) => {
+    const parsed = Number(page);
+    if (!Number.isFinite(parsed) || totalPages < 1) return;
+    const next = Math.min(totalPages, Math.max(1, Math.floor(parsed)));
+    setOffset((next - 1) * PAGE_SIZE);
+  };
+
+  const handleExport = async () => {
+    if (!canExport || exporting || total === 0) return;
+    setExporting(true);
+    setExportError('');
+    try {
+      const { blob, fileName } = await exportLearningAnalyticsStudentExplorer(
+        token,
+        filtersToExportParams(applied),
+      );
+      downloadBlob(blob, fileName);
+    } catch (err) {
+      setExportError(err.message || '匯出篩選名單失敗。');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const openSave = () => {
+    if (savingCohort || total === 0) return;
+    setSaveError('');
+    setSavedCohort(null);
+    setSaveOpen(true);
+  };
+
+  const handleSaveCohort = async (event) => {
+    event.preventDefault();
+    if (savingCohort || total === 0) return;
+    setSavingCohort(true);
+    setSaveError('');
+    try {
+      const created = await createLearningAnalyticsTrackingCohort(token, {
+        name: cohortName,
+        filters: filtersToExportParams(applied),
+      });
+      setSavedCohort(created);
+      setCohortName('');
+    } catch (err) {
+      setSaveError(err.message || '儲存追蹤名單失敗。');
+    } finally {
+      setSavingCohort(false);
+    }
+  };
+
   return (
     <div className="la-explorer">
       <aside className="la-explorer-filters" aria-label="篩選條件">
-        <div className="la-explorer-presets" role="group" aria-label="預設條件">
-          {PRESETS.filter((preset) => !preset.disabled).map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              className="la-explorer-preset"
-              onClick={() => applyFilters({ ...preset.filters })}
-            >
-              {preset.label}
-            </button>
-          ))}
-          <p
-            className="la-explorer-pending"
-            title={PRESETS.filter((preset) => preset.disabled).map((preset) => reasonFor(unavailable, preset.needs)).filter(Boolean).join(' ')}
-          >
-            待補：初・中級學生、尚待後測、修課 × 前後測
-          </p>
-        </div>
-
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -211,7 +279,7 @@ export default function LearningAnalyticsStudentExplorerPage() {
           <details className="la-explorer-group" open>
             <summary>學生背景</summary>
             <label className="la-explorer-field">
-              <span>搜尋學生</span>
+              <span>姓名或學號</span>
               <Form.Control
                 size="sm"
                 value={draft.keyword}
@@ -246,38 +314,53 @@ export default function LearningAnalyticsStudentExplorerPage() {
               </Form.Select>
             </label>
             <label className="la-explorer-field">
-              <span>學測英文級分至少</span>
+              <span>起始分級</span>
               <Form.Select
                 size="sm"
-                value={applied.minBaselineScore}
-                onChange={(event) => selectFilter({ minBaselineScore: event.target.value })}
+                value={applied.placement}
+                onChange={(event) => selectFilter({ placement: event.target.value })}
               >
-                {SCORE_OPTIONS.map((option) => (
-                  <option key={option.value || 'any'} value={option.value}>{option.label}</option>
+                <option value="">不限</option>
+                {(data?.options?.placements?.length ? data.options.placements : PLACEMENT_OPTIONS).map((level) => (
+                  <option key={level} value={level}>{level}</option>
                 ))}
               </Form.Select>
+              <small>依入學英文分級。學測成績只作為分級依據，不是前測。</small>
             </label>
-            <p className="la-explorer-pending" title={reasonFor(unavailable, 'placement')}>
-              起始分級待補，目前不能篩。
-            </p>
           </details>
 
           <details className="la-explorer-group" open>
             <summary>學習紀錄</summary>
+            <div className="la-explorer-block">
+              <div className="la-explorer-block-title">有效英檢</div>
+              <label className="la-explorer-field">
+                <span>前測</span>
+                <Form.Select
+                  size="sm"
+                  value={applied.hasPreTest}
+                  onChange={(event) => selectFilter({ hasPreTest: event.target.value })}
+                >
+                  {PHASE_OPTIONS.map((option) => (
+                    <option key={`pre-${option.value || 'any'}`} value={option.value}>{option.label}</option>
+                  ))}
+                </Form.Select>
+              </label>
+              <label className="la-explorer-field">
+                <span>後測</span>
+                <Form.Select
+                  size="sm"
+                  value={applied.hasPostTest}
+                  onChange={(event) => selectFilter({ hasPostTest: event.target.value })}
+                >
+                  {PHASE_OPTIONS.map((option) => (
+                    <option key={`post-${option.value || 'any'}`} value={option.value}>{option.label}</option>
+                  ))}
+                </Form.Select>
+              </label>
+              <small className="la-explorer-note">前測是第一梯有效英檢（含只有一次）；後測是第二梯。學測不算前測。</small>
+            </div>
             <label className="la-explorer-field">
-              <span>有效英檢</span>
-              <Form.Select
-                size="sm"
-                value={applied.hasValidExam}
-                onChange={(event) => selectFilter({ hasValidExam: event.target.value })}
-              >
-                {EXAM_OPTIONS.map((option) => (
-                  <option key={option.value || 'any'} value={option.value}>{option.label}</option>
-                ))}
-              </Form.Select>
-            </label>
-            <label className="la-explorer-field">
-              <span>活動認列時數至少</span>
+              <span>活動時數至少</span>
               <Form.Select
                 size="sm"
                 value={applied.minActivityHours}
@@ -288,12 +371,38 @@ export default function LearningAnalyticsStudentExplorerPage() {
                 ))}
               </Form.Select>
             </label>
-            <p
-              className="la-explorer-pending"
-              title={[reasonFor(unavailable, 'eap_esp'), reasonFor(unavailable, 'exam_pairing')].filter(Boolean).join(' ')}
-            >
-              EAP／ESP 修課、英檢配對待補，目前不能篩。
-            </p>
+            <div className="la-explorer-block">
+              <div className="la-explorer-block-title">修課</div>
+              <label className="la-explorer-field">
+                <span>修課類型</span>
+                <Form.Select
+                  size="sm"
+                  value={applied.courseType}
+                  onChange={(event) => selectFilter({ courseType: event.target.value })}
+                >
+                  <option value="">不限</option>
+                  {(data?.options?.courseTypes || [
+                    { value: 'GE', label: '通識英文（GE）' },
+                    { value: 'EAP', label: '學術英文（EAP）' },
+                    { value: 'ESP', label: '專業英文（ESP）' },
+                  ]).map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </Form.Select>
+              </label>
+              <label className="la-explorer-field">
+                <span>修課時數至少</span>
+                <Form.Select
+                  size="sm"
+                  value={applied.minCourseHours}
+                  onChange={(event) => selectFilter({ minCourseHours: event.target.value })}
+                >
+                  {COURSE_HOURS_OPTIONS.map((option) => (
+                    <option key={`course-${option.value || 'any'}`} value={option.value}>{option.label}</option>
+                  ))}
+                </Form.Select>
+              </label>
+            </div>
           </details>
 
           <div className="la-explorer-actions">
@@ -310,7 +419,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
           <div>
             <h2 className="la-explorer-title">學生探索</h2>
             <p className="la-explorer-lead">
-              下拉選單會立即重查。搜尋姓名或學號後按「搜尋」。
+              下拉選單會立即重查。輸入姓名或學號後按「搜尋」。
+              學測只用於起始分級，不算英檢前測。
               {data?.snapshotVersion ? ` 資料版本 ${data.snapshotVersion}。` : ''}
             </p>
           </div>
@@ -344,10 +454,83 @@ export default function LearningAnalyticsStudentExplorerPage() {
         <div className="la-panel">
           <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
             <div className="la-panel-title mb-0">學生名單</div>
-            <div className="small text-muted">
-              {loading ? '載入中…' : `${pageStart}–${pageEnd} / ${total.toLocaleString('zh-Hant')}`}
+            <div className="d-flex align-items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline-secondary"
+                disabled={loading || savingCohort || total === 0}
+                onClick={openSave}
+              >
+                儲存追蹤名單
+              </Button>
+              {canExport ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline-primary"
+                  disabled={loading || exporting || total === 0}
+                  onClick={handleExport}
+                >
+                  {exporting ? '匯出中…' : '匯出篩選名單'}
+                </Button>
+              ) : (
+                <span className="small text-muted">匯出名單需要學習成效分析匯出權限。</span>
+              )}
+              <div className="small text-muted">
+                {loading ? '載入中…' : `${pageStart}–${pageEnd} / ${total.toLocaleString('zh-Hant')}`}
+              </div>
             </div>
           </div>
+          {total > exportLimit ? (
+            <p className="small text-muted mb-2">
+              符合條件 {total.toLocaleString('zh-Hant')} 人，匯出與追蹤名單最多各保留 {exportLimit.toLocaleString('zh-Hant')} 人（依學號排序）。
+            </p>
+          ) : null}
+          {exportError ? <Alert variant="danger" className="py-2">{exportError}</Alert> : null}
+          <Modal show={saveOpen} onHide={() => setSaveOpen(false)} centered>
+            <Form onSubmit={handleSaveCohort}>
+              <Modal.Header closeButton>
+                <Modal.Title as="h2" className="h5 mb-0">儲存追蹤名單</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                <p className="small text-muted">
+                  會固定目前篩選結果的學號，以及當時的英檢、活動時數與修課時數。之後打開同一份名單，用最新數據和這次的數字比較。
+                </p>
+                {total > exportLimit ? (
+                  <Alert variant="warning" className="py-2">
+                    目前符合 {total.toLocaleString('zh-Hant')} 人，這份名單只會保留前 {exportLimit.toLocaleString('zh-Hant')} 人。
+                  </Alert>
+                ) : (
+                  <p className="small mb-2">將儲存 {total.toLocaleString('zh-Hant')} 人。</p>
+                )}
+                <Form.Group>
+                  <Form.Label>名單名稱</Form.Label>
+                  <Form.Control
+                    value={cohortName}
+                    maxLength={80}
+                    autoFocus
+                    placeholder="例如：114 中高級、尚無後測"
+                    onChange={(event) => setCohortName(event.target.value)}
+                  />
+                </Form.Group>
+                {saveError ? <Alert variant="danger" className="py-2 mt-3 mb-0">{saveError}</Alert> : null}
+                {savedCohort ? (
+                  <Alert variant="success" className="py-2 mt-3 mb-0">
+                    已儲存「{savedCohort.name}」。
+                    {' '}
+                    <Link to={`/admin/learning-analytics/tracking-cohorts/${savedCohort.id}`}>打開這份名單</Link>
+                  </Alert>
+                ) : null}
+              </Modal.Body>
+              <Modal.Footer>
+                <Button type="button" variant="outline-secondary" onClick={() => setSaveOpen(false)}>關閉</Button>
+                <Button type="submit" variant="primary" disabled={savingCohort || !cohortName.trim()}>
+                  {savingCohort ? '儲存中…' : '儲存'}
+                </Button>
+              </Modal.Footer>
+            </Form>
+          </Modal>
           {loading && !data ? (
             <div className="py-4 text-center text-muted">
               <Spinner size="sm" className="me-2" />
@@ -369,11 +552,10 @@ export default function LearningAnalyticsStudentExplorerPage() {
                     <th>學生</th>
                     <th>系所</th>
                     <th>入學年度</th>
-                    <th>學測英文</th>
-                    <th>起始 CEFR</th>
-                    <th>有效英檢</th>
-                    <th>曾重測</th>
+                    <th>起始分級</th>
+                    <th>英檢</th>
                     <th>活動時數</th>
+                    <th>修課時數</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -393,11 +575,10 @@ export default function LearningAnalyticsStudentExplorerPage() {
                       </td>
                       <td>{row.department || '—'}</td>
                       <td>{row.cohort || '—'}</td>
-                      <td>{formatScore(row.baselineEnglishScore)}</td>
-                      <td>{row.baselineCefr || '—'}</td>
-                      <td>{row.hasValidExam ? '有' : '無'}</td>
-                      <td>{row.retestFlag ? '是' : '否'}</td>
+                      <td>{row.placementLabel || '—'}</td>
+                      <td>{examPhaseLabel(row)}</td>
                       <td>{formatHours(row.totalActivityHours)}</td>
+                      <td>{formatHours(row.totalCourseHours)}</td>
                     </tr>
                     );
                   })}
@@ -405,26 +586,75 @@ export default function LearningAnalyticsStudentExplorerPage() {
               </table>
             </div>
           ) : null}
-          <div className="d-flex justify-content-end gap-2 mt-3">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline-secondary"
-              disabled={loading || offset <= 0}
-              onClick={() => setOffset((current) => Math.max(0, current - PAGE_SIZE))}
-            >
-              上一頁
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline-secondary"
-              disabled={loading || offset + PAGE_SIZE >= total}
-              onClick={() => setOffset((current) => current + PAGE_SIZE)}
-            >
-              下一頁
-            </Button>
-          </div>
+          {totalPages > 0 ? (
+            <div className="d-flex flex-wrap justify-content-end align-items-center gap-2 mt-3">
+              <Pagination className="mb-0" size="sm" aria-label="學生名單分頁">
+                <Pagination.Prev
+                  disabled={loading || currentPage <= 1}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    goToPage(currentPage - 1);
+                  }}
+                >
+                  上一頁
+                </Pagination.Prev>
+                {pageItems.map((item, index) => (
+                  item === '…' ? (
+                    <Pagination.Ellipsis key={`gap-${index}`} disabled />
+                  ) : (
+                    <Pagination.Item
+                      key={item}
+                      active={item === currentPage}
+                      disabled={loading}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        goToPage(item);
+                      }}
+                    >
+                      {item}
+                    </Pagination.Item>
+                  )
+                ))}
+                <Pagination.Next
+                  disabled={loading || currentPage >= totalPages}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    goToPage(currentPage + 1);
+                  }}
+                >
+                  下一頁
+                </Pagination.Next>
+              </Pagination>
+              <form
+                className="d-flex align-items-center gap-1"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  goToPage(pageDraft);
+                }}
+              >
+                <span className="small text-muted text-nowrap">共 {totalPages} 頁</span>
+                <Form.Control
+                  type="number"
+                  size="sm"
+                  min={1}
+                  max={totalPages}
+                  value={pageDraft}
+                  disabled={loading || totalPages <= 1}
+                  aria-label="前往頁碼"
+                  style={{ width: '4.5rem' }}
+                  onChange={(event) => setPageDraft(event.target.value)}
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="outline-secondary"
+                  disabled={loading || totalPages <= 1}
+                >
+                  前往
+                </Button>
+              </form>
+            </div>
+          ) : null}
         </div>
       </section>
     </div>

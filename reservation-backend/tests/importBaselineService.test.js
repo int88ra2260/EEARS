@@ -62,7 +62,7 @@ describe('importBaselineService', () => {
         sourceSystem: 'baseline_import',
         rawScore: 12,
         instrument: 'GSAT',
-        cefrLevel: 'B1',
+        cefrLevel: null,
       }),
       expect.any(Object)
     );

@@ -13,6 +13,7 @@ describe('learningAnalyticsGrowthService', () => {
     growthEpisodes: {
 
       retestRows: 3,
+      retestStudentCount: 2,
 
       estimateType: 'descriptive',
 
@@ -158,7 +159,7 @@ describe('learningAnalyticsGrowthService', () => {
 
     const view = buildGrowthView(lvaFixture);
 
-    expect(view.summary.retestCount).toBe(3);
+    expect(view.summary.retestCount).toBe(2);
 
     expect(view.episodes).toHaveLength(2);
 

@@ -7,6 +7,11 @@ const {
 const operationRuns = require('../learningJourneyOperationRunService');
 
 let activeRebuildPromise = null;
+let pendingGlobalRebuild = null;
+
+function planGlobalRebuild({ busy }) {
+  return busy ? 'queue' : 'start';
+}
 
 function shouldRunAsync(opts = {}) {
   if (opts.async === true) return true;
@@ -103,6 +108,14 @@ async function startAnalyticsRebuildJob(opts = {}) {
     _existingRun: run,
   }).finally(() => {
     activeRebuildPromise = null;
+    const next = pendingGlobalRebuild;
+    pendingGlobalRebuild = null;
+    if (!next) return;
+    setImmediate(() => {
+      startAnalyticsRebuildJob(next).catch((err) => {
+        console.error('[analytics] queued global rebuild failed', err && err.message ? err.message : err);
+      });
+    });
   });
 
   return {
@@ -110,6 +123,43 @@ async function startAnalyticsRebuildJob(opts = {}) {
     run,
     async: true,
   };
+}
+
+/**
+ * 英檢匯入後排程全域快照。進行中的重建不會看到這次寫入，先排隊，結束後再跑一輪。
+ */
+async function scheduleGlobalAnalyticsRebuild(opts = {}) {
+  const request = {
+    scope: 'global',
+    source: opts.source || 'bestep-score-import',
+    confirm: true,
+    user: opts.user,
+    requestId: opts.requestId || null,
+  };
+  const running = await findRunningRebuildRun();
+  const busy = Boolean(running || activeRebuildPromise);
+  if (planGlobalRebuild({ busy }) === 'queue') {
+    pendingGlobalRebuild = request;
+    const stillRunning = await findRunningRebuildRun();
+    if (!stillRunning && !activeRebuildPromise) {
+      const next = pendingGlobalRebuild;
+      pendingGlobalRebuild = null;
+      if (next) return startAnalyticsRebuildJob(next);
+    }
+    return { alreadyRunning: true, queued: true, run: running };
+  }
+  const started = await startAnalyticsRebuildJob(request);
+  if (started.alreadyRunning) {
+    pendingGlobalRebuild = request;
+    const stillRunning = await findRunningRebuildRun();
+    if (!stillRunning && !activeRebuildPromise) {
+      const next = pendingGlobalRebuild;
+      pendingGlobalRebuild = null;
+      if (next) return startAnalyticsRebuildJob(next);
+    }
+    return { ...started, queued: true };
+  }
+  return started;
 }
 
 async function runAnalyticsRebuildSync(opts = {}) {
@@ -123,8 +173,10 @@ async function runAnalyticsRebuildSync(opts = {}) {
 
 module.exports = {
   shouldRunAsync,
+  planGlobalRebuild,
   findRunningRebuildRun,
   startAnalyticsRebuildJob,
+  scheduleGlobalAnalyticsRebuild,
   runAnalyticsRebuildSync,
   runAnalyticsRebuildJob,
 };

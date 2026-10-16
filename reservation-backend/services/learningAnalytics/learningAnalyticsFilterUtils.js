@@ -113,7 +113,10 @@ function buildExamWhere(query, snapshotVersion, studentIds) {
   if (studentIds !== undefined && studentIds !== null) {
     where.studentId = studentIds.length ? { [Op.in]: studentIds } : '__none__';
   }
-  if (query.instrument) where.instrument = String(query.instrument).toUpperCase();
+  // 學測是入學起始分級，不是英檢工具，也不當成前測篩選。
+  if (query.instrument && String(query.instrument).toUpperCase() !== 'GSAT') {
+    where.instrument = String(query.instrument).toUpperCase();
+  }
   if (query.skill) where.skill = String(query.skill);
   if (query.status) where.status = String(query.status);
   const improved = parseBool(query.improved_flag);

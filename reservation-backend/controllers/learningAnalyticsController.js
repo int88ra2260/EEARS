@@ -36,6 +36,13 @@ const { buildKpiReportWorkbook } = require('../services/learningAnalytics/kpiRep
 const { runKpiGapReport } = require('../services/learningAnalytics/kpiGapService');
 const { buildKpiGapWorkbook } = require('../services/learningAnalytics/kpiGapExportService');
 const { getStudentExplorer } = require('../services/learningAnalytics/learningAnalyticsStudentExplorerService');
+const { buildStudentExplorerExportWorkbook } = require('../services/learningAnalytics/learningAnalyticsStudentExplorerExportService');
+const {
+  createTrackingCohort,
+  listTrackingCohorts,
+  getTrackingCohort,
+  deleteTrackingCohort,
+} = require('../services/learningAnalytics/learningAnalyticsTrackingCohortService');
 
 async function requireStudentScope(req, res, next) {
   try {
@@ -72,6 +79,97 @@ async function getStudentExplorerHandler(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function getStudentExplorerExport(req, res) {
+  try {
+    const exportResult = await buildStudentExplorerExportWorkbook(req.query || {});
+    const {
+      workbook,
+      fileName,
+      rowCount,
+      total,
+      truncated,
+      maxRows,
+      filters,
+      snapshotVersion,
+    } = exportResult;
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+    await workbook.xlsx.write(res);
+
+    logExportAudit(req, {
+      module: 'learning_analytics',
+      action: 'export_student_explorer_xlsx',
+      entityType: 'LjAnalyticStudentExplorer',
+      entityId: snapshotVersion || 'latest',
+      exportType: 'xlsx',
+      reportType: 'student_explorer',
+      rowCount,
+      filters: {
+        ...filters,
+        total,
+        truncated,
+        maxRows,
+        snapshotVersion,
+      },
+      fileName,
+    });
+
+    return res.end();
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function listTrackingCohortsHandler(req, res) {
+  try {
+    const data = await listTrackingCohorts();
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function createTrackingCohortHandler(req, res) {
+  try {
+    const data = await createTrackingCohort({
+      name: req.body?.name,
+      query: req.body?.filters || {},
+      user: req.user || {},
+    });
+    return res.status(201).json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function getTrackingCohortHandler(req, res) {
+  try {
+    const data = await getTrackingCohort(req.params.id, req.query || {});
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function deleteTrackingCohortHandler(req, res) {
+  try {
+    const data = await deleteTrackingCohort(req.params.id);
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
   }
 }
 
@@ -591,6 +689,11 @@ module.exports = {
   postResetLvaConfig,
   getOverview,
   getStudentExplorer: getStudentExplorerHandler,
+  getStudentExplorerExport,
+  listTrackingCohorts: listTrackingCohortsHandler,
+  createTrackingCohort: createTrackingCohortHandler,
+  getTrackingCohort: getTrackingCohortHandler,
+  deleteTrackingCohort: deleteTrackingCohortHandler,
   getCohorts,
   getOfferings,
   getOfferingDetail,

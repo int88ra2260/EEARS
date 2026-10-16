@@ -4,6 +4,7 @@ const {
   assertInExposureWindow,
   sumResourceInExposureWindow,
   buildInstrumentSessions,
+  listInstruments,
   resolveTestPhase,
 } = require('../services/learningJourney/analytics/examSessionService');
 const { EVENT_TYPES } = require('../constants/learningJourneyEventConstants');
@@ -61,5 +62,17 @@ describe('examSessionService', () => {
     ];
     const sessions = buildInstrumentSessions(exams, 'TOEIC');
     expect(sessions).toHaveLength(2);
+  });
+
+  it('does not treat GSAT placement scores as an exam round or pre-test', () => {
+    const exams = [
+      { instrument: 'GSAT', skill: 'listening', examDate: '2024-07-01', rawScore: 12, excludeFlag: false },
+      { instrument: 'BESTEP', skill: 'listening', examDate: '2025-03-01', rawScore: 100, excludeFlag: false },
+    ];
+    expect(listInstruments(exams)).toEqual(['BESTEP']);
+    expect(buildInstrumentSessions(exams, 'GSAT')).toEqual([]);
+    const sessions = buildInstrumentSessions(exams, 'BESTEP');
+    expect(sessions).toHaveLength(1);
+    expect(resolveTestPhase(sessions[0].roundIndex, sessions.length)).toBe('single');
   });
 });

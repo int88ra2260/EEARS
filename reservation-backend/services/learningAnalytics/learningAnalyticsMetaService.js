@@ -80,6 +80,21 @@ function summarizeSnapshotLabel(snapshotVersion, { studentCount } = {}) {
   return `${short}${n}`;
 }
 
+/**
+ * 全域快照早於新的英檢事件時，頁首要說明目前數字不含這次匯入。
+ * @returns {string|null}
+ */
+function describeExamSnapshotGap({ snapshotDerivedAt, latestExamEventAt, rebuildRunning } = {}) {
+  if (!latestExamEventAt || !snapshotDerivedAt) return null;
+  const snap = new Date(snapshotDerivedAt).getTime();
+  const exam = new Date(latestExamEventAt).getTime();
+  if (!Number.isFinite(snap) || !Number.isFinite(exam) || exam <= snap) return null;
+  if (rebuildRunning) {
+    return '全域重建進行中。完成前，分析數字不含這次匯入。';
+  }
+  return '分析數字不含這次匯入。全域快照早於最新英檢事件，請至學習歷程維運執行背景重建（全部）。';
+}
+
 function pickRecommendedSnapshot(snapshots) {
   if (!snapshots.length) return null;
   const globals = snapshots
@@ -128,7 +143,36 @@ async function getLearningAnalyticsMeta() {
     eventTypeCounts = {};
   }
 
+  let latestExamEventAt = null;
+  let rebuildRunning = false;
+  try {
+    const [[examRow]] = await sequelize.query(
+      `SELECT MAX(created_at) AS latestAt
+       FROM lj_student_events
+       WHERE event_type = 'exam_event'`
+    );
+    latestExamEventAt = examRow?.latestAt || null;
+  } catch {
+    latestExamEventAt = null;
+  }
+  try {
+    const [[runRow]] = await sequelize.query(
+      `SELECT id FROM learning_journey_operation_runs
+       WHERE operation_type = 'REBUILD_ANALYTICS' AND status = 'running'
+       LIMIT 1`
+    );
+    rebuildRunning = Boolean(runRow?.id);
+  } catch {
+    rebuildRunning = false;
+  }
+  const examSnapshotStaleMessage = describeExamSnapshotGap({
+    snapshotDerivedAt: recommendedRow?.derivedAt || null,
+    latestExamEventAt,
+    rebuildRunning,
+  });
+
   const warnings = [];
+  if (examSnapshotStaleMessage) warnings.push(examSnapshotStaleMessage);
   if (!analyticStudents) {
     warnings.push('尚無分析摘要資料，請至「學習歷程維運」執行「背景重建（全部）」。');
   }
@@ -169,6 +213,9 @@ async function getLearningAnalyticsMeta() {
     tableCounts,
     eventTypeCounts,
     warnings,
+    examSnapshotStale: Boolean(examSnapshotStaleMessage),
+    examSnapshotStaleMessage,
+    rebuildInProgress: rebuildRunning,
     rebuildHint: 'npm run lj:rebuild-analytics -- --scope=global',
     pruneHint: 'npm run lj:prune-analytics-snapshots:dry',
   };
@@ -179,4 +226,5 @@ module.exports = {
   pickRecommendedSnapshot,
   summarizeSnapshotLabel,
   countAnalyticRowsForSnapshot,
+  describeExamSnapshotGap,
 };

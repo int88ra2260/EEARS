@@ -538,6 +538,15 @@ export const ADMIN_NAV_SECTIONS = [
         breadcrumbLabel: '學生探索',
       },
       {
+        id: 'learning-analytics-tracking',
+        label: '追蹤名單',
+        path: '/admin/learning-analytics/tracking-cohorts',
+        matchPrefixes: ['/admin/learning-analytics/tracking-cohorts'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '追蹤名單',
+        breadcrumbLabel: '追蹤名單',
+      },
+      {
         id: 'learning-analytics-students',
         label: '個人軌跡',
         path: '/admin/learning-analytics/students',

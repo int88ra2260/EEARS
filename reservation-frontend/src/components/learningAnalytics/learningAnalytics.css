@@ -821,33 +821,10 @@
   border-radius: 8px;
 }
 
-.la-explorer-presets {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 0.75rem;
-}
-
-.la-explorer-preset {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  text-align: left;
-  border: 1px solid var(--la-border);
-  background: var(--la-surface);
-  color: var(--la-ink);
-  border-radius: 6px;
-  padding: 0.35rem 0.55rem;
-  font-size: 0.8125rem;
-}
-
-.la-explorer-preset.is-disabled,
-.la-explorer-preset:disabled {
-  color: var(--la-muted);
-  background: #fff;
-  cursor: not-allowed;
+.la-explorer-filters form > .la-explorer-group:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .la-explorer-pending {
@@ -879,8 +856,31 @@
   color: var(--la-muted);
 }
 
-.la-explorer-field small {
+.la-explorer-field small,
+.la-explorer-note {
   line-height: 1.35;
+}
+
+.la-explorer-note {
+  display: block;
+  margin: 0 0 0.45rem;
+  font-size: 0.75rem;
+  color: var(--la-muted);
+}
+
+.la-explorer-block {
+  margin-bottom: 0.65rem;
+  padding: 0.45rem 0.5rem 0.15rem;
+  border: 1px solid var(--la-border);
+  border-radius: 6px;
+  background: var(--la-surface, #faf9f7);
+}
+
+.la-explorer-block-title {
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--la-ink);
 }
 
 .la-explorer-actions {

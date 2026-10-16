@@ -8,6 +8,13 @@ const EXAM_SESSION_WINDOW_DAYS = 14;
 
 const INSTRUMENT_PRIORITY = ['BESTEP', 'TOEIC', 'IELTS', 'TOEFL', 'GEPT'];
 
+/** 入學起始分級用的學測，不是英檢梯次，不可標成前測。 */
+const PLACEMENT_BASELINE_INSTRUMENTS = new Set(['GSAT']);
+
+function isPlacementBaselineInstrument(instrument) {
+  return PLACEMENT_BASELINE_INSTRUMENTS.has(String(instrument || '').trim().toUpperCase());
+}
+
 const TEST_PHASE = Object.freeze({
   SINGLE: 'single',
   PRE_TEST: 'pre_test',
@@ -95,9 +102,11 @@ function clusterSessionsForInstrument(dates, instrument) {
  * 依學生＋工具建立檢定梯次（含各技能代表事件）。
  */
 function buildInstrumentSessions(examEvents, instrument) {
+  if (isPlacementBaselineInstrument(instrument)) return [];
   const filtered = (examEvents || []).filter(
     (ev) => String(ev.instrument || '').toUpperCase() === String(instrument).toUpperCase()
       && isScorableExamEvent(ev)
+      && !isPlacementBaselineInstrument(ev.instrument)
   );
   if (!filtered.length) return [];
 
@@ -128,9 +137,9 @@ function buildInstrumentSessions(examEvents, instrument) {
 function listInstruments(examEvents) {
   return [...new Set(
     (examEvents || [])
-      .filter(isScorableExamEvent)
+      .filter((ev) => isScorableExamEvent(ev) && !isPlacementBaselineInstrument(ev.instrument))
       .map((ev) => String(ev.instrument || '').toUpperCase())
-      .filter(Boolean)
+      .filter((code) => code && !isPlacementBaselineInstrument(code))
   )];
 }
 
@@ -238,4 +247,5 @@ module.exports = {
   sumResourceInExposureWindow,
   findRoundForExamDate,
   isScorableExamEvent,
+  isPlacementBaselineInstrument,
 };

@@ -118,7 +118,7 @@ function buildGrowthView(lva) {
 
   return {
     summary: {
-      retestCount: lva.growthEpisodes?.retestRows || 0,
+      retestCount: Number(lva.growthEpisodes?.retestStudentCount) || 0,
       episodeSampleSize: episodes.length,
       timeWindowRule: '僅後測日期之前的資源計入該次成長區間；考後活動不納入該次成長解釋。',
       estimateType: lva.growthEpisodes?.estimateType || lva.estimatePolicy?.descriptive,

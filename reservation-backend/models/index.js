@@ -99,6 +99,8 @@ const SpeakingAdaptiveSession = require('./SpeakingAdaptiveSession');
 const LjStudentEvent = require('./LjStudentEvent');
 const LjAnalyticStudent = require('./LjAnalyticStudent');
 const LjAnalyticExam = require('./LjAnalyticExam');
+const LjTrackingCohort = require('./LjTrackingCohort');
+const LjTrackingCohortMember = require('./LjTrackingCohortMember');
 const AnalyticsModelRun = require('./AnalyticsModelRun');
 const ResourceEffectEstimate = require('./ResourceEffectEstimate');
 const LearningGrowthEpisode = require('./LearningGrowthEpisode');
@@ -366,6 +368,13 @@ CourseGuideTopic.belongsTo(CourseGuideSection, {
   as: 'section',
 });
 
+LjTrackingCohort.hasMany(LjTrackingCohortMember, {
+  foreignKey: 'cohortId',
+  as: 'members',
+  onDelete: 'CASCADE',
+});
+LjTrackingCohortMember.belongsTo(LjTrackingCohort, { foreignKey: 'cohortId', as: 'cohort' });
+
 module.exports = {
   sequelize,
   User,
@@ -464,6 +473,8 @@ module.exports = {
   LjStudentEvent,
   LjAnalyticStudent,
   LjAnalyticExam,
+  LjTrackingCohort,
+  LjTrackingCohortMember,
   AnalyticsModelRun,
   ResourceEffectEstimate,
   LearningGrowthEpisode,

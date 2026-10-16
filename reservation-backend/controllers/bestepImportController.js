@@ -5,8 +5,7 @@ const fs = require('fs');
 const { importAttendanceData, importScoreData, generateErrorReport } = require('../services/bestepImportService');
 const auditLogService = require('../services/auditLogService');
 const { runSync } = require('../services/learningJourney/syncService');
-const { BestepExamScore } = require('../models');
-const { rebuildAnalyticsInBatches } = require('../services/learningJourney/analytics/analyticRebuildService');
+const { scheduleGlobalAnalyticsRebuild } = require('../services/learningJourney/analytics/analyticRebuildJobService');
 
 function scheduleBestepScoreAnalyticsPromote(semester, importBatchId) {
   setImmediate(async () => {
@@ -16,28 +15,17 @@ function scheduleBestepScoreAnalyticsPromote(semester, importBatchId) {
         sections: ['bestep_scores'],
         dryRun: false,
       });
-      const rows = await BestepExamScore.findAll({
-        where: importBatchId
-          ? { semester, importBatchId }
-          : { semester },
-        attributes: ['studentId'],
+      const rebuildResult = await scheduleGlobalAnalyticsRebuild({
+        source: 'bestep-score-import',
       });
-      const studentIds = [...new Set(rows.map((r) => String(r.studentId || '').trim().toUpperCase()).filter(Boolean))];
-      let rebuildResult = null;
-      if (studentIds.length) {
-        rebuildResult = await rebuildAnalyticsInBatches({
-          scope: 'manual',
-          studentIds,
-          batchSize: 50,
-          dryRun: false,
-        });
-      }
       console.log('[bestep] score→analytics promote done', {
         semester,
         importBatchId,
         sync: syncResult?.results?.bestep_scores || null,
-        studentCount: studentIds.length,
-        snapshotVersion: rebuildResult?.snapshotVersion || null,
+        globalRebuild: rebuildResult?.alreadyRunning
+          ? (rebuildResult.queued ? 'queued' : 'already-running')
+          : 'started',
+        snapshotVersion: rebuildResult?.data?.snapshotVersion || null,
       });
     } catch (err) {
       console.error('[bestep] score→analytics promote failed:', err && err.message ? err.message : err);
@@ -235,8 +223,7 @@ async function importScores(req, res, next) {
       req,
     });
 
-    // 成績寫入 bestep_exam_scores 後，自動同步 exam_attempts 並重建學習分析投影
-    // （避免只進培力表、學習分析頁看不到的落差）
+    // 成績寫入後同步學習歷程，並排程全域分析快照（技能頁只讀 global-*）
     if (Number(result.imported) > 0) {
       scheduleBestepScoreAnalyticsPromote(semester, result.importBatchId);
     }

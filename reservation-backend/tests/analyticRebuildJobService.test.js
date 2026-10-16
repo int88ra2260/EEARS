@@ -1,6 +1,6 @@
 'use strict';
 
-const { shouldRunAsync } = require('../services/learningJourney/analytics/analyticRebuildJobService');
+const { shouldRunAsync, planGlobalRebuild } = require('../services/learningJourney/analytics/analyticRebuildJobService');
 
 describe('analyticRebuildJobService.shouldRunAsync', () => {
   it('forces async for global scope', () => {
@@ -18,6 +18,11 @@ describe('analyticRebuildJobService.shouldRunAsync', () => {
   it('forces async when more than 20 students', () => {
     const studentIds = Array.from({ length: 21 }, (_, i) => `S${i}`);
     expect(shouldRunAsync({ scope: 'manual', studentIds })).toBe(true);
+  });
+
+  it('queues a follow-up global rebuild when one is already running', () => {
+    expect(planGlobalRebuild({ busy: true })).toBe('queue');
+    expect(planGlobalRebuild({ busy: false })).toBe('start');
   });
 
   it('respects explicit async flag', () => {

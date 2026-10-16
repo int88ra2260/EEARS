@@ -38,6 +38,11 @@ jest.mock('../../controllers/learningAnalyticsController', () => ({
   getMeta: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getOverview: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getStudentExplorer: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  getStudentExplorerExport: (_req, res) => res.status(200).send('xlsx'),
+  listTrackingCohorts: (_req, res) => res.json({ success: true, data: { items: [] } }),
+  createTrackingCohort: (_req, res) => res.status(201).json({ success: true, data: { id: 1 } }),
+  getTrackingCohort: (_req, res) => res.json({ success: true, data: { cohort: { id: 1 } } }),
+  deleteTrackingCohort: (_req, res) => res.json({ success: true, data: { deleted: true } }),
   getCohorts: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getOfferings: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getOfferingDetail: (_req, res) => res.json({ success: true, data: { ok: true } }),
@@ -232,6 +237,52 @@ describe('learning analytics API auth boundary', () => {
       .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+  });
+
+  it('student explorer export requires export permission', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/student-explorer/export')
+      .set('x-user-role', 'teacher')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(res.status).toBe(403);
+    expect(res.body.permission).toBe(P.CAN_EXPORT_LEARNING_ANALYTICS);
+  });
+
+  it('authorized student explorer export returns 200', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/student-explorer/export')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_EXPORT_LEARNING_ANALYTICS);
+    expect(res.status).toBe(200);
+  });
+
+  it('tracking cohort list requires view permission', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/tracking-cohorts')
+      .set('x-user-role', 'teacher')
+      .set('x-allow-permissions', '');
+    expect(res.status).toBe(403);
+    expect(res.body.permission).toBe(P.CAN_VIEW_LEARNING_ANALYTICS);
+  });
+
+  it('authorized tracking cohort create returns 201', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .post('/api/admin/learning-analytics/tracking-cohorts')
+      .send({ name: '114 中高級' })
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+  });
+
+  it('unauthenticated tracking cohort detail returns 401', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/admin/learning-analytics/tracking-cohorts/1');
+    expect(res.status).toBe(401);
   });
 
   it('unauthenticated student explorer returns 401', async () => {

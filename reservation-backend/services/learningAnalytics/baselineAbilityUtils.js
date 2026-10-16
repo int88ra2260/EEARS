@@ -2,16 +2,6 @@
 
 const { normalizeCefr } = require('../learningJourney/utils/cefr');
 
-/** 學測英文級分（實務上多為 1–15；規則上限 20）→ CEFR 分層（內部分析用，非認證對照） */
-const GSAT_OVERALL_RULES = Object.freeze([
-  { min: 18, cefr: 'C1' },
-  { min: 15, cefr: 'B2' },
-  { min: 12, cefr: 'B1' },
-  { min: 9, cefr: 'A2' },
-  { min: 6, cefr: 'A1' },
-  { min: 1, cefr: 'BELOW_A1' },
-]);
-
 const BASELINE_CEFR_KEYS = new Set([
   'BELOW_A1', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2',
 ]);
@@ -24,26 +14,11 @@ function normalizeBaselineCefrKey(raw) {
   return BASELINE_CEFR_KEYS.has(value) ? value : null;
 }
 
-function inferGsatOverallCefr(score) {
-  const n = Number(score);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  const sorted = [...GSAT_OVERALL_RULES].sort((a, b) => b.min - a.min);
-  const matched = sorted.find((rule) => n >= rule.min);
-  return matched?.cefr || null;
-}
-
 /**
- * 解析學生起始能力 CEFR 帶（供篩選／分組）。
- * 優先順序：已存 baselineCefr → 學測分數推導 → baselineLevel 若本身為 CEFR。
+ * 只讀已另行記載的 CEFR。學測級分與起始分級（初級／中級／中高級／高級）不換算成 CEFR。
  */
 function resolveBaselineCefrBand(student = {}) {
-  const fromColumn = normalizeBaselineCefrKey(student.baselineCefr);
-  if (fromColumn) return fromColumn;
-
-  const fromGsat = inferGsatOverallCefr(student.baselineEnglishScore);
-  if (fromGsat) return fromGsat;
-
-  return normalizeBaselineCefrKey(student.baselineLevel);
+  return normalizeBaselineCefrKey(student.baselineCefr);
 }
 
 function applyBaselineLevelFilter(students, query = {}) {
@@ -53,9 +28,7 @@ function applyBaselineLevelFilter(students, query = {}) {
 }
 
 module.exports = {
-  GSAT_OVERALL_RULES,
   normalizeBaselineCefrKey,
-  inferGsatOverallCefr,
   resolveBaselineCefrBand,
   applyBaselineLevelFilter,
 };

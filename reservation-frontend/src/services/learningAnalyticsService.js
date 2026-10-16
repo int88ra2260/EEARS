@@ -167,6 +167,61 @@ export async function getLearningAnalyticsStudentExplorer(token, params = {}, op
   return parseEnvelope(res);
 }
 
+export async function exportLearningAnalyticsStudentExplorer(token, params = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/student-explorer/export${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    let msg = json.error || json.message || `HTTP ${res.status}`;
+    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
+      msg = '您沒有匯出學習成效分析資料的權限。';
+    }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const fallback = `EEARS_LA_explore_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
+  return { blob, fileName: match ? match[1] : fallback };
+}
+
+export async function listLearningAnalyticsTrackingCohorts(token, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/tracking-cohorts`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function createLearningAnalyticsTrackingCohort(token, body, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/tracking-cohorts`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function getLearningAnalyticsTrackingCohort(token, id, params = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/tracking-cohorts/${encodeURIComponent(id)}${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
+export async function deleteLearningAnalyticsTrackingCohort(token, id, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/tracking-cohorts/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
 export async function getLearningAnalyticsCohorts(token, params = {}, options = {}) {
   const res = await fetchClient(`${BASE_URL}/cohorts${buildQuery(params)}`, {
     headers: authHeaders(token),
