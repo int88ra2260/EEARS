@@ -441,6 +441,12 @@ export const ADMIN_ROUTE_ACCESS = [
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
+    pattern: '/admin/learning-analytics/explore',
+    label: '學生探索',
+    allowAdminOrExecutive: true,
+    anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
+  },
+  {
     pattern: '/admin/learning-analytics/students',
     label: '個人軌跡',
     allowAdminOrExecutive: true,

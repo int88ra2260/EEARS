@@ -41,6 +41,11 @@ const NAV_GROUPS = [
         hint: '聽讀說寫 GSE 成長',
       },
       {
+        to: '/admin/learning-analytics/explore',
+        label: '學生探索',
+        hint: '左側篩選，右側看名單',
+      },
+      {
         to: '/admin/learning-analytics/students',
         label: '個人軌跡',
         hint: '從名單點進輔導摘要',

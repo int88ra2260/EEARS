@@ -159,6 +159,14 @@ export async function getLearningAnalyticsOverview(token, params = {}, options =
   return parseEnvelope(res);
 }
 
+export async function getLearningAnalyticsStudentExplorer(token, params = {}, options = {}) {
+  const res = await fetchClient(`${BASE_URL}/student-explorer${buildQuery(params)}`, {
+    headers: authHeaders(token),
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
 export async function getLearningAnalyticsCohorts(token, params = {}, options = {}) {
   const res = await fetchClient(`${BASE_URL}/cohorts${buildQuery(params)}`, {
     headers: authHeaders(token),

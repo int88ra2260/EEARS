@@ -39,6 +39,7 @@ router.put('/settings/filter-references/:refType', ...ljSettings, controller.put
 router.put('/settings/lva-config', ...ljSettings, controller.putLvaConfig);
 router.post('/settings/lva-config/reset', ...ljSettings, controller.postResetLvaConfig);
 router.get('/overview', ...ljView, controller.getOverview);
+router.get('/student-explorer', ...ljView, controller.getStudentExplorer);
 router.get('/cohorts', ...ljView, controller.getCohorts);
 router.get('/offerings', ...ljView, controller.getOfferings);
 router.get('/offerings/detail', ...ljView, controller.getOfferingDetail);

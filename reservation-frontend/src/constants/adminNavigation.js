@@ -529,6 +529,15 @@ export const ADMIN_NAV_SECTIONS = [
         breadcrumbLabel: '技能成長',
       },
       {
+        id: 'learning-analytics-explore',
+        label: '學生探索',
+        path: '/admin/learning-analytics/explore',
+        matchPrefixes: ['/admin/learning-analytics/explore'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '學生探索',
+        breadcrumbLabel: '學生探索',
+      },
+      {
         id: 'learning-analytics-students',
         label: '個人軌跡',
         path: '/admin/learning-analytics/students',

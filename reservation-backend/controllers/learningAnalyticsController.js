@@ -35,6 +35,7 @@ const { runKpiReport } = require('../services/learningAnalytics/kpiReportService
 const { buildKpiReportWorkbook } = require('../services/learningAnalytics/kpiReportExportService');
 const { runKpiGapReport } = require('../services/learningAnalytics/kpiGapService');
 const { buildKpiGapWorkbook } = require('../services/learningAnalytics/kpiGapExportService');
+const { getStudentExplorer } = require('../services/learningAnalytics/learningAnalyticsStudentExplorerService');
 
 async function requireStudentScope(req, res, next) {
   try {
@@ -59,6 +60,15 @@ async function getMeta(req, res) {
 async function getOverview(req, res) {
   try {
     const data = await getLearningAnalyticsOverview(req.query || {});
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function getStudentExplorerHandler(req, res) {
+  try {
+    const data = await getStudentExplorer(req.query || {});
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
@@ -580,6 +590,7 @@ module.exports = {
   putLvaConfig,
   postResetLvaConfig,
   getOverview,
+  getStudentExplorer: getStudentExplorerHandler,
   getCohorts,
   getOfferings,
   getOfferingDetail,

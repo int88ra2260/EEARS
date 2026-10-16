@@ -37,6 +37,7 @@ jest.mock('../../middlewares/auth', () => {
 jest.mock('../../controllers/learningAnalyticsController', () => ({
   getMeta: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getOverview: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  getStudentExplorer: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getCohorts: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getOfferings: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getOfferingDetail: (_req, res) => res.json({ success: true, data: { ok: true } }),
@@ -211,6 +212,32 @@ describe('learning analytics API auth boundary', () => {
       .set('x-allow-permissions', P.CAN_RUN_LEARNING_ANALYTICS_MODEL);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+  });
+
+  it('student explorer requires view permission', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/student-explorer')
+      .set('x-user-role', 'teacher')
+      .set('x-allow-permissions', '');
+    expect(res.status).toBe(403);
+    expect(res.body.permission).toBe(P.CAN_VIEW_LEARNING_ANALYTICS);
+  });
+
+  it('authorized student explorer returns 200', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/student-explorer')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  it('unauthenticated student explorer returns 401', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/admin/learning-analytics/student-explorer');
+    expect(res.status).toBe(401);
   });
 
   it('kpi policies list requires view permission', async () => {
