@@ -21,6 +21,7 @@ const {
   isTeacher,
   getUserLearningJourneyScope,
 } = require('../learningJourney/learningJourneyAccessService');
+const { isUsableGrowthPair } = require('../learningJourney/utils/usableSkillScore');
 
 const CONTRACT_VERSION = 'learning-analytics.offerings.v4';
 const MIN_GROWTH_SAMPLE = 10;
@@ -289,7 +290,7 @@ function isImprovedDelta(delta) {
 function buildStudentGrowthMap(exams = []) {
   const map = new Map();
   for (const exam of exams) {
-    if (!exam.retestFlag || exam.deltaRawScore == null) continue;
+    if (!exam.retestFlag || exam.deltaRawScore == null || !isUsableGrowthPair(exam)) continue;
     const sid = String(exam.studentId || '').toUpperCase();
     if (!sid) continue;
     if (!map.has(sid)) {

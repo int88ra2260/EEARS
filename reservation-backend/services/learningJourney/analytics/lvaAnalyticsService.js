@@ -31,6 +31,7 @@ const { LVA_CONFIG_DEFAULTS } = require('../../learningAnalytics/learningAnalyti
 const { getMethodComparisonPayload } = require('../../learningAnalytics/learningAnalyticsMethodComparison');
 const { mapEwlEventNameToResourceType } = require('../../learningAnalytics/ewlResourceTypes');
 const { normalizeAcademicCourseResourceType } = require('./academicCourseResourceType');
+const { partitionGrowthExams } = require('../utils/usableSkillScore');
 const {
   summarizeAdjustedGrowthLegacy,
   summarizeAdjustedGrowthV2,
@@ -236,7 +237,7 @@ function summarizeSkillExposure(events) {
 }
 
 function summarizeGrowthEpisodes(exams, studentById) {
-  const retestRows = exams.filter((exam) => exam.retestFlag && exam.deltaRawScore != null);
+  const { usable: retestRows, excludedPlaceholderScoreRows } = partitionGrowthExams(exams);
   const bySkill = {};
   for (const exam of retestRows) {
     const skill = exam.skill || 'unknown';
@@ -279,6 +280,7 @@ function summarizeGrowthEpisodes(exams, studentById) {
   return {
     retestRows: retestRows.length,
     retestStudentCount: new Set(retestRows.map((exam) => exam.studentId).filter(Boolean)).size,
+    excludedPlaceholderScoreRows,
     bySkill: skills.sort((a, b) => a.skill.localeCompare(b.skill)),
     sampleEpisodes: episodes,
     estimateType: DESCRIPTIVE_ESTIMATE,
@@ -317,7 +319,7 @@ function summarizePropensityWeightedEstimates(events, adjustedGrowth) {
 }
 
 function summarizeResourceEffectiveness(events, exams) {
-  const examRowsWithGrowth = exams.filter((exam) => exam.retestFlag && exam.deltaRawScore != null);
+  const { usable: examRowsWithGrowth } = partitionGrowthExams(exams);
   const growthByStudent = new Map();
   for (const exam of examRowsWithGrowth) {
     if (!growthByStudent.has(exam.studentId)) growthByStudent.set(exam.studentId, []);

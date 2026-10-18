@@ -105,6 +105,59 @@ describe('lvaAnalyticsService', () => {
       monthsBetweenTests: expect.any(Number),
       causalClaimAllowed: false,
     }));
+    expect(result.byStartingGse).toEqual([
+      expect.objectContaining({
+        skill: 'listening',
+        bands: [
+          expect.objectContaining({
+            label: 'B1',
+            gseMin: 43,
+            gseMax: 50,
+            sampleSize: 1,
+            interpretable: false,
+            actualGseGrowthAverage: null,
+          }),
+        ],
+      }),
+    ]);
+  });
+
+  it('drops GSE growth when a pre or post raw score is 0 or 1', () => {
+    const studentById = new Map([
+      ['S001', {
+        studentId: 'S001',
+        department: '外文系',
+        baselineCefr: 'B1',
+        retestFlag: true,
+        hasValidExam: true,
+        totalResourceHours: 4,
+      }],
+    ]);
+    const absent = summarizeAdjustedGrowth([
+      {
+        id: 2,
+        studentId: 'S001',
+        retestFlag: true,
+        deltaRawScore: -100,
+        previousRawScore: 100,
+        previousExamEventId: 1,
+        rawScore: 0,
+        instrument: 'BESTEP',
+        skill: 'listening',
+        examDate: '2025-07-01',
+      },
+      {
+        id: 1,
+        studentId: 'S001',
+        retestFlag: false,
+        rawScore: 100,
+        instrument: 'BESTEP',
+        skill: 'listening',
+        examDate: '2025-01-01',
+      },
+    ], studentById);
+    expect(absent.sampleSize).toBe(0);
+    expect(absent.byStartingGse).toEqual([]);
   });
 
   it('builds propensity-style matched comparison estimates without allowing causal claims', () => {

@@ -79,6 +79,23 @@ describe('analyticRebuildService', () => {
     expect(second.improvedFlag).toBe(true);
   });
 
+  it('does not pair a post score of 0 or 1 into growth', () => {
+    const events = baseEvents.map((event) => (
+      event.id === 11 ? { ...event, rawScore: 0 } : event
+    ));
+    const zeroRows = buildAnalyticExamRows(events, snapshotVersion, derivedAt);
+    const zeroPost = zeroRows.find((row) => row.examSeq === 2);
+    expect(zeroPost.rawScore).toBe(0);
+    expect(zeroPost.deltaRawScore).toBeNull();
+    expect(zeroPost.improvedFlag).toBeNull();
+
+    const onePoint = baseEvents.map((event) => (
+      event.id === 11 ? { ...event, rawScore: 1 } : event
+    ));
+    const oneRows = buildAnalyticExamRows(onePoint, snapshotVersion, derivedAt);
+    expect(oneRows.find((row) => row.examSeq === 2).deltaRawScore).toBeNull();
+  });
+
   it('does not count same-day activity as before exam exposure', () => {
     const before = sumResourceBefore('2025-06-01', baseEvents.filter((e) => e.studentId === 'S001'));
     expect(before.courseHours).toBe(18);

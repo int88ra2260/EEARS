@@ -31,6 +31,8 @@ const SKILL_LABELS = {
   writing: '寫作',
 };
 
+const SKILL_ORDER = ['listening', 'reading', 'speaking', 'writing'];
+
 const MIN_INTERPRETABLE_SAMPLE = 5;
 const STRONG_GROWTH_GSE = 5;
 const LOW_GROWTH_RATIO = 0.4;
@@ -166,6 +168,85 @@ function buildPageSummary(rows) {
     strongest,
     risk,
   };
+}
+
+function formatBandRange(band) {
+  return `${band.gseMin}–${band.gseMax}`;
+}
+
+function StartingGseCell({ band }) {
+  if (!band) return <span className="text-muted">—</span>;
+  if (!band.interpretable) {
+    return <span className="text-muted">n={formatCount(band.sampleSize)}</span>;
+  }
+  return (
+    <span>
+      <strong>{formatGse(band.actualGseGrowthAverage)}</strong>
+      <span className="text-muted">
+        {` · n=${formatCount(band.sampleSize)} · 有進步 ${pct(band.growthStudentRatio)}`}
+      </span>
+    </span>
+  );
+}
+
+function StartingGsePanel({ groups }) {
+  const rows = useMemo(() => {
+    const bandMap = new Map();
+    for (const group of groups || []) {
+      for (const band of group.bands || []) {
+        if (!bandMap.has(band.bandKey)) {
+          bandMap.set(band.bandKey, {
+            bandKey: band.bandKey,
+            label: band.label,
+            gseMin: band.gseMin,
+            gseMax: band.gseMax,
+            cells: {},
+          });
+        }
+        bandMap.get(band.bandKey).cells[group.skill] = band;
+      }
+    }
+    return [...bandMap.values()].sort((a, b) => a.gseMin - b.gseMin);
+  }, [groups]);
+
+  return (
+    <div className="la-panel">
+      <div className="la-panel-title">依前測 GSE 看成長差異</div>
+      <p className="small text-muted mb-3">
+        依各技能的前測 GSE 分成起始區間，比較不同起點的學生，後續平均 GSE 成長差多少。
+        區間名稱（例如 B1、B1+）是 GSE 分數帶的稱呼，分組用的是前測 GSE。
+        {`少於 ${MIN_INTERPRETABLE_SAMPLE} 筆只顯示人數。這是描述，不代表課程造成進步。`}
+      </p>
+      {!rows.length ? (
+        <p className="small text-muted mb-0">目前沒有可依前測 GSE 分組的前後測。</p>
+      ) : (
+        <div className="table-responsive">
+          <table className="table table-sm align-middle mb-0 la-starting-gse-table">
+            <thead>
+              <tr>
+                <th>前測區間</th>
+                <th>GSE</th>
+                {SKILL_ORDER.map((skill) => (
+                  <th key={skill}>{SKILL_LABELS[skill]}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.bandKey}>
+                  <td>{row.label}</td>
+                  <td className="text-muted">{formatBandRange(row)}</td>
+                  {SKILL_ORDER.map((skill) => (
+                    <td key={skill}><StartingGseCell band={row.cells[skill]} /></td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SkillInsightCard({ row, onGrowthRatioClick }) {
@@ -329,6 +410,11 @@ export default function LearningAnalyticsSkillsPage() {
                   <span>樣本不足：{pageSummary.insufficient.map((row) => row.skill).join('、') || '無'}</span>
                   <span>判讀門檻：至少 {MIN_INTERPRETABLE_SAMPLE} 筆前後測</span>
                 </div>
+                {Number(growth?.summary?.excludedPlaceholderScoreRows) > 0 ? (
+                  <p className="small mb-0 mt-3">
+                    已排除 {formatCount(growth.summary.excludedPlaceholderScoreRows)} 筆前後測：原始分為 0 或 1（缺考或無效分數），不計入上方成長。
+                  </p>
+                ) : null}
               </div>
             </Col>
             <Col sm={6} lg={2}>
@@ -398,9 +484,16 @@ export default function LearningAnalyticsSkillsPage() {
                   <li>先看樣本是否足夠，樣本不足就不解讀成效。</li>
                   <li>再看平均 GSE 成長與有進步學生比例是否同向。</li>
                   <li>最後才看高於/低於預期，作為背景差異的輔助提醒。</li>
+                  <li>若要看進步幅度是否跟一開始的程度有關，看「依前測 GSE 看成長差異」。</li>
                 </ol>
                 <GrowthMetricsExplainer />
               </div>
+            </Col>
+          </Row>
+
+          <Row className="g-3 mt-1">
+            <Col xs={12}>
+              <StartingGsePanel groups={growth?.byStartingGse} />
             </Col>
           </Row>
 

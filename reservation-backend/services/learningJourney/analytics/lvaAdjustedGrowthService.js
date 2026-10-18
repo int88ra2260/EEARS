@@ -12,6 +12,8 @@ const {
   predictOls,
   ci95,
 } = require('./lvaMathUtils');
+const { isUsableGrowthPair } = require('../utils/usableSkillScore');
+const { summarizeStartingGseGrowth } = require('../../learningAnalytics/startingGseGrowth');
 
 const GSE_MAX = 90;
 const ADJUSTED_LEGACY = 'baseline_adjusted_simplified';
@@ -82,7 +84,10 @@ function qualityScoreForRow(row, cfg) {
 
 function buildAdjustedGrowthEpisodeRows(exams, studentById, examById = buildExamById(exams)) {
   return exams
-    .filter((exam) => exam.retestFlag && exam.deltaRawScore != null && exam.previousRawScore != null)
+    .filter((exam) => exam.retestFlag
+      && exam.deltaRawScore != null
+      && exam.previousRawScore != null
+      && isUsableGrowthPair(exam))
     .map((exam) => {
       const student = studentById.get(exam.studentId) || {};
       const previousGse = inferGseScore({
@@ -294,6 +299,7 @@ function summarizeAdjustedGrowthByMethod(rows, estimateType, modelVersion, formu
       }))
       .sort((a, b) => a.skill.localeCompare(b.skill)),
     sampleEpisodes: rows.slice(0, 200),
+    byStartingGse: summarizeStartingGseGrowth(rows),
   };
 }
 

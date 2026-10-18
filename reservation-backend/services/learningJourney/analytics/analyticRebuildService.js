@@ -30,6 +30,7 @@ const {
   sumResourceInExposureWindow,
   isPlacementBaselineInstrument,
 } = require('./examSessionService');
+const { isUsableSkillRawScore } = require('../utils/usableSkillScore');
 
 function nfkcStudentKey(studentId) {
   return String(studentId || '').normalize('NFKC').trim().toUpperCase();
@@ -145,7 +146,12 @@ function buildAnalyticExamRows(events, snapshotVersion, derivedAt) {
           let improved = null;
           let previousEventId = null;
           let previousScore = null;
-          if (previousEv && !registeredNoScore && ev.rawScore != null && previousEv.rawScore != null) {
+          if (
+            previousEv
+            && !registeredNoScore
+            && isUsableSkillRawScore(ev.rawScore)
+            && isUsableSkillRawScore(previousEv.rawScore)
+          ) {
             previousEventId = previousEv.id;
             previousScore = num(previousEv.rawScore);
             delta = num(ev.rawScore) - previousScore;

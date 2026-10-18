@@ -15,6 +15,7 @@ export default function GrowthMetricsExplainer({ className = '' }) {
       </p>
       <p className="mb-1 small text-muted">
         工具原始分進步（例如 TOEIC +35）與 GSE 量尺不同，不會畫在同一張圖上。缺少可估資料時會留白，不會當作 0。
+        原始分 0 或 1 不計入前後測；缺考常被記成 0，換成 GSE 後會變成很大的假退步。
       </p>
       <p className="mb-0">
         兩者都是觀察結果。進階參數在

@@ -694,6 +694,12 @@
   margin-top: 0.35rem;
 }
 
+.la-starting-gse-table th,
+.la-starting-gse-table td {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 @keyframes la-fade-up {
   from {
     opacity: 0;

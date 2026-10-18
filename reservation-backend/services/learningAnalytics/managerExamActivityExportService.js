@@ -20,6 +20,7 @@ const { LVA_CONFIG_DEFAULTS } = require('./learningAnalyticsLvaDefaults');
 const { GSE_CEFR_SUMMARY } = require('./gseMappingDefaults');
 const { evidenceQualityForStudent } = require('./learningAnalyticsFilterUtils');
 const { resolveBaselineCefrBand } = require('./baselineAbilityUtils');
+const { isUsableSkillRawScore } = require('../learningJourney/utils/usableSkillScore');
 const { formatTimestampForFilename } = require('../../utils/reportExportFilename');
 
 const MAIN_SKILLS = ['listening', 'reading', 'speaking', 'writing'];
@@ -168,7 +169,7 @@ function buildCrossInstrumentPrePost(examRows) {
     base[`post${cap}Score`] = postScore;
     base[`pre${cap}Cefr`] = preCefr;
     base[`post${cap}Cefr`] = postCefr;
-    base[`delta${cap}Score`] = preScore != null && postScore != null
+    base[`delta${cap}Score`] = isUsableSkillRawScore(preScore) && isUsableSkillRawScore(postScore)
       ? round2(postScore - preScore)
       : null;
     base[`pre${cap}Instrument`] = preScore != null ? preSession.instrument : null;
@@ -179,6 +180,7 @@ function buildCrossInstrumentPrePost(examRows) {
 }
 
 function gseForSkill(instrument, skill, rawScore, cefr, examDate) {
+  if (!isUsableSkillRawScore(rawScore)) return null;
   return inferGseScore({
     instrument,
     skill,

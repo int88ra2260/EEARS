@@ -2,7 +2,7 @@
 
 const { getLvaAnalytics } = require('../learningJourney/analytics/lvaAnalyticsService');
 
-const CONTRACT_VERSION = 'learning-analytics.skills.v3';
+const CONTRACT_VERSION = 'learning-analytics.skills.v4';
 
 const SKILL_ORDER = ['listening', 'reading', 'speaking', 'writing'];
 
@@ -121,11 +121,17 @@ function buildGrowthView(lva) {
       retestCount: Number(lva.growthEpisodes?.retestStudentCount) || 0,
       episodeSampleSize: episodes.length,
       timeWindowRule: '僅後測日期之前的資源計入該次成長區間；考後活動不納入該次成長解釋。',
+      excludedPlaceholderScoreRows: lva.growthEpisodes?.excludedPlaceholderScoreRows || 0,
+      scoreFloorNote: '前後測原始分須大於 1。0 與 1 視為缺考或無效分數，不納入 GSE 成長。',
       estimateType: lva.growthEpisodes?.estimateType || lva.estimatePolicy?.descriptive,
       scaleNote: '圖表「實際／校正後」皆為 GSE 量尺；工具原始分進步另見 rawGrowthAverage，不可與 GSE 同軸比較。',
       causalClaimAllowed: false,
     },
     bySkill,
+    byStartingGse: (lva.adjustedGrowth?.byStartingGse || []).map((row) => ({
+      ...row,
+      label: SKILL_LABELS[row.skill] || row.skill,
+    })),
     episodes: episodes.slice(0, 100),
     radar: buildRadarChart(bySkill, lva.adjustedGrowth?.bySkill),
   };
