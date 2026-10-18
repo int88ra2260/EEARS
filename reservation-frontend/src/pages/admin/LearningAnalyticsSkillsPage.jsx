@@ -59,11 +59,27 @@ function formatGse(value) {
   return `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
 }
 
-function adjustedLabel(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '無可估資料';
-  if (Math.abs(n) < 1) return '接近預期';
-  return n > 0 ? `高於預期 ${formatGse(n)}` : `低於預期 ${formatGse(n)}`;
+function describeStartingBands(bands) {
+  const ready = (bands || []).filter((band) => band.interpretable && Number.isFinite(Number(band.medianActualGseGrowth)));
+  if (!ready.length) {
+    return {
+      lines: ['同一起點的人還不到 5 人，先不比較誰快誰慢。'],
+      pulled: false,
+    };
+  }
+  const low = ready[0];
+  const high = ready[ready.length - 1];
+  const lines = ready.length === 1
+    ? [`前測在 ${low.label} 的人，正中間進步 ${formatGse(low.medianActualGseGrowth)}。`]
+    : [
+      `前測較低（${low.label}），正中間的人 ${formatGse(low.medianActualGseGrowth)}。`,
+      `前測較高（${high.label}），正中間的人 ${formatGse(high.medianActualGseGrowth)}。`,
+    ];
+  return {
+    lines,
+    bandCount: ready.length,
+    pulled: ready.some((band) => band.meanPulledByExtremes),
+  };
 }
 
 function buildSkillJudgement(row) {
@@ -177,15 +193,35 @@ function formatBandRange(band) {
 function StartingGseCell({ band }) {
   if (!band) return <span className="text-muted">—</span>;
   if (!band.interpretable) {
-    return <span className="text-muted">n={formatCount(band.sampleSize)}</span>;
+    return (
+      <div className="la-starting-gse-cell text-muted">
+        <span>{`只有 ${formatCount(band.sampleSize)} 人`}</span>
+        <span>先不比較</span>
+      </div>
+    );
   }
   return (
-    <span>
-      <strong>{formatGse(band.actualGseGrowthAverage)}</strong>
-      <span className="text-muted">
-        {` · n=${formatCount(band.sampleSize)} · 有進步 ${pct(band.growthStudentRatio)}`}
+    <div className="la-starting-gse-cell">
+      <span>
+        平均
+        {' '}
+        <strong>{formatGse(band.actualGseGrowthAverage)}</strong>
       </span>
-    </span>
+      <span>
+        中間的人
+        {' '}
+        <strong>{formatGse(band.medianActualGseGrowth)}</strong>
+      </span>
+      <span className="text-muted">
+        {`中間一半 ${formatGse(band.q1ActualGseGrowth)} 到 ${formatGse(band.q3ActualGseGrowth)}`}
+      </span>
+      <span className="text-muted">
+        {`${formatCount(band.sampleSize)} 人，有進步 ${pct(band.growthStudentRatio)}`}
+      </span>
+      {band.meanPulledByExtremes ? (
+        <span className="la-starting-gse-cell__warn">平均被少數人拉動</span>
+      ) : null}
+    </div>
   );
 }
 
@@ -211,12 +247,16 @@ function StartingGsePanel({ groups }) {
 
   return (
     <div className="la-panel">
-      <div className="la-panel-title">依前測 GSE 看成長差異</div>
-      <p className="small text-muted mb-3">
-        依各技能的前測 GSE 分成起始區間，比較不同起點的學生，後續平均 GSE 成長差多少。
-        區間名稱（例如 B1、B1+）是 GSE 分數帶的稱呼，分組用的是前測 GSE。
-        {`少於 ${MIN_INTERPRETABLE_SAMPLE} 筆只顯示人數。這是描述，不代表課程造成進步。`}
+      <div className="la-panel-title">不同起點，後來差多少</div>
+      <p className="small text-muted mb-2">
+        每一格都是「這一科、前測落在這個區間」的人。區間名稱像 B1、B1+，只是前測分數的稱呼。
+        {`少於 ${MIN_INTERPRETABLE_SAMPLE} 人只顯示人數。這是描述，不代表課程造成進步。`}
       </p>
+      <ul className="la-starting-gse-legend mb-3">
+        <li><strong>平均</strong>：這組所有人加起來再平均。一兩個特別高或特別低的人會把數字拉走。</li>
+        <li><strong>中間的人</strong>：由低到高排好，正中間那位的成長。要下結論時先看這個。</li>
+        <li><strong>中間一半</strong>：由低到高排好後，中間那一半人的範圍。兩端特別高或特別低的人不算在這裡。</li>
+      </ul>
       {!rows.length ? (
         <p className="small text-muted mb-0">目前沒有可依前測 GSE 分組的前後測。</p>
       ) : (
@@ -249,7 +289,8 @@ function StartingGsePanel({ groups }) {
   );
 }
 
-function SkillInsightCard({ row, onGrowthRatioClick }) {
+function SkillInsightCard({ row, startingBands, onGrowthRatioClick }) {
+  const startingHint = describeStartingBands(startingBands);
   return (
     <div className={`la-panel la-skill-growth-card la-skill-growth-card--${row.judgement.tone}`}>
       <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
@@ -269,7 +310,7 @@ function SkillInsightCard({ row, onGrowthRatioClick }) {
           type="button"
           className="la-skill-growth-card__metric-action"
           onClick={() => onGrowthRatioClick?.(row.key, row.skill)}
-          title={`查看${row.skill}學生明細，依實際進步由高到低排序`}
+          title={`查看${row.skill}學生明細，依原始分進步由高到低排序`}
         >
           <span>有進步學生</span>
           <strong>{pct(row.growthRatio)}</strong>
@@ -277,7 +318,14 @@ function SkillInsightCard({ row, onGrowthRatioClick }) {
         </button>
       </div>
 
-      <div className="la-skill-growth-card__adjusted">{adjustedLabel(row.adjusted)}</div>
+      <div className="la-skill-growth-card__peers">
+        {startingHint.lines.map((line) => <div key={line}>{line}</div>)}
+        <div className="la-skill-growth-card__peers-note">跟這一科的前測比，不是跟入學時的總程度比。</div>
+        {startingHint.bandCount > 1 ? (
+          <div className="la-skill-growth-card__peers-note">這裡只對照最低和最高的兩個區間，其餘區間在下方表格。</div>
+        ) : null}
+        {startingHint.pulled ? <div className="la-skill-growth-card__peers-note">有一組的平均被少數人拉動，看「中間的人」。</div> : null}
+      </div>
       <p className="la-skill-growth-card__summary mb-0">{row.judgement.summary}</p>
     </div>
   );
@@ -436,7 +484,11 @@ export default function LearningAnalyticsSkillsPage() {
           <Row className="g-3 mt-1">
             {chartData.map((row) => (
               <Col md={6} xl={3} key={row.key}>
-                <SkillInsightCard row={row} onGrowthRatioClick={handleGrowthRatioClick} />
+                <SkillInsightCard
+                  row={row}
+                  startingBands={(growth?.byStartingGse || []).find((group) => group.skill === row.key)?.bands}
+                  onGrowthRatioClick={handleGrowthRatioClick}
+                />
               </Col>
             ))}
           </Row>
@@ -446,7 +498,7 @@ export default function LearningAnalyticsSkillsPage() {
               <div className="la-panel">
                 <div className="la-panel-title">技能成長排序</div>
                 <p className="small text-muted mb-2">
-                  只用平均 GSE 實際成長排序；高於/低於預期改放在技能卡作為輔助判讀，避免和實際成長混淆。
+                  這張圖只依平均 GSE 成長排序。起點高低的差別在下方表格，不要把長條較短讀成課程比較沒效。
                 </p>
 
                 <div style={{ width: '100%', height: 300 }}>
@@ -481,10 +533,10 @@ export default function LearningAnalyticsSkillsPage() {
                   這頁不是用來排名老師或課程，而是看四技能是否出現可判讀的成長訊號。
                 </p>
                 <ol className="la-skill-growth-guide mb-3">
-                  <li>先看樣本是否足夠，樣本不足就不解讀成效。</li>
-                  <li>再看平均 GSE 成長與有進步學生比例是否同向。</li>
-                  <li>最後才看高於/低於預期，作為背景差異的輔助提醒。</li>
-                  <li>若要看進步幅度是否跟一開始的程度有關，看「依前測 GSE 看成長差異」。</li>
+                  <li>先看人數夠不夠。不到 5 人的組，先不要比誰快誰慢。</li>
+                  <li>再看平均。如果畫面上寫「平均被少數人拉動」，改看正中間的人。</li>
+                  <li>要看某一個人算快還是慢，到下方明細的「跟同樣起點比」。</li>
+                  <li>起點已經很高的人，後來進步較少，是常見情形，不要直接當成課程沒效。</li>
                 </ol>
                 <GrowthMetricsExplainer />
               </div>
@@ -502,8 +554,8 @@ export default function LearningAnalyticsSkillsPage() {
               <div className="la-panel" ref={episodeSectionRef} id="la-skill-episode-list">
                 <div className="la-panel-title">學生前後測明細：用於追查個別案例</div>
                 <p className="small text-muted">
-                  當某個技能樣本不足、低於預期或進步比例偏低時，再往下看學生時間線與考前參與紀錄。時數只算考試前的課程／活動。
-                  也可點上方卡片的「有進步學生」，快速篩該技能並依實際進步由高到低排列。
+                  「跟同樣起點比」是把這個人放回同一科、前測落在同一區間的那一群。比過的人愈多，代表在起點相近的人裡面進步較快。不到 5 人的組不排名。
+                  時數只算考試前的課程／活動。點上方卡片的「有進步學生」，可篩該技能並依原始分進步由高到低排列。
                 </p>
                 <GrowthEpisodeTable
                   episodes={growth?.episodes || data.growthEpisodes?.sampleEpisodes || []}

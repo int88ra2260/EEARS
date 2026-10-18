@@ -9,12 +9,44 @@ import { EVIDENCE_LEVEL_LABELS } from './learningAnalyticsCopy';
 
 const SORT_OPTIONS = [
   { value: 'examDate', label: '後測日期' },
-  { value: 'rawGrowth', label: '實際進步' },
-  { value: 'adjustedGseGrowth', label: '校正後進步' },
+  { value: 'rawGrowth', label: '原始分進步' },
+  { value: 'peerPercentile', label: '跟同樣起點比' },
+  { value: 'adjustedGseGrowth', label: '扣掉入學程度' },
   { value: 'resourceHours', label: '考前時數' },
   { value: 'studentId', label: '學號' },
   { value: 'skill', label: '技能' },
 ];
+
+function PeerComparison({ episode }) {
+  if (!episode?.pretestBandLabel) {
+    return <span className="text-muted">沒有前測區間</span>;
+  }
+  if (!episode.peerInterpretable || episode.peerPercentile == null) {
+    return (
+      <span className="la-peer-compare text-muted" title="同一科、同一前測區間要至少 5 人才比較">
+        <span>{`前測 ${episode.pretestBandLabel}`}</span>
+        <span>這組不到 5 人</span>
+      </span>
+    );
+  }
+  const gap = Number(episode.peerGapFromMedian);
+  let pace = '跟這組正中間差不多';
+  if (Number.isFinite(gap) && gap >= 1) pace = `比這組正中間多 ${gap.toFixed(1)}`;
+  if (Number.isFinite(gap) && gap <= -1) pace = `比這組正中間少 ${Math.abs(gap).toFixed(1)}`;
+  const beatenText = episode.peerPercentile === 0
+    ? '沒有比過這組其他人'
+    : `比過這組 ${episode.peerPercentile}% 的人`;
+  return (
+    <span
+      className="la-peer-compare"
+      title="跟同一科、前測落在同一區間的其他人比。比過的人愈多，代表在起點相近的人裡面進步較快。"
+    >
+      <span>{`前測 ${episode.pretestBandLabel}`}</span>
+      <strong>{beatenText}</strong>
+      <span className="text-muted">{pace}</span>
+    </span>
+  );
+}
 
 function formatHours(value) {
   const n = Number(value);
@@ -63,6 +95,8 @@ function sortEpisodes(list, sortKey, sortDir) {
     let cmp = 0;
     if (sortKey === 'rawGrowth') {
       cmp = compareNullableNumber(Number(a.rawGrowth), Number(b.rawGrowth));
+    } else if (sortKey === 'peerPercentile') {
+      cmp = compareNullableNumber(Number(a.peerPercentile), Number(b.peerPercentile));
     } else if (sortKey === 'adjustedGseGrowth') {
       cmp = compareNullableNumber(Number(a.adjustedGseGrowth), Number(b.adjustedGseGrowth));
     } else if (sortKey === 'resourceHours') {
@@ -98,8 +132,8 @@ export default function GrowthEpisodeTable({ episodes = [], focusRequest = null 
     setSortDir(focusRequest.sortDir || 'desc');
     setFocusHint(
       focusRequest.skillLabel
-        ? `已篩選「${focusRequest.skillLabel}」，並依實際進步由高到低排列（進步最多 → 退步最多）。`
-        : '已依實際進步由高到低排列（進步最多 → 退步最多）。',
+        ? `已篩選「${focusRequest.skillLabel}」，並依原始分進步由高到低排列（進步最多 → 退步最多）。`
+        : '已依原始分進步由高到低排列（進步最多 → 退步最多）。',
     );
   }, [focusRequest]);
 
@@ -308,8 +342,9 @@ export default function GrowthEpisodeTable({ episodes = [], focusRequest = null 
                 <th>技能</th>
                 <th>工具</th>
                 <th>後測日期</th>
-                <th className="text-end">實際進步</th>
-                <th className="text-end">校正後進步</th>
+                <th className="text-end" title="這科測驗的原始分差，不是 GSE">原始分進步</th>
+                <th title="跟同一科、前測落在同一區間的人比">跟同樣起點比</th>
+                <th className="text-end" title="扣掉入學時的整體程度與測驗間隔之後剩下的成長。不是跟這一科的前測比。">扣掉入學程度</th>
                 <th className="text-end">考前時數</th>
                 <th>資料</th>
                 <th />
@@ -329,6 +364,7 @@ export default function GrowthEpisodeTable({ episodes = [], focusRequest = null 
                     <td>{episode.instrument}</td>
                     <td>{episode.examDate || '—'}</td>
                     <td className="text-end">{episode.rawGrowth ?? '—'}</td>
+                    <td><PeerComparison episode={episode} /></td>
                     <td className="text-end">{episode.adjustedGseGrowth ?? '—'}</td>
                     <td
                       className="text-end"

@@ -13,7 +13,7 @@ const {
   ci95,
 } = require('./lvaMathUtils');
 const { isUsableGrowthPair } = require('../utils/usableSkillScore');
-const { summarizeStartingGseGrowth } = require('../../learningAnalytics/startingGseGrowth');
+const { summarizeStartingGseGrowth, annotatePretestPeers } = require('../../learningAnalytics/startingGseGrowth');
 
 const GSE_MAX = 90;
 const ADJUSTED_LEGACY = 'baseline_adjusted_simplified';
@@ -272,13 +272,14 @@ function computeAdjustedGrowthEpisodesV2(exams, studentById) {
 }
 
 function summarizeAdjustedGrowthByMethod(rows, estimateType, modelVersion, formula, variables) {
+  const annotated = annotatePretestPeers(rows);
   const bySkill = {};
-  for (const row of rows) {
+  for (const row of annotated) {
     if (!bySkill[row.skill]) bySkill[row.skill] = [];
     bySkill[row.skill].push(row.adjustedGseGrowth);
   }
 
-  const monthsAvailable = rows.filter((row) => row.monthsBetweenTests != null).length;
+  const monthsAvailable = annotated.filter((row) => row.monthsBetweenTests != null).length;
 
   return {
     estimateType,
@@ -286,8 +287,8 @@ function summarizeAdjustedGrowthByMethod(rows, estimateType, modelVersion, formu
     modelVersion,
     variables,
     formula,
-    sampleSize: rows.length,
-    monthsBetweenTestsCoverage: rows.length ? round(monthsAvailable / rows.length, 4) : 0,
+    sampleSize: annotated.length,
+    monthsBetweenTestsCoverage: annotated.length ? round(monthsAvailable / annotated.length, 4) : 0,
     bySkill: Object.entries(bySkill)
       .map(([skill, values]) => ({
         skill,
@@ -298,8 +299,8 @@ function summarizeAdjustedGrowthByMethod(rows, estimateType, modelVersion, formu
         causalClaimAllowed: false,
       }))
       .sort((a, b) => a.skill.localeCompare(b.skill)),
-    sampleEpisodes: rows.slice(0, 200),
-    byStartingGse: summarizeStartingGseGrowth(rows),
+    sampleEpisodes: annotated.slice(0, 200),
+    byStartingGse: summarizeStartingGseGrowth(annotated),
   };
 }
 

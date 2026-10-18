@@ -283,7 +283,7 @@ export default function LearningAnalyticsOverviewPage() {
                     <table className="table table-sm align-middle mb-0">
                       <tbody>
                         <tr>
-                          <th>有 baseline</th>
+                          <th title="已匯入學測英文分數的人數。這筆是入學起始分級，不是英檢前測，也不會換成 CEFR。">有起始分級</th>
                           <td className="text-end">{formatNum(headline.studentsWithBaseline)}</td>
                           <td className="text-end text-muted">{formatCoverage(headline.studentsWithBaseline, headline.studentsInAnalysis)}</td>
                         </tr>

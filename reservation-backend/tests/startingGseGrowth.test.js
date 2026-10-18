@@ -1,6 +1,6 @@
 'use strict';
 
-const { summarizeStartingGseGrowth } = require('../services/learningAnalytics/startingGseGrowth');
+const { summarizeStartingGseGrowth, annotatePretestPeers } = require('../services/learningAnalytics/startingGseGrowth');
 const { partitionGrowthExams } = require('../services/learningJourney/utils/usableSkillScore');
 
 describe('usable skill scores', () => {
@@ -46,18 +46,51 @@ describe('summarizeStartingGseGrowth', () => {
       sampleSize: 5,
       interpretable: true,
       actualGseGrowthAverage: 5,
+      medianActualGseGrowth: 6,
+      q1ActualGseGrowth: 5,
+      q3ActualGseGrowth: 7,
+      meanPulledByExtremes: true,
       improvedCount: 4,
     }));
     expect(b2).toEqual(expect.objectContaining({
       sampleSize: 5,
       interpretable: true,
       actualGseGrowthAverage: 0,
+      medianActualGseGrowth: 0,
+      meanPulledByExtremes: false,
     }));
     expect(listening.bands[0]).toEqual(expect.objectContaining({
       label: 'B2+',
       sampleSize: 1,
       interpretable: false,
       actualGseGrowthAverage: null,
+      medianActualGseGrowth: null,
     }));
+  });
+
+  it('ranks a student against others who started in the same band', () => {
+    const rows = [
+      { studentId: 'low', skill: 'reading', previousGse: 39, actualGseGrowth: -1 },
+      { studentId: 'mid', skill: 'reading', previousGse: 38, actualGseGrowth: 6 },
+      { studentId: 'high', skill: 'reading', previousGse: 40, actualGseGrowth: 8 },
+      { studentId: 'a', skill: 'reading', previousGse: 36, actualGseGrowth: 5 },
+      { studentId: 'b', skill: 'reading', previousGse: 41, actualGseGrowth: 7 },
+    ];
+    const annotated = annotatePretestPeers(rows);
+    const high = annotated.find((row) => row.studentId === 'high');
+    const mid = annotated.find((row) => row.studentId === 'mid');
+    const low = annotated.find((row) => row.studentId === 'low');
+
+    expect(high).toEqual(expect.objectContaining({
+      pretestBandLabel: 'A2+',
+      peerSampleSize: 5,
+      peerInterpretable: true,
+      peerMedianGrowth: 6,
+      peerPercentile: 100,
+      peerGapFromMedian: 2,
+    }));
+    expect(mid.peerPercentile).toBe(50);
+    expect(low.peerPercentile).toBe(0);
+    expect(low.peerGapFromMedian).toBe(-7);
   });
 });

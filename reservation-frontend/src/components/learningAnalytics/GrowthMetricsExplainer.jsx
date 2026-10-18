@@ -4,21 +4,25 @@ import LaFold from './LaFold';
 
 export default function GrowthMetricsExplainer({ className = '' }) {
   return (
-    <LaFold label="實際進步與高於/低於預期差在哪？" className={className}>
+    <LaFold label="這幾個數字分別在比什麼？" className={className}>
       <p className="mb-1">
-        <strong>GSE 實際進步</strong>
-        ：後測減前測，且已換成同一把能力尺（GSE），才能跨不同英檢互比。不是各測驗的原始分數差。
+        <strong>平均和中間的人</strong>
+        ：都是這一科、前測落在同一區間的人，後來的 GSE 成長。平均容易被少數人拉走，要下結論先看正中間的人。
       </p>
       <p className="mb-1">
-        <strong>高於/低於預期成長</strong>
-        ：從實際 GSE 進步扣掉模型預期成長。接近 0 代表大致符合預期；正值代表高於預期，負值代表低於預期。
+        <strong>跟同樣起點比</strong>
+        ：這個人在同一科、同一前測區間裡，進步多過百分之多少的人。比過愈多人，代表在起點相近的人裡面愈快。不到 5 人不排名。
+      </p>
+      <p className="mb-1">
+        <strong>扣掉入學程度</strong>
+        ：另外一組計算，扣的是入學時的整體英文程度和測驗間隔，不是這一科的前測。明細裡仍保留，給需要對照舊算法的人。
       </p>
       <p className="mb-1 small text-muted">
-        工具原始分進步（例如 TOEIC +35）與 GSE 量尺不同，不會畫在同一張圖上。缺少可估資料時會留白，不會當作 0。
+        原始分進步（例如 TOEIC +35）和 GSE 不是同一把尺。缺少資料時留白，不會當成 0。
         原始分 0 或 1 不計入前後測；缺考常被記成 0，換成 GSE 後會變成很大的假退步。
       </p>
       <p className="mb-0">
-        兩者都是觀察結果。進階參數在
+        這些都是觀察，不代表課程造成進步。進階參數在
         {' '}
         <Link to="/admin/learning-analytics/settings">分析設定</Link>
         。

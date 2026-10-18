@@ -677,6 +677,18 @@
   margin-bottom: 0.45rem;
 }
 
+.la-skill-growth-card__peers {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin-bottom: 0.45rem;
+}
+
+.la-skill-growth-card__peers-note {
+  color: var(--la-muted);
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+}
+
 .la-skill-growth-card__summary {
   color: var(--la-muted);
   font-size: 0.82rem;
@@ -694,10 +706,51 @@
   margin-top: 0.35rem;
 }
 
+.la-starting-gse-legend {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: var(--la-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.la-starting-gse-legend li + li {
+  margin-top: 0.2rem;
+}
+
 .la-starting-gse-table th,
 .la-starting-gse-table td {
   font-size: 0.85rem;
+  vertical-align: top;
+}
+
+.la-starting-gse-table th:first-child,
+.la-starting-gse-table td:first-child,
+.la-starting-gse-table th:nth-child(2),
+.la-starting-gse-table td:nth-child(2) {
   white-space: nowrap;
+}
+
+.la-starting-gse-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  line-height: 1.35;
+  min-width: 8.5rem;
+}
+
+.la-starting-gse-cell__warn {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.la-peer-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  line-height: 1.35;
+  min-width: 8.5rem;
+  font-size: 0.82rem;
 }
 
 @keyframes la-fade-up {
