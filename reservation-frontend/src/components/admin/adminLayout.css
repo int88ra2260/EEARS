@@ -31,7 +31,7 @@
 }
 
 .admin-sidebar {
-  width: 264px;
+  width: 280px;
   flex-shrink: 0;
   background: var(--admin-surface-muted, #f7f6f3);
   border-right: 1px solid var(--admin-border, #eaeaea);
@@ -96,7 +96,8 @@
   padding: 0 0.5rem;
 }
 
-.admin-sidebar__section-label {
+.admin-sidebar__section-label,
+.admin-sidebar__subgroup-label {
   width: 100%;
   text-align: left;
   border: none;
@@ -112,19 +113,56 @@
   gap: 0.5rem;
 }
 
-.admin-sidebar__section-label:hover {
+.admin-sidebar__subgroup-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--admin-text-muted, #787774);
+  padding: 0.32rem 0.55rem;
+}
+
+.admin-sidebar .admin-sidebar__section-label-row,
+.admin-sidebar__subgroup-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-sidebar__glyph {
+  flex-shrink: 0;
+  color: var(--admin-text-muted, #787774);
+}
+
+.admin-sidebar__section-label:hover,
+.admin-sidebar__subgroup-label:hover {
   background: rgba(0, 0, 0, 0.03);
 }
 
-.admin-sidebar__section-label--active {
+.admin-sidebar__section-label--active,
+.admin-sidebar__subgroup-label--active {
   background: var(--admin-pastel-blue, #e1f3fe);
   color: var(--admin-pastel-blue-text, #1f6c9f);
 }
 
+.admin-sidebar__section-label--active .admin-sidebar__glyph,
+.admin-sidebar__subgroup-label--active .admin-sidebar__glyph {
+  color: inherit;
+}
+
 .admin-sidebar__chevron {
-  font-size: 0.6rem;
+  display: inline-flex;
+  flex-shrink: 0;
   opacity: 0.55;
-  font-family: ui-monospace, 'SF Mono', monospace;
+  transition: transform 160ms ease;
+}
+
+.admin-sidebar__chevron--open {
+  transform: rotate(90deg);
+}
+
+.admin-sidebar__subgroup {
+  margin-top: 0.1rem;
 }
 
 .admin-sidebar__sub {
@@ -133,6 +171,11 @@
   padding: 0 0 0.25rem 0.35rem;
   border-left: 1px solid var(--admin-border, #eaeaea);
   margin-left: 0.85rem;
+}
+
+.admin-sidebar__sub--nested {
+  margin-left: 0.55rem;
+  padding-left: 0.15rem;
 }
 
 .admin-sidebar__group-link {
@@ -293,7 +336,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-sidebar {
+  .admin-sidebar,
+  .admin-sidebar__chevron {
     transition: none;
   }
 }

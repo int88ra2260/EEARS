@@ -127,13 +127,24 @@ describe('ADMIN_NAV_SECTIONS learning IA', () => {
     expect(englishSection?.children?.map((child) => child.id)).not.toContain('learning-journey');
 
     expect(learningOutcomesSection?.label).toBe('學習歷程與成果');
-    expect(learningOutcomesSection?.children?.map((child) => child.id)).toEqual(
+    const learningLeafIds = [];
+    const walk = (nodes) => {
+      for (const node of nodes || []) {
+        if (node.children?.length && !node.path) walk(node.children);
+        else learningLeafIds.push(node.id);
+      }
+    };
+    walk(learningOutcomesSection?.children);
+    expect(learningLeafIds).toEqual(
       expect.arrayContaining([
         'english-learning-passport',
         'learning-journey',
         'learning-analytics-overview',
       ])
     );
+    const analyticsGroup = learningOutcomesSection?.children?.find((child) => child.id === 'learning-analytics');
+    expect(analyticsGroup?.label).toBe('學習成效');
+    expect(analyticsGroup?.children?.map((child) => child.id)).toContain('learning-analytics-overview');
     expect(ADMIN_NAV_SECTIONS.map((section) => section.id)).not.toContain('learning-analytics');
   });
 });
@@ -161,6 +172,13 @@ describe('getDefaultExpandedSectionIds', () => {
     const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, ctx);
     const ids = getDefaultExpandedSectionIds(ctx, visible);
     expect(ids.has('classes')).toBe(true);
+  });
+
+  it('expands only daily events for admin', () => {
+    const ctx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
+    const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, ctx);
+    const ids = getDefaultExpandedSectionIds(ctx, visible);
+    expect([...ids]).toEqual(['events']);
   });
 
   it('expands learning outcomes for passport_ops worker', () => {
@@ -202,6 +220,17 @@ describe('getAdminBreadcrumbs', () => {
     ]);
   });
 
+  it('includes the nested group on learning analytics pages', () => {
+    const adminCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
+    const trail = getAdminBreadcrumbs('/admin/learning-analytics/cohorts', adminCtx);
+    expect(trail.map((item) => item.label)).toEqual([
+      '後台',
+      '學習歷程與成果',
+      '學習成效',
+      '系所比較',
+    ]);
+  });
+
   it('points 後台 crumb to leader home', () => {
     const leaderCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'leader'));
     const trail = getAdminBreadcrumbs('/admin/et-grouping/my-sessions', leaderCtx);
@@ -214,10 +243,15 @@ describe('filterAdminNavByQuery', () => {
     const adminCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
     const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, adminCtx);
     const filtered = filterAdminNavByQuery(visible, query);
-    return filtered.flatMap((section) => {
-      if (section.children?.length) return section.children.map((child) => child.label);
-      return [section.label];
-    });
+    const labels = [];
+    const walk = (nodes) => {
+      for (const node of nodes || []) {
+        if (node.children?.length && !node.path) walk(node.children);
+        else labels.push(node.label);
+      }
+    };
+    walk(filtered);
+    return labels;
   }
 
   it('filters leaves by label', () => {

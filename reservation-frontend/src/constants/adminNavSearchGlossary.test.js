@@ -6,12 +6,13 @@ import {
 
 function collectAdminNavIds(sections = ADMIN_NAV_SECTIONS) {
   const ids = [];
-  for (const section of sections) {
-    ids.push(section.id);
-    for (const child of section.children || []) {
-      ids.push(child.id);
+  function walk(nodes) {
+    for (const node of nodes || []) {
+      ids.push(node.id);
+      if (node.children?.length) walk(node.children);
     }
   }
+  walk(sections);
   return ids;
 }
 

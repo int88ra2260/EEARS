@@ -55,6 +55,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '任務勾選',
     '英語桌帶班',
   ],
+  'et-grouping': ['ET', '英語桌', '分組', 'Leader', '帶班'],
   'events-compliance': [
     '違規',
     '黑名單',
@@ -107,6 +108,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '英檢管理',
   ],
   'learning-outcomes': ['學習成果', '學習歷程', '護照', '成效', 'LA', 'B2', 'CEFR'],
+  'learning-analytics': ['學習成效', 'LA', '成效分析'],
   'learning-journey': [
     'LJ',
     'LJ V3',
@@ -154,6 +156,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   ],
 
   surveys: ['問卷', '回饋', 'gate', '作答'],
+  'survey-ops': ['問卷維運', '資料品質', '答案對照'],
   'survey-center': [
     '建立問卷',
     '發布',
@@ -236,6 +239,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   'analytics-reports': ['下載', 'Excel', '匯出報表', '營運報表'],
   'analytics-teacher-dash': ['教學儀表板', '我的教學', '老師儀表板'],
 
+  content: ['內容', '公告', '週報', '學生端'],
   announcements: ['草稿', '發布', '跑馬燈', 'ticker', '公告'],
   'weekly-reports': ['週報', 'Weekly Studio', 'blocks', '本週'],
   'student-content': [
@@ -264,6 +268,8 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   'account-reset': ['密碼', '重設密碼', 'mustResetPassword'],
 
   system: ['維運', '稽核'],
+  'system-config': ['設定', '活動類型', '郵件'],
+  'system-audit': ['稽核', '操作紀錄', '診斷', '維運腳本'],
   'system-dashboard': ['KPI', '今日待辦', '健康', '營運', 'dashboard'],
   'system-settings': [
     '開關',
