@@ -131,7 +131,6 @@ function computeTaskStatsFromMatrix(matrix) {
     if ((student.checkinStatus || '未簽到') !== '已簽到') continue;
     checkedIn += 1;
     for (const task of student.tasks || []) {
-      if (!task.isRequired) continue;
       eligible += 1;
       if (task.completed) completed += 1;
     }

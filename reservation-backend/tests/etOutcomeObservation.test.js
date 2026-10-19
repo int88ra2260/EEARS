@@ -16,22 +16,30 @@ describe('etTaskCompletion', () => {
     { id: 3, isRequired: false },
   ];
 
-  test('只計必填且已勾選的適用任務，略過其他任務的勾選', () => {
+  test('已簽到學生以全部適用任務為分母，略過清單外的勾選', () => {
     const stats = computeApplicableCompletion(tasks, [
       { taskItemId: 1, completed: true },
       { taskItemId: 3, completed: true },
       { taskItemId: 99, completed: true },
     ], { checkedIn: true });
-    expect(stats).toEqual({ completed: 1, total: 2, rate: 50 });
+    expect(stats).toEqual({ completed: 2, total: 3, rate: 66.7 });
   });
 
-  test('未簽到或沒有必填任務時完成率為空', () => {
+  test('未簽到或沒有任務時完成率為空', () => {
     expect(computeApplicableCompletion(tasks, [{ taskItemId: 1, completed: true }], { checkedIn: false }).rate).toBeNull();
-    expect(computeApplicableCompletion([{ id: 3, isRequired: false }], [], { checkedIn: true }).rate).toBeNull();
+    expect(computeApplicableCompletion([], [], { checkedIn: true }).rate).toBeNull();
+    expect(computeApplicableCompletion([{ id: 3, isRequired: false }], [], { checkedIn: true })).toEqual({
+      completed: 0,
+      total: 1,
+      rate: 0,
+    });
   });
 
   test('單一已簽到學生的完成率與場次矩陣相同', () => {
-    const marks = [{ taskItemId: 1, completed: true }];
+    const marks = [
+      { taskItemId: 1, completed: true },
+      { taskItemId: 3, completed: true },
+    ];
     const student = computeApplicableCompletion(tasks, marks, { checkedIn: true });
     const matrix = computeTaskStatsFromMatrix({
       students: [{

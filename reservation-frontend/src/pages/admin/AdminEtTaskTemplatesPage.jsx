@@ -105,7 +105,7 @@ export default function AdminEtTaskTemplatesPage() {
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
           <p className="text-muted mb-0 small">
-            {template?.name || '預設模板'} — Leader 場後勾選時依能力帶別顯示適用任務。
+            {template?.name || '預設模板'} — 全員同一套任務。必選題關係核薪；完成率以已簽到學生的全部啟用題目計算。
           </p>
         </div>
         <div className="d-flex gap-2">

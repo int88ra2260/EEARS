@@ -10,7 +10,7 @@ const GSE_RESOLUTION_GSE_ABS_MAX = 0.5;
 const OBSERVATION_DISCLAIMER = '任務完成、分組當下的 GSE 快照、以及同測原始分變化是並列觀察，不代表 English Table 造成進步。GSE 不是官方英檢成績。';
 
 const READING_GUIDE = Object.freeze([
-  '場次成效是 Leader 勾選的任務完成率，只計已簽到學生的必填任務。',
+  '場次成效是 Leader 勾選的任務完成率，只計已簽到學生；全員同一套任務，分母是這份清單。核薪只看標成必選的題目。',
   '能力快照是分組當下的 CEFR · GSE，不是官方英檢成績。',
   '英檢變化沿用學習成效分析：只配對同一測驗，以原始分差為主、GSE 為輔。',
   '口說練習只比較同一題的會前與活動後：有沒有多說出理由或例子，並連到句庫的說法。不計入任務完成率。',

@@ -26,7 +26,7 @@ async function listTaskTemplate({ semesterId = null } = {}) {
   if (!template) return { template: null, items: [] };
 
   const items = await EtTaskTemplateItem.findAll({
-    where: { templateId: template.id },
+    where: { templateId: template.id, isActive: true },
     order: [['sortOrder', 'ASC'], ['id', 'ASC']],
   });
 

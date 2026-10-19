@@ -135,7 +135,7 @@ export default function AdminEventTaskMarksTab({ tabProps }) {
       <Alert variant="light" className="border mb-3">
         <div className="small text-muted mb-1">勾選說明</div>
         <div>
-          僅已簽到學生可勾選。任務項目依學生能力帶別自動篩選。
+          僅已簽到學生可勾選。全員使用同一套任務。必選題勾完才計薪；完成率以這份清單計算。
           {matrix?.markingExtendedUntil
             ? ` 行政已開放補勾到 ${new Date(matrix.markingExtendedUntil).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}。這是例外，離活動當天越遠越不能代表現場。`
             : matrix?.markingOpen

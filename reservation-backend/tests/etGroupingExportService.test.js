@@ -3,7 +3,7 @@
 const { computeTaskStatsFromMatrix } = require('../services/etGrouping/etGroupingExportService');
 
 describe('etGroupingExportService', () => {
-  test('computeTaskStatsFromMatrix counts required marks for checked-in students', () => {
+  test('computeTaskStatsFromMatrix counts every shown task for checked-in students', () => {
     const stats = computeTaskStatsFromMatrix({
       students: [
         {
@@ -21,8 +21,8 @@ describe('etGroupingExportService', () => {
       ],
     });
     expect(stats.checkedIn).toBe(1);
-    expect(stats.eligibleMarks).toBe(2);
-    expect(stats.completedMarks).toBe(1);
-    expect(stats.completionRate).toBe(50);
+    expect(stats.eligibleMarks).toBe(3);
+    expect(stats.completedMarks).toBe(2);
+    expect(stats.completionRate).toBe(66.7);
   });
 });
