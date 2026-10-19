@@ -249,7 +249,7 @@ export default function AdminClassCreditAllocationPage() {
             <Card.Header>
               <h5 className="mb-0">簽到紀錄</h5>
               <div className="small text-muted mt-1">
-                本學期已簽到的活動。計入時數的場次加總為上方「簽到」時數；計入護照或到場不計點的場次不計入課堂時數。
+                本學期已簽到的預約活動，以及英文寫作工坊已出席的場次。寫作工坊依開始到結束的時長計點。計入護照或到場不計點的預約不計入課堂時數。
               </div>
             </Card.Header>
             <Card.Body>

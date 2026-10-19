@@ -981,6 +981,18 @@ async function getParticipationStats(studentIds, semesterRange, activityType) {
   return await getStudentParticipationStatsUtil(studentIds, semesterRange, activityType);
 }
 
+function calendarDayKey(value) {
+  if (!value) return '';
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  const matched = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return matched ? matched[1] : '';
+}
+
 /**
  * 取得學生參與統計
  */
@@ -1097,6 +1109,29 @@ async function getStudentParticipationStats(studentId, semesterRange, activityTy
   });
 
   totalHours = roundHours(totalHours);
+
+  if (!activityType || activityType === 'All' || activityType === 'EWL') {
+    const ewlRows = await classCreditAllocationService.listAttendedEwlCreditRows(
+      studentId,
+      semesterRange,
+    );
+    if (ewlRows.length) {
+      attendedCountTotal += ewlRows.length;
+      totalHours = roundHours(
+        totalHours + ewlRows.reduce((sum, row) => sum + Number(row.hours || 0), 0),
+      );
+      const latestEwlDate = ewlRows.reduce(
+        (max, row) => (row.eventDate > max ? row.eventDate : max),
+        '',
+      );
+      const currentDay = calendarDayKey(lastAttendAt);
+      if (latestEwlDate && latestEwlDate > currentDay) {
+        const [year, month, day] = latestEwlDate.split('-').map(Number);
+        lastAttendAt = new Date(year, month - 1, day);
+      }
+    }
+  }
+
   // 計算計點數（每半小時算一點，即總時數 * 2）
   const pointScore = hoursToPoints(totalHours);
 

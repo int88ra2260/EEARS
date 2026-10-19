@@ -6,6 +6,7 @@
  */
 const {
   hoursForActivityType,
+  hoursForActivityParticipation,
   ACTIVITY_HOURS,
 } = require('../services/learningJourney/utils/activityHours');
 
@@ -76,6 +77,14 @@ function hoursForEventType(eventType, options = {}) {
   return hoursForActivityType(eventType);
 }
 
+/**
+ * 英文寫作工坊（EWL）已出席時數：依開始／結束時間，其次 meta.hours。
+ * 與學習歷程投影同一套演算法；沒有時長則為 0，不套用 ET/EC 固定時數。
+ */
+function hoursForEwlParticipation(meta = {}) {
+  return hoursForActivityParticipation('EWL', meta);
+}
+
 module.exports = {
   POINTS_PER_HOUR,
   ENGLISH_TABLE_45_MIN_FROM,
@@ -87,5 +96,6 @@ module.exports = {
   signedHoursToPoints,
   combineClassCredit,
   hoursForEventType,
+  hoursForEwlParticipation,
   hoursForActivityType,
 };

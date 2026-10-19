@@ -53,7 +53,12 @@ describe('classCreditHours', () => {
 });
 
 describe('classifyCreditCheckin', () => {
-  const { classifyCreditCheckin, mapCreditCheckinRow } = require('../services/classCreditAllocationService');
+  const {
+    classifyCreditCheckin,
+    mapCreditCheckinRow,
+    mapEwlCreditRow,
+    collectEwlCreditRecords,
+  } = require('../services/classCreditAllocationService');
 
   test('checked-in English Table from 115-1 counts 0.75 hours', () => {
     expect(classifyCreditCheckin({
@@ -122,6 +127,76 @@ describe('classifyCreditCheckin', () => {
       hours: 0.75,
       points: 1.5,
       creditStatus: 'counted',
+    });
+  });
+
+  test('attended writing-workshop sessions use the actual duration as class points', () => {
+    const range = { start: '2026-08-01', end: '2027-01-31' };
+    const records = collectEwlCreditRecords([
+      {
+        id: 9,
+        activityType: 'EWL',
+        attendanceStatus: 'attended',
+        eventId: 'ewl-501',
+        metaJson: {
+          eventName: '線上一對一諮詢',
+          eventDate: '2026-09-24',
+          startTime: '14:00',
+          endTime: '15:00',
+        },
+      },
+      {
+        id: 10,
+        activityType: 'EWL',
+        attendanceStatus: 'registered',
+        eventId: 'ewl-502',
+        metaJson: {
+          eventName: '線上一對一諮詢',
+          eventDate: '2026-09-25',
+          startTime: '14:00',
+          endTime: '15:00',
+        },
+      },
+      {
+        id: 11,
+        activityType: 'ET',
+        attendanceStatus: 'attended',
+        metaJson: { eventDate: '2026-09-24', hours: 1 },
+      },
+      {
+        id: 12,
+        activityType: 'EWL',
+        attendanceStatus: 'attended',
+        metaJson: {
+          eventName: '工作坊',
+          eventDate: '2026-07-01',
+          startTime: '10:00',
+          endTime: '12:00',
+        },
+      },
+    ], range);
+
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      reservationId: 'ewl:9',
+      eventName: '線上一對一諮詢',
+      eventDate: '2026-09-24',
+      startTime: '14:00',
+      eventType: 'EWL',
+      hours: 1,
+      points: 2,
+      creditStatus: 'counted',
+    });
+    expect(mapEwlCreditRow({
+      id: 13,
+      activityType: 'EWL',
+      attendanceStatus: 'attended',
+      metaJson: { eventName: '實體一對一諮詢', eventDate: '2026-10-01' },
+    })).toMatchObject({
+      hours: 0,
+      points: 0,
+      creditStatus: 'zero',
+      creditStatusLabel: '不計時數',
     });
   });
 

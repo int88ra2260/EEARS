@@ -111,6 +111,7 @@ export function getDefaultTypeConfig(raw) {
 export function getEventTypeDisplayName(raw) {
   const key = String(raw || '').trim();
   if (!key) return '—';
+  if (key === 'EWL') return '英文寫作工坊';
   const code = normalizeEventTypeCode(key);
   if (code && BY_CODE[code]) return BY_CODE[code].displayName;
   return key;

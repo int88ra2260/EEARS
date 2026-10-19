@@ -9,6 +9,7 @@ const {
   ClassMembership,
   ClassCreditAllocation,
   ClassCreditAdjustment,
+  ActivityParticipation,
   Settings,
   sequelize,
 } = require('../models');
@@ -21,6 +22,7 @@ const {
   signedHoursToPoints,
   combineClassCredit,
   hoursForEventType,
+  hoursForEwlParticipation,
   ENGLISH_TABLE_45_MIN_FROM,
 } = require('../utils/classCreditHours');
 
@@ -157,7 +159,8 @@ async function listDeadlines() {
 }
 
 /**
- * 全站累計（僅參考）：學期內已簽到。護照場次仍計入；到場不計點不計時數。
+ * 全站累計（僅參考）：學期內已簽到，另加英文寫作工坊已出席。
+ * 護照場次仍計入；到場不計點不計時數。
  */
 async function computeSiteTotals(studentId, semesterRange, activityType = 'All') {
   const sid = cleanStudentId(studentId);
@@ -197,6 +200,11 @@ async function computeSiteTotals(studentId, semesterRange, activityType = 'All')
       use45MinEnglishTable: Number(row.et45) === 1,
     });
   }
+  if (activityFilterIncludesEwl(activityType)) {
+    const ewlRows = await listAttendedEwlCreditRows(sid, semesterRange);
+    attendedCountTotal += ewlRows.length;
+    totalHours += ewlRows.reduce((sum, row) => sum + Number(row.hours || 0), 0);
+  }
   totalHours = roundHours(totalHours);
   return {
     siteTotalHours: totalHours,
@@ -206,7 +214,7 @@ async function computeSiteTotals(studentId, semesterRange, activityType = 'All')
 }
 
 /**
- * 可配置庫存：已簽到、未計入護照、且非到場不計點
+ * 可配置庫存：已簽到、未計入護照、且非到場不計點；另加寫作工坊已出席時數。
  */
 async function computeEarnedInventory(studentId, semesterRange) {
   const sid = cleanStudentId(studentId);
@@ -241,6 +249,9 @@ async function computeEarnedInventory(studentId, semesterRange) {
       use45MinEnglishTable: Number(row.et45) === 1,
     });
   }
+  const ewlRows = await listAttendedEwlCreditRows(sid, semesterRange);
+  earnedCheckinCount += ewlRows.length;
+  earnedHours += ewlRows.reduce((sum, row) => sum + Number(row.hours || 0), 0);
   earnedHours = roundHours(earnedHours);
   return {
     earnedHours,
@@ -334,7 +345,87 @@ function mapCreditCheckinRow(row) {
   };
 }
 
-/** 本學期已簽到明細，供管理員對照時數來源。 */
+function activityFilterIncludesEwl(activityType) {
+  const type = String(activityType || 'All').trim();
+  return !type || type === 'All' || type === 'EWL';
+}
+
+function parseMetaJson(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function compareCreditRecords(a, b) {
+  const dateCmp = String(b.eventDate || '').localeCompare(String(a.eventDate || ''));
+  if (dateCmp) return dateCmp;
+  const timeCmp = String(b.startTime || '').localeCompare(String(a.startTime || ''));
+  if (timeCmp) return timeCmp;
+  return String(b.reservationId).localeCompare(String(a.reservationId));
+}
+
+/**
+ * 已出席的英文寫作工坊場次。時數來自開始／結束時間；未出席不列入。
+ * reservationId 用 ewl: 前綴，避免與預約簽到列的數字 id 撞 key。
+ */
+function mapEwlCreditRow(row) {
+  if (!row || String(row.activityType || '') !== 'EWL') return null;
+  if (row.attendanceStatus !== 'attended') return null;
+  const meta = parseMetaJson(row.metaJson);
+  const eventDate = toIsoDate(meta.eventDate) || toIsoDate(row.participatedAt);
+  const durationHours = hoursForEwlParticipation(meta);
+  const counted = durationHours > 0;
+  const hours = counted ? durationHours : 0;
+  return {
+    reservationId: `ewl:${row.id}`,
+    eventId: row.eventId || null,
+    eventName: meta.eventName || '英文寫作工坊',
+    eventDate,
+    startTime: toClockTime(meta.startTime),
+    eventType: 'EWL',
+    source: 'ewl',
+    hours,
+    rawHours: hours,
+    creditStatus: counted ? 'counted' : 'zero',
+    creditStatusLabel: counted ? '計入時數' : '不計時數',
+    points: hoursToPoints(hours),
+    rawPoints: hoursToPoints(hours),
+  };
+}
+
+function collectEwlCreditRecords(rows, semesterRange) {
+  const start = semesterRange?.start || '';
+  const end = semesterRange?.end || '';
+  if (!start || !end) return [];
+  return (rows || [])
+    .map((row) => mapEwlCreditRow(row))
+    .filter((row) => row && row.eventDate >= start && row.eventDate <= end)
+    .sort(compareCreditRecords);
+}
+
+async function listAttendedEwlCreditRows(studentId, semesterRange) {
+  const sid = cleanStudentId(studentId);
+  if (!sid || !semesterRange?.start || !semesterRange?.end) return [];
+  const rows = await ActivityParticipation.findAll({
+    where: {
+      studentId: sid,
+      activityType: 'EWL',
+      attendanceStatus: 'attended',
+    },
+    order: [['id', 'ASC']],
+  });
+  return collectEwlCreditRecords(
+    rows.map((row) => (row.toJSON ? row.toJSON() : row)),
+    semesterRange,
+  );
+}
+
+/** 本學期已簽到明細，供管理員對照時數來源。寫作工坊已出席一併列出。 */
 async function listStudentCreditRecords(studentId, semesterRange) {
   const sid = cleanStudentId(studentId);
   const rows = await sequelize.query(
@@ -361,7 +452,9 @@ async function listStudentCreditRecords(studentId, semesterRange) {
       type: sequelize.QueryTypes.SELECT,
     },
   );
-  return rows.map(mapCreditCheckinRow);
+  const reservationRecords = rows.map(mapCreditCheckinRow);
+  const ewlRecords = await listAttendedEwlCreditRows(sid, semesterRange);
+  return [...reservationRecords, ...ewlRecords].sort(compareCreditRecords);
 }
 
 async function listStudentClasses(studentId, semester) {
@@ -1166,6 +1259,9 @@ module.exports = {
   resolveAllocationStatus,
   classifyCreditCheckin,
   mapCreditCheckinRow,
+  mapEwlCreditRow,
+  collectEwlCreditRecords,
+  listAttendedEwlCreditRows,
   resolveAdjustmentHours,
   classifyReminderCandidate,
   buildAllocationReminderPreview,
