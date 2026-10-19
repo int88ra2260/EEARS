@@ -45,7 +45,7 @@ export function StudentRecordTabs() {
       }
       try {
         const data = await fetchClassCreditAllocation(identity, semester);
-        if (!cancelled) setCreditAllowed((data?.classCount || 0) > 1);
+        if (!cancelled) setCreditAllowed((data?.classCount || 0) >= 1);
       } catch {
         if (!cancelled) setCreditAllowed(false);
       }
