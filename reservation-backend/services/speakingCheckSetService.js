@@ -109,13 +109,30 @@ async function loginHost({ username, password }) {
 async function listSets(hostId) {
   const rows = await SpeakingCheckSet.findAll({
     where: { hostId },
-    include: [
-      { model: SpeakingCheckItem, as: 'items', attributes: ['id'] },
-      { model: SpeakingCheckParticipant, as: 'participants', attributes: ['id'] },
-    ],
     order: [['updatedAt', 'DESC']],
   });
-  return rows.map((row) => setDto(row));
+  if (!rows.length) return [];
+  const setIds = rows.map((row) => row.id);
+  const [itemRows, participantRows] = await Promise.all([
+    SpeakingCheckItem.findAll({
+      attributes: ['setId', [sequelize.fn('COUNT', sequelize.col('id')), 'itemCount']],
+      where: { setId: setIds },
+      group: ['setId'],
+      raw: true,
+    }),
+    SpeakingCheckParticipant.findAll({
+      attributes: ['setId', [sequelize.fn('COUNT', sequelize.col('id')), 'participantCount']],
+      where: { setId: setIds },
+      group: ['setId'],
+      raw: true,
+    }),
+  ]);
+  const itemCountBySet = new Map(itemRows.map((row) => [Number(row.setId), Number(row.itemCount)]));
+  const participantCountBySet = new Map(participantRows.map((row) => [Number(row.setId), Number(row.participantCount)]));
+  return rows.map((row) => setDto(row, {
+    itemCount: itemCountBySet.get(Number(row.id)) || 0,
+    participantCount: participantCountBySet.get(Number(row.id)) || 0,
+  }));
 }
 
 async function createSet(hostId, body = {}) {
