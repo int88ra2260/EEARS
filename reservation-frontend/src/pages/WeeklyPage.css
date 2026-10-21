@@ -1,6 +1,6 @@
 .weekly-page__meta {
   margin: -0.25rem 0 1.25rem;
-  color: #7a6b5f;
+  color: #6a7176;
   font-size: 0.875rem;
 }
 
@@ -22,13 +22,13 @@
   margin: 0 0 0.75rem;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #3d2e24;
+  color: #2f3437;
 }
 
 .weekly-page__paragraph {
   margin-bottom: 0.75rem;
   line-height: 1.65;
-  color: #4a3f36;
+  color: #3d4450;
 }
 
 .weekly-page__paragraph:last-child {

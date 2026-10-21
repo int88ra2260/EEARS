@@ -1,10 +1,10 @@
-/* Header / 導覽列 — EMI 暖色（細部 token 見 emi-brand.css） */
+/* Header / 導覽列 — 與公開頁學術藍同一套 */
 .site-header {
-  background: rgba(255, 251, 242, 0.94);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(42, 93, 159, 0.14);
-  box-shadow: 0 1px 0 rgba(61, 46, 36, 0.04);
+  box-shadow: 0 1px 0 rgba(28, 61, 110, 0.05);
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
@@ -319,7 +319,7 @@
   border: 1px solid var(--color-border-soft);
   border-radius: 10px;
   padding: 0.5rem;
-  box-shadow: 0 12px 30px rgba(61, 46, 36, 0.1);
+  box-shadow: 0 12px 30px rgba(28, 61, 110, 0.1);
 }
 
 .nav-link-mobile {

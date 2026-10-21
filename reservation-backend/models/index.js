@@ -17,6 +17,7 @@ const ClassMembership = require('./ClassMembership');
 const ClassCreditAllocation = require('./ClassCreditAllocation');
 const ClassCreditAdjustment = require('./ClassCreditAdjustment');
 const Teacher = require('./Teacher');
+const StudentAccount = require('./StudentAccount');
 const ClassTeacher = require('./ClassTeacher');
 const EnglishTestRegistration = require('./EnglishTestRegistration');
 const EnglishTestEmailVerification = require('./EnglishTestEmailVerification');
@@ -96,6 +97,11 @@ const SpeakingTask = require('./SpeakingTask');
 const SpeakingAttempt = require('./SpeakingAttempt');
 const SpeakingHumanRating = require('./SpeakingHumanRating');
 const SpeakingAdaptiveSession = require('./SpeakingAdaptiveSession');
+const SpeakingHost = require('./SpeakingHost');
+const SpeakingCheckSet = require('./SpeakingCheckSet');
+const SpeakingCheckItem = require('./SpeakingCheckItem');
+const SpeakingCheckParticipant = require('./SpeakingCheckParticipant');
+const SpeakingCheckResponse = require('./SpeakingCheckResponse');
 const LjStudentEvent = require('./LjStudentEvent');
 const LjAnalyticStudent = require('./LjAnalyticStudent');
 const LjAnalyticExam = require('./LjAnalyticExam');
@@ -140,6 +146,17 @@ SpeakingAttempt.hasMany(SpeakingHumanRating, { foreignKey: 'attemptId', as: 'hum
 SpeakingHumanRating.belongsTo(SpeakingAttempt, { foreignKey: 'attemptId', as: 'attempt' });
 SpeakingAdaptiveSession.hasMany(SpeakingAttempt, { foreignKey: 'adaptiveSessionUid', sourceKey: 'sessionUid', as: 'attempts' });
 SpeakingAttempt.belongsTo(SpeakingAdaptiveSession, { foreignKey: 'adaptiveSessionUid', targetKey: 'sessionUid', as: 'adaptiveSession' });
+
+SpeakingHost.hasMany(SpeakingCheckSet, { foreignKey: 'hostId', as: 'sets', onDelete: 'CASCADE' });
+SpeakingCheckSet.belongsTo(SpeakingHost, { foreignKey: 'hostId', as: 'host' });
+SpeakingCheckSet.hasMany(SpeakingCheckItem, { foreignKey: 'setId', as: 'items', onDelete: 'CASCADE' });
+SpeakingCheckItem.belongsTo(SpeakingCheckSet, { foreignKey: 'setId', as: 'set' });
+SpeakingCheckSet.hasMany(SpeakingCheckParticipant, { foreignKey: 'setId', as: 'participants', onDelete: 'CASCADE' });
+SpeakingCheckParticipant.belongsTo(SpeakingCheckSet, { foreignKey: 'setId', as: 'set' });
+SpeakingCheckParticipant.hasMany(SpeakingCheckResponse, { foreignKey: 'participantId', as: 'responses', onDelete: 'CASCADE' });
+SpeakingCheckResponse.belongsTo(SpeakingCheckParticipant, { foreignKey: 'participantId', as: 'participant' });
+SpeakingCheckItem.hasMany(SpeakingCheckResponse, { foreignKey: 'itemId', as: 'responses', onDelete: 'CASCADE' });
+SpeakingCheckResponse.belongsTo(SpeakingCheckItem, { foreignKey: 'itemId', as: 'item' });
 
 EnglishLearningPassport.hasMany(EnglishLearningSubmission, {
   foreignKey: 'passportId',
@@ -393,6 +410,7 @@ module.exports = {
   ClassCreditAllocation,
   ClassCreditAdjustment,
   Teacher,
+  StudentAccount,
   ClassTeacher,
   EnglishTestRegistration,
   EnglishTestEmailVerification,
@@ -470,6 +488,11 @@ module.exports = {
   SpeakingTask,
   SpeakingAttempt,
   SpeakingHumanRating,
+  SpeakingHost,
+  SpeakingCheckSet,
+  SpeakingCheckItem,
+  SpeakingCheckParticipant,
+  SpeakingCheckResponse,
   LjStudentEvent,
   LjAnalyticStudent,
   LjAnalyticExam,

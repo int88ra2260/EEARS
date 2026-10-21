@@ -3,6 +3,7 @@
  * 由 EventDetail 對外暴露，EventList 僅依賴 EventDetail
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Modal, Button } from 'react-bootstrap';
 import { animate, stagger } from 'motion';
 import useEventBooking from '../../hooks/useEventBooking';
@@ -21,6 +22,7 @@ import {
   isEnglishTableEventType,
 } from '../../utils/eventCapacityFields';
 import { fetchPublicEventTypes } from '../../services/eventTypeApi';
+import { loadStudentSession } from '../../utils/studentSession';
 
 const BOOKING_EASE = [0.16, 1, 0.3, 1];
 
@@ -53,6 +55,7 @@ export default function EventBookingModal({ show, event, onClose }) {
   }, []);
 
   const booking = useEventBooking();
+  const studentSession = loadStudentSession();
   const {
     form,
     message,
@@ -329,7 +332,15 @@ export default function EventBookingModal({ show, event, onClose }) {
                   {t('booking.fullNoWaitlist')}
                 </div>
               )}
-
+              {!studentSession ? (
+                <div className="alert alert-info py-2 mb-3" role="status">
+                  預約請先登入學生帳號。
+                  {' '}
+                  <Link to={`/student/login?next=${encodeURIComponent('/events')}`}>前往學生登入</Link>
+                </div>
+              ) : (
+                <p className="text-muted small mb-2">將以登入的學號、姓名與信箱預約。</p>
+              )}
               <EventBookingFormSection
                 studentId={form.studentId}
                 studentName={form.studentName}
@@ -341,6 +352,7 @@ export default function EventBookingModal({ show, event, onClose }) {
                 msg={message.msg}
                 variant={message.variant}
                 isMobile={isMobile}
+                disabled
               />
             </div>
           )}

@@ -31,6 +31,7 @@ import {
   getEnglishTestStepGateBlockMessage,
 } from '../utils/englishTestRegistrationStepGates';
 import { useEnglishTestFormSchemaPublic } from './useEnglishTestFormSchemaPublic';
+import { loadStudentSession } from '../utils/studentSession';
 
 import {
   ENGLISH_TEST_ANNOUNCEMENT_ACK_KEY,
@@ -53,10 +54,13 @@ export default function useEnglishTestRegistrationPage() {
     }
   });
   const [agreedToPrivacyPolicy, setAgreedToPrivacyPolicy] = useState(false);
-  const [englishTestForm, setEnglishTestForm] = useState({
-    studentId: '',
-    name: '',
-    idNumber: '',
+  const [englishTestForm, setEnglishTestForm] = useState(() => {
+    const session = loadStudentSession();
+    return {
+      studentId: session?.student?.studentId || '',
+      name: session?.student?.name || '',
+      idNumber: '',
+    };
   });
   const [formErrors, setFormErrors] = useState({
     studentId: '',
@@ -174,6 +178,14 @@ export default function useEnglishTestRegistrationPage() {
     }
     if (draft.englishTestForm && typeof draft.englishTestForm === 'object') {
       setEnglishTestForm((prev) => ({ ...prev, ...draft.englishTestForm }));
+    }
+    const session = loadStudentSession();
+    if (session?.student) {
+      setEnglishTestForm((prev) => ({
+        ...prev,
+        studentId: session.student.studentId,
+        name: session.student.name,
+      }));
     }
     if (draft.step3Data) {
       setStep3Data(draft.step3Data);
@@ -415,6 +427,8 @@ export default function useEnglishTestRegistrationPage() {
 
   const handleEnglishTestFormChange = useCallback((e) => {
     const { name, value } = e.target;
+    const session = loadStudentSession();
+    if (session && (name === 'studentId' || name === 'name')) return;
     let processedValue = value;
 
     if (name === 'studentId' && value.length > 0) {

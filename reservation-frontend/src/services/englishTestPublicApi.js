@@ -2,6 +2,7 @@
  * 培力英檢學生端 API 薄層
  */
 import { fetchClient } from '../utils/fetchClient';
+import { applyStudentIdentityToFormData, loadStudentSession, withStudentAuth } from '../utils/studentSession';
 import {
   fetchEnglishTestRegistrationEnabledPublic,
   fetchEnglishTestRegistrationGroupEnabledPublic,
@@ -17,29 +18,33 @@ export { fetchEnglishTestRegistrationGroupEnabledPublic as fetchRegistrationGrou
 export { fetchEnglishTestRegistrationEditEnabledPublic as fetchRegistrationEditEnabled };
 
 export async function queryEnglishTestRegistration(body) {
-  const res = await fetchClient('/api/english-test/registrations/query', {
+  const session = loadStudentSession();
+  const payload = session
+    ? { ...body, studentId: session.student.studentId, name: session.student.name }
+    : body;
+  const res = await fetchClient('/api/english-test/registrations/query', withStudentAuth({
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+    body: JSON.stringify(payload),
+  }));
   const data = await parseJson(res);
   return { ok: res.ok, status: res.status, data };
 }
 
 export async function registerEnglishTest(formData) {
-  const res = await fetchClient('/api/english-test/register', {
+  const res = await fetchClient('/api/english-test/register', withStudentAuth({
     method: 'POST',
-    body: formData,
-  });
+    body: applyStudentIdentityToFormData(formData),
+  }));
   const data = await parseJson(res);
   return { ok: res.ok, status: res.status, data };
 }
 
 export async function updateEnglishTestRegistration(formData) {
-  const res = await fetchClient('/api/english-test/registrations/update', {
+  const res = await fetchClient('/api/english-test/registrations/update', withStudentAuth({
     method: 'PUT',
-    body: formData,
-  });
+    body: applyStudentIdentityToFormData(formData),
+  }));
   const data = await parseJson(res);
   return { ok: res.ok, status: res.status, data };
 }

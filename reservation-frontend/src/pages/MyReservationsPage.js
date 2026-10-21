@@ -10,6 +10,7 @@ import ReservationResultList from '../components/reservations/ReservationResultL
 import useReservationLookup from '../hooks/useReservationLookup';
 import ToastMessage from '../components/ui/ToastMessage';
 import { loadReservationIdentity } from '../utils/studentIdentityStorage';
+import { loadStudentSession } from '../utils/studentSession';
 import '../styles/public-ui.css';
 
 export default function MyReservationsPage() {
@@ -70,6 +71,7 @@ export default function MyReservationsPage() {
         validationErrors={validationErrors}
         searchError={searchError}
         showHint={true}
+        fieldsLocked={Boolean(loadStudentSession())}
       />
       </div>
 

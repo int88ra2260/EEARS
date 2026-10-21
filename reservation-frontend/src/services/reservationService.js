@@ -3,6 +3,7 @@
  */
 
 import { fetchClient } from '../utils/fetchClient';
+import { withStudentAuth } from '../utils/studentSession';
 
 const API_PUBLIC = '/api/reservations/public';
 const API_RESERVATION = '/api/reservations';
@@ -18,7 +19,7 @@ export async function searchReservations(params) {
     studentName: params.studentName || '',
     studentEmail: params.studentEmail || '',
   });
-  const res = await fetchClient(`${API_PUBLIC}?${qs}`);
+  const res = await fetchClient(`${API_PUBLIC}?${qs}`, withStudentAuth());
   const data = await res.json();
   const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
   if (!res.ok) {
@@ -43,7 +44,7 @@ export async function searchReservations(params) {
  */
 export async function cancelReservation(reservationId, cancellationCode, identity) {
   const { studentId = '', studentName = '', studentEmail = '' } = identity || {};
-  const res = await fetchClient(`${API_RESERVATION}/${reservationId}/cancel-public`, {
+  const res = await fetchClient(`${API_RESERVATION}/${reservationId}/cancel-public`, withStudentAuth({
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -52,7 +53,7 @@ export async function cancelReservation(reservationId, cancellationCode, identit
       studentEmail,
       cancellationCode: cancellationCode.trim(),
     }),
-  });
+  }));
   const data = await res.json().catch(() => ({}));
   const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
   if (!res.ok) {

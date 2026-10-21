@@ -1,4 +1,5 @@
 import React from 'react';
+import { loadStudentSession } from '../../../utils/studentSession';
 import useMediaQuery from '../../../hooks/useMediaQuery';
 import RegistrationClosedNotice from './RegistrationClosedNotice';
 import { useEnglishTestFormSchemaPublic } from '../../../hooks/useEnglishTestFormSchemaPublic';
@@ -23,6 +24,7 @@ export default function RegistrationVerifyStep({
   isLoadingStudent,
 }) {
   const isSmallMobile = useMediaQuery('(max-width: 576px)');
+  const identityLocked = Boolean(loadStudentSession());
   const { meta } = useEnglishTestFormSchemaPublic();
   const formOptions = buildFormOptionsFromMeta(meta);
   const labelStudentId = fieldLabel(formOptions, 'studentId', '學號');
@@ -119,6 +121,7 @@ export default function RegistrationVerifyStep({
                 name="studentId"
                 value={englishTestForm.studentId}
                 onChange={onFormChange}
+                readOnly={identityLocked}
                 required={req('studentId')}
                 placeholder={phStudentId}
                 maxLength="10"
@@ -127,6 +130,7 @@ export default function RegistrationVerifyStep({
                   padding: isSmallMobile ? '0.625rem 0.75rem' : '0.75rem 1rem',
                   borderRadius: '8px',
                   transition: 'all 0.3s ease',
+                  backgroundColor: identityLocked ? '#f5f5f5' : undefined,
                 }}
               />
               {formErrors.studentId && (
@@ -159,6 +163,7 @@ export default function RegistrationVerifyStep({
                 name="name"
                 value={englishTestForm.name}
                 onChange={onFormChange}
+                readOnly={identityLocked}
                 required={req('name')}
                 placeholder={phName}
                 style={{
@@ -166,6 +171,7 @@ export default function RegistrationVerifyStep({
                   padding: isSmallMobile ? '0.625rem 0.75rem' : '0.75rem 1rem',
                   borderRadius: '8px',
                   transition: 'all 0.3s ease',
+                  backgroundColor: identityLocked ? '#f5f5f5' : undefined,
                 }}
               />
               {formErrors.name && (

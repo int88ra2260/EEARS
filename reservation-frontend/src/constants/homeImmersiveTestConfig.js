@@ -11,8 +11,8 @@ export const HOME_IMMERSIVE_JOURNEY = [
     label: { zh: '活動', en: 'Events' },
     title: { zh: '從預約到簽到，一站完成', en: 'From booking to check-in' },
     body: {
-      zh: 'English Table、English Club、Job Talk——不用登入，就能預約並參與中心活動。',
-      en: 'English Table, English Club, Job Talk — book and join without creating an account.',
+      zh: 'English Table、English Club、Job Talk——以學生帳號登入後即可預約並參與中心活動。',
+      en: 'English Table, English Club, Job Talk — sign in with a student account to book and join.',
     },
     tags: {
       zh: ['活動預約', '簽到管理'],

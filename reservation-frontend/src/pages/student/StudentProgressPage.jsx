@@ -9,6 +9,7 @@ import { fetchStudentProgress } from '../../services/studentProgressApi';
 import { getEnglishTableTopic, listEnglishTableReviewLinks, listEnglishTableWarmupLinks } from '../../data/englishTableTopics1151';
 import { setVoluntaryStudentId } from '../../utils/learningStudentLink';
 import { loadReservationIdentity, saveReservationIdentity } from '../../utils/studentIdentityStorage';
+import { loadStudentSession } from '../../utils/studentSession';
 import { useLanguage } from '../../context/LanguageContext';
 import { validateReservationFields } from '../../utils/validators';
 import '../../styles/public-ui.css';
@@ -230,6 +231,7 @@ export default function StudentProgressPage() {
           searchError={searchError}
           searchButtonLabel={t('page.reservationSearch')}
           showHint
+          fieldsLocked={Boolean(loadStudentSession())}
         />
       </div>
 

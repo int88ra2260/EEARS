@@ -11,6 +11,7 @@ const {
   publicLookupAudit,
 } = require('../middlewares/publicAccessGuard');
 const { getStudentProgressRead } = require('../services/studentProgress/studentProgressReadService');
+const { studentAuthMiddleware, bindStudentIdentity } = require('../middlewares/studentAuth');
 
 const router = express.Router();
 
@@ -23,9 +24,11 @@ const studentProgressRateLimit = createSimpleRateLimit({
 
 router.get(
   '/student-progress',
+  studentAuthMiddleware,
   studentProgressRateLimit,
   requireCaptchaIfEnabled,
   normalizePublicLookupInput,
+  bindStudentIdentity(),
   requireLookupMinimumFields({ requireStudentId: true, requireName: true, requireEmail: true }),
   async (req, res, next) => {
     try {

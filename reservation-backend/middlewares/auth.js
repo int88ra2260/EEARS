@@ -17,6 +17,7 @@ const {
 } = require('../auth/accessProfile');
 const { P } = require('../auth/permissions');
 const { Teacher } = require('../models');
+const { isStudentAccessToken } = require('./studentAuth');
 const logger = require('../utils/logger');
 const { secretKey } = require('../config/jwtSecret');
 const auditLogService = require('../services/auditLogService');
@@ -272,6 +273,10 @@ function authMiddleware(req, res, next) {
         const apiError = createAPIError('TOKEN_INVALID', 401);
         return res.status(401).json(apiError);
       }
+      if (isStudentAccessToken(decoded)) {
+        const apiError = createAPIError('TOKEN_INVALID', 401);
+        return res.status(401).json(apiError);
+      }
       req.user = decoded;
       let gate;
       try {
@@ -333,6 +338,7 @@ function optionalAuthMiddleware(req, res, next) {
     if (!token) return next();
     jwt.verify(token, secretKey, async (err, decoded) => {
       if (!err && decoded) {
+        if (isStudentAccessToken(decoded)) return next();
         let gate;
         try {
           gate = await assessTeacherSecurityGate(decoded, req, 'optional');

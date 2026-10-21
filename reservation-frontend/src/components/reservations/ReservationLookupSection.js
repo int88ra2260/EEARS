@@ -23,6 +23,7 @@ export default function ReservationLookupSection({
   searchError,
   searchButtonLabel,
   showHint,
+  fieldsLocked = false,
 }) {
   const { t } = useLanguage();
 
@@ -32,7 +33,9 @@ export default function ReservationLookupSection({
         {t('page.reservationLookupTitle')}
       </h2>
       {showHint !== false && (
-        <p className="reservation-lookup-hint">{t('page.reservationSearchHint')}</p>
+        <p className="reservation-lookup-hint">
+          {fieldsLocked ? '查詢使用你的登入身分。' : t('page.reservationSearchHint')}
+        </p>
       )}
       <div className="reservation-lookup-fields">
         <div className="mb-3">
@@ -45,7 +48,7 @@ export default function ReservationLookupSection({
             className={fieldClass(validationErrors.studentId)}
             value={studentId}
             onChange={(e) => onStudentIdChange(e.target.value)}
-            disabled={loading}
+            disabled={loading || fieldsLocked}
             aria-invalid={validationErrors.studentId ? 'true' : undefined}
             aria-describedby={validationErrors.studentId ? 'reservation-student-id-error' : undefined}
             autoComplete="username"
@@ -66,7 +69,7 @@ export default function ReservationLookupSection({
             className={fieldClass(validationErrors.studentName)}
             value={studentName}
             onChange={(e) => onStudentNameChange(e.target.value)}
-            disabled={loading}
+            disabled={loading || fieldsLocked}
             aria-invalid={validationErrors.studentName ? 'true' : undefined}
             aria-describedby={validationErrors.studentName ? 'reservation-name-error' : undefined}
             autoComplete="name"
@@ -87,7 +90,7 @@ export default function ReservationLookupSection({
             className={fieldClass(validationErrors.studentEmail)}
             value={studentEmail}
             onChange={(e) => onStudentEmailChange(e.target.value)}
-            disabled={loading}
+            disabled={loading || fieldsLocked}
             aria-invalid={validationErrors.studentEmail ? 'true' : undefined}
             aria-describedby={validationErrors.studentEmail ? 'reservation-email-error' : undefined}
             autoComplete="email"

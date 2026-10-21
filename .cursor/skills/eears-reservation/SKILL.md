@@ -37,6 +37,8 @@ license: MIT
    - 若 blacklist 適用，blacklisted 期間必須擋下
    - 額滿即無法再預約（不開放候補）
 
+5. 學生預約、查詢與取消自己的預約屬於須登入的個人功能，操作者為 session 綁定的學號。登入上線前，既有公開表單與取消驗證碼仍有效。
+
 ## Hard Checklist（改動前逐項確認）
 
 - [ ] 這次改動是否觸及 `reservationTime.js`（後端/前端雙份一致性）？

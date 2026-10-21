@@ -37,14 +37,14 @@
 
 .wb-hero__subtitle {
   margin: 0;
-  color: #4a3f36;
+  color: #3d4450;
   line-height: 1.6;
 }
 
 .wb-richtext {
   padding: 1.25rem;
   line-height: 1.65;
-  color: #4a3f36;
+  color: #3d4450;
 }
 
 .wb-richtext h2,
@@ -71,7 +71,7 @@
 .wb-media__caption {
   margin-top: 0.5rem;
   font-size: 0.8125rem;
-  color: #7a6b5f;
+  color: #6a7176;
 }
 
 .wb-gallery__grid {
@@ -180,7 +180,7 @@
 
 .wb-quote__attr {
   margin: 0;
-  color: #7a6b5f;
+  color: #6a7176;
   font-size: 0.875rem;
 }
 
@@ -237,7 +237,7 @@
 
 .wb-announcement__summary {
   margin: 0 0 0.75rem;
-  color: #4a3f36;
+  color: #3d4450;
   line-height: 1.55;
 }
 

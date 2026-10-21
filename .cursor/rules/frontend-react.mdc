@@ -18,7 +18,7 @@ alwaysApply: false
 
 ## EEARS 業務底線
 
-- 學生端不建立帳號、不登入，維持以 `studentId`、`name`、`email` 進行預約與查詢。
+- 預約、我的預約、我的紀錄、口說紀錄、課堂加分配置、培力報名等學生個人功能必須登入，且 session 綁定 `studentId`。公開瀏覽可以不登入。學生帳號與後台帳號分開。
 - 問卷 gating 須維持 English Table / English Club 各自判斷。
 - `teacherLevel`、`staffLevel`、`role`、`permission` 不得混用。
 - 不得因前端簡化而移除既有黑名單、問卷、名額、重複預約、截止時間等限制提示。

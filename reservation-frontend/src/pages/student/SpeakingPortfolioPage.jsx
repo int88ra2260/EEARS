@@ -63,7 +63,7 @@ export default function SpeakingPortfolioPage() {
           <div>
             <p className="speaking-portfolio-kicker">Speaking Portfolio</p>
             <h2>我的口說紀錄</h2>
-            <p>這台瀏覽器會留下聽到的句子和建議說法。換手機或清掉瀏覽資料後，請到「我的英語進度」用學號、姓名、Email 再查一次。</p>
+            <p>這台瀏覽器會留下聽到的句子和建議說法。換手機或清掉瀏覽資料後，請到「我的進度」查看已同步的練習紀錄。</p>
           </div>
           <div className="speaking-portfolio-stats">
             <div><strong>{stats.cards}</strong><span>收藏卡</span></div>

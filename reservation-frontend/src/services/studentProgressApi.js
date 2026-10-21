@@ -1,4 +1,5 @@
 import { fetchClient } from '../utils/fetchClient';
+import { withStudentAuth } from '../utils/studentSession';
 
 /**
  * 學生進度統一讀取 API
@@ -10,7 +11,7 @@ export async function fetchStudentProgress(identity) {
     studentName: identity.studentName || '',
     studentEmail: identity.studentEmail || '',
   });
-  const res = await fetchClient(`/api/student-progress?${qs}`);
+  const res = await fetchClient(`/api/student-progress?${qs}`, withStudentAuth());
   const json = await res.json().catch(() => ({}));
   const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
 

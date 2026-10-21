@@ -96,7 +96,7 @@
 
 .course-guide-toolbar__btn {
   border: 1px solid var(--cg-border);
-  background: #fffefb;
+  background: #ffffff;
   color: var(--cg-ink);
   border-radius: 999px;
   padding: 0.38rem 0.85rem;
@@ -323,7 +323,7 @@
   height: 1.6rem;
   border-radius: 999px;
   border: 1px solid var(--cg-border);
-  background: #fffefb;
+  background: #ffffff;
   position: relative;
 }
 

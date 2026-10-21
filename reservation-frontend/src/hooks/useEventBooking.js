@@ -8,6 +8,7 @@ import { validateReservationData } from '../utils/validators';
 import { handleAPIError } from '../utils/errorHandler';
 import { createReservation, checkBlacklist } from '../services/eventBookingService';
 import { loadStudentTrio, saveStudentTrio } from '../utils/studentTrioStorage';
+import { loadStudentSession } from '../utils/studentSession';
 import {
   buildSurveyRedirectPath,
   savePendingReservation,
@@ -35,6 +36,13 @@ export default function useEventBooking() {
   const [studentEmail, setStudentEmail] = useState('');
 
   useEffect(() => {
+    const session = loadStudentSession();
+    if (session?.student) {
+      setStudentId(session.student.studentId);
+      setStudentName(session.student.name);
+      setStudentEmail(session.student.email);
+      return;
+    }
     const saved = loadStudentTrio();
     if (saved.studentId) setStudentId((v) => (v.trim() ? v : saved.studentId));
     if (saved.studentName) setStudentName((v) => (v.trim() ? v : saved.studentName));
@@ -53,6 +61,11 @@ export default function useEventBooking() {
 
   const handleReserve = useCallback(async (event, onSuccess, { onSurveyRequired } = {}) => {
     if (!event) return;
+    if (!loadStudentSession()) {
+      setVariant('warning');
+      setMsg('請先登入學生帳號再預約');
+      return;
+    }
     if (isSubmitting) return;
 
     const now = Date.now();

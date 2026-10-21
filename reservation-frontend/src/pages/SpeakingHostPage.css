@@ -1,0 +1,167 @@
+.speaking-host-page {
+  color: var(--color-text-primary, #2f3437);
+}
+
+.speaking-host-login,
+.speaking-host-panel {
+  max-width: 42rem;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid rgba(42, 93, 159, 0.16);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.speaking-host-login {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.speaking-host-login label,
+.speaking-host-panel label {
+  margin-top: 0.35rem;
+  font-weight: 600;
+}
+
+.speaking-host-login .btn,
+.speaking-host-login a {
+  margin-top: 0.6rem;
+}
+
+.speaking-host-login .btn:disabled,
+.speaking-host-actions .btn:disabled {
+  opacity: 0.55;
+}
+
+.speaking-host-panel__bar,
+.speaking-host-results-head,
+.speaking-host-set-card,
+.speaking-host-question__head,
+.speaking-host-student header,
+.speaking-host-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.speaking-host-panel h2,
+.speaking-host-set-card h3,
+.speaking-host-student h3 {
+  margin: 0;
+}
+
+.speaking-host-set-list,
+.speaking-host-results,
+.speaking-host-questions {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.speaking-host-set-card,
+.speaking-host-student,
+.speaking-host-questions li,
+.speaking-host-empty {
+  border: 1px solid #e7eef6;
+  border-radius: 8px;
+  padding: 0.9rem;
+}
+
+.speaking-host-set-card p,
+.speaking-host-muted,
+.speaking-host-student p,
+.speaking-host-publish p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-secondary, #5a6169);
+}
+
+.speaking-host-status {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #eaf1fc;
+  color: #1c3d6e;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.speaking-host-status--closed {
+  background: #eef2f7;
+  color: #5a6169;
+}
+
+.speaking-host-back {
+  padding-left: 0;
+}
+
+.speaking-host-questions textarea {
+  min-height: 5.5rem;
+}
+
+.speaking-host-code {
+  margin: 0.8rem 0;
+  font-size: clamp(2.2rem, 8vw, 3.4rem);
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: #1c3d6e;
+}
+
+.speaking-host-stats {
+  display: flex;
+  gap: 1rem;
+}
+
+.speaking-host-stats strong {
+  display: block;
+  font-size: 1.4rem;
+}
+
+.speaking-host-student ol {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.speaking-host-scores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.speaking-host-scores span {
+  display: grid;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  background: #f7f9fc;
+  font-weight: 700;
+}
+
+.speaking-host-scores small {
+  font-weight: 500;
+  color: var(--color-text-secondary, #5a6169);
+}
+
+.speaking-host-actions .btn,
+.speaking-host-set-card__actions .btn {
+  min-height: 2.7rem;
+}
+
+@media (max-width: 640px) {
+  .speaking-host-set-card,
+  .speaking-host-results-head {
+    align-items: stretch;
+  }
+
+  .speaking-host-set-card__actions .btn,
+  .speaking-host-actions .btn {
+    width: 100%;
+  }
+}

@@ -1,7 +1,7 @@
 /* 培力英檢報名表單編輯器 — Google Forms 風格 */
 
 .et-form-builder {
-  --et-form-paper: #fffefb;
+  --et-form-paper: #ffffff;
   --et-form-canvas: #eef2f6;
   --et-form-accent: var(--color-primary, #2a5d9f);
   --et-form-border: #d9dee5;

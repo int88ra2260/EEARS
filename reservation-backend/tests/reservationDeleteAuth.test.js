@@ -88,6 +88,9 @@ jest.mock('../models', () => ({
   User: {
     findByPk: (...args) => mockUserFindByPk(...args),
   },
+  StudentAccount: {
+    findByPk: jest.fn(),
+  },
   sequelize: {
     transaction: jest.fn(async () => ({
       commit: jest.fn(),
@@ -143,6 +146,33 @@ jest.mock('../utils/emailQueue', () => ({
 }));
 
 const reservationRouter = require('../routes/reservationRouter');
+const { StudentAccount } = require('../models');
+const jwt = require('jsonwebtoken');
+const { secretKey } = require('../config/jwtSecret');
+
+function studentAuthHeader(account) {
+  const token = jwt.sign({
+    typ: 'student',
+    id: account.id,
+    studentId: account.studentId,
+    name: account.name,
+    email: account.email,
+  }, secretKey, { expiresIn: '1h' });
+  return `Bearer ${token}`;
+}
+
+function mockStudentAccount(reservation, overrides = {}) {
+  const account = {
+    id: 7,
+    studentId: reservation.studentId,
+    name: reservation.studentName,
+    email: reservation.studentEmail,
+    status: 'active',
+    ...overrides,
+  };
+  StudentAccount.findByPk.mockResolvedValue(account);
+  return account;
+}
 
 function makeReservation({
   eventType = 'English Table',
@@ -196,6 +226,14 @@ describe('DELETE /api/reservations/:id auth regression', () => {
     expect(String(res.body.message || '')).toContain('deprecated');
   });
 
+  it('前台：未登入不能取消', async () => {
+    const res = await request(app)
+      .post('/api/reservations/99/cancel-public')
+      .send({ cancellationCode: '111222' });
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('STUDENT_AUTH_REQUIRED');
+  });
+
   it('前台：正確驗證碼可取消成功（新路由）', async () => {
     const reservation = makeReservation({
       date: '2026-04-10',
@@ -203,13 +241,15 @@ describe('DELETE /api/reservations/:id auth regression', () => {
       cancellationCode: '111222',
     });
     mockReservationFindByPk.mockResolvedValueOnce(reservation);
+    const account = mockStudentAccount(reservation);
 
     const res = await request(app)
       .post('/api/reservations/99/cancel-public')
+      .set('Authorization', studentAuthHeader(account))
       .send({
-        studentId: reservation.studentId,
-        studentName: reservation.studentName,
-        email: reservation.studentEmail,
+        studentId: 'someone-else',
+        studentName: 'Not Me',
+        email: 'wrong@example.com',
         cancellationCode: '111222',
       });
 
@@ -226,9 +266,11 @@ describe('DELETE /api/reservations/:id auth regression', () => {
       cancellationCode: '111222',
     });
     mockReservationFindByPk.mockResolvedValueOnce(reservation);
+    const account = mockStudentAccount(reservation);
 
     const res = await request(app)
       .post('/api/reservations/99/cancel-public')
+      .set('Authorization', studentAuthHeader(account))
       .send({
         studentId: reservation.studentId,
         studentName: reservation.studentName,
@@ -242,20 +284,22 @@ describe('DELETE /api/reservations/:id auth regression', () => {
     expect(reservation.destroy).not.toHaveBeenCalled();
   });
 
-  it('前台：身分欄位不符不會成功取消（新路由）', async () => {
+  it('前台：登入身分與預約不符不會成功取消', async () => {
     const reservation = makeReservation({
       date: '2026-04-10',
       startTime: '11:00:00',
       cancellationCode: '111222',
     });
     mockReservationFindByPk.mockResolvedValueOnce(reservation);
+    const account = mockStudentAccount(reservation, { email: 'wrong@example.com' });
 
     const res = await request(app)
       .post('/api/reservations/99/cancel-public')
+      .set('Authorization', studentAuthHeader(account))
       .send({
         studentId: reservation.studentId,
         studentName: reservation.studentName,
-        email: 'wrong@example.com',
+        email: reservation.studentEmail,
         cancellationCode: '111222',
       });
 

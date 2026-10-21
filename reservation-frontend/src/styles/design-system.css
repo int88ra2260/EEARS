@@ -3,7 +3,7 @@
 /* ============================================ */
 
 :root {
-  /* Institutional Academic Blue — 學生端與後台共用單一主色來源 */
+  /* Institutional Academic Blue — 學生端主色。後台使用 .admin-layout-root 自己的配色。 */
   --font-family-sans: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-family-serif: 'IBM Plex Sans', 'Noto Sans TC', Georgia, serif;
   --font-family-mono: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Consolas, monospace;

@@ -22,6 +22,7 @@ const {
   publicLookupAudit,
 } = require('../middlewares/publicAccessGuard');
 const { checkSurvey } = require('../middlewares/checkSurvey');
+const { studentAuthMiddleware, bindStudentIdentity } = require('../middlewares/studentAuth');
 const { calculateReservationTimeAsync } = require('../utils/reservationTime');
 const { validateStudentId, validateName } = require('../utils/validators');
 const { Op } = require('sequelize');
@@ -232,7 +233,7 @@ function buildDateTime(dateValue, timeValue) {
 
 // 檢查黑名單狀態（預約前檢查）
 // GET /api/users/blacklist-status
-router.get('/users/blacklist-status', async (req, res) => {
+router.get('/users/blacklist-status', studentAuthMiddleware, bindStudentIdentity(), async (req, res) => {
   try {
     const { studentId } = req.query;
     
@@ -300,7 +301,7 @@ router.get(
 
 // 建立預約
 // POST /api/reservations
-router.post('/reservations', checkSurvey, async (req, res) => {
+router.post('/reservations', studentAuthMiddleware, bindStudentIdentity(), checkSurvey, async (req, res) => {
   const transaction = await sequelize.transaction();
   
   try {
@@ -559,9 +560,11 @@ router.delete('/reservations/:id', (_req, res) => {
 // 公開取消預約（前台）
 router.post(
   '/reservations/:id/cancel-public',
+  studentAuthMiddleware,
   publicReservationLookupRateLimit,
   requireCaptchaIfEnabled,
   normalizePublicLookupInput,
+  bindStudentIdentity(),
   requireLookupMinimumFields({ requireStudentId: true, requireName: true, requireEmail: true }),
   async (req, res) => {
     try {
@@ -667,12 +670,14 @@ router.delete(
   }
 );
 
-// 一般用戶查詢自己的預約（不需要認證）
+// 學生查詢自己的預約（須登入，身分以 session 學號為準）
 router.get(
   '/reservations/public',
+  studentAuthMiddleware,
   publicReservationLookupRateLimit,
   requireCaptchaIfEnabled,
   normalizePublicLookupInput,
+  bindStudentIdentity(),
   requireLookupMinimumFields({ requireStudentId: true, requireName: true, requireEmail: true }),
   async (req, res) => {
   try {

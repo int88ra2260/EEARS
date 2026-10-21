@@ -21,6 +21,7 @@ import { fetchClient } from './utils/fetchClient';
 import { buildAccessProfile } from './utils/accessControl';
 import { getAdminRouteDeniedReason } from './constants/adminRouteAccess';
 import AdminAccessDenied from './components/system/AdminAccessDenied';
+import RequireStudentAuth from './components/student/RequireStudentAuth';
 import ToastProvider from './components/ui/ToastProvider';
 import WeeklyHomeBanner from './components/layout/WeeklyHomeBanner';
 import { fetchCurrentWeeklyReport } from './services/weeklyReportApi';
@@ -33,6 +34,9 @@ const ListeningLadderPage = lazy(() => import('./pages/ListeningLadderPage'));
 const VocabularyDepthPage = lazy(() => import('./pages/VocabularyDepthPage'));
 const VocabularySizePage = lazy(() => import('./pages/VocabularySizePage'));
 const SpeakingDiagnosticPage = lazy(() => import('./pages/SpeakingDiagnosticPage'));
+const SpeakingCheckPage = lazy(() => import('./pages/SpeakingCheckPage'));
+const SpeakingHostLoginPage = lazy(() => import('./pages/SpeakingHostLoginPage'));
+const SpeakingHostPage = lazy(() => import('./pages/SpeakingHostPage'));
 const ActivityPhrasebookPage = lazy(() => import('./pages/ActivityPhrasebookPage'));
 const WeeklyPage = lazy(() => import('./pages/WeeklyPage'));
 const WeeklyPreviewPage = lazy(() => import('./pages/WeeklyPreviewPage'));
@@ -116,6 +120,9 @@ const EnglishLearningPassportPage = lazy(() => import('./pages/student/EnglishLe
 const StudentProgressPage = lazy(() => import('./pages/student/StudentProgressPage'));
 const SpeakingPortfolioPage = lazy(() => import('./pages/student/SpeakingPortfolioPage'));
 const ClassCreditAllocationPage = lazy(() => import('./pages/student/ClassCreditAllocationPage'));
+const StudentLoginPage = lazy(() => import('./pages/student/StudentLoginPage'));
+const StudentRegisterPage = lazy(() => import('./pages/student/StudentRegisterPage'));
+const StudentAccountPage = lazy(() => import('./pages/student/StudentAccountPage'));
 const EnglishLearningPassportSubmissionPage = lazy(() => import('./pages/student/EnglishLearningPassportSubmissionPage'));
 const EnglishLearningPassportCertificationPage = lazy(() => import('./pages/student/EnglishLearningPassportCertificationPage'));
 const EnglishLearningPassportsAdminPage = lazy(() => import('./pages/admin/EnglishLearningPassportsAdminPage'));
@@ -453,6 +460,9 @@ function AppContent() {
             <Route path="/practice/vocabulary-depth" element={<VocabularyDepthPage />} />
             <Route path="/practice/vocabulary-size" element={<VocabularySizePage />} />
             <Route path="/practice/speaking-diagnostic" element={<SpeakingDiagnosticPage />} />
+            <Route path="/practice/speaking-check" element={<SpeakingCheckPage />} />
+            <Route path="/practice/speaking-host/login" element={<SpeakingHostLoginPage />} />
+            <Route path="/practice/speaking-host" element={<SpeakingHostPage />} />
             {/* Legacy redirects */}
             <Route path="/activities/word-bridge" element={<Navigate to="/practice/word-bridge" replace />} />
             <Route path="/activities/games/listening-ladder" element={<Navigate to="/practice/listening-ladder" replace />} />
@@ -462,7 +472,7 @@ function AppContent() {
             <Route path="/guides/activity-phrasebook/:activityType" element={<ActivityPhrasebookPage />} />
             <Route path="/activities/english-table/topics" element={<EnglishTableTopicsPage />} />
             <Route path="/activities/:slug" element={<ActivityDetailPage />} />
-            <Route path="/my-reservations" element={<MyReservationsPage />} />
+            <Route path="/my-reservations" element={<RequireStudentAuth><MyReservationsPage /></RequireStudentAuth>} />
             <Route path="/announcements" element={<AnnouncementsPage />} />
             <Route path="/announcements/:idOrSlug" element={<AnnouncementDetailPage />} />
             <Route path="/notifications" element={<NotificationPage />} />
@@ -644,13 +654,16 @@ function AppContent() {
             </Route>
             <Route path="/survey/choice" element={<SurveyChoicePage />} />
             <Route path="/survey/:surveyId" element={<SurveyPage />} />
-            <Route path="/register/english-test" element={<EnglishTestRegistrationPage />} />
+            <Route path="/register/english-test" element={<RequireStudentAuth><EnglishTestRegistrationPage /></RequireStudentAuth>} />
             <Route path="/register/english-test/group" element={<LearningPartnerRegistrationPage />} />
             <Route path="/register/english-test/group/status/:teamId" element={<LearningPartnerStatusPage />} />
             <Route path="/register/english-test/group/approve" element={<LearningPartnerApprovePage />} />
-            <Route path="/student/progress" element={<StudentProgressPage />} />
-            <Route path="/student/speaking-portfolio" element={<SpeakingPortfolioPage />} />
-            <Route path="/student/class-credit-allocation" element={<ClassCreditAllocationPage />} />
+            <Route path="/student/login" element={<StudentLoginPage />} />
+            <Route path="/student/register" element={<StudentRegisterPage />} />
+            <Route path="/student/account" element={<RequireStudentAuth><StudentAccountPage /></RequireStudentAuth>} />
+            <Route path="/student/progress" element={<RequireStudentAuth><StudentProgressPage /></RequireStudentAuth>} />
+            <Route path="/student/speaking-portfolio" element={<RequireStudentAuth><SpeakingPortfolioPage /></RequireStudentAuth>} />
+            <Route path="/student/class-credit-allocation" element={<RequireStudentAuth><ClassCreditAllocationPage /></RequireStudentAuth>} />
             <Route path="/student/english-learning-passport" element={<EnglishLearningPassportPage />} />
             <Route path="/student/english-learning-passport/submissions/:id" element={<EnglishLearningPassportSubmissionPage />} />
             <Route path="/student/english-learning-passport/certification" element={<EnglishLearningPassportCertificationPage />} />

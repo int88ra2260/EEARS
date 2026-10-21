@@ -3,12 +3,13 @@ import { mergeLearningResourceMiniGames } from './miniGamesCatalog';
 describe('mergeLearningResourceMiniGames', () => {
   test('returns full catalog when API is empty', () => {
     const rows = mergeLearningResourceMiniGames([]);
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     expect(rows.map((r) => r.titleKey)).toEqual([
       'wordBridge.title',
       'listeningLadder.title',
       'vocabularyDepth.title',
       'vocabularySize.title',
+      'speakingCheck.title',
     ]);
   });
 
@@ -34,8 +35,9 @@ describe('mergeLearningResourceMiniGames', () => {
       },
     ]);
 
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     expect(rows.find((r) => r.titleKey === 'wordBridge.title')?.href).toBe('/practice/word-bridge');
+    expect(rows.find((r) => r.titleKey === 'speakingCheck.title')?.href).toBe('/practice/speaking-check');
     expect(rows.find((r) => r.titleKey === 'vocabularyDepth.title')?.href).toBe('/practice/vocabulary-depth');
     expect(rows.find((r) => r.titleKey === 'vocabularySize.title')?.href).toBe('/practice/vocabulary-size');
   });

@@ -33,7 +33,7 @@
 .admin-sidebar {
   width: 280px;
   flex-shrink: 0;
-  background: var(--admin-surface-muted, #f7f6f3);
+  background: var(--admin-rail, #e4ddd2);
   border-right: 1px solid var(--admin-border, #eaeaea);
   display: flex;
   flex-direction: column;

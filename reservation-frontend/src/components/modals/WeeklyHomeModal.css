@@ -7,7 +7,7 @@
   align-items: flex-start;
   padding: max(1rem, 5vh) 1rem 1rem;
   overflow-y: auto;
-  background: rgba(36, 28, 22, 0.52);
+  background: rgba(28, 61, 110, 0.46);
 }
 
 .weekly-home-modal__cover {
@@ -27,19 +27,16 @@
   width: 100%;
   max-height: 85vh;
   overflow: auto;
-  border: 1px solid #e5d9cc;
+  border: 1px solid #d8e0ea;
   border-radius: 14px;
-  background:
-    linear-gradient(180deg, rgba(255, 254, 251, 0.98), rgba(249, 244, 236, 0.98)),
-    url('../../assets/paper_texture.png');
-  background-size: auto, 320px;
-  box-shadow: 0 18px 48px rgba(61, 46, 36, 0.18);
-  color: #3d2e24;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(28, 61, 110, 0.16);
+  color: #2f3437;
 }
 
 .weekly-home-modal__kicker {
   margin: 0 0 0.35rem;
-  color: #9a4f3f;
+  color: #1c3d6e;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -55,7 +52,7 @@
 
 .weekly-home-modal__meta {
   margin: 0 0 0.85rem;
-  color: #7a6b5f;
+  color: #6a7176;
   font-size: 0.8125rem;
 }
 
@@ -68,9 +65,9 @@
 .weekly-home-modal__tip {
   margin-bottom: 1.1rem;
   padding: 0.75rem 0.85rem;
-  border-left: 3px solid #c9a227;
+  border-left: 3px solid #2a5d9f;
   border-radius: 0 8px 8px 0;
-  background: rgba(255, 251, 240, 0.9);
+  background: #eaf1fc;
 }
 
 .weekly-home-modal__tip-label {
@@ -79,7 +76,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: #8a6d1d;
+  color: #1c3d6e;
 }
 
 .weekly-home-modal__tip p {

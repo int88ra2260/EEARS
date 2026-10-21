@@ -24,6 +24,8 @@ const {
   createSimpleRateLimit,
 } = require('../middlewares/publicAccessGuard');
 const englishTestEmailVerificationService = require('../services/englishTestEmailVerificationService');
+const { studentAuthMiddleware, bindStudentIdentity } = require('../middlewares/studentAuth');
+const bindEnglishTestIdentity = bindStudentIdentity({ email: false });
 
 const publicEmailCodeSendRateLimit = createSimpleRateLimit({
   windowMs: 10 * 60 * 1000,
@@ -373,6 +375,7 @@ const updateUpload = multer({
 // 注意：multipart 必須先經 multer 解析，normalize／lookup 守衛才能讀到 req.body
 router.put('/english-test/registrations/update',
   publicEnglishTestLookupRateLimit,
+  studentAuthMiddleware,
   updateUpload.fields([
     { name: 'b2CertificateFile', maxCount: 10 },
     { name: 'b2CertificateFiles', maxCount: 10 },
@@ -382,6 +385,7 @@ router.put('/english-test/registrations/update',
   ]),
   requireCaptchaIfEnabled,
   normalizePublicLookupInput,
+  bindEnglishTestIdentity,
   // 身分驗證以學號／姓名／身分證為準；NON 等情境可能無 email
   requireLookupMinimumFields({ requireStudentId: true, requireName: true, requireEmail: false }),
   async (req, res) => {
@@ -1027,7 +1031,8 @@ router.post(
 );
 
 // API: 提交報名（支援檔案上傳）
-router.post('/english-test/register', 
+router.post('/english-test/register',
+  studentAuthMiddleware,
   upload.fields([
     { name: 'b2CertificateFile', maxCount: 10 }, // 支援多檔案（最多10個）
     { name: 'b2CertificateFiles', maxCount: 10 }, // 支援多檔案（新欄位名稱）
@@ -1035,6 +1040,7 @@ router.post('/english-test/register',
     { name: 'disabilityCertBack', maxCount: 1 },
     { name: 'idPhoto', maxCount: 1 }
   ]),
+  bindEnglishTestIdentity,
   async (req, res) => {
     try {
       const registrationOpen = await isIndividualRegistrationEnabled();
@@ -2009,8 +2015,10 @@ router.delete(
 router.post(
   '/english-test/registrations/query',
   publicEnglishTestLookupRateLimit,
+  studentAuthMiddleware,
   requireCaptchaIfEnabled,
   normalizePublicLookupInput,
+  bindEnglishTestIdentity,
   requireLookupMinimumFields({ requireStudentId: true, requireName: true }),
   async (req, res) => {
   try {

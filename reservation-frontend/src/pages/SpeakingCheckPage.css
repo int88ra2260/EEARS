@@ -1,0 +1,245 @@
+.speaking-check-page {
+  color: var(--color-text-primary, #2f3437);
+}
+
+.speaking-check-card,
+.speaking-check-result {
+  background: var(--color-bg-paper, #fff);
+  border: 1px solid rgba(42, 93, 159, 0.16);
+  border-radius: 8px;
+  padding: 1.25rem 1.1rem 1.4rem;
+}
+
+.speaking-check-result {
+  margin-top: 1rem;
+}
+
+.speaking-check-kicker,
+.speaking-check-hint,
+.speaking-check-status,
+.speaking-check-note {
+  margin: 0;
+  color: var(--color-text-secondary, #5a6169);
+}
+
+.speaking-check-kicker {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.speaking-check-passage {
+  margin: 0.85rem 0 0.7rem;
+  font-size: clamp(1.25rem, 2.4vw, 1.7rem);
+  line-height: 1.55;
+  color: var(--color-text-primary, #2f3437);
+}
+
+.speaking-check-hint,
+.speaking-check-status,
+.speaking-check-note {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.speaking-check-mic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  margin: 1.1rem auto 0.7rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-primary, #2a5d9f);
+  color: #fff;
+}
+
+.speaking-check-mic:focus-visible,
+.speaking-check-actions .btn:focus-visible {
+  outline: 3px solid rgba(42, 93, 159, 0.35);
+  outline-offset: 3px;
+}
+
+.speaking-check-mic:disabled {
+  opacity: 0.6;
+}
+
+.speaking-check-mic--recording {
+  background: #9a3412;
+}
+
+.speaking-check-status,
+.speaking-check-note {
+  text-align: center;
+}
+
+.speaking-check-note {
+  margin-top: 0.7rem;
+}
+
+.speaking-check-result h2 {
+  margin: 0 0 0.9rem;
+  font-size: 1.25rem;
+}
+
+.speaking-check-metrics {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 720px) {
+  .speaking-check-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.speaking-check-metric__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.speaking-check-metric__track {
+  height: 0.45rem;
+  margin: 0.35rem 0 0.3rem;
+  border-radius: 999px;
+  background: #e7eef6;
+  overflow: hidden;
+}
+
+.speaking-check-metric__track span {
+  display: block;
+  height: 100%;
+  background: var(--color-primary, #2a5d9f);
+}
+
+.speaking-check-metric small,
+.speaking-check-heard span,
+.speaking-check-next span {
+  color: var(--color-text-secondary, #5a6169);
+}
+
+.speaking-check-heard,
+.speaking-check-next {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #e7eef6;
+}
+
+.speaking-check-heard p,
+.speaking-check-next p {
+  margin: 0.35rem 0 0;
+  line-height: 1.55;
+}
+
+.speaking-check-next__sentence {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.speaking-check-audio {
+  display: block;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.speaking-check-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.speaking-check-actions .btn {
+  min-height: 2.7rem;
+}
+
+.speaking-check-join {
+  display: grid;
+  gap: 0.45rem;
+  max-width: 32rem;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.speaking-check-join label,
+.speaking-check-done h2 {
+  font-weight: 700;
+}
+
+.speaking-check-code-input {
+  width: 100%;
+  margin-bottom: 0.4rem;
+  border: 1px solid rgba(42, 93, 159, 0.28);
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+  font-size: 2rem;
+  letter-spacing: 0.16em;
+  text-align: center;
+  font-weight: 700;
+  color: #1c3d6e;
+}
+
+.speaking-check-code-input::placeholder {
+  color: #b7c3d1;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.speaking-check-join .btn:disabled {
+  opacity: 0.55;
+}
+
+.speaking-check-code-input:focus-visible,
+.speaking-check-join .form-control:focus-visible {
+  outline: 3px solid rgba(42, 93, 159, 0.35);
+  outline-offset: 2px;
+}
+
+.speaking-check-progress {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.speaking-check-progress span {
+  flex: 1;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #e7eef6;
+}
+
+.speaking-check-progress .is-current {
+  background: var(--color-primary, #2a5d9f);
+}
+
+.speaking-check-progress .is-done {
+  background: #8eadd4;
+}
+
+.speaking-check-inline-result,
+.speaking-check-done {
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.speaking-check-done {
+  text-align: center;
+}
+
+.speaking-check-done h2 {
+  margin: 0.3rem 0 0.5rem;
+}
+
+.speaking-check-join .btn,
+.speaking-check-inline-result .btn,
+.speaking-check-done .btn {
+  margin-top: 0.8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speaking-check-page * {
+    scroll-behavior: auto;
+  }
+}

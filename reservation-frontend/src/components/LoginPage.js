@@ -62,13 +62,13 @@ function LoginPage({ onLoginSuccess }) {
         </form>
         {error && <p className="text-danger mt-3">{error}</p>}
         <p className="text-muted small mt-3 mb-0 text-center">
-          學生不需登入，請
+          學生請使用學生帳號登入。管理人員請由此登入。
           {' '}
-          <Link to="/">返回首頁</Link>
+          <Link to="/student/login">學生登入</Link>
           {' '}
           或
           {' '}
-          <Link to="/events">預約場次</Link>
+          <Link to="/">返回首頁</Link>
           。
         </p>
       </div>

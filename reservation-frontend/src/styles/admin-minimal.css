@@ -1,13 +1,14 @@
-/* EEARS 管理後台 — Premium Utilitarian Minimalism（僅 .admin-layout-root 內生效） */
+/* EEARS 管理後台 — 暖石桌面：側欄、畫布、白卡片分開，僅 .admin-layout-root 內生效 */
 
 .admin-layout-root {
-  --admin-canvas: #fbfbfa;
+  --admin-canvas: #f3f0ea;
   --admin-surface: #ffffff;
-  --admin-surface-muted: #f7f6f3;
-  --admin-border: #eaeaea;
-  --admin-text: #2f3437;
-  --admin-text-muted: #787774;
-  --admin-ink: #111111;
+  --admin-surface-muted: #f6f3ee;
+  --admin-rail: #e4ddd2;
+  --admin-border: #e2d9ce;
+  --admin-text: #2c2926;
+  --admin-text-muted: #6e675f;
+  --admin-ink: #241f1a;
   --admin-pastel-blue: #e1f3fe;
   --admin-pastel-blue-text: #1f6c9f;
   --admin-pastel-green: #edf3ec;
@@ -18,7 +19,7 @@
   --admin-pastel-red-text: #9f2f2d;
   --admin-radius: 8px;
 
-  font-family: 'Helvetica Neue', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
   color: var(--admin-text);
   background: var(--admin-canvas);
   -webkit-font-smoothing: antialiased;
@@ -154,7 +155,7 @@
 }
 
 .admin-layout-root .table-striped > tbody > tr:nth-of-type(odd) > * {
-  background: rgba(247, 246, 243, 0.55);
+  background: rgba(228, 221, 210, 0.35);
 }
 
 .admin-layout-root .table-light {
@@ -344,6 +345,41 @@
 /* 分頁／Spinner 維持低調 */
 .admin-layout-root .spinner-border {
   color: var(--admin-text-muted);
+}
+
+.admin-layout-root .nav-pills .nav-link.active,
+.admin-layout-root .nav-pills .show > .nav-link {
+  background-color: var(--admin-ink);
+  color: #ffffff;
+}
+
+.admin-layout-root .nav-tabs {
+  border-bottom-color: var(--admin-border);
+}
+
+.admin-layout-root .nav-tabs .nav-link {
+  color: var(--admin-text-muted);
+}
+
+.admin-layout-root .nav-tabs .nav-link.active {
+  color: var(--admin-text);
+  background: var(--admin-surface);
+  border-color: var(--admin-border) var(--admin-border) var(--admin-surface);
+}
+
+.admin-layout-root .page-link {
+  color: var(--admin-pastel-blue-text);
+  border-color: var(--admin-border);
+}
+
+.admin-layout-root .page-item.active .page-link {
+  background: var(--admin-ink);
+  border-color: var(--admin-ink);
+  color: #ffffff;
+}
+
+.admin-layout-root .text-primary {
+  color: var(--admin-pastel-blue-text) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

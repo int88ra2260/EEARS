@@ -5,6 +5,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { LANG_ZH, LANG_EN } from '../context/LanguageContext';
 import { useSiteContentPreview } from '../context/SiteContentPreviewShell';
 import useMediaQuery from '../hooks/useMediaQuery';
+import useStudentSession from '../hooks/useStudentSession';
+import { clearStudentSession } from '../utils/studentSession';
 import {
   fetchEnglishTestRegistrationEnabledPublic,
   fetchEnglishTestRegistrationEditEnabledPublic,
@@ -37,6 +39,7 @@ export default function Header() {
   const location = useLocation();
   const preview = useSiteContentPreview();
   const { t, lang, setLang } = useLanguage();
+  const studentSession = useStudentSession();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [menuOpen, setMenuOpen] = useState(false);
   /**
@@ -169,6 +172,33 @@ export default function Header() {
     );
   };
 
+  const logoutStudent = () => {
+    clearStudentSession();
+    setMenuOpen(false);
+  };
+
+  const studentAuthLink = (mobile) => {
+    if (preview?.isPreview) return null;
+    const className = mobile ? 'nav-link-mobile' : 'nav-link';
+    if (studentSession) {
+      return (
+        <>
+          <Link to="/student/account" className={className} onClick={() => setMenuOpen(false)}>
+            {t('nav.studentAccount')}
+          </Link>
+          <button type="button" className={`${className} border-0 bg-transparent`} onClick={logoutStudent}>
+            {t('nav.studentLogout')}
+          </button>
+        </>
+      );
+    }
+    return (
+      <Link to="/student/login" className={className} onClick={() => setMenuOpen(false)}>
+        {t('nav.studentLogin')}
+      </Link>
+    );
+  };
+
   return (
     <header className="site-header">
       <div className="header-container">
@@ -223,6 +253,7 @@ export default function Header() {
                   <div className="nav-group-mobile nav-group-mobile--explore" role="group" aria-label={t('nav.groupExplore')}>
                     {renderLinks(EXPLORE_NAV, true)}
                     {englishTestLink(true)}
+                    {studentAuthLink(true)}
                   </div>
                 </motion.nav>
               ) : null}
@@ -238,6 +269,7 @@ export default function Header() {
               {englishTestLink(false)}
             </div>
             <div className="header-nav-group header-nav-group--services">
+              {studentAuthLink(false)}
               {langToggle}
             </div>
           </nav>

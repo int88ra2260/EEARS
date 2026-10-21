@@ -1,4 +1,5 @@
 import { fetchClient } from '../utils/fetchClient';
+import { withStudentAuth } from '../utils/studentSession';
 
 function studentQs(identity) {
   return new URLSearchParams({
@@ -28,7 +29,7 @@ function throwIfNotOk(res, data, fallback) {
 export async function fetchClassCreditAllocation(identity, semester) {
   const qs = studentQs(identity);
   qs.set('semester', semester);
-  const res = await fetchClient(`/api/class-credit-allocation?${qs}`);
+  const res = await fetchClient(`/api/class-credit-allocation?${qs}`, withStudentAuth());
   const data = await parseJson(res);
   throwIfNotOk(res, data, '載入課堂加分配置失敗');
   return data.data;
@@ -40,7 +41,7 @@ export async function fetchClassCreditAllocation(identity, semester) {
  * @param {{ classId: number, hours: number }[]} allocations
  */
 export async function saveClassCreditAllocation(identity, semester, allocations) {
-  const res = await fetchClient('/api/class-credit-allocation', {
+  const res = await fetchClient('/api/class-credit-allocation', withStudentAuth({
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -50,7 +51,7 @@ export async function saveClassCreditAllocation(identity, semester, allocations)
       semester,
       allocations,
     }),
-  });
+  }));
   const data = await parseJson(res);
   throwIfNotOk(res, data, '儲存課堂加分配置失敗');
   return data.data;

@@ -4,6 +4,7 @@
  */
 
 import { fetchClient } from '../utils/fetchClient';
+import { withStudentAuth } from '../utils/studentSession';
 import { DEFAULT_EVENT_TYPE_CODE } from '../constants/eventTypeCatalog';
 
 /**
@@ -12,7 +13,7 @@ import { DEFAULT_EVENT_TYPE_CODE } from '../constants/eventTypeCatalog';
  * @returns {Promise<{ ok: boolean, status: number, data: object|null }>}
  */
 export async function createReservation(payload) {
-  const res = await fetchClient('/api/reservations', {
+  const res = await fetchClient('/api/reservations', withStudentAuth({
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -22,7 +23,7 @@ export async function createReservation(payload) {
       studentEmail: (payload.studentEmail || '').trim(),
       eventType: payload.eventType || DEFAULT_EVENT_TYPE_CODE,
     }),
-  });
+  }));
 
   let data = null;
   try {
@@ -44,7 +45,7 @@ export async function createReservation(payload) {
 export async function checkBlacklist(studentId) {
   const res = await fetchClient(
     `/api/users/blacklist-status?studentId=${encodeURIComponent((studentId || '').trim())}`,
-    { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+    withStudentAuth({ method: 'GET', headers: { 'Content-Type': 'application/json' } })
   );
   let data = {};
   try {

@@ -14,7 +14,7 @@ alwaysApply: false
 
 1. 先用 `eears-system` 做影響面盤點：
    - 要改的後端路由/服務/前端頁面是哪幾個
-   - 是否觸及不可違背底線（`2hr`、問卷 Gate、黑名單、學生不登入）
+   - 是否觸及不可違背底線（`cutoffHours`、問卷 Gate、黑名單、學生個人功能須登入且綁學號）
 2. 若涉及權限：
    - 先明確需要新增/使用哪個 `P.CAN_*`
    - 確認是否只需要 UI 隱藏，或必須真正 protect endpoint

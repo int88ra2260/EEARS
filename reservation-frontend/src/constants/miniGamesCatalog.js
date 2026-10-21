@@ -71,6 +71,16 @@ export const MINI_GAMES_CATALOG = [
     tone: 'yellow',
     available: true,
   },
+  {
+    id: 'speaking_check',
+    path: '/practice/speaking-check',
+    titleKey: 'speakingCheck.title',
+    introKey: 'miniGames.speakingCheckIntro',
+    timeKey: 'miniGames.speakingCheckTime',
+    tag: 'Speaking',
+    tone: 'blue',
+    available: true,
+  },
 ];
 
 const LEGACY_MINI_GAME_HREFS = {

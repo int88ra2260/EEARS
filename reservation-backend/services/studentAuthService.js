@@ -1,0 +1,199 @@
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { Op } = require('sequelize');
+const { StudentAccount } = require('../models');
+const { secretKey } = require('../config/jwtSecret');
+const {
+  validateStudentId,
+  validateName,
+  validateNsysuStudentEmail,
+  nsysuAllowedEmailDomainsHint,
+} = require('../utils/validators');
+const loginAccountCooldown = require('../utils/loginAccountCooldown');
+
+const TOKEN_TYP = 'student';
+const TOKEN_EXPIRES_IN = '12h';
+const BCRYPT_ROUNDS = 12;
+
+function httpError(status, code, message) {
+  const err = new Error(message);
+  err.status = status;
+  err.code = code;
+  return err;
+}
+
+function normalizeStudentId(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizeName(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function cooldownKey(studentId) {
+  return `student:${normalizeStudentId(studentId)}`;
+}
+
+function toPublicAccount(account) {
+  return {
+    id: account.id,
+    studentId: account.studentId,
+    name: account.name,
+    email: account.email,
+    status: account.status,
+    ssoLinked: Boolean(account.ssoProvider && account.ssoSubject),
+    ssoProvider: account.ssoProvider || null,
+  };
+}
+
+function signStudentToken(account) {
+  return jwt.sign({
+    typ: TOKEN_TYP,
+    id: account.id,
+    studentId: account.studentId,
+    name: account.name,
+    email: account.email,
+  }, secretKey, { expiresIn: TOKEN_EXPIRES_IN });
+}
+
+function assertLocalPassword(password) {
+  const value = String(password || '');
+  if (value.length < 8 || value.length > 72) {
+    throw httpError(400, 'INVALID_PASSWORD', '密碼需為 8 到 72 個字元');
+  }
+}
+
+function assertProfile({ studentId, name, email }) {
+  if (!validateStudentId(studentId)) {
+    throw httpError(400, 'INVALID_STUDENT_ID', '學號格式不正確');
+  }
+  if (!validateName(name)) {
+    throw httpError(400, 'INVALID_NAME', '姓名只能包含中文、英文與空格');
+  }
+  if (!validateNsysuStudentEmail(email)) {
+    throw httpError(400, 'INVALID_EMAIL', `請使用中山大學信箱（${nsysuAllowedEmailDomainsHint()}）`);
+  }
+}
+
+async function registerAccount({ studentId, name, email, password }) {
+  const normalized = {
+    studentId: normalizeStudentId(studentId),
+    name: normalizeName(name),
+    email: normalizeEmail(email),
+  };
+  assertProfile(normalized);
+  assertLocalPassword(password);
+  if (normalizeStudentId(password) === normalized.studentId || password === normalized.email) {
+    throw httpError(400, 'INVALID_PASSWORD', '密碼不能與學號或信箱相同');
+  }
+
+  const existing = await StudentAccount.findOne({
+    where: {
+      [Op.or]: [
+        { studentId: normalized.studentId },
+        { email: normalized.email },
+      ],
+    },
+  });
+  if (existing) {
+    if (existing.studentId === normalized.studentId) {
+      throw httpError(409, 'STUDENT_ACCOUNT_EXISTS', '此學號已建立帳號，請直接登入');
+    }
+    throw httpError(409, 'STUDENT_EMAIL_EXISTS', '此信箱已建立帳號，請直接登入');
+  }
+
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const now = new Date();
+  try {
+    return await StudentAccount.create({
+      ...normalized,
+      passwordHash,
+      status: 'active',
+      passwordChangedAt: now,
+    });
+  } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      throw httpError(409, 'STUDENT_ACCOUNT_EXISTS', '此學號或信箱已建立帳號，請直接登入');
+    }
+    throw error;
+  }
+}
+
+async function loginAccount({ studentId, password }) {
+  const normalizedId = normalizeStudentId(studentId);
+  const key = cooldownKey(normalizedId);
+  const cooldown = loginAccountCooldown.checkLoginCooldown(key);
+  if (cooldown.blocked) {
+    const err = httpError(429, 'LOGIN_COOLDOWN', '登入失敗次數過多，請稍後再試');
+    err.retryAfterSeconds = cooldown.retryAfterSeconds;
+    throw err;
+  }
+  if (!normalizedId || !password) {
+    throw httpError(400, 'MISSING_CREDENTIALS', '請輸入學號與密碼');
+  }
+
+  const account = await StudentAccount.findOne({ where: { studentId: normalizedId } });
+  const hash = account && account.passwordHash;
+  const passwordOk = hash ? await bcrypt.compare(String(password), hash) : false;
+  if (!account || account.status !== 'active' || !passwordOk) {
+    loginAccountCooldown.recordLoginFailure(key);
+    throw httpError(401, 'INVALID_CREDENTIALS', '學號或密碼錯誤');
+  }
+
+  loginAccountCooldown.clearLoginCooldown(key);
+  await account.update({ lastLoginAt: new Date() });
+  return account;
+}
+
+async function changePassword({ accountId, currentPassword, newPassword }) {
+  const account = await StudentAccount.findByPk(accountId);
+  if (!account || account.status !== 'active') {
+    throw httpError(401, 'STUDENT_AUTH_REQUIRED', '請重新登入');
+  }
+  if (!account.passwordHash) {
+    throw httpError(400, 'PASSWORD_LOGIN_UNAVAILABLE', '此帳號已改由校園單一入口登入，無法在此變更密碼');
+  }
+  const matches = await bcrypt.compare(String(currentPassword || ''), account.passwordHash);
+  if (!matches) {
+    throw httpError(400, 'INVALID_PASSWORD', '目前密碼不正確');
+  }
+  assertLocalPassword(newPassword);
+  if (newPassword === currentPassword) {
+    throw httpError(400, 'INVALID_PASSWORD', '新密碼不能與目前密碼相同');
+  }
+  if (normalizeStudentId(newPassword) === account.studentId || newPassword === account.email) {
+    throw httpError(400, 'INVALID_PASSWORD', '密碼不能與學號或信箱相同');
+  }
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  await account.update({
+    passwordHash,
+    passwordChangedAt: new Date(),
+  });
+  return account;
+}
+
+async function findActiveBySso(provider, subject) {
+  const ssoProvider = String(provider || '').trim();
+  const ssoSubject = String(subject || '').trim();
+  if (!ssoProvider || !ssoSubject) return null;
+  return StudentAccount.findOne({
+    where: { ssoProvider, ssoSubject, status: 'active' },
+  });
+}
+
+module.exports = {
+  TOKEN_TYP,
+  normalizeStudentId,
+  normalizeEmail,
+  normalizeName,
+  toPublicAccount,
+  signStudentToken,
+  registerAccount,
+  loginAccount,
+  changePassword,
+  findActiveBySso,
+};

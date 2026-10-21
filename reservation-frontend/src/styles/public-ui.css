@@ -91,11 +91,8 @@
 /* Header 下方公告提示列 */
 .announcement-ticker {
   width: 100%;
-  border-bottom: 1px solid rgba(229, 217, 204, 0.78);
-  background:
-    linear-gradient(rgba(255, 254, 251, 0.94), rgba(255, 254, 251, 0.94)),
-    url('../assets/paper_texture.png');
-  background-size: auto, 360px;
+  border-bottom: 1px solid var(--pub-border, #d8e0ea);
+  background: #f4f7fb;
 }
 
 .announcement-ticker__shell {
@@ -106,7 +103,7 @@
   width: min(1180px, calc(100% - 1.5rem));
   min-height: 44px;
   margin-inline: auto;
-  color: #4a3f36;
+  color: var(--pub-text-body, #3d4450);
 }
 
 .announcement-ticker__label {
@@ -115,10 +112,10 @@
   justify-content: center;
   min-height: 44px;
   padding: 0.25rem 0.65rem;
-  border: 1px solid #e5d9cc;
+  border: 1px solid var(--pub-border, #d8e0ea);
   border-radius: 6px;
-  background: #fffefb;
-  color: #2f3437;
+  background: #ffffff;
+  color: var(--pub-text, #2f3437);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -127,8 +124,8 @@
 }
 
 a.announcement-ticker__label:hover {
-  color: #2f3437;
-  background: #fbfbfa;
+  color: var(--pub-primary-dark, #1c3d6e);
+  background: var(--pub-primary-light, #eaf1fc);
 }
 
 .announcement-ticker__viewport {
@@ -160,7 +157,7 @@ a.announcement-ticker__label:hover {
   gap: 0.5rem;
   max-width: min(38rem, 80vw);
   padding-right: 2rem;
-  color: #4a3f36;
+  color: var(--pub-text-body, #3d4450);
   font-size: 0.875rem;
   line-height: 1.4;
   text-decoration: none;
@@ -181,7 +178,7 @@ a.announcement-ticker__label:hover {
 }
 
 .announcement-ticker__item:hover {
-  color: #111111;
+  color: var(--pub-primary-dark, #1c3d6e);
 }
 
 .announcement-ticker__item:focus-visible,
@@ -191,15 +188,15 @@ a.announcement-ticker__label:hover {
 }
 
 .announcement-ticker__date {
-  color: #7a6b5f;
+  color: var(--pub-text-muted, #6a7176);
   font-variant-numeric: tabular-nums;
 }
 
 .announcement-ticker__badge {
   padding: 0.12rem 0.42rem;
   border-radius: 999px;
-  background: #fbf3db;
-  color: #956400;
+  background: var(--pub-warning-bg, #fff4ce);
+  color: var(--pub-warning-text, #9a6700);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -214,7 +211,7 @@ a.announcement-ticker__label:hover {
   width: min(42rem, 100%);
   height: 0.75rem;
   border-radius: 4px;
-  background: linear-gradient(90deg, #eee4d9 25%, #fffaf4 50%, #eee4d9 75%);
+  background: linear-gradient(90deg, #e4ebf5 25%, #f7f9fc 50%, #e4ebf5 75%);
   background-size: 200% 100%;
   animation: announcementTickerSkeleton 1.4s ease-in-out infinite;
 }
@@ -339,11 +336,11 @@ a.announcement-ticker__label:hover {
 }
 
 .public-site .table tbody td {
-  border-color: rgba(229, 217, 204, 0.78);
+  border-color: var(--pub-border);
 }
 
 .public-site .table tbody tr:hover {
-  background: rgba(253, 240, 238, 0.58);
+  background: var(--pub-primary-light);
 }
 
 /* 表單 */
@@ -424,7 +421,7 @@ a.announcement-ticker__label:hover {
 .public-site .alert-info {
   background: var(--pub-info-bg);
   color: var(--pub-info-text);
-  border-color: rgba(139, 90, 60, 0.16);
+  border-color: rgba(42, 93, 159, 0.18);
 }
 
 .public-site .alert-warning {

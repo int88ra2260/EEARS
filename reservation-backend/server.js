@@ -20,6 +20,7 @@ const {
 } = require('./config/httpSecurity');
 
 const loginRouter = require('./routes/loginRouter');
+const studentAuthRouter = require('./routes/studentAuthRouter');
 const eventRouter = require('./routes/eventRouter');
 const eventTypeRouter = require('./routes/eventTypeRouter');
 const reservationRouter = require('./routes/reservationRouter');
@@ -67,6 +68,7 @@ const learningPartnerRouter = require('./routes/learningPartnerRouter');
 const etGroupingRouter = require('./routes/etGroupingRouter');
 const learningTraceRouter = require('./routes/learningTraceRouter');
 const speakingDiagnosticRouter = require('./routes/speakingDiagnosticRouter');
+const speakingCheckRouter = require('./routes/speakingCheckRouter');
 const studentProgressRouter = require('./routes/studentProgressRouter');
 const classCreditAllocationRouter = require('./routes/classCreditAllocationRouter');
 const adminClassCreditAllocationRouter = require('./routes/adminClassCreditAllocationRouter');
@@ -105,6 +107,7 @@ app.use('/api', notificationsRouter);
 app.use('/api/internal', internalDiagnosticsRouter);
 
 app.use('/api', loginRouter);
+app.use('/api/student-auth', studentAuthRouter);
 app.use('/api', eventTypeRouter);
 app.use('/api', eventRouter);
 app.use('/api', reservationRouter);
@@ -144,6 +147,7 @@ app.use('/api/admin/learning-journey-v3', learningJourneyV3Router);
 app.use('/api/admin/learning-analytics', learningAnalyticsRouter);
 app.use('/api', learningTraceRouter);
 app.use('/api', speakingDiagnosticRouter);
+app.use('/api', speakingCheckRouter);
 app.use('/api', studentProgressRouter);
 app.use('/api', classCreditAllocationRouter);
 app.use('/api/admin/et-grouping', etGroupingRouter);

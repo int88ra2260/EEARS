@@ -11,6 +11,7 @@ const {
 } = require('../middlewares/publicAccessGuard');
 const classCreditAllocationService = require('../services/classCreditAllocationService');
 const { getCurrentSemester } = require('../utils/semesterConstants');
+const { studentAuthMiddleware, bindStudentIdentity } = require('../middlewares/studentAuth');
 
 const router = express.Router();
 
@@ -22,9 +23,11 @@ const rateLimit = createSimpleRateLimit({
 });
 
 const publicGuards = [
+  studentAuthMiddleware,
   rateLimit,
   requireCaptchaIfEnabled,
   normalizePublicLookupInput,
+  bindStudentIdentity(),
   requireLookupMinimumFields({ requireStudentId: true, requireName: true, requireEmail: true }),
 ];
 
