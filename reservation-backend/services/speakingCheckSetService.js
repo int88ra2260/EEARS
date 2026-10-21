@@ -109,7 +109,7 @@ async function loginHost({ username, password }) {
 async function listSets(hostId) {
   const rows = await SpeakingCheckSet.findAll({
     where: { hostId },
-    order: [['updatedAt', 'DESC']],
+    order: [['updated_at', 'DESC']],
   });
   if (!rows.length) return [];
   const setIds = rows.map((row) => row.id);
@@ -117,13 +117,13 @@ async function listSets(hostId) {
     SpeakingCheckItem.findAll({
       attributes: ['setId', [sequelize.fn('COUNT', sequelize.col('id')), 'itemCount']],
       where: { setId: setIds },
-      group: ['setId'],
+      group: ['set_id'],
       raw: true,
     }),
     SpeakingCheckParticipant.findAll({
       attributes: ['setId', [sequelize.fn('COUNT', sequelize.col('id')), 'participantCount']],
       where: { setId: setIds },
-      group: ['setId'],
+      group: ['set_id'],
       raw: true,
     }),
   ]);
@@ -310,7 +310,7 @@ async function getResults(hostId, setId) {
   const participants = await SpeakingCheckParticipant.findAll({
     where: { setId: setRow.id },
     include: [{ model: SpeakingCheckResponse, as: 'responses' }],
-    order: [['joinedAt', 'ASC']],
+    order: [[sequelize.col('SpeakingCheckParticipant.joined_at'), 'ASC']],
   });
   const items = [...setRow.items].sort((a, b) => a.position - b.position).map(itemDto);
   const rows = participants.map((participant) => {
