@@ -108,26 +108,31 @@ async function checkAPIHealth() {
   }
 }
 
-// 2. studentId 參數驗證檢查
-async function checkStudentIdValidation() {
+function expectsStudentAuth(response) {
+  return response.status === 401
+    && response.data?.success === false
+    && response.data?.code === 'STUDENT_AUTH_REQUIRED';
+}
+
+// 2. 未登入不可查黑名單（個人資料須先有學生 session）
+async function checkStudentAuthOnBlacklist() {
   try {
-    // 測試缺失 studentId 的情況
     const response = await httpRequest(`${API_BASE_URL}/api/users/blacklist-status?studentId=`, {
       method: 'GET'
     });
-
-    const hasErrorCode = response.data?.errorCode === 'MISSING_STUDENT_ID' || 
-                         response.status === 400;
+    const passed = expectsStudentAuth(response);
 
     return {
-      passed: hasErrorCode,
-      message: hasErrorCode ? 'studentId 參數驗證正常' : 'studentId 參數驗證可能缺失',
-      details: { status: response.status, data: response.data }
+      passed,
+      message: passed
+        ? '未登入不可查黑名單'
+        : `未登入查黑名單應為 401 STUDENT_AUTH_REQUIRED，實際 ${response.status}`,
+      details: { status: response.status, code: response.data?.code }
     };
   } catch (error) {
     return {
       passed: false,
-      message: `studentId 驗證檢查失敗: ${error.message}`,
+      message: `學生登入檢查失敗: ${error.message}`,
       details: { error: error.message }
     };
   }
@@ -156,22 +161,21 @@ async function checkSurveyGate() {
   }
 }
 
-// 4. 黑名單檢查 API
+// 4. 未登入不可用別人的學號讀黑名單
 async function checkBlacklistAPI() {
   try {
-    // 測試有效的 studentId（應該返回黑名單狀態，即使未在黑名單）
     const testStudentId = 'B123456789';
     const response = await httpRequest(`${API_BASE_URL}/api/users/blacklist-status?studentId=${testStudentId}`, {
       method: 'GET'
     });
-
-    const hasValidResponse = response.status === 200 && 
-                            response.data.hasOwnProperty('isBlacklisted');
+    const passed = expectsStudentAuth(response);
 
     return {
-      passed: hasValidResponse,
-      message: hasValidResponse ? '黑名單檢查 API 正常' : '黑名單檢查 API 回應格式異常',
-      details: { status: response.status, data: response.data }
+      passed,
+      message: passed
+        ? '未登入不可讀取他人黑名單狀態'
+        : `未登入讀取黑名單應為 401 STUDENT_AUTH_REQUIRED，實際 ${response.status}`,
+      details: { status: response.status, code: response.data?.code }
     };
   } catch (error) {
     return {
@@ -182,29 +186,27 @@ async function checkBlacklistAPI() {
   }
 }
 
-// 5. 錯誤回應格式檢查
-async function checkErrorFormat() {
+// 5. 未登入不可建立預約
+async function checkReservationRequiresStudentAuth() {
   try {
-    // 測試一個會失敗的請求（缺失參數）
     const response = await httpRequest(`${API_BASE_URL}/api/reservations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: {}
     });
-
-    const hasStandardFormat = response.data?.hasOwnProperty('success') ||
-                              response.data?.hasOwnProperty('errorCode') ||
-                              response.status === 400;
+    const passed = expectsStudentAuth(response);
 
     return {
-      passed: hasStandardFormat,
-      message: hasStandardFormat ? '錯誤回應格式符合標準' : '錯誤回應格式可能不符合標準',
-      details: { status: response.status, data: response.data }
+      passed,
+      message: passed
+        ? '未登入預約被拒絕'
+        : `未登入預約應為 401 STUDENT_AUTH_REQUIRED，實際 ${response.status}`,
+      details: { status: response.status, code: response.data?.code }
     };
   } catch (error) {
     return {
       passed: false,
-      message: `錯誤格式檢查失敗: ${error.message}`,
+      message: `預約登入檢查失敗: ${error.message}`,
       details: { error: error.message }
     };
   }
@@ -216,10 +218,10 @@ async function main() {
 
   // 執行所有檢查
   await runCheck('API 健康檢查', checkAPIHealth);
-  await runCheck('studentId 參數驗證', checkStudentIdValidation);
+  await runCheck('未登入不可查黑名單', checkStudentAuthOnBlacklist);
   await runCheck('問卷 Gate API', checkSurveyGate);
-  await runCheck('黑名單檢查 API', checkBlacklistAPI);
-  await runCheck('錯誤回應格式', checkErrorFormat);
+  await runCheck('未登入不可讀他人黑名單', checkBlacklistAPI);
+  await runCheck('未登入不可預約', checkReservationRequiresStudentAuth);
 
   // 生成報告
   const reportPath = join(REPORT_DIR, 'post_deploy_check.json');
