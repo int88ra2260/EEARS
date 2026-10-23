@@ -8,6 +8,27 @@ const mockFindByPk = jest.fn();
 const mockCreate = jest.fn();
 const mockTeacherFindByPk = jest.fn();
 
+const mockAssertEmailVerified = jest.fn();
+const mockFindOfficialIdentity = jest.fn();
+const mockSavePendingReview = jest.fn();
+const mockFindPendingByStudentId = jest.fn();
+const mockReplacePending = jest.fn();
+
+jest.mock('../services/studentAccountEmailVerificationService', () => ({
+  assertEmailVerifiedToken: (...args) => mockAssertEmailVerified(...args),
+}));
+
+jest.mock('../services/studentIdentityRosterService', () => ({
+  findOfficialIdentity: (...args) => mockFindOfficialIdentity(...args),
+  normalizePersonName: (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase(),
+}));
+
+jest.mock('../services/studentAccountReviewService', () => ({
+  savePendingReview: (...args) => mockSavePendingReview(...args),
+  findPendingByStudentId: (...args) => mockFindPendingByStudentId(...args),
+  replacePending: (...args) => mockReplacePending(...args),
+}));
+
 jest.mock('../models', () => ({
   StudentAccount: {
     findOne: (...args) => mockFindOne(...args),
@@ -43,6 +64,16 @@ describe('studentAuthService', () => {
   beforeEach(() => {
     mockFindOne.mockReset();
     mockCreate.mockReset();
+    mockAssertEmailVerified.mockReset();
+    mockAssertEmailVerified.mockReturnValue(true);
+    mockFindOfficialIdentity.mockReset();
+    mockFindOfficialIdentity.mockResolvedValue({ covered: true, conflict: false, name: '王小明' });
+    mockSavePendingReview.mockReset();
+    mockSavePendingReview.mockResolvedValue({ id: 1 });
+    mockFindPendingByStudentId.mockReset();
+    mockFindPendingByStudentId.mockResolvedValue(null);
+    mockReplacePending.mockReset();
+    mockReplacePending.mockResolvedValue(undefined);
   });
 
   it('rejects a student id that is not the campus format', async () => {
@@ -53,6 +84,75 @@ describe('studentAuthService', () => {
       password: 'password12',
     })).rejects.toMatchObject({ code: 'INVALID_STUDENT_ID' });
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('accepts a personal mailbox after it has been verified', async () => {
+    mockFindOne.mockResolvedValue(null);
+    mockCreate.mockImplementation(async (row) => accountRow(row));
+
+    const account = await studentAuthService.registerAccount({
+      studentId: 'b123456789',
+      name: '王小明',
+      email: 'Ming@gmail.com',
+      password: 'password12',
+      emailVerificationToken: 'verified-token',
+    });
+
+    expect(account.email).toBe('ming@gmail.com');
+    expect(mockAssertEmailVerified).toHaveBeenCalledWith({
+      token: 'verified-token',
+      email: 'ming@gmail.com',
+    });
+  });
+
+  it('rejects registration when the mailbox is not verified', async () => {
+    const err = new Error('請先完成信箱驗證後再建立帳號');
+    err.status = 400;
+    err.code = 'EMAIL_VERIFICATION_REQUIRED';
+    mockAssertEmailVerified.mockImplementation(() => { throw err; });
+
+    await expect(studentAuthService.registerAccount({
+      studentId: 'B123456789',
+      name: '王小明',
+      email: 'ming@gmail.com',
+      password: 'password12',
+    })).rejects.toMatchObject({ code: 'EMAIL_VERIFICATION_REQUIRED' });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects a roster name that does not match the application', async () => {
+    mockFindOne.mockResolvedValue(null);
+    mockFindOfficialIdentity.mockResolvedValue({ covered: true, conflict: false, name: '李大華' });
+
+    await expect(studentAuthService.registerAccount({
+      studentId: 'B123456789',
+      name: '王小明',
+      email: 'ming@gmail.com',
+      password: 'password12',
+      emailVerificationToken: 'verified-token',
+    })).rejects.toMatchObject({ code: 'STUDENT_IDENTITY_MISMATCH' });
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockSavePendingReview).not.toHaveBeenCalled();
+  });
+
+  it('holds an uncovered student id without creating an account', async () => {
+    mockFindOne.mockResolvedValue(null);
+    mockFindOfficialIdentity.mockResolvedValue({ covered: false, conflict: false, name: null });
+
+    const result = await studentAuthService.registerAccount({
+      studentId: 'B123456789',
+      name: '王小明',
+      email: 'ming@gmail.com',
+      password: 'password12',
+      emailVerificationToken: 'verified-token',
+    });
+
+    expect(result).toEqual({ pending: true });
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockSavePendingReview).toHaveBeenCalledWith(expect.objectContaining({
+      studentId: 'B123456789',
+      email: 'ming@gmail.com',
+    }));
   });
 
   it('stores a password hash and keeps SSO fields empty', async () => {

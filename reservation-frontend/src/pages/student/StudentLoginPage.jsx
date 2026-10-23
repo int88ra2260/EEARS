@@ -40,9 +40,9 @@ export default function StudentLoginPage() {
   return (
     <div className="d-flex justify-content-center">
       <div className="card p-4" style={{ width: '100%', maxWidth: 440 }}>
-        <h1 className="h4 mb-2">學生登入</h1>
+        <h1 className="h4 mb-2">登入</h1>
         <p className="text-muted small">
-          用於預約、我的紀錄、口說紀錄、課堂加分配置與培力報名。帳號與後台人員分開。
+          登入後可以預約，以及查看我的紀錄、口說紀錄、課堂加分配置與培力報名。
         </p>
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
@@ -76,7 +76,7 @@ export default function StudentLoginPage() {
         <p className="small mt-3 mb-0">
           還沒有帳號？
           {' '}
-          <Link to={`/student/register?next=${encodeURIComponent(next)}`}>建立學生帳號</Link>
+          <Link to={`/student/register?next=${encodeURIComponent(next)}`}>建立帳號</Link>
         </p>
       </div>
     </div>

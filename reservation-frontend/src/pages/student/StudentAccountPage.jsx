@@ -44,7 +44,7 @@ export default function StudentAccountPage() {
   return (
     <div className="d-flex justify-content-center">
       <div className="card p-4" style={{ width: '100%', maxWidth: 480 }}>
-        <h1 className="h4 mb-3">我的學生帳號</h1>
+        <h1 className="h4 mb-3">我的帳號</h1>
         <dl className="row mb-4">
           <dt className="col-4">學號</dt>
           <dd className="col-8">{student.studentId}</dd>
@@ -54,7 +54,7 @@ export default function StudentAccountPage() {
           <dd className="col-8">{student.email}</dd>
         </dl>
         <p className="text-muted small">
-          預約與個人紀錄都會使用這個學號。校園單一入口接通後，也會連回這組帳號。
+          預約與個人紀錄都會使用這個學號和信箱。
         </p>
         <h2 className="h6">變更密碼</h2>
         <form onSubmit={handleSubmit}>

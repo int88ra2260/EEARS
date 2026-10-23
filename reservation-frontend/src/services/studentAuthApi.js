@@ -5,6 +5,26 @@ async function parseJson(res) {
   return res.json().catch(() => ({}));
 }
 
+export async function sendStudentEmailVerification({ email, studentId }) {
+  const res = await fetchClient('/api/student-auth/email-verification/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, studentId }),
+  });
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function verifyStudentEmailCode({ email, code }) {
+  const res = await fetchClient('/api/student-auth/email-verification/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
 export async function registerStudentAccount(payload) {
   const res = await fetchClient('/api/student-auth/register', {
     method: 'POST',

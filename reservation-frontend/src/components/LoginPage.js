@@ -48,7 +48,7 @@ function LoginPage({ onLoginSuccess }) {
   return (
     <div className="container d-flex justify-content-center mt-5">
       <div className="card p-4" style={{ width: '400px' }}>
-        <h2 className="card-title mb-4">後台登入</h2>
+        <h2 className="card-title mb-4">登入</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
             <label className="form-label">帳號：</label>
@@ -62,14 +62,7 @@ function LoginPage({ onLoginSuccess }) {
         </form>
         {error && <p className="text-danger mt-3">{error}</p>}
         <p className="text-muted small mt-3 mb-0 text-center">
-          學生請使用學生帳號登入。管理人員請由此登入。
-          {' '}
-          <Link to="/student/login">學生登入</Link>
-          {' '}
-          或
-          {' '}
           <Link to="/">返回首頁</Link>
-          。
         </p>
       </div>
     </div>

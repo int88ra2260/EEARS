@@ -48,8 +48,6 @@ export default function HomeFooter() {
           <span className="home-footer-divider">|</span>
           <Link to="/privacy"><ContentText k="homePage.footerPrivacy" /></Link>
           <Link to="/terms"><ContentText k="homePage.footerTerms" /></Link>
-          <span className="home-footer-divider">|</span>
-          <Link to="/login"><ContentText k="homePage.footerAdmin" /></Link>
         </nav>
 
         {(views.total !== null || views.today !== null) && (

@@ -156,6 +156,24 @@ const EMAIL_TEMPLATE_CATALOG = [
     },
   },
   {
+    key: 'studentAccountEmailVerification',
+    category: 'reservation',
+    categoryLabel: '活動預約',
+    name: '帳號註冊信箱驗證碼',
+    description: '建立帳號前的信箱驗證；請保留 {{code}}。',
+    channel: 'reservation',
+    variables: [
+      { name: 'email', required: true },
+      { name: 'code', description: '驗證碼', required: true },
+      { name: 'expiresInMinutes', description: '有效分鐘數' },
+    ],
+    sampleData: {
+      email: 'student@example.com',
+      code: '123456',
+      expiresInMinutes: 10,
+    },
+  },
+  {
     key: 'englishTestEmailVerification',
     category: 'english_test',
     categoryLabel: '培力英檢',

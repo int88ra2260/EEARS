@@ -18,6 +18,8 @@ const ClassCreditAllocation = require('./ClassCreditAllocation');
 const ClassCreditAdjustment = require('./ClassCreditAdjustment');
 const Teacher = require('./Teacher');
 const StudentAccount = require('./StudentAccount');
+const StudentAccountEmailVerification = require('./StudentAccountEmailVerification');
+const StudentAccountReview = require('./StudentAccountReview');
 const ClassTeacher = require('./ClassTeacher');
 const EnglishTestRegistration = require('./EnglishTestRegistration');
 const EnglishTestEmailVerification = require('./EnglishTestEmailVerification');
@@ -411,6 +413,8 @@ module.exports = {
   ClassCreditAdjustment,
   Teacher,
   StudentAccount,
+  StudentAccountEmailVerification,
+  StudentAccountReview,
   ClassTeacher,
   EnglishTestRegistration,
   EnglishTestEmailVerification,

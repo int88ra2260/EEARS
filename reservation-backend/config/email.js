@@ -549,6 +549,28 @@ Center for EMI Teaching Excellence
     };
   },
 
+  studentAccountEmailVerification: (data) => {
+    const minutes = data.expiresInMinutes || 10;
+    const code = data.code || '------';
+    return {
+      to: data.email,
+      subject: '【EEARS】信箱驗證碼',
+      text: `
+您好，
+
+你正在建立 EEARS 帳號。請於註冊頁面輸入以下驗證碼：
+
+驗證碼：${code}
+有效時間：${minutes} 分鐘
+
+若你沒有申請這個驗證碼，請忽略這封信。請勿把驗證碼轉給他人。
+
+全英語卓越教學中心 敬上
+📧 emicenter@mail.nsysu.edu.tw
+`
+    };
+  },
+
   // 培力英檢報名完成通知
   englishTestRegistrationSuccess: (data) => {
     // 格式化報名日期

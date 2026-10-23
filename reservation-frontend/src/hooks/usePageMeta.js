@@ -26,7 +26,7 @@ const PAGE_META = {
   },
   '/privacy': { zh: { title: '隱私權政策 | EEARS', desc: 'EEARS 隱私權政策與個人資料保護說明。' }, en: { title: 'Privacy Policy | EEARS', desc: 'EEARS privacy policy and data protection.' } },
   '/terms': { zh: { title: '使用條款 | EEARS', desc: 'EEARS 使用條款與服務規範。' }, en: { title: 'Terms of Use | EEARS', desc: 'EEARS terms of use and service rules.' } },
-  '/login': { zh: { title: '登入 | EEARS', desc: '管理員／教師登入。' }, en: { title: 'Login | EEARS', desc: 'Admin / teacher login.' } },
+  '/login': { zh: { title: '登入 | EEARS', desc: '登入 EEARS。' }, en: { title: 'Login | EEARS', desc: 'Log in to EEARS.' } },
   '/admin': { zh: { title: '管理後台 | EEARS', desc: '活動與預約管理。' }, en: { title: 'Admin | EEARS', desc: 'Activity and reservation management.' } },
   '/403': { zh: { title: '403 禁止存取 | EEARS', desc: '' }, en: { title: '403 Forbidden | EEARS', desc: '' } },
   '/404': { zh: { title: '404 找不到頁面 | EEARS', desc: '' }, en: { title: '404 Not Found | EEARS', desc: '' } },

@@ -21,6 +21,7 @@ const {
 
 const loginRouter = require('./routes/loginRouter');
 const studentAuthRouter = require('./routes/studentAuthRouter');
+const studentAccountReviewRouter = require('./routes/studentAccountReviewRouter');
 const eventRouter = require('./routes/eventRouter');
 const eventTypeRouter = require('./routes/eventTypeRouter');
 const reservationRouter = require('./routes/reservationRouter');
@@ -108,6 +109,7 @@ app.use('/api/internal', internalDiagnosticsRouter);
 
 app.use('/api', loginRouter);
 app.use('/api/student-auth', studentAuthRouter);
+app.use('/api/admin/student-account-reviews', studentAccountReviewRouter);
 app.use('/api', eventTypeRouter);
 app.use('/api', eventRouter);
 app.use('/api', reservationRouter);

@@ -9,6 +9,7 @@ import AccountCreateModal from './admin/accounts/AccountCreateModal';
 import AccountEditModal from './admin/accounts/AccountEditModal';
 import AccountAccessDebugModal from './admin/accounts/AccountAccessDebugModal';
 import AccountResetPasswordModal from './admin/accounts/AccountResetPasswordModal';
+import StudentAccountReviewPanel from './admin/accounts/StudentAccountReviewPanel';
 
 function AccountManagement() {
   const { token, userRole, accessProfile: ctxProfile } = useOutletContext();
@@ -33,6 +34,8 @@ function AccountManagement() {
 
       {m.error && <Alert variant="danger" dismissible onClose={() => m.setError('')}>{m.error}</Alert>}
       {m.success && <Alert variant="success">{m.success}</Alert>}
+
+      <StudentAccountReviewPanel token={token} />
 
       <AccountFiltersCard
         filters={m.filters}

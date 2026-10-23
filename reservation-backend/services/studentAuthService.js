@@ -6,9 +6,15 @@ const { secretKey } = require('../config/jwtSecret');
 const {
   validateStudentId,
   validateName,
-  validateNsysuStudentEmail,
-  nsysuAllowedEmailDomainsHint,
+  validateEmail,
 } = require('../utils/validators');
+const { assertEmailVerifiedToken } = require('./studentAccountEmailVerificationService');
+const { findOfficialIdentity, normalizePersonName } = require('./studentIdentityRosterService');
+const {
+  savePendingReview,
+  findPendingByStudentId,
+  replacePending,
+} = require('./studentAccountReviewService');
 const loginAccountCooldown = require('../utils/loginAccountCooldown');
 
 const TOKEN_TYP = 'student';
@@ -74,18 +80,19 @@ function assertProfile({ studentId, name, email }) {
   if (!validateName(name)) {
     throw httpError(400, 'INVALID_NAME', '姓名只能包含中文、英文與空格');
   }
-  if (!validateNsysuStudentEmail(email)) {
-    throw httpError(400, 'INVALID_EMAIL', `請使用中山大學信箱（${nsysuAllowedEmailDomainsHint()}）`);
+  if (!email || email.length > 100 || !validateEmail(email)) {
+    throw httpError(400, 'INVALID_EMAIL', '請輸入有效的電子郵件');
   }
 }
 
-async function registerAccount({ studentId, name, email, password }) {
+async function registerAccount({ studentId, name, email, password, emailVerificationToken }) {
   const normalized = {
     studentId: normalizeStudentId(studentId),
     name: normalizeName(name),
     email: normalizeEmail(email),
   };
   assertProfile(normalized);
+  assertEmailVerifiedToken({ token: emailVerificationToken, email: normalized.email });
   assertLocalPassword(password);
   if (normalizeStudentId(password) === normalized.studentId || password === normalized.email) {
     throw httpError(400, 'INVALID_PASSWORD', '密碼不能與學號或信箱相同');
@@ -106,15 +113,29 @@ async function registerAccount({ studentId, name, email, password }) {
     throw httpError(409, 'STUDENT_EMAIL_EXISTS', '此信箱已建立帳號，請直接登入');
   }
 
+  const identity = await findOfficialIdentity(normalized.studentId);
+  if (identity.conflict) {
+    throw httpError(409, 'STUDENT_IDENTITY_CONFLICT', '這個學號的名冊姓名不一致，請聯絡英語中心');
+  }
+  if (identity.covered && identity.name !== normalizePersonName(normalized.name)) {
+    throw httpError(400, 'STUDENT_IDENTITY_MISMATCH', '學號與姓名不符，請核對後再試');
+  }
+
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  if (!identity.covered) {
+    await savePendingReview({ ...normalized, passwordHash });
+    return { pending: true };
+  }
   const now = new Date();
   try {
-    return await StudentAccount.create({
+    const account = await StudentAccount.create({
       ...normalized,
       passwordHash,
       status: 'active',
       passwordChangedAt: now,
     });
+    await replacePending({ studentId: normalized.studentId, email: normalized.email });
+    return account;
   } catch (error) {
     if (error.name === 'SequelizeUniqueConstraintError') {
       throw httpError(409, 'STUDENT_ACCOUNT_EXISTS', '此學號或信箱已建立帳號，請直接登入');
@@ -140,6 +161,15 @@ async function loginAccount({ studentId, password }) {
   const hash = account && account.passwordHash;
   const passwordOk = hash ? await bcrypt.compare(String(password), hash) : false;
   if (!account || account.status !== 'active' || !passwordOk) {
+    if (!account) {
+      const pending = await findPendingByStudentId(normalizedId);
+      const pendingOk = pending && pending.passwordHash
+        ? await bcrypt.compare(String(password), pending.passwordHash)
+        : false;
+      if (pendingOk) {
+        throw httpError(403, 'STUDENT_ACCOUNT_PENDING', '這個學號尚在確認，確認完成前無法登入');
+      }
+    }
     loginAccountCooldown.recordLoginFailure(key);
     throw httpError(401, 'INVALID_CREDENTIALS', '學號或密碼錯誤');
   }
@@ -155,7 +185,7 @@ async function changePassword({ accountId, currentPassword, newPassword }) {
     throw httpError(401, 'STUDENT_AUTH_REQUIRED', '請重新登入');
   }
   if (!account.passwordHash) {
-    throw httpError(400, 'PASSWORD_LOGIN_UNAVAILABLE', '此帳號已改由校園單一入口登入，無法在此變更密碼');
+    throw httpError(400, 'PASSWORD_LOGIN_UNAVAILABLE', '此帳號目前無法在這裡變更密碼，請聯絡英語中心');
   }
   const matches = await bcrypt.compare(String(currentPassword || ''), account.passwordHash);
   if (!matches) {

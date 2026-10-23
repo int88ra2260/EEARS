@@ -336,7 +336,7 @@ export default function EventBookingModal({ show, event, onClose }) {
                 <div className="alert alert-info py-2 mb-3" role="status">
                   預約請先登入學生帳號。
                   {' '}
-                  <Link to={`/student/login?next=${encodeURIComponent('/events')}`}>前往學生登入</Link>
+                  <Link to={`/student/login?next=${encodeURIComponent('/events')}`}>前往登入</Link>
                 </div>
               ) : (
                 <p className="text-muted small mb-2">將以登入的學號、姓名與信箱預約。</p>
