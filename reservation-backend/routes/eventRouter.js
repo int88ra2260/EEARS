@@ -107,20 +107,39 @@ function normalizeLocation(value) {
   return trimmed || null;
 }
 
-const DEFAULT_EVENT_NOTES = '實踐歷程檔案';
-
-/** @param {unknown} value @param {{ useDefault?: boolean }} [opts] */
-function normalizeNotes(value, opts = {}) {
-  const { useDefault = false } = opts;
-  if (value === undefined || value === null) {
-    return useDefault ? DEFAULT_EVENT_NOTES : null;
-  }
-  if (typeof value !== 'string') {
-    return useDefault ? DEFAULT_EVENT_NOTES : null;
-  }
+/** @param {unknown} value */
+function normalizeNotes(value) {
+  if (typeof value !== 'string') return null;
   const trimmed = value.trim();
-  if (!trimmed) return useDefault ? DEFAULT_EVENT_NOTES : null;
+  if (!trimmed) return null;
   return trimmed.slice(0, 255);
+}
+
+function parseHiddenFromStudents(value) {
+  return value === true || value === 1 || value === '1' || value === 'true';
+}
+
+/**
+ * 「其他」可自訂開放規則與名額方式；其餘類型沿用 event_types。
+ * @returns {{ error?: string, openRule: object|null, capacityMode: string|null, hiddenFromStudents: boolean }}
+ */
+function resolveEventWriteSettings(resolvedType, body) {
+  const hiddenFromStudents = parseHiddenFromStudents(body.hiddenFromStudents);
+  if (resolvedType !== 'other') {
+    return { openRule: null, capacityMode: null, hiddenFromStudents };
+  }
+
+  const openRuleResult = eventTypeService.validateOpenRule(body.openRule);
+  if (openRuleResult.error) return { error: openRuleResult.error };
+  const capacityMode = body.capacityMode === 'grouped' || body.capacityMode === 'simple'
+    ? body.capacityMode
+    : null;
+  if (!capacityMode) return { error: '請選擇名額方式（分組或總人數）' };
+  return {
+    openRule: openRuleResult.value,
+    capacityMode,
+    hiddenFromStudents,
+  };
 }
 
 function isStudentVisibleEventType(raw) {
@@ -128,11 +147,16 @@ function isStudentVisibleEventType(raw) {
   return Boolean(cfg && cfg.isActive !== false);
 }
 
+function isHiddenFromStudents(event) {
+  return event?.hiddenFromStudents === true || event?.hiddenFromStudents === 1;
+}
+
 // 1) GET /api/events - 前台取得全部活動 (無需 Token)
 router.get('/events', async (req, res, next) => {
   try {
     const events = (await Event.findAll()).filter((e) =>
       isStudentVisibleEventType(e.eventType || DEFAULT_EVENT_TYPE_CODE)
+      && !isHiddenFromStudents(e)
     );
     
     // 使用共用函數取得準確的預約統計
@@ -161,8 +185,9 @@ router.get('/events', async (req, res, next) => {
         ...formatCapacityPayload(e),
         eventType: e.eventType || DEFAULT_EVENT_TYPE_CODE,
         customReservationRule: e.customReservationRule,
+        openRule: e.openRule || null,
         location: e.location,
-        notes: e.notes || DEFAULT_EVENT_NOTES,
+        notes: e.notes || null,
         availableSpots: availableSpots
       };
     });
@@ -194,6 +219,9 @@ router.get(
         'perGroupCapacity',
         'eventType',
         'customReservationRule',
+        'openRule',
+        'capacityMode',
+        'hiddenFromStudents',
         'location',
         'notes',
         'autoCheckCompleted',
@@ -217,8 +245,11 @@ router.get(
       ...formatCapacityPayload(event),
       eventType: event.eventType || DEFAULT_EVENT_TYPE_CODE,
       customReservationRule: event.customReservationRule,
+      openRule: event.openRule || null,
+      capacityMode: event.capacityMode || null,
+      hiddenFromStudents: !!event.hiddenFromStudents,
       location: event.location,
-      notes: event.notes || DEFAULT_EVENT_NOTES,
+      notes: event.notes || null,
       reserved: reservedCount,
       availableSpots,
       checkedInCount: Math.max(0, parseInt(stats.checkedIn) || 0),
@@ -280,6 +311,9 @@ router.get(
         'maxCapacity',
         'eventType',
         'customReservationRule',
+        'openRule',
+        'capacityMode',
+        'hiddenFromStudents',
         'location',
         'notes',
       ],
@@ -301,8 +335,11 @@ router.get(
       maxCapacity,
       eventType: event.eventType || DEFAULT_EVENT_TYPE_CODE,
       customReservationRule: event.customReservationRule,
+      openRule: event.openRule || null,
+      capacityMode: event.capacityMode || null,
+      hiddenFromStudents: !!event.hiddenFromStudents,
       location: event.location,
-      notes: event.notes || DEFAULT_EVENT_NOTES,
+      notes: event.notes || null,
       reserved: reservedCount,
       availableSpots,
     });
@@ -446,8 +483,11 @@ router.get('/reports/summary', authMiddleware, requirePermission(P.CAN_VIEW_EVEN
         ...formatCapacityPayload(evt),
         eventType: evt.eventType || DEFAULT_EVENT_TYPE_CODE,
         customReservationRule: evt.customReservationRule,
+        openRule: evt.openRule || null,
+        capacityMode: evt.capacityMode || null,
+        hiddenFromStudents: !!evt.hiddenFromStudents,
         location: evt.location,
-        notes: evt.notes || DEFAULT_EVENT_NOTES,
+        notes: evt.notes || null,
         reservedCount: reservedCount,
         checkedIn: Math.max(0, parseInt(stats.checkedIn) || 0),
         notCheckedIn: Math.max(0, parseInt(stats.notCheckedIn) || 0),
@@ -687,7 +727,10 @@ router.get('/reports/export', authMiddleware, requirePermission(P.CAN_EXPORT_REP
 // 5) POST /api/events - 新增活動 (需 Token)
 router.post('/events', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), async (req, res, next) => {
   try {
-    const { name, date, startTime, endTime, maxCapacity, eventType, customReservationRule, location, notes, groupCount, perGroupCapacity } = req.body;
+    const {
+      name, date, startTime, endTime, maxCapacity, eventType, location, notes,
+      groupCount, perGroupCapacity, openRule, capacityMode, hiddenFromStudents,
+    } = req.body;
     if (!name || !date || !startTime || !endTime) {
       return res.status(400).json({ error: "缺少必要欄位" });
     }
@@ -699,11 +742,16 @@ router.post('/events', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), a
       return res.status(400).json({ error: `未知的活動類型：${typeKey}` });
     }
     const resolvedType = typeHit?.code || eventTypeService.coerceEventTypeCode(eventType);
+    const settings = resolveEventWriteSettings(resolvedType, { openRule, capacityMode, hiddenFromStudents });
+    if (settings.error) {
+      return res.status(400).json({ error: settings.error });
+    }
     const capacity = normalizeEventCapacityInput({
       eventType: resolvedType,
       groupCount,
       perGroupCapacity,
       maxCapacity,
+      capacityMode: settings.capacityMode,
     });
     if (capacity.error) {
       return res.status(400).json({ error: capacity.error });
@@ -718,9 +766,12 @@ router.post('/events', authMiddleware, requirePermission(P.CAN_MANAGE_EVENTS), a
       groupCount: capacity.groupCount,
       perGroupCapacity: capacity.perGroupCapacity,
       eventType: resolvedType,
-      customReservationRule: customReservationRule || null,
+      customReservationRule: null,
+      openRule: settings.openRule,
+      capacityMode: settings.capacityMode,
+      hiddenFromStudents: settings.hiddenFromStudents,
       location: normalizeLocation(location),
-      notes: normalizeNotes(notes, { useDefault: true }),
+      notes: normalizeNotes(notes),
     });
     auditLogService.logAuditAsync({
       module: 'events',
@@ -783,11 +834,18 @@ router.post('/events/batch', authMiddleware, requirePermission(P.CAN_MANAGE_EVEN
             continue;
           }
           const resolvedType = typeHit?.code || eventTypeService.coerceEventTypeCode(eventData.eventType);
+          const settings = resolveEventWriteSettings(resolvedType, eventData);
+          if (settings.error) {
+            results.failureCount++;
+            results.errors.push(`第 ${i + 1} 個活動：${settings.error}`);
+            continue;
+          }
           const capacity = normalizeEventCapacityInput({
             eventType: resolvedType,
             groupCount: eventData.groupCount,
             perGroupCapacity: eventData.perGroupCapacity,
             maxCapacity: eventData.maxCapacity,
+            capacityMode: settings.capacityMode,
           });
           if (capacity.error) {
             results.failureCount++;
@@ -804,9 +862,12 @@ router.post('/events/batch', authMiddleware, requirePermission(P.CAN_MANAGE_EVEN
             groupCount: capacity.groupCount,
             perGroupCapacity: capacity.perGroupCapacity,
             eventType: resolvedType,
-            customReservationRule: eventData.customReservationRule || null,
+            customReservationRule: null,
+            openRule: settings.openRule,
+            capacityMode: settings.capacityMode,
+            hiddenFromStudents: settings.hiddenFromStudents,
             location: normalizeLocation(eventData.location),
-            notes: normalizeNotes(eventData.notes, { useDefault: true }),
+            notes: normalizeNotes(eventData.notes),
           }, { transaction });
 
           results.successCount++;
@@ -949,9 +1010,15 @@ const updateEventHandler = async (req, res, next) => {
       location: event.location,
       notes: event.notes,
       customReservationRule: event.customReservationRule,
+      openRule: event.openRule,
+      capacityMode: event.capacityMode,
+      hiddenFromStudents: event.hiddenFromStudents,
     };
 
-    const { name, date, startTime, endTime, maxCapacity, eventType, customReservationRule, location, notes, groupCount, perGroupCapacity } = req.body;
+    const {
+      name, date, startTime, endTime, maxCapacity, eventType, location, notes,
+      groupCount, perGroupCapacity, openRule, capacityMode, hiddenFromStudents,
+    } = req.body;
     if (name !== undefined) event.name = name;
     if (date !== undefined) event.date = date;
     if (startTime !== undefined) event.startTime = startTime;
@@ -965,16 +1032,29 @@ const updateEventHandler = async (req, res, next) => {
       }
       event.eventType = typeHit?.code || eventTypeService.coerceEventTypeCode(eventType);
     }
-    if (customReservationRule !== undefined) event.customReservationRule = customReservationRule;
     if (location !== undefined) event.location = normalizeLocation(location);
     if (notes !== undefined) event.notes = normalizeNotes(notes);
 
-    if (maxCapacity !== undefined || groupCount !== undefined || perGroupCapacity !== undefined || eventType !== undefined) {
+    const settings = resolveEventWriteSettings(event.eventType, {
+      openRule: openRule !== undefined ? openRule : event.openRule,
+      capacityMode: capacityMode !== undefined ? capacityMode : event.capacityMode,
+      hiddenFromStudents: hiddenFromStudents !== undefined ? hiddenFromStudents : event.hiddenFromStudents,
+    });
+    if (settings.error) {
+      return res.status(400).json({ error: settings.error });
+    }
+    event.openRule = settings.openRule;
+    event.capacityMode = settings.capacityMode;
+    event.hiddenFromStudents = settings.hiddenFromStudents;
+    if (event.eventType === 'other') event.customReservationRule = null;
+
+    if (maxCapacity !== undefined || groupCount !== undefined || perGroupCapacity !== undefined || eventType !== undefined || capacityMode !== undefined) {
       const capacity = normalizeEventCapacityInput({
         eventType: event.eventType,
         groupCount: groupCount !== undefined ? groupCount : event.groupCount,
         perGroupCapacity: perGroupCapacity !== undefined ? perGroupCapacity : event.perGroupCapacity,
         maxCapacity: maxCapacity !== undefined ? maxCapacity : event.maxCapacity,
+        capacityMode: settings.capacityMode,
       });
       if (capacity.error) {
         return res.status(400).json({ error: capacity.error });
@@ -995,6 +1075,9 @@ const updateEventHandler = async (req, res, next) => {
       location: event.location,
       notes: event.notes,
       customReservationRule: event.customReservationRule,
+      openRule: event.openRule,
+      capacityMode: event.capacityMode,
+      hiddenFromStudents: event.hiddenFromStudents,
     };
     auditLogService.logAuditAsync({
       module: 'events',

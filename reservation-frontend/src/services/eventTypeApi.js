@@ -188,6 +188,7 @@ export function buildEventTypeSelectOptions(list = [], {
       slug: r.slug,
     }));
   if (includeAll) opts.unshift({ value: 'all', label: '全部類型' });
-  if (includeOther) opts.push({ value: '其他', label: '其他' });
+  const hasOther = opts.some((opt) => opt.value === 'other' || opt.label === '其他');
+  if (includeOther && !hasOther) opts.push({ value: 'other', label: '其他' });
   return opts;
 }

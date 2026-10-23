@@ -23,7 +23,7 @@ export default function ClassDetailStudentsTable({
       <Card.Header>
         <h5 className="mb-1">學生明細</h5>
         <div className="small text-muted">
-          「總時數」為課堂加分依據；「全站累計」僅供參考，不可兩邊重複加分。
+          「總時數」為課堂加分依據。
         </div>
       </Card.Header>
       <Card.Body>
@@ -47,8 +47,6 @@ export default function ClassDetailStudentsTable({
                     <th>系所</th>
                     <th>總時數</th>
                     <th>總點數</th>
-                    <th>全站累計時數（僅參考）</th>
-                    <th>全站累計計點（僅參考）</th>
                     <th>配置狀態</th>
                     <th>最後簽到日</th>
                     <th>黑名單</th>
@@ -63,8 +61,6 @@ export default function ClassDetailStudentsTable({
                       <td>{student.department || '-'}</td>
                       <td>{formatTotalHours(student.totalHours)}</td>
                       <td>{student.pointScore || '0'}</td>
-                      <td className="text-muted">{formatTotalHours(student.siteTotalHours)}</td>
-                      <td className="text-muted">{student.sitePointScore || '0'}</td>
                       <td>
                         <AllocationStatusBadge
                           status={student.allocationStatus}

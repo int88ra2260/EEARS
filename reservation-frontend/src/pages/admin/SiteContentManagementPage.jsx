@@ -32,7 +32,8 @@ const TEXT_SECTIONS = VISIBLE_SITE_CONTENT_SECTIONS.filter((s) => !STRUCTURED_SE
 const STAFF_SECTIONS = ['staff_faculty', 'staff_admin'];
 
 const SECTION_LEADS = {
-  home: '直接點擊首頁畫面上的文字即可編輯 Hero、公告、規則提示等區塊。',
+  home: '直接點擊首頁畫面上的文字即可編輯 Hero、公告、規則提示等區塊。日曆預約頁的說明視窗請改「預約使用說明」。',
+  reservation_usage: '這是學生打開日曆預約頁時的說明視窗。點擊標題、規定、違規說明或按鈕文字即可修改，儲存後學生下次開頁就會看到。',
   activities: '在活動介紹頁預覽中點擊文字或卡片圖片即可修改。圖片使用媒體庫選圖／上傳。新類型會出現在「自訂活動類型介紹」。',
   contact: '在關於我們頁的聯絡區塊預覽中點擊文字，即可修改標題、導言與聯絡方式。',
   about: '編輯 /about 頁的中心介紹、系統說明與團隊區塊導言；聯絡資訊請切換「聯絡資訊」分頁。',

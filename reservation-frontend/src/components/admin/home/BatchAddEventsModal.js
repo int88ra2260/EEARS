@@ -12,12 +12,15 @@ import {
 } from '../../../utils/eventCapacityFields';
 import { saveCapacityPrefs } from '../../../utils/eventCapacityPrefs';
 import {
+  CAPACITY_MODES,
   DEFAULT_EVENT_TYPE_CODE,
+  getDefaultTypeConfig,
   getEventTypeSelectOptions,
+  isOtherEventType,
 } from '../../../constants/eventTypeCatalog';
+import { DEFAULT_OTHER_OPEN_RULE_FIELDS } from '../../../utils/otherEventForm';
+import OtherEventOpenRuleFields, { StudentHiddenField } from './OtherEventOpenRuleFields';
 import '../../../styles/admin-operations.css';
-
-const DEFAULT_EVENT_NOTES = '實踐歷程檔案';
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -26,7 +29,9 @@ function createInitialTemplate() {
     name: '',
     eventType: DEFAULT_EVENT_TYPE_CODE,
     location: '',
-    notes: DEFAULT_EVENT_NOTES,
+    notes: '',
+    hiddenFromStudents: false,
+    ...DEFAULT_OTHER_OPEN_RULE_FIELDS,
     ...getDefaultCapacityFields(DEFAULT_EVENT_TYPE_CODE),
   };
 }
@@ -167,7 +172,13 @@ export default function BatchAddEventsModal({
     setTemplate((prev) => {
       const next = { ...prev, [field]: value };
       if (field === 'eventType') {
-        Object.assign(next, getDefaultCapacityFields(value, resolveCfg(value)));
+        const becomingOther = isOtherEventType(value);
+        if (becomingOther) Object.assign(next, DEFAULT_OTHER_OPEN_RULE_FIELDS);
+        Object.assign(next, getDefaultCapacityFields(
+          value,
+          resolveCfg(value),
+          becomingOther ? CAPACITY_MODES.SIMPLE : undefined,
+        ));
       }
       return next;
     });
@@ -237,12 +248,17 @@ export default function BatchAddEventsModal({
           startTime: slot.startTime,
           endTime: slot.endTime,
           location: template.location || '',
-          notes: template.notes ?? DEFAULT_EVENT_NOTES,
+          notes: template.notes ?? '',
           groupCount: template.groupCount,
           perGroupCapacity: template.perGroupCapacity,
           maxParticipants: template.maxParticipants,
-          customEventType: '',
-          customReservationRule: '',
+          capacityMode: template.capacityMode,
+          hiddenFromStudents: !!template.hiddenFromStudents,
+          openRuleType: template.openRuleType,
+          openRuleDays: template.openRuleDays,
+          openRuleWeekday: template.openRuleWeekday,
+          openRuleHour: template.openRuleHour,
+          openRuleMinute: template.openRuleMinute,
         });
       });
     });
@@ -318,10 +334,38 @@ export default function BatchAddEventsModal({
             </div>
           </div>
 
+          {isOtherEventType(template.eventType) && (
+            <div className="mb-2" style={{ maxWidth: '16rem' }}>
+              <Form.Label className="small mb-0">名額方式 *</Form.Label>
+              <Form.Select
+                size="sm"
+                value={template.capacityMode === CAPACITY_MODES.GROUPED ? CAPACITY_MODES.GROUPED : CAPACITY_MODES.SIMPLE}
+                onChange={(e) => {
+                  const mode = e.target.value;
+                  setTemplate((prev) => ({
+                    ...prev,
+                    capacityMode: mode,
+                    ...getDefaultCapacityFields(prev.eventType, resolveCfg(prev.eventType), mode),
+                  }));
+                }}
+              >
+                <option value={CAPACITY_MODES.SIMPLE}>總人數</option>
+                <option value={CAPACITY_MODES.GROUPED}>分組（組數 × 每組人數）</option>
+              </Form.Select>
+            </div>
+          )}
+
           <div className="mb-2">
             <EventCapacityFields
               eventType={template.eventType}
-              typeConfig={resolveCfg(template.eventType)}
+              typeConfig={isOtherEventType(template.eventType)
+                ? {
+                  ...(resolveCfg(template.eventType) || getDefaultTypeConfig('other')),
+                  capacityMode: template.capacityMode === CAPACITY_MODES.GROUPED
+                    ? CAPACITY_MODES.GROUPED
+                    : CAPACITY_MODES.SIMPLE,
+                }
+                : resolveCfg(template.eventType)}
               fields={template}
               size="sm"
               layout="labeled"
@@ -330,13 +374,26 @@ export default function BatchAddEventsModal({
             <div className="small text-muted mt-1">組數／人數會記住上次使用的數值。</div>
           </div>
 
+          {isOtherEventType(template.eventType) && (
+            <OtherEventOpenRuleFields
+              fields={template}
+              onChange={setTemplate}
+              cutoffHours={Number((resolveCfg(template.eventType) || getDefaultTypeConfig('other'))?.cutoffHours) || 2}
+            />
+          )}
+          <StudentHiddenField
+            id="batch-event-hidden-from-students"
+            checked={template.hiddenFromStudents}
+            onChange={(checked) => updateTemplate('hiddenFromStudents', checked)}
+          />
+
           <Form.Label className="small mb-1">備註</Form.Label>
           <Form.Control
             size="sm"
             className="mb-3"
             value={template.notes ?? ''}
             maxLength={255}
-            placeholder="實踐歷程檔案"
+            placeholder="選填"
             onChange={(e) => updateTemplate('notes', e.target.value)}
           />
 
@@ -450,9 +507,15 @@ export default function BatchAddEventsModal({
                         value={event.eventType}
                         onChange={(e) => {
                           const nextType = e.target.value;
+                          const becomingOther = isOtherEventType(nextType);
                           mergeRowFields(index, {
                             eventType: nextType,
-                            ...getDefaultCapacityFields(nextType, resolveCfg(nextType)),
+                            ...(becomingOther ? DEFAULT_OTHER_OPEN_RULE_FIELDS : {}),
+                            ...getDefaultCapacityFields(
+                              nextType,
+                              resolveCfg(nextType),
+                              becomingOther ? CAPACITY_MODES.SIMPLE : undefined,
+                            ),
                           });
                         }}
                       >

@@ -994,7 +994,8 @@
   z-index: 2;
 }
 
-.scm-visual-rules__hint {
+.scm-visual-rules__hint,
+.scm-visual-usage__hint {
   margin: 0 0 1rem;
   font-size: 0.8125rem;
   color: #787774;

@@ -42,6 +42,43 @@ describe('eventCapacity', () => {
     });
   });
 
+  it('lets other events use a total or grouped capacity', () => {
+    expect(normalizeEventCapacityInput({
+      eventType: 'other',
+      maxCapacity: 25,
+      capacityMode: 'simple',
+    })).toEqual({
+      groupCount: null,
+      perGroupCapacity: null,
+      maxCapacity: 25,
+    });
+
+    expect(normalizeEventCapacityInput({
+      eventType: 'other',
+      groupCount: 3,
+      perGroupCapacity: 8,
+      capacityMode: 'grouped',
+    })).toEqual({
+      groupCount: 3,
+      perGroupCapacity: 8,
+      maxCapacity: 24,
+    });
+  });
+
+  it('does not let non-other types switch into grouped capacity', () => {
+    expect(normalizeEventCapacityInput({
+      eventType: 'job_talk',
+      maxCapacity: 40,
+      groupCount: 4,
+      perGroupCapacity: 10,
+      capacityMode: 'grouped',
+    })).toEqual({
+      groupCount: null,
+      perGroupCapacity: null,
+      maxCapacity: 40,
+    });
+  });
+
   it('falls back legacy group count to 9', () => {
     expect(resolveLegacyGroupCount({ groupCount: 7 })).toBe(7);
     expect(resolveLegacyGroupCount({})).toBe(9);

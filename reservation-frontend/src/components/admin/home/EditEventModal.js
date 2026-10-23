@@ -9,10 +9,15 @@ import EventCapacityFields from './EventCapacityFields';
 import Time24Input from './Time24Input';
 import { getDefaultCapacityFields } from '../../../utils/eventCapacityFields';
 import {
+  CAPACITY_MODES,
+  getDefaultTypeConfig,
   getEventTypeDisplayName,
   getEventTypeSelectOptions,
+  isOtherEventType,
   normalizeEventTypeCode,
 } from '../../../constants/eventTypeCatalog';
+import { DEFAULT_OTHER_OPEN_RULE_FIELDS } from '../../../utils/otherEventForm';
+import OtherEventOpenRuleFields, { StudentHiddenField } from './OtherEventOpenRuleFields';
 
 /**
  * @param {Object} props
@@ -42,18 +47,41 @@ export default function EditEventModal({
     ? resolveTypeConfig(fields.eventType)
     : null;
   const optionValues = new Set(options.map((o) => o.value));
+  const isOther = isOtherEventType(fields.eventType);
+  const otherConfig = isOther ? (typeConfig || getDefaultTypeConfig('other')) : null;
+  const selectedType = isOther
+    ? 'other'
+    : (optionValues.has(fields.eventType)
+      ? fields.eventType
+      : (normalizeEventTypeCode(fields.eventType) || fields.eventType || ''));
 
   const setField = (key, value) => {
     if (key === 'eventType') {
       const cfg = typeof resolveTypeConfig === 'function' ? resolveTypeConfig(value) : null;
+      const becomingOther = isOtherEventType(value);
+      const wasOther = isOtherEventType(fields.eventType);
       onFieldsChange({
         ...fields,
         eventType: value,
-        ...getDefaultCapacityFields(value, cfg),
+        ...(becomingOther && !wasOther ? DEFAULT_OTHER_OPEN_RULE_FIELDS : {}),
+        ...(!becomingOther ? { capacityMode: undefined } : {}),
+        ...getDefaultCapacityFields(
+          value,
+          cfg,
+          becomingOther ? (wasOther ? fields.capacityMode : CAPACITY_MODES.SIMPLE) : undefined,
+        ),
       });
       return;
     }
     onFieldsChange({ ...fields, [key]: value });
+  };
+
+  const handleCapacityModeChange = (mode) => {
+    onFieldsChange({
+      ...fields,
+      capacityMode: mode,
+      ...getDefaultCapacityFields(fields.eventType, typeConfig, mode),
+    });
   };
 
   return (
@@ -77,20 +105,14 @@ export default function EditEventModal({
           <Form.Group className="mb-3">
             <Form.Label>活動類型 *</Form.Label>
             <Form.Select
-              value={
-                fields.eventType === '其他'
-                  ? '其他'
-                  : (optionValues.has(fields.eventType)
-                    ? fields.eventType
-                    : (normalizeEventTypeCode(fields.eventType) || fields.eventType || ''))
-              }
+              value={selectedType}
               onChange={(e) => setField('eventType', e.target.value)}
             >
               {options.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
               {fields.eventType
-                && fields.eventType !== '其他'
+                && !isOther
                 && !optionValues.has(fields.eventType)
                 && !normalizeEventTypeCode(fields.eventType) && (
                 <option value={fields.eventType}>
@@ -100,15 +122,16 @@ export default function EditEventModal({
             </Form.Select>
           </Form.Group>
 
-          {fields.eventType === '其他' && (
+          {isOther && (
             <Form.Group className="mb-3">
-              <Form.Label>自訂活動類型 *</Form.Label>
-              <Form.Control
-                type="text"
-                value={fields.customEventType || ''}
-                onChange={(e) => setField('customEventType', e.target.value)}
-                placeholder="請輸入自訂活動類型"
-              />
+              <Form.Label>名額方式 *</Form.Label>
+              <Form.Select
+                value={fields.capacityMode === CAPACITY_MODES.GROUPED ? CAPACITY_MODES.GROUPED : CAPACITY_MODES.SIMPLE}
+                onChange={(e) => handleCapacityModeChange(e.target.value)}
+              >
+                <option value={CAPACITY_MODES.SIMPLE}>總人數</option>
+                <option value={CAPACITY_MODES.GROUPED}>分組（組數 × 每組人數）</option>
+              </Form.Select>
             </Form.Group>
           )}
 
@@ -145,12 +168,33 @@ export default function EditEventModal({
           <div className="row">
             <EventCapacityFields
               eventType={fields.eventType}
-              typeConfig={typeConfig}
+              typeConfig={isOther
+                ? {
+                  ...(otherConfig || {}),
+                  capacityMode: fields.capacityMode === CAPACITY_MODES.GROUPED
+                    ? CAPACITY_MODES.GROUPED
+                    : CAPACITY_MODES.SIMPLE,
+                }
+                : typeConfig}
               fields={fields}
               onFieldsChange={onFieldsChange}
               layout="stacked"
             />
           </div>
+
+          {isOther && (
+            <OtherEventOpenRuleFields
+              fields={fields}
+              onChange={onFieldsChange}
+              cutoffHours={Number(otherConfig?.cutoffHours) || 2}
+            />
+          )}
+
+          <StudentHiddenField
+            id="edit-event-hidden-from-students"
+            checked={fields.hiddenFromStudents}
+            onChange={(checked) => setField('hiddenFromStudents', checked)}
+          />
 
           <Form.Group className="mb-3">
             <LocationSelectField
@@ -165,10 +209,9 @@ export default function EditEventModal({
               type="text"
               value={fields.notes ?? ''}
               onChange={(e) => setField('notes', e.target.value)}
-              placeholder="實踐歷程檔案"
+              placeholder="選填"
               maxLength={255}
             />
-            <Form.Text muted>預設為「實踐歷程檔案」，可自行修改。</Form.Text>
           </Form.Group>
         </Form>
       </Modal.Body>

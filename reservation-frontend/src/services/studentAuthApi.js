@@ -45,6 +45,26 @@ export async function loginStudentAccount(studentId, password) {
   return { ok: res.ok, status: res.status, data };
 }
 
+export async function sendStudentPasswordReset(studentId) {
+  const res = await fetchClient('/api/student-auth/password-reset/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId }),
+  });
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function confirmStudentPasswordReset(payload) {
+  const res = await fetchClient('/api/student-auth/password-reset/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
 export async function changeStudentPassword(payload) {
   const res = await fetchClient('/api/student-auth/password', withStudentAuth({
     method: 'POST',

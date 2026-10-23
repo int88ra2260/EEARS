@@ -300,6 +300,23 @@ Center for EMI Teaching Excellence
 `,
   },
 
+  studentAccountPasswordReset: {
+    subject: '【EEARS】重設密碼驗證碼',
+    body: `您好，
+
+你正在重設 EEARS 學生帳號密碼。請於重設密碼頁面輸入以下驗證碼：
+
+學號：{{studentId}}
+驗證碼：{{code}}
+有效時間：{{expiresInMinutes}} 分鐘
+
+若你沒有申請重設密碼，請忽略這封信。請勿把驗證碼轉給他人。
+
+全英語卓越教學中心 敬上
+📧 emicenter@mail.nsysu.edu.tw
+`,
+  },
+
   englishTestRegistrationSuccess: {
     subject: '[培力英檢] 報名完成確認通知 / BESTEP Registration Confirmation',
     body: `親愛的 {{studentDisplayName}} ({{studentId}}) 您好，

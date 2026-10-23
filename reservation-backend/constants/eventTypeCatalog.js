@@ -90,6 +90,24 @@ const DEFAULT_EVENT_TYPES = Object.freeze([
     maxPerGroup: null,
     surveyGateEnabled: false,
   },
+  {
+    code: 'other',
+    displayName: '其他',
+    abbreviation: 'OT',
+    slug: 'other',
+    sortOrder: 50,
+    isActive: true,
+    legacyAliases: ['其他', 'Other'],
+    openRule: { type: OPEN_RULE_TYPES.DAY_BEFORE, days: 1, hour: 12, minute: 0 },
+    cutoffHours: 2,
+    capacityMode: CAPACITY_MODES.SIMPLE,
+    defaultGroupCount: 2,
+    defaultPerGroupCapacity: 10,
+    maxCapacityCap: 300,
+    maxGroupCount: 20,
+    maxPerGroup: 30,
+    surveyGateEnabled: false,
+  },
 ]);
 
 const CODE_BY_LEGACY = (() => {

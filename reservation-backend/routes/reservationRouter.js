@@ -408,6 +408,11 @@ router.post('/reservations', studentAuthMiddleware, bindStudentIdentity(), check
       return res.status(404).json({ error: "活動不存在" });
     }
 
+    if (event.hiddenFromStudents) {
+      await transaction.rollback();
+      return res.status(400).json({ error: "此活動不開放學生預約" });
+    }
+
     // 根據活動類型計算預約開放時間（刷新目錄後再解析，支援動態類型）
     const { openStart, openEnd } = await calculateReservationTimeAsync(event);
     const now = dayjs();

@@ -1,7 +1,7 @@
 import React, {
   createContext, useCallback, useContext, useMemo,
 } from 'react';
-import { TEXT_SECTION_PREFIXES } from '../utils/siteContentCatalog';
+import { isTextKeyInSection } from '../utils/siteContentCatalog';
 
 const SiteContentVisualEditContext = createContext(null);
 
@@ -11,10 +11,7 @@ export function SiteContentVisualEditProvider({
   onSelectKey,
   children,
 }) {
-  const isEditable = useCallback((key) => {
-    const prefixes = TEXT_SECTION_PREFIXES[section] || [];
-    return prefixes.some((prefix) => key.startsWith(prefix));
-  }, [section]);
+  const isEditable = useCallback((key) => isTextKeyInSection(section, key), [section]);
 
   const value = useMemo(() => ({
     section,

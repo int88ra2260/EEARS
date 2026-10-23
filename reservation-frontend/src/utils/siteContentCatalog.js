@@ -4,13 +4,30 @@ import { buildActivitiesContentSeedItems } from './activityTypeContent';
 
 /** 與後端 siteContentManifest 前綴一致 */
 export const TEXT_SECTION_PREFIXES = {
-  home: ['homePage.', 'home.notice', 'home.rule', 'home.usage'],
+  home: ['homePage.', 'home.notice', 'home.ruleUpdate', 'home.ruleNoWalkIn'],
   english_test_registration: ['englishTestRegistration.'],
   english_learning_passport: ['elpPage.'],
   activities: ['activitiesPage.', 'activities.', 'page.activitiesLead', 'page.activityCategoryLead'],
   about: ['aboutPage.'],
   contact: ['homePage.contact'],
   legal: ['privacyPage.', 'termsPage.'],
+};
+
+/** 僅以精確鍵編輯的區塊（與後端 exactKeys 對齊） */
+export const TEXT_SECTION_EXACT_KEYS = {
+  reservation_usage: [
+    'home.usageTitle',
+    'home.usageRule',
+    'home.ruleNoStamp',
+    'home.usageBlacklist',
+    'home.usageViolations',
+    'home.usageV1',
+    'home.usageV2',
+    'home.usageV3',
+    'home.usageCancel',
+    'home.usageButtonPrimary',
+    'home.usageButtonSecondary',
+  ],
 };
 
 const LABEL_BY_KEY = Object.fromEntries(
@@ -41,9 +58,23 @@ function allTranslationKeys() {
 
 const ALL_KEYS_CACHE = allTranslationKeys();
 
-export function keysForTextSection(section) {
+export function isTextKeyInSection(section, contentKey) {
+  if (!contentKey) return false;
+  const exact = TEXT_SECTION_EXACT_KEYS[section] || [];
+  if (exact.includes(contentKey)) return true;
   const prefixes = TEXT_SECTION_PREFIXES[section] || [];
-  return ALL_KEYS_CACHE.filter((key) => prefixes.some((prefix) => key.startsWith(prefix))).sort();
+  return prefixes.some((prefix) => contentKey.startsWith(prefix));
+}
+
+export function keysForTextSection(section) {
+  const exact = TEXT_SECTION_EXACT_KEYS[section] || [];
+  const prefixes = TEXT_SECTION_PREFIXES[section] || [];
+  if (exact.length > 0 && prefixes.length === 0) {
+    return exact.filter((key) => ALL_KEYS_CACHE.includes(key)).sort();
+  }
+  const fromPrefix = ALL_KEYS_CACHE.filter((key) => prefixes.some((prefix) => key.startsWith(prefix)));
+  const extra = exact.filter((key) => !fromPrefix.includes(key) && ALL_KEYS_CACHE.includes(key));
+  return [...fromPrefix, ...extra].sort();
 }
 
 function isResolvableKey(key) {

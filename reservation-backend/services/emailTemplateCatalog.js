@@ -174,6 +174,26 @@ const EMAIL_TEMPLATE_CATALOG = [
     },
   },
   {
+    key: 'studentAccountPasswordReset',
+    category: 'reservation',
+    categoryLabel: '活動預約',
+    name: '學生帳號重設密碼驗證碼',
+    description: '忘記密碼時寄到註冊信箱；請保留 {{code}}。',
+    channel: 'reservation',
+    variables: [
+      { name: 'email', required: true },
+      { name: 'code', description: '驗證碼', required: true },
+      { name: 'studentId', description: '學號' },
+      { name: 'expiresInMinutes', description: '有效分鐘數' },
+    ],
+    sampleData: {
+      email: 'student@example.com',
+      code: '123456',
+      studentId: 'B123456789',
+      expiresInMinutes: 10,
+    },
+  },
+  {
     key: 'englishTestEmailVerification',
     category: 'english_test',
     categoryLabel: '培力英檢',

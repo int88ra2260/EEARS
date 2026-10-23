@@ -1,7 +1,8 @@
 'use strict';
 
+const { Op } = require('sequelize');
 const { sequelize, Student, ActivityParticipation } = require('../../models');
-const { semesterIdFromDate } = require('../../utils/semesterConstants');
+const { semesterIdFromDate, SEMESTER_RANGES } = require('../../utils/semesterConstants');
 const {
   fetchReservationInfo,
   fetchAttendanceInfo
@@ -13,7 +14,22 @@ const SOURCE_REF_PREFIX = 'ewl_api';
 const ACTIVITY_TYPE = 'EWL';
 
 function emptyStats() {
-  return { inserted: 0, updated: 0, skipped: 0, errors: [], affectedStudentIds: [] };
+  return {
+    inserted: 0,
+    updated: 0,
+    skipped: 0,
+    reconciled: 0,
+    reconcileSkipped: null,
+    errors: [],
+    affectedStudentIds: []
+  };
+}
+
+/** 寫作工坊取消後，課堂時數不可再計。 */
+function isCancelledReservationStatus(status) {
+  const s = String(status || '').trim().toLowerCase();
+  if (!s) return false;
+  return s.includes('取消') || s.includes('cancel');
 }
 
 function pushErr(errors, code, message, extra = {}) {
@@ -90,7 +106,9 @@ function resolveEventDate(raw) {
 }
 
 /**
- * 預設同步窗：過去 lookbackDays ～ 未來 lookaheadDays（活動日篩選語意）
+ * 預設同步窗：至少回溯 lookbackDays，並延伸到本學期開始日，
+ * 讓課堂加分所計的寫作工坊時數整學期都跟得上來源端。
+ * 向前看到 lookaheadDays。篩選語意是活動日。
  */
 function defaultDateWindow(now = new Date(), lookbackDays = 14, lookaheadDays = 60) {
   const start = new Date(now);
@@ -103,7 +121,13 @@ function defaultDateWindow(now = new Date(), lookbackDays = 14, lookaheadDays = 
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   };
-  return { startDate: fmt(start), endDate: fmt(end) };
+  let startDate = fmt(start);
+  const semesterId = semesterIdFromDate(now);
+  const semesterStart = semesterId && SEMESTER_RANGES[semesterId]
+    ? SEMESTER_RANGES[semesterId].start
+    : null;
+  if (semesterStart && semesterStart < startDate) startDate = semesterStart;
+  return { startDate, endDate: fmt(end) };
 }
 
 async function loadOrPrepareStudent(studentId, nameZh, dryRun, transaction) {
@@ -128,6 +152,8 @@ async function loadOrPrepareStudent(studentId, nameZh, dryRun, transaction) {
 function buildAttendanceIndex(attendanceRows = []) {
   const byFull = new Map();
   const byStudentEventDate = new Map();
+  const fullCounts = new Map();
+  const softCounts = new Map();
   for (const row of attendanceRows) {
     const studentId = normStudentId(row.StudentNo);
     const eventName = text(row.EventName) || text(row.TargetName) || '';
@@ -142,11 +168,13 @@ function buildAttendanceIndex(attendanceRows = []) {
     };
     if (!studentId) continue;
     const fullKey = attendanceMatchKey(studentId, eventName, eventDate, timePeriodName);
+    fullCounts.set(fullKey, (fullCounts.get(fullKey) || 0) + 1);
     byFull.set(fullKey, payload);
     const softKey = attendanceMatchKey(studentId, eventName, eventDate, '');
+    softCounts.set(softKey, (softCounts.get(softKey) || 0) + 1);
     if (!byStudentEventDate.has(softKey)) byStudentEventDate.set(softKey, payload);
   }
-  return { byFull, byStudentEventDate };
+  return { byFull, byStudentEventDate, fullCounts, softCounts };
 }
 
 function findAttendanceMatch(index, reservationRow, eventDate) {
@@ -155,9 +183,18 @@ function findAttendanceMatch(index, reservationRow, eventDate) {
   const eventName = text(reservationRow.EventName) || text(reservationRow.Name) || '';
   const timePeriodName = text(reservationRow.TimePeriodName) || '';
   const fullKey = attendanceMatchKey(studentId, eventName, eventDate, timePeriodName);
-  if (index.byFull.has(fullKey)) return index.byFull.get(fullKey);
+  const fullCount = index.fullCounts
+    ? (index.fullCounts.get(fullKey) || 0)
+    : (index.byFull.has(fullKey) ? 1 : 0);
+  // 同一鍵超過一筆時不猜，避免把別人的簽到時數算進來。
+  if (fullCount === 1 && index.byFull.has(fullKey)) return index.byFull.get(fullKey);
+  if (fullCount > 1) return null;
   const softKey = attendanceMatchKey(studentId, eventName, eventDate, '');
-  if (index.byStudentEventDate.has(softKey)) return index.byStudentEventDate.get(softKey);
+  const softCount = index.softCounts ? (index.softCounts.get(softKey) || 0) : 0;
+  // 僅在該生該日該活動只有一筆簽到時，才忽略時段名稱差異。
+  if (softCount === 1 && index.byStudentEventDate.has(softKey)) {
+    return index.byStudentEventDate.get(softKey);
+  }
   return null;
 }
 
@@ -171,7 +208,11 @@ function normalizeReservationRow(raw, attendanceIndex = null) {
   const eventDate = resolveEventDate(raw);
   const attendance = findAttendanceMatch(attendanceIndex, raw, eventDate);
   const checkInTime = text(raw.CheckInTime) || attendance?.checkInTime || null;
-  const { attendanceStatus, participatedAt } = mapAttendanceFromCheckin(checkInTime);
+  let { attendanceStatus, participatedAt } = mapAttendanceFromCheckin(checkInTime);
+  if (isCancelledReservationStatus(text(raw.ReservationStatus))) {
+    attendanceStatus = 'cancelled';
+    participatedAt = null;
+  }
   const startTime = text(raw.StartTime);
   const endTime = text(raw.EndTime);
   const hours = hoursFromStartEndTime(startTime, endTime);
@@ -204,7 +245,90 @@ function noteAffectedStudent(stats, studentId) {
   if (studentId) stats._affectedSet.add(studentId);
 }
 
-async function upsertEwlRows(rows, dryRun, transaction, stats, attendanceIndex = null) {
+/**
+ * 新 payload 有開始與結束時間就重算時數；缺時段時保留既有時數，避免一次不完整回應把課堂分數洗成 0。
+ */
+function mergeDurationFields(existingMeta, normalized) {
+  const prev = existingMeta && typeof existingMeta === 'object' ? existingMeta : {};
+  const nextStart = normalized.startTime || null;
+  const nextEnd = normalized.endTime || null;
+  if (nextStart && nextEnd) {
+    const computed = hoursFromStartEndTime(nextStart, nextEnd);
+    return {
+      startTime: nextStart,
+      endTime: nextEnd,
+      hours: computed != null ? computed : (prev.hours != null ? prev.hours : null)
+    };
+  }
+  const startTime = nextStart || prev.startTime || null;
+  const endTime = nextEnd || prev.endTime || null;
+  const recomputed = hoursFromStartEndTime(startTime, endTime);
+  if (recomputed != null) return { startTime, endTime, hours: recomputed };
+  return {
+    startTime,
+    endTime,
+    hours: prev.hours != null ? prev.hours : (normalized.hours != null ? normalized.hours : null)
+  };
+}
+
+/**
+ * 出席狀態以寫作工坊為準。簽到 API 這次不可靠時，不把已出席改回已登記。
+ */
+function resolveSyncedAttendance(normalized, existing, attendanceReliable) {
+  if (normalized.attendanceStatus === 'cancelled') {
+    return { attendanceStatus: 'cancelled', participatedAt: null };
+  }
+  if (normalized.attendanceStatus === 'attended') {
+    return {
+      attendanceStatus: 'attended',
+      participatedAt: normalized.participatedAt || null
+    };
+  }
+  if (!attendanceReliable && existing && existing.attendanceStatus === 'attended') {
+    return {
+      attendanceStatus: 'attended',
+      participatedAt: existing.participatedAt || null
+    };
+  }
+  return { attendanceStatus: 'registered', participatedAt: null };
+}
+
+function participationWindowDate(row) {
+  const meta = row && row.metaJson ? row.metaJson : {};
+  return toDateOnly(meta.eventDate) || toDateOnly(row && row.participatedAt);
+}
+
+/**
+ * 這次同步窗裡、來源端已不再回傳的 EWL 列。手動鎖定與已取消列不動。
+ */
+function planMissingCancellations(existingRows, seenSourceRefs, startDate, endDate) {
+  const planned = [];
+  const seen = seenSourceRefs || new Set();
+  for (const row of existingRows || []) {
+    const meta = row.metaJson || {};
+    if (meta.syncManualLock === true) continue;
+    if (row.attendanceStatus === 'cancelled') continue;
+    const sourceRef = row.sourceRef;
+    if (!sourceRef || !String(sourceRef).startsWith(`${SOURCE_REF_PREFIX}:`)) continue;
+    if (seen.has(sourceRef)) continue;
+    const eventDate = participationWindowDate(row);
+    if (!eventDate || eventDate < startDate || eventDate > endDate) continue;
+    planned.push(row);
+  }
+  return planned;
+}
+
+function sourceRefsFromReservationRows(rows) {
+  const set = new Set();
+  for (const row of rows || []) {
+    const id = row && row.ConsultationTimeID != null ? Number(row.ConsultationTimeID) : NaN;
+    if (Number.isFinite(id) && id > 0) set.add(buildSourceRef(id));
+  }
+  return set;
+}
+
+async function upsertEwlRows(rows, dryRun, transaction, stats, attendanceIndex = null, options = {}) {
+  const attendanceReliable = options.attendanceReliable !== false;
   for (const row of rows) {
     const normalized = normalizeReservationRow(row, attendanceIndex);
     if (!normalized) {
@@ -232,6 +356,9 @@ async function upsertEwlRows(rows, dryRun, transaction, stats, attendanceIndex =
       const eventDateSource = toDateOnly(row.EventDate)
         ? 'EventDate'
         : (toDateOnly(row.TargetDate) ? 'TargetDate' : 'ReservationDate');
+      const duration = mergeDurationFields(existing && existing.metaJson, normalized);
+      const attendance = resolveSyncedAttendance(normalized, existing, attendanceReliable);
+      const previousMeta = existing && existing.metaJson ? existing.metaJson : {};
 
       const metaJson = {
         source: 'ewl_api',
@@ -242,15 +369,18 @@ async function upsertEwlRows(rows, dryRun, transaction, stats, attendanceIndex =
         eventDate: normalized.eventDate,
         eventDateSource,
         reservationDate: normalized.reservationDate,
-        startTime: normalized.startTime,
-        endTime: normalized.endTime,
-        hours: normalized.hours,
+        startTime: duration.startTime,
+        endTime: duration.endTime,
+        hours: duration.hours,
         timePeriodName: normalized.timePeriodName,
         location: normalized.location,
         counselorName: normalized.counselorName,
-        reservationStatus: normalized.reservationStatus,
-        checkInTime: normalized.checkInTime,
-        sync: true
+        reservationStatus: normalized.reservationStatus || previousMeta.reservationStatus || null,
+        checkInTime: normalized.checkInTime || (
+          attendance.attendanceStatus === 'attended' ? (previousMeta.checkInTime || null) : null
+        ),
+        sync: true,
+        reconciledMissing: false
       };
 
       if (existing) {
@@ -267,8 +397,8 @@ async function upsertEwlRows(rows, dryRun, transaction, stats, attendanceIndex =
           {
             semesterId: normalized.semesterId || existing.semesterId,
             activityType: ACTIVITY_TYPE,
-            attendanceStatus: normalized.attendanceStatus,
-            participatedAt: normalized.participatedAt,
+            attendanceStatus: attendance.attendanceStatus,
+            participatedAt: attendance.participatedAt,
             metaJson: {
               ...(existing.metaJson || {}),
               ...metaJson
@@ -306,8 +436,8 @@ async function upsertEwlRows(rows, dryRun, transaction, stats, attendanceIndex =
           semesterId: normalized.semesterId,
           eventId: normalized.eventId,
           activityType: ACTIVITY_TYPE,
-          attendanceStatus: normalized.attendanceStatus,
-          participatedAt: normalized.participatedAt,
+          attendanceStatus: attendance.attendanceStatus,
+          participatedAt: attendance.participatedAt,
           sourceRef: normalized.sourceRef,
           metaJson
         },
@@ -320,6 +450,56 @@ async function upsertEwlRows(rows, dryRun, transaction, stats, attendanceIndex =
         studentId: row?.StudentNo || null
       });
     }
+  }
+}
+
+async function reconcileMissingEwlRows({
+  seenSourceRefs,
+  startDate,
+  endDate,
+  studentId,
+  dryRun,
+  transaction,
+  stats,
+  fetchComplete,
+  fetchedCount
+}) {
+  if (!fetchComplete) {
+    stats.reconcileSkipped = 'incomplete_fetch';
+    return;
+  }
+  // 全校回傳 0 筆時不整批撤回，避免一次空回應清掉所有課堂時數。
+  // 指定學號且完整回傳 0 筆，代表這位學生在窗內已沒有預約。
+  if (fetchedCount <= 0 && !studentId) {
+    stats.reconcileSkipped = 'empty_fetch';
+    return;
+  }
+  const where = {
+    activityType: ACTIVITY_TYPE,
+    sourceRef: { [Op.like]: `${SOURCE_REF_PREFIX}:%` }
+  };
+  if (studentId) where.studentId = normStudentId(studentId);
+  const existingRows = await ActivityParticipation.findAll({ where, transaction });
+  const planned = planMissingCancellations(existingRows, seenSourceRefs, startDate, endDate);
+  for (const row of planned) {
+    noteAffectedStudent(stats, normStudentId(row.studentId));
+    if (dryRun) {
+      stats.reconciled += 1;
+      continue;
+    }
+    const meta = row.metaJson || {};
+    await row.update({
+      attendanceStatus: 'cancelled',
+      participatedAt: null,
+      metaJson: {
+        ...meta,
+        reservationStatus: '同步未見',
+        previousReservationStatus: meta.reservationStatus || null,
+        reconciledMissing: true,
+        sync: true
+      }
+    }, { transaction });
+    stats.reconciled += 1;
   }
 }
 
@@ -352,15 +532,34 @@ async function syncEwlReservations(opts = {}) {
   };
   const fetchOpts = { fetchImpl: opts.fetchImpl };
 
+  let attendanceFetchFailed = false;
   const [fetchResult, attendanceResult] = await Promise.all([
     fetchReservationInfo(query, fetchOpts),
-    fetchAttendanceInfo(query, fetchOpts).catch(() => ({ rows: [], totalCount: 0, pagesFetched: 0 }))
+    fetchAttendanceInfo(query, fetchOpts).catch(() => {
+      attendanceFetchFailed = true;
+      return { rows: [], totalCount: 0, pagesFetched: 0, complete: false };
+    })
   ]);
+  const attendanceReliable = !attendanceFetchFailed && attendanceResult.complete === true;
   const attendanceIndex = buildAttendanceIndex(attendanceResult.rows || []);
+  const seenSourceRefs = sourceRefsFromReservationRows(fetchResult.rows);
 
   const stats = emptyStats();
   const run = async (transaction) => {
-    await upsertEwlRows(fetchResult.rows, dryRun, transaction, stats, attendanceIndex);
+    await upsertEwlRows(fetchResult.rows, dryRun, transaction, stats, attendanceIndex, {
+      attendanceReliable
+    });
+    await reconcileMissingEwlRows({
+      seenSourceRefs,
+      startDate: window.startDate,
+      endDate: window.endDate,
+      studentId: opts.studentId,
+      dryRun,
+      transaction,
+      stats,
+      fetchComplete: fetchResult.complete === true,
+      fetchedCount: fetchResult.rows.length
+    });
   };
 
   if (dryRun) {
@@ -413,5 +612,9 @@ module.exports = {
   resolveEventDate,
   normalizeReservationRow,
   buildAttendanceIndex,
+  isCancelledReservationStatus,
+  mergeDurationFields,
+  resolveSyncedAttendance,
+  planMissingCancellations,
   syncEwlReservations
 };

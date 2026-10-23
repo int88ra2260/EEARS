@@ -444,5 +444,6 @@ module.exports = {
   isGroupedCapacityMode,
   isSurveyGateEnabledForType,
   isEventTypeScopeCode,
+  validateOpenRule,
   CODE_PATTERN,
 };

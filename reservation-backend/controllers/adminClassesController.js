@@ -862,8 +862,6 @@ const exportClassDetail = async (req, res, next) => {
         department: member.department || '',
         totalHours: credit.totalHours || 0,
         pointScore: credit.pointScore || 0,
-        siteTotalHours: credit.siteTotalHours || 0,
-        sitePointScore: credit.sitePointScore || 0,
         allocationStatusLabel: credit.allocationStatusLabel || '',
         lastAttendAt: stats.lastAttendAt || '',
         isBlacklisted: stats.isBlacklisted ? '是' : '否'
@@ -881,8 +879,6 @@ const exportClassDetail = async (req, res, next) => {
       { header: '系所', key: 'department', width: 20 },
       { header: '總時數', key: 'totalHours', width: 14 },
       { header: '總點數', key: 'pointScore', width: 14 },
-      { header: '全站累計時數（僅參考）', key: 'siteTotalHours', width: 18 },
-      { header: '全站累計計點（僅參考）', key: 'sitePointScore', width: 18 },
       { header: '配置狀態', key: 'allocationStatusLabel', width: 12 },
       { header: '最後簽到日', key: 'lastAttendAt', width: 15 },
       { header: '黑名單', key: 'isBlacklisted', width: 10 }

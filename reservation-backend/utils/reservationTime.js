@@ -21,6 +21,20 @@ function resolveCutoffHours(typeConfig) {
   return RESERVATION_CUTOFF_HOURS;
 }
 
+function readEventOpenRule(event) {
+  const raw = event?.openRule;
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return typeof raw === 'object' ? raw : null;
+}
+
 /**
  * 依 openRule 計算 openStart。
  * @param {dayjs.Dayjs} eventStart
@@ -58,7 +72,8 @@ function calculateReservationTime(event, typeConfig) {
   const eventStart = dayjs(`${event.date}T${event.startTime}`);
   const cfg = typeConfig || eventTypeService.resolveTypeConfigSync(event?.eventType || DEFAULT_EVENT_TYPE_CODE);
   const cutoffHours = resolveCutoffHours(cfg);
-  const openStart = computeOpenStart(eventStart, cfg.openRule);
+  const eventRule = readEventOpenRule(event);
+  const openStart = computeOpenStart(eventStart, eventRule?.type ? eventRule : cfg.openRule);
   const openEnd = eventStart.subtract(cutoffHours, 'hour');
   return { openStart, openEnd, cutoffHours, typeConfig: cfg };
 }

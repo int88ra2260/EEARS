@@ -61,9 +61,13 @@ function normalizeEventCapacityInput({
   perGroupCapacity,
   maxCapacity,
   typeConfig,
+  capacityMode,
 } = {}) {
   const cfg = typeConfig || eventTypeService.resolveTypeConfigSync(eventType || DEFAULT_EVENT_TYPE_CODE);
-  const isGrouped = eventTypeService.isGroupedCapacityMode(cfg);
+  const requestedMode = capacityMode === 'grouped' || capacityMode === 'simple' ? capacityMode : null;
+  const isGrouped = cfg.code === 'other' && requestedMode
+    ? requestedMode === 'grouped'
+    : eventTypeService.isGroupedCapacityMode(cfg);
   const maxGroupedTotal = cfg.maxCapacityCap || MAX_TOTAL_CAPACITY;
   const maxSimple = cfg.maxCapacityCap || MAX_NON_ET_CAPACITY;
   const maxGroups = cfg.maxGroupCount || MAX_GROUP_COUNT;
@@ -120,7 +124,9 @@ function formatCapacityPayload(event) {
     groupCount: event.groupCount ?? null,
     perGroupCapacity: event.perGroupCapacity ?? null,
   };
-  if (eventTypeService.isGroupedCapacityMode(event.eventType) && base.groupCount && base.perGroupCapacity) {
+  const grouped = event.capacityMode === 'grouped'
+    || eventTypeService.isGroupedCapacityMode(event.eventType);
+  if (grouped && base.groupCount && base.perGroupCapacity) {
     base.totalCapacity = base.groupCount * base.perGroupCapacity;
   }
   return base;

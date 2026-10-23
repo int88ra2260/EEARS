@@ -97,7 +97,7 @@ function AdminHome() {
     ? eventTypeFilterOptions
     : getEventTypeOptions()
   ).filter((opt) => {
-    if (opt.value === 'all' || opt.value === '其他') return true;
+    if (opt.value === 'all' || opt.value === '其他' || opt.value === 'other') return true;
     return canAccessEventType(accessProfile, opt.value);
   });
 
@@ -105,7 +105,7 @@ function AdminHome() {
     ? eventTypeSelectOptions
     : getEventTypeOptions().filter((o) => o.value !== 'all')
   ).filter((opt) => {
-    if (opt.value === '其他') return true;
+    if (opt.value === '其他' || opt.value === 'other') return true;
     return canAccessEventType(accessProfile, opt.value);
   });
 

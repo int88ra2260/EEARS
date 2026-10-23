@@ -269,4 +269,60 @@ describe('site content API', () => {
     expect(res.body.seeded).toBe(1);
     expect(mockCreate).toHaveBeenCalled();
   });
+
+  it('admin can edit the reservation usage modal copy', async () => {
+    mockFindOne.mockResolvedValue(null);
+    mockCreate.mockResolvedValue({
+      id: 8,
+      entryType: 'text',
+      section: 'reservation_usage',
+      contentKey: 'home.usageTitle',
+      label: '視窗標題',
+      valueZh: '新的使用說明',
+      valueEn: 'Updated guide',
+      sortOrder: 0,
+      isActive: true,
+      updatedAt: new Date(),
+      get: () => ({
+        id: 8,
+        entryType: 'text',
+        section: 'reservation_usage',
+        contentKey: 'home.usageTitle',
+        label: '視窗標題',
+        valueZh: '新的使用說明',
+        valueEn: 'Updated guide',
+        sortOrder: 0,
+        isActive: true,
+        updatedAt: new Date(),
+      }),
+    });
+
+    const app = createApp();
+    const res = await request(app)
+      .put('/api/admin/site-content/reservation_usage/text')
+      .set('x-user-role', 'office_staff')
+      .set('x-staff-level', 'event_lead')
+      .set('x-allow-permissions', P.CAN_MANAGE_SITE_CONTENT)
+      .send({
+        contentKey: 'home.usageTitle',
+        label: '視窗標題',
+        valueZh: '新的使用說明',
+        valueEn: 'Updated guide',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.section).toBe('reservation_usage');
+    expect(res.body.contentKey).toBe('home.usageTitle');
+  });
+
+  it('rejects usage modal keys on the home section', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .put('/api/admin/site-content/home/text')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_MANAGE_SITE_CONTENT)
+      .send({ contentKey: 'home.usageTitle', valueZh: '不該寫在首頁' });
+
+    expect(res.status).toBe(400);
+  });
 });

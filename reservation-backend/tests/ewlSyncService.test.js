@@ -6,7 +6,11 @@ const {
   buildAttendanceIndex,
   defaultDateWindow,
   ACTIVITY_TYPE,
-  SOURCE_REF_PREFIX
+  SOURCE_REF_PREFIX,
+  isCancelledReservationStatus,
+  mergeDurationFields,
+  resolveSyncedAttendance,
+  planMissingCancellations
 } = require('../services/learningJourney/ewlSyncService');
 const { buildUrl, fetchAllEwlRows } = require('../services/learningJourney/ewlApiClient');
 
@@ -53,6 +57,7 @@ describe('ewlApiClient', () => {
     expect(result.totalCount).toBe(3);
     expect(result.pagesFetched).toBe(2);
     expect(result.rows).toHaveLength(3);
+    expect(result.complete).toBe(true);
     expect(calls).toHaveLength(2);
   });
 });
@@ -163,10 +168,17 @@ describe('ewlSyncService helpers', () => {
   });
 
   it('defaultDateWindow spans lookback and lookahead', () => {
-    const now = new Date(2024, 11, 15); // local 2024-12-15
+    const now = new Date(2024, 11, 15); // local 2024-12-15；不在學期表內，維持 14 天回溯
     const w = defaultDateWindow(now, 14, 60);
     expect(w.startDate).toBe('2024-12-01');
     expect(w.endDate).toBe('2025-02-13');
+  });
+
+  it('defaultDateWindow reaches the current semester start so class-credit hours stay in range', () => {
+    const now = new Date(2026, 9, 23); // 2026-10-23，115-1 自 2026-08-01
+    const w = defaultDateWindow(now, 14, 60);
+    expect(w.startDate).toBe('2026-08-01');
+    expect(w.endDate).toBe('2026-12-22');
   });
 
   it('normalizeReservationRow marks registered when no check-in', () => {
@@ -186,6 +198,137 @@ describe('ewlSyncService helpers', () => {
   it('normalizeReservationRow skips invalid rows', () => {
     expect(normalizeReservationRow({ StudentNo: 'B1' })).toBeNull();
     expect(normalizeReservationRow({ ConsultationTimeID: 1 })).toBeNull();
+  });
+
+  it('cancelled reservation status drops attendance even when a check-in exists', () => {
+    expect(isCancelledReservationStatus('已取消')).toBe(true);
+    expect(isCancelledReservationStatus('Cancelled')).toBe(true);
+    expect(isCancelledReservationStatus('申請')).toBe(false);
+    const row = normalizeReservationRow({
+      ConsultationTimeID: 9,
+      StudentNo: 'B111111111',
+      EventDate: '2026-10-22',
+      EventName: '實體一對一諮詢',
+      StartTime: '16:00:00',
+      EndTime: '17:00:00',
+      CheckInTime: '2026-10-22 16:01:00',
+      ReservationStatus: '已取消'
+    });
+    expect(row.attendanceStatus).toBe('cancelled');
+    expect(row.participatedAt).toBeNull();
+    expect(row.hours).toBe(1);
+  });
+
+  it('does not copy a check-in across two sessions on the same day', () => {
+    const index = buildAttendanceIndex([
+      {
+        StudentNo: 'B111111111',
+        EventName: '實體一對一諮詢',
+        EventDate: '2026-10-22',
+        TimePeriodName: '上午',
+        CheckInTime: '2026-10-22 10:00:00',
+        IsCheckedIn: true
+      },
+      {
+        StudentNo: 'B111111111',
+        EventName: '實體一對一諮詢',
+        EventDate: '2026-10-22',
+        TimePeriodName: '下午',
+        CheckInTime: '2026-10-22 16:00:00',
+        IsCheckedIn: true
+      }
+    ]);
+    const row = normalizeReservationRow({
+      ConsultationTimeID: 11,
+      StudentNo: 'B111111111',
+      EventName: '實體一對一諮詢',
+      EventDate: '2026-10-22',
+      TimePeriodName: '晚上',
+      StartTime: '19:00:00',
+      EndTime: '20:00:00'
+    }, index);
+    expect(row.attendanceStatus).toBe('registered');
+    expect(row.checkInTime).toBeNull();
+  });
+
+  it('keeps a single same-day check-in when the time-period label differs', () => {
+    const index = buildAttendanceIndex([
+      {
+        StudentNo: 'B111111111',
+        EventName: '工作坊',
+        EventDate: '2026-10-22',
+        TimePeriodName: '工作坊時段',
+        CheckInTime: '2026-10-22 18:05:00',
+        IsCheckedIn: true
+      }
+    ]);
+    const row = normalizeReservationRow({
+      ConsultationTimeID: 12,
+      StudentNo: 'B111111111',
+      EventName: '工作坊',
+      EventDate: '2026-10-22',
+      TimePeriodName: '晚間場',
+      StartTime: '18:00:00',
+      EndTime: '21:00:00'
+    }, index);
+    expect(row.attendanceStatus).toBe('attended');
+    expect(row.hours).toBe(3);
+  });
+
+  it('mergeDurationFields keeps prior hours when the new payload has no times', () => {
+    const merged = mergeDurationFields(
+      { startTime: '16:00:00', endTime: '17:30:00', hours: 1.5 },
+      { startTime: null, endTime: null, hours: null }
+    );
+    expect(merged).toEqual({ startTime: '16:00:00', endTime: '17:30:00', hours: 1.5 });
+  });
+
+  it('resolveSyncedAttendance keeps attended hours when the check-in feed failed', () => {
+    const kept = resolveSyncedAttendance(
+      { attendanceStatus: 'registered', participatedAt: null },
+      { attendanceStatus: 'attended', participatedAt: new Date('2026-10-22T08:00:00Z') },
+      false
+    );
+    expect(kept.attendanceStatus).toBe('attended');
+    const cleared = resolveSyncedAttendance(
+      { attendanceStatus: 'cancelled', participatedAt: null },
+      { attendanceStatus: 'attended', participatedAt: new Date('2026-10-22T08:00:00Z') },
+      false
+    );
+    expect(cleared.attendanceStatus).toBe('cancelled');
+    expect(cleared.participatedAt).toBeNull();
+  });
+
+  it('planMissingCancellations withdraws in-window rows the workshop no longer returns', () => {
+    const rows = [
+      {
+        sourceRef: 'ewl_api:1',
+        attendanceStatus: 'attended',
+        metaJson: { eventDate: '2026-10-20', hours: 1 }
+      },
+      {
+        sourceRef: 'ewl_api:2',
+        attendanceStatus: 'attended',
+        metaJson: { eventDate: '2026-10-21', syncManualLock: true }
+      },
+      {
+        sourceRef: 'ewl_api:3',
+        attendanceStatus: 'cancelled',
+        metaJson: { eventDate: '2026-10-21' }
+      },
+      {
+        sourceRef: 'ewl_api:4',
+        attendanceStatus: 'attended',
+        metaJson: { eventDate: '2026-05-01' }
+      }
+    ];
+    const planned = planMissingCancellations(
+      rows,
+      new Set(['ewl_api:9']),
+      '2026-08-01',
+      '2026-12-22'
+    );
+    expect(planned.map((row) => row.sourceRef)).toEqual(['ewl_api:1']);
   });
 
   it('ACTIVITY_TYPE is EWL', () => {

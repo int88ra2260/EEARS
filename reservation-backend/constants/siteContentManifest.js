@@ -4,7 +4,24 @@
 const SITE_CONTENT_SECTIONS = Object.freeze({
   home: {
     label: '首頁',
-    prefixes: ['homePage.', 'home.notice', 'home.rule', 'home.usage'],
+    prefixes: ['homePage.', 'home.notice', 'home.ruleUpdate', 'home.ruleNoWalkIn'],
+  },
+  reservation_usage: {
+    label: '預約使用說明',
+    prefixes: [],
+    exactKeys: [
+      'home.usageTitle',
+      'home.usageRule',
+      'home.ruleNoStamp',
+      'home.usageBlacklist',
+      'home.usageViolations',
+      'home.usageV1',
+      'home.usageV2',
+      'home.usageV3',
+      'home.usageCancel',
+      'home.usageButtonPrimary',
+      'home.usageButtonSecondary',
+    ],
   },
   english_test_registration: {
     label: '英檢註冊比對訊息',

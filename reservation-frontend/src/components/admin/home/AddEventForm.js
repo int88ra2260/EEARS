@@ -4,7 +4,14 @@ import Time24Input from './Time24Input';
 import LocationSelectField from '../LocationSelectField';
 import ErrorAlert from '../shared/ErrorAlert';
 import { getDefaultCapacityFields } from '../../../utils/eventCapacityFields';
-import { getEventTypeSelectOptions } from '../../../constants/eventTypeCatalog';
+import {
+  CAPACITY_MODES,
+  getDefaultTypeConfig,
+  getEventTypeSelectOptions,
+  isOtherEventType,
+} from '../../../constants/eventTypeCatalog';
+import { DEFAULT_OTHER_OPEN_RULE_FIELDS } from '../../../utils/otherEventForm';
+import OtherEventOpenRuleFields, { StudentHiddenField } from './OtherEventOpenRuleFields';
 
 /**
  * @param {Object} props
@@ -35,17 +42,36 @@ export default function AddEventForm({
     ? resolveTypeConfig(fields.eventType)
     : null;
 
+  const isOther = isOtherEventType(fields.eventType);
+  const otherConfig = isOther
+    ? (typeConfig || getDefaultTypeConfig('other'))
+    : null;
+
   const setField = (key, value) => {
     if (key === 'eventType') {
       const cfg = typeof resolveTypeConfig === 'function' ? resolveTypeConfig(value) : null;
+      const becomingOther = isOtherEventType(value);
       onFieldsChange({
         ...fields,
         eventType: value,
-        ...getDefaultCapacityFields(value, cfg),
+        ...(becomingOther ? DEFAULT_OTHER_OPEN_RULE_FIELDS : { capacityMode: undefined }),
+        ...getDefaultCapacityFields(
+          value,
+          cfg,
+          becomingOther ? CAPACITY_MODES.SIMPLE : undefined,
+        ),
       });
       return;
     }
     onFieldsChange({ ...fields, [key]: value });
+  };
+
+  const handleCapacityModeChange = (mode) => {
+    onFieldsChange({
+      ...fields,
+      capacityMode: mode,
+      ...getDefaultCapacityFields(fields.eventType, typeConfig, mode),
+    });
   };
 
   const handleCapacityChange = (nextFields) => {
@@ -80,9 +106,29 @@ export default function AddEventForm({
               ))}
             </select>
           </div>
+          {isOther && (
+            <div className="col-md-2">
+              <label className="form-label">名額方式 *</label>
+              <select
+                className="form-control"
+                value={fields.capacityMode === CAPACITY_MODES.GROUPED ? CAPACITY_MODES.GROUPED : CAPACITY_MODES.SIMPLE}
+                onChange={(e) => handleCapacityModeChange(e.target.value)}
+              >
+                <option value={CAPACITY_MODES.SIMPLE}>總人數</option>
+                <option value={CAPACITY_MODES.GROUPED}>分組</option>
+              </select>
+            </div>
+          )}
           <EventCapacityFields
             eventType={fields.eventType}
-            typeConfig={typeConfig}
+            typeConfig={isOther
+              ? {
+                ...(otherConfig || {}),
+                capacityMode: fields.capacityMode === CAPACITY_MODES.GROUPED
+                  ? CAPACITY_MODES.GROUPED
+                  : CAPACITY_MODES.SIMPLE,
+              }
+              : typeConfig}
             fields={fields}
             onFieldsChange={handleCapacityChange}
             layout="inline"
@@ -131,7 +177,7 @@ export default function AddEventForm({
             <label className="form-label">備註</label>
             <input
               className="form-control"
-              placeholder="實踐歷程檔案"
+              placeholder="選填"
               maxLength={255}
               value={fields.notes ?? ''}
               onChange={(e) => setField('notes', e.target.value)}
@@ -145,31 +191,18 @@ export default function AddEventForm({
           </div>
         </div>
 
-        {fields.eventType === '其他' && (
-          <div className="row g-2 mb-2">
-            <div className="col-md-4">
-              <label className="form-label">自定義活動類型名稱 *</label>
-              <input
-                className="form-control"
-                placeholder="請輸入活動類型名稱"
-                required
-                value={fields.customEventType}
-                onChange={(e) => setField('customEventType', e.target.value)}
-              />
-            </div>
-            <div className="col-md-8">
-              <label className="form-label">預約開始時間規則 *</label>
-              <input
-                className="form-control"
-                placeholder="例：活動開始前兩天的下午3點、這個禮拜二的早上9點等"
-                required
-                value={fields.customReservationRule}
-                onChange={(e) => setField('customReservationRule', e.target.value)}
-              />
-              <small className="text-muted">注意：自定義活動類型將使用 English Table 的預約時間邏輯（前一天 12:00 開始）</small>
-            </div>
-          </div>
+        {isOther && (
+          <OtherEventOpenRuleFields
+            fields={fields}
+            onChange={onFieldsChange}
+            cutoffHours={Number(otherConfig?.cutoffHours) || 2}
+          />
         )}
+        <StudentHiddenField
+          id="add-event-hidden-from-students"
+          checked={fields.hiddenFromStudents}
+          onChange={(checked) => setField('hiddenFromStudents', checked)}
+        />
 
         {error && <ErrorAlert error={error} />}
       </form>

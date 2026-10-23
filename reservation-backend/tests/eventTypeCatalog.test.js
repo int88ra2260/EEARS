@@ -47,6 +47,22 @@ describe('event types catalog + reservation time rules', () => {
   it('survey gate follows type flag', () => {
     expect(eventTypeService.isSurveyGateEnabledForType('english_table')).toBe(true);
     expect(eventTypeService.isSurveyGateEnabledForType('job_talk')).toBe(false);
+    expect(eventTypeService.isSurveyGateEnabledForType('other')).toBe(false);
+  });
+
+  it('other events use their own open rule and stay ungrouped by default', () => {
+    expect(eventTypeService.resolveTypeConfigSync('其他').code).toBe('other');
+    expect(eventTypeService.isGroupedCapacityMode('other')).toBe(false);
+    const event = {
+      eventType: 'other',
+      date: '2026-03-10',
+      startTime: '14:00',
+      openRule: { type: 'days_before', days: 3, hour: 9, minute: 30 },
+    };
+    const { openStart, openEnd, cutoffHours } = calculateReservationTime(event);
+    expect(cutoffHours).toBe(2);
+    expect(openStart.format('YYYY-MM-DD HH:mm')).toBe('2026-03-07 09:30');
+    expect(openEnd.format('YYYY-MM-DD HH:mm')).toBe('2026-03-10 12:00');
   });
 
   it('maps event type to dynamic scope code', () => {

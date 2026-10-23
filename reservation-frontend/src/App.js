@@ -121,6 +121,7 @@ const StudentProgressPage = lazy(() => import('./pages/student/StudentProgressPa
 const SpeakingPortfolioPage = lazy(() => import('./pages/student/SpeakingPortfolioPage'));
 const ClassCreditAllocationPage = lazy(() => import('./pages/student/ClassCreditAllocationPage'));
 const StudentLoginPage = lazy(() => import('./pages/student/StudentLoginPage'));
+const StudentForgotPasswordPage = lazy(() => import('./pages/student/StudentForgotPasswordPage'));
 const StudentRegisterPage = lazy(() => import('./pages/student/StudentRegisterPage'));
 const StudentAccountPage = lazy(() => import('./pages/student/StudentAccountPage'));
 const EnglishLearningPassportSubmissionPage = lazy(() => import('./pages/student/EnglishLearningPassportSubmissionPage'));
@@ -659,6 +660,7 @@ function AppContent() {
             <Route path="/register/english-test/group/status/:teamId" element={<LearningPartnerStatusPage />} />
             <Route path="/register/english-test/group/approve" element={<LearningPartnerApprovePage />} />
             <Route path="/student/login" element={<StudentLoginPage />} />
+            <Route path="/student/forgot-password" element={<StudentForgotPasswordPage />} />
             <Route path="/student/register" element={<StudentRegisterPage />} />
             <Route path="/student/account" element={<RequireStudentAuth><StudentAccountPage /></RequireStudentAuth>} />
             <Route path="/student/progress" element={<RequireStudentAuth><StudentProgressPage /></RequireStudentAuth>} />

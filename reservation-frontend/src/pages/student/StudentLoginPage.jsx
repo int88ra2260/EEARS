@@ -13,6 +13,12 @@ export default function StudentLoginPage() {
   const [params] = useSearchParams();
   const session = useStudentSession();
   const next = safeStudentNext(params.get('next') || '/my-reservations');
+  const notice = params.get('notice');
+  const noticeText = notice === 'password-reset'
+    ? '密碼已更新，請用新密碼登入'
+    : notice === 'password-updated'
+      ? '密碼已更新，請重新登入'
+      : '';
 
   if (session) {
     return <Navigate to={next} replace />;
@@ -44,6 +50,7 @@ export default function StudentLoginPage() {
         <p className="text-muted small">
           登入後可以預約，以及查看我的紀錄、口說紀錄、課堂加分配置與培力報名。
         </p>
+        {noticeText ? <p className="text-success small">{noticeText}</p> : null}
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
             <label className="form-label" htmlFor="student-login-id">學號</label>
@@ -74,6 +81,9 @@ export default function StudentLoginPage() {
         </form>
         {error ? <p className="text-danger mt-3 mb-0">{error}</p> : null}
         <p className="small mt-3 mb-0">
+          <Link to={`/student/forgot-password?next=${encodeURIComponent(next)}`}>忘記密碼</Link>
+        </p>
+        <p className="small mt-2 mb-0">
           還沒有帳號？
           {' '}
           <Link to={`/student/register?next=${encodeURIComponent(next)}`}>建立帳號</Link>

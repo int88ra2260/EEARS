@@ -24,6 +24,20 @@ function resolveCutoffHours(typeConfig) {
   return RESERVATION_CUTOFF_HOURS;
 }
 
+function readEventOpenRule(event) {
+  const raw = event?.openRule;
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return typeof raw === 'object' ? raw : null;
+}
+
 function computeOpenStart(eventStart, openRule) {
   const rule = openRule && typeof openRule === 'object' ? openRule : {};
   const type = String(rule.type || OPEN_RULE_TYPES.DAY_BEFORE);
@@ -57,7 +71,8 @@ export function calculateReservationTime(event, typeConfig) {
     || fromCache
     || getDefaultTypeConfig(event?.eventType || DEFAULT_EVENT_TYPE_CODE);
   const cutoffHours = resolveCutoffHours(cfg);
-  const openStart = computeOpenStart(eventStart, cfg.openRule);
+  const eventRule = readEventOpenRule(event);
+  const openStart = computeOpenStart(eventStart, eventRule?.type ? eventRule : cfg.openRule);
   const openEnd = eventStart.subtract(cutoffHours, 'hour');
   return { openStart, openEnd, cutoffHours, typeConfig: cfg };
 }

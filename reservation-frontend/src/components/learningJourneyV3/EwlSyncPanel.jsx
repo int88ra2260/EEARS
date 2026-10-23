@@ -102,7 +102,7 @@ export default function EwlSyncPanel({ token, onSyncSuccess }) {
             <p className="lj-import-block__desc">
               從英文寫作工坊 ReservationInfo／AttendanceInfo 拉取預約與簽到，寫入學習歷程活動參與（類型 EWL）。
               活動日一律取 <strong>EventDate</strong>（活動舉辦日），報名日 ReservationDate 另存、不當作活動日。
-              寫入後會自動背景重建受影響學生的時間軸。系統每天 06:00（台北時間）會自動同步「過去 14 天～未來 60 天」。日期留空的手動同步用同一段窗口；補歷史資料請明確填日期區間。建議先預覽再寫入。
+              寫入後會自動背景重建受影響學生的時間軸。系統每天 06:00（台北時間）會自動同步「本學期開始～未來 60 天」。日期留空的手動同步用同一段窗口；補歷史資料請明確填日期區間。已取消或本次名單中消失的場次會改為取消，不再計入課堂時數。建議先預覽再寫入。
             </p>
           </div>
         </div>
@@ -180,6 +180,7 @@ export default function EwlSyncPanel({ token, onSyncSuccess }) {
               <li>API 拉取：{result.fetched ?? 0} 筆（回報總數 {result.reportedTotalCount ?? '—'}）</li>
               <li>新增：{result.inserted ?? 0}</li>
               <li>更新：{result.updated ?? 0}</li>
+              <li>撤回時數（取消或不在本次名單）：{result.reconciled ?? 0}</li>
               <li>略過：{result.skipped ?? 0}</li>
               <li>錯誤：{result.errorCount ?? 0}</li>
               <li>分頁次數：{result.pagesFetched ?? '—'}</li>

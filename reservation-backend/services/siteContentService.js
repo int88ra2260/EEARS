@@ -249,8 +249,14 @@ async function listAdmin({ section }) {
     throw err;
   }
 
+  const sectionCfg = SITE_CONTENT_SECTIONS[section];
+  const exactKeys = sectionCfg.exactKeys || [];
+  const prefixes = sectionCfg.prefixes || [];
+  const exactOnly = exactKeys.length > 0 && prefixes.length === 0;
   const rows = await SiteContentEntry.findAll({
-    where: { entryType: ENTRY_TEXT, section },
+    where: exactOnly
+      ? { entryType: ENTRY_TEXT, contentKey: { [Op.in]: exactKeys } }
+      : { entryType: ENTRY_TEXT, section },
     order: [['contentKey', 'ASC']],
   });
 

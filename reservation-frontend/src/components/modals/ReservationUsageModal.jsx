@@ -1,16 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import useMediaQuery from '../../hooks/useMediaQuery';
-import { useLanguage } from '../../context/LanguageContext';
+import ContentText from '../siteContent/ContentText';
 
-export default function ReservationUsageModal({ show, onClose }) {
+export default function ReservationUsageModal({ show, onClose, embedded = false }) {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const isSmallMobile = useMediaQuery('(max-width: 576px)');
-  const { t } = useLanguage();
   const dialogRef = useRef(null);
   const buttonRef = useRef(null);
 
   useEffect(() => {
-    if (!show) return undefined;
+    if (!show || embedded) return undefined;
     const prevActive = document.activeElement;
     buttonRef.current?.focus();
     const onKeyDown = (e) => {
@@ -38,14 +37,22 @@ export default function ReservationUsageModal({ show, onClose }) {
       document.removeEventListener('keydown', onKeyDown);
       if (typeof prevActive?.focus === 'function') prevActive.focus();
     };
-  }, [show, onClose]);
+  }, [show, onClose, embedded]);
 
   if (!show) return null;
 
   return (
     <div
       className="modal-backdrop d-flex justify-content-center align-items-center"
-      style={{
+      style={embedded ? {
+        position: 'relative',
+        width: '100%',
+        minHeight: '32rem',
+        backgroundColor: 'rgba(0, 0, 0, 0.35)',
+        zIndex: 1,
+        padding: '1.5rem 1rem',
+        borderRadius: '8px',
+      } : {
         position: 'fixed',
         top: 0,
         left: 0,
@@ -80,7 +87,7 @@ export default function ReservationUsageModal({ show, onClose }) {
             flexShrink: 0,
           }}
         >
-          {t('home.usageTitle')}
+          <ContentText k="home.usageTitle" />
         </h2>
 
         <div
@@ -103,11 +110,12 @@ export default function ReservationUsageModal({ show, onClose }) {
             }}
           >
             <i className="fas fa-info-circle me-2" />
-            <strong>📋 {t('home.usageRule')}</strong>
+            <strong>📋 <ContentText k="home.usageRule" /></strong>
             <br />
-            <span style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}>
-              {t('home.ruleNoStamp')}
-            </span>
+            <ContentText
+              k="home.ruleNoStamp"
+              style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
+            />
           </div>
 
           <ul className="list-unstyled" style={{ margin: 0 }}>
@@ -116,41 +124,56 @@ export default function ReservationUsageModal({ show, onClose }) {
               style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
             >
               <span style={{ fontWeight: 'bold' }}>
-                {t('home.usageBlacklist')}
+                <ContentText k="home.usageBlacklist" />
                 <br />
-                {t('home.usageViolations')}
+                <ContentText k="home.usageViolations" />
                 <br />
-                - {t('home.usageV1')}
+                - <ContentText k="home.usageV1" />
                 <br />
-                - {t('home.usageV2')}
+                - <ContentText k="home.usageV2" />
                 <br />
-                - {t('home.usageV3')}
+                - <ContentText k="home.usageV3" />
               </span>
             </li>
             <li
               className="mb-3"
               style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
             >
-              <span style={{ fontWeight: 'bold' }}>{t('home.usageCancel')}</span>
+              <ContentText k="home.usageCancel" style={{ fontWeight: 'bold' }} />
             </li>
           </ul>
         </div>
 
-        <button
-          ref={buttonRef}
-          type="button"
-          className="btn btn-primary w-100"
-          onClick={onClose}
-          style={{
-            fontWeight: 'bold',
-            fontSize: isSmallMobile ? '0.875rem' : isMobile ? '0.938rem' : 'clamp(0.938rem, 3.5vw, 1.063rem)',
-            padding: isSmallMobile ? '0.5rem' : '0.625rem',
-            flexShrink: 0,
-            borderRadius: '8px',
-          }}
-        >
-          {t('home.gotIt')} {t('home.noted')}
-        </button>
+        {embedded ? (
+          <div
+            className="btn btn-primary w-100"
+            style={{
+              fontWeight: 'bold',
+              fontSize: isSmallMobile ? '0.875rem' : isMobile ? '0.938rem' : 'clamp(0.938rem, 3.5vw, 1.063rem)',
+              padding: isSmallMobile ? '0.5rem' : '0.625rem',
+              flexShrink: 0,
+              borderRadius: '8px',
+            }}
+          >
+            <ContentText k="home.usageButtonPrimary" /> <ContentText k="home.usageButtonSecondary" />
+          </div>
+        ) : (
+          <button
+            ref={buttonRef}
+            type="button"
+            className="btn btn-primary w-100"
+            onClick={onClose}
+            style={{
+              fontWeight: 'bold',
+              fontSize: isSmallMobile ? '0.875rem' : isMobile ? '0.938rem' : 'clamp(0.938rem, 3.5vw, 1.063rem)',
+              padding: isSmallMobile ? '0.5rem' : '0.625rem',
+              flexShrink: 0,
+              borderRadius: '8px',
+            }}
+          >
+            <ContentText k="home.usageButtonPrimary" /> <ContentText k="home.usageButtonSecondary" />
+          </button>
+        )}
       </div>
     </div>
   );

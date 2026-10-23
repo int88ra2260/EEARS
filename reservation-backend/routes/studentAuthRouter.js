@@ -5,12 +5,16 @@ const {
   changePassword,
   toPublicAccount,
   signStudentToken,
+  normalizeStudentId,
 } = require('../services/studentAuthService');
 const studentAccountEmailVerificationService = require('../services/studentAccountEmailVerificationService');
+const studentPasswordResetService = require('../services/studentPasswordResetService');
 const emailLogService = require('../services/emailLogService');
+const auditLogService = require('../services/auditLogService');
 const logger = require('../utils/logger');
 const { studentAuthMiddleware } = require('../middlewares/studentAuth');
 const { createSimpleRateLimit } = require('../middlewares/publicAccessGuard');
+const { validateStudentId } = require('../utils/validators');
 
 const router = express.Router();
 
@@ -21,6 +25,28 @@ const emailCodeSendRateLimit = createSimpleRateLimit({
   keyFn: (req, ip) => {
     const email = studentAccountEmailVerificationService.normalizeEmail(req.body?.email);
     return email ? `student-otp-send:${email}` : `student-otp-send-ip:${ip}`;
+  },
+});
+
+const RESET_SENT_MESSAGE = '若此學號已有可登入的帳號，驗證碼已寄到註冊信箱。請到信箱查收，也看一下垃圾信件匣。';
+
+const passwordResetSendRateLimit = createSimpleRateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: '重設密碼請求過多，請稍後再試',
+  keyFn: (req, ip) => {
+    const studentId = normalizeStudentId(req.body?.studentId);
+    return studentId ? `student-reset-send:${studentId}` : `student-reset-send-ip:${ip}`;
+  },
+});
+
+const passwordResetConfirmRateLimit = createSimpleRateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  message: '重設密碼嘗試次數過多，請稍後再試',
+  keyFn: (req, ip) => {
+    const studentId = normalizeStudentId(req.body?.studentId);
+    return studentId ? `student-reset-confirm:${studentId}` : `student-reset-confirm-ip:${ip}`;
   },
 });
 
@@ -158,6 +184,88 @@ router.post('/login', async (req, res) => {
       token: signStudentToken(account),
       student: toPublicAccount(account),
     });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+async function deliverPasswordResetCode(req, prepared) {
+  await emailLogService.sendEmailWithLog(
+    'studentAccountPasswordReset',
+    {
+      email: prepared.email,
+      code: prepared.code,
+      studentId: prepared.studentId,
+      expiresInMinutes: Math.floor(prepared.expiresInSec / 60),
+    },
+    {
+      requestId: req.requestId || `student-reset:${Date.now()}`,
+      relatedEntityType: 'StudentAccount',
+      relatedEntityId: prepared.studentAccountId,
+    },
+  );
+}
+
+router.post('/password-reset/send', passwordResetSendRateLimit, async (req, res) => {
+  try {
+    const studentId = normalizeStudentId(req.body?.studentId);
+    if (!studentId) {
+      return res.status(400).json({
+        success: false,
+        code: 'MISSING_STUDENT_ID',
+        message: '請輸入學號',
+      });
+    }
+    if (!validateStudentId(studentId)) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_STUDENT_ID',
+        message: '學號格式不正確',
+      });
+    }
+    const prepared = await studentPasswordResetService.prepareResetByStudentId(studentId);
+    if (prepared) {
+      try {
+        await deliverPasswordResetCode(req, prepared);
+      } catch (mailErr) {
+        logger.error('寄送學生密碼重設驗證碼失敗', mailErr);
+        try {
+          await studentPasswordResetService.invalidateActiveResetCodes(prepared.studentAccountId);
+        } catch (_) { /* ignore */ }
+      }
+    }
+    return res.json({ success: true, message: RESET_SENT_MESSAGE });
+  } catch (error) {
+    if ((error.status || 500) >= 500) logger.error('建立學生密碼重設驗證碼失敗', error);
+    return sendError(res, error);
+  }
+});
+
+router.post('/password-reset/confirm', passwordResetConfirmRateLimit, async (req, res) => {
+  try {
+    const { studentId, code, newPassword, newPasswordConfirm } = req.body || {};
+    if (!newPassword || newPassword !== newPasswordConfirm) {
+      return res.status(400).json({
+        success: false,
+        code: 'PASSWORD_MISMATCH',
+        message: '兩次輸入的新密碼不一致',
+      });
+    }
+    const account = await studentPasswordResetService.confirmReset({
+      studentId,
+      code,
+      newPassword,
+    });
+    auditLogService.logAuditAsync({
+      module: 'accounts',
+      action: 'student_password_reset_completed',
+      entityType: 'StudentAccount',
+      entityId: account.id,
+      targetSummary: `studentAccountId=${account.id}`,
+      afterData: { channel: 'email' },
+      req,
+    });
+    return res.json({ success: true, message: '密碼已更新，請用新密碼登入' });
   } catch (error) {
     return sendError(res, error);
   }

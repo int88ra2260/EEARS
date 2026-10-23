@@ -22,6 +22,7 @@ const {
 const loginRouter = require('./routes/loginRouter');
 const studentAuthRouter = require('./routes/studentAuthRouter');
 const studentAccountReviewRouter = require('./routes/studentAccountReviewRouter');
+const studentAccountAdminRouter = require('./routes/studentAccountAdminRouter');
 const eventRouter = require('./routes/eventRouter');
 const eventTypeRouter = require('./routes/eventTypeRouter');
 const reservationRouter = require('./routes/reservationRouter');
@@ -110,6 +111,7 @@ app.use('/api/internal', internalDiagnosticsRouter);
 app.use('/api', loginRouter);
 app.use('/api/student-auth', studentAuthRouter);
 app.use('/api/admin/student-account-reviews', studentAccountReviewRouter);
+app.use('/api/admin/student-accounts', studentAccountAdminRouter);
 app.use('/api', eventTypeRouter);
 app.use('/api', eventRouter);
 app.use('/api', reservationRouter);
@@ -333,7 +335,7 @@ sequelize.authenticate()
 
       // 每日 23:59:59 自動執行活動結束檢查
       startEventAutoCheckScheduler(logger);
-      // 每日同步寫作工坊預約與簽到（預設 06:00，過去 14 天～未來 60 天）
+      // 每日同步寫作工坊預約與簽到（預設 06:00，本學期開始～未來 60 天）
       startEwlDailySyncScheduler(logger);
       // 每日資料庫備份（預設 02:00，scripts/backup-db.bat）
       startBackupDailyScheduler(logger);

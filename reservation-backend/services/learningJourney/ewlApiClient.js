@@ -88,7 +88,11 @@ async function fetchAllEwlRows(endpoint, query, opts = {}) {
     if (!next.needsPagination && (!next.data || next.data.length === 0)) break;
   }
 
-  return { rows, totalCount, pagesFetched };
+  const complete = totalPages <= MAX_PAGES
+    && pagesFetched >= totalPages
+    && (totalCount > 0 ? rows.length >= totalCount : rows.length === 0);
+
+  return { rows, totalCount, pagesFetched, complete };
 }
 
 async function fetchReservationInfo(query, opts = {}) {

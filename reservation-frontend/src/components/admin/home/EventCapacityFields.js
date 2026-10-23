@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  isGroupedCapacityEventType,
+  resolveIsGrouped,
   applyCapacityFieldChange,
   computeTotalCapacity,
 } from '../../../utils/eventCapacityFields';
@@ -20,7 +20,10 @@ export default function EventCapacityFields({
   size = 'default',
   layout = 'inline',
 }) {
-  const isGrouped = isGroupedCapacityEventType(eventType, typeConfig);
+  const isGrouped = resolveIsGrouped(eventType, typeConfig, fields.capacityMode);
+  const maxSimple = typeConfig?.maxCapacityCap || 100;
+  const maxGroups = typeConfig?.maxGroupCount || 20;
+  const maxPerGroup = typeConfig?.maxPerGroup || 30;
   const total = isGrouped
     ? computeTotalCapacity(fields.groupCount, fields.perGroupCapacity)
     : fields.maxParticipants;
@@ -40,7 +43,7 @@ export default function EventCapacityFields({
           type="number"
           className={inputClass}
           min="1"
-          max="100"
+          max={maxSimple}
           placeholder="30"
           style={{ minWidth: '4rem' }}
           value={displayNumberValue(fields.maxParticipants)}
@@ -57,7 +60,7 @@ export default function EventCapacityFields({
             type="number"
             className={inputClass}
             min="1"
-            max="100"
+            max={maxSimple}
             title="總人數"
             placeholder="30"
             value={displayNumberValue(fields.maxParticipants)}
@@ -75,7 +78,7 @@ export default function EventCapacityFields({
           type="number"
           className={inputClass}
           min="1"
-          max="100"
+          max={maxSimple}
           placeholder="30"
           value={displayNumberValue(fields.maxParticipants)}
           onChange={(e) => setCapacityField('maxParticipants', e.target.value === '' ? '' : e.target.value)}
@@ -93,7 +96,7 @@ export default function EventCapacityFields({
             type="number"
             className={inputClass}
             min="1"
-            max="20"
+            max={maxGroups}
             title="組數"
             value={displayNumberValue(fields.groupCount)}
             onChange={(e) => setCapacityField('groupCount', e.target.value)}
@@ -106,7 +109,7 @@ export default function EventCapacityFields({
             type="number"
             className={inputClass}
             min="1"
-            max="30"
+            max={maxPerGroup}
             title="每組人數"
             value={displayNumberValue(fields.perGroupCapacity)}
             onChange={(e) => setCapacityField('perGroupCapacity', e.target.value)}
@@ -135,7 +138,7 @@ export default function EventCapacityFields({
           type="number"
           className={inputClass}
           min="1"
-          max="20"
+          max={maxGroups}
           title="組數"
           placeholder="組"
           style={compactInputStyle}
@@ -147,7 +150,7 @@ export default function EventCapacityFields({
           type="number"
           className={inputClass}
           min="1"
-          max="30"
+          max={maxPerGroup}
           title="每組人數"
           placeholder="人"
           style={compactInputStyle}
@@ -179,7 +182,7 @@ export default function EventCapacityFields({
           type="number"
           className={inputClass}
           min="1"
-          max="20"
+          max={maxGroups}
           value={displayNumberValue(fields.groupCount)}
           onChange={(e) => setCapacityField('groupCount', e.target.value)}
         />
@@ -190,7 +193,7 @@ export default function EventCapacityFields({
           type="number"
           className={inputClass}
           min="1"
-          max="30"
+          max={maxPerGroup}
           value={displayNumberValue(fields.perGroupCapacity)}
           onChange={(e) => setCapacityField('perGroupCapacity', e.target.value)}
         />

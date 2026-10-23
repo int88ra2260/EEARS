@@ -49,7 +49,26 @@ const Event = sequelize.define('Event', {
   customReservationRule: {
     type: DataTypes.TEXT,
     allowNull: true,
-    comment: '自定義活動類型的預約時間規則說明'
+    comment: '舊版自訂類型的預約時間規則說明（新活動改存 openRule）'
+  },
+  openRule: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    field: 'open_rule',
+    comment: '單場預約開放規則；有值時覆寫活動類型 openRule',
+  },
+  capacityMode: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    field: 'capacity_mode',
+    comment: 'other 類型可選 simple | grouped；其他類型為 null，沿用類型設定',
+  },
+  hiddenFromStudents: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    field: 'hidden_from_students',
+    comment: '學生端前台不列出、不可預約',
   },
   location: {
     type: DataTypes.STRING(255),
@@ -59,8 +78,8 @@ const Event = sequelize.define('Event', {
   notes: {
     type: DataTypes.STRING(255),
     allowNull: true,
-    defaultValue: '實踐歷程檔案',
-    comment: '活動備註（預設：實踐歷程檔案）'
+    defaultValue: null,
+    comment: '活動備註'
   },
   autoCheckCompleted: {
     type: DataTypes.BOOLEAN,

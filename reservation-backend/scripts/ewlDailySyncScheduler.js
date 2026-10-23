@@ -101,6 +101,7 @@ async function runScheduledEwlSync(logger) {
         inserted: result.inserted,
         updated: result.updated,
         skipped: result.skipped,
+        reconciled: result.reconciled || 0,
         errorCount: result.errorCount,
         affectedStudentCount: result.affectedStudentCount || 0,
       },
@@ -108,7 +109,8 @@ async function runScheduledEwlSync(logger) {
     logger.info(
       `[ewl-daily-sync] 完成 ${result.startDate}～${result.endDate}`
       + ` fetched=${result.fetched} inserted=${result.inserted}`
-      + ` updated=${result.updated} errors=${result.errorCount}`
+      + ` updated=${result.updated} reconciled=${result.reconciled || 0}`
+      + ` errors=${result.errorCount}`
     );
     return { skipped: false, result };
   } catch (error) {
@@ -157,7 +159,7 @@ function startEwlDailySyncScheduler(logger) {
     }, delay);
   };
 
-  logger.info(`[ewl-daily-sync] 每日 ${label} (${TZ}) 同步排程已啟動（過去 14 天～未來 60 天）`);
+  logger.info(`[ewl-daily-sync] 每日 ${label} (${TZ}) 同步排程已啟動（本學期開始～未來 60 天）`);
   scheduleNext();
 
   if (process.env.NODE_ENV === 'production') {

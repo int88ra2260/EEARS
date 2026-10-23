@@ -7,6 +7,13 @@ function isStudentAccessToken(decoded) {
   return Boolean(decoded && decoded.typ === TOKEN_TYP);
 }
 
+function sessionPredatesPasswordChange(decoded, account) {
+  if (!account?.passwordChangedAt || decoded?.iat == null) return false;
+  const changedAtSec = Math.floor(new Date(account.passwordChangedAt).getTime() / 1000);
+  if (!Number.isFinite(changedAtSec)) return false;
+  return Number(decoded.iat) < changedAtSec;
+}
+
 function unauthorized(res, code = 'STUDENT_AUTH_REQUIRED', message = '請先登入學生帳號') {
   return res.status(401).json({ success: false, code, message });
 }
@@ -26,6 +33,9 @@ function studentAuthMiddleware(req, res, next) {
       const account = await StudentAccount.findByPk(decoded.id);
       if (!account || account.status !== 'active' || account.studentId !== decoded.studentId) {
         return unauthorized(res);
+      }
+      if (sessionPredatesPasswordChange(decoded, account)) {
+        return unauthorized(res, 'TOKEN_EXPIRED', '密碼已更新，請重新登入');
       }
       req.studentAccount = account;
       return next();

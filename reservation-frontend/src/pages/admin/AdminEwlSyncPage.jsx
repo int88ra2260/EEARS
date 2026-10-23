@@ -64,7 +64,7 @@ export default function AdminEwlSyncPage() {
           <span className="lj-import-guide__step">說明</span>
           <p className="lj-import-guide__text mb-0">
             日期篩選依 EWL「活動／預約日期」，不是報名時間。日常同步建議涵蓋未來數週，避免漏掉已報名但尚未舉辦的時段。
-            同一筆以 ConsultationTimeID 去重，重複執行會更新既有紀錄。
+            同一筆以 ConsultationTimeID 去重，重複執行會更新既有紀錄。狀態為取消，或同步窗內已不在名單上的場次，會改為取消並自課堂時數扣除。
           </p>
         </div>
       </div>

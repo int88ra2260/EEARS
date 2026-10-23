@@ -20,6 +20,7 @@ const Teacher = require('./Teacher');
 const StudentAccount = require('./StudentAccount');
 const StudentAccountEmailVerification = require('./StudentAccountEmailVerification');
 const StudentAccountReview = require('./StudentAccountReview');
+const StudentAccountPasswordReset = require('./StudentAccountPasswordReset');
 const ClassTeacher = require('./ClassTeacher');
 const EnglishTestRegistration = require('./EnglishTestRegistration');
 const EnglishTestEmailVerification = require('./EnglishTestEmailVerification');
@@ -415,6 +416,7 @@ module.exports = {
   StudentAccount,
   StudentAccountEmailVerification,
   StudentAccountReview,
+  StudentAccountPasswordReset,
   ClassTeacher,
   EnglishTestRegistration,
   EnglishTestEmailVerification,

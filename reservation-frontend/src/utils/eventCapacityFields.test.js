@@ -2,9 +2,11 @@ import {
   applyCapacityFieldChange,
   getDefaultCapacityFields,
   computeTotalCapacity,
+  validateCapacityFields,
   DEFAULT_ET_GROUP_COUNT,
   DEFAULT_ET_PER_GROUP_CAPACITY,
 } from './eventCapacityFields';
+import { CAPACITY_MODES } from '../constants/eventTypeCatalog';
 
 describe('applyCapacityFieldChange (ET 組/人 輸入)', () => {
   beforeEach(() => {
@@ -12,6 +14,24 @@ describe('applyCapacityFieldChange (ET 組/人 輸入)', () => {
   });
 
   const base = () => getDefaultCapacityFields('English Table');
+
+  test('其他預設為總人數，也可改成分組', () => {
+    const simple = getDefaultCapacityFields('other');
+    expect(simple.groupCount).toBe('');
+    expect(simple.maxParticipants).toBeGreaterThan(0);
+    expect(validateCapacityFields(
+      { ...simple, capacityMode: CAPACITY_MODES.SIMPLE },
+      'other',
+    )).toBeNull();
+
+    const grouped = getDefaultCapacityFields('other', null, CAPACITY_MODES.GROUPED);
+    expect(grouped.groupCount).toBeGreaterThan(0);
+    expect(grouped.perGroupCapacity).toBeGreaterThan(0);
+    expect(validateCapacityFields(
+      { ...grouped, capacityMode: CAPACITY_MODES.GROUPED },
+      '其他',
+    )).toBeNull();
+  });
 
   test('預設為 9 × 4 = 36', () => {
     expect(base()).toEqual({

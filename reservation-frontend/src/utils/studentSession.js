@@ -88,6 +88,7 @@ export function safeStudentNext(raw) {
     || raw.startsWith('/login')
     || raw.startsWith('/student/login')
     || raw.startsWith('/student/register')
+    || raw.startsWith('/student/forgot-password')
   ) {
     return '/my-reservations';
   }

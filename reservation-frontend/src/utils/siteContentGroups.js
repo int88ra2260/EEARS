@@ -77,14 +77,8 @@ const GROUPS = {
     {
       id: 'rules-banner',
       label: '活動規定提醒',
-      description: '不補蓋章、不開放候補等橫幅',
+      description: '不開放候補等橫幅。日曆頁說明視窗請到「預約使用說明」',
       match: (k) => k.startsWith('home.rule'),
-    },
-    {
-      id: 'usage-modal',
-      label: '使用說明彈窗',
-      description: '預約系統使用說明與違規提醒',
-      match: (k) => k.startsWith('home.usage') || k === 'home.noted',
     },
     {
       id: 'calendar',
@@ -284,6 +278,48 @@ const GROUPS = {
       label: '使用條款',
       description: '使用條款全文各段落',
       match: (k) => k.startsWith('termsPage.'),
+    },
+    {
+      id: 'other',
+      label: '其他',
+      description: '未歸入上述分類的欄位',
+      match: () => true,
+    },
+  ],
+  reservation_usage: [
+    {
+      id: 'title',
+      label: '視窗標題',
+      description: '說明視窗最上方的標題',
+      match: (k) => k === 'home.usageTitle',
+    },
+    {
+      id: 'rule',
+      label: '規定提醒',
+      description: '藍色提示框的標題與內文',
+      match: (k) => k === 'home.usageRule' || k === 'home.ruleNoStamp',
+    },
+    {
+      id: 'violations',
+      label: '違規與黑名單',
+      description: '累計違規、黑名單與三項違規行為',
+      match: (k) => k === 'home.usageBlacklist'
+        || k === 'home.usageViolations'
+        || k === 'home.usageV1'
+        || k === 'home.usageV2'
+        || k === 'home.usageV3',
+    },
+    {
+      id: 'cancel',
+      label: '取消預約說明',
+      description: '如何查詢並取消預約',
+      match: (k) => k === 'home.usageCancel',
+    },
+    {
+      id: 'button',
+      label: '關閉按鈕',
+      description: '按鈕會同時顯示前半與後半，例如「我知道了 Noted」',
+      match: (k) => k === 'home.usageButtonPrimary' || k === 'home.usageButtonSecondary',
     },
     {
       id: 'other',

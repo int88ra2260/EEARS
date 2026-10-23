@@ -305,9 +305,12 @@ export default function EventReportTable({
                     <td>{evt.date}</td>
                     <td>{evt.startTime} – {evt.endTime}</td>
                     <td>{evt.location || '地點待公告'}</td>
-                    <td>{evt.notes || '實踐歷程檔案'}</td>
+                    <td>{evt.notes || '—'}</td>
                     <td>
-                      {statusBadges.length === 0 ? '—' : statusBadges.map((badge) => (
+                      {evt.hiddenFromStudents ? (
+                        <span className="badge bg-secondary me-1">學生端不可見</span>
+                      ) : null}
+                      {statusBadges.length === 0 && !evt.hiddenFromStudents ? '—' : statusBadges.map((badge) => (
                         <span key={badge.label} className={`badge ${badge.className} me-1`}>
                           {badge.label}
                         </span>

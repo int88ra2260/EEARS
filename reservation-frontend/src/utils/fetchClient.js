@@ -3,6 +3,8 @@
  * 預設 same-origin；回傳原生 Response，由呼叫端決定是否檢查 ok（相容既有 fetch 用法）。
  */
 
+import { clearStudentSession, getStudentToken } from './studentSession';
+
 function nextRequestId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `rid:${Date.now()}:${Math.random().toString(16).slice(2)}`;
@@ -86,6 +88,32 @@ export async function handleAuthSessionInvalidResponse(res) {
 }
 
 /**
+ * 學生 token 已過期或被改密碼作廢時，清掉本機登入狀態。
+ * 只處理這次請求自己帶上的學生 token，避免誤清後台登入。
+ */
+export async function handleStudentSessionInvalidResponse(res, requestHeaders) {
+  if (!res || res.status !== 401) return;
+  const headers = requestHeaders instanceof Headers ? requestHeaders : new Headers(requestHeaders || {});
+  const authHeader = headers.get('authorization') || '';
+  if (!authHeader.toLowerCase().startsWith('bearer ')) return;
+  const presented = authHeader.slice(7).trim();
+  const studentToken = getStudentToken();
+  if (!presented || !studentToken || presented !== studentToken) return;
+
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (!ct.includes('application/json')) return;
+  let payload = null;
+  try {
+    payload = await res.clone().json();
+  } catch (_) {
+    return;
+  }
+  const code = payload && payload.code;
+  if (code !== 'TOKEN_EXPIRED' && code !== 'STUDENT_AUTH_REQUIRED') return;
+  clearStudentSession();
+}
+
+/**
  * @param {RequestInfo} input
  * @param {RequestInit} [init]
  * @returns {Promise<Response>}
@@ -103,6 +131,7 @@ export async function fetchClient(input, init = {}) {
   };
   const res = await fetch(input, nextInit);
   await handleAuthSessionInvalidResponse(res);
+  await handleStudentSessionInvalidResponse(res, headers);
   return res;
 }
 
@@ -123,6 +152,7 @@ export async function fetchClientThrow(input, init = {}) {
   };
   const res = await fetch(input, nextInit);
   await handleAuthSessionInvalidResponse(res);
+  await handleStudentSessionInvalidResponse(res, headers);
   if (res.ok) return res;
   const serverRid = res.headers.get('x-request-id') || res.headers.get('X-Request-Id');
   const requestId = serverRid || clientRequestId || null;

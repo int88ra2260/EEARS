@@ -3,6 +3,7 @@ import {
   DEFAULT_EVENT_TYPE_CODE,
   CAPACITY_MODES,
   getDefaultTypeConfig,
+  isOtherEventType,
   normalizeEventTypeCode,
 } from '../constants/eventTypeCatalog';
 
@@ -16,6 +17,14 @@ export const MAX_NON_ET_CAPACITY = 100;
 export function isGroupedCapacityEventType(eventType, typeConfig) {
   const cfg = typeConfig || getDefaultTypeConfig(eventType);
   return cfg.capacityMode === CAPACITY_MODES.GROUPED;
+}
+
+/** 「其他」可在表單切換分組／總人數；其餘類型以目錄為準。 */
+export function resolveIsGrouped(eventType, typeConfig, capacityMode) {
+  if (isOtherEventType(eventType)) {
+    return capacityMode === CAPACITY_MODES.GROUPED;
+  }
+  return isGroupedCapacityEventType(eventType, typeConfig);
 }
 
 /** 是否為 English Table（相容 code／legacy 顯示名）；容量 UI 請用 isGroupedCapacityEventType */
@@ -34,10 +43,13 @@ export function computeTotalCapacity(groupCount, perGroupCapacity) {
   return gc * pgc;
 }
 
-export function getDefaultCapacityFields(eventType, typeConfig) {
+export function getDefaultCapacityFields(eventType, typeConfig, capacityMode) {
   const prefs = loadCapacityPrefs();
   const cfg = typeConfig || getDefaultTypeConfig(eventType || DEFAULT_EVENT_TYPE_CODE);
-  if (isGroupedCapacityEventType(eventType, cfg)) {
+  const grouped = isOtherEventType(eventType)
+    ? capacityMode === CAPACITY_MODES.GROUPED
+    : cfg.capacityMode === CAPACITY_MODES.GROUPED;
+  if (grouped) {
     const groupCount = Number.isFinite(Number(prefs.groupCount)) && Number(prefs.groupCount) >= 1
       ? Number(prefs.groupCount)
       : (cfg.defaultGroupCount || DEFAULT_ET_GROUP_COUNT);
@@ -62,7 +74,7 @@ export function getDefaultCapacityFields(eventType, typeConfig) {
 
 export function applyCapacityFieldChange(fields, key, rawValue, eventType, typeConfig) {
   const next = { ...fields, [key]: rawValue };
-  const isGrouped = isGroupedCapacityEventType(eventType, typeConfig);
+  const isGrouped = resolveIsGrouped(eventType, typeConfig, next.capacityMode);
 
   if (!isGrouped) {
     if (key === 'maxParticipants') {
@@ -102,7 +114,7 @@ export function applyCapacityFieldChange(fields, key, rawValue, eventType, typeC
 
 export function validateCapacityFields(fields, eventType, typeConfig) {
   const cfg = typeConfig || getDefaultTypeConfig(eventType);
-  const isGrouped = isGroupedCapacityEventType(eventType, cfg);
+  const isGrouped = resolveIsGrouped(eventType, cfg, fields?.capacityMode);
   const maxSimple = cfg.maxCapacityCap || MAX_NON_ET_CAPACITY;
   const maxGrouped = cfg.maxCapacityCap || MAX_ET_TOTAL_CAPACITY;
   const maxGroups = cfg.maxGroupCount || MAX_GROUP_COUNT;
@@ -130,7 +142,7 @@ export function validateCapacityFields(fields, eventType, typeConfig) {
 }
 
 export function buildCapacityRequestPayload(fields, eventType, typeConfig) {
-  const isGrouped = isGroupedCapacityEventType(eventType, typeConfig);
+  const isGrouped = resolveIsGrouped(eventType, typeConfig, fields?.capacityMode);
   if (!isGrouped) {
     return { maxCapacity: parseInt(fields.maxParticipants, 10) };
   }
@@ -145,7 +157,12 @@ export function buildCapacityRequestPayload(fields, eventType, typeConfig) {
 
 export function mapEventToCapacityFields(event, typeConfig) {
   const eventType = event?.eventType || DEFAULT_EVENT_TYPE_CODE;
-  if (isGroupedCapacityEventType(eventType, typeConfig)) {
+  const capacityMode = isOtherEventType(eventType)
+    ? (event?.capacityMode === CAPACITY_MODES.GROUPED || event?.groupCount
+      ? (event?.capacityMode || CAPACITY_MODES.GROUPED)
+      : CAPACITY_MODES.SIMPLE)
+    : null;
+  if (resolveIsGrouped(eventType, typeConfig, capacityMode)) {
     const cfg = typeConfig || getDefaultTypeConfig(eventType);
     const defaultGroups = cfg.defaultGroupCount || DEFAULT_ET_GROUP_COUNT;
     const groupCount = event?.groupCount ?? defaultGroups;

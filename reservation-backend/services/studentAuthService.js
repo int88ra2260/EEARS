@@ -191,18 +191,25 @@ async function changePassword({ accountId, currentPassword, newPassword }) {
   if (!matches) {
     throw httpError(400, 'INVALID_PASSWORD', '目前密碼不正確');
   }
-  assertLocalPassword(newPassword);
-  if (newPassword === currentPassword) {
-    throw httpError(400, 'INVALID_PASSWORD', '新密碼不能與目前密碼相同');
+  return replaceLocalPassword(account, newPassword);
+}
+
+async function replaceLocalPassword(account, newPassword) {
+  if (!account || account.status !== 'active' || !account.passwordHash) {
+    throw httpError(400, 'PASSWORD_LOGIN_UNAVAILABLE', '此帳號目前無法在這裡重設密碼');
   }
+  assertLocalPassword(newPassword);
   if (normalizeStudentId(newPassword) === account.studentId || newPassword === account.email) {
     throw httpError(400, 'INVALID_PASSWORD', '密碼不能與學號或信箱相同');
   }
+  const same = await bcrypt.compare(String(newPassword), account.passwordHash);
+  if (same) {
+    throw httpError(400, 'INVALID_PASSWORD', '新密碼不能與目前密碼相同');
+  }
+  const passwordChangedAt = new Date();
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-  await account.update({
-    passwordHash,
-    passwordChangedAt: new Date(),
-  });
+  await account.update({ passwordHash, passwordChangedAt });
+  loginAccountCooldown.clearLoginCooldown(cooldownKey(account.studentId));
   return account;
 }
 
@@ -225,5 +232,6 @@ module.exports = {
   registerAccount,
   loginAccount,
   changePassword,
+  replaceLocalPassword,
   findActiveBySso,
 };

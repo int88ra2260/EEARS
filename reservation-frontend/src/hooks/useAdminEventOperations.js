@@ -25,9 +25,8 @@ import {
   mapEventToCapacityFields,
 } from '../utils/eventCapacityFields';
 import { saveCapacityPrefs } from '../utils/eventCapacityPrefs';
-import { DEFAULT_EVENT_TYPE_CODE, getEventTypeSelectOptions } from '../constants/eventTypeCatalog';
-
-export const DEFAULT_EVENT_NOTES = '實踐歷程檔案';
+import { DEFAULT_EVENT_TYPE_CODE, getEventTypeSelectOptions, isOtherEventType } from '../constants/eventTypeCatalog';
+import { DEFAULT_OTHER_OPEN_RULE_FIELDS, openRuleToFields, otherEventRequestFields } from '../utils/otherEventForm';
 
 const EMPTY_ADD_FIELDS = {
   name: '',
@@ -36,9 +35,9 @@ const EMPTY_ADD_FIELDS = {
   startTime: '',
   endTime: '',
   location: '',
-  notes: DEFAULT_EVENT_NOTES,
-  customEventType: '',
-  customReservationRule: '',
+  notes: '',
+  hiddenFromStudents: false,
+  ...DEFAULT_OTHER_OPEN_RULE_FIELDS,
   ...getDefaultCapacityFields(DEFAULT_EVENT_TYPE_CODE),
 };
 
@@ -50,9 +49,9 @@ const EMPTY_EDIT_FIELDS = {
   startTime: '',
   endTime: '',
   location: '',
-  notes: DEFAULT_EVENT_NOTES,
-  customEventType: '',
-  customReservationRule: '',
+  notes: '',
+  hiddenFromStudents: false,
+  ...DEFAULT_OTHER_OPEN_RULE_FIELDS,
 };
 
 export function useAdminEventOperations({
@@ -134,20 +133,7 @@ export function useAdminEventOperations({
     setAddLoading(true);
     setAddError('');
 
-    let finalEventType = addFields.eventType;
-    if (addFields.eventType === '其他') {
-      if (!addFields.customEventType.trim()) {
-        setAddError('請填寫自定義活動類型名稱');
-        setAddLoading(false);
-        return;
-      }
-      if (!addFields.customReservationRule.trim()) {
-        setAddError('請填寫自定義活動的預約開始時間規則');
-        setAddLoading(false);
-        return;
-      }
-      finalEventType = addFields.customEventType.trim();
-    }
+    const finalEventType = isOtherEventType(addFields.eventType) ? 'other' : addFields.eventType;
 
     const typeConfig = resolveTypeConfig(finalEventType);
     const capacityError = validateCapacityFields(addFields, finalEventType, typeConfig);
@@ -164,13 +150,10 @@ export function useAdminEventOperations({
       startTime: addFields.startTime,
       endTime: addFields.endTime,
       location: addFields.location?.trim() || null,
-      notes: addFields.notes?.trim() || DEFAULT_EVENT_NOTES,
+      notes: addFields.notes?.trim() || null,
       ...buildCapacityRequestPayload(addFields, finalEventType, typeConfig),
+      ...otherEventRequestFields({ ...addFields, eventType: finalEventType }),
     };
-
-    if (addFields.eventType === '其他') {
-      requestData.customReservationRule = addFields.customReservationRule;
-    }
 
     const result = await safeAPICall(async () => createEvent(token, requestData));
 
@@ -231,13 +214,18 @@ export function useAdminEventOperations({
         continue;
       }
 
-      if (!event.eventType || event.eventType === '其他') {
+      if (!event.eventType) {
         errors.push(`第 ${i + 1} 行：請選擇有效的活動類型`);
         continue;
       }
+      const rowEventType = isOtherEventType(event.eventType) ? 'other' : event.eventType;
 
-      const typeConfig = resolveTypeConfig(event.eventType);
-      const capacityError = validateCapacityFields(event, event.eventType, typeConfig);
+      const typeConfig = resolveTypeConfig(rowEventType);
+      const capacityError = validateCapacityFields(
+        { ...event, eventType: rowEventType },
+        rowEventType,
+        typeConfig,
+      );
       if (capacityError) {
         errors.push(`第 ${i + 1} 行：${capacityError}`);
         continue;
@@ -245,13 +233,14 @@ export function useAdminEventOperations({
 
       validEvents.push({
         name: event.name.trim(),
-        eventType: event.eventType,
+        eventType: rowEventType,
         date: event.date,
         startTime: event.startTime,
         endTime: event.endTime,
         location: event.location?.trim() || null,
-        notes: event.notes?.trim() || DEFAULT_EVENT_NOTES,
-        ...buildCapacityRequestPayload(event, event.eventType, typeConfig),
+        notes: event.notes?.trim() || null,
+        ...buildCapacityRequestPayload({ ...event, eventType: rowEventType }, rowEventType, typeConfig),
+        ...otherEventRequestFields({ ...event, eventType: rowEventType }),
       });
     }
 
@@ -346,10 +335,13 @@ export function useAdminEventOperations({
       startTime: event.startTime,
       endTime: event.endTime,
       location: event.location || '',
-      notes: event.notes || DEFAULT_EVENT_NOTES,
+      notes: event.notes || '',
+      hiddenFromStudents: !!event.hiddenFromStudents,
+      capacityMode: isOtherEventType(event.eventType)
+        ? (event.capacityMode || (event.groupCount ? 'grouped' : 'simple'))
+        : undefined,
+      ...openRuleToFields(event.openRule),
       ...capacityFields,
-      customEventType: event.eventType === '其他' ? event.customEventType || '' : '',
-      customReservationRule: event.customReservationRule || '',
     });
     setEditModalShow(true);
     setEditError('');
@@ -366,15 +358,7 @@ export function useAdminEventOperations({
     setEditLoading(true);
     setEditError('');
 
-    let finalEventType = editFields.eventType;
-    if (editFields.eventType === '其他') {
-      if (!editFields.customReservationRule?.trim()) {
-        setEditError('請填寫自定義活動的預約時間規則說明');
-        setEditLoading(false);
-        return;
-      }
-      finalEventType = editFields.customEventType || editFields.name;
-    }
+    const finalEventType = isOtherEventType(editFields.eventType) ? 'other' : editFields.eventType;
 
     const typeConfig = resolveTypeConfig(finalEventType);
     const capacityError = validateCapacityFields(editFields, finalEventType, typeConfig);
@@ -385,12 +369,15 @@ export function useAdminEventOperations({
     }
 
     const result = await safeAPICall(async () => updateEvent(token, editFields.eventId, {
-      ...editFields,
+      name: editFields.name,
+      date: editFields.date,
+      startTime: editFields.startTime,
+      endTime: editFields.endTime,
       eventType: finalEventType,
-      customReservationRule: editFields.eventType === '其他' ? editFields.customReservationRule : null,
       location: editFields.location?.trim() || null,
       notes: editFields.notes?.trim() || null,
-      ...buildCapacityRequestPayload(editFields, finalEventType, typeConfig),
+      ...buildCapacityRequestPayload({ ...editFields, eventType: finalEventType }, finalEventType, typeConfig),
+      ...otherEventRequestFields({ ...editFields, eventType: finalEventType }),
     }));
 
     if (result.success) {

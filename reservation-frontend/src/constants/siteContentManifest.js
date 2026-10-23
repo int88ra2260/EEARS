@@ -5,6 +5,7 @@ import { EMI_ADMIN_STAFF, EMI_FACULTY } from '../data/emiCenterStaff';
 
 export const SITE_CONTENT_SECTIONS = [
   { id: 'home', label: '首頁' },
+  { id: 'reservation_usage', label: '預約使用說明' },
   { id: 'english_test_registration', label: '英檢註冊比對訊息' },
   { id: 'english_learning_passport', label: '英語實踐歷程護照' },
   { id: 'activities', label: '活動介紹' },
@@ -39,8 +40,20 @@ export const SITE_CONTENT_KEY_SUGGESTIONS = {
     { key: 'homePage.announcementsLead', label: '公告區塊說明' },
     { key: 'homePage.faqTitle', label: 'FAQ 區塊標題' },
     { key: 'home.noticeSurveyBefore', label: '問卷提醒（前段）' },
-    { key: 'home.ruleNoStamp', label: '不補蓋章規定' },
     { key: 'home.ruleNoWalkIn', label: '不開放候補' },
+  ],
+  reservation_usage: [
+    { key: 'home.usageTitle', label: '視窗標題' },
+    { key: 'home.usageRule', label: '規定提醒標題' },
+    { key: 'home.ruleNoStamp', label: '規定提醒內文' },
+    { key: 'home.usageBlacklist', label: '黑名單說明' },
+    { key: 'home.usageViolations', label: '違規行為標題' },
+    { key: 'home.usageV1', label: '違規：未到場' },
+    { key: 'home.usageV2', label: '違規：中途離席' },
+    { key: 'home.usageV3', label: '違規：遲到五分鐘' },
+    { key: 'home.usageCancel', label: '取消預約說明' },
+    { key: 'home.usageButtonPrimary', label: '關閉按鈕前半' },
+    { key: 'home.usageButtonSecondary', label: '關閉按鈕後半' },
   ],
   english_test_registration: [
     { key: 'englishTestRegistration.idCardMismatchMessage', label: '英檢：在學名單比對不符提示' },

@@ -1,4 +1,5 @@
 import HomePage from '../HomePage';
+import ReservationUsageVisualPreview from './ReservationUsageVisualPreview';
 import ActivitiesPage from '../ActivitiesPage';
 import AboutPage from '../AboutPage';
 import EnglishLearningPassportPage from '../student/EnglishLearningPassportPage';
@@ -11,6 +12,12 @@ export const VISUAL_SECTION_CONFIG = {
     layout: 'home',
     Component: HomePage,
     hint: '點擊首頁上的文字即可編輯；包含 Hero、公告、FAQ、聯絡與頁尾連結。',
+  },
+  reservation_usage: {
+    path: '/events',
+    layout: 'minimal',
+    Component: ReservationUsageVisualPreview,
+    hint: '點擊說明視窗裡的文字即可編輯。藍色規定、違規清單與底部按鈕都可以改。',
   },
   activities: {
     path: '/activities',

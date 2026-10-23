@@ -39,14 +39,18 @@ export function getEventTypeOptions(catalog) {
       .slice()
       .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
       .map((r) => ({ value: r.code, label: r.displayName || r.code }));
-    return [{ value: 'all', label: '全部類型' }, ...opts, { value: '其他', label: '其他' }];
+    const hasOther = opts.some((opt) => opt.value === 'other' || opt.label === '其他');
+    return [
+      { value: 'all', label: '全部類型' },
+      ...opts,
+      ...(hasOther ? [] : [{ value: 'other', label: '其他' }]),
+    ];
   }
   return [
     { value: 'all', label: '全部類型' },
     { value: 'english_table', label: 'English Table' },
     { value: 'job_talk', label: 'Job Talk' },
     { value: 'english_club', label: 'English Club' },
-    { value: 'international_forum', label: 'International Forum' },
-    { value: '其他', label: '其他' },
+    { value: 'other', label: '其他' },
   ];
 }

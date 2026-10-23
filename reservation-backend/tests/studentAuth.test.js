@@ -41,6 +41,7 @@ jest.mock('../models', () => ({
 }));
 
 const studentAuthService = require('../services/studentAuthService');
+const loginAccountCooldown = require('../utils/loginAccountCooldown');
 const { studentAuthMiddleware, bindStudentIdentity } = require('../middlewares/studentAuth');
 const { authMiddleware } = require('../middlewares/auth');
 const { secretKey } = require('../config/jwtSecret');
@@ -74,6 +75,7 @@ describe('studentAuthService', () => {
     mockFindPendingByStudentId.mockResolvedValue(null);
     mockReplacePending.mockReset();
     mockReplacePending.mockResolvedValue(undefined);
+    loginAccountCooldown.resetLoginCooldownBucketsForTest();
   });
 
   it('rejects a student id that is not the campus format', async () => {
@@ -191,6 +193,34 @@ describe('studentAuthService', () => {
     expect(decoded.typ).toBe('student');
     expect(decoded.studentId).toBe('B123456789');
   });
+
+  it('replaces the local password and clears the login cooldown', async () => {
+    const passwordHash = await bcrypt.hash('password12', 4);
+    const row = accountRow({
+      passwordHash,
+      update: jest.fn(async function update(patch) {
+        Object.assign(this, patch);
+      }),
+    });
+    for (let i = 0; i < 5; i += 1) {
+      loginAccountCooldown.recordLoginFailure('student:B123456789');
+    }
+    expect(loginAccountCooldown.checkLoginCooldown('student:B123456789').blocked).toBe(true);
+
+    await studentAuthService.replaceLocalPassword(row, 'another-password');
+
+    expect(row.passwordHash).not.toBe(passwordHash);
+    expect(row.passwordHash.startsWith('$2')).toBe(true);
+    expect(loginAccountCooldown.checkLoginCooldown('student:B123456789').blocked).toBe(false);
+  });
+
+  it('rejects a new password that matches the student id', async () => {
+    const passwordHash = await bcrypt.hash('password12', 4);
+    const row = accountRow({ passwordHash });
+    await expect(studentAuthService.replaceLocalPassword(row, 'B123456789'))
+      .rejects.toMatchObject({ code: 'INVALID_PASSWORD' });
+    expect(row.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('student auth middleware', () => {
@@ -247,6 +277,47 @@ describe('student auth middleware', () => {
     expect(res.status).toBe(200);
     expect(res.body.studentId).toBe('B123456789');
     expect(res.body.email).toBe(row.email);
+  });
+
+  it('rejects a token issued before the password changed', async () => {
+    const row = accountRow({ passwordChangedAt: new Date(Date.now() + 60 * 1000) });
+    mockFindByPk.mockResolvedValue(row);
+    const token = jwt.sign({
+      typ: 'student',
+      id: row.id,
+      studentId: row.studentId,
+      name: row.name,
+      email: row.email,
+    }, secretKey, { expiresIn: '1h' });
+
+    const res = await request(appWithStudentRoute())
+      .post('/reservations')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('TOKEN_EXPIRED');
+    expect(res.body.message).toBe('密碼已更新，請重新登入');
+  });
+
+  it('accepts a token issued after the last password change', async () => {
+    const row = accountRow({ passwordChangedAt: new Date(Date.now() - 60 * 1000) });
+    mockFindByPk.mockResolvedValue(row);
+    const token = jwt.sign({
+      typ: 'student',
+      id: row.id,
+      studentId: row.studentId,
+      name: row.name,
+      email: row.email,
+    }, secretKey, { expiresIn: '1h' });
+
+    const res = await request(appWithStudentRoute())
+      .post('/reservations')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ studentId: 'M000000000' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.studentId).toBe('B123456789');
   });
 
   it('does not let a student token through staff auth even if the id matches a teacher', async () => {

@@ -76,6 +76,24 @@ export const DEFAULT_EVENT_TYPES = Object.freeze([
     maxCapacityCap: 100,
     surveyGateEnabled: false,
   },
+  {
+    code: 'other',
+    displayName: '其他',
+    abbreviation: 'OT',
+    slug: 'other',
+    sortOrder: 50,
+    isActive: true,
+    legacyAliases: ['其他', 'Other'],
+    openRule: { type: OPEN_RULE_TYPES.DAY_BEFORE, days: 1, hour: 12, minute: 0 },
+    cutoffHours: 2,
+    capacityMode: CAPACITY_MODES.SIMPLE,
+    defaultGroupCount: 2,
+    defaultPerGroupCapacity: 10,
+    maxCapacityCap: 300,
+    maxGroupCount: 20,
+    maxPerGroup: 30,
+    surveyGateEnabled: false,
+  },
 ]);
 
 const BY_CODE = Object.freeze(
@@ -117,13 +135,18 @@ export function getEventTypeDisplayName(raw) {
   return key;
 }
 
-/** 表單 <select>：value 一律為 code（「其他」除外） */
+export function isOtherEventType(raw) {
+  return normalizeEventTypeCode(raw) === 'other';
+}
+
+/** 表單 <select>：value 一律為 code。目錄已含「其他」時不再另加一筆。 */
 export function getEventTypeSelectOptions({ includeOther = false } = {}) {
   const opts = DEFAULT_EVENT_TYPES.filter((r) => r.isActive).map((r) => ({
     value: r.code,
     label: r.displayName,
   }));
-  if (includeOther) opts.push({ value: '其他', label: '其他' });
+  const hasOther = opts.some((opt) => opt.value === 'other' || opt.label === '其他');
+  if (includeOther && !hasOther) opts.push({ value: 'other', label: '其他' });
   return opts;
 }
 
