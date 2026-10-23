@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Table } from 'react-bootstrap';
-import { fetchClient } from '../../utils/fetchClient';
+import { fetchClient } from '../../../utils/fetchClient';
 
 async function parseJson(res) {
   return res.json().catch(() => ({}));
