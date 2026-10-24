@@ -35,6 +35,10 @@ jest.mock('../models', () => {
       findByPk: jest.fn(async (id) => (
         mockResetStore.accounts.find((row) => row.id === Number(id)) || null
       )),
+      findAndCountAll: jest.fn(async () => ({
+        rows: mockResetStore.accounts,
+        count: mockResetStore.accounts.length,
+      })),
     },
     StudentAccountPasswordReset: {
       findOne: jest.fn(async ({ where, order } = {}) => {
@@ -64,11 +68,14 @@ jest.mock('../models', () => {
   };
 });
 
+const { Op } = require('sequelize');
+const { StudentAccount } = require('../models');
 const {
   prepareResetByStudentId,
   prepareResetByAccountId,
   confirmReset,
   lookupStudentAccount,
+  listStudentAccounts,
 } = require('../services/studentPasswordResetService');
 
 function addAccount(overrides = {}) {
@@ -96,6 +103,7 @@ describe('studentPasswordResetService', () => {
     mockReplaceLocalPassword.mockImplementation(async (account) => account);
     mockFindPendingByStudentId.mockReset();
     mockFindPendingByStudentId.mockResolvedValue(null);
+    StudentAccount.findAndCountAll.mockClear();
   });
 
   it('does not create a code when the student has no resettable account', async () => {
@@ -231,6 +239,39 @@ describe('studentPasswordResetService', () => {
     expect(found.kind).toBe('pending');
     expect(found.account).toBeNull();
     expect(found.pending.email).toBe('ming@example.com');
+  });
+
+  it('lists completed accounts without the password hash', async () => {
+    const createdAt = new Date('2026-10-23T14:34:35.000Z');
+    addAccount({
+      studentId: 'B153025014',
+      name: '李宥齊',
+      createdAt,
+      passwordHash: 'secret-hash',
+    });
+    const result = await listStudentAccounts({ q: '  ', page: '2', pageSize: '500' });
+    expect(StudentAccount.findAndCountAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: {},
+      limit: 100,
+      offset: 100,
+      order: [['createdAt', 'DESC'], ['id', 'DESC']],
+    }));
+    expect(result).toMatchObject({ total: 1, page: 2, pageSize: 100 });
+    expect(result.accounts[0]).toMatchObject({
+      studentId: 'B153025014',
+      name: '李宥齊',
+      hasLocalPassword: true,
+      createdAt,
+    });
+    expect(result.accounts[0].passwordHash).toBeUndefined();
+  });
+
+  it('filters the completed account list by student id, name, or email', async () => {
+    await listStudentAccounts({ q: '李%_\\' });
+    const arg = StudentAccount.findAndCountAll.mock.calls.at(-1)[0];
+    const pattern = arg.where[Op.or][0].studentId[Op.like];
+    expect(pattern).toBe('%李\\%\\_\\\\%');
+    expect(arg.where[Op.or]).toHaveLength(3);
   });
 
   it('tells staff when the account cannot be reset and when a resend is too soon', async () => {

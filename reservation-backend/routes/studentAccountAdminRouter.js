@@ -5,6 +5,7 @@ const auditLogService = require('../services/auditLogService');
 const logger = require('../utils/logger');
 const {
   lookupStudentAccount,
+  listStudentAccounts,
   prepareResetByAccountId,
   invalidateActiveResetCodes,
 } = require('../services/studentPasswordResetService');
@@ -29,6 +30,19 @@ function sendError(res, error) {
   if (error.retryAfterSec) body.retryAfterSec = error.retryAfterSec;
   return res.status(status).json(body);
 }
+
+router.get('/', ...reviewAuth, async (req, res) => {
+  try {
+    const result = await listStudentAccounts({
+      q: req.query.q,
+      page: req.query.page,
+      pageSize: req.query.pageSize,
+    });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
 
 router.get('/lookup', ...reviewAuth, async (req, res) => {
   try {

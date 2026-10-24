@@ -57,6 +57,22 @@ function toAdminAccount(account) {
   };
 }
 
+function escapeLike(value) {
+  return String(value).replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+function parsePage(value) {
+  const page = Number.parseInt(value, 10);
+  if (!Number.isFinite(page) || page < 1) return 1;
+  return Math.min(page, 10000);
+}
+
+function parsePageSize(value) {
+  const size = Number.parseInt(value, 10);
+  if (!Number.isFinite(size) || size < 1) return 50;
+  return Math.min(size, 100);
+}
+
 async function invalidateActiveResetCodes(studentAccountId) {
   const id = Number(studentAccountId);
   if (!Number.isFinite(id)) return;
@@ -224,6 +240,38 @@ async function lookupStudentAccount(studentId) {
   return { kind: 'none', account: null, pending: null };
 }
 
+async function listStudentAccounts({ q, page, pageSize } = {}) {
+  const currentPage = parsePage(page);
+  const size = parsePageSize(pageSize);
+  const term = String(q || '').trim().slice(0, 100);
+  const where = {};
+  if (term) {
+    const like = `%${escapeLike(term)}%`;
+    where[Op.or] = [
+      { studentId: { [Op.like]: like } },
+      { name: { [Op.like]: like } },
+      { email: { [Op.like]: like } },
+    ];
+  }
+
+  const { rows, count } = await StudentAccount.findAndCountAll({
+    where,
+    order: [['createdAt', 'DESC'], ['id', 'DESC']],
+    limit: size,
+    offset: (currentPage - 1) * size,
+  });
+
+  return {
+    accounts: rows.map((row) => ({
+      ...toAdminAccount(row),
+      createdAt: row.createdAt || null,
+    })),
+    total: count,
+    page: currentPage,
+    pageSize: size,
+  };
+}
+
 module.exports = {
   CODE_TTL_MS,
   prepareResetByStudentId,
@@ -231,4 +279,5 @@ module.exports = {
   confirmReset,
   invalidateActiveResetCodes,
   lookupStudentAccount,
+  listStudentAccounts,
 };

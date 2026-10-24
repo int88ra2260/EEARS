@@ -9,6 +9,7 @@ const mockConfirmReset = jest.fn();
 const mockInvalidate = jest.fn();
 const mockPrepareByAccountId = jest.fn();
 const mockLookup = jest.fn();
+const mockList = jest.fn();
 const mockSendEmail = jest.fn();
 const mockAudit = jest.fn();
 
@@ -18,6 +19,7 @@ jest.mock('../services/studentPasswordResetService', () => ({
   invalidateActiveResetCodes: (...args) => mockInvalidate(...args),
   prepareResetByAccountId: (...args) => mockPrepareByAccountId(...args),
   lookupStudentAccount: (...args) => mockLookup(...args),
+  listStudentAccounts: (...args) => mockList(...args),
 }));
 
 jest.mock('../services/emailLogService', () => ({
@@ -66,6 +68,7 @@ describe('student password reset routes', () => {
     mockInvalidate.mockReset();
     mockPrepareByAccountId.mockReset();
     mockLookup.mockReset();
+    mockList.mockReset();
     mockSendEmail.mockReset();
     mockAudit.mockReset();
     mockSendEmail.mockResolvedValue(undefined);
@@ -152,6 +155,45 @@ describe('student password reset routes', () => {
       action: 'student_password_reset_completed',
       entityId: 8,
     }));
+  });
+
+  it('requires account-management permission to list completed accounts', async () => {
+    const app = buildApp();
+    const missing = await request(app).get('/api/admin/student-accounts');
+    expect(missing.status).toBe(401);
+
+    const denied = await request(app)
+      .get('/api/admin/student-accounts')
+      .set('Authorization', 'Bearer staff')
+      .set('x-test-allow', '0');
+    expect(denied.status).toBe(403);
+    expect(denied.body.code).toBe('INSUFFICIENT_PERMISSIONS');
+
+    mockList.mockResolvedValue({
+      accounts: [{
+        id: 7,
+        studentId: 'B153025014',
+        name: '李宥齊',
+        email: 'student@example.com',
+        status: 'active',
+        hasLocalPassword: true,
+        createdAt: '2026-10-23T14:34:35.000Z',
+        lastLoginAt: null,
+        passwordChangedAt: null,
+      }],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    });
+    const allowed = await request(app)
+      .get('/api/admin/student-accounts')
+      .set('Authorization', 'Bearer staff')
+      .query({ q: 'B153', page: '1' });
+    expect(allowed.status).toBe(200);
+    expect(allowed.body.total).toBe(1);
+    expect(allowed.body.accounts[0].studentId).toBe('B153025014');
+    expect(allowed.body.accounts[0].passwordHash).toBeUndefined();
+    expect(mockList).toHaveBeenCalledWith({ q: 'B153', page: '1', pageSize: undefined });
   });
 
   it('requires account-management permission to look up a student', async () => {

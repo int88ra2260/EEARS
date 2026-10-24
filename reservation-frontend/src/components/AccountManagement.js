@@ -10,6 +10,7 @@ import AccountEditModal from './admin/accounts/AccountEditModal';
 import AccountAccessDebugModal from './admin/accounts/AccountAccessDebugModal';
 import AccountResetPasswordModal from './admin/accounts/AccountResetPasswordModal';
 import StudentAccountReviewPanel from './admin/accounts/StudentAccountReviewPanel';
+import StudentAccountListPanel from './admin/accounts/StudentAccountListPanel';
 import StudentAccountLookupPanel from './admin/accounts/StudentAccountLookupPanel';
 
 function AccountManagement() {
@@ -36,6 +37,7 @@ function AccountManagement() {
       {m.error && <Alert variant="danger" dismissible onClose={() => m.setError('')}>{m.error}</Alert>}
       {m.success && <Alert variant="success">{m.success}</Alert>}
 
+      <StudentAccountListPanel token={token} />
       <StudentAccountLookupPanel token={token} />
       <StudentAccountReviewPanel token={token} />
 
