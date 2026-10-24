@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { changeStudentPassword } from '../../services/studentAuthApi';
 import useStudentSession from '../../hooks/useStudentSession';
-import { clearStudentSession } from '../../utils/studentSession';
 
 export default function StudentAccountPage() {
   const navigate = useNavigate();
@@ -28,7 +27,6 @@ export default function StudentAccountPage() {
         setError(data?.message || '無法更新密碼');
         return;
       }
-      clearStudentSession();
       navigate('/student/login?notice=password-updated&next=%2Fstudent%2Faccount', { replace: true });
     } catch {
       setError('與伺服器連線發生錯誤');

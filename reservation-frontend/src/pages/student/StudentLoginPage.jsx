@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { loginStudentAccount } from '../../services/studentAuthApi';
-import { safeStudentNext, saveStudentSession } from '../../utils/studentSession';
+import { clearStudentSession, safeStudentNext, saveStudentSession } from '../../utils/studentSession';
 import useStudentSession from '../../hooks/useStudentSession';
 
 export default function StudentLoginPage() {
@@ -19,8 +19,13 @@ export default function StudentLoginPage() {
     : notice === 'password-updated'
       ? '密碼已更新，請重新登入'
       : '';
+  const leavingAfterPasswordChange = notice === 'password-reset' || notice === 'password-updated';
 
-  if (session) {
+  useEffect(() => {
+    if (leavingAfterPasswordChange) clearStudentSession();
+  }, [leavingAfterPasswordChange]);
+
+  if (session && !leavingAfterPasswordChange) {
     return <Navigate to={next} replace />;
   }
 
