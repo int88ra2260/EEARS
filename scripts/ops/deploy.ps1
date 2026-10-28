@@ -68,6 +68,7 @@ foreach ($dir in @($frontendDir, $backendDir)) {
 }
 
 if (-not $SkipInstall) {
+  Stop-EearsFrontendDevLock -FrontendDir $frontendDir
   Write-EearsStep 'Frontend: npm ci' -Level STEP
   Invoke-EearsNpm -WorkingDirectory $frontendDir -NpmArgs @('ci')
 }

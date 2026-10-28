@@ -54,6 +54,48 @@ function Assert-CommandExists {
   }
 }
 
+function Stop-EearsFrontendDevLock {
+  param([Parameter(Mandatory = $true)][string]$FrontendDir)
+
+  # npm ci must delete esbuild.exe. A local Vite dev server keeps that file open
+  # and makes the production deploy fail with EPERM on this same PC.
+  $nodeModules = (Join-Path $FrontendDir 'node_modules').TrimEnd('\')
+  $procs = @(Get-CimInstance Win32_Process | Where-Object {
+    $cmd = [string]$_.CommandLine
+    $cmd -and $cmd.IndexOf($nodeModules, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and (
+      $cmd -like '*vite.js*' -or $cmd -like '*@esbuild*'
+    )
+  })
+  if ($procs.Count -eq 0) {
+    return
+  }
+
+  $stopIds = @{}
+  foreach ($proc in $procs) {
+    $cur = $proc
+    $stopId = [int]$proc.ProcessId
+    for ($i = 0; $i -lt 6 -and $cur; $i++) {
+      $cmd = [string]$cur.CommandLine
+      $isNpmStart = $cmd -like '*npm-cli.js start*'
+      $isVite = $cmd -like '*vite.js*'
+      $isEsbuild = $cmd -like '*@esbuild*'
+      $isViteCmd = $cur.Name -eq 'cmd.exe' -and $cmd -like '*vite*'
+      if (-not ($isNpmStart -or $isVite -or $isEsbuild -or $isViteCmd)) { break }
+      if ($isNpmStart -or $isVite) { $stopId = [int]$cur.ProcessId }
+      if ($isNpmStart) { break }
+      if (-not $cur.ParentProcessId) { break }
+      $cur = Get-CimInstance Win32_Process -Filter "ProcessId=$($cur.ParentProcessId)"
+    }
+    $stopIds[$stopId] = $true
+  }
+
+  foreach ($id in @($stopIds.Keys)) {
+    Write-EearsStep "Stopping frontend dev server PID $id so npm ci can replace esbuild.exe" -Level WARN
+    & taskkill.exe /T /F /PID $id | Out-Null
+  }
+  Start-Sleep -Seconds 2
+}
+
 function Invoke-EearsNpm {
   param(
     [Parameter(Mandatory = $true)][string]$WorkingDirectory,
