@@ -6,11 +6,11 @@ license: MIT
 
 # EEARS System
 
-當你遇到跨模組任務、或不確定需求應落在哪個子系統時，先用這個 skill 做「定位與風險盤點」，再延伸到更專門的 skills（如 `eears-reservation`、`eears-survey-gate`、`eears-permission`）。
+當你遇到跨模組任務、或不確定需求應落在哪個子系統時，先用這個 skill 做「定位與風險盤點」，再延伸到更專門的 skills（如 `eears-reservation`、`eears-survey-gate`、`eears-permission`、`eears-learning-analytics`）。
 
 ## When to Use This Skill
 
-- 需求描述不清楚、涉及多個領域（預約/問卷/黑名單/匯入/LJ/英檢/BESTEP/後台 UI）
+- 需求描述不清楚、涉及多個領域（預約/問卷/黑名單/匯入/LJ/成效分析/英檢/BESTEP/後台 UI）
 - 你需要先確認「這個改動會不會碰到學生端底線規則」
 - 你需要確認專案實際存在的路徑/模組名稱，避免改錯或改到 deprecated 路徑
 
@@ -18,7 +18,7 @@ license: MIT
 
 ### 後端（reservation / survey / blacklist）
 - 預約：`reservation-backend/routes/reservationRouter.js`、`reservation-backend/routes/eventRouter.js`
-- 預約時間：`reservation-backend/utils/reservationTime.js`
+- 預約時間：`reservation-backend/utils/reservationTime.js`、`services/eventTypeService.js`
 - 問卷 Gate：`reservation-backend/middlewares/checkSurvey.js`、`reservation-backend/services/surveyGateService.js`
 - 黑名單/違規：`reservation-backend/routes/blacklistRouter.js`、`reservation-backend/services/blacklistEnforcementService.js`
 
@@ -30,6 +30,13 @@ license: MIT
 - 主入口：`reservation-backend/routes/learningJourneyV3Router.js`
 - 讀模型開關：`reservation-backend/services/learningJourney/learningJourneyFeatureFlags.js`
 - canonical gate：`reservation-backend/services/learningJourney/canonicalSemesterPolicyService.js`
+- CEFR 正規化（去加號）：`reservation-backend/services/learningJourney/utils/cefr.js`
+
+### 後端／前端（Learning Analytics）
+- 路由：`reservation-backend/routes/learningAnalyticsRouter.js`
+- 頁面：`reservation-frontend/src/pages/admin/LearningAnalytics*.jsx`
+- 學生探索 UI：**`/admin/learning-analytics/explore`**（勿用已移除的 `student-explorer` 路徑）
+- 專用 skill：`eears-learning-analytics`（CEFR 呈現／達標 vs GSE 比較）
 
 ### 前端（路由/頁面/後台）
 - 主路由：`reservation-frontend/src/App.js`
@@ -40,20 +47,34 @@ license: MIT
 
 任何你要動的內容，在動手前都要對照以下底線：
 - 學生個人功能（預約、我的預約、我的紀錄、口說紀錄、課堂加分配置、培力報名）必須登入且綁學號；登入不能拿掉黑名單、問卷 Gate、截止時間
-- 預約/取消截止必須是活動開始前 `2` 小時
-- 問卷 Gate 必須在「ET/EC + 產品規則啟用 + fail-close + redirectUrl」語意下維持
+- 預約/取消截止讀活動類型 **`cutoffHours`**（seed 預設 2；勿寫死「一律 2 小時」）
+- 問卷 Gate 必須在「類型啟用 + 產品規則 + fail-close + redirectUrl」語意下維持
 - 黑名單期間不可預約；解除邏輯不能被刪除或改成其他天數含意
 
 這些底線的詳細版本在：`.cursor/rules/eears-business-rules.mdc`
+
+## 專門 Skills（依領域）
+
+| 領域 | Skill |
+|------|--------|
+| 業務底線 | `eears-domain-core` |
+| 預約／取消 | `eears-reservation` |
+| 問卷 Gate | `eears-survey-gate` |
+| 權限 RBAC | `eears-permission` |
+| Learning Journey v3 | `eears-learning-journey-v3` |
+| 學習成效分析 | `eears-learning-analytics` |
+| Excel 匯入 | `eears-data-import-excel` |
+| 測試補測 | `eears-testing` |
+| IIS 部署 | `eears-deployment-iis` |
+| 週報草稿 | `eears-weekly-ai-workflow` |
 
 ## Output（你應該在回覆中先輸出什麼）
 
 先輸出一段（通常 6-12 行）：
 1. 這次改動影響的模組/端點（列路徑）
 2. 可能觸及的底線規則（列規則名，不要只說「風險」）
-3. 建議你接下來要用哪個專門 skill（例如 `eears-reservation` 或 `eears-survey-gate`）
+3. 建議你接下來要用哪個專門 skill（例如 `eears-reservation` 或 `eears-learning-analytics`）
 
 ## Suggested Follow-up Prompt
 
 > 請先列出我這個需求會影響哪些端點/服務、以及會觸及哪些不可違背規則，然後再建議我用哪個 EEARS 專門 skill 來完成。
-

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import { Link, useNavigate } from 'react-router-dom';
-import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
 import LaFold from '../../components/learningAnalytics/LaFold';
 import {
   clearRecentStudents,
@@ -44,12 +44,12 @@ export default function LearningAnalyticsStudentJourneyPage() {
   };
 
   return (
-    <div>
+    <LearningAnalyticsPageFrame
+      title="個人軌跡"
+      question="輸入學號，看這位學生的輔導摘要、前後測與時間線。"
+      scope="從名單、KPI 或課／師／活動點學號進來，或在這裡直接查。"
+    >
       <div className="la-panel mb-3">
-        <LearningAnalyticsPanelHeader
-          title="查學生學習軌跡"
-          lead="輸入學號查看輔導摘要、前後測與時間線。也可從 B2 KPI 報表的學號直接點進來。"
-        />
         <LaFold label="怎麼找到人？" className="mb-3">
           <ul className="small mb-0 ps-3">
             <li className="mb-1">
@@ -132,6 +132,6 @@ export default function LearningAnalyticsStudentJourneyPage() {
           </ul>
         )}
       </div>
-    </div>
+    </LearningAnalyticsPageFrame>
   );
 }

@@ -136,6 +136,7 @@ const LearningAnalyticsCohortsPage = lazy(() => import('./pages/admin/LearningAn
 const LearningAnalyticsOfferingsPage = lazy(() => import('./pages/admin/LearningAnalyticsOfferingsPage'));
 const LearningAnalyticsResourcesPage = lazy(() => import('./pages/admin/LearningAnalyticsResourcesPage'));
 const LearningAnalyticsSkillsPage = lazy(() => import('./pages/admin/LearningAnalyticsSkillsPage'));
+const LearningAnalyticsB1PlusPage = lazy(() => import('./pages/admin/LearningAnalyticsB1PlusPage'));
 const LearningAnalyticsStudentExplorerPage = lazy(() => import('./pages/admin/LearningAnalyticsStudentExplorerPage'));
 const LearningAnalyticsTrackingCohortsPage = lazy(() => import('./pages/admin/LearningAnalyticsTrackingCohortsPage'));
 const LearningAnalyticsStudentJourneyPage = lazy(() => import('./pages/admin/LearningAnalyticsStudentJourneyPage'));
@@ -630,8 +631,10 @@ function AppContent() {
                 <Route path="offerings" element={<LearningAnalyticsOfferingsPage />} />
                 <Route path="resources" element={<LearningAnalyticsResourcesPage />} />
                 <Route path="skills" element={<LearningAnalyticsSkillsPage />} />
+                <Route path="b1-plus" element={<LearningAnalyticsB1PlusPage />} />
                 <Route path="skills/:studentId" element={<LearningAnalyticsStudentDetailPage focus="skills" />} />
                 <Route path="explore" element={<LearningAnalyticsStudentExplorerPage />} />
+                <Route path="student-explorer" element={<Navigate to="/admin/learning-analytics/explore" replace />} />
                 <Route path="tracking-cohorts" element={<LearningAnalyticsTrackingCohortsPage />} />
                 <Route path="tracking-cohorts/:id" element={<LearningAnalyticsTrackingCohortsPage />} />
                 <Route path="students" element={<LearningAnalyticsStudentJourneyPage />} />

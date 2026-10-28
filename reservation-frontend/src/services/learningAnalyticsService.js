@@ -32,6 +32,55 @@ function buildQuery(params = {}) {
   return query ? `?${query}` : '';
 }
 
+function splitStudentIds(params = {}) {
+  const { studentIds, ...rest } = params;
+  const ids = Array.isArray(studentIds) ? studentIds.filter(Boolean) : [];
+  return { rest, ids };
+}
+
+async function fetchAnalytics(token, path, params = {}, options = {}) {
+  const { rest, ids } = splitStudentIds(params);
+  const res = ids.length
+    ? await fetchClient(`${BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...rest, studentIds: ids }),
+      signal: options.signal,
+    })
+    : await fetchClient(`${BASE_URL}${path}${buildQuery(rest)}`, {
+      headers: authHeaders(token),
+      signal: options.signal,
+    });
+  return parseEnvelope(res);
+}
+
+async function fetchAnalyticsBlob(token, path, params, options, fallbackName, forbiddenMessage) {
+  const { rest, ids } = splitStudentIds(params);
+  const res = ids.length
+    ? await fetchClient(`${BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...rest, studentIds: ids }),
+      signal: options.signal,
+    })
+    : await fetchClient(`${BASE_URL}${path}${buildQuery(rest)}`, {
+      headers: authHeaders(token),
+      signal: options.signal,
+    });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    let msg = json.error || json.message || `HTTP ${res.status}`;
+    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
+      msg = forbiddenMessage;
+    }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  return { blob, fileName: match ? match[1] : fallbackName };
+}
+
 export async function getLearningAnalyticsMeta(token, options = {}) {
   const res = await fetchClient(`${BASE_URL}/meta`, {
     headers: authHeaders(token),
@@ -110,11 +159,7 @@ export async function resetLearningAnalyticsLvaConfig(token, options = {}) {
 }
 
 export async function getLearningAnalyticsInsights(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/insights${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  return parseEnvelope(res);
+  return fetchAnalytics(token, '/insights', params, options);
 }
 
 export async function getLearningAnalyticsStudentRecommendations(token, studentId, params = {}, options = {}) {
@@ -152,39 +197,27 @@ export async function createLearningAnalyticsModelRun(token, body = {}, options 
 }
 
 export async function getLearningAnalyticsOverview(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/overview${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  return parseEnvelope(res);
+  return fetchAnalytics(token, '/overview', params, options);
+}
+
+export async function getLearningAnalyticsB1Plus(token, params = {}, options = {}) {
+  return fetchAnalytics(token, '/b1-plus', params, options);
 }
 
 export async function getLearningAnalyticsStudentExplorer(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/student-explorer${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  return parseEnvelope(res);
+  return fetchAnalytics(token, '/student-explorer', params, options);
 }
 
 export async function exportLearningAnalyticsStudentExplorer(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/student-explorer/export${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    let msg = json.error || json.message || `HTTP ${res.status}`;
-    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
-      msg = '您沒有匯出學習成效分析資料的權限。';
-    }
-    throw new Error(msg);
-  }
-  const blob = await res.blob();
-  const disposition = res.headers.get('Content-Disposition') || '';
-  const match = disposition.match(/filename="?([^"]+)"?/);
   const fallback = `EEARS_LA_explore_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
-  return { blob, fileName: match ? match[1] : fallback };
+  return fetchAnalyticsBlob(
+    token,
+    '/student-explorer/export',
+    params,
+    options,
+    fallback,
+    '您沒有匯出學習成效分析資料的權限。',
+  );
 }
 
 export async function listLearningAnalyticsTrackingCohorts(token, options = {}) {
@@ -223,96 +256,54 @@ export async function deleteLearningAnalyticsTrackingCohort(token, id, options =
 }
 
 export async function getLearningAnalyticsCohorts(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/cohorts${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  return parseEnvelope(res);
+  return fetchAnalytics(token, '/cohorts', params, options);
 }
 
 export async function getLearningAnalyticsOfferings(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/offerings${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  return parseEnvelope(res);
+  return fetchAnalytics(token, '/offerings', params, options);
 }
 
 export async function getLearningAnalyticsOfferingDetail(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/offerings/detail${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  return parseEnvelope(res);
+  return fetchAnalytics(token, '/offerings/detail', params, options);
 }
 
 export async function exportLearningAnalyticsOfferings(token, params = {}, options = {}) {
-  const qs = buildQuery(params);
-  const res = await fetchClient(`${BASE_URL}/offerings/export${qs}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    let msg = json.error || json.message || `HTTP ${res.status}`;
-    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
-      msg = '您沒有匯出學習成效分析資料的權限。';
-    }
-    throw new Error(msg);
-  }
-  const blob = await res.blob();
-  const disposition = res.headers.get('Content-Disposition') || '';
-  const match = disposition.match(/filename="?([^"]+)"?/);
   const fallback = `EEARS_LA_offerings_${String(params.dimension || 'course')}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}_0000.xlsx`;
-  return { blob, fileName: match ? match[1] : fallback };
+  return fetchAnalyticsBlob(
+    token,
+    '/offerings/export',
+    params,
+    options,
+    fallback,
+    '您沒有匯出學習成效分析資料的權限。',
+  );
 }
 
 export async function getLearningAnalyticsResources(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/resources${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  return parseEnvelope(res);
+  return fetchAnalytics(token, '/resources', params, options);
 }
 
 export async function getLearningAnalyticsSkills(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/skills${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  return parseEnvelope(res);
+  return fetchAnalytics(token, '/skills', params, options);
 }
 
 export async function getLearningAnalyticsRawData(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/raw-data${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  return parseEnvelope(res);
+  return fetchAnalytics(token, '/raw-data', params, options);
 }
 
 export async function exportLearningAnalyticsRawData(token, params = {}, options = {}) {
   const format = String(params.format || 'xlsx').toLowerCase();
-  const qs = buildQuery({ ...params, format });
-  const res = await fetchClient(`${BASE_URL}/export${qs}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    let msg = json.error || json.message || `HTTP ${res.status}`;
-    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
-      msg = '您沒有匯出學習成效分析資料的權限。';
-    }
-    throw new Error(msg);
-  }
-  const blob = await res.blob();
-  const disposition = res.headers.get('Content-Disposition') || '';
-  const match = disposition.match(/filename="?([^"]+)"?/);
   const dataset = String(params.dataset || 'students');
   const ext = format === 'csv' ? 'csv' : 'xlsx';
   const fallback = `EEARS_LA_raw-${dataset}_all_snap-snapshot_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}_0000.${ext}`;
-  return { blob, fileName: match ? match[1] : fallback };
+  return fetchAnalyticsBlob(
+    token,
+    '/export',
+    { ...params, format },
+    options,
+    fallback,
+    '您沒有匯出學習成效分析資料的權限。',
+  );
 }
 
 export async function getLearningAnalyticsStudentJourney(token, studentId, params = {}, options = {}) {
@@ -393,23 +384,15 @@ export async function runLearningAnalyticsKpiReport(token, body = {}, options = 
 }
 
 export async function exportLearningAnalyticsKpiReport(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/kpi/report/export${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    let msg = json.error || json.message || `HTTP ${res.status}`;
-    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
-      msg = '您沒有匯出 KPI 報表的權限。';
-    }
-    throw new Error(msg);
-  }
-  const blob = await res.blob();
-  const disposition = res.headers.get('Content-Disposition') || '';
-  const match = disposition.match(/filename="?([^"]+)"?/);
   const fallback = `EEARS_KPI_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
-  return { blob, fileName: match ? match[1] : fallback };
+  return fetchAnalyticsBlob(
+    token,
+    '/kpi/report/export',
+    params,
+    options,
+    fallback,
+    '您沒有匯出 KPI 報表的權限。',
+  );
 }
 
 export async function runLearningAnalyticsKpiGaps(token, body = {}, options = {}) {
@@ -423,21 +406,13 @@ export async function runLearningAnalyticsKpiGaps(token, body = {}, options = {}
 }
 
 export async function exportLearningAnalyticsKpiGaps(token, params = {}, options = {}) {
-  const res = await fetchClient(`${BASE_URL}/kpi/gaps/export${buildQuery(params)}`, {
-    headers: authHeaders(token),
-    signal: options.signal,
-  });
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    let msg = json.error || json.message || `HTTP ${res.status}`;
-    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
-      msg = '您沒有匯出缺口名單的權限。';
-    }
-    throw new Error(msg);
-  }
-  const blob = await res.blob();
-  const disposition = res.headers.get('Content-Disposition') || '';
-  const match = disposition.match(/filename="?([^"]+)"?/);
   const fallback = `EEARS_KPI_GAPS_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
-  return { blob, fileName: match ? match[1] : fallback };
+  return fetchAnalyticsBlob(
+    token,
+    '/kpi/gaps/export',
+    params,
+    options,
+    fallback,
+    '您沒有匯出缺口名單的權限。',
+  );
 }

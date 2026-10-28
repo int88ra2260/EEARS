@@ -9,7 +9,7 @@ license: MIT
 
 # EEARS Weekly AI Workflow
 
-協助編輯者把「本週靈感」轉成 **Weekly Studio `blocks` 草稿**。學生端維持免登入；週報內容不得與預約 2hr 截止、問卷 Gate 等業務規則衝突。
+協助編輯者把「本週靈感」轉成 **Weekly Studio `blocks` 草稿**。週報／公告公開瀏覽可不登入；學生預約等個人功能仍須登入（見 `eears-domain-core`）。文案若提到截止時間，寫「依活動類型設定（常見為開始前 2 小時）」，勿暗示系統一律寫死 2 小時；亦不得與問卷 Gate 等業務規則衝突。
 
 ## When to Use
 

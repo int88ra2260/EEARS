@@ -141,6 +141,7 @@ function buildGrowthView(lva) {
       label: SKILL_LABELS[row.skill] || row.skill,
     })),
     episodes: episodes.slice(0, 100),
+    improvedStudentsBySkill: lva.adjustedGrowth?.improvedStudentsBySkill || {},
     radar: buildRadarChart(bySkill, lva.adjustedGrowth?.bySkill),
   };
 }

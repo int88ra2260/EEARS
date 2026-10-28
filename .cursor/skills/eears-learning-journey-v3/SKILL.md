@@ -64,7 +64,13 @@ license: MIT
    - legacy fallback/阻擋行為
    - 去重鍵與衝突狀態
 
+## Related：CEFR 字串 vs 成效分析
+
+- LJ `normalizeCefr` 會去掉加號（`B1+` → `B1`）；這是歷程正規化，不是「接近 B2」的篩選定義。
+- 教務處／教育部上呈與達標用語用 **CEFR**；跨測驗比較與接近程度用 **GSE**。詳見 `eears-learning-analytics`。
+- 改成效分析頁／接近 B2／GSE 分帶時改用該 skill，不要在 LJ 匯入路徑硬塞分析篩選邏輯。
+
 ## Suggested Workflow Prompt
 
-> 請先判斷我這個需求是影響 LJ v3 讀模型還是寫入流程；接著指出它會觸及 canonical policy 與 legacy write gate 的哪一段，並列出需要補的測試（canonical blocked/unblocked、dedupe/quarantine、以及 legacy 回退的行為）。
+> 請先判斷我這個需求是影響 LJ v3 讀模型還是寫入流程；接著指出它會觸及 canonical policy 與 legacy write gate 的哪一段，並列出需要補的測試（canonical blocked/unblocked、dedupe/quarantine、以及 legacy 回退的行為）。若涉及 CEFR／GSE／接近 B2，請改讀 `eears-learning-analytics`。
 

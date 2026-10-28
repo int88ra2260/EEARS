@@ -3,7 +3,7 @@
  * 由 EventDetail 對外暴露，EventList 僅依賴 EventDetail
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Modal, Button } from 'react-bootstrap';
 import { animate, stagger } from 'motion';
 import useEventBooking from '../../hooks/useEventBooking';
@@ -28,6 +28,10 @@ const BOOKING_EASE = [0.16, 1, 0.3, 1];
 
 export default function EventBookingModal({ show, event, onClose }) {
   const { t, lang } = useLanguage();
+  const location = useLocation();
+  const loginNext = `${location.pathname}${location.search || ''}`;
+  const loginTo = `/student/login?next=${encodeURIComponent(loginNext)}`;
+  const registerTo = `/student/register?next=${encodeURIComponent(loginNext)}`;
   const [isMobile, setIsMobile] = useState(false);
   // 1:填寫, 2:問卷, 3:成功
   const [bookingStep, setBookingStep] = useState(1);
@@ -321,26 +325,28 @@ export default function EventBookingModal({ show, event, onClose }) {
 
           {isMobileSessionPanel ? (
             <p className="event-booking-mobile-hint mb-0" role="status">
-              {t('booking.mobileSessionStep')}
+              {studentSession ? t('booking.mobileSessionStep') : '請先登入學生帳號，再繼續預約。'}
             </p>
           ) : null}
 
-          {showStep1Form && (
+          {showStep1Form && !studentSession ? (
+            <div data-booking-step="1" className="alert alert-info mb-0" role="status">
+              <p className="mb-2">預約要先登入學生帳號。登入後會用你的學號、姓名和信箱，不用在這裡另外填寫。</p>
+              <div className="d-flex flex-wrap gap-2">
+                <Link className="btn btn-primary btn-sm" to={loginTo}>登入</Link>
+                <Link className="btn btn-outline-primary btn-sm" to={registerTo}>建立帳號</Link>
+              </div>
+            </div>
+          ) : null}
+
+          {showStep1Form && studentSession ? (
             <div data-booking-step="1">
               {waitlistInfo.isFull && (
                 <div className="alert alert-warning py-2 mb-3" role="alert">
                   {t('booking.fullNoWaitlist')}
                 </div>
               )}
-              {!studentSession ? (
-                <div className="alert alert-info py-2 mb-3" role="status">
-                  預約請先登入學生帳號。
-                  {' '}
-                  <Link to={`/student/login?next=${encodeURIComponent('/events')}`}>前往登入</Link>
-                </div>
-              ) : (
-                <p className="text-muted small mb-2">將以登入的學號、姓名與信箱預約。</p>
-              )}
+              <p className="text-muted small mb-2">將以登入的學號、姓名與信箱預約。</p>
               <EventBookingFormSection
                 studentId={form.studentId}
                 studentName={form.studentName}
@@ -355,7 +361,7 @@ export default function EventBookingModal({ show, event, onClose }) {
                 disabled
               />
             </div>
-          )}
+          ) : null}
 
           {bookingStep === 2 && (
             <div data-booking-step="2">
@@ -417,7 +423,7 @@ export default function EventBookingModal({ show, event, onClose }) {
             </div>
           )}
 
-          {bookingStep === 1 && showStep1Form && (
+          {bookingStep === 1 && showStep1Form && studentSession && (
             <div className={isMobile ? 'd-flex w-100 gap-2' : 'd-flex gap-2'}>
               <Button
                 variant="secondary"

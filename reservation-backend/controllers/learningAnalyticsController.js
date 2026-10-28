@@ -36,6 +36,7 @@ const { buildKpiReportWorkbook } = require('../services/learningAnalytics/kpiRep
 const { runKpiGapReport } = require('../services/learningAnalytics/kpiGapService');
 const { buildKpiGapWorkbook } = require('../services/learningAnalytics/kpiGapExportService');
 const { getStudentExplorer } = require('../services/learningAnalytics/learningAnalyticsStudentExplorerService');
+const { getB1PlusWatch } = require('../services/learningAnalytics/learningAnalyticsB1PlusService');
 const { buildStudentExplorerExportWorkbook } = require('../services/learningAnalytics/learningAnalyticsStudentExplorerExportService');
 const {
   createTrackingCohort,
@@ -43,6 +44,34 @@ const {
   getTrackingCohort,
   deleteTrackingCohort,
 } = require('../services/learningAnalytics/learningAnalyticsTrackingCohortService');
+
+function readAnalyticsQuery(req) {
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  return { ...(req.query || {}), ...body };
+}
+
+function readKpiInput(source = {}) {
+  return {
+    policyId: source.policyId,
+    policyKey: source.policyKey,
+    semesterId: source.semesterId || source.semester,
+    academicYear: source.academicYear,
+    dateFrom: source.dateFrom,
+    dateTo: source.dateTo,
+    includeRows: source.includeRows !== false,
+    studentIds: source.studentIds || source.student_ids,
+  };
+}
+
+function auditFiltersWithoutIds(filters = {}) {
+  const next = { ...filters };
+  const ids = next.studentIds || next.student_ids;
+  if (Array.isArray(ids)) next.workingSetCount = ids.length;
+  else if (typeof ids === 'string' && ids.trim()) next.workingSetCount = ids.split(/[,\s]+/).filter(Boolean).length;
+  delete next.studentIds;
+  delete next.student_ids;
+  return next;
+}
 
 async function requireStudentScope(req, res, next) {
   try {
@@ -66,7 +95,16 @@ async function getMeta(req, res) {
 
 async function getOverview(req, res) {
   try {
-    const data = await getLearningAnalyticsOverview(req.query || {});
+    const data = await getLearningAnalyticsOverview(readAnalyticsQuery(req));
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+  }
+}
+
+async function getB1PlusWatchHandler(req, res) {
+  try {
+    const data = await getB1PlusWatch(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
@@ -75,7 +113,7 @@ async function getOverview(req, res) {
 
 async function getStudentExplorerHandler(req, res) {
   try {
-    const data = await getStudentExplorer(req.query || {});
+    const data = await getStudentExplorer(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
@@ -84,7 +122,7 @@ async function getStudentExplorerHandler(req, res) {
 
 async function getStudentExplorerExport(req, res) {
   try {
-    const exportResult = await buildStudentExplorerExportWorkbook(req.query || {});
+    const exportResult = await buildStudentExplorerExportWorkbook(readAnalyticsQuery(req));
     const {
       workbook,
       fileName,
@@ -175,7 +213,7 @@ async function deleteTrackingCohortHandler(req, res) {
 
 async function getCohorts(req, res) {
   try {
-    const data = await getLearningAnalyticsCohorts(req.query || {});
+    const data = await getLearningAnalyticsCohorts(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
@@ -184,7 +222,7 @@ async function getCohorts(req, res) {
 
 async function getOfferings(req, res) {
   try {
-    const data = await getLearningAnalyticsOfferings(req.query || {}, { user: req.user });
+    const data = await getLearningAnalyticsOfferings(readAnalyticsQuery(req), { user: req.user });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
@@ -193,7 +231,7 @@ async function getOfferings(req, res) {
 
 async function getOfferingDetail(req, res) {
   try {
-    const data = await getLearningAnalyticsOfferingDetail(req.query || {}, { user: req.user });
+    const data = await getLearningAnalyticsOfferingDetail(readAnalyticsQuery(req), { user: req.user });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
@@ -203,7 +241,7 @@ async function getOfferingDetail(req, res) {
 
 async function getOfferingExport(req, res) {
   try {
-    const exportResult = await buildOfferingsExportWorkbook(req.query || {}, { user: req.user });
+    const exportResult = await buildOfferingsExportWorkbook(readAnalyticsQuery(req), { user: req.user });
     const {
       workbook,
       fileName,
@@ -249,7 +287,7 @@ async function getOfferingExport(req, res) {
 
 async function getResources(req, res) {
   try {
-    const lva = await getLvaAnalytics(req.query || {});
+    const lva = await getLvaAnalytics(readAnalyticsQuery(req));
     const data = {
       snapshotVersion: lva.snapshotVersion,
       filters: lva.filters,
@@ -270,7 +308,7 @@ async function getResources(req, res) {
 
 async function getSkills(req, res) {
   try {
-    const data = await getLearningAnalyticsSkills(req.query || {});
+    const data = await getLearningAnalyticsSkills(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
@@ -357,15 +395,16 @@ async function postResetLvaConfig(req, res) {
 
 async function getRawData(req, res) {
   try {
-    const dataset = String(req.query.dataset || 'students').toLowerCase();
+    const query = readAnalyticsQuery(req);
+    const dataset = String(query.dataset || 'students').toLowerCase();
     const rawOpts = { forRawExport: true };
     let data;
     if (dataset === 'exams') {
-      data = await queryAnalyticExams(req.query || {}, rawOpts);
+      data = await queryAnalyticExams(query, rawOpts);
     } else if (['courses', 'activities', 'events'].includes(dataset)) {
-      data = await queryAnalyticEvents(req.query || {}, rawOpts);
+      data = await queryAnalyticEvents(query, rawOpts);
     } else {
-      data = await queryAnalyticStudents(req.query || {}, rawOpts);
+      data = await queryAnalyticStudents(query, rawOpts);
     }
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
@@ -375,7 +414,8 @@ async function getRawData(req, res) {
 
 async function getExport(req, res) {
   try {
-    const format = String(req.query.format || 'xlsx').toLowerCase();
+    const query = readAnalyticsQuery(req);
+    const format = String(query.format || 'xlsx').toLowerCase();
     if (!['xlsx', 'csv'].includes(format)) {
       return res.status(400).json({
         success: false,
@@ -386,8 +426,8 @@ async function getExport(req, res) {
     }
 
     const exportResult = format === 'csv'
-      ? await buildRawDataExportCsv(req.query || {})
-      : await buildRawDataExportWorkbook(req.query || {});
+      ? await buildRawDataExportCsv(query)
+      : await buildRawDataExportWorkbook(query);
 
     const {
       fileName,
@@ -411,7 +451,7 @@ async function getExport(req, res) {
         exportType: 'csv',
         reportType: dataset,
         rowCount,
-        filters: { ...filters, total, truncated },
+        filters: auditFiltersWithoutIds({ ...filters, total, truncated }),
         fileName,
       });
       return res.end();
@@ -435,7 +475,7 @@ async function getExport(req, res) {
       exportType: 'xlsx',
       reportType: dataset,
       rowCount,
-      filters: { ...filters, total, truncated },
+      filters: auditFiltersWithoutIds({ ...filters, total, truncated }),
       fileName,
     });
 
@@ -458,7 +498,7 @@ async function postPruneSnapshots(req, res) {
 
 async function getInsights(req, res) {
   try {
-    const data = await getAdvancedVisualizations(req.query || {});
+    const data = await getAdvancedVisualizations(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
@@ -572,16 +612,7 @@ async function postArchiveKpiPolicy(req, res) {
 
 async function postKpiReport(req, res) {
   try {
-    const body = req.body || {};
-    const data = await runKpiReport({
-      policyId: body.policyId,
-      policyKey: body.policyKey,
-      semesterId: body.semesterId || body.semester,
-      academicYear: body.academicYear,
-      dateFrom: body.dateFrom,
-      dateTo: body.dateTo,
-      includeRows: body.includeRows !== false,
-    });
+    const data = await runKpiReport(readKpiInput(req.body || {}));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
@@ -591,15 +622,8 @@ async function postKpiReport(req, res) {
 
 async function getKpiReportExport(req, res) {
   try {
-    const q = req.query || {};
-    const { workbook, fileName } = await buildKpiReportWorkbook({
-      policyId: q.policyId,
-      policyKey: q.policyKey,
-      semesterId: q.semesterId || q.semester,
-      academicYear: q.academicYear,
-      dateFrom: q.dateFrom,
-      dateTo: q.dateTo,
-    });
+    const q = readKpiInput(readAnalyticsQuery(req));
+    const { workbook, fileName } = await buildKpiReportWorkbook(q);
     const buffer = await workbook.xlsx.writeBuffer();
     logExportAudit(req, {
       module: 'learning_analytics',
@@ -612,7 +636,8 @@ async function getKpiReportExport(req, res) {
       filters: {
         policyId: q.policyId,
         policyKey: q.policyKey,
-        semesterId: q.semesterId || q.semester,
+        semesterId: q.semesterId,
+        workingSetCount: Array.isArray(q.studentIds) ? q.studentIds.length : 0,
       },
     });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -626,16 +651,7 @@ async function getKpiReportExport(req, res) {
 
 async function postKpiGaps(req, res) {
   try {
-    const body = req.body || {};
-    const data = await runKpiGapReport({
-      policyId: body.policyId,
-      policyKey: body.policyKey,
-      semesterId: body.semesterId || body.semester,
-      academicYear: body.academicYear,
-      dateFrom: body.dateFrom,
-      dateTo: body.dateTo,
-      includeRows: body.includeRows !== false,
-    });
+    const data = await runKpiGapReport(readKpiInput(req.body || {}));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
@@ -645,15 +661,8 @@ async function postKpiGaps(req, res) {
 
 async function getKpiGapsExport(req, res) {
   try {
-    const q = req.query || {};
-    const { workbook, fileName, report } = await buildKpiGapWorkbook({
-      policyId: q.policyId,
-      policyKey: q.policyKey,
-      semesterId: q.semesterId || q.semester,
-      academicYear: q.academicYear,
-      dateFrom: q.dateFrom,
-      dateTo: q.dateTo,
-    });
+    const q = readKpiInput(readAnalyticsQuery(req));
+    const { workbook, fileName, report } = await buildKpiGapWorkbook(q);
     const buffer = await workbook.xlsx.writeBuffer();
     logExportAudit(req, {
       module: 'learning_analytics',
@@ -666,7 +675,8 @@ async function getKpiGapsExport(req, res) {
       filters: {
         policyId: q.policyId,
         policyKey: q.policyKey,
-        semesterId: q.semesterId || q.semester,
+        semesterId: q.semesterId,
+        workingSetCount: Array.isArray(q.studentIds) ? q.studentIds.length : 0,
       },
     });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -689,6 +699,7 @@ module.exports = {
   postResetLvaConfig,
   getOverview,
   getStudentExplorer: getStudentExplorerHandler,
+  getB1PlusWatch: getB1PlusWatchHandler,
   getStudentExplorerExport,
   listTrackingCohorts: listTrackingCohortsHandler,
   createTrackingCohort: createTrackingCohortHandler,

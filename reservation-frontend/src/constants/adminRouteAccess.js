@@ -435,6 +435,12 @@ export const ADMIN_ROUTE_ACCESS = [
     exact: false,
   },
   {
+    pattern: '/admin/learning-analytics/b1-plus',
+    label: '接近 B2',
+    allowAdminOrExecutive: true,
+    anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
+  },
+  {
     pattern: '/admin/learning-analytics/skills/:studentId',
     label: '學生技能成長',
     allowAdminOrExecutive: true,

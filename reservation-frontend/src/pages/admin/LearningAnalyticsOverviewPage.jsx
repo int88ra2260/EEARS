@@ -18,10 +18,11 @@ import { getLearningAnalyticsOverview } from '../../services/learningAnalyticsSe
 import MetricCard from '../../components/learningAnalytics/MetricCard';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
-import LearningAnalyticsOverviewGuide from '../../components/learningAnalytics/LearningAnalyticsOverviewGuide';
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
 import LearningAnalyticsSemesterOpsPanel from '../../components/learningAnalytics/LearningAnalyticsSemesterOpsPanel';
 import MicroLearningEngagementPanel from '../../components/learningAnalytics/MicroLearningEngagementPanel';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
+import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import LaFold from '../../components/learningAnalytics/LaFold';
 import EvidenceQualityBadge from '../../components/learningAnalytics/EvidenceQualityBadge';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
@@ -64,6 +65,7 @@ export default function LearningAnalyticsOverviewPage() {
     resetFilters,
     ready,
     apiParams,
+    withWorkingSet,
     token,
     semesterFromUrl,
   } = useLearningAnalyticsBootstrap({ scopeKeys: OVERVIEW_FILTER_KEYS });
@@ -76,7 +78,7 @@ export default function LearningAnalyticsOverviewPage() {
     setLoading(true);
     setError('');
     try {
-      const payload = await getLearningAnalyticsOverview(token, apiParams());
+      const payload = await getLearningAnalyticsOverview(token, withWorkingSet(apiParams()));
       setData(payload);
     } catch (e) {
       setData(null);
@@ -84,7 +86,7 @@ export default function LearningAnalyticsOverviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, apiParams, ready]);
+  }, [token, apiParams, withWorkingSet, ready]);
 
   useEffect(() => {
     load();
@@ -134,7 +136,21 @@ export default function LearningAnalyticsOverviewPage() {
         error={metaError}
         snapshotVersion={appliedFilters.snapshot_version}
       />
-      <LearningAnalyticsOverviewGuide />
+      <LearningAnalyticsPageFrame
+        title="總覽"
+        showWorkingSet
+        workingSetHere="overview"
+        question="先看這個學期的 B2 達標與缺口，再看分析快照上的能力分布。"
+        scope="A 區用學期名冊。B 區用分析快照，快照上的 B2 人數不是學期 KPI。"
+        howToRead={(
+          <ol className="small mb-0 ps-3">
+            <li className="mb-1">本頁分為兩區：A 學期營運（名冊分母 KPI／缺口）與 B 能力觀察（分析快照累積）。</li>
+            <li className="mb-1">要看學期達標與匯出未達標／缺重測名單：選好學期後看 A 區，或到 B2 KPI 報表。</li>
+            <li className="mb-1">要比系所或入學年度，到系所比較；要看資源覆蓋與可觀察樣本，到資源覆蓋。</li>
+            <li>若 B 區顯示尚無資料，請先到學習歷程維運執行背景重建。</li>
+          </ol>
+        )}
+      >
       {(semesterFromUrl || filters.semester) ? (
         <Alert variant="light" className="small py-2 mb-3 border">
           您是從學習歷程儀表板進入？
@@ -283,22 +299,22 @@ export default function LearningAnalyticsOverviewPage() {
                     <table className="table table-sm align-middle mb-0">
                       <tbody>
                         <tr>
-                          <th title="已匯入學測英文分數的人數。這筆是入學起始分級，不是英檢前測，也不會換成 CEFR。">有起始分級</th>
+                          <th><ColumnHead {...HEAD.hasBaseline} /></th>
                           <td className="text-end">{formatNum(headline.studentsWithBaseline)}</td>
                           <td className="text-end text-muted">{formatCoverage(headline.studentsWithBaseline, headline.studentsInAnalysis)}</td>
                         </tr>
                         <tr>
-                          <th>有有效英檢</th>
+                          <th><ColumnHead {...HEAD.validExam} /></th>
                           <td className="text-end">{formatNum(headline.studentsWithValidExam)}</td>
                           <td className="text-end text-muted">{formatCoverage(headline.studentsWithValidExam, headline.studentsInAnalysis)}</td>
                         </tr>
                         <tr>
-                          <th>僅 1 場英檢</th>
+                          <th><ColumnHead {...HEAD.singleExam} /></th>
                           <td className="text-end">{formatNum(headline.studentsWithSingleExam)}</td>
                           <td className="text-end text-muted">需補重測</td>
                         </tr>
                         <tr>
-                          <th>可算前後測</th>
+                          <th><ColumnHead {...HEAD.canCompare} /></th>
                           <td className="text-end">{formatNum(headline.studentsWithMultipleExams)}</td>
                           <td className="text-end text-muted">{formatCoverage(headline.studentsWithMultipleExams, headline.studentsInAnalysis)}</td>
                         </tr>
@@ -344,8 +360,8 @@ export default function LearningAnalyticsOverviewPage() {
                       <thead>
                         <tr>
                           <th>資源類型</th>
-                          <th className="text-end">累積時數</th>
-                          <th className="text-end">可算成長</th>
+                          <th className="text-end"><ColumnHead {...HEAD.accumulatedHours} /></th>
+                          <th className="text-end"><ColumnHead {...HEAD.growthStudents} /></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -413,13 +429,15 @@ export default function LearningAnalyticsOverviewPage() {
             <MicroLearningEngagementPanel token={token} ready={ready} />
 
             <div className="d-flex flex-wrap gap-3 mt-3 pt-2 border-top small">
-              <Link to="/admin/learning-analytics/cohorts">群體比較</Link>
+              <Link to="/admin/learning-analytics/cohorts">系所比較</Link>
               <Link to="/admin/learning-analytics/skills">技能成長</Link>
+              <Link to="/admin/learning-analytics/b1-plus">接近 B2</Link>
               <Link to="/admin/learning-analytics/raw-data">匯出資料</Link>
             </div>
           </>
         ) : null}
       </section>
+      </LearningAnalyticsPageFrame>
     </div>
   );
 }

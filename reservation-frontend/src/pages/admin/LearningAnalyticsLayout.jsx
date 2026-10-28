@@ -5,8 +5,7 @@ import { P } from '../../constants/permissions';
 import '../../components/learningAnalytics/learningAnalytics.css';
 
 /**
- * 導覽分組：先對齊「要回答什麼問題」，再進子頁。
- * 路徑不變，只改標籤與分組呈現。
+ * 頁內只留頁名，滑過可看這頁在回答什麼。完整選單在左側。
  */
 const NAV_GROUPS = [
   {
@@ -39,6 +38,11 @@ const NAV_GROUPS = [
         to: '/admin/learning-analytics/skills',
         label: '技能成長',
         hint: '聽讀說寫 GSE 成長',
+      },
+      {
+        to: '/admin/learning-analytics/b1-plus',
+        label: '接近 B2',
+        hint: 'GSE 51–58：前測、修課、活動',
       },
       {
         to: '/admin/learning-analytics/explore',
@@ -106,32 +110,21 @@ export default function LearningAnalyticsLayout() {
     [canManageSettings]
   );
 
+  const items = groups.flatMap((group) => group.items);
+
   return (
     <div className="learning-analytics-shell">
-      <header className="la-page-header">
-        <p className="la-page-subtitle mb-0">
-          上呈用 B2 KPI 與缺口名單；能力與資源頁先看覆蓋率、樣本數與分布。沒有明確下一步的研究型估計不放在日常後台流程。
-        </p>
-      </header>
-      <nav className="la-subnav-grouped" aria-label="學習成效分析子頁">
-        {groups.map((group) => (
-          <div key={group.id} className="la-subnav-group">
-            <div className="la-subnav-group-title">{group.title}</div>
-            <div className="la-subnav-group-links">
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  title={item.hint}
-                  className={({ isActive }) => (isActive ? 'active' : undefined)}
-                >
-                  <span className="la-subnav-label">{item.label}</span>
-                  {item.hint ? <span className="la-subnav-hint">{item.hint}</span> : null}
-                </NavLink>
-              ))}
-            </div>
-          </div>
+      <nav className="la-subnav" aria-label="學習成效分析">
+        {items.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            title={item.hint}
+            className={({ isActive }) => (isActive ? 'active' : undefined)}
+          >
+            {item.label}
+          </NavLink>
         ))}
       </nav>
       <Outlet />

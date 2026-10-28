@@ -85,7 +85,7 @@ export const STUDENT_CONTENT_AREAS = [
     id: 'reservation-usage',
     label: '改預約說明視窗',
     shortLabel: '預約說明',
-    description: '日曆預約頁一打開就出現的「預約系統使用說明」，含規定、違規與關閉按鈕。',
+    description: '日曆預約頁一打開就出現的「預約系統使用說明」，含登入提醒、規定、違規與關閉按鈕。',
     howTo: '點視窗裡的文字即可修改。儲存後，學生下次開啟日曆預約頁會看到新內容。同一分頁按過「我知道了」後，要關分頁再開才會再跳出。',
     previewPath: '/events',
     previewLabel: '日曆預約',

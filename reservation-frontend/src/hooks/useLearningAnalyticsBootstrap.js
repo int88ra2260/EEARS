@@ -8,6 +8,7 @@ import {
   parseFiltersFromSearchParams,
   pickFilterKeys,
 } from '../components/learningAnalytics/learningAnalyticsFilterConstants';
+import { useLearningAnalyticsWorkingSet } from '../utils/learningAnalyticsWorkingSet';
 
 /**
  * @param {{
@@ -96,6 +97,8 @@ export function useLearningAnalyticsBootstrap({
     () => filtersToApiParams(appliedFilters),
     [appliedFilters]
   );
+  const workingSet = useLearningAnalyticsWorkingSet();
+  const withWorkingSet = workingSet.withWorkingSet;
 
   const writeUrl = useCallback((nextFilters) => {
     const next = new URLSearchParams();
@@ -133,6 +136,7 @@ export function useLearningAnalyticsBootstrap({
     resetFilters,
     ready,
     apiParams,
+    withWorkingSet,
     semesterFromUrl,
   };
 }

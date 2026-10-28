@@ -11,6 +11,7 @@ const {
 } = require('../../models');
 const { resolveLatestSnapshotVersion } = require('../learningJourney/analytics/timelineReadService');
 const { EVENT_TYPES, EVENT_STATUS } = require('../../constants/learningJourneyEventConstants');
+const { WORKING_SET_CAP, studentIdAllowList } = require('./workingSetIds');
 
 const PAGE_LIMIT_DEFAULT = 40;
 const PAGE_LIMIT_MAX = 100;
@@ -199,6 +200,11 @@ function buildWhere(query, snapshotVersion, keywordIds) {
   if (hasPost === true) and.push(studentIdSubquery(examPhaseSubquery(snapshotVersion, POST_TEST_PHASES)));
   if (hasPost === false) and.push(studentIdNotSubquery(examPhaseSubquery(snapshotVersion, POST_TEST_PHASES)));
 
+  const carriedIds = studentIdAllowList(query.student_ids || query.studentIds);
+  if (carriedIds) {
+    and.push({ studentId: { [Op.in]: carriedIds } });
+  }
+
   if (and.length) where[Op.and] = and;
   return where;
 }
@@ -353,7 +359,7 @@ async function getStudentExplorer(query = {}) {
   const keywordIds = await findKeywordStudentIds(appliedFilters.keyword);
   const where = buildWhere(query, snapshotVersion, keywordIds);
 
-  const [options, matched, withValidExam, avgRow, rows] = await Promise.all([
+  const [options, matched, withValidExam, avgRow, rows, handoffRows] = await Promise.all([
     loadFilterOptions(snapshotVersion),
     LjAnalyticStudent.count({ where }),
     LjAnalyticStudent.count({ where: { ...where, hasValidExam: true } }),
@@ -383,6 +389,13 @@ async function getStudentExplorer(query = {}) {
       offset,
       raw: true,
     }),
+    LjAnalyticStudent.findAll({
+      where,
+      attributes: ['studentId'],
+      order: [['studentId', 'ASC']],
+      limit: WORKING_SET_CAP,
+      raw: true,
+    }),
   ]);
 
   const names = await loadNames(rows.map((row) => row.studentId));
@@ -410,6 +423,11 @@ async function getStudentExplorer(query = {}) {
       offset,
       total: matched,
       returned: rows.length,
+    },
+    handoff: {
+      total: matched,
+      truncated: matched > handoffRows.length,
+      studentIds: handoffRows.map((row) => row.studentId),
     },
   };
 }

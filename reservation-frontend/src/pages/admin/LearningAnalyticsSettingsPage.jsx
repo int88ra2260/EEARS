@@ -8,6 +8,8 @@ import Form from 'react-bootstrap/Form';
 
 import { Link } from 'react-router-dom';
 
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
+
 import GseMappingReference from '../../components/learningAnalytics/GseMappingReference';
 
 import FilterReferenceEditor from '../../components/learningAnalytics/FilterReferenceEditor';
@@ -156,17 +158,19 @@ export default function LearningAnalyticsSettingsPage({ token }) {
 
     <div>
 
-      <p className="small text-muted">
-
-        日常只需維護下拉選項與資源技能權重；估計參數與資料版本清理屬於進階維運。重建資料請到
-
-        {' '}
-
-        <Link to="/admin/learning-journey/operations">學習歷程維運</Link>
-
-        。
-
-      </p>
+      <LearningAnalyticsPageFrame
+        title="分析設定"
+        question="維護下拉選項與資源技能權重。估計參數與資料版本清理屬於進階維運。"
+        scope="重建資料請到學習歷程維運，不在這頁直接執行。"
+        howToRead={(
+          <p className="small mb-0">
+            重建請到
+            {' '}
+            <Link to="/admin/learning-journey/operations">學習歷程維運</Link>
+            。
+          </p>
+        )}
+      >
 
 
 
@@ -377,6 +381,8 @@ export default function LearningAnalyticsSettingsPage({ token }) {
         </>
 
       ) : null}
+
+      </LearningAnalyticsPageFrame>
 
     </div>
 

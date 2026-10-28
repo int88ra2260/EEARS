@@ -17,10 +17,13 @@ import {
 
 import GrowthEpisodeTable from '../../components/learningAnalytics/GrowthEpisodeTable';
 import GrowthMetricsExplainer from '../../components/learningAnalytics/GrowthMetricsExplainer';
+import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import MetricCard from '../../components/learningAnalytics/MetricCard';
-import { LA_FILTER_INTRO_COHORT, SKILL_GROWTH_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
+import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
+import { LA_FILTER_INTRO_SKILLS, SKILL_GROWTH_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 import { getLearningAnalyticsSkills } from '../../services/learningAnalyticsService';
 
@@ -264,8 +267,8 @@ function StartingGsePanel({ groups }) {
           <table className="table table-sm align-middle mb-0 la-starting-gse-table">
             <thead>
               <tr>
-                <th>前測區間</th>
-                <th>GSE</th>
+                <th><ColumnHead {...HEAD.pretestBand} /></th>
+                <th><ColumnHead {...HEAD.bandRange} /></th>
                 {SKILL_ORDER.map((skill) => (
                   <th key={skill}>{SKILL_LABELS[skill]}</th>
                 ))}
@@ -296,21 +299,21 @@ function SkillInsightCard({ row, startingBands, onGrowthRatioClick }) {
       <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
         <div>
           <div className="la-skill-growth-card__title">{row.skill}</div>
-          <div className="la-skill-growth-card__meta">前後測樣本 n={formatCount(row.sampleSize)}</div>
+          <div className="la-skill-growth-card__meta">能算進步的筆數 {formatCount(row.sampleSize)}</div>
         </div>
         <span className="la-skill-growth-card__status">{row.judgement.status}</span>
       </div>
 
       <div className="la-skill-growth-card__metrics">
         <div>
-          <span>平均 GSE 成長</span>
+          <span title={HEAD.actualGse.hint}>平均：後測減前測</span>
           <strong>{formatGse(row.actual)}</strong>
         </div>
         <button
           type="button"
           className="la-skill-growth-card__metric-action"
           onClick={() => onGrowthRatioClick?.(row.key, row.skill)}
-          title={`查看${row.skill}學生明細，依原始分進步由高到低排序`}
+          title={`查看${row.skill}裡 GSE 有進步的學生，並可把這批人帶到 KPI 或匯出`}
         >
           <span>有進步學生</span>
           <strong>{pct(row.growthRatio)}</strong>
@@ -342,6 +345,7 @@ export default function LearningAnalyticsSkillsPage() {
     resetFilters,
     ready,
     apiParams,
+    withWorkingSet,
     token,
   } = useLearningAnalyticsBootstrap({ scopeKeys: SKILL_GROWTH_FILTER_KEYS });
 
@@ -349,16 +353,22 @@ export default function LearningAnalyticsSkillsPage() {
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [episodeFocus, setEpisodeFocus] = useState(null);
+  const [visibleScope, setVisibleScope] = useState(null);
   const episodeSectionRef = useRef(null);
 
   const handleGrowthRatioClick = useCallback((skillKey, skillLabel) => {
     setEpisodeFocus({
       skill: skillKey,
       skillLabel,
+      improvedOnly: true,
       sortKey: 'rawGrowth',
       sortDir: 'desc',
       token: Date.now(),
     });
+  }, []);
+
+  const handleVisibleScope = useCallback((scope) => {
+    setVisibleScope(scope);
   }, []);
 
   useEffect(() => {
@@ -374,14 +384,14 @@ export default function LearningAnalyticsSkillsPage() {
     setLoading(true);
     setError('');
     try {
-      setData(await getLearningAnalyticsSkills(token, apiParams()));
+      setData(await getLearningAnalyticsSkills(token, withWorkingSet(apiParams())));
     } catch (e) {
       setData(null);
       setError(e.message || '載入失敗');
     } finally {
       setLoading(false);
     }
-  }, [token, apiParams, ready]);
+  }, [token, apiParams, withWorkingSet, ready]);
 
   useEffect(() => {
     load();
@@ -417,6 +427,35 @@ export default function LearningAnalyticsSkillsPage() {
 
   const pageSummary = useMemo(() => buildPageSummary(chartData), [chartData]);
 
+  const nextSet = useMemo(() => {
+    const pack = episodeFocus?.improvedOnly && episodeFocus.skill
+      ? growth?.improvedStudentsBySkill?.[episodeFocus.skill]
+      : null;
+    const tableMatches = visibleScope
+      && visibleScope.skill === episodeFocus?.skill
+      && visibleScope.improvedOnly;
+    if (pack?.studentIds?.length && !(tableMatches && visibleScope.narrowed)) {
+      const label = `${episodeFocus.skillLabel || episodeFocus.skill}有進步的學生`;
+      return {
+        label,
+        studentIds: pack.studentIds,
+        total: pack.total,
+        truncated: pack.truncated,
+        note: '同一人多筆前後測只算一次。這是全部 GSE 有成長的人，不是下方表格的抽樣。',
+        source: 'skills-improved',
+      };
+    }
+    if (visibleScope?.studentIds?.length && (visibleScope.skill || visibleScope.narrowed || visibleScope.improvedOnly)) {
+      return {
+        label: '畫面上這些明細的學生',
+        studentIds: visibleScope.studentIds,
+        note: '明細最多約 100 筆前後測。要帶某一科全部有進步的人，請點卡片上的「有進步學生」。',
+        source: 'skills-visible',
+      };
+    }
+    return null;
+  }, [episodeFocus, growth, visibleScope]);
+
   return (
     <div>
       <LearningAnalyticsDataHealth
@@ -425,6 +464,24 @@ export default function LearningAnalyticsSkillsPage() {
         snapshotVersion={appliedFilters.snapshot_version}
       />
 
+      <LearningAnalyticsPageFrame
+        title="技能成長"
+        showWorkingSet
+        workingSetHere="skills"
+        question="看聽、讀、說、寫有沒有夠多人可以判讀的成長。"
+        scope="分析快照裡、有前後測的學生。這頁用來觀察四技能，不用來排名老師或課程。"
+        howToRead={(
+          <>
+            <ol className="small mb-3 ps-3">
+              <li>先看人數夠不夠。不到 5 人的組，先不要比誰快誰慢。</li>
+              <li>再看平均。如果畫面上寫「平均被少數人拉動」，改看正中間的人。</li>
+              <li>要看某一個人算快還是慢，到下方明細的「跟同樣起點比」。</li>
+              <li>起點已經很高的人，後來進步較少，是常見情形。</li>
+            </ol>
+            <GrowthMetricsExplainer />
+          </>
+        )}
+      >
       <LearningAnalyticsFilters
         filters={filters}
         onChange={setFilters}
@@ -437,7 +494,7 @@ export default function LearningAnalyticsSkillsPage() {
         visibleKeys={SKILL_GROWTH_FILTER_KEYS}
         showAdvanced={false}
         groupSnapshots
-        intro={LA_FILTER_INTRO_COHORT}
+        intro={LA_FILTER_INTRO_SKILLS}
       />
 
       <LearningAnalyticsActiveFilters filters={appliedFilters} visibleKeys={SKILL_GROWTH_FILTER_KEYS} />
@@ -494,7 +551,7 @@ export default function LearningAnalyticsSkillsPage() {
           </Row>
 
           <Row className="g-3 mt-1">
-            <Col lg={7}>
+            <Col xs={12}>
               <div className="la-panel">
                 <div className="la-panel-title">技能成長排序</div>
                 <p className="small text-muted mb-2">
@@ -525,22 +582,6 @@ export default function LearningAnalyticsSkillsPage() {
                 </div>
               </div>
             </Col>
-
-            <Col lg={5}>
-              <div className="la-panel">
-                <div className="la-panel-title">怎麼讀這頁</div>
-                <p className="small text-muted mb-2">
-                  這頁不是用來排名老師或課程，而是看四技能是否出現可判讀的成長訊號。
-                </p>
-                <ol className="la-skill-growth-guide mb-3">
-                  <li>先看人數夠不夠。不到 5 人的組，先不要比誰快誰慢。</li>
-                  <li>再看平均。如果畫面上寫「平均被少數人拉動」，改看正中間的人。</li>
-                  <li>要看某一個人算快還是慢，到下方明細的「跟同樣起點比」。</li>
-                  <li>起點已經很高的人，後來進步較少，是常見情形，不要直接當成課程沒效。</li>
-                </ol>
-                <GrowthMetricsExplainer />
-              </div>
-            </Col>
           </Row>
 
           <Row className="g-3 mt-1">
@@ -555,17 +596,30 @@ export default function LearningAnalyticsSkillsPage() {
                 <div className="la-panel-title">學生前後測明細：用於追查個別案例</div>
                 <p className="small text-muted">
                   「跟同樣起點比」是把這個人放回同一科、前測落在同一區間的那一群。比過的人愈多，代表在起點相近的人裡面進步較快。不到 5 人的組不排名。
-                  時數只算考試前的課程／活動。點上方卡片的「有進步學生」，可篩該技能並依原始分進步由高到低排列。
+                  時數只算考試前的課程／活動。點上方卡片的「有進步學生」，會鎖定該科全部有進步的人，再帶到 B2 達標或匯出。
                 </p>
+                {nextSet ? (
+                  <LearningAnalyticsNextSteps
+                    label={nextSet.label}
+                    studentIds={nextSet.studentIds}
+                    total={nextSet.total}
+                    truncated={nextSet.truncated}
+                    note={nextSet.note}
+                    source={nextSet.source}
+                    sourcePath="/admin/learning-analytics/skills"
+                  />
+                ) : null}
                 <GrowthEpisodeTable
                   episodes={growth?.episodes || data.growthEpisodes?.sampleEpisodes || []}
                   focusRequest={episodeFocus}
+                  onScopeChange={handleVisibleScope}
                 />
               </div>
             </Col>
           </Row>
         </>
       ) : null}
+      </LearningAnalyticsPageFrame>
     </div>
   );
 }

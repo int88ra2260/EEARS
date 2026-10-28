@@ -9,10 +9,11 @@ license: MIT
 ## When to Use This Skill
 
 - 你要修 bug、加功能、或重構會影響：
-  - 預約/取消（2hr 截止、blacklist 檢查）
+  - 預約/取消（`cutoffHours` 截止、blacklist 檢查）
   - 問卷 Gate（ET/EC、409 + redirectUrl）
   - 權限（RBAC/scope）
   - 匯入（Excel 去重、import-runs 狀態/刪除）
+  - 學習成效分析（GSE 分帶、接近 B2、CEFR 達標呈現）→ 見 `eears-learning-analytics`
 - 你需要決定「該補哪些測試」來降低 regression risk
 
 ## Current Test Landscape（以 repo 為準）
@@ -52,5 +53,5 @@ license: MIT
 
 ## Suggested Workflow Prompt
 
-> 我做的這個改動會影響哪些規則契約（例如：409 + redirectUrl、2hr cutoff、401/403、import-runs 刪除）。請先列出「應該新增/更新哪些測試檔類型」，再給出建議測試案例（至少 2 個正向 + 2 個負向）。
+> 我做的這個改動會影響哪些規則契約（例如：409 + redirectUrl、cutoffHours、401/403、import-runs 刪除、GSE 51–58 接近 B2）。請先列出「應該新增/更新哪些測試檔類型」，再給出建議測試案例（至少 2 個正向 + 2 個負向）。
 

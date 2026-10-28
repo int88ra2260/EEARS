@@ -4,6 +4,7 @@ const { Op } = require('sequelize');
 const { EtEnrollmentSnapshot, EtExamAttempt, EtExamAttemptSkillScore } = require('../../models');
 const { getKpiPolicyById, getKpiPolicyByKey } = require('./kpiPolicyService');
 const { evaluateKpiPolicy } = require('./kpiPolicyEngine');
+const { applyRosterWorkingSet } = require('./workingSetIds');
 const {
   normalizeGradeFilter,
   gradeMatchesFilter,
@@ -138,6 +139,9 @@ async function runKpiReport(input = {}) {
 
   const population = policy.definition?.population || {};
   const loaded = await loadRosterStudents(input.semesterId, population);
+  const restricted = applyRosterWorkingSet(loaded.students, input.studentIds || input.student_ids);
+  loaded.students = restricted.students;
+  loaded.studentIds = restricted.students.map((student) => student.studentId);
   const status = policy.definition?.evidence?.status || 'valid';
   const attemptMap = await loadAttemptsForStudents(loaded.studentIds, status);
 
@@ -185,7 +189,10 @@ async function runKpiReport(input = {}) {
       gradeFilter: loaded.gradeFilter,
       rosterStats: loaded.rosterStats,
       source: 'et_enrollment_snapshots.grade',
-      note: '年級以選定學期在學名冊的 grade 為準（每年／每學期名冊各自計算）。',
+      note: restricted.workingSet
+        ? `年級以選定學期在學名冊的 grade 為準（每年／每學期名冊各自計算）。${restricted.workingSet.note}`
+        : '年級以選定學期在學名冊的 grade 為準（每年／每學期名冊各自計算）。',
+      workingSet: restricted.workingSet,
     },
     evidenceWindow: evaluated.evidenceWindow,
     summary: {

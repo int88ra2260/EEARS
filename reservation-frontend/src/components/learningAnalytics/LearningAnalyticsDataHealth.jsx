@@ -36,13 +36,10 @@ export default function LearningAnalyticsDataHealth({ meta, error, snapshotVersi
     || activeVersion === String(recommended.version || meta.recommendedSnapshotVersion || '');
 
   const staleAlert = meta.examSnapshotStaleMessage ? (
-    <Alert variant="warning" className="mb-3">
-      <div className="fw-semibold mb-1">{meta.examSnapshotStaleMessage}</div>
-      <div className="small">
-        技能頁讀的是全域分析快照。英檢匯入會排程重建；完成前這段數字仍是上一版。
-        {' '}
-        <Link to="/admin/learning-journey/operations">查看重建進度</Link>
-      </div>
+    <Alert variant="warning" className="py-2 mb-2">
+      {meta.examSnapshotStaleMessage}
+      {' '}
+      <Link to="/admin/learning-journey/operations">查看重建進度</Link>
     </Alert>
   ) : null;
 
@@ -59,36 +56,46 @@ export default function LearningAnalyticsDataHealth({ meta, error, snapshotVersi
     );
   }
 
+  const urgentWarnings = warnings.filter((line) => !/^偵測到 |^資料庫共有 |^系統已改為/.test(line));
+  const versionNotes = warnings.filter((line) => /^偵測到 |^資料庫共有 |^系統已改為/.test(line));
+
   return (
     <>
       {staleAlert}
       <div className="la-data-ready">
-      <div>
-        最新資料 {recommendedStudents ?? '—'} 人、英檢 {recommendedExams ?? '—'} 筆
-        {counts.lj_student_events != null ? `、學習事件 ${counts.lj_student_events} 筆` : ''}
-      </div>
-      {activeVersion ? (
-        <div className="small mt-1">
-          <span className="text-muted">目前資料版本：</span>
-          <code className="small">{activeLabel || activeVersion}</code>
+        <div>
+          最新資料 {recommendedStudents ?? '—'} 人、英檢 {recommendedExams ?? '—'} 筆
+          {counts.lj_student_events != null ? `、學習事件 ${counts.lj_student_events} 筆` : ''}
+          {activeVersion ? (
+            <>
+              {' · '}
+              <code className="small">{activeLabel || activeVersion}</code>
+            </>
+          ) : null}
           {!usingRecommended && recommended.version ? (
             <span className="text-warning ms-2">
-              （與建議版本不同：{recommended.label || recommended.version}）
+              與建議版本不同：{recommended.label || recommended.version}
             </span>
           ) : null}
-          {(meta.snapshotVersionCount || 0) > 1 ? (
-            <span className="text-muted ms-2">共 {meta.snapshotVersionCount} 個版本，可於篩選區切換</span>
-          ) : null}
         </div>
-      ) : null}
-      {warnings.length ? (
-        <ul className="small mb-0 mt-1 ps-3">
-          {warnings.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
+        {urgentWarnings.length ? (
+          <ul className="small mb-0 mt-1 ps-3">
+            {urgentWarnings.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
+        {versionNotes.length ? (
+          <details className="la-data-more">
+            <summary>資料版本說明</summary>
+            <ul className="mb-0 ps-3">
+              {versionNotes.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+      </div>
     </>
   );
 }

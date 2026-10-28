@@ -6,13 +6,14 @@ import EvidenceQualityBadge from './EvidenceQualityBadge';
 import StudentTrajectoryLink from './StudentTrajectoryLink';
 import { EVIDENCE_QUALITY_OPTIONS } from './learningAnalyticsFilterConstants';
 import { EVIDENCE_LEVEL_LABELS } from './learningAnalyticsCopy';
+import ColumnHead, { HEAD } from './ColumnHead';
 
 const SORT_OPTIONS = [
   { value: 'examDate', label: '後測日期' },
-  { value: 'rawGrowth', label: '原始分進步' },
+  { value: 'rawGrowth', label: '這份測驗多幾分' },
   { value: 'peerPercentile', label: '跟同樣起點比' },
-  { value: 'adjustedGseGrowth', label: '扣掉入學程度' },
-  { value: 'resourceHours', label: '考前時數' },
+  { value: 'adjustedGseGrowth', label: '比預期多多少' },
+  { value: 'resourceHours', label: '後測前的時數' },
   { value: 'studentId', label: '學號' },
   { value: 'skill', label: '技能' },
 ];
@@ -113,11 +114,12 @@ function sortEpisodes(list, sortKey, sortDir) {
   });
 }
 
-export default function GrowthEpisodeTable({ episodes = [], focusRequest = null }) {
+export default function GrowthEpisodeTable({ episodes = [], focusRequest = null, onScopeChange = null }) {
   const [studentQuery, setStudentQuery] = useState('');
   const [skill, setSkill] = useState('');
   const [instrument, setInstrument] = useState('');
   const [evidenceQuality, setEvidenceQuality] = useState('');
+  const [improvedOnly, setImprovedOnly] = useState(false);
   const [sortKey, setSortKey] = useState('examDate');
   const [sortDir, setSortDir] = useState('desc');
   const [focusHint, setFocusHint] = useState('');
@@ -128,12 +130,15 @@ export default function GrowthEpisodeTable({ episodes = [], focusRequest = null 
     setInstrument('');
     setEvidenceQuality('');
     setSkill(focusRequest.skill || '');
+    setImprovedOnly(Boolean(focusRequest.improvedOnly));
     setSortKey(focusRequest.sortKey || 'rawGrowth');
     setSortDir(focusRequest.sortDir || 'desc');
     setFocusHint(
-      focusRequest.skillLabel
-        ? `已篩選「${focusRequest.skillLabel}」，並依原始分進步由高到低排列（進步最多 → 退步最多）。`
-        : '已依原始分進步由高到低排列（進步最多 → 退步最多）。',
+      focusRequest.improvedOnly && focusRequest.skillLabel
+        ? `已篩選「${focusRequest.skillLabel}」裡 GSE 有進步的明細，並依原始分進步由高到低排列。`
+        : focusRequest.skillLabel
+          ? `已篩選「${focusRequest.skillLabel}」，並依原始分進步由高到低排列（進步最多 → 退步最多）。`
+          : '已依原始分進步由高到低排列（進步最多 → 退步最多）。',
     );
   }, [focusRequest]);
 
@@ -171,13 +176,14 @@ export default function GrowthEpisodeTable({ episodes = [], focusRequest = null 
       if (q && !String(episode.studentId || '').toLowerCase().includes(q)) return false;
       if (skill && String(episode.skill) !== skill) return false;
       if (instrument && String(episode.instrument) !== instrument) return false;
+      if (improvedOnly && !(Number(episode.actualGseGrowth) > 0)) return false;
       if (evidenceQuality) {
         const level = String(episode.evidenceQuality || '').toLowerCase();
         if (level !== evidenceQuality) return false;
       }
       return true;
     });
-  }, [episodes, studentQuery, skill, instrument, evidenceQuality]);
+  }, [episodes, studentQuery, skill, instrument, evidenceQuality, improvedOnly]);
 
   const visibleEpisodes = useMemo(
     () => sortEpisodes(filteredEpisodes, sortKey, sortDir),
@@ -185,7 +191,7 @@ export default function GrowthEpisodeTable({ episodes = [], focusRequest = null 
   );
 
   const hasActiveControls = Boolean(
-    studentQuery.trim() || skill || instrument || evidenceQuality
+    studentQuery.trim() || skill || instrument || evidenceQuality || improvedOnly
     || sortKey !== 'examDate' || sortDir !== 'desc',
   );
 
@@ -194,10 +200,30 @@ export default function GrowthEpisodeTable({ episodes = [], focusRequest = null 
     setSkill('');
     setInstrument('');
     setEvidenceQuality('');
+    setImprovedOnly(false);
     setSortKey('examDate');
     setSortDir('desc');
     setFocusHint('');
   };
+
+  useEffect(() => {
+    if (!onScopeChange) return;
+    const ids = [];
+    const seen = new Set();
+    for (const episode of visibleEpisodes) {
+      const id = String(episode.studentId || '').trim().toUpperCase();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      ids.push(id);
+    }
+    onScopeChange({
+      skill,
+      improvedOnly,
+      narrowed: Boolean(studentQuery.trim() || instrument || evidenceQuality),
+      studentIds: ids,
+      episodeCount: visibleEpisodes.length,
+    });
+  }, [evidenceQuality, improvedOnly, instrument, onScopeChange, skill, studentQuery, visibleEpisodes]);
 
   if (!episodes.length) {
     return (
@@ -324,6 +350,17 @@ export default function GrowthEpisodeTable({ episodes = [], focusRequest = null 
             </div>
           </div>
         </div>
+        <Form.Check
+          type="checkbox"
+          id="la-episode-improved-only"
+          className="small mt-2 mb-0"
+          label="只看 GSE 有進步"
+          checked={improvedOnly}
+          onChange={(event) => {
+            setImprovedOnly(event.target.checked);
+            setFocusHint('');
+          }}
+        />
         <div className="small text-muted mt-2">
           顯示 {visibleEpisodes.length} / {episodes.length} 筆
           {visibleEpisodes.length !== episodes.length ? '（已套用表格篩選）' : null}
@@ -340,13 +377,13 @@ export default function GrowthEpisodeTable({ episodes = [], focusRequest = null 
               <tr>
                 <th>學號</th>
                 <th>技能</th>
-                <th>工具</th>
+                <th><ColumnHead {...HEAD.instrument} /></th>
                 <th>後測日期</th>
-                <th className="text-end" title="這科測驗的原始分差，不是 GSE">原始分進步</th>
-                <th title="跟同一科、前測落在同一區間的人比">跟同樣起點比</th>
-                <th className="text-end" title="扣掉入學時的整體程度與測驗間隔之後剩下的成長。不是跟這一科的前測比。">扣掉入學程度</th>
-                <th className="text-end">考前時數</th>
-                <th>資料</th>
+                <th className="text-end"><ColumnHead {...HEAD.rawGain} /></th>
+                <th><ColumnHead {...HEAD.sameStart} /></th>
+                <th className="text-end"><ColumnHead {...HEAD.beyondExpected} /></th>
+                <th className="text-end"><ColumnHead {...HEAD.hoursBeforeExam} /></th>
+                <th><ColumnHead {...HEAD.evidence} /></th>
                 <th />
               </tr>
             </thead>

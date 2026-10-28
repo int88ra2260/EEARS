@@ -359,6 +359,101 @@
   color: #3d4f66;
 }
 
+.announcement-prose-html .ann-notice-lead {
+  margin-bottom: 0.35rem;
+  color: #1c3d6e;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.announcement-prose-html .ann-notice-list {
+  list-style: none;
+  margin: 0.85rem 0 1.15rem;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.announcement-prose-html .ann-notice-list li {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  background: #f3f7fc;
+  border: 1px solid rgba(42, 93, 159, 0.16);
+  border-left: 3px solid #2a5d9f;
+  border-radius: 8px;
+  line-height: 1.55;
+}
+
+.announcement-prose-html .ann-notice-list li strong {
+  color: #1c3d6e;
+  font-weight: 700;
+}
+
+.announcement-prose-html .ann-notice-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.announcement-prose-html .ann-notice-card {
+  border-radius: 10px;
+  padding: 0.9rem 0.95rem 0.85rem;
+}
+
+.announcement-prose-html .ann-notice-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.announcement-prose-html .ann-notice-card p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.announcement-prose-html .ann-notice-card--account {
+  background: #e8eef7;
+  border: 1px solid rgba(42, 93, 159, 0.16);
+}
+
+.announcement-prose-html .ann-notice-card--account h3 {
+  color: #1c3d6e;
+}
+
+.announcement-prose-html .ann-notice-card--password {
+  background: #fbf6ea;
+  border: 1px solid rgba(149, 100, 0, 0.18);
+}
+
+.announcement-prose-html .ann-notice-card--password h3 {
+  color: #7a5200;
+}
+
+.announcement-prose-html .ann-notice-quiet {
+  margin: 0 0 1rem;
+  padding: 0.8rem 0.95rem;
+  border-left: 3px solid #8aa0b8;
+  background: #f4f6f8;
+  color: #3d4f66;
+}
+
+.announcement-prose-html .ann-notice-quiet p {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+}
+
+.announcement-prose-html .ann-notice-quiet p:last-child {
+  margin-bottom: 0;
+}
+
+.announcement-prose-html .ann-notice-signoff {
+  margin: 0.35rem 0 0;
+  text-align: right;
+  color: #5b6f93;
+  font-weight: 650;
+}
+
 .announcement-detail-actions {
   margin-top: 1.5rem;
   padding-top: 1rem;
@@ -373,6 +468,10 @@
   .announcement-detail-cover img,
   .announcement-prose-html img {
     max-height: min(78vh, 720px);
+  }
+
+  .announcement-prose-html .ann-notice-cards {
+    grid-template-columns: 1fr;
   }
 }
 

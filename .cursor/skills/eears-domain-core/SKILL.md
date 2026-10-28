@@ -1,6 +1,6 @@
 ---
 name: eears-domain-core
-description: EEARS 核心業務底線檢查（2hr、學生無登入、黑名單、問卷 Gate）
+description: EEARS 核心業務底線檢查（cutoffHours、學生登入綁學號、黑名單、問卷 Gate）
 license: MIT
 ---
 
@@ -10,7 +10,7 @@ license: MIT
 
 - 你要改任何與學生端預約/取消相關的 UI 或 API 呼叫
 - 你要改問卷 Gate（ET/EC）或 blacklist/違規/簽到/自動檢查
-- 你要改時間規則（例如 2hr 截止、eventType 預約開放窗）
+- 你要改時間規則（例如 `cutoffHours`、eventType 預約開放窗）
 - 你要改任何會改錯誤碼/redirectUrl 的邏輯
 
 ## Background You Need
@@ -18,20 +18,20 @@ license: MIT
 你必須理解以下不可違背語意（以 `.cursor/rules/eears-business-rules.mdc` 為準）：
 
 - 學生個人功能必須登入，session 綁定 `studentId`：預約、我的預約、我的紀錄、口說紀錄、課堂加分配置、培力報名。登入不能跳過黑名單、問卷 Gate、名額、重複預約、截止時間。學生登入上線前，既有公開表單與取消驗證碼仍有效，不得提前移除。
-- 截止為「活動開始前 2 小時」（`RESERVATION_CUTOFF_HOURS = 2`）
+- 預約／取消截止為活動開始前 **`cutoffHours` 小時**（來源 `event_types`；seed 預設 `2`；後台可編輯）。**不要**寫死「一律 2 小時」或假設存在 `RESERVATION_CUTOFF_HOURS` 常數。
 - 黑名單：違規累積到門檻後封鎖預約（違規次數以當學期計算、跨學期歸零），且以週日邏輯解封
-- 問卷 Gate：僅 ET/EC 的 product 規則擋，未完成要 fail-close（409 + `redirectUrl`）
+- 問卷 Gate：依活動類型 `surveyGateEnabled`；啟用規則未完成要 fail-close（409 + `redirectUrl`）
 
 ## Hard Constraints（修改前必須逐項檢查）
 
 1. 時間規則一致性
-   - 後端：`reservation-backend/utils/reservationTime.js`
+   - 後端：`reservation-backend/utils/reservationTime.js`、`services/eventTypeService.js`
    - 前端：`reservation-frontend/src/utils/reservationTime.js`
    - 若你改任一處，另一處也要同步更新且補測（至少後端）
 
-2. 2hr 截止（不是 24hr）
-   - 不要把 `2` 改成 `24`
-   - 不要把取消政策改成「可在活動前 24 小時取消」
+2. `cutoffHours` 截止（預約與公開取消同一值）
+   - 讀活動類型設定，勿硬編 `2` 或改成「一律 24 小時」
+   - 不要把取消政策改成與預約不同的截止語意
 
 3. 「7 day」的語意
    - `7 day` 是不同 `eventType` 的「預約開放起算」邏輯，不是統一禁止規則
@@ -66,5 +66,4 @@ license: MIT
 
 ## Suggested Workflow Prompt（給 AI 用）
 
-> 請先只讀取與我需求相關的檔案，列出可能碰到的底線規則（2hr、7 day 語意、問卷 Gate 契約、blacklist 封鎖），並在開始提出修改建議前，先確認你理解這些語意是否正確。若要改錯誤碼/redirectUrl/時間邏輯，請明確列出前端依賴點與建議測試項目。
-
+> 請先只讀取與我需求相關的檔案，列出可能碰到的底線規則（cutoffHours、7 day 語意、問卷 Gate 契約、blacklist 封鎖、學生登入綁學號），並在開始提出修改建議前，先確認你理解這些語意是否正確。若要改錯誤碼/redirectUrl/時間邏輯，請明確列出前端依賴點與建議測試項目。

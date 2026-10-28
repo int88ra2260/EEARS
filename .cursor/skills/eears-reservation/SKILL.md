@@ -8,7 +8,7 @@ license: MIT
 
 ## When to Use This Skill
 - 你要改任何學生端預約、取消（含 UI 提示或 API 錯誤碼）
-- 你要改「活動開始前 2 小時截止」或 `eventType` 的開放起算
+- 你要改活動類型 `cutoffHours` 截止或 `eventType` 的開放起算（`openRule`）
 - 你要改預約前檢查的組合（blacklist、問卷 gate、名額/重複/格式）
 
 ## API/Endpoint 對照（以實際路由為準）
@@ -42,7 +42,7 @@ license: MIT
 ## Hard Checklist（改動前逐項確認）
 
 - [ ] 這次改動是否觸及 `reservationTime.js`（後端/前端雙份一致性）？
-- [ ] 若涉及取消：有沒有保留驗證碼（cancellationCode）的要求與 2hr 截止？
+- [ ] 若涉及取消：有沒有保留驗證碼（cancellationCode）的要求與同一 `cutoffHours` 截止？
 - [ ] 不要重新啟用 waitlist 加入或 `promoteNextWaitlistedStudent`
 - [ ] 若涉及 error codes：
   - 問卷 Gate 仍回 `409` 並附 `redirectUrl: /survey/{surveyKey}`
@@ -50,6 +50,7 @@ license: MIT
 
 ## Common Pitfalls（避免）
 
+- 把截止寫死成「一律 2 小時」而不讀 `event_types.cutoffHours`
 - 把 `7 day` 誤解為「距離活動 7 天內不能預約」
 - 只改前端時間計算，忘了同步後端；導致學生看得懂但 API 擋下
 - 移除/改錯誤碼：導致前端流程（尤其 409 + redirectUrl）失效
@@ -57,4 +58,4 @@ license: MIT
 
 ## Suggested Workflow Prompt
 
-> 請先列出我這個需求會影響哪些規則（2hr/開放窗/blacklist/問卷 Gate/額滿/duplicate），並告訴我你會優先讀取哪些檔案；確認後再提出具體改動建議與需補的測試項目。
+> 請先列出我這個需求會影響哪些規則（cutoffHours/開放窗/blacklist/問卷 Gate/額滿/duplicate），並告訴我你會優先讀取哪些檔案；確認後再提出具體改動建議與需補的測試項目。

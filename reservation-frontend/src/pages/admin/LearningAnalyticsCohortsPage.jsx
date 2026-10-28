@@ -12,7 +12,9 @@ import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
-import { COHORT_COMPARISON_FILTER_KEYS, LA_FILTER_INTRO_COHORT } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
+import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
+import { COHORT_COMPARISON_FILTER_KEYS, LA_FILTER_INTRO_COHORTS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
 
 
@@ -98,6 +100,8 @@ export default function LearningAnalyticsCohortsPage() {
 
     apiParams,
 
+    withWorkingSet,
+
     token,
 
   } = useLearningAnalyticsBootstrap({ scopeKeys: COHORT_COMPARISON_FILTER_KEYS });
@@ -122,7 +126,7 @@ export default function LearningAnalyticsCohortsPage() {
 
     try {
 
-      const payload = await getLearningAnalyticsCohorts(token, { ...apiParams(), group_by: groupBy });
+      const payload = await getLearningAnalyticsCohorts(token, withWorkingSet({ ...apiParams(), group_by: groupBy }));
 
       setData(payload);
 
@@ -138,7 +142,7 @@ export default function LearningAnalyticsCohortsPage() {
 
     }
 
-  }, [token, apiParams, groupBy, ready]);
+  }, [token, apiParams, withWorkingSet, groupBy, ready]);
 
 
 
@@ -160,6 +164,19 @@ export default function LearningAnalyticsCohortsPage() {
         snapshotVersion={appliedFilters.snapshot_version}
       />
 
+      <LearningAnalyticsPageFrame
+        title="系所比較"
+        showWorkingSet
+        workingSetHere="cohorts"
+        question="依系所或入學年，看學生人數、英檢覆蓋與前後測樣本差在哪。"
+        scope="分析快照裡的學生。怎麼切只改表格分組，不另算一套人。"
+        howToRead={(
+          <ul className="small mb-0 ps-3">
+            <li className="mb-1">先套用學院、系所或入學年，再用怎麼切決定每一列是系所還是入學年。</li>
+            <li>人數少的列先不要互比平均。這頁看的是分布差異，不是學期 B2 KPI。</li>
+          </ul>
+        )}
+      >
       <LearningAnalyticsFilters
 
         filters={filters}
@@ -178,7 +195,7 @@ export default function LearningAnalyticsCohortsPage() {
         visibleKeys={COHORT_COMPARISON_FILTER_KEYS}
         showAdvanced={false}
         groupSnapshots
-        intro={LA_FILTER_INTRO_COHORT}
+        intro={LA_FILTER_INTRO_COHORTS}
 
       />
 
@@ -186,7 +203,7 @@ export default function LearningAnalyticsCohortsPage() {
 
       <Form.Group className="mt-3" style={{ maxWidth: 280 }}>
 
-        <Form.Label className="small text-muted">分組維度</Form.Label>
+        <Form.Label className="small text-muted">怎麼切</Form.Label>
 
         <Form.Select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} disabled={loading}>
 
@@ -228,21 +245,21 @@ export default function LearningAnalyticsCohortsPage() {
 
                   <tr>
 
-                    <th>群體</th>
+                    <th><ColumnHead {...HEAD.group} /></th>
 
-                    <th className="text-end">人數</th>
+                    <th className="text-end">學生人數</th>
 
-                    <th className="text-end">B2+ 率</th>
+                    <th className="text-end"><ColumnHead {...HEAD.b2Rate} /></th>
 
-                    <th className="text-end">重測率</th>
+                    <th className="text-end"><ColumnHead {...HEAD.retestRate} /></th>
 
-                    <th className="text-end">平均資源時數</th>
+                    <th className="text-end"><ColumnHead {...HEAD.avgResourceHours} /></th>
 
-                    <th className="text-end" title="可計算前後測成長的樣本數">前後測樣本</th>
+                    <th className="text-end"><ColumnHead {...HEAD.growthEpisodes} /></th>
 
-                    <th className="text-end" title="後測減前測的平均進步；只作輔助觀察">實際進步</th>
+                    <th className="text-end"><ColumnHead {...HEAD.actualGse} /></th>
 
-                    <th className="text-end" title="研究用輔助值，不作行政排序主依據">校正值</th>
+                    <th className="text-end"><ColumnHead {...HEAD.beyondExpectedNote} /></th>
 
                   </tr>
 
@@ -304,15 +321,15 @@ export default function LearningAnalyticsCohortsPage() {
 
                     <tr>
 
-                      <th>群體</th>
+                      <th><ColumnHead {...HEAD.group} /></th>
 
-                      <th className="text-end">學生數</th>
+                      <th className="text-end">學生人數</th>
 
-                      <th className="text-end">成長樣本數</th>
+                      <th className="text-end"><ColumnHead {...HEAD.growthEpisodes} /></th>
 
-                      <th className="text-end">實際進步</th>
+                      <th className="text-end"><ColumnHead {...HEAD.actualGse} /></th>
 
-                      <th className="text-end">校正值</th>
+                      <th className="text-end"><ColumnHead {...HEAD.beyondExpectedNote} /></th>
 
                     </tr>
 
@@ -366,11 +383,11 @@ export default function LearningAnalyticsCohortsPage() {
 
                       <th>技能</th>
 
-                      <th className="text-end">樣本數</th>
+                      <th className="text-end"><ColumnHead {...HEAD.growthEpisodes} /></th>
 
-                      <th className="text-end">實際進步</th>
+                      <th className="text-end"><ColumnHead {...HEAD.actualGse} /></th>
 
-                      <th className="text-end">校正值</th>
+                      <th className="text-end"><ColumnHead {...HEAD.beyondExpectedNote} /></th>
 
                     </tr>
 
@@ -407,6 +424,8 @@ export default function LearningAnalyticsCohortsPage() {
         </>
 
       ) : null}
+
+      </LearningAnalyticsPageFrame>
 
     </div>
 

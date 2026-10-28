@@ -8,6 +8,8 @@ import {
   getLearningAnalyticsTrackingCohort,
   listLearningAnalyticsTrackingCohorts,
 } from '../../services/learningAnalyticsService';
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
+import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import { studentTrajectoryPath } from '../../utils/learningAnalyticsRecentStudents';
 
 const PAGE_SIZE = 40;
@@ -104,22 +106,21 @@ export default function LearningAnalyticsTrackingCohortsPage() {
 
   if (!id) {
     return (
-      <section className="la-panel">
-        <div className="d-flex justify-content-between align-items-start gap-2 mb-3">
-          <div>
-            <h2 className="la-explorer-title">追蹤名單</h2>
-            <p className="la-explorer-lead mb-0">
-              名單裡的人固定在儲存當下。之後打開同一份名單，會用最新數據和當時的英檢、時數比較。
-            </p>
-          </div>
+      <LearningAnalyticsPageFrame
+        title="追蹤名單"
+        question="固定一批學生，之後用最新數據和當時的英檢、時數比較。"
+        scope="名單裡的人停在儲存當下。打開時會用最新分析快照對照當時的數字。"
+        actions={(
           <Link className="btn btn-sm btn-outline-secondary" to="/admin/learning-analytics/explore">回學生探索</Link>
-        </div>
+        )}
+      >
+      <section className="la-panel">
         {error ? <Alert variant="danger">{error}</Alert> : null}
         {loading ? <div className="text-muted"><Spinner size="sm" className="me-2" />載入中…</div> : null}
         {!loading && list.length === 0 ? <p className="text-muted mb-0">還沒有追蹤名單。請先到學生探索篩選，再按「儲存追蹤名單」。</p> : null}
         {list.length ? (
           <div className="table-responsive">
-            <table className="table table-sm align-middle mb-0">
+            <table className="table table-sm table-hover align-middle mb-0 la-table">
               <thead>
                 <tr>
                   <th>名稱</th>
@@ -148,6 +149,7 @@ export default function LearningAnalyticsTrackingCohortsPage() {
           </div>
         ) : null}
       </section>
+      </LearningAnalyticsPageFrame>
     );
   }
 
@@ -158,22 +160,20 @@ export default function LearningAnalyticsTrackingCohortsPage() {
   const currentPage = total === 0 ? 0 : Math.floor(offset / PAGE_SIZE) + 1;
 
   return (
-    <section className="la-panel">
-      <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-        <div>
-          <h2 className="la-explorer-title">{cohort?.name || '追蹤名單'}</h2>
-          <p className="la-explorer-lead mb-0">
-            {cohort ? `${filterSummary(cohort.filters)}。建立於 ${formatWhen(cohort.createdAt)}。` : ''}
-            人保持不變，數字拿來和儲存當下比較。
-          </p>
-        </div>
+    <LearningAnalyticsPageFrame
+      title={cohort?.name || '追蹤名單'}
+      question="這一批人保持不變，數字拿來和儲存當下比較。"
+      scope={cohort ? `${filterSummary(cohort.filters)}。建立於 ${formatWhen(cohort.createdAt)}。` : '分析快照上的最新英檢與時數。'}
+      actions={(
         <div className="d-flex gap-2">
           <Link className="btn btn-sm btn-outline-secondary" to="/admin/learning-analytics/tracking-cohorts">全部名單</Link>
           <Button type="button" size="sm" variant="outline-danger" disabled={deleting || loading} onClick={removeCohort}>
             {deleting ? '刪除中…' : '刪除名單'}
           </Button>
         </div>
-      </div>
+      )}
+    >
+    <section className="la-panel">
       {error ? <Alert variant="danger">{error}</Alert> : null}
       {cohort?.truncated ? (
         <Alert variant="warning" className="py-2">
@@ -208,16 +208,16 @@ export default function LearningAnalyticsTrackingCohortsPage() {
               <tr>
                 <th>學生</th>
                 <th>系所</th>
-                <th>入學年度</th>
-                <th>起始分級</th>
-                <th>英檢當時</th>
-                <th>英檢現在</th>
-                <th>活動當時</th>
-                <th>活動現在</th>
-                <th>活動差</th>
-                <th>修課當時</th>
-                <th>修課現在</th>
-                <th>修課差</th>
+                <th><ColumnHead {...HEAD.admissionYear} /></th>
+                <th><ColumnHead {...HEAD.placement} /></th>
+                <th><ColumnHead {...HEAD.examThen} /></th>
+                <th><ColumnHead {...HEAD.examNow} /></th>
+                <th className="text-end"><ColumnHead {...HEAD.activityThen} /></th>
+                <th className="text-end"><ColumnHead {...HEAD.activityNow} /></th>
+                <th className="text-end"><ColumnHead {...HEAD.activityDelta} /></th>
+                <th className="text-end"><ColumnHead {...HEAD.courseThen} /></th>
+                <th className="text-end"><ColumnHead {...HEAD.courseNow} /></th>
+                <th className="text-end"><ColumnHead {...HEAD.courseDelta} /></th>
               </tr>
             </thead>
             <tbody>
@@ -257,5 +257,6 @@ export default function LearningAnalyticsTrackingCohortsPage() {
         </div>
       ) : null}
     </section>
+    </LearningAnalyticsPageFrame>
   );
 }

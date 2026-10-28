@@ -11,6 +11,8 @@ const SITE_CONTENT_SECTIONS = Object.freeze({
     prefixes: [],
     exactKeys: [
       'home.usageTitle',
+      'home.usageLoginTitle',
+      'home.usageLogin',
       'home.usageRule',
       'home.ruleNoStamp',
       'home.usageBlacklist',

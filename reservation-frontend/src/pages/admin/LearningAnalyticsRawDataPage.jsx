@@ -10,6 +10,7 @@ import {
   getLearningAnalyticsRawData,
 } from '../../services/learningAnalyticsService';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsRawDataPreview from '../../components/learningAnalytics/LearningAnalyticsRawDataPreview';
 import { DATASET_OPTIONS } from '../../components/learningAnalytics/learningAnalyticsRawDataColumns';
@@ -35,6 +36,7 @@ export default function LearningAnalyticsRawDataPage() {
     resetFilters,
     ready,
     apiParams,
+    withWorkingSet,
     token,
   } = useLearningAnalyticsBootstrap({ scopeKeys: RAW_EXPORT_FILTER_KEYS });
   const [dataset, setDataset] = useState('students');
@@ -55,12 +57,12 @@ export default function LearningAnalyticsRawDataPage() {
     setLoading(true);
     setError('');
     try {
-      const payload = await getLearningAnalyticsRawData(token, {
+      const payload = await getLearningAnalyticsRawData(token, withWorkingSet({
         ...apiParams(),
         dataset,
         limit: pageSize,
         offset,
-      });
+      }));
       setData(payload);
     } catch (e) {
       setData(null);
@@ -68,7 +70,7 @@ export default function LearningAnalyticsRawDataPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, apiParams, dataset, offset, pageSize, ready]);
+  }, [token, apiParams, withWorkingSet, dataset, offset, pageSize, ready]);
 
   useEffect(() => {
     load();
@@ -99,18 +101,18 @@ export default function LearningAnalyticsRawDataPage() {
     setExporting(true);
     setExportError('');
     try {
-      const { blob, fileName } = await exportLearningAnalyticsRawData(token, {
+      const { blob, fileName } = await exportLearningAnalyticsRawData(token, withWorkingSet({
         ...apiParams(),
         dataset,
         format,
-      });
+      }));
       downloadBlob(fileName, blob);
     } catch (e) {
       setExportError(e.message || '匯出失敗');
     } finally {
       setExporting(false);
     }
-  }, [apiParams, canExport, dataset, ready, token]);
+  }, [apiParams, canExport, dataset, ready, token, withWorkingSet]);
 
   const rows = data?.items || [];
   const exportCap = dataset === 'exams'
@@ -131,9 +133,13 @@ export default function LearningAnalyticsRawDataPage() {
         snapshotVersion={appliedFilters.snapshot_version}
       />
 
-      <p className="small text-muted mb-3">
-        預覽或匯出學習成效分析快照底層資料（非全系統原始檔）。調整條件後請按「套用篩選」，再匯出；預覽最多 100 筆。
-      </p>
+      <LearningAnalyticsPageFrame
+        title="資料匯出"
+        showWorkingSet
+        workingSetHere="export"
+        question="預覽並下載目前分析快照的底層資料。"
+        scope="這是分析摘要，不是全系統原始檔。調整條件後按套用篩選，再匯出。預覽最多 100 筆。"
+      >
 
       <LearningAnalyticsFilters
         filters={filters}
@@ -232,6 +238,7 @@ export default function LearningAnalyticsRawDataPage() {
           onPageSizeChange={handlePageSizeChange}
         />
       ) : null}
+      </LearningAnalyticsPageFrame>
     </div>
   );
 }

@@ -1,16 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Alert from 'react-bootstrap/Alert';
 import Spinner from 'react-bootstrap/Spinner';
-import { Link } from 'react-router-dom';
 import { getLearningAnalyticsResources } from '../../services/learningAnalyticsService';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 import EvidenceQualityBadge from '../../components/learningAnalytics/EvidenceQualityBadge';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
-import LaFold from '../../components/learningAnalytics/LaFold';
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
+import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import { RESOURCE_TYPE_LABELS, SKILL_LABELS } from '../../components/learningAnalytics/learningAnalyticsCopy';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
-import { LA_FILTER_INTRO_COHORT, RESOURCE_COVERAGE_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import { LA_FILTER_INTRO_RESOURCES, RESOURCE_COVERAGE_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
 function resourceLabel(type) {
   return RESOURCE_TYPE_LABELS[type] || type;
@@ -38,6 +38,7 @@ export default function LearningAnalyticsResourcesPage() {
     resetFilters,
     ready,
     apiParams,
+    withWorkingSet,
     token,
   } = useLearningAnalyticsBootstrap({ scopeKeys: RESOURCE_COVERAGE_FILTER_KEYS });
   const [loading, setLoading] = useState(false);
@@ -49,14 +50,14 @@ export default function LearningAnalyticsResourcesPage() {
     setLoading(true);
     setError('');
     try {
-      setData(await getLearningAnalyticsResources(token, apiParams()));
+      setData(await getLearningAnalyticsResources(token, withWorkingSet(apiParams())));
     } catch (e) {
       setData(null);
       setError(e.message || '載入失敗');
     } finally {
       setLoading(false);
     }
-  }, [token, apiParams, ready]);
+  }, [token, apiParams, withWorkingSet, ready]);
 
   useEffect(() => {
     load();
@@ -80,34 +81,22 @@ export default function LearningAnalyticsResourcesPage() {
         snapshotVersion={appliedFilters.snapshot_version}
       />
 
-      <LearningAnalyticsPanelHeader
-        title="資源覆蓋與可觀察性"
-        lead="依資源類型（English Table、EAP、通識英文等）先看參與規模、可算成長樣本與資料完整度。這頁用來判斷資料能不能用，不做資源成效排名。"
-      />
-
-      <LaFold label="如何閱讀本頁" className="mb-3">
-        <ol className="small mb-2 ps-3">
-          <li className="mb-1">
-            預設只看<strong>描述表</strong>：誰參加多、有多少人能算成長、資料是否足夠解讀。
-          </li>
-          <li className="mb-1">
-            「有前後測」太少時不要解讀平均；跨英檢工具的原始分<strong>不宜直接互比</strong>。
-          </li>
-          <li className="mb-1">
-            要盯某一門課／老師／活動，請到
-            {' '}
-            <Link to="/admin/learning-analytics/offerings">課／師／活動</Link>
-            ；正式達標請到
-            {' '}
-            <Link to="/admin/learning-analytics/kpi-report">B2 KPI 報表</Link>
-            。
-          </li>
-        </ol>
-      </LaFold>
-
-      <Alert variant="secondary" className="small py-2">
-        這裡只回答「哪些資源有人用、哪些資源有足夠前後測可觀察」。是否調整課程或活動，請回到具體課程／活動明細與學生名單。
-      </Alert>
+      <LearningAnalyticsPageFrame
+        title="資源覆蓋"
+        showWorkingSet
+        workingSetHere="resources"
+        question="哪些資源有人參加、哪些資源有足夠前後測可以觀察。"
+        scope="分析快照裡的學生，依資源類型彙總。這頁不做資源成效排名。"
+        howToRead={(
+          <ol className="small mb-0 ps-3">
+            <li className="mb-1">先看描述表：誰參加多、有多少人能算成長、資料是否足夠解讀。</li>
+            <li className="mb-1">有前後測太少時不要解讀平均。跨英檢工具的原始分不宜直接互比。</li>
+            <li>
+              要盯某一門課、老師或活動，到課／師／活動。正式達標到 B2 KPI 報表。
+            </li>
+          </ol>
+        )}
+      >
 
       <LearningAnalyticsFilters
         filters={filters}
@@ -123,7 +112,7 @@ export default function LearningAnalyticsResourcesPage() {
         groupSnapshots
         filterTitle="篩選條件"
         submitLabel="套用篩選"
-        intro={LA_FILTER_INTRO_COHORT}
+        intro={LA_FILTER_INTRO_RESOURCES}
       />
       <LearningAnalyticsActiveFilters filters={appliedFilters} visibleKeys={RESOURCE_COVERAGE_FILTER_KEYS} />
 
@@ -139,23 +128,18 @@ export default function LearningAnalyticsResourcesPage() {
               tooltip="有參加該資源、且有前後測的學生，其工具原始分進步平均。沒有扣掉背景差異；跨英檢工具不宜直接互比。"
             />
             <p className="small text-muted mb-3">
-              預設主指標：參與人數、有前後測、資料完整度。平均原始分只作內部參考；列依「有前後測」人數排序。
+              預設先看參加過的人數、能算進步的人數、資料夠不夠。這份測驗多幾分只作參考，不同英檢不能互比；列依能算進步的人數排序。
             </p>
             <div className="table-responsive">
-              <table className="table table-sm align-middle mb-0 la-resources-table">
+              <table className="table table-sm table-hover align-middle mb-0 la-table la-resources-table">
                 <thead>
                   <tr>
                     <th>資源類型</th>
-                    <th className="text-end" title="曾參與該類資源的學生數">參與人數</th>
-                    <th className="text-end" title="有可配對前後測、能算進步的人數">有前後測</th>
-                    <th
-                      className="text-end"
-                      title="同測原始分進步平均；跨工具不宜直接互比"
-                    >
-                      平均原始分進步
-                    </th>
-                    <th className="d-none d-md-table-cell">主要技能</th>
-                    <th>資料完整度</th>
+                    <th className="text-end"><ColumnHead {...HEAD.participants} /></th>
+                    <th className="text-end"><ColumnHead {...HEAD.growthStudents} /></th>
+                    <th className="text-end"><ColumnHead {...HEAD.rawGain} /></th>
+                    <th className="d-none d-md-table-cell"><ColumnHead {...HEAD.mainSkills} /></th>
+                    <th><ColumnHead {...HEAD.evidence} /></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -179,6 +163,7 @@ export default function LearningAnalyticsResourcesPage() {
           </div>
         </>
       ) : null}
+      </LearningAnalyticsPageFrame>
     </div>
   );
 }

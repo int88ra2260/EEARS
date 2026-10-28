@@ -79,6 +79,15 @@ export const FILTER_FIELD_HINTS = Object.freeze({
 /** 標準 LA 頁（非細項分析）篩選列說明 */
 export const LA_FILTER_INTRO_COHORT = '學期大多只影響認證等「學期名冊」區塊；其餘圖表依資料版本與學生條件篩選分析快照。';
 
+/** 系所比較：篩選改的是學生，分組只切表格 */
+export const LA_FILTER_INTRO_COHORTS = '這些條件篩的是分析快照裡的學生。下方「怎麼切」只決定表格怎麼分組。';
+
+/** 技能成長：看的是可算前後測的快照學生 */
+export const LA_FILTER_INTRO_SKILLS = '這些條件篩的是分析快照裡、可以拿來算技能成長的學生。';
+
+/** 資源覆蓋：看各類型的參與與可觀察樣本 */
+export const LA_FILTER_INTRO_RESOURCES = '這些條件篩的是分析快照裡的學生，用來算各資源類型的參與人數與可觀察樣本。';
+
 /** 原始資料匯出頁：篩選會真正縮小匯出範圍 */
 export const LA_FILTER_INTRO_RAW_EXPORT = '此頁篩選會套用到預覽與匯出。若只要某學年度學生，請用「學年度」或「入學年度（級）」；「入學學期」對應 enrollment_term（如 114-2）。資料版本請選「建議｜全域分析」。';
 

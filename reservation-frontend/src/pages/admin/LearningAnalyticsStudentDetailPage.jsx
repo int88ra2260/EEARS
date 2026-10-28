@@ -9,6 +9,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import GrowthEpisodeTable from '../../components/learningAnalytics/GrowthEpisodeTable';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
+import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import LaFold from '../../components/learningAnalytics/LaFold';
 import StudentCoachingSummaryCard from '../../components/learningAnalytics/StudentCoachingSummaryCard';
 import StudentRecommendationsPanel from '../../components/learningAnalytics/StudentRecommendationsPanel';
@@ -207,8 +208,8 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
                       <th>日期</th>
                       <th>類型</th>
                       <th>標題</th>
-                      <th>分數/時數</th>
-                      <th>標記</th>
+                      <th><ColumnHead {...HEAD.scoreOrHours} /></th>
+                      <th><ColumnHead {...HEAD.marker} /></th>
                     </tr>
                   </thead>
                   <tbody>

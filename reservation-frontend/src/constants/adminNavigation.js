@@ -536,6 +536,15 @@ export const ADMIN_NAV_SECTIONS = [
             breadcrumbLabel: '技能成長',
           },
           {
+            id: 'learning-analytics-b1-plus',
+            label: '接近 B2',
+            path: '/admin/learning-analytics/b1-plus',
+            matchPrefixes: ['/admin/learning-analytics/b1-plus'],
+            visibility: 'perm:can_view_learning_analytics',
+            pageTitle: '接近 B2',
+            breadcrumbLabel: '接近 B2',
+          },
+          {
             id: 'learning-analytics-explore',
             label: '學生探索',
             path: '/admin/learning-analytics/explore',

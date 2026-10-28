@@ -11,6 +11,7 @@ import LearningAnalyticsDataHealth from '../../components/learningAnalytics/Lear
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
 import LaFold from '../../components/learningAnalytics/LaFold';
+import LearningAnalyticsWorkingSetBanner from '../../components/learningAnalytics/LearningAnalyticsWorkingSetBanner';
 import MetricCard from '../../components/learningAnalytics/MetricCard';
 import { getLearningAnalyticsInsights } from '../../services/learningAnalyticsService';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
@@ -27,6 +28,7 @@ export default function LearningAnalyticsInsightsPage() {
     resetFilters,
     ready,
     apiParams,
+    withWorkingSet,
     token,
   } = useLearningAnalyticsBootstrap();
   const [loading, setLoading] = useState(false);
@@ -38,7 +40,7 @@ export default function LearningAnalyticsInsightsPage() {
     setLoading(true);
     setError('');
     try {
-      const payload = await getLearningAnalyticsInsights(token, apiParams());
+      const payload = await getLearningAnalyticsInsights(token, withWorkingSet(apiParams()));
       setData(payload);
     } catch (e) {
       setData(null);
@@ -46,7 +48,7 @@ export default function LearningAnalyticsInsightsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, apiParams, ready]);
+  }, [token, apiParams, withWorkingSet, ready]);
 
   useEffect(() => {
     load();
@@ -61,6 +63,7 @@ export default function LearningAnalyticsInsightsPage() {
         error={metaError}
         snapshotVersion={appliedFilters.snapshot_version}
       />
+      <LearningAnalyticsWorkingSetBanner here="insights" />
       <LearningAnalyticsFilters
         filters={filters}
         onChange={setFilters}

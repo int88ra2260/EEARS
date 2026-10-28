@@ -11,6 +11,10 @@ import {
   exportLearningAnalyticsStudentExplorer,
   getLearningAnalyticsStudentExplorer,
 } from '../../services/learningAnalyticsService';
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
+import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
+import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
+import { useLearningAnalyticsWorkingSet } from '../../utils/learningAnalyticsWorkingSet';
 import { pushRecentStudent, studentTrajectoryPath } from '../../utils/learningAnalyticsRecentStudents';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
@@ -154,6 +158,7 @@ export default function LearningAnalyticsStudentExplorerPage() {
   const [savedCohort, setSavedCohort] = useState(null);
   const [data, setData] = useState(null);
   const [pageDraft, setPageDraft] = useState('1');
+  const { active: workingSetActive, withWorkingSet } = useLearningAnalyticsWorkingSet();
 
   const queryKey = JSON.stringify(applied);
 
@@ -161,7 +166,7 @@ export default function LearningAnalyticsStudentExplorerPage() {
     let cancelled = false;
     setLoading(true);
     setError('');
-    getLearningAnalyticsStudentExplorer(token, filtersToParams(applied, offset))
+    getLearningAnalyticsStudentExplorer(token, withWorkingSet(filtersToParams(applied, offset)))
       .then((payload) => {
         if (!cancelled) setData(payload);
       })
@@ -174,7 +179,7 @@ export default function LearningAnalyticsStudentExplorerPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, queryKey, offset, applied]);
+  }, [token, queryKey, offset, applied, withWorkingSet]);
 
   const chips = useMemo(() => buildChips(applied), [applied]);
   const summary = data?.summary;
@@ -195,12 +200,6 @@ export default function LearningAnalyticsStudentExplorerPage() {
     const filters = next || draft;
     setDraft(filters);
     setApplied(filters);
-    setOffset(0);
-  };
-
-  const selectFilter = (patch) => {
-    setDraft((current) => ({ ...current, ...patch }));
-    setApplied((current) => ({ ...current, ...patch }));
     setOffset(0);
   };
 
@@ -231,7 +230,7 @@ export default function LearningAnalyticsStudentExplorerPage() {
     try {
       const { blob, fileName } = await exportLearningAnalyticsStudentExplorer(
         token,
-        filtersToExportParams(applied),
+        withWorkingSet(filtersToExportParams(applied)),
       );
       downloadBlob(blob, fileName);
     } catch (err) {
@@ -268,6 +267,13 @@ export default function LearningAnalyticsStudentExplorerPage() {
   };
 
   return (
+    <LearningAnalyticsPageFrame
+      title="學生探索"
+      showWorkingSet
+      workingSetHere="explore"
+      question="用條件找出一批學生，再點進個人軌跡。"
+      scope="分析快照裡的學生。條件改完後按搜尋才會重查。學測只用於起始分級，不算英檢前測。"
+    >
     <div className="la-explorer">
       <aside className="la-explorer-filters" aria-label="篩選條件">
         <form
@@ -291,8 +297,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
               <span>系所</span>
               <Form.Select
                 size="sm"
-                value={applied.department}
-                onChange={(event) => selectFilter({ department: event.target.value })}
+                value={draft.department}
+                onChange={(event) => patchDraft({ department: event.target.value })}
               >
                 <option value="">全部系所</option>
                 {(data?.options?.departments || []).map((name) => (
@@ -304,8 +310,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
               <span>入學年度</span>
               <Form.Select
                 size="sm"
-                value={applied.cohort}
-                onChange={(event) => selectFilter({ cohort: event.target.value })}
+                value={draft.cohort}
+                onChange={(event) => patchDraft({ cohort: event.target.value })}
               >
                 <option value="">全部年度</option>
                 {(data?.options?.cohorts || []).map((year) => (
@@ -317,8 +323,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
               <span>起始分級</span>
               <Form.Select
                 size="sm"
-                value={applied.placement}
-                onChange={(event) => selectFilter({ placement: event.target.value })}
+                value={draft.placement}
+                onChange={(event) => patchDraft({ placement: event.target.value })}
               >
                 <option value="">不限</option>
                 {(data?.options?.placements?.length ? data.options.placements : PLACEMENT_OPTIONS).map((level) => (
@@ -337,8 +343,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
                 <span>前測</span>
                 <Form.Select
                   size="sm"
-                  value={applied.hasPreTest}
-                  onChange={(event) => selectFilter({ hasPreTest: event.target.value })}
+                  value={draft.hasPreTest}
+                  onChange={(event) => patchDraft({ hasPreTest: event.target.value })}
                 >
                   {PHASE_OPTIONS.map((option) => (
                     <option key={`pre-${option.value || 'any'}`} value={option.value}>{option.label}</option>
@@ -349,8 +355,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
                 <span>後測</span>
                 <Form.Select
                   size="sm"
-                  value={applied.hasPostTest}
-                  onChange={(event) => selectFilter({ hasPostTest: event.target.value })}
+                  value={draft.hasPostTest}
+                  onChange={(event) => patchDraft({ hasPostTest: event.target.value })}
                 >
                   {PHASE_OPTIONS.map((option) => (
                     <option key={`post-${option.value || 'any'}`} value={option.value}>{option.label}</option>
@@ -363,8 +369,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
               <span>活動時數至少</span>
               <Form.Select
                 size="sm"
-                value={applied.minActivityHours}
-                onChange={(event) => selectFilter({ minActivityHours: event.target.value })}
+                value={draft.minActivityHours}
+                onChange={(event) => patchDraft({ minActivityHours: event.target.value })}
               >
                 {HOURS_OPTIONS.map((option) => (
                   <option key={option.value || 'any'} value={option.value}>{option.label}</option>
@@ -377,8 +383,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
                 <span>修課類型</span>
                 <Form.Select
                   size="sm"
-                  value={applied.courseType}
-                  onChange={(event) => selectFilter({ courseType: event.target.value })}
+                  value={draft.courseType}
+                  onChange={(event) => patchDraft({ courseType: event.target.value })}
                 >
                   <option value="">不限</option>
                   {(data?.options?.courseTypes || [
@@ -394,8 +400,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
                 <span>修課時數至少</span>
                 <Form.Select
                   size="sm"
-                  value={applied.minCourseHours}
-                  onChange={(event) => selectFilter({ minCourseHours: event.target.value })}
+                  value={draft.minCourseHours}
+                  onChange={(event) => patchDraft({ minCourseHours: event.target.value })}
                 >
                   {COURSE_HOURS_OPTIONS.map((option) => (
                     <option key={`course-${option.value || 'any'}`} value={option.value}>{option.label}</option>
@@ -417,11 +423,9 @@ export default function LearningAnalyticsStudentExplorerPage() {
       <section className="la-explorer-results" aria-label="學生名單">
         <div className="la-explorer-toolbar">
           <div>
-            <h2 className="la-explorer-title">學生探索</h2>
+            <h2 className="la-explorer-title">學生名單</h2>
             <p className="la-explorer-lead">
-              下拉選單會立即重查。輸入姓名或學號後按「搜尋」。
-              學測只用於起始分級，不算英檢前測。
-              {data?.snapshotVersion ? ` 資料版本 ${data.snapshotVersion}。` : ''}
+              {data?.snapshotVersion ? `資料版本 ${data.snapshotVersion}。` : '符合條件的學生會列在下方。'}
             </p>
           </div>
           <div className="la-explorer-chips" aria-label="目前篩選">
@@ -448,6 +452,18 @@ export default function LearningAnalyticsStudentExplorerPage() {
             </div>
           </div>
         </div>
+        {data?.handoff?.studentIds?.length && (chips.length > 0 || workingSetActive || data.handoff.total <= 2000) ? (
+          <LearningAnalyticsNextSteps
+            label={workingSetActive ? '目前這批人裡、符合搜尋條件的學生' : '目前搜尋結果'}
+            studentIds={data.handoff.studentIds}
+            total={data.handoff.total}
+            truncated={data.handoff.truncated}
+            note={workingSetActive ? '會再依目前的搜尋條件縮小。' : ''}
+            source="student-explorer"
+            sourcePath="/admin/learning-analytics/explore"
+            hide={['explore']}
+          />
+        ) : null}
 
         {error ? <Alert variant="danger">{error}</Alert> : null}
 
@@ -551,11 +567,11 @@ export default function LearningAnalyticsStudentExplorerPage() {
                   <tr>
                     <th>學生</th>
                     <th>系所</th>
-                    <th>入學年度</th>
-                    <th>起始分級</th>
-                    <th>英檢</th>
-                    <th>活動時數</th>
-                    <th>修課時數</th>
+                    <th><ColumnHead {...HEAD.admissionYear} /></th>
+                    <th><ColumnHead {...HEAD.placement} /></th>
+                    <th><ColumnHead {...HEAD.examPhase} /></th>
+                    <th className="text-end"><ColumnHead {...HEAD.activityHours} /></th>
+                    <th className="text-end"><ColumnHead {...HEAD.courseHours} /></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -658,5 +674,6 @@ export default function LearningAnalyticsStudentExplorerPage() {
         </div>
       </section>
     </div>
+    </LearningAnalyticsPageFrame>
   );
 }

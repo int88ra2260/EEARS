@@ -103,6 +103,22 @@ export default function ReservationUsageModal({ show, onClose, embedded = false 
         >
           <div
             className="alert alert-info mb-3"
+            role="status"
+            style={{
+              fontSize: isSmallMobile ? '0.813rem' : isMobile ? '0.875rem' : 'clamp(0.875rem, 3vw, 1rem)',
+              padding: isSmallMobile ? '0.625rem' : '0.75rem',
+            }}
+          >
+            <strong><ContentText k="home.usageLoginTitle" /></strong>
+            <br />
+            <ContentText
+              k="home.usageLogin"
+              style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
+            />
+          </div>
+
+          <div
+            className="alert alert-info mb-3"
             role="alert"
             style={{
               fontSize: isSmallMobile ? '0.813rem' : isMobile ? '0.875rem' : 'clamp(0.875rem, 3vw, 1rem)',

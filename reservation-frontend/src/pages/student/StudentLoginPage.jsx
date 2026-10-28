@@ -54,6 +54,7 @@ export default function StudentLoginPage() {
         <h1 className="h4 mb-2">登入</h1>
         <p className="text-muted small">
           登入後可以預約，以及查看我的紀錄、口說紀錄、課堂加分配置與培力報名。
+          {params.get('next') ? ' 登入後會回到你剛才要使用的頁面。' : ''}
         </p>
         {noticeText ? <p className="text-success small">{noticeText}</p> : null}
         <form onSubmit={handleSubmit}>

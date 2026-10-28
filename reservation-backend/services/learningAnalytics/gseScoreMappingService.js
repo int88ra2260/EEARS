@@ -106,8 +106,18 @@ function gseBandForScore(gse) {
   for (const band of GSE_CEFR_BANDS) {
     if (gse >= band.gseMin && gse <= band.gseMax) return band;
   }
-  if (gse < GSE_CEFR_BANDS[0].gseMin) return GSE_CEFR_BANDS[0];
-  return GSE_CEFR_BANDS[GSE_CEFR_BANDS.length - 1];
+  // 落在帶與帶的縫隙（例如 B1 中位 50.5 介於 50 與 51）：取距離最近的帶。
+  // 舊邏輯會直接落到最後一帶 C2，造成「GSE 50.5 卻標成 C2」。
+  let best = null;
+  let bestDist = Infinity;
+  for (const band of GSE_CEFR_BANDS) {
+    const dist = gse < band.gseMin ? band.gseMin - gse : gse - band.gseMax;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = band;
+    }
+  }
+  return best;
 }
 
 function cefrToGseMidpoint(cefr) {

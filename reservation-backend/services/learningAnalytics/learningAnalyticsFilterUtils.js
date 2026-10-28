@@ -2,6 +2,7 @@
 
 const { Op } = require('sequelize');
 const { applyBaselineLevelFilter } = require('./baselineAbilityUtils');
+const { studentIdAllowList } = require('./workingSetIds');
 
 function parseBool(v) {
   if (v === true || v === 'true' || v === '1') return true;
@@ -96,6 +97,14 @@ function buildStudentWhere(query, snapshotVersion, options = {}) {
   if (options.forRawExport) {
     applyEnrollmentScopeToStudentWhere(where, query);
   }
+  const carriedIds = studentIdAllowList(query.student_ids || query.studentIds);
+  if (carriedIds) {
+    if (typeof where.studentId === 'string') {
+      if (!carriedIds.includes(where.studentId)) where.studentId = '__none__';
+    } else {
+      where.studentId = { [Op.in]: carriedIds };
+    }
+  }
   return where;
 }
 
@@ -145,6 +154,8 @@ const QUERY_PARAM_KEYS = [
   'snapshotVersion',
   'student_id',
   'studentId',
+  'student_ids',
+  'studentIds',
   'cohort',
   'college',
   'department',
@@ -188,6 +199,8 @@ const STUDENT_SCOPE_KEYS = [
   'evidence_quality',
   'student_id',
   'studentId',
+  'student_ids',
+  'studentIds',
   'semester',
   'academic_year',
   'academicYear',

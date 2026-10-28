@@ -11,6 +11,7 @@ EEARS（English Enhancement and Activity Reservation System）是成大英語中
 - 培力英檢（BESTEP）匯入與班級概況
 - 英檢報名審核
 - 學習歷程 v3（Learning Journey canonical read model）
+- 學習成效分析（Learning Analytics：CEFR 達標呈現／GSE 比較）
 - 學習有伴、公告、分析報表
 
 ## 技術棧
@@ -144,4 +145,20 @@ Runbook：`docs/micro-learning/vocabulary-bank-maintenance.md`；目錄說明：
 | `database-migrations.mdc` | migrations、models |
 | `backend-testing.mdc` | tests |
 | `frontend-react.mdc` | `reservation-frontend/**` |
-| `.cursor/skills/eears-weekly-ai-workflow/` | 週報 AI 輔助工作流（指令範本、範例） |
+| `eears-business-rules.mdc` | 學生登入、`cutoffHours`、黑名單、問卷 Gate |
+
+## EEARS Agent Skills（`.cursor/skills/`）
+
+| Skill | 用途 |
+|-------|------|
+| `eears-system` | 跨模組定位與影響面盤點 |
+| `eears-domain-core` | 業務底線（登入綁學號、`cutoffHours`、黑名單、Gate） |
+| `eears-reservation` | 預約／取消流程 |
+| `eears-survey-gate` | 問卷 Gate fail-close |
+| `eears-permission` | RBAC／scope |
+| `eears-learning-journey-v3` | LJ v3 canonical／讀模型／匯入 |
+| `eears-learning-analytics` | 成效分析；**CEFR 呈現／達標，GSE 比較**；接近 B2＝GSE 51–58 |
+| `eears-data-import-excel` | Excel 匯入去重／稽核 |
+| `eears-testing` | 補測策略 |
+| `eears-deployment-iis` | IIS＋Node 部署 |
+| `eears-weekly-ai-workflow` | 週報 blocks 草稿（範例見 skill 目錄） |

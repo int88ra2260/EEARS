@@ -44,6 +44,8 @@ export const SITE_CONTENT_KEY_SUGGESTIONS = {
   ],
   reservation_usage: [
     { key: 'home.usageTitle', label: '視窗標題' },
+    { key: 'home.usageLoginTitle', label: '登入提醒標題' },
+    { key: 'home.usageLogin', label: '登入提醒內文' },
     { key: 'home.usageRule', label: '規定提醒標題' },
     { key: 'home.ruleNoStamp', label: '規定提醒內文' },
     { key: 'home.usageBlacklist', label: '黑名單說明' },
@@ -145,8 +147,8 @@ export const DEFAULT_FAQ_SEED = [
     label: '如何預約活動',
     questionZh: '我要怎麼預約活動？',
     questionEn: 'How do I reserve an activity?',
-    answerZh: '點選「立即預約活動」進入日曆頁，選擇開放預約中的場次，再依畫面填寫姓名、學號與信箱。送出後請確認系統提示與信箱通知，活動當天依公告時間到場。',
-    answerEn: 'Click "Book an Activity" to open the calendar, choose an open session, then enter your name, student ID, and email. Confirm the on-screen message and email notification, and arrive on time.',
+    answerZh: '點選「立即預約活動」進入日曆頁，選擇開放預約中的場次。預約前請先登入學生帳號，系統會使用你的學號、姓名與信箱。送出後請確認系統提示與信箱通知，活動當天依公告時間到場。',
+    answerEn: 'Open the calendar, choose an open session, and sign in first. The booking uses your account student ID, name, and email. Confirm the message and attend on time.',
   },
   {
     label: '如何選擇活動類型',
@@ -159,8 +161,8 @@ export const DEFAULT_FAQ_SEED = [
     label: '取消預約',
     questionZh: '無法出席時可以取消預約嗎？',
     questionEn: 'Can I cancel if I cannot attend?',
-    answerZh: '可以。請至少在活動開始前 2 小時，到「查詢／取消我的預約」輸入姓名、學號與信箱，找到該筆預約後取消。若未取消且未到場，會被記為違規。',
-    answerEn: 'Yes. At least 2 hours before the session starts, go to My Reservations, enter your details, and cancel. No-shows without cancellation count as violations.',
+    answerZh: '可以。請在該活動的取消截止時間前登入，到「查詢／取消我的預約」，用預約信裡的驗證碼取消。截止時間依活動類型而定。若未取消且未到場，會被記為違規。',
+    answerEn: 'Yes. Sign in and open My Reservations before that activity’s cancellation deadline, then cancel with the code from your booking email. The deadline depends on the activity type. A no-show without cancellation counts as a violation.',
   },
   {
     label: '問卷要求',

@@ -294,6 +294,12 @@ const GROUPS = {
       match: (k) => k === 'home.usageTitle',
     },
     {
+      id: 'login',
+      label: '登入提醒',
+      description: '視窗最上方，說明預約與取消都要先登入',
+      match: (k) => k === 'home.usageLoginTitle' || k === 'home.usageLogin',
+    },
+    {
       id: 'rule',
       label: '規定提醒',
       description: '藍色提示框的標題與內文',

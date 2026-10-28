@@ -18,6 +18,11 @@ describe('gseScoreMapping', () => {
     expect(gseToCefr(50)).toBe('B1');
   });
 
+  test('GSE 50.5（B1 中位）不應誤標成 C2', () => {
+    expect(gseToCefr(50.5)).toBe('B1');
+    expect(cefrToGseMidpoint('B1')).toBe(50.5);
+  });
+
   test('GSE ↔ CEFR：B2 區間寬於 A1', () => {
     const b2 = listGseMappingForSettings().cefrSummary.B2;
     const a1 = listGseMappingForSettings().cefrSummary.A1;

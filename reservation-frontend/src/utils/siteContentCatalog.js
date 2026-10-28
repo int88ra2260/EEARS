@@ -17,6 +17,8 @@ export const TEXT_SECTION_PREFIXES = {
 export const TEXT_SECTION_EXACT_KEYS = {
   reservation_usage: [
     'home.usageTitle',
+    'home.usageLoginTitle',
+    'home.usageLogin',
     'home.usageRule',
     'home.ruleNoStamp',
     'home.usageBlacklist',

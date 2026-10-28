@@ -226,6 +226,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   'learning-analytics-offerings': ['細項分析', 'offerings', '課程細項', '活動細項'],
   'learning-analytics-resources': ['課程效益', '活動效益', '資源'],
   'learning-analytics-skills': ['四技能', 'GSE', '技能成長'],
+  'learning-analytics-b1-plus': ['接近 B2', 'B1+', 'GSE', '前測', '修課', '活動參與'],
   'learning-analytics-explore': ['學生探索', '篩選名單', '起始分級', '前測', '後測', '活動時數', '修課'],
   'learning-analytics-tracking': ['追蹤名單', '固定名單', '前後對照', '同一批學生'],
   'learning-analytics-students': ['學習軌跡', '學生歷程', '個人分析'],

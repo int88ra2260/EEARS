@@ -105,6 +105,7 @@ describe('lvaAnalyticsService', () => {
       monthsBetweenTests: expect.any(Number),
       causalClaimAllowed: false,
     }));
+    expect(result.improvedStudentsBySkill.listening.studentIds).toEqual(['S001']);
     expect(result.byStartingGse).toEqual([
       expect.objectContaining({
         skill: 'listening',

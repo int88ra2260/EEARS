@@ -38,6 +38,7 @@ jest.mock('../../controllers/learningAnalyticsController', () => ({
   getMeta: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getOverview: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getStudentExplorer: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  getB1PlusWatch: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getStudentExplorerExport: (_req, res) => res.status(200).send('xlsx'),
   listTrackingCohorts: (_req, res) => res.json({ success: true, data: { items: [] } }),
   createTrackingCohort: (_req, res) => res.status(201).json({ success: true, data: { id: 1 } }),
@@ -285,6 +286,26 @@ describe('learning analytics API auth boundary', () => {
     expect(res.status).toBe(401);
   });
 
+  it('b1 plus watch requires view permission', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/b1-plus')
+      .set('x-user-role', 'teacher')
+      .set('x-allow-permissions', '');
+    expect(res.status).toBe(403);
+    expect(res.body.permission).toBe(P.CAN_VIEW_LEARNING_ANALYTICS);
+  });
+
+  it('authorized b1 plus watch returns 200', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/b1-plus')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
   it('unauthenticated student explorer returns 401', async () => {
     const app = createApp();
     const res = await request(app).get('/api/admin/learning-analytics/student-explorer');
@@ -330,5 +351,23 @@ describe('learning analytics API auth boundary', () => {
       .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
     expect(res.status).toBe(403);
     expect(res.body.permission).toBe(P.CAN_EXPORT_LEARNING_ANALYTICS);
+  });
+
+  it('carried student list uses POST and still requires export permission', async () => {
+    const app = createApp();
+    const denied = await request(app)
+      .post('/api/admin/learning-analytics/export')
+      .send({ format: 'xlsx', dataset: 'students', studentIds: ['B001'] })
+      .set('x-user-role', 'teacher')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(denied.status).toBe(403);
+    expect(denied.body.permission).toBe(P.CAN_EXPORT_LEARNING_ANALYTICS);
+
+    const allowed = await request(app)
+      .post('/api/admin/learning-analytics/skills')
+      .send({ studentIds: ['B001'] })
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(allowed.status).toBe(200);
   });
 });

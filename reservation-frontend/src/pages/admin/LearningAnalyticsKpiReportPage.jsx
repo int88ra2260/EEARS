@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Alert from 'react-bootstrap/Alert';
 import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
@@ -7,7 +7,10 @@ import Spinner from 'react-bootstrap/Spinner';
 import Table from 'react-bootstrap/Table';
 
 import MetricCard from '../../components/learningAnalytics/MetricCard';
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
+import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
+import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import KpiPolicyEditorModal from '../../components/learningAnalytics/KpiPolicyEditorModal';
 import StudentTrajectoryLink from '../../components/learningAnalytics/StudentTrajectoryLink';
 import { SEMESTER_OPTIONS, getCurrentSemester } from '../../utils/semesterUtils';
@@ -25,6 +28,7 @@ import {
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
 import useConfirm from '../../components/ui/useConfirm';
+import { useLearningAnalyticsWorkingSet } from '../../utils/learningAnalyticsWorkingSet';
 
 function formatPct(rate) {
   if (rate == null || !Number.isFinite(Number(rate))) return '—';
@@ -67,6 +71,9 @@ export default function LearningAnalyticsKpiReportPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [report, setReport] = useState(null);
+  const workingSet = useLearningAnalyticsWorkingSet();
+  const workingSetKey = workingSet.studentIds.join(',');
+  const seenWorkingSet = useRef(null);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState('create');
@@ -76,6 +83,31 @@ export default function LearningAnalyticsKpiReportPage() {
   const selectedPolicy = useMemo(
     () => policies.find((p) => String(p.id) === String(policyId)) || null,
     [policies, policyId]
+  );
+
+  useEffect(() => {
+    if (seenWorkingSet.current == null) {
+      seenWorkingSet.current = workingSetKey;
+      return;
+    }
+    if (seenWorkingSet.current === workingSetKey) return;
+    seenWorkingSet.current = workingSetKey;
+    setReport(null);
+    setNotice(workingSetKey
+      ? '已改看帶來的名單。請再按執行報表。'
+      : '已改回整份名冊。請再按執行報表。');
+  }, [workingSetKey]);
+
+  const reportStudentIds = useMemo(
+    () => (report?.rows || []).map((row) => row.studentId),
+    [report]
+  );
+  const unmetStudentIds = useMemo(
+    () => (report?.rows || []).filter((row) => {
+      const dims = Object.values(row.dimensions || {});
+      return dims.length > 0 && dims.some((cell) => !cell?.passed);
+    }).map((row) => row.studentId),
+    [report]
   );
 
   const activePolicies = useMemo(
@@ -207,11 +239,11 @@ export default function LearningAnalyticsKpiReportPage() {
     setError('');
     setNotice('');
     try {
-      const data = await runLearningAnalyticsKpiReport(token, {
+      const data = await runLearningAnalyticsKpiReport(token, workingSet.withWorkingSet({
         policyId: Number(policyId),
         semesterId,
         includeRows: true,
-      });
+      }));
       setReport(data);
     } catch (e) {
       setError(e.message || '執行報表失敗');
@@ -229,10 +261,10 @@ export default function LearningAnalyticsKpiReportPage() {
     setExporting(true);
     setError('');
     try {
-      const { blob, fileName } = await exportLearningAnalyticsKpiReport(token, {
+      const { blob, fileName } = await exportLearningAnalyticsKpiReport(token, workingSet.withWorkingSet({
         policyId,
         semesterId,
-      });
+      }));
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -254,10 +286,10 @@ export default function LearningAnalyticsKpiReportPage() {
     setExportingGaps(true);
     setError('');
     try {
-      const { blob, fileName } = await exportLearningAnalyticsKpiGaps(token, {
+      const { blob, fileName } = await exportLearningAnalyticsKpiGaps(token, workingSet.withWorkingSet({
         policyId,
         semesterId,
-      });
+      }));
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -275,11 +307,19 @@ export default function LearningAnalyticsKpiReportPage() {
   const semesterOptions = SEMESTER_OPTIONS.filter((o) => o.value);
 
   return (
-    <div className="la-page-body">
-      <LearningAnalyticsPanelHeader
-        title="B2 KPI 報表"
-        lead="依政策庫鎖定達標規則（同日／跨日 × 雙科 CEFR 或分數合計；大一～大三或大二～大四），對名冊學生產出聽讀／說寫達標人數與比例。"
-      />
+    <LearningAnalyticsPageFrame
+      title="B2 KPI 報表"
+      showWorkingSet
+      workingSetHere="kpi"
+      question="依選定政策，算出這個學期名冊的聽讀、說寫達標人數與比例。"
+      scope="分母是選定學期的在學名冊。這頁的達標線是 B2，不是分析快照上的累積人數。"
+      howToRead={(
+        <ul className="small mb-0 ps-3">
+          <li className="mb-1">先選 KPI 政策與名冊學期，再按執行報表。內建政策唯讀，要改規則請複製後編輯。</li>
+          <li>匯出 Excel 是達標結果；匯出缺口名單是未達標、缺重測或無考試的人。</li>
+        </ul>
+      )}
+    >
 
       {error ? <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert> : null}
       {notice ? <Alert variant="success" onClose={() => setNotice('')} dismissible>{notice}</Alert> : null}
@@ -497,7 +537,9 @@ export default function LearningAnalyticsKpiReportPage() {
               <MetricCard
                 label="納入人數（分母）"
                 value={report.population?.totalStudents ?? '—'}
-                hint={report.population?.semesterId}
+                hint={report.population?.workingSet
+                  ? `帶來 ${report.population.workingSet.requested} 人，名冊命中 ${report.population.workingSet.matchedRoster}`
+                  : report.population?.semesterId}
               />
             </div>
             <div className="col-md-3">
@@ -534,6 +576,39 @@ export default function LearningAnalyticsKpiReportPage() {
                 : (report.population.rosterStats?.excludedByGrade ? '）' : '')}
               。
             </Alert>
+          ) : null}
+          {report.population?.workingSet ? (
+            <Alert variant="light" className="border small mb-3">
+              {report.population.workingSet.note}
+              {' '}
+              帶來 {report.population.workingSet.requested} 人，
+              名冊命中 {report.population.workingSet.matchedRoster} 人，
+              不在名冊 {report.population.workingSet.omittedFromRoster} 人。
+            </Alert>
+          ) : null}
+          {reportStudentIds.length ? (
+            <LearningAnalyticsNextSteps
+              label="這份報表的學生"
+              studentIds={reportStudentIds}
+              total={reportStudentIds.length}
+              truncated={reportStudentIds.length > 2000}
+              note="分母仍是這個學期的名冊。"
+              source="kpi-report"
+              sourcePath="/admin/learning-analytics/kpi-report"
+              hide={['kpi']}
+            />
+          ) : null}
+          {unmetStudentIds.length ? (
+            <LearningAnalyticsNextSteps
+              label="這份報表裡未達標的學生"
+              studentIds={unmetStudentIds}
+              total={unmetStudentIds.length}
+              truncated={unmetStudentIds.length > 2000}
+              note="至少有一個達標項目未通過。"
+              source="kpi-unmet"
+              sourcePath="/admin/learning-analytics/kpi-report"
+              hide={['kpi']}
+            />
           ) : null}
 
           {report.summary?.skillBreakdown ? (
@@ -573,7 +648,7 @@ export default function LearningAnalyticsKpiReportPage() {
                       {(report.summary?.dimensions || []).map((dim) => (
                         <React.Fragment key={dim.id}>
                           <th>{dim.label}</th>
-                          <th>證明</th>
+                          <th><ColumnHead {...HEAD.proof} /></th>
                         </React.Fragment>
                       ))}
                     </tr>
@@ -617,6 +692,6 @@ export default function LearningAnalyticsKpiReportPage() {
         onHide={() => setEditorOpen(false)}
         onSubmit={handleEditorSubmit}
       />
-    </div>
+    </LearningAnalyticsPageFrame>
   );
 }

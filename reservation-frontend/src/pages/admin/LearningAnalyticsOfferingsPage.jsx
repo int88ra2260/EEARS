@@ -13,9 +13,11 @@ import {
 } from '../../services/learningAnalyticsService';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
-import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
+import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
+import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import LaFold from '../../components/learningAnalytics/LaFold';
 import StudentTrajectoryLink from '../../components/learningAnalytics/StudentTrajectoryLink';
+import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { downloadBlob } from '../../utils/learningJourneyOperationsHelpers';
@@ -277,11 +279,11 @@ function SkillBreakdownTable({ rows }) {
         <thead>
           <tr>
             <th>技能</th>
-            <th className="text-end">可計算人數</th>
-            <th className="text-end">平均原始進步</th>
-            <th className="text-end">GSE 實際成長</th>
-            <th className="text-end">GSE 修正成長</th>
-            <th className="text-end">任一進步率</th>
+            <th className="text-end"><ColumnHead {...HEAD.growthStudents} /></th>
+            <th className="text-end"><ColumnHead {...HEAD.rawGain} /></th>
+            <th className="text-end"><ColumnHead {...HEAD.actualGse} /></th>
+            <th className="text-end"><ColumnHead {...HEAD.beyondExpected} /></th>
+            <th className="text-end"><ColumnHead {...HEAD.anySkillUp} /></th>
           </tr>
         </thead>
         <tbody>
@@ -331,10 +333,14 @@ function isExtremeStudent(avg, distribution) {
   return false;
 }
 
-function StudentDetailTable({ students, distribution, skewFlagged, direction }) {
+function StudentDetailTable({ students, distribution, skewFlagged, direction, handoffLabel }) {
   if (!students?.length) return <p className="small text-muted mb-0">尚無學生明細。</p>;
   const withGrowth = students.filter((s) => s.growthSampleSize > 0).length;
   const gseWarnCount = students.filter((s) => s.gseResolutionWarning?.flagged).length;
+  const improvedIds = students
+    .filter((student) => Number(student.avgRawDelta) > 0)
+    .map((student) => student.studentId);
+  const label = handoffLabel || '這份名單的學生';
   return (
     <div>
       <p className="small text-muted mb-2">
@@ -348,18 +354,34 @@ function StudentDetailTable({ students, distribution, skewFlagged, direction }) 
         {gseWarnCount ? ` ${gseWarnCount} 人有 GSE 換算解析度警示。` : null}
         {skewFlagged ? ' 黃色列為相對群體分布偏離較大、可能拉高或拉低平均者。' : null}
       </p>
+      <LearningAnalyticsNextSteps
+        label={label}
+        studentIds={students.map((student) => student.studentId)}
+        note="這是這一列的學生，不是整個學期名冊。"
+        source="offering-students"
+        sourcePath="/admin/learning-analytics/offerings"
+      />
+      {improvedIds.length > 0 && improvedIds.length < students.length ? (
+        <LearningAnalyticsNextSteps
+          label={`${label}裡原始分有進步的人`}
+          studentIds={improvedIds}
+          note="只含平均原始進步大於 0 的人。"
+          source="offering-improved"
+          sourcePath="/admin/learning-analytics/offerings"
+        />
+      ) : null}
       <div className="table-responsive">
         <table className="table table-sm mb-0">
           <thead>
             <tr>
               <th>學號</th>
-              <th className="text-end" title="單一技能的前後測配對數，不是考試場次">前後測筆數</th>
-              <th className="text-center" title="依平均原始進步">方向</th>
-              <th className="text-end" title="同測主指標">平均原始進步</th>
-              <th className="text-end" title="跨測驗量尺；同測時可能較鈍">GSE 實際</th>
-              <th className="text-end">GSE 修正</th>
-              <th className="text-end" title="聽／說／讀／寫至少一項有前後測且後測優於前測">任一技能進步</th>
-              <th className="text-end" title="四項都有前後測且每一項都進步">全技能進步</th>
+              <th className="text-end"><ColumnHead {...HEAD.pairCount} /></th>
+              <th className="text-center"><ColumnHead {...HEAD.direction} /></th>
+              <th className="text-end"><ColumnHead {...HEAD.rawGain} /></th>
+              <th className="text-end"><ColumnHead {...HEAD.actualGse} /></th>
+              <th className="text-end"><ColumnHead {...HEAD.beyondExpected} /></th>
+              <th className="text-end"><ColumnHead {...HEAD.anySkillUp} /></th>
+              <th className="text-end"><ColumnHead {...HEAD.allSkillsUp} /></th>
             </tr>
           </thead>
           <tbody>
@@ -454,15 +476,15 @@ function AdvancedMetricsStrip({ row, stats }) {
       <div className="small fw-semibold mb-2">進階指標（預設表隱藏）</div>
       <div className="row g-2 small">
         <div className="col-md-3">
-          <div className="text-muted">任一技能進步</div>
+          <div className="text-muted" title={HEAD.anySkillUp.hint}>{HEAD.anySkillUp.name}</div>
           <ImprovementCell metric={row.improvement?.any} />
         </div>
         <div className="col-md-3">
-          <div className="text-muted">全技能進步</div>
+          <div className="text-muted" title={HEAD.allSkillsUp.hint}>{HEAD.allSkillsUp.name}</div>
           <ImprovementCell metric={row.improvement?.allSkills} />
         </div>
         <div className="col-md-3">
-          <div className="text-muted">GSE 實際（輔）</div>
+          <div className="text-muted" title={HEAD.actualGse.hint}>{HEAD.actualGse.name}</div>
           <DeltaWithDistribution
             avg={row.avgActualGseGrowth}
             distribution={stats.gseActualDistribution}
@@ -470,7 +492,7 @@ function AdvancedMetricsStrip({ row, stats }) {
           />
         </div>
         <div className="col-md-3">
-          <div className="text-muted">GSE 修正（輔）</div>
+          <div className="text-muted" title={HEAD.beyondExpected.hint}>{HEAD.beyondExpected.name}</div>
           <DeltaWithDistribution
             avg={row.avgAdjustedGseGrowth}
             distribution={stats.gseAdjustedDistribution}
@@ -505,6 +527,7 @@ export default function LearningAnalyticsOfferingsPage() {
     resetFilters,
     ready,
     apiParams,
+    withWorkingSet,
     token,
   } = useLearningAnalyticsBootstrap({
     scopeKeys: OFFERING_SCOPE_KEYS,
@@ -538,11 +561,11 @@ export default function LearningAnalyticsOfferingsPage() {
     setLoading(true);
     setError('');
     try {
-      const payload = await getLearningAnalyticsOfferings(token, {
+      const payload = await getLearningAnalyticsOfferings(token, withWorkingSet({
         ...apiParams(),
         dimension,
         instructor_grouping: dimension === 'instructor' ? instructorGrouping : undefined,
-      });
+      }));
       setData(payload);
       setExpandedKey('');
       setDetailByKey({});
@@ -552,7 +575,7 @@ export default function LearningAnalyticsOfferingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, apiParams, dimension, instructorGrouping, ready]);
+  }, [token, apiParams, withWorkingSet, dimension, instructorGrouping, ready]);
 
   useEffect(() => {
     load();
@@ -562,12 +585,12 @@ export default function LearningAnalyticsOfferingsPage() {
     if (!ready || detailByKey[offeringKey]) return;
     setDetailLoadingKey(offeringKey);
     try {
-      const payload = await getLearningAnalyticsOfferingDetail(token, {
+      const payload = await getLearningAnalyticsOfferingDetail(token, withWorkingSet({
         ...apiParams(),
         dimension,
         instructor_grouping: dimension === 'instructor' ? instructorGrouping : undefined,
         offering_key: offeringKey,
-      });
+      }));
       setDetailByKey((prev) => ({ ...prev, [offeringKey]: payload }));
     } catch (e) {
       setDetailByKey((prev) => ({
@@ -577,7 +600,7 @@ export default function LearningAnalyticsOfferingsPage() {
     } finally {
       setDetailLoadingKey('');
     }
-  }, [apiParams, detailByKey, dimension, instructorGrouping, ready, token]);
+  }, [apiParams, withWorkingSet, detailByKey, dimension, instructorGrouping, ready, token]);
 
   const toggleRow = useCallback((offeringKey) => {
     setExpandedKey((prev) => {
@@ -592,18 +615,18 @@ export default function LearningAnalyticsOfferingsPage() {
     setExporting(true);
     setExportError('');
     try {
-      const { blob, fileName } = await exportLearningAnalyticsOfferings(token, {
+      const { blob, fileName } = await exportLearningAnalyticsOfferings(token, withWorkingSet({
         ...apiParams(),
         dimension,
         instructor_grouping: dimension === 'instructor' ? instructorGrouping : undefined,
-      });
+      }));
       downloadBlob(blob, fileName);
     } catch (e) {
       setExportError(e.message || '匯出失敗');
     } finally {
       setExporting(false);
     }
-  }, [apiParams, canExport, dimension, instructorGrouping, ready, token]);
+  }, [apiParams, canExport, dimension, instructorGrouping, ready, token, withWorkingSet]);
 
   const rows = useMemo(() => {
     const list = [...(data?.rows || [])];
@@ -629,29 +652,21 @@ export default function LearningAnalyticsOfferingsPage() {
         snapshotVersion={appliedFilters.snapshot_version}
       />
 
-      <LearningAnalyticsPanelHeader
-        title="課／師／活動細項"
-        lead="看某一門課、一位教師或一場活動：多少人參與、多少人可算成長、進步／持平／退步各多少。同測請看「平均原始進步」；這是觀察關聯，不是因果證明。"
-      />
-
-      <LaFold label="如何閱讀本頁" className="mb-3">
-        <ol className="small mb-2 ps-3">
-          <li className="mb-1">先選<strong>學期</strong>，再選分析維度（課程／教師／活動／資源類別）。</li>
-          <li className="mb-1">
-            預設只看五個核心欄：參與人數、可計算成長、進步／持平／退步、平均原始進步、警示。
-          </li>
-          <li className="mb-1">
-            「可計算成長」太少時不要解讀平均；有「極端值」警示時請對照中位數或展開學生。
-          </li>
-          <li className="mb-1">
-            需要「任一／全技能進步」或 GSE 時，再開「顯示進階欄位」，或點 ▶ 展開該列。
-          </li>
-        </ol>
-        <p className="small text-muted mb-0">
-          三種「有進步」定義不同：預設方向桶用學生平均原始分；任一技能／全技能為較嚴格的技能條件，放在進階。
-        </p>
-      </LaFold>
-
+      <LearningAnalyticsPageFrame
+        title="課／師／活動"
+        showWorkingSet
+        workingSetHere="offerings"
+        question="看某一門課、一位教師或一場活動：多少人參與、多少人可算成長、進步多少。"
+        scope="依課程、教師或活動彙總。數字是觀察關聯，不是「上了就會進步」。"
+        howToRead={(
+          <ol className="small mb-0 ps-3">
+            <li className="mb-1">先選學期，再用「怎麼切」選課程、教師、活動或資源類別。</li>
+            <li className="mb-1">預設看參加過的人數、能算進步的人數、變好／沒變／變差、這份測驗多幾分、要不要再看分布。</li>
+            <li className="mb-1">能算進步的人太少時不要解讀平均。有極端值時對照中位數或展開學生。</li>
+            <li>需要任一技能或全技能進步、或 GSE 時，再開進階欄位。</li>
+          </ol>
+        )}
+      >
       <Alert variant="secondary" className="small py-2">
         <strong>非因果。</strong>
         {' '}
@@ -681,7 +696,7 @@ export default function LearningAnalyticsOfferingsPage() {
 
       <div className="d-flex flex-wrap gap-3 align-items-end mt-3">
         <Form.Group style={{ minWidth: 220 }}>
-          <Form.Label className="small text-muted">分析維度</Form.Label>
+          <Form.Label className="small text-muted">怎麼切</Form.Label>
           <Form.Select value={dimension} onChange={(e) => setDimension(e.target.value)} disabled={loading}>
             {DIMENSION_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -774,7 +789,7 @@ export default function LearningAnalyticsOfferingsPage() {
                   </li>
                 ))}
                 <li>
-                  <strong>進步／持平／退步</strong>
+                  <strong>變好、沒變、變差</strong>
                   ：依學生前後測平均原始分 &gt;0／=0／&lt;0（預設表主看這個）
                 </li>
               </ul>
@@ -795,53 +810,19 @@ export default function LearningAnalyticsOfferingsPage() {
                     ) : null}
                     {dimension === 'activity' ? <th>日期</th> : null}
                     {dimension === 'instructor' ? <th className="text-end">開課數</th> : null}
-                    <th className="text-end">參與人數</th>
-                    <th
-                      className="text-end"
-                      title="有可配對前後測、能算個人進步的人數"
-                    >
-                      可計算成長
-                    </th>
-                    <th
-                      className="text-end"
-                      title="依學生前後測平均原始分：進步（>0）／持平（=0）／退步（<0）"
-                    >
-                      進步／持平／退步
-                    </th>
-                    <th
-                      className="text-end"
-                      title="同測主指標：平均 + 中位數（Q1–Q3）"
-                    >
-                      平均原始進步
-                    </th>
+                    <th className="text-end"><ColumnHead {...HEAD.participants} /></th>
+                    <th className="text-end"><ColumnHead {...HEAD.growthStudents} /></th>
+                    <th className="text-end"><ColumnHead {...HEAD.directionMix} /></th>
+                    <th className="text-end"><ColumnHead {...HEAD.rawGain} /></th>
                     {showAdvancedColumns ? (
                       <>
-                        <th
-                          className="text-end"
-                          title="聽／說／讀／寫至少一項有前後測且後測優於前測"
-                        >
-                          任一技能進步
-                        </th>
-                        <th
-                          className="text-end"
-                          title="聽／說／讀／寫四項都有前後測，且每一項後測都優於前測"
-                        >
-                          全技能進步
-                        </th>
-                        <th
-                          className="text-end"
-                          title="跨測驗量尺。同測時錨點較粗可能≈0，請對照原始分"
-                        >
-                          GSE 實際
-                        </th>
-                        <th className="text-end" title="GSE 修正成長：平均 + 中位（Q1–Q3）">
-                          GSE 修正
-                        </th>
+                        <th className="text-end"><ColumnHead {...HEAD.anySkillUp} /></th>
+                        <th className="text-end"><ColumnHead {...HEAD.allSkillsUp} /></th>
+                        <th className="text-end"><ColumnHead {...HEAD.actualGse} /></th>
+                        <th className="text-end"><ColumnHead {...HEAD.beyondExpected} /></th>
                       </>
                     ) : null}
-                    <th className="text-center" title="平均相對中位偏離，或 GSE 相對原始分鈍化">
-                      警示
-                    </th>
+                    <th className="text-center"><ColumnHead {...HEAD.caution} /></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -955,6 +936,7 @@ export default function LearningAnalyticsOfferingsPage() {
                                       distribution={stats.rawDistribution}
                                       skewFlagged={skewFlagged}
                                       direction={stats.direction}
+                                      handoffLabel={row.label || '這份名單的學生'}
                                     />
                                   ) : null}
                                 </div>
@@ -978,6 +960,7 @@ export default function LearningAnalyticsOfferingsPage() {
           ) : null}
         </div>
       ) : null}
+      </LearningAnalyticsPageFrame>
     </div>
   );
 }

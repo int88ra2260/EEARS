@@ -14,6 +14,7 @@ const {
 } = require('./lvaMathUtils');
 const { isUsableGrowthPair } = require('../utils/usableSkillScore');
 const { summarizeStartingGseGrowth, annotatePretestPeers } = require('../../learningAnalytics/startingGseGrowth');
+const { collectImprovedStudentsBySkill } = require('../../learningAnalytics/workingSetIds');
 
 const GSE_MAX = 90;
 const ADJUSTED_LEGACY = 'baseline_adjusted_simplified';
@@ -300,6 +301,7 @@ function summarizeAdjustedGrowthByMethod(rows, estimateType, modelVersion, formu
       }))
       .sort((a, b) => a.skill.localeCompare(b.skill)),
     sampleEpisodes: annotated.slice(0, 200),
+    improvedStudentsBySkill: collectImprovedStudentsBySkill(annotated),
     byStartingGse: summarizeStartingGseGrowth(annotated),
   };
 }
