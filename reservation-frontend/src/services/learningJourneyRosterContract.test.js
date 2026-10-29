@@ -42,6 +42,10 @@ describe('academic course roster client contract', () => {
       '../components/learningJourneyV3/LearningJourneyV3ImportSection.jsx'
     );
     const source = fs.readFileSync(filePath, 'utf8');
+    const imported = source.match(/import\s*\{([\s\S]*?)\}\s*from\s+['"][^'"]*learningJourneyApi['"]/);
+    expect(imported).not.toBeNull();
+    expect(imported[1]).toMatch(/postAcademicCourseRosterDryRun/);
+    expect(imported[1]).toMatch(/postAcademicCourseRosterApply/);
     expect(source).toMatch(/await postAcademicCourseRosterDryRun\s*\(/);
     expect(source).toMatch(/await postAcademicCourseRosterApply\s*\(/);
   });
