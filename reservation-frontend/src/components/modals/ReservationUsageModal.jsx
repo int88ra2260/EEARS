@@ -171,7 +171,7 @@ export default function ReservationUsageModal({ show, onClose, embedded = false 
               borderRadius: '8px',
             }}
           >
-            <ContentText k="home.usageButtonPrimary" /> <ContentText k="home.usageButtonSecondary" />
+            <ContentText k="home.usageButtonPrimary" />
           </div>
         ) : (
           <button
@@ -187,7 +187,7 @@ export default function ReservationUsageModal({ show, onClose, embedded = false 
               borderRadius: '8px',
             }}
           >
-            <ContentText k="home.usageButtonPrimary" /> <ContentText k="home.usageButtonSecondary" />
+            <ContentText k="home.usageButtonPrimary" />
           </button>
         )}
       </div>

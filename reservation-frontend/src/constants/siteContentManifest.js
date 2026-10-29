@@ -54,8 +54,8 @@ export const SITE_CONTENT_KEY_SUGGESTIONS = {
     { key: 'home.usageV2', label: '違規：中途離席' },
     { key: 'home.usageV3', label: '違規：遲到五分鐘' },
     { key: 'home.usageCancel', label: '取消預約說明' },
-    { key: 'home.usageButtonPrimary', label: '關閉按鈕前半' },
-    { key: 'home.usageButtonSecondary', label: '關閉按鈕後半' },
+    { key: 'home.usageButtonPrimary', label: '關閉按鈕' },
+    { key: 'home.usageButtonSecondary', label: '關閉按鈕（舊欄位，畫面不再顯示）' },
   ],
   english_test_registration: [
     { key: 'englishTestRegistration.idCardMismatchMessage', label: '英檢：在學名單比對不符提示' },

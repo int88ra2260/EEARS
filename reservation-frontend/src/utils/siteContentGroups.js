@@ -324,7 +324,7 @@ const GROUPS = {
     {
       id: 'button',
       label: '關閉按鈕',
-      description: '按鈕會同時顯示前半與後半，例如「我知道了 Noted」',
+      description: '依目前語言顯示關閉按鈕，例如中文「我知道了」、英文「Got it」',
       match: (k) => k === 'home.usageButtonPrimary' || k === 'home.usageButtonSecondary',
     },
     {
