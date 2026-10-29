@@ -688,20 +688,7 @@ router.get(
   try {
     const { studentId, studentName, studentEmail } = req.query;
 
-    // 組合搜尋條件
-    let whereClause = {};
-
-    if (studentId) {
-      whereClause.studentId = studentId;
-    }
-
-    if (studentName) {
-      whereClause.studentName = studentName;
-    }
-
-    if (studentEmail) {
-      whereClause.studentEmail = studentEmail;
-    }
+    const whereClause = { studentId };
 
     // 查詢資料庫
     const reservations = await Reservation.findAll({

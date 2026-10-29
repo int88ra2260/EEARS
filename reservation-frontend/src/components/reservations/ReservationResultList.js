@@ -24,6 +24,8 @@ export default function ReservationResultList({
   onConfirmCancel,
   hasSearched,
   loading,
+  signedIn = false,
+  onRetry,
 }) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
@@ -74,14 +76,19 @@ export default function ReservationResultList({
   }
 
   if (!records || records.length === 0) {
+    const signedInEmpty = signedIn && !searchError;
     return (
       <section className="reservation-result-list reservation-result-list--empty" aria-live="polite">
         <EmptyState
           icon={searchError ? 'warning' : 'inbox'}
-          title={searchError ? '無法取得預約紀錄' : t('page.reservationNoRecords')}
+          title={searchError ? '無法取得預約紀錄' : (signedInEmpty ? '目前沒有預約' : t('page.reservationNoRecords'))}
           description={
             searchError ? (
-              '請確認網路連線後再試一次，或核對學號、姓名與 Email 是否與報名時一致。'
+              signedIn
+                ? '暫時無法載入這個帳號的預約，請稍後再試。'
+                : '請確認網路連線後再試一次，或核對學號、姓名與 Email 是否與報名時一致。'
+            ) : signedInEmpty ? (
+              '用這個帳號完成的預約會列在這裡。'
             ) : (
               <div>
                 <div className="mb-2">目前尚未找到符合的預約紀錄，你可以先核對以下資訊：</div>
@@ -96,17 +103,28 @@ export default function ReservationResultList({
           }
           actions={
             <>
-              <button
-                type="button"
-                className="btn btn-outline-primary btn-sm"
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              >
-                重新查詢
-              </button>
+              {searchError && onRetry ? (
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm"
+                  onClick={onRetry}
+                >
+                  再試一次
+                </button>
+              ) : null}
+              {!signedIn ? (
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm"
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                >
+                  重新查詢
+                </button>
+              ) : null}
               <Link className="btn btn-primary btn-sm" to="/events">
                 查看本週場次
               </Link>
-              {!searchError ? (
+              {!searchError && !signedIn ? (
                 <>
                   <a className="btn btn-outline-secondary btn-sm" href="/about#contact">
                     聯絡我們

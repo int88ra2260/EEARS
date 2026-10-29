@@ -50,8 +50,6 @@ async function fetchReservationActivities(ctx) {
   const reservations = await Reservation.findAll({
     where: {
       studentId: ctx.studentId,
-      studentName: ctx.studentName,
-      studentEmail: ctx.studentEmail,
     },
     attributes: ['id', 'studentId', 'studentName', 'studentEmail', 'timestamp', 'eventId', 'checkinStatus'],
     include: [{
@@ -113,7 +111,6 @@ async function fetchCourseRecords(ctx) {
 
   return dedupeCourseRecords(
     memberships
-      .filter((m) => String(m.studentName || '').trim() === ctx.studentName)
       .map((m) => ({
         semester: m.semester,
         className: m.Class ? m.Class.name : null,
@@ -126,11 +123,6 @@ async function fetchEnglishTestRegistrations(ctx) {
   const rows = await EnglishTestRegistration.findAll({
     where: {
       studentId: ctx.studentId,
-      email: ctx.studentEmail,
-      [Op.or]: [
-        { name: ctx.studentName },
-        { studentNameZh: ctx.studentName },
-      ],
     },
     attributes: ['id', 'semester', 'status', 'examType', 'updatedAt'],
     order: [['updatedAt', 'DESC']],
@@ -205,27 +197,10 @@ async function getStudentProgressRead(rawCtx) {
     fetchEnglishTestRegistrations(ctx),
   ]);
 
-  const identityVerified = reservations.length > 0
-    || passport != null
-    || courses.length > 0
-    || englishTestRegistrations.length > 0;
-
-  if (!identityVerified) {
-    return {
-      found: false,
-      message: 'Request processed.',
-      data: null,
-    };
-  }
-
-  let bestepScores = [];
-  let bestepAttendance = [];
-  if (identityVerified) {
-    [bestepScores, bestepAttendance] = await Promise.all([
-      fetchBestepScores(ctx.studentId),
-      fetchBestepAttendance(ctx.studentId),
-    ]);
-  }
+  const [bestepScores, bestepAttendance] = await Promise.all([
+    fetchBestepScores(ctx.studentId),
+    fetchBestepAttendance(ctx.studentId),
+  ]);
 
   const activities = buildActivitySection(reservations);
   const hasEnglishTable = reservations.some((row) => row.eventType === EVENT_TYPES.ENGLISH_TABLE);
@@ -242,8 +217,15 @@ async function getStudentProgressRead(rawCtx) {
     }
   }
 
+  const hasAnyRecord = reservations.length > 0
+    || passport != null
+    || courses.length > 0
+    || englishTestRegistrations.length > 0
+    || bestepScores.length > 0
+    || bestepAttendance.length > 0;
+
   return {
-    found: true,
+    found: hasAnyRecord,
     message: 'Request processed.',
     data: {
       identity: {

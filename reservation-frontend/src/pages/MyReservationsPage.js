@@ -1,21 +1,18 @@
 /**
- * 我的預約查詢頁：專用查詢表單 + 結果列表，不再使用 EventList
- * 與 ReservationSearchModal 共用 reservationService / useReservationLookup / 查詢與取消流程
+ * 我的預約：登入後依帳號學號載入，與 ReservationSearchModal 共用查詢與取消流程
  */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import StudentRecordShell from '../components/student/StudentRecordShell';
-import ReservationLookupSection from '../components/reservations/ReservationLookupSection';
 import ReservationResultList from '../components/reservations/ReservationResultList';
 import useReservationLookup from '../hooks/useReservationLookup';
 import ToastMessage from '../components/ui/ToastMessage';
 import { loadReservationIdentity } from '../utils/studentIdentityStorage';
-import { loadStudentSession } from '../utils/studentSession';
 import '../styles/public-ui.css';
 
 export default function MyReservationsPage() {
   const { t } = useLanguage();
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(() => Boolean(loadReservationIdentity()));
   const [toast, setToast] = useState({ show: false, message: '', variant: 'success' });
 
   const showToast = (message, variant = 'success') => {
@@ -23,10 +20,8 @@ export default function MyReservationsPage() {
   };
 
   const {
-    form,
     records,
     loading,
-    validationErrors,
     searchError,
     cancelingReservationId,
     cancellationCode,
@@ -58,24 +53,9 @@ export default function MyReservationsPage() {
     <div className="my-reservations-page my-reservations-page--lookup public-reservation-page">
       <StudentRecordShell lead={t('page.myReservationsLead')}>
 
-      <div className="public-card">
-      <ReservationLookupSection
-        studentId={form.studentId}
-        studentName={form.studentName}
-        studentEmail={form.studentEmail}
-        onStudentIdChange={form.setStudentId}
-        onStudentNameChange={form.setStudentName}
-        onStudentEmailChange={form.setStudentEmail}
-        onSearch={handleSearch}
-        loading={loading}
-        validationErrors={validationErrors}
-        searchError={searchError}
-        showHint={true}
-        fieldsLocked={Boolean(loadStudentSession())}
-      />
-      </div>
-
       <ReservationResultList
+        signedIn
+        onRetry={handleSearch}
         records={records}
         hasSearched={hasSearched}
         cancelingReservationId={cancelingReservationId}

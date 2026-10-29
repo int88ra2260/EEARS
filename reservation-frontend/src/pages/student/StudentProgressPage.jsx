@@ -1,17 +1,15 @@
 /**
  * 我的英語進度：統一讀取 API（活動 / 修課 / 考試 / 護照）
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import StudentRecordShell from '../../components/student/StudentRecordShell';
-import ReservationLookupSection from '../../components/reservations/ReservationLookupSection';
 import { fetchStudentProgress } from '../../services/studentProgressApi';
 import { getEnglishTableTopic, listEnglishTableReviewLinks, listEnglishTableWarmupLinks } from '../../data/englishTableTopics1151';
 import { setVoluntaryStudentId } from '../../utils/learningStudentLink';
-import { loadReservationIdentity, saveReservationIdentity } from '../../utils/studentIdentityStorage';
-import { loadStudentSession } from '../../utils/studentSession';
+import { saveReservationIdentity } from '../../utils/studentIdentityStorage';
+import useStudentSession from '../../hooks/useStudentSession';
 import { useLanguage } from '../../context/LanguageContext';
-import { validateReservationFields } from '../../utils/validators';
 import '../../styles/public-ui.css';
 import './StudentProgressPage.css';
 
@@ -152,57 +150,50 @@ function ActivityRecordList({ title, records, emptyText, t }) {
 
 export default function StudentProgressPage() {
   const { t } = useLanguage();
-  const [form, setForm] = useState(() => loadReservationIdentity() || {
-    studentId: '',
-    studentName: '',
-    studentEmail: '',
-  });
-  const [hasSearched, setHasSearched] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [validationErrors, setValidationErrors] = useState({});
+  const session = useStudentSession();
+  const student = session?.student;
+  const [loading, setLoading] = useState(Boolean(student));
   const [searchError, setSearchError] = useState('');
+  const [notFound, setNotFound] = useState(false);
   const [progress, setProgress] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const handleSearch = useCallback(async () => {
-    const trimmed = {
-      studentId: form.studentId.trim(),
-      studentName: form.studentName.trim(),
-      studentEmail: form.studentEmail.trim(),
+  useEffect(() => {
+    if (!student?.studentId || !student?.name || !student?.email) return undefined;
+    const identity = {
+      studentId: student.studentId.trim(),
+      studentName: student.name.trim(),
+      studentEmail: student.email.trim(),
     };
-    const validationResult = validateReservationFields(trimmed);
-    setValidationErrors(validationResult.fieldErrors || {});
-    if (!validationResult.isValid) return;
-
+    let cancelled = false;
     setLoading(true);
     setSearchError('');
+    setNotFound(false);
     setProgress(null);
-    setHasSearched(true);
-    setVoluntaryStudentId(trimmed.studentId);
-    saveReservationIdentity(trimmed);
+    setVoluntaryStudentId(identity.studentId);
+    saveReservationIdentity(identity);
 
-    try {
-      const result = await fetchStudentProgress(trimmed);
-      if (!result.found || !result.data) {
-        setProgress(null);
-        setSearchError(t('page.studentProgressNotFound'));
-        return;
+    (async () => {
+      try {
+        const result = await fetchStudentProgress(identity);
+        if (cancelled) return;
+        if (!result.data) {
+          setNotFound(true);
+          return;
+        }
+        setProgress(result.data);
+      } catch (err) {
+        if (cancelled) return;
+        setSearchError(err.message || t('page.studentProgressLoadError'));
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setProgress(result.data);
-    } catch (err) {
-      setProgress(null);
-      setSearchError(err.message || t('page.studentProgressLoadError'));
-    } finally {
-      setLoading(false);
-    }
-  }, [form.studentEmail, form.studentId, form.studentName, t]);
+    })();
 
-  const didAutoSearch = useRef(false);
-  useEffect(() => {
-    if (didAutoSearch.current) return;
-    if (!loadReservationIdentity()) return;
-    didAutoSearch.current = true;
-    handleSearch();
-  }, [handleSearch]);
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey, student?.email, student?.name, student?.studentId, t]);
 
   const activities = progress?.activities;
   const courses = progress?.courses?.items || [];
@@ -217,25 +208,29 @@ export default function StudentProgressPage() {
     <div className="student-progress-page public-reservation-page">
       <StudentRecordShell lead={t('page.studentProgressLead')}>
 
-      <div className="public-card">
-        <ReservationLookupSection
-          studentId={form.studentId}
-          studentName={form.studentName}
-          studentEmail={form.studentEmail}
-          onStudentIdChange={(v) => setForm((prev) => ({ ...prev, studentId: v }))}
-          onStudentNameChange={(v) => setForm((prev) => ({ ...prev, studentName: v }))}
-          onStudentEmailChange={(v) => setForm((prev) => ({ ...prev, studentEmail: v }))}
-          onSearch={handleSearch}
-          loading={loading}
-          validationErrors={validationErrors}
-          searchError={searchError}
-          searchButtonLabel={t('page.reservationSearch')}
-          showHint
-          fieldsLocked={Boolean(loadStudentSession())}
-        />
-      </div>
+      {loading ? (
+        <div className="public-card">
+          <p className="text-muted mb-0">{t('home.loading') || '載入中...'}</p>
+        </div>
+      ) : null}
 
-      {hasSearched && !loading && progress ? (
+      {!loading && searchError ? (
+        <div className="public-card">
+          <p className="mb-3">{searchError}</p>
+          <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => setReloadKey((n) => n + 1)}>
+            再試一次
+          </button>
+        </div>
+      ) : null}
+
+      {!loading && !searchError && notFound ? (
+        <div className="public-card">
+          <h2 className="h5">{t('page.studentProgressEmptyTitle')}</h2>
+          <p className="text-muted mb-0">{t('page.studentProgressNotFound')}</p>
+        </div>
+      ) : null}
+
+      {!loading && progress ? (
         <>
           <div className="student-progress-grid">
             <section className="student-progress-card public-card student-progress-card--wide">

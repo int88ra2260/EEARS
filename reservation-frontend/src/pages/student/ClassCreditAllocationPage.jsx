@@ -245,7 +245,7 @@ export default function ClassCreditAllocationPage() {
 
   return (
     <div className="container py-4" style={{ maxWidth: 960 }}>
-      <StudentRecordShell lead={`${student.studentName}（${student.studentId}）`}>
+      <StudentRecordShell lead="將參與活動累計的時數／點數指定到本學期修習的課程。">
       <div className="d-flex justify-content-end mb-3">
         <Button
           size="sm"

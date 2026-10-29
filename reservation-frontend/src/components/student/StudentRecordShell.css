@@ -1,3 +1,38 @@
+.student-workspace-identity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(42, 93, 159, 0.16);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.student-workspace-identity__name {
+  margin: 0;
+  color: #1f3f6e;
+  font-weight: 700;
+}
+
+.student-workspace-identity__id {
+  margin: 0.15rem 0 0;
+  color: #5c6b7e;
+  font-size: 0.9rem;
+}
+
+.student-workspace-identity__account {
+  flex: 0 0 auto;
+  color: #2a5d9f;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.student-workspace-identity__account:hover {
+  text-decoration: underline;
+}
+
 .student-record-tabs {
   display: flex;
   flex-wrap: wrap;
