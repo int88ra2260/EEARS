@@ -3,10 +3,15 @@
 const {
   publicMessage,
   sendAnalyticsError,
+  statusFromValidationMessage,
 } = require('../services/learningAnalytics/learningAnalyticsClientError');
 
 describe('learning analytics client errors', () => {
   test('keeps a validation message on 400', () => {
+    expect(statusFromValidationMessage('請提供至少一筆 profiles')).toBe(400);
+    expect(statusFromValidationMessage('請提供至少一項 LVA 參數')).toBe(400);
+    expect(statusFromValidationMessage(rawDb())).toBe(500);
+    expect(publicMessage({ message: '請提供至少一筆 profiles' }, 400)).toBe('請提供至少一筆 profiles');
     expect(publicMessage({ message: '學期必填' }, 400)).toBe('學期必填');
   });
 

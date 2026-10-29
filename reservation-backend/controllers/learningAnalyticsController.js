@@ -22,7 +22,7 @@ const {
   getLvaModelRun,
 } = require('../services/learningJourney/analytics/lvaModelRunService');
 const { logExportAudit } = require('../utils/exportAudit');
-const { sendAnalyticsError } = require('../services/learningAnalytics/learningAnalyticsClientError');
+const { sendAnalyticsError, statusFromValidationMessage } = require('../services/learningAnalytics/learningAnalyticsClientError');
 const { assertCanAccessStudent, sendStudentScopeDenied } = require('../services/accessControl/studentScopeGuard');
 const {
   listKpiPolicies,
@@ -347,7 +347,7 @@ async function putResourceSkillProfiles(req, res) {
     const data = await updateLearningAnalyticsResourceSkillProfiles(updates, { user: req.user });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    const status = /不支援|須為|必填/.test(e.message || '') ? 400 : 500;
+    const status = statusFromValidationMessage(e.message);
     return sendAnalyticsError(req, res, e, status);
   }
 }
@@ -357,7 +357,7 @@ async function postResetResourceSkillProfile(req, res) {
     const data = await resetLearningAnalyticsResourceSkillProfile(req.params.resourceKey, { user: req.user });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    const status = /不支援/.test(e.message || '') ? 400 : 500;
+    const status = statusFromValidationMessage(e.message);
     return sendAnalyticsError(req, res, e, status);
   }
 }
@@ -369,7 +369,7 @@ async function putFilterReferences(req, res) {
     const data = await updateLearningAnalyticsFilterReferences(refType, items, { user: req.user });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    const status = /不支援|重複/.test(e.message || '') ? 400 : 500;
+    const status = statusFromValidationMessage(e.message);
     return sendAnalyticsError(req, res, e, status);
   }
 }
@@ -380,7 +380,7 @@ async function putLvaConfig(req, res) {
     const data = await updateLearningAnalyticsLvaConfig(updates, { user: req.user });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    const status = /不支援|須為|不可|必填|migration/.test(e.message || '') ? 400 : 500;
+    const status = statusFromValidationMessage(e.message);
     return sendAnalyticsError(req, res, e, status);
   }
 }

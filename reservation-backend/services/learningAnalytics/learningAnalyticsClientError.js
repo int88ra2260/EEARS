@@ -31,6 +31,10 @@ function resolveStatus(error, statusOverride) {
   return 500;
 }
 
+function statusFromValidationMessage(message) {
+  return /不支援|須為|必填|不可|重複|至少一筆|至少一項|migration/.test(String(message || '')) ? 400 : 500;
+}
+
 function publicMessage(error, status) {
   if (STATUS_MESSAGES[status]) return STATUS_MESSAGES[status];
   if (status >= 500) return GENERIC_UNAVAILABLE;
@@ -82,4 +86,5 @@ module.exports = {
   looksInternal,
   publicMessage,
   sendAnalyticsError,
+  statusFromValidationMessage,
 };
