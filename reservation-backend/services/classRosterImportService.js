@@ -4,6 +4,7 @@ const { Class, ClassMembership } = require('../models');
 const { newImportBatchId } = require('../utils/importBatchId');
 const importRollbackManifestService = require('./importRollbackManifestService');
 const auditLogService = require('./auditLogService');
+const { compactPersonName } = require('../utils/personName');
 
 function cleanStudentId(value) {
   return String(value || '').trim().toUpperCase();
@@ -83,7 +84,7 @@ async function applyStructuredClassRosterImport(options = {}) {
     const rowNum = i + 1;
     try {
       const studentId = cleanStudentId(row.studentId);
-      const studentName = cleanString(row.studentName);
+      const studentName = compactPersonName(row.studentName) || null;
       const department = cleanString(row.department);
       const email = cleanString(row.email);
       const grade = row.grade == null || row.grade === ''

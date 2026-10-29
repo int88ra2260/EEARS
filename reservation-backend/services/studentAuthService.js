@@ -9,7 +9,8 @@ const {
   validateEmail,
 } = require('../utils/validators');
 const { assertEmailVerifiedToken } = require('./studentAccountEmailVerificationService');
-const { findOfficialIdentity, normalizePersonName } = require('./studentIdentityRosterService');
+const { findOfficialIdentity } = require('./studentIdentityRosterService');
+const { compactPersonName, normalizePersonName } = require('../utils/personName');
 const {
   savePendingReview,
   findPendingByStudentId,
@@ -37,7 +38,7 @@ function normalizeEmail(value) {
 }
 
 function normalizeName(value) {
-  return String(value || '').trim().replace(/\s+/g, ' ');
+  return compactPersonName(value);
 }
 
 function cooldownKey(studentId) {

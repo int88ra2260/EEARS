@@ -5,6 +5,7 @@ const {
   getActiveRegistrationSemester,
   getSemesterByDate,
 } = require('../utils/englishTestRegistrationSemester');
+const { personNamesMatch } = require('../utils/personName');
 const REVIEW_FIELDS = [
   // 抵免審核相關欄位：一般學生不得覆蓋，僅管理端（且 payload 明確帶入）可以更新
   'exemption_review_status',
@@ -132,7 +133,7 @@ function registrationMatchesIdentity(registration, { studentId, name, idNumber }
   const normalizedId = String(idNumber || '').trim().toUpperCase();
   return (
     registration.idNumber.toUpperCase() === normalizedId
-    && registration.name.trim() === String(name || '').trim()
+    && personNamesMatch(registration.name, name)
     && registration.studentId.trim() === String(studentId || '').trim()
   );
 }

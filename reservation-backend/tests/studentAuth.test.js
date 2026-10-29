@@ -137,6 +137,22 @@ describe('studentAuthService', () => {
     expect(mockSavePendingReview).not.toHaveBeenCalled();
   });
 
+  it('accepts a roster name that only differs by spaces between Chinese characters', async () => {
+    mockFindOne.mockResolvedValue(null);
+    mockCreate.mockImplementation(async (row) => accountRow(row));
+    mockFindOfficialIdentity.mockResolvedValue({ covered: true, conflict: false, name: '杜威' });
+
+    const account = await studentAuthService.registerAccount({
+      studentId: 'B123456789',
+      name: '杜 威',
+      email: 'b123456789@student.nsysu.edu.tw',
+      password: 'password12',
+      emailVerificationToken: 'verified-token',
+    });
+
+    expect(account.name).toBe('杜威');
+  });
+
   it('holds an uncovered student id without creating an account', async () => {
     mockFindOne.mockResolvedValue(null);
     mockFindOfficialIdentity.mockResolvedValue({ covered: false, conflict: false, name: null });

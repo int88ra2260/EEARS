@@ -11,6 +11,7 @@ const {
 } = require('../../constants/learningJourneyEventConstants');
 const { deriveEnrollmentTerm, computeSemIndex } = require('./utils/semIndexCalculator');
 const { rebuildAnalytics } = require('./analytics/analyticRebuildService');
+const { compactPersonName } = require('../../utils/personName');
 
 function normSid(s) {
   return String(s || '').trim().toUpperCase();
@@ -62,7 +63,7 @@ async function importBaseline(file, options = {}) {
     if (!row || !row.length) continue;
     rows.push({
       studentId: normSid(row[0]),
-      studentName: normName(row[1]),
+      studentName: compactPersonName(row[1]),
       enrollmentYear: parseEnrollmentYear(row[2]),
       gsatScore: parseScore(row[3]),
       testYear: parseEnrollmentYear(row[4]),
@@ -90,7 +91,7 @@ async function importBaseline(file, options = {}) {
       }
 
       const existingStudent = await Student.findOne({ where: { studentId: r.studentId }, transaction: t });
-      if (existingStudent && r.studentName && normName(existingStudent.nameZh) !== r.studentName) {
+      if (existingStudent && r.studentName && compactPersonName(existingStudent.nameZh) !== r.studentName) {
         quarantine.push({
           reason: 'student_id_name_mismatch_db',
           studentId: r.studentId,

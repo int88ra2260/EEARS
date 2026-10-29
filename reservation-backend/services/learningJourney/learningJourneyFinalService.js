@@ -24,6 +24,7 @@ const {
   LearningJourneyImportHistory
 } = require('../../models');
 const { normalizeStudentId } = require('./utils/studentNormalization');
+const { compactPersonName } = require('../../utils/personName');
 const { getCefrRank, DEFAULT_MAPPING_VERSION, compareBestScoreCandidate } = require('./utils/cefrRules');
 const { buildExternalExamDedupeKey } = require('./utils/dedupeKeyBuilder');
 
@@ -99,7 +100,7 @@ function readEnrollmentRows(fileBuffer) {
     className: normalizeText(row[2]),
     grade: normalizeText(row[3]),
     studentId: normalizeStudentId(row[4]),
-    studentName: normalizeName(row[5])
+    studentName: compactPersonName(row[5])
   }));
 }
 
@@ -111,7 +112,7 @@ function readExamRows(fileBuffer) {
     className: normalizeText(row[2]),
     grade: normalizeText(row[3]),
     studentId: normalizeStudentId(row[4]),
-    studentName: normalizeName(row[5]),
+    studentName: compactPersonName(row[5]),
     examType: normalizeText(row[6]),
     examDate: parseMaybeDate(row[7]),
     listeningScore: parseNumber(row[8]),
@@ -164,11 +165,11 @@ async function recordImportHistory(payload, options = {}) {
 
 async function ensureStudent(row, transaction, warnings) {
   const studentId = normalizeStudentId(row.studentId);
-  const studentName = normalizeName(row.studentName);
+  const studentName = compactPersonName(row.studentName);
   if (!studentId || !studentName) return null;
   const existing = await Student.findOne({ where: { studentId }, transaction });
   if (existing) {
-    if (normalizeName(existing.nameZh) && normalizeName(existing.nameZh) !== studentName) {
+    if (compactPersonName(existing.nameZh) && compactPersonName(existing.nameZh) !== studentName) {
       warnings.push(warning('STUDENT_ID_NAME_CONFLICT', '同學號不同姓名，已寫入 quarantine', {
         studentId,
         existingName: existing.nameZh,
@@ -250,7 +251,7 @@ async function importEnrollmentSnapshot({ semesterId, fileBuffer, sourceFile = '
         where: { semesterId: sid, studentId: row.studentId },
         transaction
       });
-      if (existing && normalizeName(existing.studentName) && normalizeName(existing.studentName) !== row.studentName) {
+      if (existing && compactPersonName(existing.studentName) && compactPersonName(existing.studentName) !== compactPersonName(row.studentName)) {
         skipped += 1;
         warnings.push(warning('ENROLLMENT_STUDENT_ID_NAME_CONFLICT', '同學號不同姓名，已寫入 quarantine', {
           rowNumber: row.rowNumber,
@@ -546,7 +547,7 @@ async function loadRoster(semesterId, options = {}) {
   const teacherSet = await getTeacherVisibleStudentIds(options.user, semesterId);
   const items = rows
     .map((row) => row.toJSON())
-    .map((row) => ({ ...row, studentId: normalizeStudentId(row.studentId), studentName: normalizeName(row.studentName) }))
+    .map((row) => ({ ...row, studentId: normalizeStudentId(row.studentId), studentName: compactPersonName(row.studentName) }))
     .filter((row) => (teacherSet ? teacherSet.has(row.studentId) : true));
   return items;
 }

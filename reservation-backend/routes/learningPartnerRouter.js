@@ -18,6 +18,7 @@ const learningPartnerAdminAuth = [
   requirePermission(P.CAN_MANAGE_LEARNING_PARTNER_ADMIN, '需要學習有伴團體報名管理權限'),
 ];
 const { sendEmail } = require('../config/email');
+const { personNamesMatch } = require('../utils/personName');
 const emailQueue = require('../utils/emailQueue');
 const { isGroupRegistrationEnabled } = require('../services/registrationSettingsService');
 const { getActiveRegistrationSemester } = require('../utils/englishTestRegistrationSemester');
@@ -249,7 +250,7 @@ router.post('/learning-partner/teams', async (req, res) => {
       );
 
       const nameMatches = registration
-        && registration.name.trim() === String(member.name || '').trim();
+        && personNamesMatch(registration.name, member.name);
       const isSuccessful = registration && registration.status === 'success';
 
       if (!registration || !nameMatches || !isSuccessful) {

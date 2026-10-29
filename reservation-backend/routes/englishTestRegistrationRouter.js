@@ -23,6 +23,7 @@ const {
   publicLookupAudit,
   createSimpleRateLimit,
 } = require('../middlewares/publicAccessGuard');
+const { personNamesMatch } = require('../utils/personName');
 const englishTestEmailVerificationService = require('../services/englishTestEmailVerificationService');
 const { studentAuthMiddleware, bindStudentIdentity } = require('../middlewares/studentAuth');
 const bindEnglishTestIdentity = bindStudentIdentity({ email: false });
@@ -440,7 +441,7 @@ router.put('/english-test/registrations/update',
 
       // 驗證三個欄位都必須正確（安全檢查：保護包含地址等私人資訊）
       const idNumberMatch = registration.idNumber.toUpperCase() === formData.idNumber.trim().toUpperCase();
-      const nameMatch = registration.name.trim() === formData.name.trim();
+      const nameMatch = personNamesMatch(registration.name, formData.name);
       const studentIdMatch = registration.studentId.trim() === formData.studentId.trim();
 
       if (!idNumberMatch || !nameMatch || !studentIdMatch) {

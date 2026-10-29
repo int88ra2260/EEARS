@@ -3,6 +3,7 @@
 const XLSX = require('xlsx');
 const { Class, ClassMembership } = require('../../models');
 const { normalizeStudentId } = require('./utils/studentNormalization');
+const { compactPersonName } = require('../../utils/personName');
 const { dryRunCourseImport, applyCourseImport } = require('./courseRecordService');
 
 const ACADEMIC_HEADERS = {
@@ -104,7 +105,7 @@ function parseAcademicCourseRosterWorkbook(fileBuffer, semesterId) {
       const raw = rawRows[i];
       const rowNumber = i + 2;
       const studentId = normalizeStudentId(pick(raw, 'studentId'));
-      const studentName = clean(pick(raw, 'studentName'));
+      const studentName = compactPersonName(pick(raw, 'studentName'));
       const courseName = clean(pick(raw, 'courseName'));
       const instructorName = clean(pick(raw, 'instructorName'));
       const seqValue = pick(raw, 'seq');

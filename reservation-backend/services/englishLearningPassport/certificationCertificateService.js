@@ -11,6 +11,7 @@ const {
   CERTIFICATION_THRESHOLD,
 } = require('./constants');
 const { logElpAudit } = require('./auditService');
+const { personNamesMatch } = require('../../utils/personName');
 
 const CENTER_NAME = '國立中山大學 全英語卓越教學中心';
 
@@ -54,7 +55,7 @@ async function buildCertificationCertificateData(ctx) {
     throw err;
   }
   if (
-    passport.studentName.trim() !== ctx.studentName ||
+    !personNamesMatch(passport.studentName, ctx.studentName) ||
     passport.studentEmail.toLowerCase() !== ctx.studentEmail.toLowerCase()
   ) {
     const err = new Error('學生身分驗證失敗');

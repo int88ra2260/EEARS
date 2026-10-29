@@ -221,6 +221,24 @@ describe('englishLearningPassport passportService', () => {
     });
   });
 
+  it('漢字之間多一個空白仍可進入既有護照', async () => {
+    const passport = makePassport({ studentName: '杜 威' });
+    mockPassportFindOne.mockResolvedValue(passport);
+    mockSubmissionFindAll.mockResolvedValue([]);
+    mockRuleFindAll.mockResolvedValue([]);
+
+    const dash = await passportService.getStudentDashboard({
+      ...studentCtx,
+      studentName: '杜威',
+    });
+
+    expect(dash.passport.studentId).toBe(studentCtx.studentId);
+    expect(passport.update).toHaveBeenCalledWith(
+      { studentName: '杜威' },
+      { transaction: undefined },
+    );
+  });
+
   it('已是中山學生信箱但與輸入不同不可自動改綁', async () => {
     mockPassportFindOne.mockResolvedValue(
       makePassport({ studentEmail: 'b999999999@student.nsysu.edu.tw' }),

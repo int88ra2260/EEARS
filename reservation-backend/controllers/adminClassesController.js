@@ -20,6 +20,7 @@ const {
   buildClassDisplayName,
 } = require('../services/classRosterPdfParseService');
 const { applyStructuredClassRosterImport } = require('../services/classRosterImportService');
+const { compactPersonName } = require('../utils/personName');
 const {
   hoursForEventType,
   hoursToPoints,
@@ -151,7 +152,7 @@ const importClassRoster = async (req, res, next) => {
       try {
         // 清洗資料（使用使用者指定的班級名稱）
         const studentId = cleanStudentId(row[fieldMapping.studentId]);
-        const studentName = cleanString(row[fieldMapping.studentName]);
+        const studentName = compactPersonName(row[fieldMapping.studentName]) || null;
         const department = fieldMapping.department ? cleanString(row[fieldMapping.department]) : null;
         const email = fieldMapping.email ? cleanString(row[fieldMapping.email]) : null;
 

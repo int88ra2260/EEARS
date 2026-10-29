@@ -2,6 +2,7 @@
 
 const XLSX = require('xlsx');
 const { sequelize, Student, EtEnrollmentSnapshot } = require('../../models');
+const { compactPersonName } = require('../../utils/personName');
 
 /** DB 欄位長度（對齊正式環境 describe） */
 const LIMITS = {
@@ -149,7 +150,7 @@ async function importEnrollment(file, semesterId, options = {}) {
       className: normName(row[2] || ''),
       grade: gradeRaw,
       studentId: studentIdRaw,
-      studentName: normName(row[5] || ''),
+      studentName: compactPersonName(row[5] || ''),
       _line: i + 1,
     });
   }
@@ -232,11 +233,11 @@ async function importEnrollment(file, semesterId, options = {}) {
           transaction: t
         });
 
-        if (existingStudent && normName(existingStudent.nameZh) !== r.studentName) {
+        if (existingStudent && compactPersonName(existingStudent.nameZh) !== r.studentName) {
           quarantine.push({
             reason: 'student_id_name_mismatch_db',
             studentId: r.studentId,
-            expectedName: normName(existingStudent.nameZh),
+            expectedName: compactPersonName(existingStudent.nameZh),
             importedName: r.studentName,
             line: r._line
           });

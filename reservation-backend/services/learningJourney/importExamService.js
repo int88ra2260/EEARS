@@ -26,6 +26,7 @@ const {
   isLevelBasedExam,
   getMappingMeta
 } = require('./utils/cefrScoreMapping');
+const { compactPersonName } = require('../../utils/personName');
 
 const COL = {
   department: 0,
@@ -296,7 +297,7 @@ async function importExam(file, options = {}) {
       line: i + 1,
       row,
       studentId,
-      studentName: normName(cellStr(row, COL.studentName))
+      studentName: compactPersonName(cellStr(row, COL.studentName))
     });
   }
 
@@ -387,12 +388,12 @@ async function importExam(file, options = {}) {
       }
 
       const existingStudent = sidToStudent.get(studentId);
-      if (existingStudent && normName(existingStudent.nameZh) !== nameFromSheet) {
+      if (existingStudent && compactPersonName(existingStudent.nameZh) !== nameFromSheet) {
         quarantine.push({
           reason: 'student_id_name_mismatch_db',
           studentId,
           line,
-          nameInDb: normName(existingStudent.nameZh),
+          nameInDb: compactPersonName(existingStudent.nameZh),
           nameInExcel: nameFromSheet
         });
         continue;

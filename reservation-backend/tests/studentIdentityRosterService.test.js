@@ -48,6 +48,13 @@ describe('studentIdentityRosterService', () => {
     expect(identity).toEqual({ covered: true, conflict: true, name: null });
   });
 
+  it('treats a space between Chinese characters as the same roster name', async () => {
+    mockStudentFind.mockResolvedValue({ nameZh: '杜威' });
+    mockMembershipFind.mockResolvedValue([{ studentName: '杜 威' }]);
+    const identity = await findOfficialIdentity('B123456789');
+    expect(identity).toEqual({ covered: true, conflict: false, name: '杜威' });
+  });
+
   it('reports students who are absent from every official roster', async () => {
     const identity = await findOfficialIdentity('D123456789');
     expect(identity.covered).toBe(false);

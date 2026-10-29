@@ -31,6 +31,19 @@ describe('certificationCertificateService', () => {
     jest.clearAllMocks();
   });
 
+  it('accepts a stored name that only differs by a space between Chinese characters', async () => {
+    EnglishLearningPassport.findOne.mockResolvedValue({
+      id: 1,
+      studentName: '陳 竑仰',
+      studentEmail: student.studentEmail,
+      certificationStatus: 'none',
+    });
+
+    await expect(buildCertificationCertificateData(student)).rejects.toMatchObject({
+      code: 'CERTIFICATION_NOT_APPROVED',
+    });
+  });
+
   it('rejects when certification not approved', async () => {
     EnglishLearningPassport.findOne.mockResolvedValue({
       toJSON: () => ({

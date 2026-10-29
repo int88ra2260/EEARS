@@ -5,10 +5,7 @@ const {
   EtEnrollmentSnapshot,
   EtStudentMaster,
 } = require('../models');
-
-function normalizePersonName(value) {
-  return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
-}
+const { normalizePersonName } = require('../utils/personName');
 
 function collectNames(values) {
   return [...new Set(values.map(normalizePersonName).filter(Boolean))];

@@ -8,11 +8,12 @@ const { getStudentRecommendations } = require('../learningAnalytics/learningAnal
 const { getStudentGamificationProfile } = require('./learningGamificationService');
 const { generateRegulatoryFocusFeedback } = require('./learningFeedbackService');
 const { LearningTraceEvent } = require('../../models');
+const { compactPersonName, personNamesMatch } = require('../../utils/personName');
 
 function normalizeStudentContext(ctx = {}) {
   return {
     studentId: String(ctx.studentId || '').trim(),
-    studentName: String(ctx.studentName || '').trim(),
+    studentName: compactPersonName(ctx.studentName),
     studentEmail: String(ctx.studentEmail || '').trim().toLowerCase(),
   };
 }
@@ -26,14 +27,15 @@ async function verifyStudentIdentity(ctx) {
     throw err;
   }
 
-  const reservation = await Reservation.findOne({
-    where: {
-      studentId: n.studentId,
-      studentName: n.studentName,
-      studentEmail: n.studentEmail,
-    },
-    attributes: ['id'],
+  const reservations = await Reservation.findAll({
+    where: { studentId: n.studentId },
+    attributes: ['id', 'studentName', 'studentEmail'],
+    limit: 200,
   });
+  const reservation = reservations.find((row) => (
+    personNamesMatch(row.studentName, n.studentName)
+    && String(row.studentEmail || '').trim().toLowerCase() === n.studentEmail
+  ));
 
   if (!reservation) {
     const err = new Error('查無符合身分的預約紀錄，請確認學號、姓名與 Email');

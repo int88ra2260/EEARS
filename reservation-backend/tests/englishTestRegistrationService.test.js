@@ -289,6 +289,15 @@ describe('englishTestRegistrationService — cross-semester', () => {
   });
 
   describe('registrationMatchesIdentity', () => {
+    it('matches a Chinese name that only differs by an internal space', () => {
+      const reg = buildRegistration({ name: '杜 威' });
+      expect(registrationMatchesIdentity(reg, {
+        studentId: 'B123456789',
+        name: '杜威',
+        idNumber: 'A123456789',
+      })).toBe(true);
+    });
+
     it('matches normalized id number case', () => {
       const reg = buildRegistration({ idNumber: 'A123456789' });
       expect(registrationMatchesIdentity(reg, {

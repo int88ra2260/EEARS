@@ -25,12 +25,13 @@ const {
 } = require('./pointValidationService');
 const { logElpAudit } = require('./auditService');
 const { validateReservationData, validateNsysuStudentEmail, nsysuAllowedEmailDomainsHint } = require('../../utils/validators');
+const { compactPersonName, personNamesMatch } = require('../../utils/personName');
 const elpEmailVerificationService = require('./elpEmailVerificationService');
 
 function normalizeStudentContext(ctx) {
   return {
     studentId: String(ctx.studentId || '').trim().toUpperCase(),
-    studentName: String(ctx.studentName || '').trim(),
+    studentName: compactPersonName(ctx.studentName),
     studentEmail: String(ctx.studentEmail || '').trim().toLowerCase(),
   };
 }
@@ -96,14 +97,19 @@ async function getPassportForStudent(ctx, transaction) {
   });
   if (!passport) return null;
 
-  const storedName = String(passport.studentName || '').trim();
+  const storedName = String(passport.studentName || '');
   const storedEmail = String(passport.studentEmail || '').trim().toLowerCase();
 
-  if (storedName !== n.studentName) {
+  if (!personNamesMatch(storedName, n.studentName)) {
     const err = new Error('學生身分驗證失敗：學號或姓名與既有護照不符，請確認後再試，或洽英語中心');
     err.status = 403;
     err.code = 'STUDENT_MISMATCH';
     throw err;
+  }
+
+  const healedName = compactPersonName(storedName);
+  if (healedName && healedName !== storedName) {
+    await passport.update({ studentName: healedName }, { transaction });
   }
 
   if (storedEmail !== n.studentEmail) {

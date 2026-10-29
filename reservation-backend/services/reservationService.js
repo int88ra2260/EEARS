@@ -4,6 +4,7 @@ const dayjs = require('dayjs');
 const { Reservation, Event } = require('../models');
 const { getCancellationDeadline } = require('../utils/reservationTime');
 const eventTypeService = require('./eventTypeService');
+const { personNamesMatch } = require('../utils/personName');
 
 async function cancelReservationPublic({
   reservationId,
@@ -18,7 +19,7 @@ async function cancelReservationPublic({
   }
 
   const idMatch = String(reservation.studentId || '').trim() === String(studentId || '').trim();
-  const nameMatch = String(reservation.studentName || '').trim() === String(studentName || '').trim();
+  const nameMatch = personNamesMatch(reservation.studentName, studentName);
   const emailMatch = String(reservation.studentEmail || '').trim().toLowerCase() === String(email || '').trim().toLowerCase();
   if (!idMatch || !nameMatch || !emailMatch) {
     return { cancelled: false, reservation, reason: 'identity_mismatch' };

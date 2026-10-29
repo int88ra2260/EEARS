@@ -11,6 +11,7 @@ const {
 } = require('../../models');
 const logger = require('../../utils/logger');
 const { normalizeStudentId } = require('./utils/studentNormalization');
+const { compactPersonName } = require('../../utils/personName');
 
 const BULK_IMPORT_THRESHOLD = 200;
 const BULK_WRITE_CHUNK_SIZE = 500;
@@ -108,7 +109,7 @@ function normalizeCourseImportRow(row, rowNumber) {
     credits: parseNumber(pick(row, 'credits')),
     courseType: clean(pick(row, 'courseType')),
     studentId: normalizeStudentId(pick(row, 'studentId')),
-    studentName: clean(pick(row, 'studentName')),
+    studentName: compactPersonName(pick(row, 'studentName')),
     enrollmentStatus: normalizeEnrollmentStatus(pick(row, 'enrollmentStatus')),
     finalScore,
     passStatus: normalizePassStatus(pick(row, 'passStatus'), finalScore),
@@ -146,7 +147,7 @@ function hasEnrollmentDiff(existing, row) {
   if (!existing) return false;
   return (
     clean(existing.semesterId) !== clean(row.semesterId) ||
-    clean(existing.studentName) !== clean(row.studentName) ||
+    compactPersonName(existing.studentName) !== compactPersonName(row.studentName) ||
     clean(existing.enrollmentStatus) !== clean(row.enrollmentStatus) ||
     clean(existing.passStatus) !== clean(row.passStatus) ||
     Number(existing.finalScore || 0) !== Number(row.finalScore || 0)
