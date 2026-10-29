@@ -21,8 +21,8 @@ const { StudentAccount, LearningTraceEvent, LjStudentEvent } = require('../model
 const { recordLearningTrace } = require('../services/learningTraceService');
 const learningTraceRouter = require('../routes/learningTraceRouter');
 
-const STUDENT_ID = '12345678';
-const OTHER_STUDENT_ID = '87654321';
+const STUDENT_ID = 'B123456789';
+const OTHER_STUDENT_ID = 'B987654321';
 
 function createApp() {
   const app = express();
@@ -89,6 +89,18 @@ describe('learning trace trusted student identity', () => {
     expect(LjStudentEvent.create).toHaveBeenCalledWith(expect.objectContaining({
       studentId: STUDENT_ID,
       sourceRecordId: 'trace:wb_identity01',
+    }));
+  });
+
+  it('accepts a campus student id and does not treat letter case as a conflict', async () => {
+    const res = await request(createApp())
+      .post('/api/learning-traces')
+      .set('Authorization', `Bearer ${studentToken()}`)
+      .send(traceBody({ traceId: 'wb_campus0001', studentId: 'b123456789' }));
+
+    expect(res.status).toBe(201);
+    expect(LearningTraceEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+      studentId: 'B123456789',
     }));
   });
 

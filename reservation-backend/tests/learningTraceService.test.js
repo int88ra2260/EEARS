@@ -142,8 +142,8 @@ describe('learningTraceService', () => {
         gameId: 'word_bridge',
         eventType: 'session_complete',
         clientSessionId: 'ls_abc123',
-        studentId: '12345678',
-        payload: { studentId: '12345678', endReason: 'cleared' },
+        studentId: 'B123456789',
+        payload: { studentId: 'B123456789', endReason: 'cleared' },
       });
 
       expect(untrusted.projected).toBe(false);
@@ -158,11 +158,11 @@ describe('learningTraceService', () => {
         gameId: 'word_bridge',
         eventType: 'session_complete',
         clientSessionId: 'ls_abc123',
-      }, { trustedStudentId: '12345678' });
+      }, { trustedStudentId: 'B123456789' });
 
       expect(trusted.projected).toBe(true);
       expect(LjStudentEvent.create).toHaveBeenCalledWith(expect.objectContaining({
-        studentId: '12345678',
+        studentId: 'B123456789',
       }));
     });
   });

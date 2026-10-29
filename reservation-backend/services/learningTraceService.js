@@ -3,6 +3,7 @@
 const { Op } = require('sequelize');
 const { LearningTraceEvent } = require('../models');
 const { projectTraceToLearningJourney } = require('./learningTrace/learningTraceProjectionService');
+const { validateStudentId } = require('../utils/validators');
 
 const MICRO_LEARNING_GAME_IDS = ['word_bridge', 'listening_ladder', 'vocabulary_depth', 'vocabulary_size'];
 const ALLOWED_GAME_IDS = new Set([
@@ -30,16 +31,19 @@ const VOCAB_DEPTH_ITEM_HEALTH = Object.freeze({
 });
 const CEFR_RANK = Object.freeze({ A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 });
 
+function canonicalStudentId(value) {
+  if (value == null || String(value).trim() === '') return null;
+  return String(value).trim().toUpperCase();
+}
+
 function normalizeStudentId(value) {
-  if (value == null || value === '') return null;
-  const trimmed = String(value).trim();
-  if (!/^\d{8,10}$/.test(trimmed)) {
-    const err = new Error('學號格式不正確');
-    err.status = 400;
-    err.code = 'INVALID_STUDENT_ID';
-    throw err;
-  }
-  return trimmed;
+  const trimmed = canonicalStudentId(value);
+  if (!trimmed) return null;
+  if (validateStudentId(trimmed) || /^\d{8,10}$/.test(trimmed)) return trimmed;
+  const err = new Error('學號格式不正確');
+  err.status = 400;
+  err.code = 'INVALID_STUDENT_ID';
+  throw err;
 }
 
 function parseOccurredAt(value) {
@@ -81,14 +85,10 @@ function sanitizePayload(payload) {
   return stored;
 }
 
-function presentedStudentId(body) {
-  if (body?.studentId == null || String(body.studentId).trim() === '') return null;
-  return String(body.studentId).trim();
-}
-
 function assertStudentIdDoesNotConflict(body, trustedStudentId) {
-  const presented = presentedStudentId(body);
-  if (!presented || !trustedStudentId || presented === trustedStudentId) return;
+  const presented = canonicalStudentId(body?.studentId);
+  const trusted = canonicalStudentId(trustedStudentId);
+  if (!presented || !trusted || presented === trusted) return;
   const err = new Error('學號與登入身分不符');
   err.status = 409;
   err.code = 'STUDENT_ID_CONFLICT';
@@ -174,7 +174,7 @@ async function recordLearningTrace(body, options = {}) {
     where: { traceId: input.traceId, eventType: input.eventType },
   });
   if (existing) {
-    if (trustedStudentId && existing.studentId && existing.studentId !== trustedStudentId) {
+    if (trustedStudentId && existing.studentId && canonicalStudentId(existing.studentId) !== canonicalStudentId(trustedStudentId)) {
       const err = new Error('學號與既有軌跡不符');
       err.status = 409;
       err.code = 'STUDENT_ID_CONFLICT';
@@ -183,7 +183,7 @@ async function recordLearningTrace(body, options = {}) {
     const canRetryProjection = Boolean(
       trustedStudentId
       && existing.studentId
-      && existing.studentId === trustedStudentId
+      && canonicalStudentId(existing.studentId) === canonicalStudentId(trustedStudentId)
     );
     return {
       created: false,
