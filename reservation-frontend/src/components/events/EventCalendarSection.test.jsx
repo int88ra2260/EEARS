@@ -10,8 +10,10 @@ vi.mock('@fullcalendar/react', () => ({
     <div
       data-testid="calendar"
       data-today={props.buttonText?.today}
-      data-prev={props.buttonHints?.prev}
-      data-next={props.buttonHints?.next}
+      data-prev={typeof props.buttonHints?.prev === 'function' ? props.buttonHints.prev('月', 'month') : props.buttonHints?.prev}
+      data-next={typeof props.buttonHints?.next === 'function' ? props.buttonHints.next('月', 'month') : props.buttonHints?.next}
+      data-prev-week={typeof props.buttonHints?.prev === 'function' ? props.buttonHints.prev('週', 'week') : ''}
+      data-next-week={typeof props.buttonHints?.next === 'function' ? props.buttonHints.next('週', 'week') : ''}
       data-locale={typeof props.locale === 'string' ? props.locale : props.locale?.code}
     />
   )),
@@ -30,6 +32,8 @@ function t(key) {
     'home.today': '今天',
     'home.prevMonth': '上個月',
     'home.nextMonth': '下個月',
+    'home.prevWeek': '上週',
+    'home.nextWeek': '下週',
     'home.month': '月',
     'home.list': '清單',
   };
@@ -37,6 +41,8 @@ function t(key) {
     'home.today': 'Today',
     'home.prevMonth': 'Previous month',
     'home.nextMonth': 'Next month',
+    'home.prevWeek': 'Previous week',
+    'home.nextWeek': 'Next week',
     'home.month': 'Month',
     'home.list': 'List',
   };
@@ -65,6 +71,8 @@ describe('event calendar labels', () => {
     expect(calendar).toHaveAttribute('data-today', '今天');
     expect(calendar).toHaveAttribute('data-prev', '上個月');
     expect(calendar).toHaveAttribute('data-next', '下個月');
+    expect(calendar).toHaveAttribute('data-prev-week', '上週');
+    expect(calendar).toHaveAttribute('data-next-week', '下週');
     expect(calendar).toHaveAttribute('data-locale', 'zh-tw');
   });
 
@@ -75,6 +83,8 @@ describe('event calendar labels', () => {
     expect(calendar).toHaveAttribute('data-today', 'Today');
     expect(calendar).toHaveAttribute('data-prev', 'Previous month');
     expect(calendar).toHaveAttribute('data-next', 'Next month');
+    expect(calendar).toHaveAttribute('data-prev-week', 'Previous week');
+    expect(calendar).toHaveAttribute('data-next-week', 'Next week');
     expect(calendar).toHaveAttribute('data-locale', 'en');
   });
 });

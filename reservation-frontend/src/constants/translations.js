@@ -72,6 +72,8 @@ export const translations = {
       today: '今天',
       prevMonth: '上個月',
       nextMonth: '下個月',
+      prevWeek: '上週',
+      nextWeek: '下週',
       gotIt: '我知道了',
       // 使用說明彈窗
       usageTitle: '預約系統使用說明',
@@ -1233,6 +1235,8 @@ export const translations = {
       today: 'Today',
       prevMonth: 'Previous month',
       nextMonth: 'Next month',
+      prevWeek: 'Previous week',
+      nextWeek: 'Next week',
       gotIt: 'Got it',
       usageTitle: 'Reservation System Guide',
       usageLoginTitle: 'Sign in before you book',

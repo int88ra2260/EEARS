@@ -275,8 +275,8 @@ export default forwardRef(function EventCalendarSection({
           list: t('home.list'),
         }}
         buttonHints={{
-          prev: t('home.prevMonth'),
-          next: t('home.nextMonth'),
+          prev: (_unitText, navUnit) => (navUnit === 'week' ? t('home.prevWeek') : t('home.prevMonth')),
+          next: (_unitText, navUnit) => (navUnit === 'week' ? t('home.nextWeek') : t('home.nextMonth')),
           today: t('home.today'),
         }}
         events={calendarEvents}
