@@ -36,6 +36,10 @@ export async function fetchAuditLogs(token, params) {
   return getJsonOrThrow(`/api/admin/logs/audit${buildQuery(params)}`, token);
 }
 
+export async function fetchAuditDetail(token, id) {
+  return getJsonOrThrow(`/api/admin/logs/audit/${encodeURIComponent(id)}`, token);
+}
+
 export async function fetchLogsByRequestId(token, requestId) {
   return getJsonOrThrow(`/api/admin/logs/request/${encodeURIComponent(requestId)}`, token);
 }

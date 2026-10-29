@@ -76,6 +76,7 @@ async function listAudit(req, res, next) {
         'requestId',
         'ipAddress',
         'status',
+        'errorMessage',
         'createdAt',
       ],
     });
@@ -137,7 +138,17 @@ function listSystem(req, res, next) {
       const oid = parseInt(operatorId, 10);
       if (!Number.isNaN(oid)) where.userId = oid;
     }
-    if (status !== undefined && status !== '') where.status = parseInt(status, 10);
+    if (status !== undefined && status !== '') {
+      const code = parseInt(status, 10);
+      if (!Number.isNaN(code)) where.status = code;
+    } else {
+      const statusMin = parseInt(req.query.statusMin, 10);
+      const statusMax = parseInt(req.query.statusMax, 10);
+      const range = {};
+      if (!Number.isNaN(statusMin)) range[Op.gte] = statusMin;
+      if (!Number.isNaN(statusMax)) range[Op.lte] = statusMax;
+      if (Object.keys(range).length) where.status = range;
+    }
     if (requestId) where.requestId = String(requestId).trim();
 
     if (dateFrom || dateTo) {
