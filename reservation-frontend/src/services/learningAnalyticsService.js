@@ -1,4 +1,5 @@
 import { fetchClient } from '../utils/fetchClient';
+import { presentLearningAnalyticsError } from '../utils/learningAnalyticsError';
 
 const BASE_URL = '/api/admin/learning-analytics';
 
@@ -10,10 +11,11 @@ async function parseEnvelope(res) {
   const json = await res.json().catch(() => ({}));
   const requestId = json.requestId || res.headers.get('x-request-id') || '';
   if (!res.ok || json.success === false) {
-    let msg = json.error || json.message || `HTTP ${res.status}`;
-    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
-      msg = '您沒有執行此操作的權限。';
-    }
+    const msg = presentLearningAnalyticsError({
+      status: res.status,
+      message: json.error || json.message,
+      code: json.code,
+    });
     const err = new Error(msg);
     err.requestId = requestId;
     err.status = res.status;
@@ -69,10 +71,12 @@ async function fetchAnalyticsBlob(token, path, params, options, fallbackName, fo
     });
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
-    let msg = json.error || json.message || `HTTP ${res.status}`;
-    if (res.status === 403 || json.code === 'INSUFFICIENT_PERMISSIONS') {
-      msg = forbiddenMessage;
-    }
+    const msg = presentLearningAnalyticsError({
+      status: res.status,
+      message: json.error || json.message,
+      code: json.code,
+      forbiddenMessage,
+    });
     throw new Error(msg);
   }
   const blob = await res.blob();

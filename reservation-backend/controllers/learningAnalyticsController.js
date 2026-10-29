@@ -22,6 +22,7 @@ const {
   getLvaModelRun,
 } = require('../services/learningJourney/analytics/lvaModelRunService');
 const { logExportAudit } = require('../utils/exportAudit');
+const { sendAnalyticsError } = require('../services/learningAnalytics/learningAnalyticsClientError');
 const { assertCanAccessStudent, sendStudentScopeDenied } = require('../services/accessControl/studentScopeGuard');
 const {
   listKpiPolicies,
@@ -89,7 +90,7 @@ async function getMeta(req, res) {
     const data = await getLearningAnalyticsMeta();
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -98,7 +99,7 @@ async function getOverview(req, res) {
     const data = await getLearningAnalyticsOverview(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -107,7 +108,7 @@ async function getB1PlusWatchHandler(req, res) {
     const data = await getB1PlusWatch(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -116,7 +117,7 @@ async function getStudentExplorerHandler(req, res) {
     const data = await getStudentExplorer(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -163,7 +164,7 @@ async function getStudentExplorerExport(req, res) {
     return res.end();
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -173,7 +174,7 @@ async function listTrackingCohortsHandler(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -187,7 +188,7 @@ async function createTrackingCohortHandler(req, res) {
     return res.status(201).json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -197,7 +198,7 @@ async function getTrackingCohortHandler(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -207,7 +208,7 @@ async function deleteTrackingCohortHandler(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -216,7 +217,7 @@ async function getCohorts(req, res) {
     const data = await getLearningAnalyticsCohorts(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -225,7 +226,7 @@ async function getOfferings(req, res) {
     const data = await getLearningAnalyticsOfferings(readAnalyticsQuery(req), { user: req.user });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -235,7 +236,7 @@ async function getOfferingDetail(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -281,7 +282,7 @@ async function getOfferingExport(req, res) {
     return res.end();
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -302,7 +303,7 @@ async function getResources(req, res) {
     };
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -311,7 +312,7 @@ async function getSkills(req, res) {
     const data = await getLearningAnalyticsSkills(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -325,7 +326,7 @@ async function getStudentJourney(req, res) {
     }
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -334,7 +335,7 @@ async function getSettings(req, res) {
     const data = await getLearningAnalyticsSettings();
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -347,7 +348,7 @@ async function putResourceSkillProfiles(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = /不支援|須為|必填/.test(e.message || '') ? 400 : 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -357,7 +358,7 @@ async function postResetResourceSkillProfile(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = /不支援/.test(e.message || '') ? 400 : 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -369,7 +370,7 @@ async function putFilterReferences(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = /不支援|重複/.test(e.message || '') ? 400 : 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -380,7 +381,7 @@ async function putLvaConfig(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = /不支援|須為|不可|必填|migration/.test(e.message || '') ? 400 : 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -389,7 +390,7 @@ async function postResetLvaConfig(req, res) {
     const data = await resetLearningAnalyticsLvaConfig({ user: req.user });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -408,7 +409,7 @@ async function getRawData(req, res) {
     }
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -481,7 +482,7 @@ async function getExport(req, res) {
 
     return res.end();
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -492,7 +493,7 @@ async function postPruneSnapshots(req, res) {
     const data = await pruneAnalyticsSnapshots({ dryRun, keepGlobalCount });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -501,7 +502,7 @@ async function getInsights(req, res) {
     const data = await getAdvancedVisualizations(readAnalyticsQuery(req));
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -513,7 +514,7 @@ async function getStudentRecommendationsHandler(req, res) {
     }
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -522,7 +523,7 @@ async function listModelRuns(req, res) {
     const data = await listLvaModelRuns(req.query || {});
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -534,7 +535,7 @@ async function getModelRun(req, res) {
     }
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -543,7 +544,7 @@ async function postModelRun(req, res) {
     const data = await createLvaModelRun(req.body?.filters || req.query || {}, { user: req.user });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -554,7 +555,7 @@ async function getKpiPolicies(req, res) {
     const data = await listKpiPolicies({ includeArchived });
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -566,7 +567,7 @@ async function getKpiPolicy(req, res) {
     }
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e);
   }
 }
 
@@ -576,7 +577,7 @@ async function postKpiPolicy(req, res) {
     return res.status(201).json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -586,7 +587,7 @@ async function postCloneKpiPolicy(req, res) {
     return res.status(201).json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -596,7 +597,7 @@ async function putKpiPolicy(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -606,7 +607,7 @@ async function postArchiveKpiPolicy(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -616,7 +617,7 @@ async function postKpiReport(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -645,7 +646,7 @@ async function getKpiReportExport(req, res) {
     return res.send(Buffer.from(buffer));
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -655,7 +656,7 @@ async function postKpiGaps(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
@@ -684,7 +685,7 @@ async function getKpiGapsExport(req, res) {
     return res.send(Buffer.from(buffer));
   } catch (e) {
     const status = e.status || 500;
-    return res.status(status).json({ success: false, error: e.message, requestId: req.requestId });
+    return sendAnalyticsError(req, res, e, status);
   }
 }
 
