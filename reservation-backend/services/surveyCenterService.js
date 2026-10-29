@@ -447,11 +447,32 @@ async function submitSurvey(surveyKey, body, req) {
   return surveyModuleService.submitPublicResponse(surveyKey, body, req);
 }
 
-async function myStatus({ surveyId, studentId, semesterId }) {
-  const where = { surveyId, studentId };
-  if (semesterId) where.semesterId = semesterId;
-  const row = await SurveyModuleResponse.findOne({ where, order: [['submittedAt', 'DESC']] });
-  return { filled: !!row, latest: row || null };
+function requireMyStatusParams(surveyId, studentId) {
+  const survey = String(surveyId ?? '').trim();
+  const student = String(studentId ?? '').trim();
+  if (!survey || !student) {
+    const err = new Error('缺少 surveyId 或 studentId');
+    err.status = 400;
+    err.code = 'MISSING_MY_STATUS_PARAMS';
+    throw err;
+  }
+  return { surveyId: survey, studentId: student };
+}
+
+async function myStatus({ surveyId, studentId, semesterId } = {}) {
+  const params = requireMyStatusParams(surveyId, studentId);
+  const where = { surveyId: params.surveyId, studentId: params.studentId };
+  const semester = String(semesterId ?? '').trim();
+  if (semester) where.semesterId = semester;
+  const row = await SurveyModuleResponse.findOne({
+    where,
+    attributes: ['submittedAt'],
+    order: [['submittedAt', 'DESC']],
+  });
+  return {
+    filled: Boolean(row),
+    submittedAt: row?.submittedAt ?? null,
+  };
 }
 
 async function listSemesters() {
