@@ -18,16 +18,16 @@ function unauthorized(res, code = 'STUDENT_AUTH_REQUIRED', message = '請先登�
   return res.status(401).json({ success: false, code, message });
 }
 
-function studentAuthMiddleware(req, res, next) {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-  if (!token) return unauthorized(res);
+function rejectStudentCredential(res, err) {
+  const code = err && err.name === 'TokenExpiredError' ? 'TOKEN_EXPIRED' : 'STUDENT_AUTH_REQUIRED';
+  const message = code === 'TOKEN_EXPIRED' ? '登入已過期，請重新登入' : '請先登入學生帳號';
+  return unauthorized(res, code, message);
+}
 
+function verifyPresentedStudentToken(token, req, res, next) {
   jwt.verify(token, secretKey, async (err, decoded) => {
     if (err || !isStudentAccessToken(decoded) || !decoded.id) {
-      const code = err && err.name === 'TokenExpiredError' ? 'TOKEN_EXPIRED' : 'STUDENT_AUTH_REQUIRED';
-      const message = code === 'TOKEN_EXPIRED' ? '登入已過期，請重新登入' : '請先登入學生帳號';
-      return unauthorized(res, code, message);
+      return rejectStudentCredential(res, err);
     }
     try {
       const account = await StudentAccount.findByPk(decoded.id);
@@ -43,6 +43,29 @@ function studentAuthMiddleware(req, res, next) {
       return next(error);
     }
   });
+}
+
+function studentAuthMiddleware(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (!token) return unauthorized(res);
+  return verifyPresentedStudentToken(token, req, res, next);
+}
+
+/**
+ * 沒有 Authorization 時視為匿名。
+ * 一旦帶了憑證，無效、過期或非學生 token 都回 401，不降級成匿名。
+ */
+function optionalStudentAuth(req, res, next) {
+  const header = String(req.headers.authorization || '');
+  if (!header.trim()) {
+    req.studentAccount = null;
+    return next();
+  }
+  if (!header.startsWith('Bearer ')) return unauthorized(res);
+  const token = header.slice(7).trim();
+  if (!token) return unauthorized(res);
+  return verifyPresentedStudentToken(token, req, res, next);
 }
 
 /**
@@ -73,5 +96,6 @@ function bindStudentIdentity(options = {}) {
 module.exports = {
   isStudentAccessToken,
   studentAuthMiddleware,
+  optionalStudentAuth,
   bindStudentIdentity,
 };

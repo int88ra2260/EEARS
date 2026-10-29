@@ -3,7 +3,6 @@
  */
 
 import { getClientSessionId } from './learningTraceSession';
-import { getVoluntaryStudentId } from './learningStudentLink';
 import { getActivityKeysForCefrLevel } from './wordBridgeRecommendations';
 
 /**
@@ -22,7 +21,6 @@ export function buildMiniGameCompletePayload(gameId, result, summary = {}) {
     gameId,
     eventType: 'session_complete',
     clientSessionId: getClientSessionId(),
-    studentId: summary.studentId || getVoluntaryStudentId() || undefined,
     occurredAt: new Date().toISOString(),
     durationMs: summary.durationMs ?? 0,
     score: Array.isArray(summary.passedLevels) ? summary.passedLevels.length : 0,
@@ -53,7 +51,6 @@ export function buildListeningLadderCompletePayload(summary) {
     gameId: 'listening_ladder',
     eventType: 'session_complete',
     clientSessionId: getClientSessionId(),
-    studentId: summary.studentId || getVoluntaryStudentId() || undefined,
     occurredAt: new Date().toISOString(),
     durationMs: summary.durationMs ?? 0,
     score: summary.score ?? 0,
@@ -83,7 +80,6 @@ export function buildVocabularyDepthCompletePayload(result, summary) {
     gameId: 'vocabulary_depth',
     eventType: 'session_complete',
     clientSessionId: getClientSessionId(),
-    studentId: summary.studentId || getVoluntaryStudentId() || undefined,
     occurredAt: new Date().toISOString(),
     durationMs: summary.durationMs ?? 0,
     score: Array.isArray(summary.passedLevels) ? summary.passedLevels.length : 0,
@@ -115,7 +111,6 @@ export function buildVocabularySizeCompletePayload(result, summary) {
     gameId: 'vocabulary_size',
     eventType: 'session_complete',
     clientSessionId: getClientSessionId(),
-    studentId: summary.studentId || getVoluntaryStudentId() || undefined,
     occurredAt: new Date().toISOString(),
     durationMs: summary.durationMs ?? 0,
     score: result?.estimatedWords ?? 0,
@@ -141,7 +136,6 @@ export function buildMiniGameStartPayload(gameId, summary = {}) {
     gameId,
     eventType: 'session_start',
     clientSessionId: getClientSessionId(),
-    studentId: summary.studentId || getVoluntaryStudentId() || undefined,
     occurredAt: new Date().toISOString(),
     payload: {
       startLevel: summary.startLevel || null,

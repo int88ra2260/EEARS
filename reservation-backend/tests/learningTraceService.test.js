@@ -131,33 +131,39 @@ describe('learningTraceService', () => {
       });
     });
 
-    it('projects to LJ when studentId present on session_complete', async () => {
+    it('projects to LJ only for a trusted student id, not a body studentId', async () => {
       LearningTraceEvent.findOne.mockResolvedValue(null);
-      LearningTraceEvent.create.mockResolvedValue({
-        id: 3,
-        traceId: 'wb_proj001',
-        eventType: 'session_complete',
-        studentId: '12345678',
-        gameId: 'word_bridge',
-        occurredAt: new Date(),
-        cefrLevel: 'B1',
-        durationMs: 60000,
-        score: 2,
-        payload: {},
-      });
+      LearningTraceEvent.create.mockImplementation(async (data) => ({ id: 3, ...data }));
       LjStudentEvent.findOne.mockResolvedValue(null);
       LjStudentEvent.create.mockResolvedValue({ id: 99 });
 
-      const result = await recordLearningTrace({
+      const untrusted = await recordLearningTrace({
         traceId: 'wb_proj001',
         gameId: 'word_bridge',
         eventType: 'session_complete',
         clientSessionId: 'ls_abc123',
         studentId: '12345678',
+        payload: { studentId: '12345678', endReason: 'cleared' },
       });
 
-      expect(result.projected).toBe(true);
-      expect(LjStudentEvent.create).toHaveBeenCalled();
+      expect(untrusted.projected).toBe(false);
+      expect(LearningTraceEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+        studentId: null,
+        payload: { endReason: 'cleared' },
+      }));
+      expect(LjStudentEvent.create).not.toHaveBeenCalled();
+
+      const trusted = await recordLearningTrace({
+        traceId: 'wb_proj002',
+        gameId: 'word_bridge',
+        eventType: 'session_complete',
+        clientSessionId: 'ls_abc123',
+      }, { trustedStudentId: '12345678' });
+
+      expect(trusted.projected).toBe(true);
+      expect(LjStudentEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+        studentId: '12345678',
+      }));
     });
   });
 

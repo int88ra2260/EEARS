@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
+const { optionalStudentAuth } = require('../middlewares/studentAuth');
 const {
   createSimpleRateLimit,
   elpStudentKey,
@@ -45,9 +46,11 @@ function requireStudentContext(req, res, next) {
   return next();
 }
 
-router.post('/learning-traces', async (req, res, next) => {
+router.post('/learning-traces', optionalStudentAuth, async (req, res, next) => {
   try {
-    const result = await recordLearningTrace(req.body || {});
+    const result = await recordLearningTrace(req.body || {}, {
+      trustedStudentId: req.studentAccount?.studentId || null,
+    });
     return res.status(result.created ? 201 : 200).json({
       success: true,
       data: result,

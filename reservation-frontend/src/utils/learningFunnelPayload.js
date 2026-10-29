@@ -12,7 +12,6 @@ export function buildActivityFunnelPayload({
   activityKey,
   batchId,
   source = 'word_bridge_results',
-  studentId = null,
   estimatedLevel = null,
 }) {
   const traceId = createFunnelTraceId(`af_${activityKey || 'unknown'}`);
@@ -21,7 +20,6 @@ export function buildActivityFunnelPayload({
     gameId: 'activity_recommendation',
     eventType,
     clientSessionId: getClientSessionId(),
-    studentId: studentId || undefined,
     occurredAt: new Date().toISOString(),
     payload: {
       activityKey,

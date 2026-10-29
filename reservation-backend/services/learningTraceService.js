@@ -74,7 +74,25 @@ function sanitizePayload(payload) {
     err.code = 'PAYLOAD_TOO_LARGE';
     throw err;
   }
-  return payload;
+  const stored = { ...payload };
+  delete stored.studentId;
+  delete stored.studentName;
+  delete stored.studentEmail;
+  return stored;
+}
+
+function presentedStudentId(body) {
+  if (body?.studentId == null || String(body.studentId).trim() === '') return null;
+  return String(body.studentId).trim();
+}
+
+function assertStudentIdDoesNotConflict(body, trustedStudentId) {
+  const presented = presentedStudentId(body);
+  if (!presented || !trustedStudentId || presented === trustedStudentId) return;
+  const err = new Error('學號與登入身分不符');
+  err.status = 409;
+  err.code = 'STUDENT_ID_CONFLICT';
+  throw err;
 }
 
 function validateTraceInput(body = {}) {
@@ -125,7 +143,7 @@ function validateTraceInput(body = {}) {
     gameId,
     eventType,
     clientSessionId,
-    studentId: normalizeStudentId(body.studentId),
+    studentId: null,
     occurredAt: parseOccurredAt(body.occurredAt),
     durationMs: clampNumber(body.durationMs, { min: 0, max: 6 * 60 * 60 * 1000 }),
     score: clampNumber(body.score, { min: 0, max: 10000 }),
@@ -136,13 +154,43 @@ function validateTraceInput(body = {}) {
   };
 }
 
-async function recordLearningTrace(body) {
+async function maybeProject(row) {
+  if (!row || row.eventType !== 'session_complete' || !row.studentId) {
+    return false;
+  }
+  const projected = await projectTraceToLearningJourney(row);
+  return projected?.created === true;
+}
+
+async function recordLearningTrace(body, options = {}) {
+  const trustedStudentId = options.trustedStudentId
+    ? normalizeStudentId(options.trustedStudentId)
+    : null;
+  assertStudentIdDoesNotConflict(body, trustedStudentId);
   const input = validateTraceInput(body);
+  const studentId = trustedStudentId;
+
   const existing = await LearningTraceEvent.findOne({
     where: { traceId: input.traceId, eventType: input.eventType },
   });
   if (existing) {
-    return { created: false, id: existing.id, traceId: existing.traceId, projected: false };
+    if (trustedStudentId && existing.studentId && existing.studentId !== trustedStudentId) {
+      const err = new Error('學號與既有軌跡不符');
+      err.status = 409;
+      err.code = 'STUDENT_ID_CONFLICT';
+      throw err;
+    }
+    const canRetryProjection = Boolean(
+      trustedStudentId
+      && existing.studentId
+      && existing.studentId === trustedStudentId
+    );
+    return {
+      created: false,
+      id: existing.id,
+      traceId: existing.traceId,
+      projected: canRetryProjection ? await maybeProject(existing) : false,
+    };
   }
 
   const row = await LearningTraceEvent.create({
@@ -150,7 +198,7 @@ async function recordLearningTrace(body) {
     gameId: input.gameId,
     eventType: input.eventType,
     clientSessionId: input.clientSessionId,
-    studentId: input.studentId,
+    studentId,
     occurredAt: input.occurredAt,
     durationMs: input.durationMs,
     score: input.score,
@@ -160,16 +208,19 @@ async function recordLearningTrace(body) {
     payload: input.payload,
   });
 
-  let projected = null;
-  if (input.eventType === 'session_complete' && input.studentId) {
-    projected = await projectTraceToLearningJourney(row);
+  let projected = false;
+  try {
+    projected = await maybeProject(row);
+  } catch (err) {
+    err.tracePersisted = true;
+    throw err;
   }
 
   return {
     created: true,
     id: row.id,
     traceId: row.traceId,
-    projected: projected?.created === true,
+    projected,
   };
 }
 

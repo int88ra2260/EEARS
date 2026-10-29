@@ -7,7 +7,7 @@ const SOURCE_SYSTEM = 'eears_learning_trace';
 
 async function projectTraceToLearningJourney(traceRow) {
   if (!traceRow || traceRow.eventType !== 'session_complete') return null;
-  const studentId = traceRow.studentId || traceRow.payload?.studentId;
+  const studentId = traceRow.studentId || null;
   if (!studentId) return null;
 
   const sourceRecordId = `trace:${traceRow.traceId}`;

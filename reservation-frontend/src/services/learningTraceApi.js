@@ -1,4 +1,5 @@
 import { fetchClient } from '../utils/fetchClient';
+import { getStudentToken } from '../utils/studentSession';
 
 const TRACE_URL = '/api/learning-traces';
 const ENGAGEMENT_URL = '/api/admin/learning-traces/engagement';
@@ -8,9 +9,12 @@ const STUDENT_DASHBOARD_URL = '/api/student-learning-journey/dashboard';
 
 export async function submitLearningTrace(body) {
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    const studentToken = getStudentToken();
+    if (studentToken) headers.Authorization = `Bearer ${studentToken}`;
     const res = await fetchClient(TRACE_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     });
     const json = await res.json().catch(() => ({}));
