@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Spinner } from 'react-bootstrap';
 import { Link, useOutletContext } from 'react-router-dom';
+import EmptyState from '../../components/ui/EmptyState';
 import useToast from '../../components/ui/useToast';
 import { KPI_STATUS, useAdminDashboardProduct } from '../../hooks/useAdminDashboardProduct';
 import { buildDashboardTodoItems } from '../../utils/adminDashboardTodos';
@@ -111,6 +112,14 @@ export default function AdminDashboardProduct() {
     kpiAnnouncementDraft,
     violationCount: Array.isArray(violations) ? violations.length : 0,
   });
+  const todoSourceStatuses = [
+    eventsSectionStatus,
+    kpiEnglishPending.status,
+    kpiAnnouncementDraft.status,
+    violationsSectionStatus,
+  ];
+  const todosLoading = todoSourceStatuses.some((status) => status === KPI_STATUS.LOADING);
+  const todosHaveError = todoSourceStatuses.some((status) => status === KPI_STATUS.ERROR);
 
   return (
     <div>
@@ -206,9 +215,7 @@ export default function AdminDashboardProduct() {
               <div className="small text-muted mt-1">依目前資料彙整，先處理這些項目</div>
             </div>
           </div>
-          {todoItems.length === 0 ? (
-            <div className="text-muted small mb-0">目前沒有待辦事項。</div>
-          ) : (
+          {todoItems.length > 0 ? (
             <ul className="list-unstyled mb-0 d-flex flex-column gap-2">
               {todoItems.map((item) => (
                 <li key={item.id} className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
@@ -219,6 +226,18 @@ export default function AdminDashboardProduct() {
                 </li>
               ))}
             </ul>
+          ) : todosLoading ? (
+            <div className="d-flex align-items-center gap-2">
+              <Spinner animation="border" size="sm" aria-hidden="true" />
+              <div className="text-muted small" role="status">載入中</div>
+            </div>
+          ) : todosHaveError ? null : (
+            <EmptyState
+              density="compact"
+              icon={null}
+              variant="no-pending"
+              title="目前沒有待辦事項。"
+            />
           )}
         </div>
       </div>
@@ -334,14 +353,17 @@ export default function AdminDashboardProduct() {
                   </Button>
                 </div>
               ) : recentEvents.length === 0 ? (
-                <div>
-                  <div className="text-muted small">尚未有活動</div>
-                  <div className="mt-3">
+                <EmptyState
+                  density="compact"
+                  icon={null}
+                  variant="no-activity"
+                  title="尚未有活動"
+                  actions={(
                     <Link to="/admin/operations" className="btn btn-outline-primary btn-sm">
                       前往建立第一個活動
                     </Link>
-                  </div>
-                </div>
+                  )}
+                />
               ) : (
                 <ul className="list-group list-group-flush">
                   {recentEvents.map((e) => (
@@ -383,7 +405,12 @@ export default function AdminDashboardProduct() {
                   </Button>
                 </div>
               ) : recentViolations.length === 0 ? (
-                <div className="text-muted small">這個學期目前沒有違規提醒。</div>
+                <EmptyState
+                  density="compact"
+                  icon={null}
+                  variant="no-pending"
+                  title="這個學期目前沒有違規提醒。"
+                />
               ) : (
                 <ul className="list-group list-group-flush">
                   {recentViolations.map((v, idx) => (
