@@ -97,7 +97,7 @@ describe('操作紀錄頁', () => {
     expect(screen.getByRole('button', { name: /網站被呼叫/ })).toHaveTextContent('120');
     expect(screen.getByText('86 毫秒')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /登入失敗/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^登入失敗$/ }));
     await waitFor(() => {
       expect(api.fetchAuditLogs).toHaveBeenCalledWith('test-token', expect.objectContaining({
         action: 'login_failure',
