@@ -29,7 +29,7 @@ describe('nsysuSsoClient', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        text: async () => '<Result>B123456789;王小明;ming@gmail.com;1</Result>',
+        text: async () => '<Result>B123456789;王小明;;;;;;;;ming@gmail.com;;;;1</Result>',
       });
 
     await expect(authStu({
@@ -43,7 +43,17 @@ describe('nsysuSsoClient', () => {
     }, { fetch: fetchImpl, endpoint: 'https://sso.example/ws' })).resolves.toEqual({
       STUID: 'B123456789',
       CNAME: '王小明',
+      DPT_DESC: '',
+      T_CID: '',
+      GRADE: '',
+      TEL_NO: '',
+      ZIP_COD2: '',
+      CITY2: '',
+      ADDR2: '',
       EMAIL: 'ming@gmail.com',
+      BIRTH_YR: '',
+      BIRTH_MM: '',
+      BIRTH_DD: '',
       STAT_COD: '1',
     });
 

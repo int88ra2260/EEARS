@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import StudentAccountEmailVerification from '../../components/student/StudentAccountEmailVerification';
 import { registerStudentAccount } from '../../services/studentAuthApi';
-import { safeStudentNext, saveStudentSession } from '../../utils/studentSession';
+import { DEFAULT_STUDENT_NEXT, safeStudentNext, saveStudentSession } from '../../utils/studentSession';
 import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
 
@@ -23,7 +23,7 @@ export default function StudentRegisterPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const session = useStudentSession();
-  const next = safeStudentNext(params.get('next') || '/my-reservations');
+  const next = safeStudentNext(params.get('next') || DEFAULT_STUDENT_NEXT);
 
   if (session) {
     return <Navigate to={next} replace />;

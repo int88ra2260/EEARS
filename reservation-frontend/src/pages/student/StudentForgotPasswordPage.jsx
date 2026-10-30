@@ -5,12 +5,12 @@ import {
   sendStudentPasswordReset,
 } from '../../services/studentAuthApi';
 import useCampusSso from '../../hooks/useCampusSso';
-import { clearStudentSession, safeStudentNext } from '../../utils/studentSession';
+import { clearStudentSession, DEFAULT_STUDENT_NEXT, safeStudentNext } from '../../utils/studentSession';
 
 export default function StudentForgotPasswordPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const next = safeStudentNext(params.get('next') || '/my-reservations');
+  const next = safeStudentNext(params.get('next') || DEFAULT_STUDENT_NEXT);
   const [studentId, setStudentId] = useState('');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');

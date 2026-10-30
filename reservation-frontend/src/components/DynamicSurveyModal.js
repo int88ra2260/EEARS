@@ -33,7 +33,7 @@ const STUDENT_BASIC_INFO_FIELDS = [
   },
 ];
 
-export default function DynamicSurveyModal({ show, onClose, onSurveyComplete, userInfo, surveyConfig }) {
+export default function DynamicSurveyModal({ show, onClose, onSurveyComplete, userInfo, surveyConfig, anonymous = false }) {
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -116,9 +116,9 @@ export default function DynamicSurveyModal({ show, onClose, onSurveyComplete, us
     setInvalidFields(new Set());
 
     const hasReservationData =
-      userInfo && userInfo.studentId && userInfo.studentName && userInfo.studentEmail;
+      !anonymous && userInfo && userInfo.studentId && userInfo.studentName && userInfo.studentEmail;
 
-    if (!hasReservationData) {
+    if (!anonymous && !hasReservationData) {
       for (const field of STUDENT_BASIC_INFO_FIELDS) {
         const value = formData[field.id];
         if (!value || String(value).trim() === '') {
@@ -181,19 +181,19 @@ export default function DynamicSurveyModal({ show, onClose, onSurveyComplete, us
         ...formData,
       };
 
-      if (!submitData.studentId || submitData.studentId === 'undefined' || submitData.studentId.trim() === '') {
+      if (!anonymous && (!submitData.studentId || submitData.studentId === 'undefined' || submitData.studentId.trim() === '')) {
         setError('請填寫學號 / Please fill in Student ID');
         setIsSubmitting(false);
         return;
       }
 
-      if (!submitData.name || submitData.name.trim() === '') {
+      if (!anonymous && (!submitData.name || submitData.name.trim() === '')) {
         setError('請填寫姓名 / Please fill in Name');
         setIsSubmitting(false);
         return;
       }
 
-      if (!submitData.email || submitData.email.trim() === '') {
+      if (!anonymous && (!submitData.email || submitData.email.trim() === '')) {
         setError('請填寫Email / Please fill in Email');
         setIsSubmitting(false);
         return;
@@ -369,7 +369,7 @@ export default function DynamicSurveyModal({ show, onClose, onSurveyComplete, us
         {error ? <Alert variant="danger" role="alert">{error}</Alert> : null}
         {success ? <Alert variant="success">{success}</Alert> : null}
 
-        {!hasReservationData && (
+        {!anonymous && !hasReservationData && (
           <Card className="survey-student-card border-0">
             <Card.Body className="p-3">
               <h6 className="survey-student-card__title">學生基本資料 / Student Information</h6>

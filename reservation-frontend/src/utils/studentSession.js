@@ -78,10 +78,12 @@ export function applyStudentIdentityToFormData(formData) {
   return formData;
 }
 
+export const DEFAULT_STUDENT_NEXT = '/student/account';
+
 /** 只允許站內相對路徑，避免登入後被帶到外部網址。 */
 export function safeStudentNext(raw) {
   if (typeof raw !== 'string' || !raw.startsWith('/') || raw.startsWith('//')) {
-    return '/my-reservations';
+    return DEFAULT_STUDENT_NEXT;
   }
   if (
     raw.startsWith('/admin')
@@ -90,7 +92,7 @@ export function safeStudentNext(raw) {
     || raw.startsWith('/student/register')
     || raw.startsWith('/student/forgot-password')
   ) {
-    return '/my-reservations';
+    return DEFAULT_STUDENT_NEXT;
   }
   return raw;
 }

@@ -2,7 +2,23 @@
 
 const SOAP_NAMESPACE = 'urn:xmethods-delayed-demo';
 const DEFAULT_ENDPOINT = 'https://sso.nsysu.edu.tw/ssoWebservice/ws_server.php';
-const STUDENT_ATTRS = ['STUID', 'CNAME', 'EMAIL', 'STAT_COD'];
+const AUTH_ATTRS = ['STUID', 'CNAME', 'EMAIL', 'STAT_COD'];
+const STUDENT_ATTRS = [
+  'STUID',
+  'CNAME',
+  'DPT_DESC',
+  'T_CID',
+  'GRADE',
+  'TEL_NO',
+  'ZIP_COD2',
+  'CITY2',
+  'ADDR2',
+  'EMAIL',
+  'BIRTH_YR',
+  'BIRTH_MM',
+  'BIRTH_DD',
+  'STAT_COD',
+];
 
 function isEnabled() {
   return String(process.env.NSYSU_SSO_ENABLED || '').toLowerCase() === 'true';
@@ -77,15 +93,16 @@ async function verifyPasswordExpired(userName, deps) {
   return callOperation('verifypwdexpired', [userName], deps);
 }
 
-async function getStuAttr({ stuid, password, statCod = '1;2' }, deps) {
+async function getStuAttr({ stuid, password, statCod = '1;2', attrs = STUDENT_ATTRS }, deps) {
+  const fields = Array.isArray(attrs) && attrs.length ? attrs : STUDENT_ATTRS;
   const raw = await callOperation(
     'getStuAttr',
-    [stuid, password, 'ENC', statCod, STUDENT_ATTRS.join(';')],
+    [stuid, password, 'ENC', statCod, fields.join(';')],
     deps,
   );
   if (!raw) return null;
   const parts = raw.split(';');
-  return STUDENT_ATTRS.reduce((profile, key, index) => {
+  return fields.reduce((profile, key, index) => {
     profile[key] = String(parts[index] || '').trim();
     return profile;
   }, {});
@@ -100,5 +117,6 @@ module.exports = {
   authStu,
   verifyPasswordExpired,
   getStuAttr,
+  AUTH_ATTRS,
   STUDENT_ATTRS,
 };

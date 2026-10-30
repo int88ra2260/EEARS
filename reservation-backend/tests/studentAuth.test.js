@@ -394,6 +394,10 @@ describe('loginWithCampusSso', () => {
       statCod: '1;2',
     });
     expect(account.email).toBe('ming@gmail.com');
+    expect(sso.getStuAttr).toHaveBeenCalledWith(expect.objectContaining({
+      attrs: ['STUID', 'CNAME', 'EMAIL', 'STAT_COD'],
+    }));
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty('campusProfile');
     expect(account.passwordHash).toBeNull();
     expect(account.ssoProvider).toBe('nsysu-sso');
     expect(account.ssoSubject).toBe('B123456789');
@@ -415,6 +419,7 @@ describe('loginWithCampusSso', () => {
       name: '王小明',
       ssoProvider: 'nsysu-sso',
     }));
+    expect(row.update.mock.calls[0][0]).not.toHaveProperty('campusProfile');
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
@@ -512,6 +517,35 @@ describe('loginWithCampusSso', () => {
     } finally {
       delete process.env.NSYSU_SSO_ENABLED;
     }
+  });
+
+  it('stores registration fields only when the student asks for them', async () => {
+    const row = accountRow({ campusProfile: null });
+    mockFindOne.mockResolvedValue(row);
+    const sso = ssoDouble({
+      getStuAttr: jest.fn().mockResolvedValue({
+        STUID: 'B123456789',
+        CNAME: '王小明',
+        DPT_DESC: '外文系',
+        T_CID: 'A123456789',
+        EMAIL: 'ming@gmail.com',
+        STAT_COD: '1',
+      }),
+    });
+
+    const profile = await studentAuthService.refreshCampusProfile({
+      studentId: 'B123456789',
+      password: 'campus-secret',
+    }, sso);
+
+    expect(sso.getStuAttr).toHaveBeenCalledWith(expect.objectContaining({
+      attrs: expect.arrayContaining(['DPT_DESC', 'T_CID', 'BIRTH_DD']),
+    }));
+    expect(profile.departmentName).toBe('外文系');
+    expect(profile.nationalId).toBe('A123456789');
+    expect(profile.fetchedAt).toEqual(expect.any(String));
+    expect(row.update).toHaveBeenCalledWith({ campusProfile: profile });
+    expect(JSON.stringify(row.update.mock.calls)).not.toContain('campus-secret');
   });
 
   it('does not log in when the campus service is unreachable', async () => {

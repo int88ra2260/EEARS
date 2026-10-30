@@ -2,6 +2,7 @@
  * 英語實踐歷程護照 API（學生端無 token + 管理端有 token）
  */
 import { fetchClient } from '../utils/fetchClient';
+import { withStudentAuth } from '../utils/studentSession';
 import { clearSiteContentCache } from './siteContentApi';
 
 const STUDENT_BASE = '/api/english-learning-passport';
@@ -103,6 +104,10 @@ function apiError(res, data, fallback) {
   throw err;
 }
 
+function elpStudentFetch(url, init = {}) {
+  return fetchClient(url, withStudentAuth(init));
+}
+
 function studentBody(student, extra = {}) {
   return {
     studentId: student.studentId,
@@ -135,7 +140,7 @@ export async function fetchElpDashboard(student, { force = false } = {}) {
 
   const qs = new URLSearchParams(studentBody(student)).toString();
   const request = (async () => {
-    const res = await fetchClient(`${STUDENT_BASE}/me?${qs}`);
+    const res = await elpStudentFetch(`${STUDENT_BASE}/me?${qs}`);
     const data = await parseJson(res);
     if (!res.ok) apiError(res, data, '載入失敗');
     writeDashboardCache(student, data.data);
@@ -155,7 +160,7 @@ export async function fetchElpRules({ force = false } = {}) {
     const cached = readRulesCache();
     if (cached) return cached;
   }
-  const res = await fetchClient(`${STUDENT_BASE}/rules`);
+  const res = await elpStudentFetch(`${STUDENT_BASE}/rules`);
   const data = await parseJson(res);
   if (!res.ok) throw new Error(data.message || '載入規則失敗');
   writeRulesCache(data.data);
@@ -163,7 +168,7 @@ export async function fetchElpRules({ force = false } = {}) {
 }
 
 export async function applyElpPassport(student, applicationReason, emailVerificationToken) {
-  const res = await fetchClient(`${STUDENT_BASE}/apply`, {
+  const res = await elpStudentFetch(`${STUDENT_BASE}/apply`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(studentBody(student, {
@@ -178,7 +183,7 @@ export async function applyElpPassport(student, applicationReason, emailVerifica
 }
 
 export async function sendElpEmailVerificationCode({ email, studentId }) {
-  const res = await fetchClient(`${STUDENT_BASE}/email-verification/send`, {
+  const res = await elpStudentFetch(`${STUDENT_BASE}/email-verification/send`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, studentId }),
@@ -188,7 +193,7 @@ export async function sendElpEmailVerificationCode({ email, studentId }) {
 }
 
 export async function verifyElpEmailCode({ email, code }) {
-  const res = await fetchClient(`${STUDENT_BASE}/email-verification/verify`, {
+  const res = await elpStudentFetch(`${STUDENT_BASE}/email-verification/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, code }),
@@ -198,7 +203,7 @@ export async function verifyElpEmailCode({ email, code }) {
 }
 
 export async function createElpSubmission(student, payload) {
-  const res = await fetchClient(`${STUDENT_BASE}/submissions`, {
+  const res = await elpStudentFetch(`${STUDENT_BASE}/submissions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(studentBody(student, payload)),
@@ -210,7 +215,7 @@ export async function createElpSubmission(student, payload) {
 }
 
 export async function updateElpSubmission(student, id, payload) {
-  const res = await fetchClient(`${STUDENT_BASE}/submissions/${id}`, {
+  const res = await elpStudentFetch(`${STUDENT_BASE}/submissions/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(studentBody(student, payload)),
@@ -222,7 +227,7 @@ export async function updateElpSubmission(student, id, payload) {
 }
 
 export async function submitElpSubmission(student, id) {
-  const res = await fetchClient(`${STUDENT_BASE}/submissions/${id}/submit`, {
+  const res = await elpStudentFetch(`${STUDENT_BASE}/submissions/${id}/submit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(studentBody(student)),
@@ -249,7 +254,7 @@ export async function fetchElpSubmission(student, id, { force = false } = {}) {
 
   const qs = new URLSearchParams(studentBody(student)).toString();
   const request = (async () => {
-    const res = await fetchClient(`${STUDENT_BASE}/submissions/${id}?${qs}`);
+    const res = await elpStudentFetch(`${STUDENT_BASE}/submissions/${id}?${qs}`);
     const data = await parseJson(res);
     if (!res.ok) apiError(res, data, '載入失敗');
     writeSubmissionCache(student, id, data.data);
@@ -266,7 +271,7 @@ export async function fetchElpSubmission(student, id, { force = false } = {}) {
 
 export async function deleteElpSubmission(student, id) {
   const qs = new URLSearchParams(studentBody(student)).toString();
-  const res = await fetchClient(`${STUDENT_BASE}/submissions/${id}?${qs}`, {
+  const res = await elpStudentFetch(`${STUDENT_BASE}/submissions/${id}?${qs}`, {
     method: 'DELETE',
   });
   const data = await parseJson(res);
@@ -281,7 +286,7 @@ export async function uploadElpAttachment(student, submissionId, file) {
   form.append('studentId', student.studentId);
   form.append('studentName', student.studentName);
   form.append('studentEmail', student.studentEmail);
-  const res = await fetchClient(`${STUDENT_BASE}/submissions/${submissionId}/attachments`, {
+  const res = await elpStudentFetch(`${STUDENT_BASE}/submissions/${submissionId}/attachments`, {
     method: 'POST',
     body: form,
   });
@@ -291,7 +296,7 @@ export async function uploadElpAttachment(student, submissionId, file) {
 }
 
 export async function requestElpCertification(student) {
-  const res = await fetchClient(`${STUDENT_BASE}/certification/request`, {
+  const res = await elpStudentFetch(`${STUDENT_BASE}/certification/request`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(studentBody(student)),
@@ -303,10 +308,13 @@ export async function requestElpCertification(student) {
 }
 
 /** 已通過最終認證者：開啟認證單（列印／另存 PDF） */
-export function openElpCertificationCertificate(student, { autoPrint = true } = {}) {
+export async function openElpCertificationCertificate(student, { autoPrint = true } = {}) {
   const qs = new URLSearchParams(studentBody(student));
   if (autoPrint) qs.set('format', 'pdf');
-  const url = `${STUDENT_BASE}/certification/certificate?${qs.toString()}`;
+  const res = await elpStudentFetch(`${STUDENT_BASE}/certification/certificate?${qs.toString()}`);
+  if (!res.ok) throw new Error('無法開啟認證單');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 

@@ -26,7 +26,12 @@ const GATES = [
   {
     match: (path) => path.startsWith('/register/english-test'),
     title: '培力英檢報名',
-    detail: '報名、查詢和修正都要先登入。系統會使用你的學號與姓名。',
+    detail: '報名、查詢和修正都要先登入。學號與姓名使用登入帳號，其餘欄位依表單設定帶入。',
+  },
+  {
+    match: (path) => path.startsWith('/student/english-learning-passport'),
+    title: '英語實踐歷程檔案',
+    detail: '申請和紀錄都要先登入。通知寄到我的帳號信箱。',
   },
   {
     match: (path) => path.startsWith('/student/account'),

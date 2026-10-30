@@ -16,6 +16,8 @@ import { validateExtraAnswers } from './english-test/registration/EnglishTestExt
 import { useEnglishTestFormSchemaPublic } from '../hooks/useEnglishTestFormSchemaPublic';
 import { ENGLISH_TEST_DEFAULT_ADDRESS } from '../constants/englishTestDefaultAddress';
 import { buildFormOptionsFromMeta } from '../utils/englishTestFormSchemaMeta';
+import { campusProfileFieldPatch, mergeCampusProfileIntoForm } from '../utils/campusProfileForm';
+import { fetchCampusProfile } from '../services/studentAuthApi';
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -93,6 +95,21 @@ export default function EnglishTestDetailForm({ initialData, basicInfo, step3Dat
     handleFileChange,
     getFieldRef,
   } = useEnglishTestFormFields(buildInitialFormData(initialData, basicInfo, step3Data));
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCampusProfile()
+      .then(({ ok, data }) => {
+        if (cancelled || !ok || !data?.profile) return;
+        const patch = campusProfileFieldPatch(data.profile, schema?.questions || []);
+        if (Object.keys(patch).length === 0) return;
+        setFormData((prev) => mergeCampusProfileIntoForm(prev, patch));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [schema, setFormData]);
 
   useEffect(() => {
     if (initialData) {

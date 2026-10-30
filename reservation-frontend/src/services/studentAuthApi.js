@@ -81,6 +81,22 @@ export async function completeCampusEmailSetup(payload) {
   return { ok: res.ok, status: res.status, data };
 }
 
+export async function fetchCampusProfile() {
+  const res = await fetchClient('/api/student-auth/campus-profile', withStudentAuth());
+  const data = await parseJson(res);
+  return { ok: res.ok, data };
+}
+
+export async function refreshCampusProfile(password) {
+  const res = await fetchClient('/api/student-auth/campus-profile', withStudentAuth({
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  }));
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
 export async function changeStudentNotificationEmail(payload) {
   const res = await fetchClient('/api/student-auth/email', withStudentAuth({
     method: 'POST',

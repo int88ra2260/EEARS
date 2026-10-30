@@ -4,7 +4,8 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import DynamicSurveyModal from './DynamicSurveyModal';
 import { Card, Alert, Spinner } from 'react-bootstrap';
 import useToast from './ui/useToast';
-import { loadStudentTrio, saveStudentTrio } from '../utils/studentTrioStorage';
+import { saveStudentTrio } from '../utils/studentTrioStorage';
+import { loadStudentSession } from '../utils/studentSession';
 import {
   buildEventsRecoveredPath,
   restorePendingReservationFromQuery,
@@ -21,6 +22,7 @@ export default function SurveyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [userInfo, setUserInfo] = useState(null);
+  const [anonymous, setAnonymous] = useState(false);
 
   useEffect(() => {
     restorePendingReservationFromQuery(searchParams, surveyId);
@@ -33,10 +35,27 @@ export default function SurveyPage() {
         const data = await fetchPublicSurvey(surveyId);
         const config = data?.survey;
         const currentSemester = data?.meta?.currentSemester;
+        const isAnonymous = Boolean(data?.meta?.anonymous);
+        setAnonymous(isAnonymous);
         setSurveyConfig({
           ...config,
           subtitle: currentSemester ? `目前學期：${currentSemester}` : '',
         });
+        if (!isAnonymous) {
+          const session = loadStudentSession();
+          if (!session?.student) {
+            const next = `${window.location.pathname}${window.location.search || ''}`;
+            navigate(`/student/login?next=${encodeURIComponent(next)}`, { replace: true });
+            return;
+          }
+          setUserInfo({
+            studentId: session.student.studentId,
+            studentName: session.student.name,
+            studentEmail: session.student.email,
+          });
+          return;
+        }
+        setUserInfo(null);
       } catch (err) {
         setError('載入問卷配置失敗 / Failed to load survey configuration');
       } finally {
@@ -44,21 +63,11 @@ export default function SurveyPage() {
       }
     };
 
-    // 取得使用者資訊 - 從預約資料中取得學生資訊，如果沒有則提供空值讓問卷自行收集
-    const loadUserInfo = () => {
-      const trio = loadStudentTrio();
-      setUserInfo({
-        studentId: trio.studentId || '',
-        studentName: trio.studentName || '',
-        studentEmail: trio.studentEmail || '',
-      });
-    };
-
     // 檢查學生是否已填寫過問卷
     const checkSurveyStatus = async () => {
       try {
-        const { studentId } = loadStudentTrio();
-        if (!studentId) return; // 沒有學號就不檢查
+        const studentId = loadStudentSession()?.student?.studentId;
+        if (!studentId) return;
 
         const data = await checkSurveyFilled(surveyId, studentId);
         if (data.filled) {
@@ -71,9 +80,8 @@ export default function SurveyPage() {
     };
 
     loadSurveyConfig();
-    loadUserInfo();
     checkSurveyStatus();
-  }, [surveyId]);
+  }, [surveyId, navigate]);
 
   const handleSurveyComplete = async () => {
     // 檢查是否有待完成的預約
@@ -236,6 +244,7 @@ export default function SurveyPage() {
                   onClose={() => navigate('/')}
                   onSurveyComplete={handleSurveyComplete}
                   userInfo={userInfo}
+                  anonymous={anonymous}
                   surveyConfig={surveyConfig}
                 />
               </div>

@@ -48,6 +48,12 @@ export default function EnglishTestRegistrationPage() {
     handleStep4Back,
     handleSubmitNonExam,
     handleNavigateToGroupRegistration,
+    showCampusLookup,
+    campusLookupPassword,
+    setCampusLookupPassword,
+    campusLookupError,
+    campusLookupLoading,
+    handleCampusLookup,
   } = useEnglishTestRegistrationPage();
 
   return (
@@ -95,6 +101,12 @@ export default function EnglishTestRegistrationPage() {
           onRegistrationClosedSubmitClick={handleRegistrationClosedSubmitClick}
           isLoadingRegistration={isLoadingRegistration}
           isLoadingStudent={isLoadingStudent}
+          showCampusLookup={showCampusLookup}
+          campusLookupPassword={campusLookupPassword}
+          onCampusLookupPasswordChange={setCampusLookupPassword}
+          onCampusLookup={handleCampusLookup}
+          campusLookupError={campusLookupError}
+          campusLookupLoading={campusLookupLoading}
         />
       )}
 

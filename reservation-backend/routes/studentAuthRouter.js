@@ -3,6 +3,7 @@ const {
   registerAccount,
   loginAccount,
   loginWithCampusSso,
+  refreshCampusProfile,
   completeCampusEmailSetup,
   changeNotificationEmail,
   changePassword,
@@ -344,6 +345,33 @@ router.post('/campus-email', loginRateLimit, async (req, res) => {
       token: signStudentToken(account),
       student: toPublicAccount(account),
     });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+router.get('/campus-profile', studentAuthMiddleware, async (req, res) => {
+  const profile = req.studentAccount?.campusProfile || null;
+  return res.json({ success: true, profile });
+});
+
+const campusProfileRateLimit = createSimpleRateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 8,
+  message: '讀取學籍次數過多，請稍後再試',
+  keyFn: (req, ip) => {
+    const studentId = String(req.studentAccount?.studentId || '').trim().toUpperCase();
+    return studentId ? `campus-profile:${studentId}` : `campus-profile-ip:${ip}`;
+  },
+});
+
+router.post('/campus-profile', studentAuthMiddleware, campusProfileRateLimit, async (req, res) => {
+  try {
+    const profile = await refreshCampusProfile({
+      studentId: req.studentAccount.studentId,
+      password: req.body?.password,
+    });
+    return res.json({ success: true, profile });
   } catch (error) {
     return sendError(res, error);
   }

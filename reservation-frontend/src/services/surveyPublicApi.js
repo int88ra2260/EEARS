@@ -2,6 +2,7 @@
  * 問卷學生端 API 薄層
  */
 import { fetchClient } from '../utils/fetchClient';
+import { withStudentAuth } from '../utils/studentSession';
 
 async function parseJson(res) {
   return res.json().catch(() => ({}));
@@ -31,11 +32,11 @@ export async function checkSurveyFilled(surveyId, studentId) {
 }
 
 export async function submitSurvey(surveyId, body) {
-  const res = await fetchClient(`/api/surveys/${surveyId}`, {
+  const res = await fetchClient(`/api/surveys/${surveyId}`, withStudentAuth({
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  });
+  }));
   const data = await parseJson(res);
   return { ok: res.ok, status: res.status, data };
 }

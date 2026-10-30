@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
+import useStudentSession from '../../hooks/useStudentSession';
 import {
-  loadElpStudent,
   createElpSubmission,
   updateElpSubmission,
   fetchElpSubmission,
@@ -31,7 +31,14 @@ export default function EnglishLearningPassportSubmissionPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [student] = useState(() => loadElpStudent());
+  const account = useStudentSession()?.student;
+  const student = useMemo(() => (
+    account?.studentId ? {
+      studentId: account.studentId,
+      studentName: account.name,
+      studentEmail: account.email,
+    } : null
+  ), [account?.studentId, account?.name, account?.email]);
   const isNew = !id || id === 'new';
   const initialRule = searchParams.get('rule') || '';
 

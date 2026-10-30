@@ -54,6 +54,23 @@ function assertValidStudentContext(ctx) {
   return n;
 }
 
+function assertLinkedAccountContext(account) {
+  const n = normalizeStudentContext({
+    studentId: account?.studentId,
+    studentName: account?.name,
+    studentEmail: account?.email,
+  });
+  const { isValid, errors } = validateReservationData(n);
+  if (!isValid) {
+    const err = new Error(errors[0] || '學生資料格式不正確');
+    err.status = 400;
+    err.code = 'INVALID_STUDENT_CONTEXT';
+    throw err;
+  }
+  n.trustAccountEmail = true;
+  return n;
+}
+
 /**
  * 舊申請若使用非校內信箱，允許在學號＋姓名相符時改綁允許的中山大學校內信箱。
  */
@@ -113,6 +130,10 @@ async function getPassportForStudent(ctx, transaction) {
   }
 
   if (storedEmail !== n.studentEmail) {
+    if (ctx.trustAccountEmail) {
+      await passport.update({ studentEmail: n.studentEmail }, { transaction });
+      return passport;
+    }
     const migrated = await maybeMigratePassportEmailToNsysu(passport, n, transaction);
     if (!migrated) {
       const err = new Error(
@@ -372,11 +393,13 @@ async function listEnabledRules() {
 }
 
 async function applyPassport(ctx, { applicationReason, emailVerificationToken }, req) {
-  const n = assertValidStudentContext(ctx);
-  elpEmailVerificationService.assertEmailVerifiedToken({
-    token: emailVerificationToken,
-    email: n.studentEmail,
-  });
+  const n = ctx.trustAccountEmail ? ctx : assertValidStudentContext(ctx);
+  if (!ctx.trustAccountEmail) {
+    elpEmailVerificationService.assertEmailVerifiedToken({
+      token: emailVerificationToken,
+      email: n.studentEmail,
+    });
+  }
 
   return sequelize.transaction(async (transaction) => {
     const existing = await findBlockingPassport(n.studentId, transaction);
@@ -1626,6 +1649,7 @@ async function listAuditLogsAdmin(filters = {}) {
 module.exports = {
   normalizeStudentContext,
   assertValidStudentContext,
+  assertLinkedAccountContext,
   getPassportForStudent,
   getStudentDashboard,
   listEnabledRules,

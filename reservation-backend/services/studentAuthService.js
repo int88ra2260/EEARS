@@ -18,6 +18,7 @@ const {
 } = require('./studentAccountReviewService');
 const loginAccountCooldown = require('../utils/loginAccountCooldown');
 const nsysuSsoClient = require('./nsysuSsoClient');
+const { fromStuAttr } = require('./campusProfile');
 
 const TOKEN_TYP = 'student';
 const TOKEN_EXPIRES_IN = '12h';
@@ -234,6 +235,18 @@ function campusPasswordUpdateError(status) {
   return err;
 }
 
+function campusProfileFor(profile, savedProfile) {
+  const fromCampus = fromStuAttr(profile);
+  const saved = savedProfile && typeof savedProfile === 'object' ? savedProfile : {};
+  const merged = { ...saved };
+  Object.entries(fromCampus).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      merged[key] = value;
+    }
+  });
+  return merged;
+}
+
 async function upsertCampusAccount(profile) {
   const studentId = normalizeStudentId(profile.STUID);
   const name = normalizeName(profile.CNAME);
@@ -328,6 +341,77 @@ async function completeCampusEmailSetup({ setupToken, email, emailVerificationTo
   });
 }
 
+async function refreshCampusProfile({ studentId, password }, sso = nsysuSsoClient) {
+  const normalizedId = normalizeStudentId(studentId);
+  const key = cooldownKey(normalizedId);
+  const cooldown = loginAccountCooldown.checkLoginCooldown(key);
+  if (cooldown.blocked) {
+    const err = httpError(429, 'LOGIN_COOLDOWN', '嘗試次數過多，請稍後再試');
+    err.retryAfterSeconds = cooldown.retryAfterSeconds;
+    throw err;
+  }
+  if (!password) {
+    throw httpError(400, 'MISSING_CREDENTIALS', '請輸入單一入口密碼');
+  }
+  const account = await StudentAccount.findOne({ where: { studentId: normalizedId, status: 'active' } });
+  if (!account) {
+    throw httpError(401, 'STUDENT_AUTH_REQUIRED', '請重新登入');
+  }
+
+  let authenticated = false;
+  try {
+    authenticated = await sso.authStu({ stuid: normalizedId, password, statCod: CAMPUS_STAT_COD });
+  } catch (error) {
+    const err = httpError(503, 'SSO_UNAVAILABLE', '單一入口暫時無法連線，請稍後再試');
+    err.cause = error;
+    throw err;
+  }
+  if (!authenticated) {
+    loginAccountCooldown.recordLoginFailure(key);
+    throw httpError(401, 'INVALID_CREDENTIALS', '單一入口密碼不正確');
+  }
+
+  let passwordStatus = '';
+  try {
+    passwordStatus = String(await sso.verifyPasswordExpired(normalizedId) || '').trim().toUpperCase();
+  } catch (error) {
+    const err = httpError(503, 'SSO_UNAVAILABLE', '單一入口暫時無法連線，請稍後再試');
+    err.cause = error;
+    throw err;
+  }
+  const updateRequired = campusPasswordUpdateError(passwordStatus);
+  if (updateRequired) throw updateRequired;
+  if (passwordStatus !== 'OK') {
+    throw httpError(503, 'SSO_UNAVAILABLE', '單一入口暫時無法確認密碼狀態，請稍後再試');
+  }
+
+  let profile = null;
+  try {
+    profile = await sso.getStuAttr({
+      stuid: normalizedId,
+      password,
+      statCod: CAMPUS_STAT_COD,
+      attrs: nsysuSsoClient.STUDENT_ATTRS,
+    });
+  } catch (error) {
+    const err = httpError(503, 'SSO_UNAVAILABLE', '單一入口暫時無法連線，請稍後再試');
+    err.cause = error;
+    throw err;
+  }
+  if (!profile || normalizeStudentId(profile.STUID) !== normalizedId) {
+    throw httpError(503, 'SSO_UNAVAILABLE', '單一入口沒有回傳報名需要的學籍，請稍後再試');
+  }
+
+  const campusProfile = {
+    ...campusProfileFor(profile, account.campusProfile),
+    fetchedAt: new Date().toISOString(),
+  };
+  await account.update({ campusProfile });
+  Object.assign(account, { campusProfile });
+  loginAccountCooldown.clearLoginCooldown(key);
+  return campusProfile;
+}
+
 async function changeNotificationEmail({ accountId, email, emailVerificationToken }) {
   const account = await StudentAccount.findByPk(accountId);
   if (!account || account.status !== 'active') {
@@ -389,7 +473,12 @@ async function loginWithCampusSso({ studentId, password }, sso = nsysuSsoClient)
 
   let profile = null;
   try {
-    profile = await sso.getStuAttr({ stuid: normalizedId, password, statCod: CAMPUS_STAT_COD });
+    profile = await sso.getStuAttr({
+      stuid: normalizedId,
+      password,
+      statCod: CAMPUS_STAT_COD,
+      attrs: nsysuSsoClient.AUTH_ATTRS,
+    });
   } catch (error) {
     const err = httpError(503, 'SSO_UNAVAILABLE', '單一入口暫時無法連線，請稍後再試');
     err.cause = error;
@@ -423,6 +512,7 @@ module.exports = {
   registerAccount,
   loginAccount,
   loginWithCampusSso,
+  refreshCampusProfile,
   completeCampusEmailSetup,
   changeNotificationEmail,
   changePassword,

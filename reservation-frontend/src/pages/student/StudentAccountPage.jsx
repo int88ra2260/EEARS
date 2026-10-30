@@ -8,6 +8,16 @@ import {
 import { saveStudentSession } from '../../utils/studentSession';
 import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
+import '../../components/student/StudentRecordShell.css';
+
+const SHORTCUTS = [
+  { to: '/my-reservations', title: '我的預約', detail: '查看、取消即將參加的活動' },
+  { to: '/student/progress', title: '我的紀錄', detail: '出席與學習紀錄' },
+  { to: '/student/speaking-portfolio', title: '口說紀錄', detail: '口說練習與回饋' },
+  { to: '/student/class-credit-allocation', title: '課堂加分', detail: '課堂加分配置' },
+  { to: '/register/english-test', title: '培力英檢報名', detail: '用登入身分帶入可填欄位' },
+  { to: '/student/english-learning-passport', title: '英語實踐歷程檔案', detail: '申請與通知使用這個帳號信箱' },
+];
 
 export default function StudentAccountPage() {
   const navigate = useNavigate();
@@ -19,6 +29,7 @@ export default function StudentAccountPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const campusSso = useCampusSso();
+  const [editingEmail, setEditingEmail] = useState(false);
   const [mailbox, setMailbox] = useState(student?.email || '');
   const [emailVerificationToken, setEmailVerificationToken] = useState('');
   const [verifiedEmail, setVerifiedEmail] = useState('');
@@ -44,7 +55,8 @@ export default function StudentAccountPage() {
       setMailbox(data.student.email);
       setEmailVerificationToken('');
       setVerifiedEmail('');
-      setEmailNotice('收信信箱已更新。之後的預約通知會寄到這個信箱。');
+      setEditingEmail(false);
+      setEmailNotice('收信信箱已更新。之後的通知會寄到這個信箱。');
     } catch {
       setEmailError('與伺服器連線發生錯誤');
     } finally {
@@ -77,81 +89,117 @@ export default function StudentAccountPage() {
   if (!student) return null;
 
   return (
-    <div className="d-flex justify-content-center">
-      <div className="card p-4" style={{ width: '100%', maxWidth: 480 }}>
-        <h1 className="h4 mb-3">我的帳號</h1>
-        <dl className="row mb-4">
-          <dt className="col-4">學號</dt>
-          <dd className="col-8">{student.studentId}</dd>
-          <dt className="col-4">姓名</dt>
-          <dd className="col-8">{student.name}</dd>
-          <dt className="col-4">信箱</dt>
-          <dd className="col-8">{student.email}</dd>
-        </dl>
-        <p className="text-muted small">
+    <div className="student-account">
+      <header className="student-workspace-identity">
+        <div>
+          <h1 className="student-workspace-identity__name h4 mb-0">{student.name}</h1>
+          <p className="student-workspace-identity__id mb-0">{student.studentId}</p>
+        </div>
+        <p className="student-account__mailbox mb-0">{student.email}</p>
+      </header>
+
+      <section className="student-account__section">
+        <h2 className="h6">我可以做的事</h2>
+        <div className="student-account__grid">
+          {SHORTCUTS.map((item) => (
+            <Link key={item.to} to={item.to} className="student-account__shortcut">
+              <span className="student-account__shortcut-title">{item.title}</span>
+              <span className="student-account__shortcut-detail">{item.detail}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="student-account__section">
+        <h2 className="h6">通知信箱</h2>
+        <p className="text-muted small mb-2">
           {campusSso
-            ? '學號與姓名來自中山單一入口，這裡不能改。下面的信箱只用來收這個網站的通知，可以和單一入口的信箱不同。預約與個人紀錄都使用這個學號。'
-            : '預約與個人紀錄都會使用這個學號。通知信寄到下面的信箱。'}
+            ? '預約、培力與歷程檔案的通知寄到這個信箱。它可以和單一入口的信箱不同。'
+            : '預約、培力與歷程檔案的通知寄到這個信箱。'}
         </p>
-        <h2 className="h6">收信信箱</h2>
-        <form onSubmit={handleEmailSubmit}>
-          <div className="mb-3">
-            <label className="form-label" htmlFor="student-mailbox">信箱</label>
-            <input id="student-mailbox" className="form-control" type="email" value={mailbox} onChange={(e) => setMailbox(e.target.value)} autoComplete="email" required />
-          </div>
-          <StudentAccountEmailVerification
-            email={mailbox}
-            studentId={student.studentId}
-            emailVerificationToken={emailVerificationToken}
-            verifiedEmail={verifiedEmail}
-            onVerified={({ token, verifiedEmail: nextEmail }) => {
-              setEmailVerificationToken(token || '');
-              setVerifiedEmail(nextEmail || '');
-            }}
-          />
-          <button
-            className="btn btn-primary mt-3"
-            type="submit"
-            disabled={emailSubmitting || !emailVerificationToken || verifiedEmail !== mailbox.trim().toLowerCase()}
-          >
-            {emailSubmitting ? '更新中…' : '更新收信信箱'}
+        {emailNotice ? <p className="text-success small">{emailNotice}</p> : null}
+        {editingEmail ? (
+          <form onSubmit={handleEmailSubmit}>
+            <label className="form-label" htmlFor="student-mailbox">新的信箱</label>
+            <input
+              id="student-mailbox"
+              className="form-control mb-3"
+              type="email"
+              value={mailbox}
+              onChange={(e) => setMailbox(e.target.value)}
+              autoComplete="email"
+              required
+            />
+            <StudentAccountEmailVerification
+              email={mailbox}
+              studentId={student.studentId}
+              emailVerificationToken={emailVerificationToken}
+              verifiedEmail={verifiedEmail}
+              onVerified={({ token, verifiedEmail: nextEmail }) => {
+                setEmailVerificationToken(token || '');
+                setVerifiedEmail(nextEmail || '');
+              }}
+            />
+            <div className="d-flex gap-2 mt-3">
+              <button
+                className="btn btn-primary"
+                type="submit"
+                disabled={emailSubmitting || !emailVerificationToken || verifiedEmail !== mailbox.trim().toLowerCase()}
+              >
+                {emailSubmitting ? '更新中…' : '更新收信信箱'}
+              </button>
+              <button
+                className="btn btn-outline-secondary"
+                type="button"
+                onClick={() => {
+                  setEditingEmail(false);
+                  setMailbox(student.email);
+                  setEmailError('');
+                }}
+              >
+                取消
+              </button>
+            </div>
+            {emailError ? <p className="text-danger mt-3 mb-0">{emailError}</p> : null}
+          </form>
+        ) : (
+          <button className="btn btn-outline-primary" type="button" onClick={() => setEditingEmail(true)}>
+            更換收信信箱
           </button>
-        </form>
-        {emailNotice ? <p className="text-success mt-3 mb-0">{emailNotice}</p> : null}
-        {emailError ? <p className="text-danger mt-3 mb-0">{emailError}</p> : null}
-        <h2 className="h6 mt-4">登入密碼</h2>
+        )}
+      </section>
+
+      <section className="student-account__section">
+        <h2 className="h6">登入方式</h2>
         {campusSso ? (
           <>
-            <p className="text-muted small">登入密碼就是中山單一入口的密碼。請到單一入口修改，這裡不能改。</p>
-            <a className="btn btn-outline-primary" href="https://sso.nsysu.edu.tw">前往單一入口</a>
+            <p className="text-muted small">登入密碼是中山單一入口的密碼。學號與姓名也來自單一入口。</p>
+            <a className="btn btn-outline-primary" href="https://sso.nsysu.edu.tw">到單一入口改密碼</a>
           </>
         ) : (
-        <>
-        <p className="text-muted small">更新後會登出，請用新密碼重新登入。</p>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label className="form-label" htmlFor="student-current-password">目前密碼</label>
-            <input id="student-current-password" className="form-control" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" required />
-          </div>
-          <div className="mb-3">
-            <label className="form-label" htmlFor="student-new-password">新密碼</label>
-            <input id="student-new-password" className="form-control" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" required />
-          </div>
-          <div className="mb-3">
-            <label className="form-label" htmlFor="student-new-password-2">再輸入一次新密碼</label>
-            <input id="student-new-password-2" className="form-control" type="password" value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} autoComplete="new-password" required />
-          </div>
-          <button className="btn btn-primary" type="submit" disabled={submitting}>
-            {submitting ? '更新中…' : '更新密碼'}
-          </button>
-        </form>
-        {error ? <p className="text-danger mt-3 mb-0">{error}</p> : null}
-        </>
+          <>
+            <p className="text-muted small">更新後會登出，請用新密碼重新登入。</p>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-3">
+                <label className="form-label" htmlFor="student-current-password">目前密碼</label>
+                <input id="student-current-password" className="form-control" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" required />
+              </div>
+              <div className="mb-3">
+                <label className="form-label" htmlFor="student-new-password">新密碼</label>
+                <input id="student-new-password" className="form-control" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" required />
+              </div>
+              <div className="mb-3">
+                <label className="form-label" htmlFor="student-new-password-2">再輸入一次新密碼</label>
+                <input id="student-new-password-2" className="form-control" type="password" value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} autoComplete="new-password" required />
+              </div>
+              <button className="btn btn-primary" type="submit" disabled={submitting}>
+                {submitting ? '更新中…' : '更新密碼'}
+              </button>
+            </form>
+            {error ? <p className="text-danger mt-3 mb-0">{error}</p> : null}
+          </>
         )}
-        <p className="small mt-3 mb-0">
-          <Link to="/my-reservations">回到我的預約</Link>
-        </p>
-      </div>
+      </section>
     </div>
   );
 }

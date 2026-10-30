@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Alert, Button, Card, Spinner } from 'react-bootstrap';
+import useStudentSession from '../../hooks/useStudentSession';
 import {
-  loadElpStudent,
   fetchElpDashboard,
   openElpCertificationCertificate,
 } from '../../services/englishLearningPassportApi';
@@ -11,7 +11,14 @@ import '../../components/englishLearningPassport/elp.css';
 /** 最終行政審核已移除：此頁改為導向／匯出認證單 */
 export default function EnglishLearningPassportCertificationPage() {
   const navigate = useNavigate();
-  const student = loadElpStudent();
+  const account = useStudentSession()?.student;
+  const student = useMemo(() => (
+    account?.studentId ? {
+      studentId: account.studentId,
+      studentName: account.name,
+      studentEmail: account.email,
+    } : null
+  ), [account?.studentId, account?.name, account?.email]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [passport, setPassport] = useState(null);

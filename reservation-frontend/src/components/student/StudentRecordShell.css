@@ -62,3 +62,52 @@
   background: #2a5d9f;
   color: #fff;
 }
+
+.student-account {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.student-account__mailbox {
+  color: #5c6b7e;
+  font-size: 0.9rem;
+}
+
+.student-account__section {
+  margin: 0 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(42, 93, 159, 0.16);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.student-account__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.65rem;
+}
+
+.student-account__shortcut {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(42, 93, 159, 0.06);
+  color: #1f3f6e;
+  text-decoration: none;
+}
+
+.student-account__shortcut:hover {
+  background: rgba(42, 93, 159, 0.12);
+  color: #1f3f6e;
+}
+
+.student-account__shortcut-title {
+  font-weight: 700;
+}
+
+.student-account__shortcut-detail {
+  color: #5c6b7e;
+  font-size: 0.85rem;
+}

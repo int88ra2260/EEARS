@@ -32,10 +32,19 @@ import {
 } from '../utils/englishTestRegistrationStepGates';
 import { useEnglishTestFormSchemaPublic } from './useEnglishTestFormSchemaPublic';
 import { loadStudentSession } from '../utils/studentSession';
+import { fetchCampusProfile, refreshCampusProfile } from '../services/studentAuthApi';
+import useCampusSso from './useCampusSso';
 
 import {
   ENGLISH_TEST_ANNOUNCEMENT_ACK_KEY,
 } from '../constants/englishTestRegistrationAnnouncement';
+
+function hasRegistrationProfile(profile) {
+  if (!profile || typeof profile !== 'object') return false;
+  if (profile.fetchedAt) return true;
+  return ['departmentName', 'nationalId', 'grade', 'phone', 'postalCode', 'city', 'address', 'birthYear']
+    .some((key) => String(profile[key] || '').trim());
+}
 
 export default function useEnglishTestRegistrationPage() {
   const navigate = useNavigate();
@@ -85,6 +94,11 @@ export default function useEnglishTestRegistrationPage() {
   const [registrationEditEnabled, setRegistrationEditEnabled] = useState(true);
   const [isCheckingRegistrationStatus, setIsCheckingRegistrationStatus] = useState(true);
   const [draftRestored, setDraftRestored] = useState(false);
+  const campusSso = useCampusSso();
+  const [campusProfileReady, setCampusProfileReady] = useState(false);
+  const [campusLookupPassword, setCampusLookupPassword] = useState('');
+  const [campusLookupError, setCampusLookupError] = useState('');
+  const [campusLookupLoading, setCampusLookupLoading] = useState(false);
 
   const navigableMaxStep = useMemo(() => getEnglishTestNavigableMaxStep({
     maxReachedStep,
@@ -114,6 +128,48 @@ export default function useEnglishTestRegistrationPage() {
     step3Data,
     englishTestForm,
   }), [englishTestStep, maxReachedStep, agreedToPrivacyPolicy, step3Data, englishTestForm]);
+
+  const applyStoredCampusProfile = useCallback((profile) => {
+    const nationalId = String(profile?.nationalId || '').trim();
+    if (!nationalId) return;
+    setEnglishTestForm((prev) => (
+      prev.idNumber ? prev : { ...prev, idNumber: nationalId }
+    ));
+  }, []);
+
+  useEffect(() => {
+    if (englishTestStep !== 2) return undefined;
+    let cancelled = false;
+    fetchCampusProfile()
+      .then(({ ok, data }) => {
+        if (cancelled || !ok || !hasRegistrationProfile(data?.profile)) return;
+        setCampusProfileReady(true);
+        applyStoredCampusProfile(data.profile);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [englishTestStep, applyStoredCampusProfile]);
+
+  const handleCampusLookup = useCallback(async () => {
+    setCampusLookupLoading(true);
+    setCampusLookupError('');
+    try {
+      const { ok, data } = await refreshCampusProfile(campusLookupPassword);
+      if (!ok || !data?.profile) {
+        setCampusLookupError(data?.message || '無法讀取學籍');
+        return;
+      }
+      setCampusLookupPassword('');
+      setCampusProfileReady(true);
+      applyStoredCampusProfile(data.profile);
+    } catch {
+      setCampusLookupError('與伺服器連線發生錯誤');
+    } finally {
+      setCampusLookupLoading(false);
+    }
+  }, [campusLookupPassword, applyStoredCampusProfile]);
 
   useEffect(() => {
     if (englishTestStep <= navigableMaxStep) return;
@@ -716,5 +772,11 @@ export default function useEnglishTestRegistrationPage() {
     handleStep4Back,
     handleSubmitNonExam,
     handleNavigateToGroupRegistration,
+    showCampusLookup: campusSso && !campusProfileReady,
+    campusLookupPassword,
+    setCampusLookupPassword,
+    campusLookupError,
+    campusLookupLoading,
+    handleCampusLookup,
   };
 }

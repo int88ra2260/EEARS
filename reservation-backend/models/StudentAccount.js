@@ -48,6 +48,10 @@ const StudentAccount = sequelize.define('StudentAccount', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  campusProfile: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
 }, {
   tableName: 'student_accounts',
   indexes: [

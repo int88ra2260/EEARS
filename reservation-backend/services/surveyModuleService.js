@@ -199,15 +199,16 @@ async function getPublicStatusPayload(surveyKey) {
   }
 
   if (!pkg.versionId && pkg.source === 'json_fallback') {
-    return {
-      ok: true,
-      code: 'open',
-      source: 'json_fallback',
-      warning: '尚未發布 DB 版本，使用檔案後援',
-      versionNumber: null,
-      currentSemester,
-    };
-  }
+  return {
+    ok: true,
+    code: 'open',
+    source: 'json_fallback',
+    warning: '尚未發布 DB 版本，使用檔案後援',
+    versionNumber: null,
+    currentSemester,
+    anonymous: Boolean(rule.isAnonymous),
+  };
+}
 
   return {
     ok: true,
@@ -216,6 +217,7 @@ async function getPublicStatusPayload(surveyKey) {
     versionNumber: pkg.versionNumber,
     message: '可填寫',
     currentSemester,
+    anonymous: Boolean(rule.isAnonymous),
   };
 }
 
@@ -265,6 +267,37 @@ async function moduleDuplicateExists(surveyId, surveyKey, studentId, rule, body)
 /**
  * 公開提交：寫入 legacy 表（ET/EC）+ survey_responses
  */
+function bindSurveyIdentity(body, rule, req) {
+  const anonymous = Boolean(rule?.isAnonymous);
+  if (anonymous) {
+    const next = { ...body };
+    delete next.studentId;
+    delete next.studentName;
+    delete next.studentEmail;
+    delete next.name;
+    delete next.email;
+    return { body: next, anonymous: true };
+  }
+  const account = req?.studentAccount;
+  if (!account) {
+    const err = new Error('請先登入學生帳號再填寫這份問卷');
+    err.statusCode = 401;
+    err.errorCode = 'STUDENT_AUTH_REQUIRED';
+    throw err;
+  }
+  return {
+    anonymous: false,
+    body: {
+      ...body,
+      studentId: account.studentId,
+      studentName: account.name,
+      name: account.name,
+      studentEmail: account.email,
+      email: account.email,
+    },
+  };
+}
+
 async function submitPublicResponse(surveyKey, body, req) {
   await assertSubmissionAllowed(surveyKey);
 
@@ -274,6 +307,13 @@ async function submitPublicResponse(surveyKey, body, req) {
     err.statusCode = 404;
     throw err;
   }
+
+  let rule = null;
+  if (pkg.surveyDbId) {
+    rule = await SurveyRule.findOne({ where: { surveyId: pkg.surveyDbId } }).catch(() => null);
+  }
+  const bound = bindSurveyIdentity(body, rule, req);
+  body = bound.body;
 
   const surveyConfig = pkg.config;
   if (surveyConfig.id !== surveyKey) {
@@ -290,11 +330,6 @@ async function submitPublicResponse(surveyKey, body, req) {
       err.errorCode = 'INVALID_STUDENT_ID';
       throw err;
     }
-  }
-
-  let rule = null;
-  if (pkg.surveyDbId) {
-    rule = await SurveyRule.findOne({ where: { surveyId: pkg.surveyDbId } }).catch(() => null);
   }
 
   const validationResult = validateSurveyData(body, surveyConfig);
@@ -330,29 +365,32 @@ async function submitPublicResponse(surveyKey, body, req) {
   const semester = getCurrentSemester();
   processedData.semester = semester;
 
-  let SurveyModel;
+  let SurveyModel = null;
   if (surveyKey === 'english_table_feedback_114_1') {
     SurveyModel = EnglishTableSurveyResponse;
   } else if (surveyKey === 'english_club_feedback_114_1') {
     SurveyModel = EnglishClubSurveyResponse;
-  } else {
+  } else if (!pkg.surveyDbId) {
     const err = new Error('不支援的問卷類型');
     err.statusCode = 400;
     throw err;
   }
 
-  try {
-    await SurveyModel.create(processedData);
-  } catch (e) {
-    if (e && e.name === 'SequelizeUniqueConstraintError') {
-      const err = new Error('您已填過此問卷');
-      err.statusCode = 400;
-      err.errorCode = 'SURVEY_ALREADY_FILLED';
-      throw err;
+  if (SurveyModel) {
+    try {
+      await SurveyModel.create(processedData);
+    } catch (e) {
+      if (e && e.name === 'SequelizeUniqueConstraintError') {
+        const err = new Error('您已填過此問卷');
+        err.statusCode = 400;
+        err.errorCode = 'SURVEY_ALREADY_FILLED';
+        throw err;
+      }
+      throw e;
     }
-    throw e;
   }
 
+  let moduleSaved = false;
   if (pkg.surveyDbId) {
     let versionId = pkg.versionId;
     if (!versionId) {
@@ -377,7 +415,7 @@ async function submitPublicResponse(surveyKey, body, req) {
             ? 'English Club'
             : body.eventType || null;
       const answersSnapshot = { ...body };
-      await SurveyModuleResponse.create({
+      const created = await SurveyModuleResponse.create({
         surveyId: pkg.surveyDbId,
         surveyVersionId: versionId,
         studentId: body.studentId != null ? String(body.studentId).trim() : null,
@@ -401,7 +439,14 @@ async function submitPublicResponse(surveyKey, body, req) {
         console.error('[submitPublicResponse] survey_responses dual-write failed:', err.message);
         return null;
       });
+      moduleSaved = Boolean(created);
     }
+  }
+
+  if (!SurveyModel && !moduleSaved) {
+    const err = new Error('不支援的問卷類型');
+    err.statusCode = 400;
+    throw err;
   }
 
   const successMsg =

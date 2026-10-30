@@ -5,7 +5,7 @@ import {
   completeCampusEmailSetup,
   loginStudentAccount,
 } from '../../services/studentAuthApi';
-import { clearStudentSession, safeStudentNext, saveStudentSession } from '../../utils/studentSession';
+import { clearStudentSession, DEFAULT_STUDENT_NEXT, safeStudentNext, saveStudentSession } from '../../utils/studentSession';
 import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
 
@@ -23,7 +23,7 @@ export default function StudentLoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const session = useStudentSession();
-  const next = safeStudentNext(params.get('next') || '/my-reservations');
+  const next = safeStudentNext(params.get('next') || DEFAULT_STUDENT_NEXT);
   const notice = params.get('notice');
   const noticeText = notice === 'password-reset'
     ? '密碼已更新，請用新密碼登入'

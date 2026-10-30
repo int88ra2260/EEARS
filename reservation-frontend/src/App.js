@@ -669,9 +669,9 @@ function AppContent() {
             <Route path="/student/progress" element={<RequireStudentAuth><StudentProgressPage /></RequireStudentAuth>} />
             <Route path="/student/speaking-portfolio" element={<RequireStudentAuth><SpeakingPortfolioPage /></RequireStudentAuth>} />
             <Route path="/student/class-credit-allocation" element={<RequireStudentAuth><ClassCreditAllocationPage /></RequireStudentAuth>} />
-            <Route path="/student/english-learning-passport" element={<EnglishLearningPassportPage />} />
-            <Route path="/student/english-learning-passport/submissions/:id" element={<EnglishLearningPassportSubmissionPage />} />
-            <Route path="/student/english-learning-passport/certification" element={<EnglishLearningPassportCertificationPage />} />
+            <Route path="/student/english-learning-passport" element={<RequireStudentAuth><EnglishLearningPassportPage /></RequireStudentAuth>} />
+            <Route path="/student/english-learning-passport/submissions/:id" element={<RequireStudentAuth><EnglishLearningPassportSubmissionPage /></RequireStudentAuth>} />
+            <Route path="/student/english-learning-passport/certification" element={<RequireStudentAuth><EnglishLearningPassportCertificationPage /></RequireStudentAuth>} />
             <Route
               path="/admin/classes/:classId/detail"
               element={<LegacyClassDetailRedirect token={token} />}

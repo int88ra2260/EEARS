@@ -16,6 +16,7 @@ const {
   elpStudentKey,
   requireCaptchaIfEnabled,
 } = require('../middlewares/publicAccessGuard');
+const { studentAuthMiddleware } = require('../middlewares/studentAuth');
 
 const router = express.Router();
 
@@ -88,16 +89,20 @@ function extractStudentContext(req) {
 }
 
 function requireStudentContext(req, res, next) {
-  try {
-    req.studentContext = passportService.assertValidStudentContext(extractStudentContext(req));
-    return next();
-  } catch (err) {
-    return res.status(err.status || 400).json({
-      success: false,
-      code: err.code || 'INVALID_STUDENT_CONTEXT',
-      message: err.message || '請提供正確的學號、姓名與 Email',
-    });
-  }
+  studentAuthMiddleware(req, res, (err) => {
+    if (err) return next(err);
+    if (res.headersSent) return undefined;
+    try {
+      req.studentContext = passportService.assertLinkedAccountContext(req.studentAccount);
+      return next();
+    } catch (error) {
+      return res.status(error.status || 400).json({
+        success: false,
+        code: error.code || 'INVALID_STUDENT_CONTEXT',
+        message: error.message || '請先登入學生帳號',
+      });
+    }
+  });
 }
 
 function handleServiceError(err, res, next) {

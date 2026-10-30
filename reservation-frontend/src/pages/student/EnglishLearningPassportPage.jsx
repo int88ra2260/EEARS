@@ -1,19 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button, Card, Col, Form, ProgressBar, Row, Spinner, Alert } from 'react-bootstrap';
+import { Button, Card, ProgressBar, Spinner, Alert } from 'react-bootstrap';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ElpStatusBadge from '../../components/englishLearningPassport/ElpStatusBadge';
-import ElpEmailVerificationPanel from '../../components/englishLearningPassport/ElpEmailVerificationPanel';
 import ContentText from '../../components/siteContent/ContentText';
 import ContentImage from '../../components/siteContent/ContentImage';
 import { useLanguage } from '../../context/LanguageContext';
+import useStudentSession from '../../hooks/useStudentSession';
 import { useSiteContentVisualEdit } from '../../context/SiteContentVisualEditContext';
-import { validateElpStudentFields } from '../../utils/validators';
 import {
   fetchElpDashboard,
   applyElpPassport,
-  loadElpStudent,
-  saveElpStudent,
   deleteElpSubmission,
   openElpCertificationCertificate,
 } from '../../services/englishLearningPassportApi';
@@ -89,16 +86,20 @@ function PassportGuideFigure() {
 export default function EnglishLearningPassportPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [student, setStudent] = useState(() => loadElpStudent());
-  const [form, setForm] = useState({ studentId: '', studentName: '', studentEmail: '' });
+  const session = useStudentSession();
+  const account = session?.student;
+  const student = useMemo(() => (
+    account?.studentId ? {
+      studentId: account.studentId,
+      studentName: account.name,
+      studentEmail: account.email,
+    } : null
+  ), [account?.studentId, account?.name, account?.email]);
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({});
   const [applying, setApplying] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
-  const [emailVerificationToken, setEmailVerificationToken] = useState(null);
-  const [verifiedEmail, setVerifiedEmail] = useState(null);
   const loadSeqRef = useRef(0);
 
   const loadDashboard = useCallback(async (s) => {
@@ -112,10 +113,6 @@ export default function EnglishLearningPassportPage() {
       setDashboard(data);
     } catch (e) {
       if (seq !== loadSeqRef.current) return;
-      if (e.message?.includes('身分')) {
-        setStudent(null);
-        localStorage.removeItem('eears_elp_student');
-      }
       const msg = e.code === 'RATE_LIMIT_EXCEEDED'
         ? '查詢過於頻繁，請稍候 1～2 分鐘後再試'
         : (e.message || '載入失敗');
@@ -126,44 +123,14 @@ export default function EnglishLearningPassportPage() {
   }, []);
 
   useEffect(() => {
-    if (student) {
-      setForm(student);
-      loadDashboard(student);
-    }
+    if (student) loadDashboard(student);
   }, [student, loadDashboard]);
 
-  const handleIdentify = (e) => {
-    e.preventDefault();
-    const s = {
-      studentId: form.studentId.trim().toUpperCase(),
-      studentName: form.studentName.trim(),
-      studentEmail: form.studentEmail.trim().toLowerCase(),
-    };
-    const { isValid, fieldErrors: nextFieldErrors } = validateElpStudentFields(s);
-    if (!isValid) {
-      setFieldErrors(nextFieldErrors);
-      setError('');
-      return;
-    }
-    setFieldErrors({});
-    setError('');
-    setEmailVerificationToken(null);
-    setVerifiedEmail(null);
-    saveElpStudent(s);
-    setStudent(s);
-  };
-
   const handleApply = async () => {
-    if (!emailVerificationToken || verifiedEmail !== student?.studentEmail) {
-      setError('請先完成信箱驗證碼驗證後再申請護照');
-      return;
-    }
     setApplying(true);
     setError('');
     try {
-      await applyElpPassport(student, '', emailVerificationToken);
-      setEmailVerificationToken(null);
-      setVerifiedEmail(null);
+      await applyElpPassport(student, '');
       await loadDashboard(student);
     } catch (e) {
       setError(e.message || '申請失敗');
@@ -219,80 +186,7 @@ export default function EnglishLearningPassportPage() {
     </div>
   );
 
-  if (!student) {
-    return (
-      <div className="elp-page">
-        <div className="elp-hero">
-          <ContentText k="elpPage.heroTitle" as="h1" className="h3 mb-2" />
-          <ContentText k="elpPage.heroDesc" as="p" className="text-muted mb-0" />
-        </div>
-        <PassportGuideFigure />
-        <Card>
-          <Card.Body>
-            <ContentText k="elpPage.identifyTitle" as="h2" className="h5 mb-3" />
-            {error && <Alert variant="danger">{error}</Alert>}
-            <Form onSubmit={handleIdentify} noValidate>
-              <Row className="g-3">
-                <Col md={4}>
-                  <Form.Group>
-                    <Form.Label>學號</Form.Label>
-                    <Form.Control
-                      value={form.studentId}
-                      onChange={(e) => setForm({ ...form, studentId: e.target.value })}
-                      isInvalid={!!fieldErrors.studentId}
-                      aria-describedby={fieldErrors.studentId ? 'elp-student-id-error' : undefined}
-                      placeholder="例：B123456789"
-                    />
-                    <Form.Control.Feedback type="invalid" id="elp-student-id-error">
-                      {fieldErrors.studentId}
-                    </Form.Control.Feedback>
-                  </Form.Group>
-                </Col>
-                <Col md={4}>
-                  <Form.Group>
-                    <Form.Label>姓名</Form.Label>
-                    <Form.Control
-                      value={form.studentName}
-                      onChange={(e) => setForm({ ...form, studentName: e.target.value })}
-                      isInvalid={!!fieldErrors.studentName}
-                      aria-describedby={fieldErrors.studentName ? 'elp-student-name-error' : undefined}
-                    />
-                    <Form.Control.Feedback type="invalid" id="elp-student-name-error">
-                      {fieldErrors.studentName}
-                    </Form.Control.Feedback>
-                  </Form.Group>
-                </Col>
-                <Col md={4}>
-                  <Form.Group>
-                    <Form.Label>Email</Form.Label>
-                    <Form.Control
-                      type="email"
-                      value={form.studentEmail}
-                      onChange={(e) => setForm({ ...form, studentEmail: e.target.value })}
-                      isInvalid={!!fieldErrors.studentEmail}
-                      aria-describedby={fieldErrors.studentEmail ? 'elp-student-email-error' : undefined}
-                      placeholder="例：學號@student.nsysu.edu.tw"
-                    />
-                    <Form.Control.Feedback type="invalid" id="elp-student-email-error">
-                      {fieldErrors.studentEmail}
-                    </Form.Control.Feedback>
-                    {!fieldErrors.studentEmail && (
-                      <Form.Text className="text-muted">
-                        <ContentText k="elpPage.emailHint" as="span" />
-                      </Form.Text>
-                    )}
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Button type="submit" variant="primary" className="mt-3">
-                <ContentText k="elpPage.identifySubmit" as="span" />
-              </Button>
-            </Form>
-          </Card.Body>
-        </Card>
-      </div>
-    );
-  }
+  if (!student) return null;
 
   const passport = dashboard?.passport;
   const summary = dashboard?.summary;
@@ -302,9 +196,6 @@ export default function EnglishLearningPassportPage() {
   const otherSubmissions = submissions.filter((s) => s.status !== 'draft');
   const points = passport?.totalApprovedPoints || 0;
   const pct = Math.min(100, Math.round((points / THRESHOLD) * 100));
-  const emailVerifiedOk =
-    !!emailVerificationToken
-    && verifiedEmail === student.studentEmail;
 
   return (
     <div className="elp-page">
@@ -313,19 +204,9 @@ export default function EnglishLearningPassportPage() {
           <div>
             <ContentText k="elpPage.heroTitle" as="h1" className="h3 mb-1" />
             <p className="text-muted mb-0 small">{student.studentName}（{student.studentId}）</p>
+            <p className="text-muted mb-0 small">通知寄到我的帳號信箱 {student.studentEmail}。要更換請到「我的帳號」。</p>
           </div>
-          <Button
-            size="sm"
-            variant="outline-secondary"
-            onClick={() => {
-              localStorage.removeItem('eears_elp_student');
-              setStudent(null);
-              setEmailVerificationToken(null);
-              setVerifiedEmail(null);
-            }}
-          >
-            切換身分
-          </Button>
+          <Link to="/student/account" className="btn btn-sm btn-outline-secondary">我的帳號</Link>
         </div>
 
         {passport && (
@@ -376,23 +257,12 @@ export default function EnglishLearningPassportPage() {
             <p className="mb-3 text-center">
               <ContentText k="elpPage.applyLead" as="span" />
             </p>
-            <div className="mx-auto" style={{ maxWidth: 480 }}>
-              <ElpEmailVerificationPanel
-                email={student.studentEmail}
-                studentId={student.studentId}
-                emailVerificationToken={emailVerificationToken}
-                verifiedEmail={verifiedEmail}
-                onTokenChange={({ token, verifiedEmail: nextEmail }) => {
-                  setEmailVerificationToken(token);
-                  setVerifiedEmail(nextEmail);
-                }}
-              />
-            </div>
+            <p className="text-center text-muted small">申請使用登入帳號，通知寄到 {student.studentEmail}。</p>
             <div className="d-flex flex-wrap justify-content-center gap-2 mt-2">
               <Button
                 variant="primary"
                 onClick={handleApply}
-                disabled={applying || !emailVerifiedOk}
+                disabled={applying}
               >
                 {applying ? '申請中…' : <ContentText k="elpPage.applyButton" as="span" />}
               </Button>
@@ -423,24 +293,12 @@ export default function EnglishLearningPassportPage() {
       {!loading && passport?.status === 'rejected' && (
         <Alert variant="danger">
           護照申請已退回：{passport.rejectionReason || '請聯繫英語中心'}
-          <div className="mt-3 mx-auto" style={{ maxWidth: 480 }}>
-            <ElpEmailVerificationPanel
-              email={student.studentEmail}
-              studentId={student.studentId}
-              emailVerificationToken={emailVerificationToken}
-              verifiedEmail={verifiedEmail}
-              onTokenChange={({ token, verifiedEmail: nextEmail }) => {
-                setEmailVerificationToken(token);
-                setVerifiedEmail(nextEmail);
-              }}
-            />
-          </div>
           <div className="mt-2">
             <Button
               size="sm"
               variant="outline-primary"
               onClick={handleApply}
-              disabled={applying || !emailVerifiedOk}
+              disabled={applying}
             >
               重新申請
             </Button>

@@ -6,6 +6,7 @@ const { EnglishTableSurveyResponse, EnglishClubSurveyResponse, SurveySettings } 
 const { authMiddleware, requirePermission, requireAnyPermission, requireSurveyAccess, P } = require('../middlewares/auth');
 const { logLegacySurveyExportAudit } = require('../utils/legacySurveyExportAudit');
 const { legacyDeprecationHeaders } = require('../middlewares/legacyDeprecation');
+const { optionalStudentAuth } = require('../middlewares/studentAuth');
 const surveyModuleService = require('../services/surveyModuleService');
 const { getCurrentSemester, isValidSemester } = require('../utils/semester');
 
@@ -84,6 +85,7 @@ router.get('/public/:surveyKey', async (req, res, next) => {
         versionNumber: pkg.versionNumber,
         surveyKey: pkg.surveyKey,
         currentSemester: st.currentSemester,
+        anonymous: Boolean(st.anonymous),
       },
     });
   } catch (err) {
@@ -91,7 +93,7 @@ router.get('/public/:surveyKey', async (req, res, next) => {
   }
 });
 
-router.post('/public/:surveyKey/responses', async (req, res, next) => {
+router.post('/public/:surveyKey/responses', optionalStudentAuth, async (req, res, next) => {
   try {
     const r = await surveyModuleService.submitPublicResponse(req.params.surveyKey, req.body, req);
     res.json(r);
@@ -121,7 +123,7 @@ router.get('/config', markGoneSurveyConfigRoute, async (req, res, next) => {
 });
 
 // 通用問卷提交 API（legacy 相容；與 /public/:surveyKey/responses 共用業務邏輯）
-router.post('/:surveyId', markDeprecatedSurveyRoute, async (req, res, next) => {
+router.post('/:surveyId', optionalStudentAuth, markDeprecatedSurveyRoute, async (req, res, next) => {
   try {
     const { surveyId } = req.params;
     if (surveyId === 'enabled' || surveyId === 'config' || surveyId.startsWith('public')) {

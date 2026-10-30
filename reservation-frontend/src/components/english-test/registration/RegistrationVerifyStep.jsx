@@ -22,6 +22,12 @@ export default function RegistrationVerifyStep({
   onRegistrationClosedSubmitClick,
   isLoadingRegistration,
   isLoadingStudent,
+  showCampusLookup = false,
+  campusLookupPassword = '',
+  onCampusLookupPasswordChange,
+  onCampusLookup,
+  campusLookupError = '',
+  campusLookupLoading = false,
 }) {
   const isSmallMobile = useMediaQuery('(max-width: 576px)');
   const identityLocked = Boolean(loadStudentSession());
@@ -99,6 +105,35 @@ export default function RegistrationVerifyStep({
             {!registrationEnabled && (
               <RegistrationClosedNotice registrationEditEnabled={registrationEditEnabled} />
             )}
+
+            {showCampusLookup ? (
+              <div className="mb-4 p-3" style={{ background: 'rgba(42, 93, 159, 0.06)', borderRadius: 8 }}>
+                <p className="mb-2" style={{ fontSize: '0.9rem' }}>
+                  系所、身分證、年級、電話、地址和生日會在你要填這份報名表時才向單一入口讀取。密碼只用於這次讀取，不會存下來。也可以略過，自己填。
+                </p>
+                <label className="form-label" htmlFor="campus-lookup-password">單一入口密碼</label>
+                <div className="d-flex flex-wrap gap-2">
+                  <input
+                    id="campus-lookup-password"
+                    className="form-control"
+                    type="password"
+                    autoComplete="current-password"
+                    value={campusLookupPassword}
+                    onChange={(event) => onCampusLookupPasswordChange(event.target.value)}
+                    style={{ maxWidth: 280 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    disabled={campusLookupLoading || !campusLookupPassword}
+                    onClick={onCampusLookup}
+                  >
+                    {campusLookupLoading ? '讀取中…' : '帶入學籍'}
+                  </button>
+                </div>
+                {campusLookupError ? <p className="text-danger small mt-2 mb-0">{campusLookupError}</p> : null}
+              </div>
+            ) : null}
 
             {showStudentId && (
             <div className="mb-4">
