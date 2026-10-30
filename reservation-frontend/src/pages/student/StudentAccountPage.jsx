@@ -1,23 +1,39 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import StudentAccountEmailVerification from '../../components/student/StudentAccountEmailVerification';
 import {
   changeStudentNotificationEmail,
   changeStudentPassword,
 } from '../../services/studentAuthApi';
+import {
+  fetchEnglishTestRegistrationEditEnabledPublic,
+  fetchEnglishTestRegistrationEnabledPublic,
+} from '../../services/settingsAdminApi';
 import { saveStudentSession } from '../../utils/studentSession';
 import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
 import '../../components/student/StudentRecordShell.css';
 
-const SHORTCUTS = [
+const BASE_SHORTCUTS = [
   { to: '/my-reservations', title: '我的預約', detail: '查看、取消即將參加的活動' },
   { to: '/student/progress', title: '我的紀錄', detail: '出席與學習紀錄' },
   { to: '/student/speaking-portfolio', title: '口說紀錄', detail: '口說練習與回饋' },
   { to: '/student/class-credit-allocation', title: '課堂加分', detail: '課堂加分配置' },
-  { to: '/register/english-test', title: '培力英檢報名', detail: '用登入身分帶入可填欄位' },
   { to: '/student/english-learning-passport', title: '英語實踐歷程檔案', detail: '申請與通知使用這個帳號信箱' },
 ];
+
+const ENGLISH_TEST_SHORTCUTS = {
+  register: {
+    to: '/register/english-test',
+    title: '培力英檢報名',
+    detail: '現在開放報名。用登入身分帶入可填欄位',
+  },
+  edit: {
+    to: '/register/english-test',
+    title: '培力英檢資料修正',
+    detail: '報名已關閉。可以查詢或修正已送出的資料',
+  },
+};
 
 export default function StudentAccountPage() {
   const navigate = useNavigate();
@@ -36,6 +52,35 @@ export default function StudentAccountPage() {
   const [emailError, setEmailError] = useState('');
   const [emailNotice, setEmailNotice] = useState('');
   const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [englishTestMode, setEnglishTestMode] = useState('hidden');
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetchEnglishTestRegistrationEnabledPublic(),
+      fetchEnglishTestRegistrationEditEnabledPublic(),
+    ])
+      .then(([registrationEnabled, editEnabled]) => {
+        if (cancelled) return;
+        if (registrationEnabled) setEnglishTestMode('register');
+        else if (editEnabled) setEnglishTestMode('edit');
+        else setEnglishTestMode('hidden');
+      })
+      .catch(() => {
+        if (!cancelled) setEnglishTestMode('register');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const shortcuts = englishTestMode === 'hidden'
+    ? BASE_SHORTCUTS
+    : [
+      ...BASE_SHORTCUTS.slice(0, 4),
+      ENGLISH_TEST_SHORTCUTS[englishTestMode],
+      BASE_SHORTCUTS[4],
+    ];
 
   const handleEmailSubmit = async (event) => {
     event.preventDefault();
@@ -90,21 +135,21 @@ export default function StudentAccountPage() {
 
   return (
     <div className="student-account">
-      <header className="student-workspace-identity">
-        <div>
-          <h1 className="student-workspace-identity__name h4 mb-0">{student.name}</h1>
-          <p className="student-workspace-identity__id mb-0">{student.studentId}</p>
-        </div>
-        <p className="student-account__mailbox mb-0">{student.email}</p>
+      <header className="student-account__hero">
+        <p className="student-account__eyebrow">我的帳號</p>
+        <h1 className="student-account__name">{student.name}</h1>
+        <p className="student-account__id">{student.studentId}</p>
+        <p className="student-account__mailbox">{student.email}</p>
       </header>
 
-      <section className="student-account__section">
-        <h2 className="h6">我可以做的事</h2>
+      <section className="student-account__section student-account__section--nav">
+        <h2 className="student-account__heading">選擇要前往的功能</h2>
         <div className="student-account__grid">
-          {SHORTCUTS.map((item) => (
+          {shortcuts.map((item) => (
             <Link key={item.to} to={item.to} className="student-account__shortcut">
               <span className="student-account__shortcut-title">{item.title}</span>
               <span className="student-account__shortcut-detail">{item.detail}</span>
+              <span className="student-account__shortcut-go">前往</span>
             </Link>
           ))}
         </div>
