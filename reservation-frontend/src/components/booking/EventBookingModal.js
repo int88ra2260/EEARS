@@ -23,6 +23,7 @@ import {
 } from '../../utils/eventCapacityFields';
 import { fetchPublicEventTypes } from '../../services/eventTypeApi';
 import { loadStudentSession } from '../../utils/studentSession';
+import useCampusSso from '../../hooks/useCampusSso';
 
 const BOOKING_EASE = [0.16, 1, 0.3, 1];
 
@@ -32,6 +33,7 @@ export default function EventBookingModal({ show, event, onClose }) {
   const loginNext = `${location.pathname}${location.search || ''}`;
   const loginTo = `/student/login?next=${encodeURIComponent(loginNext)}`;
   const registerTo = `/student/register?next=${encodeURIComponent(loginNext)}`;
+  const campusSso = useCampusSso();
   const [isMobile, setIsMobile] = useState(false);
   // 1:填寫, 2:問卷, 3:成功
   const [bookingStep, setBookingStep] = useState(1);
@@ -325,16 +327,26 @@ export default function EventBookingModal({ show, event, onClose }) {
 
           {isMobileSessionPanel ? (
             <p className="event-booking-mobile-hint mb-0" role="status">
-              {studentSession ? t('booking.mobileSessionStep') : '請先登入學生帳號，再繼續預約。'}
+              {studentSession ? t('booking.mobileSessionStep') : (
+                campusSso
+                  ? '請先用學號和中山單一入口的密碼登入，再繼續預約。'
+                  : '請先登入學生帳號，再繼續預約。'
+              )}
             </p>
           ) : null}
 
           {showStep1Form && !studentSession ? (
             <div data-booking-step="1" className="alert alert-info mb-0" role="status">
-              <p className="mb-2">預約要先登入學生帳號。登入後會用你的學號、姓名和信箱，不用在這裡另外填寫。</p>
+              <p className="mb-2">
+                {campusSso
+                  ? '預約要先登入。用學號和中山單一入口的密碼即可，不必另外建立帳號。登入後會用你的學號、姓名和信箱，不用在這裡再填。'
+                  : '預約要先登入學生帳號。登入後會用你的學號、姓名和信箱，不用在這裡另外填寫。'}
+              </p>
               <div className="d-flex flex-wrap gap-2">
                 <Link className="btn btn-primary btn-sm" to={loginTo}>登入</Link>
-                <Link className="btn btn-outline-primary btn-sm" to={registerTo}>建立帳號</Link>
+                {campusSso ? null : (
+                  <Link className="btn btn-outline-primary btn-sm" to={registerTo}>建立帳號</Link>
+                )}
               </div>
             </div>
           ) : null}

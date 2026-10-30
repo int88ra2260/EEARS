@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import StudentAccountEmailVerification from '../../components/student/StudentAccountEmailVerification';
 import {
   changeStudentNotificationEmail,
   changeStudentPassword,
-  fetchStudentLoginOptions,
 } from '../../services/studentAuthApi';
 import { saveStudentSession } from '../../utils/studentSession';
+import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
 
 export default function StudentAccountPage() {
@@ -18,25 +18,13 @@ export default function StudentAccountPage() {
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [campusSso, setCampusSso] = useState(false);
+  const campusSso = useCampusSso();
   const [mailbox, setMailbox] = useState(student?.email || '');
   const [emailVerificationToken, setEmailVerificationToken] = useState('');
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [emailNotice, setEmailNotice] = useState('');
   const [emailSubmitting, setEmailSubmitting] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchStudentLoginOptions()
-      .then(({ ok, data }) => {
-        if (!cancelled && ok) setCampusSso(Boolean(data?.campusSso));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handleEmailSubmit = async (event) => {
     event.preventDefault();
@@ -101,7 +89,9 @@ export default function StudentAccountPage() {
           <dd className="col-8">{student.email}</dd>
         </dl>
         <p className="text-muted small">
-          預約與個人紀錄都會使用這個學號。通知信寄到下面的信箱。
+          {campusSso
+            ? '學號與姓名來自中山單一入口，這裡不能改。下面的信箱只用來收這個網站的通知，可以和單一入口的信箱不同。預約與個人紀錄都使用這個學號。'
+            : '預約與個人紀錄都會使用這個學號。通知信寄到下面的信箱。'}
         </p>
         <h2 className="h6">收信信箱</h2>
         <form onSubmit={handleEmailSubmit}>

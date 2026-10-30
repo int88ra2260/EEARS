@@ -1,8 +1,12 @@
 import React, { useEffect, useRef } from 'react';
+import useCampusSso from '../../hooks/useCampusSso';
 import useMediaQuery from '../../hooks/useMediaQuery';
+import { useLanguage } from '../../context/LanguageContext';
 import ContentText from '../siteContent/ContentText';
 
 export default function ReservationUsageModal({ show, onClose, embedded = false }) {
+  const { t } = useLanguage();
+  const campusSso = useCampusSso();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const isSmallMobile = useMediaQuery('(max-width: 576px)');
   const dialogRef = useRef(null);
@@ -116,6 +120,23 @@ export default function ReservationUsageModal({ show, onClose, embedded = false 
               style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
             />
           </div>
+
+          {campusSso ? (
+            <div
+              className="alert alert-info mb-3"
+              role="status"
+              style={{
+                fontSize: isSmallMobile ? '0.813rem' : isMobile ? '0.875rem' : 'clamp(0.875rem, 3vw, 1rem)',
+                padding: isSmallMobile ? '0.625rem' : '0.75rem',
+              }}
+            >
+              <strong>{t('home.usageCampusTitle')}</strong>
+              <br />
+              <span style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}>
+                {t('home.usageCampus')}
+              </span>
+            </div>
+          ) : null}
 
           <div
             className="alert alert-info mb-3"

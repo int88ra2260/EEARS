@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import useCampusSso from '../../hooks/useCampusSso';
 
 const GATES = [
   {
@@ -30,7 +31,7 @@ const GATES = [
   {
     match: (path) => path.startsWith('/student/account'),
     title: '我的帳號',
-    detail: '查看帳號和變更密碼前，請先登入。',
+    detail: '查看帳號和收信信箱前，請先登入。',
   },
 ];
 
@@ -43,6 +44,7 @@ function gateFor(pathname) {
 
 export default function StudentAuthGate() {
   const location = useLocation();
+  const campusSso = useCampusSso();
   const next = `${location.pathname}${location.search || ''}`;
   const gate = gateFor(location.pathname);
   const loginTo = `/student/login?next=${encodeURIComponent(next)}`;
@@ -58,18 +60,32 @@ export default function StudentAuthGate() {
           現在需要登入才能使用。
         </p>
         <p className="text-muted small mb-3">{gate.detail}</p>
-        <ul className="small mb-3">
-          <li>已有帳號：登入後會回到這個頁面。</li>
-          <li>還沒有帳號：用學號建立。名冊對得到就可以直接使用。</li>
-          <li>忘記密碼：驗證碼會寄到註冊信箱，畫面上不會出現密碼。</li>
-        </ul>
+        {campusSso ? (
+          <ul className="small mb-3">
+            <li>用學號和中山單一入口的密碼登入。登入後會回到這個頁面。</li>
+            <li>不必先建立帳號。以前在這個網站自設的密碼不能再登入。</li>
+            <li>忘記密碼、預設密碼或密碼到期，請到單一入口處理。</li>
+          </ul>
+        ) : (
+          <ul className="small mb-3">
+            <li>已有帳號：登入後會回到這個頁面。</li>
+            <li>還沒有帳號：用學號建立。名冊對得到就可以直接使用。</li>
+            <li>忘記密碼：驗證碼會寄到註冊信箱，畫面上不會出現密碼。</li>
+          </ul>
+        )}
         <div className="d-flex flex-wrap gap-2">
           <Link className="btn btn-primary" to={loginTo}>登入</Link>
-          <Link className="btn btn-outline-primary" to={registerTo}>建立帳號</Link>
+          {campusSso ? (
+            <a className="btn btn-outline-primary" href="https://sso.nsysu.edu.tw">到單一入口重設密碼</a>
+          ) : (
+            <Link className="btn btn-outline-primary" to={registerTo}>建立帳號</Link>
+          )}
         </div>
-        <p className="small mt-3 mb-0">
-          <Link to={forgotTo}>忘記密碼</Link>
-        </p>
+        {campusSso ? null : (
+          <p className="small mt-3 mb-0">
+            <Link to={forgotTo}>忘記密碼</Link>
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import StudentAccountEmailVerification from '../../components/student/StudentAccountEmailVerification';
-import { fetchStudentLoginOptions, registerStudentAccount } from '../../services/studentAuthApi';
+import { registerStudentAccount } from '../../services/studentAuthApi';
 import { safeStudentNext, saveStudentSession } from '../../utils/studentSession';
+import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
 
 export default function StudentRegisterPage() {
@@ -18,23 +19,11 @@ export default function StudentRegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [emailVerificationToken, setEmailVerificationToken] = useState('');
   const [verifiedEmail, setVerifiedEmail] = useState('');
-  const [campusSso, setCampusSso] = useState(false);
+  const campusSso = useCampusSso();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const session = useStudentSession();
   const next = safeStudentNext(params.get('next') || '/my-reservations');
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchStudentLoginOptions()
-      .then(({ ok, data }) => {
-        if (!cancelled && ok) setCampusSso(Boolean(data?.campusSso));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   if (session) {
     return <Navigate to={next} replace />;
@@ -78,7 +67,7 @@ export default function StudentRegisterPage() {
         {campusSso ? (
           <>
             <p className="text-muted small">
-              登入使用中山單一入口的學號與密碼。第一次登入成功就會建立 EEARS 帳號，不必在這裡另外設定密碼。
+              登入使用中山單一入口的學號與密碼。第一次登入成功就會開通，不必在這裡另外設定密碼。若你以前在這個網站自設過密碼，請改從登入頁使用單一入口的密碼。
             </p>
             <Link className="btn btn-primary" to={`/student/login?next=${encodeURIComponent(next)}`}>前往登入</Link>
           </>
