@@ -14,6 +14,13 @@ import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
 import '../../components/student/StudentRecordShell.css';
 
+const BOOKING_SHORTCUT = {
+  to: '/events',
+  title: '預約場次（預約活動）',
+  detail: '選擇開放中的場次完成預約',
+  primary: true,
+};
+
 const BASE_SHORTCUTS = [
   { to: '/my-reservations', title: '我的預約', detail: '查看、取消即將參加的活動' },
   { to: '/student/progress', title: '我的紀錄', detail: '出席與學習紀錄' },
@@ -74,13 +81,12 @@ export default function StudentAccountPage() {
     };
   }, []);
 
-  const shortcuts = englishTestMode === 'hidden'
-    ? BASE_SHORTCUTS
-    : [
-      ...BASE_SHORTCUTS.slice(0, 4),
-      ENGLISH_TEST_SHORTCUTS[englishTestMode],
-      BASE_SHORTCUTS[4],
-    ];
+  const shortcuts = [
+    BOOKING_SHORTCUT,
+    ...BASE_SHORTCUTS.slice(0, 4),
+    ...(englishTestMode === 'hidden' ? [] : [ENGLISH_TEST_SHORTCUTS[englishTestMode]]),
+    BASE_SHORTCUTS[4],
+  ];
 
   const handleEmailSubmit = async (event) => {
     event.preventDefault();
@@ -146,7 +152,11 @@ export default function StudentAccountPage() {
         <h2 className="student-account__heading">選擇要前往的功能</h2>
         <div className="student-account__grid">
           {shortcuts.map((item) => (
-            <Link key={item.to} to={item.to} className="student-account__shortcut">
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`student-account__shortcut${item.primary ? ' student-account__shortcut--primary' : ''}`}
+            >
               <span className="student-account__shortcut-title">{item.title}</span>
               <span className="student-account__shortcut-detail">{item.detail}</span>
               <span className="student-account__shortcut-go">前往</span>
