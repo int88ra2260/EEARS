@@ -9,6 +9,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
+import EmptyState from '../../components/ui/EmptyState';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Dropdown from 'react-bootstrap/Dropdown';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
@@ -77,6 +78,7 @@ export default function SurveyAdminModulePage({ embedded = false }) {
     confirm,
   });
 
+  const surveySearch = String(q || '').trim();
   const pageWrapClass = embedded ? 'survey-admin-module' : 'container py-4';
 
   if (!canView) {
@@ -124,24 +126,28 @@ export default function SurveyAdminModulePage({ embedded = false }) {
             </div>
           )}
           {!loading && error && <Alert variant="danger" className="m-3">{error}</Alert>}
-          {!loading && !error && filteredRows.length === 0 && (
-            <Alert variant="info" className="m-3 mb-0">
-              {q ? (
-                '查無符合搜尋條件的問卷。'
-              ) : (
-                <>
-                  <div className="fw-semibold mb-1">尚無問卷</div>
-                  <div className="small">
+          {!loading && !error && filteredRows.length === 0 && surveySearch ? (
+            <Alert variant="info" className="m-3 mb-0">查無符合搜尋條件的問卷。</Alert>
+          ) : null}
+          {!loading && !error && filteredRows.length === 0 && !surveySearch ? (
+            <div className="px-3">
+              <EmptyState
+                density="regular"
+                icon={null}
+                variant="no-data"
+                title="尚無問卷"
+                description={(
+                  <>
                     請按右上角「新增問卷」建立第一份問卷；建立後請用「編輯題目與發布」開啟視覺化編輯器並發布，再到
                     {' '}
                     <Link to="/admin/survey-rules">啟用規則</Link>
                     {' '}
                     指定學期與活動何時要填。
-                  </div>
-                </>
-              )}
-            </Alert>
-          )}
+                  </>
+                )}
+              />
+            </div>
+          ) : null}
           {!loading && !error && filteredRows.length > 0 && (
             <div className="survey-admin-table-scroll px-2 px-md-3 pb-2 pt-2">
               <Table hover size="sm" className="align-middle mb-0">

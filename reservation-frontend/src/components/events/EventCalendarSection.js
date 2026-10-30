@@ -7,6 +7,9 @@ import useMediaQuery from '../../hooks/useMediaQuery';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
+import zhTwLocale from '@fullcalendar/core/locales/zh-tw';
+import { LANG_EN } from '../../constants/translations';
+import { useLanguage } from '../../context/LanguageContext';
 import { getEventAbbreviation } from '../../constants/eventTypes';
 import { getEventLocationDisplay } from '../../utils/eventLocation';
 import StatusBadge from '../ui/StatusBadge';
@@ -46,6 +49,7 @@ export default forwardRef(function EventCalendarSection({
   surveyActive = false,
 }, ref) {
   const toast = useToast();
+  const { lang } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const isNarrow = useMediaQuery('(max-width: 575px)');
   const enableHover = useMemo(() => {
@@ -261,9 +265,20 @@ export default forwardRef(function EventCalendarSection({
       <div className="event-calendar-wrap">
       <FullCalendar
         ref={calendarRef}
-        key={isMobile ? 'mobile-list' : 'desktop-month'}
+        key={`${isMobile ? 'mobile-list' : 'desktop-month'}-${lang}`}
         plugins={[dayGridPlugin, listPlugin]}
         initialView="dayGridMonth"
+        locale={lang === LANG_EN ? 'en' : zhTwLocale}
+        buttonText={{
+          today: t('home.today'),
+          month: t('home.month'),
+          list: t('home.list'),
+        }}
+        buttonHints={{
+          prev: (_unitText, navUnit) => (navUnit === 'week' ? t('home.prevWeek') : t('home.prevMonth')),
+          next: (_unitText, navUnit) => (navUnit === 'week' ? t('home.nextWeek') : t('home.nextMonth')),
+          today: t('home.today'),
+        }}
         events={calendarEvents}
         eventContent={renderEventContent}
         eventClick={handleClick}

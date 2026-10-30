@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import EmptyState from '../ui/EmptyState';
 
 const EMPTY = '—';
 
@@ -13,7 +14,8 @@ export default function StudentTable({
   students,
   semesterId,
   pagination,
-  onPageChange
+  onPageChange,
+  hasActiveFilters = false,
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -60,10 +62,20 @@ export default function StudentTable({
   }
 
   if (!hasRows) {
+    const title = total > 0
+      ? '這一頁沒有學生資料。'
+      : hasActiveFilters
+        ? '沒有符合篩選條件的學生。'
+        : '此學期目前沒有學生資料。';
     return (
       <div>
         <div className="small text-muted mb-2">總筆數：{total}</div>
-        <div className="alert alert-secondary mb-0">此條件下尚無學生資料。</div>
+        <EmptyState
+          density="compact"
+          icon={null}
+          variant={total === 0 && !hasActiveFilters ? 'no-data' : 'no-results'}
+          title={title}
+        />
       </div>
     );
   }

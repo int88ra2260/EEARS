@@ -51,16 +51,36 @@ function LoginPage({ onLoginSuccess }) {
         <h2 className="card-title mb-4">登入</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
-            <label className="form-label">帳號：</label>
-            <input className="form-control" value={username} onChange={(e) => setUsername(e.target.value)} />
+            <label className="form-label" htmlFor="staff-login-username">帳號：</label>
+            <input
+              id="staff-login-username"
+              className="form-control"
+              type="text"
+              name="username"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              aria-invalid={error ? 'true' : undefined}
+              aria-describedby={error ? 'staff-login-error' : undefined}
+            />
           </div>
           <div className="mb-3">
-            <label className="form-label">密碼：</label>
-            <input className="form-control" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label className="form-label" htmlFor="staff-login-password">密碼：</label>
+            <input
+              id="staff-login-password"
+              className="form-control"
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={error ? 'true' : undefined}
+              aria-describedby={error ? 'staff-login-error' : undefined}
+            />
           </div>
           <button className="btn btn-primary w-100" type="submit">登入</button>
         </form>
-        {error && <p className="text-danger mt-3">{error}</p>}
+        {error && <p id="staff-login-error" className="text-danger mt-3" role="alert">{error}</p>}
         <p className="text-muted small mt-3 mb-0 text-center">
           <Link to="/">返回首頁</Link>
         </p>
