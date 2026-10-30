@@ -10,6 +10,7 @@ const {
   publicLookupAudit,
 } = require('../middlewares/publicAccessGuard');
 const classCreditAllocationService = require('../services/classCreditAllocationService');
+const auditLogService = require('../services/auditLogService');
 const { getCurrentSemester } = require('../utils/semesterConstants');
 const { studentAuthMiddleware, bindStudentIdentity } = require('../middlewares/studentAuth');
 
@@ -111,6 +112,23 @@ router.put('/class-credit-allocation', ...publicGuards, async (req, res, next) =
       semester,
       allocations,
     );
+
+    auditLogService.logAuditAsync({
+      module: 'class_credit',
+      action: 'student_allocation_saved',
+      entityType: 'ClassCreditAllocation',
+      entityId: req.studentAccount?.id != null ? req.studentAccount.id : 'unresolved',
+      targetSummary: `semester=${semester}`,
+      afterData: {
+        semester,
+        studentId,
+        allocations: (Array.isArray(allocations) ? allocations : []).slice(0, 20).map((item) => ({
+          classId: Number(item?.classId),
+          hours: Number(item?.hours ?? item?.allocatedHours ?? 0),
+        })),
+      },
+      req,
+    });
 
     publicLookupAudit(req, {
       action: 'class_credit_allocation_save',

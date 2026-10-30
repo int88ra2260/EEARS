@@ -29,6 +29,13 @@ export const ACCOUNT_SECURITY_PRESETS = [
   { code: 'account_password_reset', label: '重設密碼', group: '帳號異動' },
   { code: 'account_password_changed', label: '自己改了密碼', group: '帳號異動' },
   { code: 'permission_override_changed', label: '改了某人的權限', group: '帳號異動' },
+  { code: 'student_login_success', label: '學生登入成功', group: '帳號進出' },
+  { code: 'student_login_failed', label: '學生登入失敗', group: '帳號進出' },
+  { code: 'student_login_blocked', label: '學生被暫時擋住', group: '帳號進出' },
+  { code: 'student_account_registered', label: '學生建立帳號', group: '帳號異動' },
+  { code: 'student_password_changed', label: '學生改了密碼', group: '帳號異動' },
+  { code: 'student_email_changed', label: '學生改了信箱', group: '帳號異動' },
+  { code: 'student_password_reset_completed', label: '學生重設了密碼', group: '帳號異動' },
 ];
 
 const ROLE_LABELS = {
@@ -38,6 +45,7 @@ const ROLE_LABELS = {
   office_staff: '行政職員',
   leader: '英語桌帶班',
   student: '學生',
+  speaking_host: '口說題組',
 };
 
 const FILTER_KEYS = [
@@ -205,12 +213,30 @@ const MODULE_LABELS = {
   email: '寄信',
   users: '人員',
   classes: '班級',
+  accounts: '帳號',
+  class_credit: '課堂加分',
+  speaking_check: '口說批改',
+};
+
+const ACTION_LABELS = {
+  student_login_needs_email: '學生還要驗證信箱',
+  student_account_pending: '學生帳號待確認',
+  student_password_change_failed: '學生改密碼失敗',
+  student_password_reset_failed: '學生重設密碼失敗',
+  student_campus_profile_refreshed: '學生更新了學籍',
+  student_campus_profile_failed: '學生更新學籍失敗',
+  student_password_reset_email: '寄出學生重設密碼信',
+  student_allocation_saved: '學生儲存課堂加分',
+  response_rated: '批改口說',
 };
 
 const ENTITY_LABELS = {
   user: '人員',
   teacher: '老師',
   student: '學生',
+  StudentAccount: '學生帳號',
+  ClassCreditAllocation: '課堂加分',
+  SpeakingCheckResponse: '口說作答',
   event: '活動',
   reservation: '預約',
   survey: '問卷',
@@ -229,7 +255,8 @@ export function entityLabel(type) {
 
 export function actionLabel(code) {
   const hit = ACCOUNT_SECURITY_PRESETS.find((item) => item.code === code);
-  return hit ? hit.label : (code || '—');
+  if (hit) return hit.label;
+  return ACTION_LABELS[code] || code || '—';
 }
 
 export function roleLabel(role) {

@@ -19,16 +19,36 @@ function diffShallow(before, after) {
   return Object.keys(changed).length ? changed : null;
 }
 
+function positiveIntegerId(value) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
+
 function operatorFromReq(req) {
-  if (!req || !req.user) {
+  if (!req) {
     return { operatorId: null, operatorRole: null, operatorName: null };
   }
-  const u = req.user;
-  return {
-    operatorId: u.id != null ? u.id : null,
-    operatorRole: u.role || null,
-    operatorName: u.name || u.user || null,
-  };
+  if (req.user) {
+    const u = req.user;
+    return {
+      operatorId: u.id != null ? u.id : null,
+      operatorRole: u.role || null,
+      operatorName: u.name || u.user || null,
+    };
+  }
+  const student = req.studentAccount;
+  if (student && student.id != null) {
+    const { maskStudentId } = require('../utils/piiMask');
+    const maskedId = maskStudentId(student.studentId);
+    const name = student.name ? String(student.name).trim() : '';
+    return {
+      operatorId: positiveIntegerId(student.id),
+      operatorRole: 'student',
+      operatorName: name && maskedId ? `${name}（${maskedId}）` : (name || maskedId || null),
+    };
+  }
+  return { operatorId: null, operatorRole: null, operatorName: null };
 }
 
 function metaFromReq(req) {
@@ -109,7 +129,10 @@ async function flushLoginFailureBuckets() {
   loginFailureBuckets.clear();
   for (const [, bucket] of entries) {
     const { count, samples, lastReq, minuteKey, ip, reasons } = bucket;
-    const entityId = `login_failure:${ip}:${minuteKey}`.slice(0, 64);
+    const entityId = (bucket.namespace === 'student'
+      ? `login_failure:student:${ip}:${minuteKey}`
+      : `login_failure:${ip}:${minuteKey}`
+    ).slice(0, 64);
     await logAudit({
       module: 'auth',
       action: 'login_failure',
@@ -121,6 +144,7 @@ async function flushLoginFailureBuckets() {
         count,
         sampleUsernames: samples,
         ip,
+        actor: bucket.namespace === 'student' ? 'student' : 'staff',
         reasons: reasons && typeof reasons === 'object' ? reasons : {},
       },
       status: 'failed',
@@ -133,13 +157,17 @@ async function flushLoginFailureBuckets() {
 
 /**
  * 登入失敗稽核（高頻時改為時間窗摘要）
+ * 後台帳號維持原本的 IP 時間窗。學生失敗用 namespace=student，避免和後台混成同一筆。
  * @param {import('express').Request} req
- * @param {string} username
+ * @param {string} username 寫入前應已遮罩
  * @param {number|string|null|undefined} teacherId 帳號存在但密碼錯誤時帶入，便於 entityId 收斂
- * @param {'USER_NOT_FOUND'|'PASSWORD_INVALID'|'ACCOUNT_DISABLED'|undefined} [reason]
+ * @param {string|undefined} [reason]
+ * @param {{ namespace?: string, entityType?: string }} [options]
  */
-function queueAuthLoginFailure(req, username, teacherId, reason) {
+function queueAuthLoginFailure(req, username, teacherId, reason, options = {}) {
   const r = reason && String(reason).trim() ? String(reason).trim().slice(0, 64) : 'UNKNOWN';
+  const namespace = options.namespace === 'student' ? 'student' : 'staff';
+  const entityType = options.entityType || (namespace === 'student' ? 'StudentAccount' : 'Teacher');
 
   if (LOGIN_FAILURE_AGGREGATE_MS <= 0) {
     const entityId =
@@ -147,12 +175,12 @@ function queueAuthLoginFailure(req, username, teacherId, reason) {
     logAudit({
       module: 'auth',
       action: 'login_failure',
-      entityType: 'Teacher',
+      entityType,
       entityId,
       targetSummary: `username=${String(username).slice(0, 64)}`,
       status: 'failed',
       errorMessage: r,
-      afterData: { reason: r },
+      afterData: { reason: r, actor: namespace },
       req,
       immediate: true,
     });
@@ -162,11 +190,11 @@ function queueAuthLoginFailure(req, username, teacherId, reason) {
   const meta = metaFromReq(req);
   const ip = meta.ipAddress || 'unknown';
   const minuteKey = Math.floor(Date.now() / 60000);
-  const mapKey = `${ip}:${minuteKey}`;
+  const mapKey = namespace === 'staff' ? `${ip}:${minuteKey}` : `${namespace}:${ip}:${minuteKey}`;
 
   let b = loginFailureBuckets.get(mapKey);
   if (!b) {
-    b = { count: 0, samples: [], lastReq: req, minuteKey, ip, reasons: {} };
+    b = { count: 0, samples: [], lastReq: req, minuteKey, ip, reasons: {}, namespace };
     loginFailureBuckets.set(mapKey, b);
   }
   b.count += 1;

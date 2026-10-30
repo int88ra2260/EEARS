@@ -19,6 +19,7 @@ const {
   getResponseAudio,
   rateResponse,
 } = require('../services/speakingCheckSetService');
+const auditLogService = require('../services/auditLogService');
 
 const uploadDir = path.join(__dirname, '..', 'uploads', 'speaking-check');
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -147,8 +148,22 @@ router.get('/speaking-host/responses/:responseId/audio', async (req, res, next) 
 
 router.put('/speaking-host/responses/:responseId/rating', async (req, res, next) => {
   try {
-    const data = await rateResponse(hostIdFromRequest(req), req.params.responseId, req.body || {});
-    return res.json({ success: true, data });
+    const host = readHostToken(req.headers.authorization);
+    const data = await rateResponse(host.hostId, req.params.responseId, req.body || {});
+    auditLogService.logAuditAsync({
+      module: 'speaking_check',
+      action: 'response_rated',
+      entityType: 'SpeakingCheckResponse',
+      entityId: req.params.responseId,
+      targetSummary: data?.participantName || null,
+      beforeData: data?.previousRating || null,
+      afterData: data?.rating || null,
+      operatorId: host.hostId,
+      operatorRole: 'speaking_host',
+      operatorName: host.username || null,
+      req,
+    });
+    return res.json({ success: true, data: data?.rating || null });
   } catch (error) {
     return sendServiceError(res, next, error);
   }

@@ -42,6 +42,8 @@ describe('操作紀錄呈現', () => {
     expect(statusTone(200)).toBe('ok');
     expect(statusLabel('retry')).toBe('重試');
     expect(actionLabel('login_failure')).toBe('登入失敗');
+    expect(actionLabel('student_login_success')).toBe('學生登入成功');
+    expect(actionLabel('student_allocation_saved')).toBe('學生儲存課堂加分');
     expect(actionLabel('custom_action')).toBe('custom_action');
 
     const when = formatLogTime('2026-10-29T12:00:00.000Z', new Date('2026-10-29T12:10:00.000Z'));

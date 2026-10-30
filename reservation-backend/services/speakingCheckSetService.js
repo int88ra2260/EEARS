@@ -453,10 +453,15 @@ async function rateResponse(hostId, responseId, body = {}) {
   const row = await loadOwnedResponse(hostId, responseId);
   const rating = normalizeSpeakingCheckRating(body);
   const existing = await SpeakingCheckRating.findOne({ where: { responseId: row.id } });
+  const previousRating = existing ? ratingDto(existing) : null;
   const saved = existing
     ? await existing.update({ ...rating, hostId: Number(hostId) })
     : await SpeakingCheckRating.create({ ...rating, responseId: row.id, hostId: Number(hostId) });
-  return ratingDto(saved);
+  return {
+    rating: ratingDto(saved),
+    previousRating,
+    participantName: row.participant?.displayName || null,
+  };
 }
 
 module.exports = {

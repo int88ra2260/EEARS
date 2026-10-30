@@ -15,6 +15,13 @@ const studentAccountEmailVerificationService = require('../services/studentAccou
 const studentPasswordResetService = require('../services/studentPasswordResetService');
 const emailLogService = require('../services/emailLogService');
 const auditLogService = require('../services/auditLogService');
+const {
+  studentOperator,
+  logStudentSecurity,
+  logStudentLoginSuccess,
+  logStudentLoginFailure,
+  recordStudentLoginError,
+} = require('../services/studentAuthAudit');
 const logger = require('../utils/logger');
 const { studentAuthMiddleware } = require('../middlewares/studentAuth');
 const { createSimpleRateLimit } = require('../middlewares/publicAccessGuard');
@@ -185,6 +192,12 @@ router.post('/register', async (req, res) => {
       emailVerificationToken,
     });
     if (account && account.pending) {
+      logStudentSecurity(req, {
+        action: 'student_account_pending',
+        studentId,
+        channel: 'password',
+        reasonCode: 'STUDENT_IDENTITY_PENDING',
+      });
       return res.status(202).json({
         success: true,
         pending: true,
@@ -192,6 +205,12 @@ router.post('/register', async (req, res) => {
         message: '這個學號還沒有名冊資料。申請已送出，確認完成前不會建立帳號，也不會佔用這個信箱。',
       });
     }
+    logStudentSecurity(req, {
+      action: 'student_account_registered',
+      account,
+      channel: 'password',
+      reasonCode: 'SUCCESS',
+    });
     return res.status(201).json({
       success: true,
       token: signStudentToken(account),
@@ -218,15 +237,18 @@ router.get('/login-options', (req, res) => {
 router.post('/login', loginRateLimit, async (req, res) => {
   try {
     const { studentId, password } = req.body || {};
-    const account = nsysuSsoClient.isEnabled()
+    const channel = nsysuSsoClient.isEnabled() ? 'campus_sso' : 'password';
+    const account = channel === 'campus_sso'
       ? await loginWithCampusSso({ studentId, password })
       : await loginAccount({ studentId, password });
+    logStudentLoginSuccess(req, account, channel);
     return res.json({
       success: true,
       token: signStudentToken(account),
       student: toPublicAccount(account),
     });
   } catch (error) {
+    recordStudentLoginError(req, error);
     return sendError(res, error);
   }
 });
@@ -314,17 +336,31 @@ router.post('/password-reset/confirm', passwordResetConfirmRateLimit, async (req
       code,
       newPassword,
     });
+    const operator = studentOperator(account);
     auditLogService.logAuditAsync({
       module: 'accounts',
       action: 'student_password_reset_completed',
       entityType: 'StudentAccount',
       entityId: account.id,
       targetSummary: `studentAccountId=${account.id}`,
-      afterData: { channel: 'email' },
+      afterData: { channel: 'email', studentId: account.studentId || studentId },
+      operatorId: operator.operatorId,
+      operatorRole: operator.operatorRole,
+      operatorName: operator.operatorName,
       req,
     });
     return res.json({ success: true, message: '密碼已更新，請用新密碼登入' });
   } catch (error) {
+    if (error?.code && error.code !== 'PASSWORD_MISMATCH') {
+      logStudentSecurity(req, {
+        action: 'student_password_reset_failed',
+        studentId: req.body?.studentId,
+        status: 'failed',
+        errorMessage: error.code,
+        channel: 'email',
+        reasonCode: error.code,
+      });
+    }
     return sendError(res, error);
   }
 });
@@ -340,6 +376,7 @@ router.post('/campus-email', loginRateLimit, async (req, res) => {
       email: req.body?.email,
       emailVerificationToken: req.body?.emailVerificationToken,
     });
+    logStudentLoginSuccess(req, account, 'campus_email_setup');
     return res.json({
       success: true,
       token: signStudentToken(account),
@@ -371,19 +408,45 @@ router.post('/campus-profile', studentAuthMiddleware, campusProfileRateLimit, as
       studentId: req.studentAccount.studentId,
       password: req.body?.password,
     });
+    logStudentSecurity(req, {
+      action: 'student_campus_profile_refreshed',
+      account: req.studentAccount,
+      channel: 'campus_sso',
+      reasonCode: 'SUCCESS',
+    });
     return res.json({ success: true, profile });
   } catch (error) {
+    if (error?.code === 'INVALID_CREDENTIALS' || error?.code === 'LOGIN_COOLDOWN') {
+      logStudentLoginFailure(
+        req,
+        req.studentAccount?.studentId,
+        error.code,
+        req.studentAccount?.id,
+        'student_campus_profile_failed',
+      );
+    }
     return sendError(res, error);
   }
 });
 
 router.post('/email', studentAuthMiddleware, async (req, res) => {
   try {
+    const previousEmail = req.studentAccount.email;
     const account = await changeNotificationEmail({
       accountId: req.studentAccount.id,
       email: req.body?.email,
       emailVerificationToken: req.body?.emailVerificationToken,
     });
+    if (String(previousEmail || '').toLowerCase() !== String(account.email || '').toLowerCase()) {
+      logStudentSecurity(req, {
+        action: 'student_email_changed',
+        account,
+        channel: 'email',
+        reasonCode: 'SUCCESS',
+        beforeData: { email: previousEmail },
+        afterExtra: { email: account.email },
+      });
+    }
     return res.json({
       success: true,
       token: signStudentToken(account),
@@ -409,8 +472,24 @@ router.post('/password', studentAuthMiddleware, async (req, res) => {
       currentPassword,
       newPassword,
     });
+    logStudentSecurity(req, {
+      action: 'student_password_changed',
+      account: req.studentAccount,
+      channel: 'password',
+      reasonCode: 'SUCCESS',
+    });
     return res.json({ success: true, message: '密碼已更新' });
   } catch (error) {
+    if (error?.code === 'INVALID_PASSWORD') {
+      logStudentSecurity(req, {
+        action: 'student_password_change_failed',
+        account: req.studentAccount,
+        status: 'failed',
+        errorMessage: error.code,
+        channel: 'password',
+        reasonCode: error.code,
+      });
+    }
     return sendError(res, error);
   }
 });
