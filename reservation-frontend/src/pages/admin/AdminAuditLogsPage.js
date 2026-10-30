@@ -26,6 +26,7 @@ import {
   formatEntity,
   formatLogTime,
   formatPerson,
+  moduleLabel,
   formatRelated,
   methodTone,
   pageRangeLabel,
@@ -45,8 +46,10 @@ const AUDIT_STATUSES = [
   { value: 'failed', label: '失敗' },
 ];
 const EMAIL_STATUSES = [
-  ...AUDIT_STATUSES,
-  { value: 'retry', label: '重試' },
+  { value: '', label: '全部' },
+  { value: 'success', label: '寄出了' },
+  { value: 'failed', label: '沒寄成' },
+  { value: 'retry', label: '還在重試' },
 ];
 
 function TimeStamp({ iso, requestId }) {
@@ -132,21 +135,21 @@ function RowDetails({ logType, row, detail, onCopy, onOpenRequest, onRetryDetail
       <td colSpan={5}>
         <dl className="audit-logs__dl">
           <div>
-            <dt>請求編號</dt>
+            <dt>同一次操作的編號</dt>
             <dd>
-              {row.requestId ? <code className="audit-logs__mono">{row.requestId}</code> : '沒有 requestId'}
+              {row.requestId ? <code className="audit-logs__mono">{row.requestId}</code> : '沒有編號'}
               {' '}
               <CopyButton value={row.requestId} onCopy={onCopy} />
               {row.requestId ? (
                 <Button type="button" variant="link" className="audit-logs__text-btn" onClick={() => onOpenRequest(row.requestId)}>
-                  查看同一請求
+                  一起看這次還發生什麼
                 </Button>
               ) : null}
             </dd>
           </div>
           <div>
-            <dt>來源</dt>
-            <dd>{row.ipAddress || '沒有 IP'}{row.userAgent ? ` · ${row.userAgent}` : ''}</dd>
+            <dt>從哪裡來</dt>
+            <dd>{row.ipAddress || '沒有網路位址'}{row.userAgent ? ` · ${row.userAgent}` : ''}</dd>
           </div>
           {logType === 'audit' ? (
             <div>
@@ -156,8 +159,8 @@ function RowDetails({ logType, row, detail, onCopy, onOpenRequest, onRetryDetail
           ) : null}
           {logType === 'system' ? (
             <div>
-              <dt>類型與耗時</dt>
-              <dd>{row.type || 'http'} · {formatDuration(row.durationMs)}</dd>
+              <dt>怎麼呼叫、等了多久</dt>
+              <dd>{row.type && row.type !== 'http' ? row.type : '一般網頁呼叫'} · {formatDuration(row.durationMs)}</dd>
             </div>
           ) : null}
           {logType === 'email' ? (
@@ -168,7 +171,7 @@ function RowDetails({ logType, row, detail, onCopy, onOpenRequest, onRetryDetail
           ) : null}
           {fullSummary ? (
             <div className="audit-logs__span">
-              <dt>{logType === 'email' ? '主旨' : '完整摘要'}</dt>
+              <dt>{logType === 'email' ? '主旨' : '當時留下的說明'}</dt>
               <dd>{fullSummary}</dd>
             </div>
           ) : null}
@@ -180,7 +183,7 @@ function RowDetails({ logType, row, detail, onCopy, onOpenRequest, onRetryDetail
           ) : null}
           {logType === 'system' && row.path ? (
             <div className="audit-logs__span">
-              <dt>完整路徑</dt>
+              <dt>完整網址</dt>
               <dd><code className="audit-logs__mono">{row.path}</code></dd>
             </div>
           ) : null}
@@ -232,11 +235,11 @@ function LogRow({ logType, row, expanded, detail, onToggle, onCopy, onOpenReques
               aria-expanded={expanded}
               onClick={onToggle}
             >
-              {expanded ? '收合' : '詳情'}
+              {expanded ? '收起' : '展開'}
             </Button>
             {row.requestId ? (
               <Button type="button" variant="link" className="audit-logs__text-btn" onClick={() => onOpenRequest(row.requestId)}>
-                同一請求
+                同一次操作
               </Button>
             ) : null}
           </div>
@@ -287,13 +290,13 @@ function renderStory(logType, row) {
   return (
     <div className="audit-logs__what">
       <div className="audit-logs__headline">
-        {row.module ? <span className="audit-logs__module">{row.module}</span> : null}
+        {row.module ? <span className="audit-logs__module" title={row.module}>{moduleLabel(row.module)}</span> : null}
         <span className="audit-logs__action-name">{label}</span>
       </div>
       {label !== row.action && row.action ? <div className="audit-logs__action-code">{row.action}</div> : null}
       {row.targetSummary ? <p className="audit-logs__summary" title={row.targetSummary}>{row.targetSummary}</p> : null}
       {entity || row.ipAddress ? (
-        <p className="audit-logs__meta">{[entity, row.ipAddress].filter(Boolean).join(' · ')}</p>
+        <p className="audit-logs__meta">{[entity, row.ipAddress ? `來自 ${row.ipAddress}` : ''].filter(Boolean).join(' · ')}</p>
       ) : null}
       {row.errorMessage ? <p className="audit-logs__error" title={row.errorMessage}>{row.errorMessage}</p> : null}
     </div>
@@ -305,7 +308,7 @@ function renderWho(logType, row) {
     return (
       <div>
         <div>{formatPerson(null, row.role, row.userId)}</div>
-        <div className="audit-logs__meta">{row.ipAddress || '沒有 IP'}</div>
+        <div className="audit-logs__meta">{row.ipAddress ? `來自 ${row.ipAddress}` : '沒有網路位址'}</div>
       </div>
     );
   }
@@ -321,9 +324,9 @@ function renderWho(logType, row) {
 }
 
 function columnLabels(logType) {
-  if (logType === 'system') return ['時間', '請求', '來源', '狀態', '查看'];
-  if (logType === 'email') return ['時間', '信件', '收件', '狀態', '查看'];
-  return ['時間', '操作內容', '操作者', '狀態', '查看'];
+  if (logType === 'system') return ['時間', '被打開的網址', '誰、從哪裡', '結果', '再看'];
+  if (logType === 'email') return ['時間', '哪一封信', '寄給誰', '結果', '再看'];
+  return ['時間', '發生了什麼', '誰做的', '結果', '再看'];
 }
 
 function RequestDialog({ show, requestId, logs, onHide, onCopy }) {
@@ -333,29 +336,29 @@ function RequestDialog({ show, requestId, logs, onHide, onCopy }) {
   const auditCount = logs?.auditLogs?.length || 0;
   const emailCount = logs?.emailLogs?.length || 0;
   let gapText = '';
-  if (gaps.length === 3) gapText = '找不到這個 requestId 的系統請求、操作紀錄或寄信紀錄。';
-  else if (gaps.length) gapText = `這次請求沒有${gaps.join('、')}。`;
+  if (gaps.length === 3) gapText = '這次操作沒有留下網站呼叫、人員操作或寄信。';
+  else if (gaps.length) gapText = `這次沒有${gaps.join('、')}。`;
 
   return (
     <Modal show={show} onHide={onHide} size="xl" scrollable animation={false}>
       <Modal.Header closeButton>
-        <Modal.Title>同一請求的相關紀錄</Modal.Title>
+        <Modal.Title>同一次操作還發生了什麼</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <div className="audit-logs__request-head">
           <div>
-            <div className="audit-logs__meta">requestId</div>
+            <div className="audit-logs__meta">這次操作的編號</div>
             <p className="audit-logs__request-id">{requestId || '—'}</p>
-            <p className="audit-logs__caption">系統請求、操作與寄信依時間由早到晚排列。</p>
+            <p className="audit-logs__caption">網站呼叫、人員操作和寄信，依照發生的先後排列。</p>
           </div>
           <Button type="button" variant="outline-secondary" size="sm" onClick={() => onCopy(requestId)}>
-            複製 requestId
+            複製編號
           </Button>
         </div>
-        {!logs ? <p>正在讀取這個請求…</p> : (
+        {!logs ? <p>正在把這次操作的紀錄找出來…</p> : (
           <>
             <p className="audit-logs__summary-line">
-              系統請求 {httpCount} · 操作紀錄 {auditCount} · 寄信紀錄 {emailCount}
+              網站呼叫 {httpCount} · 人員操作 {auditCount} · 寄出的信 {emailCount}
             </p>
             {gapText ? <p className="audit-logs__hint">{gapText}</p> : null}
             <ol className="audit-logs__timeline">
@@ -379,13 +382,13 @@ function TimelineBody({ item }) {
     return (
       <div>
         <div className="audit-logs__headline">
-          <span className="audit-logs__pill audit-logs__pill--info">系統請求</span>
+          <span className="audit-logs__pill audit-logs__pill--info">網站呼叫</span>
           <MethodMark method={row.method} />
           <StatusPill status={row.status} />
           <span className={`audit-logs__duration--${durationTone(row.durationMs)}`}>{formatDuration(row.durationMs)}</span>
         </div>
         <p className="audit-logs__path">{row.path || '沒有路徑'}</p>
-        <p className="audit-logs__meta">{formatPerson(null, row.role, row.userId)} · {row.ipAddress || '沒有 IP'}</p>
+        <p className="audit-logs__meta">{formatPerson(null, row.role, row.userId)} · {row.ipAddress ? `來自 ${row.ipAddress}` : '沒有網路位址'}</p>
         {row.errorMessage ? <p className="audit-logs__error">{row.errorMessage}</p> : null}
         {row.userAgent ? (
           <details>
@@ -413,8 +416,8 @@ function TimelineBody({ item }) {
   return (
     <div>
       <div className="audit-logs__headline">
-        <span className="audit-logs__pill audit-logs__pill--info">操作</span>
-        {row.module ? <span className="audit-logs__module">{row.module}</span> : null}
+        <span className="audit-logs__pill audit-logs__pill--info">人員操作</span>
+        {row.module ? <span className="audit-logs__module" title={row.module}>{moduleLabel(row.module)}</span> : null}
         <span className="audit-logs__action-name">{actionLabel(row.action)}</span>
         <StatusPill status={row.status} />
       </div>
@@ -532,7 +535,7 @@ export default function AdminAuditLogsPage() {
   const openRequest = useCallback(async (rid) => {
     const id = String(rid || '').trim();
     if (!id) {
-      setError('請輸入 requestId');
+      setError('請貼上同一次操作的編號');
       return;
     }
     setError('');
@@ -627,62 +630,64 @@ export default function AdminAuditLogsPage() {
   return (
     <div className="audit-logs">
       <p className="audit-logs__lead">
-        先看近 24 小時的異常，再用篩選縮小範圍。每一列會同時顯示對象、結果與錯誤；同一筆操作的請求與寄信可以一起打開。
+        先看過去一天有沒有出錯。接著選擇要看人員做了什麼、網站怎麼被呼叫，或寄出的信。同一筆事情可以再打開，把相關紀錄放在一起。
       </p>
 
       {notice ? <div className="alert alert-success py-2" role="status">{notice}</div> : null}
       {error ? <div className="alert alert-warning py-2" role="alert">{error}</div> : null}
 
       {metricsState === 'error' ? (
-        <p className="audit-logs__caption">近 24 小時統計暫時無法載入，清單仍可查詢。</p>
+        <p className="audit-logs__caption">過去一天的數字暫時讀不到，下面的清單還是可以查。</p>
       ) : null}
       {metrics ? (
-        <>
+        <section className="audit-logs__band" aria-labelledby={`${uid}-day`}>
+          <h3 id={`${uid}-day`} className="audit-logs__band-title">過去一天</h3>
           <div className="audit-logs__kpis">
             <button type="button" className="audit-logs__kpi" onClick={() => openFromMetric('system')}>
-              <span className="audit-logs__kpi-label">近 24 小時請求</span>
+              <span className="audit-logs__kpi-label">網站被呼叫</span>
               <span className="audit-logs__kpi-value">{Number(metrics.requestCount24h || 0).toLocaleString('zh-TW')}</span>
-              <span className="audit-logs__kpi-sub">打開全部系統請求</span>
+              <span className="audit-logs__kpi-sub">打開全部網站呼叫</span>
             </button>
             <button
               type="button"
               className={`audit-logs__kpi${metrics.fiveXxCount24h > 0 ? ' audit-logs__kpi--alert' : ''}`}
               onClick={() => openFromMetric('system', { onlyServerErrors: true })}
             >
-              <span className="audit-logs__kpi-label">近 24 小時 5xx</span>
+              <span className="audit-logs__kpi-label">伺服器出錯</span>
               <span className="audit-logs__kpi-value">{Number(metrics.fiveXxCount24h || 0).toLocaleString('zh-TW')}</span>
-              <span className="audit-logs__kpi-sub">列出全部時間的 500–599</span>
+              <span className="audit-logs__kpi-sub">列出所有時間的伺服器錯誤</span>
             </button>
             <button type="button" className="audit-logs__kpi" onClick={() => openFromMetric('audit')}>
-              <span className="audit-logs__kpi-label">近 24 小時操作</span>
+              <span className="audit-logs__kpi-label">人員操作</span>
               <span className="audit-logs__kpi-value">{Number(metrics.auditCount24h || 0).toLocaleString('zh-TW')}</span>
-              <span className="audit-logs__kpi-sub">打開操作紀錄</span>
+              <span className="audit-logs__kpi-sub">打開人員做了什麼</span>
             </button>
             <button
               type="button"
               className={`audit-logs__kpi${metrics.email?.failed > 0 ? ' audit-logs__kpi--alert' : ''}`}
               onClick={() => openFromMetric('email', metrics.email?.failed > 0 ? { status: 'failed' } : {})}
             >
-              <span className="audit-logs__kpi-label">近 24 小時寄信</span>
+              <span className="audit-logs__kpi-label">寄出的信</span>
               <span className="audit-logs__kpi-value">{emailTotal.toLocaleString('zh-TW')}</span>
               <span className="audit-logs__kpi-sub">
-                成功 {metrics.email?.success || 0} · 失敗 {metrics.email?.failed || 0} · 重試 {metrics.email?.retry || 0}
-                {metrics.email?.failed > 0 ? ' · 開啟失敗清單' : ''}
+                寄出 {metrics.email?.success || 0} · 沒寄成 {metrics.email?.failed || 0} · 還在重試 {metrics.email?.retry || 0}
+                {metrics.email?.failed > 0 ? ' · 改看沒寄成的信' : ''}
               </span>
             </button>
             <div className="audit-logs__kpi">
-              <span className="audit-logs__kpi-label">平均回應時間</span>
+              <span className="audit-logs__kpi-label">平均要等多久</span>
               <span className="audit-logs__kpi-value">{formatDuration(metrics.avgRequestDurationMs24h)}</span>
-              <span className="audit-logs__kpi-sub">近 24 小時系統請求</span>
+              <span className="audit-logs__kpi-sub">過去一天的網站呼叫</span>
             </div>
           </div>
           <p className="audit-logs__caption">
-            上方數字只統計近 24 小時。點 5xx 會改列全部時間的 500–599；有失敗信件時，會打開全部時間的失敗寄信。
+            這些數字只算過去 24 小時。點「伺服器出錯」會列出所有時間的伺服器錯誤；有信沒寄成時，會打開所有時間沒寄成的信。
           </p>
-        </>
+        </section>
       ) : null}
 
-      <div className="audit-logs__tabs" role="tablist" aria-label="紀錄類型">
+      <h3 className="audit-logs__band-title">要看哪一種</h3>
+      <div className="audit-logs__tabs" role="tablist" aria-label="要看哪一種紀錄">
         {LOG_TYPES.map((type) => (
           <button
             key={type.id}
@@ -703,198 +708,228 @@ export default function AdminAuditLogsPage() {
         <p className="audit-logs__hint">{activeType.hint}</p>
 
         <div className="audit-logs__card">
-          <form
-            className="audit-logs__lookup"
-            onSubmit={(event) => {
-              event.preventDefault();
-              openRequest(manualRequestId);
-            }}
-          >
-            <div>
-              <label htmlFor={`${uid}-request`}>用 requestId 串起同一次請求</label>
-              <Form.Control
-                id={`${uid}-request`}
-                size="sm"
-                value={manualRequestId}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="貼上錯誤頁或清單上的 requestId"
-                onChange={(event) => setManualRequestId(event.target.value)}
-              />
-            </div>
-            <Button type="submit" size="sm" variant="outline-secondary">查看同一請求</Button>
-          </form>
-
+          <h3 className="audit-logs__band-title">縮小範圍</h3>
           <form
             onSubmit={(event) => {
               event.preventDefault();
               commitFilters(draft);
             }}
           >
-            <div className="audit-logs__filters">
-              <div className="audit-logs__field audit-logs__field--wide">
-                <label htmlFor={`${uid}-keyword`}>關鍵字</label>
-                <Form.Control
-                  id={`${uid}-keyword`}
-                  size="sm"
-                  value={draft.keyword}
-                  placeholder={copy.keywordPlaceholder}
-                  onChange={(event) => setDraft((current) => createLogFilters({ ...current, keyword: event.target.value }))}
-                />
-              </div>
-              <div className="audit-logs__field">
-                <label htmlFor={`${uid}-module`}>{copy.moduleLabel}</label>
-                <Form.Control
-                  id={`${uid}-module`}
-                  size="sm"
-                  value={draft.moduleName}
-                  placeholder={copy.modulePlaceholder}
-                  onChange={(event) => setDraft((current) => createLogFilters({ ...current, moduleName: event.target.value }))}
-                />
-              </div>
-              <div className="audit-logs__field">
-                <label htmlFor={`${uid}-action`}>{copy.actionLabel}</label>
-                <Form.Control
-                  id={`${uid}-action`}
-                  size="sm"
-                  value={draft.action}
-                  placeholder={copy.actionPlaceholder}
-                  spellCheck={false}
-                  onChange={(event) => setDraft((current) => createLogFilters({
-                    ...current,
-                    action: event.target.value,
-                    actionMatchExact: false,
-                  }))}
-                />
-                {logType === 'audit' ? (
-                  <Form.Check
-                    className="audit-logs__check"
-                    type="checkbox"
-                    id={`${uid}-exact`}
-                    label="完全符合操作名稱"
-                    checked={draft.actionMatchExact}
-                    onChange={(event) => setDraft((current) => createLogFilters({
-                      ...current,
-                      actionMatchExact: event.target.checked,
-                    }))}
-                  />
-                ) : null}
-                <p className="audit-logs__field-help">{copy.actionHelp}</p>
-              </div>
-              <div className="audit-logs__field">
-                <label htmlFor={`${uid}-status`}>{copy.statusLabel}</label>
-                {logType === 'system' ? (
-                  <Form.Control
-                    id={`${uid}-status`}
-                    size="sm"
-                    inputMode="numeric"
-                    value={draft.status}
-                    placeholder={copy.statusPlaceholder}
-                    onChange={(event) => setDraft((current) => createLogFilters({
-                      ...current,
-                      status: event.target.value,
-                      onlyServerErrors: false,
-                    }))}
-                  />
-                ) : (
-                  <Form.Select
-                    id={`${uid}-status`}
-                    size="sm"
-                    value={draft.status}
-                    onChange={(event) => setDraft((current) => createLogFilters({ ...current, status: event.target.value }))}
-                  >
-                    {(logType === 'email' ? EMAIL_STATUSES : AUDIT_STATUSES).map((option) => (
-                      <option key={option.value || 'all'} value={option.value}>{option.label}</option>
-                    ))}
-                  </Form.Select>
-                )}
-                {logType === 'system' ? (
-                  <Form.Check
-                    className="audit-logs__check"
-                    type="checkbox"
-                    id={`${uid}-5xx`}
-                    label="只看 5xx（500–599）"
-                    checked={draft.onlyServerErrors}
-                    onChange={(event) => setDraft((current) => createLogFilters({
-                      ...current,
-                      onlyServerErrors: event.target.checked,
-                      status: event.target.checked ? '' : current.status,
-                    }))}
-                  />
-                ) : null}
-              </div>
-              <div className="audit-logs__field">
-                <label htmlFor={`${uid}-operator`}>{copy.operatorLabel}</label>
-                <Form.Control
-                  id={`${uid}-operator`}
-                  size="sm"
-                  value={draft.operatorId}
-                  placeholder={copy.operatorPlaceholder}
-                  onChange={(event) => setDraft((current) => createLogFilters({ ...current, operatorId: event.target.value }))}
-                />
-              </div>
-              <div className="audit-logs__field audit-logs__field--wide">
-                <div className="audit-logs__field-label">日期</div>
-                <div className="audit-logs__dates">
-                  <Form.Control
-                    size="sm"
-                    type="date"
-                    aria-label="起日"
-                    value={draft.dateFrom}
-                    onChange={(event) => setDraft((current) => createLogFilters({ ...current, dateFrom: event.target.value }))}
-                  />
-                  <Form.Control
-                    size="sm"
-                    type="date"
-                    aria-label="迄日"
-                    value={draft.dateTo}
-                    onChange={(event) => setDraft((current) => createLogFilters({ ...current, dateTo: event.target.value }))}
-                  />
-                  <Button type="button" size="sm" variant="outline-secondary" onClick={() => applyDates(today, today)}>今天</Button>
-                  <Button type="button" size="sm" variant="outline-secondary" onClick={() => applyDates(addDaysToDateInput(today, -6), today)}>近 7 天</Button>
-                  <Button type="button" size="sm" variant="outline-secondary" onClick={() => applyDates(addDaysToDateInput(today, -29), today)}>近 30 天</Button>
-                  <Button type="button" size="sm" variant="outline-secondary" onClick={() => applyDates('', '')}>全部時間</Button>
+            <div className="audit-logs__group">
+              <h4 className="audit-logs__group-title">時間</h4>
+              <div className="audit-logs__group-body">
+                <div className="audit-logs__field audit-logs__field--wide">
+                  <div className="audit-logs__dates">
+                    <Button type="button" size="sm" variant="outline-secondary" onClick={() => applyDates(today, today)}>今天</Button>
+                    <Button type="button" size="sm" variant="outline-secondary" onClick={() => applyDates(addDaysToDateInput(today, -6), today)}>近 7 天</Button>
+                    <Button type="button" size="sm" variant="outline-secondary" onClick={() => applyDates(addDaysToDateInput(today, -29), today)}>近 30 天</Button>
+                    <Button type="button" size="sm" variant="outline-secondary" onClick={() => applyDates('', '')}>全部時間</Button>
+                    <Form.Control
+                      size="sm"
+                      type="date"
+                      aria-label="開始日期"
+                      value={draft.dateFrom}
+                      onChange={(event) => setDraft((current) => createLogFilters({ ...current, dateFrom: event.target.value }))}
+                    />
+                    <span className="audit-logs__date-sep">到</span>
+                    <Form.Control
+                      size="sm"
+                      type="date"
+                      aria-label="結束日期"
+                      value={draft.dateTo}
+                      onChange={(event) => setDraft((current) => createLogFilters({ ...current, dateTo: event.target.value }))}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
+
+            <div className="audit-logs__group">
+              <h4 className="audit-logs__group-title">內容</h4>
+              <div className="audit-logs__group-body">
+                <div className="audit-logs__field audit-logs__field--wide">
+                  <label htmlFor={`${uid}-keyword`}>關鍵字</label>
+                  <Form.Control
+                    id={`${uid}-keyword`}
+                    size="sm"
+                    value={draft.keyword}
+                    placeholder={copy.keywordPlaceholder}
+                    onChange={(event) => setDraft((current) => createLogFilters({ ...current, keyword: event.target.value }))}
+                  />
+                </div>
+                <div className="audit-logs__field">
+                  <label htmlFor={`${uid}-module`}>{copy.moduleLabel}</label>
+                  <Form.Control
+                    id={`${uid}-module`}
+                    size="sm"
+                    value={draft.moduleName}
+                    placeholder={copy.modulePlaceholder}
+                    onChange={(event) => setDraft((current) => createLogFilters({ ...current, moduleName: event.target.value }))}
+                  />
+                </div>
+                <div className="audit-logs__field">
+                  <label htmlFor={`${uid}-action`}>{copy.actionLabel}</label>
+                  <Form.Control
+                    id={`${uid}-action`}
+                    size="sm"
+                    value={draft.action}
+                    placeholder={copy.actionPlaceholder}
+                    spellCheck={false}
+                    onChange={(event) => setDraft((current) => createLogFilters({
+                      ...current,
+                      action: event.target.value,
+                      actionMatchExact: false,
+                    }))}
+                  />
+                  {logType === 'audit' ? (
+                    <Form.Check
+                      className="audit-logs__check"
+                      type="checkbox"
+                      id={`${uid}-exact`}
+                      label="名稱要完全一樣"
+                      checked={draft.actionMatchExact}
+                      onChange={(event) => setDraft((current) => createLogFilters({
+                        ...current,
+                        actionMatchExact: event.target.checked,
+                      }))}
+                    />
+                  ) : null}
+                  <p className="audit-logs__field-help">{copy.actionHelp}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="audit-logs__group">
+              <h4 className="audit-logs__group-title">誰與結果</h4>
+              <div className="audit-logs__group-body">
+                <div className="audit-logs__field">
+                  <label htmlFor={`${uid}-operator`}>{copy.operatorLabel}</label>
+                  <Form.Control
+                    id={`${uid}-operator`}
+                    size="sm"
+                    value={draft.operatorId}
+                    placeholder={copy.operatorPlaceholder}
+                    onChange={(event) => setDraft((current) => createLogFilters({ ...current, operatorId: event.target.value }))}
+                  />
+                </div>
+                <div className="audit-logs__field">
+                  <label htmlFor={`${uid}-status`}>{copy.statusLabel}</label>
+                  {logType === 'system' ? (
+                    <Form.Control
+                      id={`${uid}-status`}
+                      size="sm"
+                      inputMode="numeric"
+                      value={draft.status}
+                      placeholder={copy.statusPlaceholder}
+                      onChange={(event) => setDraft((current) => createLogFilters({
+                        ...current,
+                        status: event.target.value,
+                        onlyServerErrors: false,
+                      }))}
+                    />
+                  ) : (
+                    <Form.Select
+                      id={`${uid}-status`}
+                      size="sm"
+                      value={draft.status}
+                      onChange={(event) => setDraft((current) => createLogFilters({ ...current, status: event.target.value }))}
+                    >
+                      {(logType === 'email' ? EMAIL_STATUSES : AUDIT_STATUSES).map((option) => (
+                        <option key={option.value || 'all'} value={option.value}>{option.label}</option>
+                      ))}
+                    </Form.Select>
+                  )}
+                  {logType === 'system' ? (
+                    <Form.Check
+                      className="audit-logs__check"
+                      type="checkbox"
+                      id={`${uid}-5xx`}
+                      label="只看伺服器出錯"
+                      checked={draft.onlyServerErrors}
+                      onChange={(event) => setDraft((current) => createLogFilters({
+                        ...current,
+                        onlyServerErrors: event.target.checked,
+                        status: event.target.checked ? '' : current.status,
+                      }))}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
             <div className="audit-logs__actions">
-              <Button type="submit" size="sm" variant="primary">套用篩選</Button>
+              <Button type="submit" size="sm" variant="primary">查找</Button>
               <Button type="button" size="sm" variant="outline-secondary" onClick={() => commitFilters(createLogFilters())}>
                 清除條件
               </Button>
               <Button type="button" size="sm" variant="outline-secondary" onClick={() => setReloadKey((value) => value + 1)}>
                 重新整理
               </Button>
-              {dirty ? <span className="audit-logs__dirty">有尚未套用的變更</span> : null}
+              {dirty ? <span className="audit-logs__dirty">條件改了，按查找才會更新清單</span> : null}
+            </div>
+          </form>
+
+          <form
+            className="audit-logs__group"
+            onSubmit={(event) => {
+              event.preventDefault();
+              openRequest(manualRequestId);
+            }}
+          >
+            <h4 className="audit-logs__group-title">同一次操作</h4>
+            <div className="audit-logs__group-body">
+              <div className="audit-logs__field audit-logs__field--wide">
+                <label htmlFor={`${uid}-request`}>錯誤頁上的那串編號</label>
+                <div className="audit-logs__lookup-row">
+                  <Form.Control
+                    id={`${uid}-request`}
+                    size="sm"
+                    value={manualRequestId}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="貼上編號，把網站呼叫、人員操作和寄信放在一起"
+                    onChange={(event) => setManualRequestId(event.target.value)}
+                  />
+                  <Button type="submit" size="sm" variant="outline-secondary">找齊這一次</Button>
+                </div>
+              </div>
             </div>
           </form>
 
           {logType === 'audit' ? (
-            <>
-              <p className="audit-logs__section-label">帳號安全常用操作，點一下就用完全符合查詢</p>
-              <div className="audit-logs__presets">
-                {ACCOUNT_SECURITY_PRESETS.map((preset) => {
-                  const active = applied.action === preset.code && applied.actionMatchExact;
-                  return (
-                    <button
-                      key={preset.code}
-                      type="button"
-                      className={`audit-logs__preset${active ? ' audit-logs__preset--active' : ''}`}
-                      aria-pressed={active}
-                      onClick={() => commitFilters({ ...draft, action: preset.code, actionMatchExact: true })}
-                    >
-                      {preset.label}
-                      <span className="audit-logs__preset-code">{preset.code}</span>
-                    </button>
-                  );
-                })}
+            <div className="audit-logs__group">
+              <h4 className="audit-logs__group-title">帳號</h4>
+              <div>
+                <p className="audit-logs__field-help">點一下就只找這一種，名稱要完全一樣。</p>
+                {['帳號進出', '帳號異動'].map((group) => (
+                  <div key={group} className="audit-logs__preset-block">
+                    <div className="audit-logs__preset-group">{group}</div>
+                    <div className="audit-logs__presets">
+                      {ACCOUNT_SECURITY_PRESETS.filter((preset) => preset.group === group).map((preset) => {
+                        const active = applied.action === preset.code && applied.actionMatchExact;
+                        return (
+                          <button
+                            key={preset.code}
+                            type="button"
+                            className={`audit-logs__preset${active ? ' audit-logs__preset--active' : ''}`}
+                            aria-pressed={active}
+                            title={preset.code}
+                            onClick={() => commitFilters({ ...draft, action: preset.code, actionMatchExact: true })}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
-            </>
+            </div>
           ) : null}
         </div>
 
         <p className="audit-logs__summary-line">
-          {appliedParts.length ? `目前條件：${appliedParts.join('、')}` : '尚未套用篩選，顯示全部時間的最新紀錄。'}
+          {appliedParts.length ? `現在看的是：${appliedParts.join('、')}` : '還沒縮小範圍，顯示全部時間、最新的紀錄。'}
         </p>
 
         <div className="audit-logs__toolbar">

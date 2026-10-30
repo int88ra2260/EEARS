@@ -1,34 +1,34 @@
 export const LOG_TYPES = [
   {
     id: 'audit',
-    label: '操作紀錄',
-    hint: '誰對哪個對象做了什麼，以及這次操作是成功還是失敗。',
+    label: '人員做了什麼',
+    hint: '誰登入、改了資料，或被系統拒絕。',
   },
   {
     id: 'system',
-    label: '系統請求',
-    hint: '每一次 HTTP 呼叫的路徑、狀態碼、耗時與來源。',
+    label: '網站怎麼被呼叫',
+    hint: '哪個網址被打開、花了多久、有沒有出錯。',
   },
   {
     id: 'email',
-    label: '寄信紀錄',
-    hint: '郵件範本、收件人、關聯對象與寄送結果。',
+    label: '寄出的信',
+    hint: '寄給誰、主旨寫什麼、有沒有寄出去。',
   },
 ];
 
 export const ACCOUNT_SECURITY_PRESETS = [
-  { code: 'login_success', label: '登入成功' },
-  { code: 'login_failure', label: '登入失敗' },
-  { code: 'access_profile_stale', label: '權限資料過期' },
-  { code: 'account_disabled_access_attempt', label: '停用帳號仍嘗試進入' },
-  { code: 'permission_denied', label: '權限不足' },
-  { code: 'account_created', label: '建立帳號' },
-  { code: 'account_updated', label: '更新帳號' },
-  { code: 'account_enabled', label: '啟用帳號' },
-  { code: 'account_disabled', label: '停用帳號' },
-  { code: 'account_password_reset', label: '重設密碼' },
-  { code: 'account_password_changed', label: '變更密碼' },
-  { code: 'permission_override_changed', label: '調整個別權限' },
+  { code: 'login_success', label: '登入成功', group: '帳號進出' },
+  { code: 'login_failure', label: '登入失敗', group: '帳號進出' },
+  { code: 'access_profile_stale', label: '登入資料過期', group: '帳號進出' },
+  { code: 'account_disabled_access_attempt', label: '停用的帳號還想進來', group: '帳號進出' },
+  { code: 'permission_denied', label: '權限不夠', group: '帳號進出' },
+  { code: 'account_created', label: '建立帳號', group: '帳號異動' },
+  { code: 'account_updated', label: '更新帳號', group: '帳號異動' },
+  { code: 'account_enabled', label: '啟用帳號', group: '帳號異動' },
+  { code: 'account_disabled', label: '停用帳號', group: '帳號異動' },
+  { code: 'account_password_reset', label: '重設密碼', group: '帳號異動' },
+  { code: 'account_password_changed', label: '自己改了密碼', group: '帳號異動' },
+  { code: 'permission_override_changed', label: '改了某人的權限', group: '帳號異動' },
 ];
 
 const ROLE_LABELS = {
@@ -76,41 +76,41 @@ export function filtersEqual(a, b) {
 export function filterFieldCopy(logType) {
   if (logType === 'system') {
     return {
-      moduleLabel: 'HTTP 方法',
-      modulePlaceholder: '包含即可，例如 GET',
-      actionLabel: '路徑',
+      moduleLabel: '怎麼呼叫',
+      modulePlaceholder: '讀取填 GET，送出填 POST',
+      actionLabel: '網址裡有',
       actionPlaceholder: '例如 /api/reservations',
-      actionHelp: '比對路徑是否包含這段文字。',
-      operatorLabel: '使用者 ID',
-      operatorPlaceholder: 'userId',
-      statusLabel: 'HTTP 狀態碼',
-      statusPlaceholder: '例如 404',
-      keywordPlaceholder: '路徑、IP、瀏覽器或錯誤訊息',
+      actionHelp: '網址裡出現這段字就會找到。',
+      operatorLabel: '哪一位使用者',
+      operatorPlaceholder: '填使用者編號',
+      statusLabel: '網站回了什麼',
+      statusPlaceholder: '404 是找不到，500 是伺服器出錯',
+      keywordPlaceholder: '網址、網路位址或錯誤說明',
     };
   }
   if (logType === 'email') {
     return {
-      moduleLabel: '郵件範本',
-      modulePlaceholder: '範本名稱，包含即可',
-      actionLabel: '關聯類型',
-      actionPlaceholder: '例如 reservation',
-      actionHelp: '比對關聯類型是否包含這段文字。',
-      operatorLabel: '關聯 ID',
-      operatorPlaceholder: 'relatedEntityId',
-      statusLabel: '寄送狀態',
-      keywordPlaceholder: '收件人、主旨、範本或錯誤訊息',
+      moduleLabel: '哪一種信',
+      modulePlaceholder: '信的種類名稱',
+      actionLabel: '跟什麼有關',
+      actionPlaceholder: '例如預約、活動',
+      actionHelp: '相關資料的種類裡有這段字就會找到。',
+      operatorLabel: '相關資料編號',
+      operatorPlaceholder: '填那筆資料的編號',
+      statusLabel: '寄出結果',
+      keywordPlaceholder: '收件人、主旨或錯誤說明',
     };
   }
   return {
-    moduleLabel: '模組',
-    modulePlaceholder: '完全符合，例如 auth',
-    actionLabel: '操作',
-    actionPlaceholder: '例如 login_failure',
-    actionHelp: '未勾選完全符合時，會找出名稱包含這段文字的操作。',
-    operatorLabel: '操作者 ID',
-    operatorPlaceholder: 'userId',
+    moduleLabel: '哪個功能',
+    modulePlaceholder: '例如 auth（登入）、events（活動）',
+    actionLabel: '做了什麼',
+    actionPlaceholder: '例如登入失敗，或英文名稱的一部分',
+    actionHelp: '沒勾下面的話，名稱裡有這幾個字就會找到。',
+    operatorLabel: '哪一位人員',
+    operatorPlaceholder: '填人員編號',
     statusLabel: '結果',
-    keywordPlaceholder: '摘要、對象 ID 或錯誤訊息',
+    keywordPlaceholder: '說明、對象或錯誤原因',
   };
 }
 
@@ -156,10 +156,12 @@ export function describeAppliedFilters(logType, filters) {
   if (current.keyword.trim()) parts.push(`關鍵字「${current.keyword.trim()}」`);
   if (current.moduleName.trim()) parts.push(`${copy.moduleLabel}「${current.moduleName.trim()}」`);
   if (current.action.trim()) {
-    const exact = logType === 'audit' && current.actionMatchExact ? '（完全符合）' : '';
-    parts.push(`${copy.actionLabel}「${current.action.trim()}」${exact}`);
+    const raw = current.action.trim();
+    const spoken = logType === 'audit' ? actionLabel(raw) : raw;
+    const exact = logType === 'audit' && current.actionMatchExact ? '，名稱要完全一樣' : '';
+    parts.push(`${copy.actionLabel}：${spoken}${exact}`);
   }
-  if (logType === 'system' && current.onlyServerErrors) parts.push('只看 5xx');
+  if (logType === 'system' && current.onlyServerErrors) parts.push('只看伺服器出錯');
   else if (current.status.trim()) parts.push(`${copy.statusLabel}「${statusLabel(current.status)}」`);
   if (current.operatorId.trim()) parts.push(`${copy.operatorLabel} ${current.operatorId.trim()}`);
   if (current.dateFrom || current.dateTo) {
@@ -186,7 +188,43 @@ export function statusLabel(status) {
   if (value === 'failed' || value === 'failure' || value === 'error') return '失敗';
   if (value === 'retry') return '重試';
   if (value === 'pending' || value === 'queued') return '等待';
+  if (/^2\d\d$/.test(value)) return `成功（${status}）`;
+  if (/^3\d\d$/.test(value)) return `轉到別頁（${status}）`;
+  if (/^4\d\d$/.test(value)) return `要求有問題（${status}）`;
+  if (/^5\d\d$/.test(value)) return `伺服器出錯（${status}）`;
   return String(status);
+}
+
+const MODULE_LABELS = {
+  auth: '登入與權限',
+  events: '活動',
+  reservations: '預約',
+  reservation: '預約',
+  survey: '問卷',
+  surveys: '問卷',
+  email: '寄信',
+  users: '人員',
+  classes: '班級',
+};
+
+const ENTITY_LABELS = {
+  user: '人員',
+  teacher: '老師',
+  student: '學生',
+  event: '活動',
+  reservation: '預約',
+  survey: '問卷',
+  email: '信件',
+};
+
+export function moduleLabel(code) {
+  if (!code) return '';
+  return MODULE_LABELS[code] || String(code);
+}
+
+export function entityLabel(type) {
+  if (!type) return '';
+  return ENTITY_LABELS[type] || String(type);
 }
 
 export function actionLabel(code) {
@@ -210,9 +248,10 @@ export function formatPerson(name, role, id) {
 }
 
 export function formatEntity(type, id) {
-  if (!type && (id == null || id === '')) return '';
-  if (type && id != null && id !== '') return `${type} #${id}`;
-  return type || `#${id}`;
+  const name = entityLabel(type);
+  if (!name && (id == null || id === '')) return '';
+  if (name && id != null && id !== '') return `${name} #${id}`;
+  return name || `#${id}`;
 }
 
 export function formatRelated(type, id) {
@@ -343,9 +382,9 @@ export function buildRequestTimeline(payload) {
 
 export function requestGapLabels(payload) {
   const gaps = [];
-  if (!(payload?.systemLogs || []).length) gaps.push('系統請求');
-  if (!(payload?.auditLogs || []).length) gaps.push('操作紀錄');
-  if (!(payload?.emailLogs || []).length) gaps.push('寄信紀錄');
+  if (!(payload?.systemLogs || []).length) gaps.push('網站呼叫');
+  if (!(payload?.auditLogs || []).length) gaps.push('人員操作');
+  if (!(payload?.emailLogs || []).length) gaps.push('寄出的信');
   return gaps;
 }
 

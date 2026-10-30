@@ -93,8 +93,8 @@ describe('操作紀錄頁', () => {
     expect(await screen.findByText('王小明 · 老師 #9')).toBeInTheDocument();
     expect(screen.getByText('登入失敗：密碼錯誤')).toBeInTheDocument();
     expect(screen.getByText('密碼錯誤')).toBeInTheDocument();
-    expect(screen.getByText('user #9 · 10.0.0.8')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /近 24 小時請求/ })).toHaveTextContent('120');
+    expect(screen.getByText('人員 #9 · 來自 10.0.0.8')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /網站被呼叫/ })).toHaveTextContent('120');
     expect(screen.getByText('86 毫秒')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /登入失敗/ }));
@@ -111,7 +111,7 @@ describe('操作紀錄頁', () => {
     renderPage();
     await screen.findByText('王小明 · 老師 #9');
 
-    fireEvent.click(screen.getByRole('button', { name: /近 24 小時 5xx/ }));
+    fireEvent.click(screen.getByRole('button', { name: /伺服器出錯/ }));
     await waitFor(() => {
       expect(api.fetchSystemLogs).toHaveBeenCalledWith('test-token', expect.objectContaining({
         statusMin: 500,
@@ -119,10 +119,10 @@ describe('操作紀錄頁', () => {
       }));
     });
 
-    fireEvent.click(screen.getByRole('tab', { name: '操作紀錄' }));
-    fireEvent.click(screen.getByRole('tab', { name: '系統請求' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: '只看 5xx（500–599）' }));
-    fireEvent.click(screen.getByRole('button', { name: '套用篩選' }));
+    fireEvent.click(screen.getByRole('tab', { name: '人員做了什麼' }));
+    fireEvent.click(screen.getByRole('tab', { name: '網站怎麼被呼叫' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '只看伺服器出錯' }));
+    fireEvent.click(screen.getByRole('button', { name: '查找' }));
     await waitFor(() => {
       expect(api.fetchSystemLogs).toHaveBeenLastCalledWith('test-token', expect.objectContaining({
         statusMin: 500,
@@ -136,7 +136,7 @@ describe('操作紀錄頁', () => {
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('/api/health')).toBeInTheDocument();
-    expect(screen.getByText('系統請求 1 · 操作紀錄 0 · 寄信紀錄 0')).toBeInTheDocument();
-    expect(screen.getByText('這次請求沒有操作紀錄、寄信紀錄。')).toBeInTheDocument();
+    expect(screen.getByText('網站呼叫 1 · 人員操作 0 · 寄出的信 0')).toBeInTheDocument();
+    expect(screen.getByText('這次沒有人員操作、寄出的信。')).toBeInTheDocument();
   });
 });

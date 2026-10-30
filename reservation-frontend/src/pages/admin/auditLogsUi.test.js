@@ -54,7 +54,7 @@ describe('操作紀錄呈現', () => {
       action: 'login_failure',
       actionMatchExact: true,
       dateFrom: '2026-10-01',
-    })).toEqual(['操作「login_failure」（完全符合）', '2026-10-01 至 不限']);
+    })).toEqual(['做了什麼：登入失敗，名稱要完全一樣', '2026-10-01 至 不限']);
 
     expect(addDaysToDateInput('2026-03-01', -1)).toBe('2026-02-28');
     expect(pageRangeLabel(2, 50, 120)).toBe('第 51–100 筆，共 120 筆');
@@ -66,6 +66,6 @@ describe('操作紀錄呈現', () => {
       emailLogs: [],
     };
     expect(buildRequestTimeline(payload).map((item) => item.id)).toEqual(['audit-1', 'http-2']);
-    expect(requestGapLabels(payload)).toEqual(['寄信紀錄']);
+    expect(requestGapLabels(payload)).toEqual(['寄出的信']);
   });
 });
