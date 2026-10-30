@@ -8,6 +8,7 @@ import {
   TRIGGER_MODE_LABELS,
   labelActivityType,
   labelFillScope,
+  labelRetakePolicy,
   labelTriggerMode,
 } from '../../constants/surveyAdminUx';
 import Card from 'react-bootstrap/Card';
@@ -398,7 +399,7 @@ export default function AdminSurveyRulesPage() {
                       <td>{r.Survey?.title || r.Survey?.name || r.surveyId}</td>
                       <td>{r.SurveyVersion?.versionNumber != null ? `第 ${r.SurveyVersion.versionNumber} 版` : '—'}</td>
                       <td>{labelTriggerMode(r.triggerMode)}</td>
-                      <td>{labelFillScope(r.fillScope)}</td>
+                      <td>{r.fillScope ? labelFillScope(r.fillScope) : labelRetakePolicy(r.retakePolicy)}</td>
                       <td>{r.appliesToAllEvents ? '是' : '否'}</td>
                       <td>{r.eventId || '—'}</td>
                       <td className="small">{r.startAt ? new Date(r.startAt).toLocaleString('zh-TW') : '—'}<br />{r.endAt ? new Date(r.endAt).toLocaleString('zh-TW') : '—'}</td>
@@ -480,6 +481,7 @@ export default function AdminSurveyRulesPage() {
                   <option key={code} value={code}>{label}</option>
                 ))}
               </Form.Select>
+              <Form.Text className="text-muted">每學期填一次：換學期後要再填。預約是否放行依這個次數。</Form.Text>
             </div>
             <div className="col-md-4 d-flex align-items-end">
               <Form.Check type="switch" label="規則啟用" checked={form.isEnabled} onChange={(e) => setForm((f) => ({ ...f, isEnabled: e.target.checked }))} />

@@ -146,6 +146,7 @@ export default function EventBookingModal({ show, event, onClose }) {
   };
 
   const handleSurveyCompleteClick = () => {
+    handleSurveyClose();
     handleSurveyComplete(event, () => {
       setSuccessEmail(form.studentEmail);
       setBookingStep(3);
@@ -279,9 +280,6 @@ export default function EventBookingModal({ show, event, onClose }) {
   }, [blacklist?.showBlacklistModal]);
 
   if (!event) return null;
-  const surveyKeyByEventType = isEnglishClubEventType(event.eventType)
-    ? 'english_club_feedback_114_1'
-    : 'english_table_feedback_114_1';
 
   const footerStyle = isMobile
     ? {
@@ -491,7 +489,6 @@ export default function EventBookingModal({ show, event, onClose }) {
         show={survey.showSurvey}
         onClose={handleSurveyCloseClick}
         onSurveyComplete={handleSurveyCompleteClick}
-        surveyKey={surveyKeyByEventType}
         userInfo={{
           studentId: form.studentId || localStorage.getItem('lastStudentId') || '',
           studentName: form.studentName || localStorage.getItem('lastStudentName') || '',

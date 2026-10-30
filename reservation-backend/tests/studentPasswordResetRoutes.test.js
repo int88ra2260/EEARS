@@ -12,6 +12,7 @@ const mockLookup = jest.fn();
 const mockList = jest.fn();
 const mockSendEmail = jest.fn();
 const mockAudit = jest.fn();
+const mockSsoEnabled = jest.fn(() => false);
 
 jest.mock('../services/studentPasswordResetService', () => ({
   prepareResetByStudentId: (...args) => mockPrepareByStudentId(...args),
@@ -28,6 +29,10 @@ jest.mock('../services/emailLogService', () => ({
 
 jest.mock('../services/auditLogService', () => ({
   logAuditAsync: (...args) => mockAudit(...args),
+}));
+
+jest.mock('../services/nsysuSsoClient', () => ({
+  isEnabled: (...args) => mockSsoEnabled(...args),
 }));
 
 jest.mock('../middlewares/auth', () => ({
@@ -73,6 +78,8 @@ describe('student password reset routes', () => {
     mockAudit.mockReset();
     mockSendEmail.mockResolvedValue(undefined);
     mockInvalidate.mockResolvedValue(undefined);
+    mockSsoEnabled.mockReset();
+    mockSsoEnabled.mockReturnValue(false);
   });
 
   it('answers the same way when no resettable account exists', async () => {
@@ -236,5 +243,22 @@ describe('student password reset routes', () => {
       action: 'student_password_reset_email',
       entityId: 9,
     }));
+  });
+
+  it('refuses a local reset while campus sign-in is on', async () => {
+    mockSsoEnabled.mockReturnValue(true);
+    const student = await request(buildApp())
+      .post('/api/student-auth/password-reset/send')
+      .send({ studentId: 'B123456702' });
+    expect(student.status).toBe(400);
+    expect(student.body.code).toBe('CAMPUS_PASSWORD_MANAGED');
+    expect(mockPrepareByStudentId).not.toHaveBeenCalled();
+
+    const staff = await request(buildApp())
+      .post('/api/admin/student-accounts/9/password-reset')
+      .set('Authorization', 'Bearer staff');
+    expect(staff.status).toBe(400);
+    expect(staff.body.code).toBe('CAMPUS_PASSWORD_MANAGED');
+    expect(mockPrepareByAccountId).not.toHaveBeenCalled();
   });
 });

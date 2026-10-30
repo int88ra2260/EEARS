@@ -17,7 +17,7 @@ const LEGACY_SURVEY_ID_TO_PRODUCT_SURVEY_KEY = Object.freeze({
 
 const DEFAULT_NEW_RULE_FROM_LEGACY = Object.freeze({
   gatingMode: 'before_reservation',
-  retakePolicy: 'once_ever',
+  retakePolicy: 'once_per_semester',
   retakeScope: null,
   semesterKey: null,
   targetEventType: null,
@@ -71,23 +71,24 @@ async function syncLegacySettingToSurveyRule(setting, opts = {}) {
   const existing = await SurveyRule.findOne({ where: { surveyId: survey.id }, transaction });
   const beforeJson = serializeRule(existing);
 
-  const eventType =
-    surveyKey === 'english_table_feedback_114_1'
-      ? 'english_table'
-      : surveyKey === 'english_club_feedback_114_1'
-        ? 'english_club'
-        : null;
+  const eventType = surveyKey.startsWith('english_table_feedback')
+    ? 'english_table'
+    : surveyKey.startsWith('english_club_feedback')
+      ? 'english_club'
+      : null;
   const activityType = eventType === 'english_table' ? 'ET' : eventType === 'english_club' ? 'EC' : null;
 
   const mapped = {
     isEnabled: !!setting.isEnabled,
     isRequired: !!setting.isRequired,
-    startDate: setting.startDate != null ? setting.startDate : null,
-    endDate: setting.endDate != null ? setting.endDate : null,
-    startAt: setting.startDate != null ? setting.startDate : null,
-    endAt: setting.endDate != null ? setting.endDate : null,
+    startDate: setting.startDate != null ? setting.startDate : (existing ? existing.startDate : null),
+    endDate: setting.endDate != null ? setting.endDate : (existing ? existing.endDate : null),
+    startAt: setting.startDate != null ? setting.startDate : (existing ? existing.startAt : null),
+    endAt: setting.endDate != null ? setting.endDate : (existing ? existing.endAt : null),
     activityType,
     targetEventType: eventType,
+    retakePolicy: 'once_per_semester',
+    fillScope: existing?.fillScope || 'once_per_semester',
   };
 
   let rule;

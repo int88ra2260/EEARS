@@ -24,17 +24,18 @@ function StudentIdentityBar() {
   );
 }
 
-export default function StudentRecordShell({ lead, children }) {
+export default function StudentRecordShell({ lead, titleKey = 'nav.myRecord', children }) {
   const { t } = useLanguage();
+  const title = t(titleKey);
 
   return (
     <>
       <PageHeader
         breadcrumbs={[
           { label: t('nav.home'), path: '/' },
-          { label: t('nav.myRecord') },
+          { label: title },
         ]}
-        title={t('nav.myRecord')}
+        title={title}
         lead={lead}
       />
       <StudentIdentityBar />

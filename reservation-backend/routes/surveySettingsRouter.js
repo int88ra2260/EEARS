@@ -12,6 +12,15 @@ router.use((req, res, next) => {
   next();
 });
 
+router.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  return res.status(410).json({
+    success: false,
+    code: 'SURVEY_SETTINGS_READ_ONLY',
+    message: '舊版問卷設定已停止寫入。請到問卷規則調整啟用、必填與開放時間。',
+  });
+});
+
 function validateSurveySettingsUpdateBody(body) {
   const errors = [];
   if (!body || typeof body !== 'object') return ['請求 body 無效'];

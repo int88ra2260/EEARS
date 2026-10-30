@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Button, Form } from 'react-bootstrap';
+import useCampusSso from '../../../hooks/useCampusSso';
 import { fetchClient } from '../../../utils/fetchClient';
 
 async function parseJson(res) {
@@ -14,6 +15,7 @@ function formatWhen(value) {
 }
 
 export default function StudentAccountLookupPanel({ token }) {
+  const campusSso = useCampusSso();
   const [studentId, setStudentId] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -70,13 +72,17 @@ export default function StudentAccountLookupPanel({ token }) {
   };
 
   const account = result?.kind === 'account' ? result.account : null;
-  const canSend = Boolean(account && account.status === 'active' && account.hasLocalPassword);
+  const canSend = Boolean(
+    account && account.status === 'active' && account.hasLocalPassword && !campusSso,
+  );
 
   return (
     <div className="mb-4">
       <h5 className="mb-1">學生帳號</h5>
       <p className="text-muted small">
-        用學號查已建立的帳號。重設密碼只會把驗證碼寄到註冊信箱，畫面上不會出現密碼。
+        {campusSso
+          ? '用學號查已建立的帳號。登入密碼由單一入口管理，這裡不能重設。'
+          : '用學號查已建立的帳號。重設密碼只會把驗證碼寄到註冊信箱，畫面上不會出現密碼。'}
       </p>
       <Form className="d-flex flex-wrap gap-2 align-items-end mb-3" onSubmit={lookup}>
         <Form.Group controlId="student-account-lookup-id">
@@ -120,7 +126,9 @@ export default function StudentAccountLookupPanel({ token }) {
               {sending ? '寄送中…' : '寄送密碼重設信'}
             </Button>
           ) : (
-            <p className="text-muted small mb-0">這個帳號目前無法寄送重設信。</p>
+            <p className="text-muted small mb-0">
+              {campusSso ? '登入密碼由單一入口管理。' : '這個帳號目前無法寄送重設信。'}
+            </p>
           )}
         </div>
       ) : null}

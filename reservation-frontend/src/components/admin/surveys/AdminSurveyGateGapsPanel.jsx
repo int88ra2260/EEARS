@@ -7,6 +7,7 @@ import Pagination from 'react-bootstrap/Pagination';
 import Badge from 'react-bootstrap/Badge';
 import { displayStudentEmail } from '../../../utils/piiMask';
 import { fetchSurveyGateGaps } from '../../../services/surveyAdminApi';
+import { labelRetakePolicy } from '../../../constants/surveyAdminUx';
 
 const GAP_ACTIVITY_TYPES = new Set(['ET', 'EC']);
 
@@ -152,8 +153,8 @@ export default function AdminSurveyGateGapsPanel({ filters, token, reloadToken, 
                 {meta.gateMode || '-'}
               </span>
               <span>
-                <span className="text-muted">retakePolicy：</span>
-                {meta.retakePolicy || '-'}
+                <span className="text-muted">填寫次數：</span>
+                {labelRetakePolicy(meta.retakePolicy)}
               </span>
               <span>
                 <span className="text-muted">completionSemester：</span>

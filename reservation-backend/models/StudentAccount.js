@@ -3,7 +3,7 @@ const sequelize = require('../db');
 
 /**
  * 學生登入帳號。與後台 teachers 分開。
- * 本地密碼存在 passwordHash；未來校園單一入口只寫 ssoProvider / ssoSubject。
+ * 登入改由校園單一入口處理。passwordHash 只在未啟用單一入口時使用。
  */
 const StudentAccount = sequelize.define('StudentAccount', {
   id: {

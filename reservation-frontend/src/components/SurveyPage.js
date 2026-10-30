@@ -1,7 +1,9 @@
 // src/components/SurveyPage.js
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import DynamicSurveyModal from './DynamicSurveyModal';
+import SurveyExitActions from './survey/SurveyExitActions';
+import { surveyBackTarget } from '../utils/surveyExit';
 import { Card, Alert, Spinner } from 'react-bootstrap';
 import useToast from './ui/useToast';
 import { saveStudentTrio } from '../utils/studentTrioStorage';
@@ -10,13 +12,14 @@ import {
   buildEventsRecoveredPath,
   restorePendingReservationFromQuery,
 } from '../utils/pendingReservationFlow';
-import { checkSurveyFilled, fetchPublicSurvey } from '../services/surveyPublicApi';
+import { fetchMySemesterSurveys, fetchPublicSurvey } from '../services/surveyPublicApi';
 import { createReservation } from '../services/eventBookingService';
 
 export default function SurveyPage() {
   const toast = useToast();
   const { surveyId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [surveyConfig, setSurveyConfig] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,9 +33,12 @@ export default function SurveyPage() {
 
   useEffect(() => {
     // 載入問卷配置
+    let cancelled = false;
+    const nextPath = `/survey/${surveyId}`;
     const loadSurveyConfig = async () => {
       try {
         const data = await fetchPublicSurvey(surveyId);
+        if (cancelled) return;
         const config = data?.survey;
         const currentSemester = data?.meta?.currentSemester;
         const isAnonymous = Boolean(data?.meta?.anonymous);
@@ -44,8 +50,7 @@ export default function SurveyPage() {
         if (!isAnonymous) {
           const session = loadStudentSession();
           if (!session?.student) {
-            const next = `${window.location.pathname}${window.location.search || ''}`;
-            navigate(`/student/login?next=${encodeURIComponent(next)}`, { replace: true });
+            navigate(`/student/login?next=${encodeURIComponent(nextPath)}`, { replace: true });
             return;
           }
           setUserInfo({
@@ -53,34 +58,30 @@ export default function SurveyPage() {
             studentName: session.student.name,
             studentEmail: session.student.email,
           });
+          try {
+            const mine = await fetchMySemesterSurveys();
+            if (cancelled) return;
+            const row = (mine.surveys || []).find((item) => item.surveyId === surveyId);
+            if (row?.filled) {
+              setError('您本學期已填寫過此問卷，無需重複填寫。 / You have already filled out this survey this semester, no need to fill it out again.');
+            }
+          } catch (err) {
+            console.log('Could not check survey status:', err);
+          }
           return;
         }
         setUserInfo(null);
       } catch (err) {
-        setError('載入問卷配置失敗 / Failed to load survey configuration');
+        if (!cancelled) setError('載入問卷配置失敗 / Failed to load survey configuration');
       } finally {
-        setLoading(false);
-      }
-    };
-
-    // 檢查學生是否已填寫過問卷
-    const checkSurveyStatus = async () => {
-      try {
-        const studentId = loadStudentSession()?.student?.studentId;
-        if (!studentId) return;
-
-        const data = await checkSurveyFilled(surveyId, studentId);
-        if (data.filled) {
-          setError('您本學期已填寫過此問卷，無需重複填寫。 / You have already filled out this survey this semester, no need to fill it out again.');
-        }
-      } catch (err) {
-        console.log('Could not check survey status:', err);
-        // 檢查失敗不影響問卷載入
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadSurveyConfig();
-    checkSurveyStatus();
+    return () => {
+      cancelled = true;
+    };
   }, [surveyId, navigate]);
 
   const handleSurveyComplete = async () => {
@@ -121,20 +122,29 @@ export default function SurveyPage() {
           );
           navigate(buildEventsRecoveredPath(pendingReservation.eventId));
         } else {
-          // 預約失敗，顯示錯誤訊息
           toast.error(`問卷已完成，但預約失敗：${data.error || '未知錯誤'}`);
-          navigate('/');
+          navigate('/events', { replace: true });
         }
       } catch (error) {
         console.error('自動預約失敗:', error);
-        // 發生錯誤時，至少完成問卷並跳轉到首頁
         toast.warning('問卷已完成，但自動預約失敗；請回到活動列表手動預約。');
-        navigate('/');
+        navigate('/events', { replace: true });
       }
     } else {
-      // 沒有待完成的預約，直接跳轉到首頁
-      navigate('/');
+      navigate('/survey/choice', { replace: true });
     }
+  };
+
+  const leaveSurvey = () => {
+    const returnTo = location.state?.surveyReturnTo;
+    const target = surveyBackTarget(
+      window.history.state,
+      typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')
+        ? returnTo
+        : '/survey/choice',
+    );
+    if (target === -1) navigate(-1);
+    else navigate(target);
   };
 
   if (loading) {
@@ -156,7 +166,7 @@ export default function SurveyPage() {
 
   if (error) {
     // 檢查是否為已填寫過問卷的錯誤
-    const isAlreadyFilled = error.includes('已填寫過此問卷') || error.includes('already filled out');
+    const isAlreadyFilled = error.includes('已填寫過此問卷') || error.includes('已填過此問卷') || error.includes('already filled out');
     
     return (
       <div className="container mt-5">
@@ -177,19 +187,17 @@ export default function SurveyPage() {
                 )}
               </Alert.Heading>
               <p>{error}</p>
-              {isAlreadyFilled && (
+              {isAlreadyFilled ? (
                 <div className="mt-3">
                   <p className="mb-2">
                     <i className="fas fa-info-circle me-2"></i>
                     感謝您對本學期活動的參與！ / Thank you for your participation this semester!
                   </p>
-                  <button 
-                    className="btn btn-primary"
-                    onClick={() => navigate('/')}
-                  >
-                    <i className="fas fa-home me-2"></i>
-                    返回首頁 / Return to Home
-                  </button>
+                  <SurveyExitActions showChoice />
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <SurveyExitActions showChoice />
                 </div>
               )}
             </Alert>
@@ -207,6 +215,7 @@ export default function SurveyPage() {
             <Alert variant="warning">
               <Alert.Heading>無法載入問卷 / Unable to Load Survey</Alert.Heading>
               <p>請檢查問卷ID或重新整理頁面 / Please check the survey ID or refresh the page</p>
+              <SurveyExitActions showChoice />
             </Alert>
           </div>
         </div>
@@ -241,7 +250,7 @@ export default function SurveyPage() {
               <div className="text-center">
                 <DynamicSurveyModal
                   show={true}
-                  onClose={() => navigate('/')}
+                  onClose={leaveSurvey}
                   onSurveyComplete={handleSurveyComplete}
                   userInfo={userInfo}
                   anonymous={anonymous}

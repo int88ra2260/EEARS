@@ -105,22 +105,6 @@ export default function ReservationUsageModal({ show, onClose, embedded = false 
             paddingRight: '0.5rem',
           }}
         >
-          <div
-            className="alert alert-info mb-3"
-            role="status"
-            style={{
-              fontSize: isSmallMobile ? '0.813rem' : isMobile ? '0.875rem' : 'clamp(0.875rem, 3vw, 1rem)',
-              padding: isSmallMobile ? '0.625rem' : '0.75rem',
-            }}
-          >
-            <strong><ContentText k="home.usageLoginTitle" /></strong>
-            <br />
-            <ContentText
-              k="home.usageLogin"
-              style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
-            />
-          </div>
-
           {campusSso ? (
             <div
               className="alert alert-info mb-3"
@@ -131,12 +115,36 @@ export default function ReservationUsageModal({ show, onClose, embedded = false 
               }}
             >
               <strong>{t('home.usageCampusTitle')}</strong>
-              <br />
-              <span style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}>
-                {t('home.usageCampus')}
-              </span>
+              <ul
+                className="mb-0"
+                style={{
+                  marginTop: '0.45rem',
+                  paddingLeft: '1.15rem',
+                  fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)',
+                }}
+              >
+                <li>{t('home.usageCampusLogin')}</li>
+                <li className="mt-1">{t('home.usageCampusPassword')}</li>
+                <li className="mt-1">{t('home.usageCampusMail')}</li>
+              </ul>
             </div>
-          ) : null}
+          ) : (
+            <div
+              className="alert alert-info mb-3"
+              role="status"
+              style={{
+                fontSize: isSmallMobile ? '0.813rem' : isMobile ? '0.875rem' : 'clamp(0.875rem, 3vw, 1rem)',
+                padding: isSmallMobile ? '0.625rem' : '0.75rem',
+              }}
+            >
+              <strong><ContentText k="home.usageLoginTitle" /></strong>
+              <br />
+              <ContentText
+                k="home.usageLogin"
+                style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
+              />
+            </div>
+          )}
 
           <div
             className="alert alert-info mb-3"

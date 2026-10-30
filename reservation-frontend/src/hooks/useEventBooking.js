@@ -14,20 +14,18 @@ import {
   savePendingReservation,
   SURVEY_GATE_REDIRECT_DELAY_MS,
 } from '../utils/pendingReservationFlow';
-import {
-  isEnglishClubEventType,
-  isEnglishTableEventType,
-} from '../utils/eventCapacityFields';
 import { DEFAULT_EVENT_TYPE_CODE } from '../constants/eventTypeCatalog';
 
 const RATE_LIMIT_MS = 5000;
 const RATE_LIMIT_MAX = 3;
-const SURVEY_ID_MAPPING = {
-  survey_1: 'english_table_feedback_114_1',
-  survey_2: 'english_club_feedback_114_1',
-  english_table_feedback_114_1: 'english_table_feedback_114_1',
-  english_club_feedback_114_1: 'english_club_feedback_114_1',
-};
+
+function surveyIdFromGatePayload(data) {
+  const direct = String(data?.surveyId || '').trim();
+  if (direct) return direct;
+  const redirect = String(data?.redirectUrl || '');
+  const match = redirect.match(/\/survey\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
 
 export default function useEventBooking() {
   const navigate = useNavigate();
@@ -165,12 +163,12 @@ export default function useEventBooking() {
           setMsg('此活動需先完成問卷。系統即將帶您前往問卷頁，完成後會自動恢復原預約流程。');
           if (typeof onSurveyRequired === 'function') onSurveyRequired();
 
-          let finalSurveyId = data.surveyId;
-          if (!finalSurveyId) {
-            if (isEnglishTableEventType(event.eventType)) finalSurveyId = 'english_table_feedback_114_1';
-            else if (isEnglishClubEventType(event.eventType)) finalSurveyId = 'english_club_feedback_114_1';
+          const mappedSurveyId = surveyIdFromGatePayload(data);
+          if (!mappedSurveyId) {
+            setVariant('info');
+            setMsg('此活動需先完成問卷。請從「我的帳號」的本學期問卷進入填寫。');
+            return;
           }
-          const mappedSurveyId = SURVEY_ID_MAPPING[finalSurveyId] || finalSurveyId;
           const eventType = event.eventType || DEFAULT_EVENT_TYPE_CODE;
           const surveyPath = buildSurveyRedirectPath(mappedSurveyId, {
             eventId: event.id,

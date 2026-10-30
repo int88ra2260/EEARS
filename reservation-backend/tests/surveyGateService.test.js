@@ -119,6 +119,21 @@ describe('surveyGateService hasCompletedForGateWithSemester', () => {
     expect(done).toBe(true);
   });
 
+  it('once_per_semester 依當學期判斷完成', async () => {
+    SurveyModuleResponse.findOne.mockResolvedValue({ id: 7 });
+    const done = await hasCompletedForGateWithSemester({
+      surveyId: 5,
+      surveyKey: 'english_club_feedback_115_1',
+      rule: { fillScope: 'once_per_semester', retakePolicy: 'once_ever' },
+      studentId: 'B2',
+      semesterCode: '115-1',
+    });
+    expect(done).toBe(true);
+    expect(SurveyModuleResponse.findOne).toHaveBeenCalledWith({
+      where: { surveyId: 5, studentId: 'B2', status: 'completed', semester: '115-1' },
+    });
+  });
+
   it('產品化 once_ever 查 survey_responses semester 字串', async () => {
     SurveyModuleResponse.findOne.mockResolvedValue({ id: 99 });
     const done = await hasCompletedForGateWithSemester({

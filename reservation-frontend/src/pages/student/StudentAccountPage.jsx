@@ -10,6 +10,7 @@ import {
   fetchEnglishTestRegistrationEnabledPublic,
 } from '../../services/settingsAdminApi';
 import { saveStudentSession } from '../../utils/studentSession';
+import { fetchMySemesterSurveys } from '../../services/surveyPublicApi';
 import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
 import '../../components/student/StudentRecordShell.css';
@@ -60,6 +61,7 @@ export default function StudentAccountPage() {
   const [emailNotice, setEmailNotice] = useState('');
   const [emailSubmitting, setEmailSubmitting] = useState(false);
   const [englishTestMode, setEnglishTestMode] = useState('hidden');
+  const [surveyDetail, setSurveyDetail] = useState('查詢本學期是否已填');
 
   useEffect(() => {
     let cancelled = false;
@@ -81,8 +83,38 @@ export default function StudentAccountPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchMySemesterSurveys()
+      .then((data) => {
+        if (cancelled) return;
+        const surveys = data.surveys || [];
+        if (!surveys.length) {
+          setSurveyDetail('目前沒有開放中的問卷');
+          return;
+        }
+        const pending = surveys.filter((item) => item.isRequired && !item.filled);
+        if (!pending.length) {
+          setSurveyDetail('本學期都已填');
+          return;
+        }
+        setSurveyDetail(`本學期未填：${pending.map((item) => item.surveyName).join('、')}`);
+      })
+      .catch(() => {
+        if (!cancelled) setSurveyDetail('查看本學期問卷與填寫狀態');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const shortcuts = [
     BOOKING_SHORTCUT,
+    {
+      to: '/survey/choice',
+      title: '本學期問卷',
+      detail: surveyDetail,
+    },
     ...BASE_SHORTCUTS.slice(0, 4),
     ...(englishTestMode === 'hidden' ? [] : [ENGLISH_TEST_SHORTCUTS[englishTestMode]]),
     BASE_SHORTCUTS[4],

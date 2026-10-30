@@ -14,6 +14,7 @@ const {
 } = require('../models');
 const { getCurrentSemester } = require('../utils/semester');
 const eventTypeService = require('./eventTypeService');
+const { normalizeRetakePolicy } = require('./surveyRetakePolicy');
 
 /** 換學期後仍可當後援；正式應以啟用規則綁定問卷為準 */
 const EVENT_TYPE_TO_SURVEY_KEY = {
@@ -146,7 +147,7 @@ async function hasCompletedForGateWithSemester({
     return false;
   }
 
-  const policy = rule.retakePolicy || 'once_ever';
+  const policy = normalizeRetakePolicy(rule);
 
   if (policy === 'unlimited') {
     return false;

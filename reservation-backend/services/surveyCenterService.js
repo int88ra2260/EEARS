@@ -122,7 +122,20 @@ async function findRuleConflicts(payload, excludeId = null) {
   return hit;
 }
 
+function alignSurveyRulePayload(payload) {
+  const { normalizeRetakePolicy } = require('./surveyRetakePolicy');
+  const next = { ...payload };
+  if (next.fillScope || next.retakePolicy) {
+    next.retakePolicy = normalizeRetakePolicy(next);
+  } else {
+    next.retakePolicy = 'once_per_semester';
+    next.fillScope = 'once_per_semester';
+  }
+  return next;
+}
+
 async function createSurveyRule(payload) {
+  payload = alignSurveyRulePayload(payload);
   const conflicts = await findRuleConflicts(payload, null);
   if (payload.isEnabled !== false && conflicts.length) {
     const samePriority = conflicts.some((c) => Number(c.priority) === Number(payload.priority || 100));
@@ -142,6 +155,8 @@ async function createSurveyRule(payload) {
 async function updateSurveyRule(id, payload) {
   const row = await SurveyRule.findByPk(id);
   if (!row) return null;
+  const aligned = alignSurveyRulePayload({ ...row.toJSON(), ...payload });
+  payload = { ...payload, retakePolicy: aligned.retakePolicy };
   const merged = { ...row.toJSON(), ...payload };
   const conflicts = await findRuleConflicts(merged, id);
   if (merged.isEnabled !== false && conflicts.length) {

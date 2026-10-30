@@ -213,8 +213,8 @@ export default function DynamicSurveyModal({ show, onClose, onSurveyComplete, us
       if (ok) {
         setSuccess('問卷已成功送出，謝謝您的寶貴意見。 / Survey submitted successfully.');
         setTimeout(() => {
-          onClose();
           if (onSurveyComplete) onSurveyComplete();
+          else onClose();
         }, 1500);
       } else if (status === 400 && data.error && data.error.includes('已填過')) {
         setError('您本學期已填寫過此問卷，無需重複填寫。 / You have already filled out this survey this semester.');

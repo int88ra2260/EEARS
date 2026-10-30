@@ -117,8 +117,16 @@ export const TRIGGER_MODE_LABELS = {
 
 export const FILL_SCOPE_LABELS = {
   once_per_semester: '每學期填一次',
-  once_per_activity: '每類活動填一次',
+  once_per_activity: '每類活動每學期填一次',
   once_per_event: '每場活動填一次',
+};
+
+export const RETAKE_POLICY_LABELS = {
+  once_per_semester: '每學期填一次',
+  once_ever: '每學期填一次',
+  once_per_activity: '每類活動每學期填一次',
+  once_per_event: '每場活動填一次',
+  unlimited: '可重複填寫',
 };
 
 export const MAPPING_STATUS_LABELS = {
@@ -246,6 +254,10 @@ export function labelActivityType(code) {
 
 export function labelTriggerMode(code) {
   return TRIGGER_MODE_LABELS[code] || code || '—';
+}
+
+export function labelRetakePolicy(code) {
+  return RETAKE_POLICY_LABELS[code] || labelFillScope(code);
 }
 
 export function labelFillScope(code) {

@@ -28,8 +28,8 @@ function SurveySettings() {
   return (
     <>
       <Alert variant="warning" className="mb-3">
-        <strong>Deprecated（唯讀）</strong>：舊版問卷設定頁已降級，不再作為正式主操作入口。<br />
-        請改到 <Link to="/admin/survey-rules">問卷規則</Link> 進行建立/編輯/刪除與生效檢查。
+        <strong>唯讀</strong>：舊版問卷設定已停止寫入，不能再改啟用狀態或開放時間。<br />
+        請改到 <Link to="/admin/survey-rules">問卷規則</Link> 調整。寫入此頁會覆蓋正式規則的開放時間。
       </Alert>
       {loading ? <div className="text-muted">載入中...</div> : null}
       <div className="row g-3">

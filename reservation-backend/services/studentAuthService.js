@@ -265,6 +265,8 @@ async function upsertCampusAccount(profile) {
     ssoProvider: CAMPUS_SSO_PROVIDER,
     ssoSubject: studentId,
     lastLoginAt: now,
+    passwordHash: null,
+    passwordChangedAt: null,
   };
   const account = await StudentAccount.findOne({ where: { studentId } });
   if (account) {

@@ -21,7 +21,7 @@ const SurveyRule = sequelize.define(
     startDate: { type: DataTypes.DATE, allowNull: true },
     endDate: { type: DataTypes.DATE, allowNull: true },
     gatingMode: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'reservation' },
-    retakePolicy: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'once_ever' },
+    retakePolicy: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'once_per_semester' },
     retakeScope: { type: DataTypes.STRING(40), allowNull: true },
     semesterKey: { type: DataTypes.STRING(64), allowNull: true },
     targetEventType: { type: DataTypes.STRING(120), allowNull: true },

@@ -17,6 +17,7 @@ const {
 const { validateSurveyData, processSurveyData } = require('../utils/surveyFormValidation');
 const { getCurrentSemester, isValidSemester } = require('../utils/semester');
 const { ruleTimeAllows, legacyModelForSurveyKey } = require('./surveyGateService');
+const { normalizeRetakePolicy } = require('./surveyRetakePolicy');
 const { mergeWhereWithScope } = require('./accessControl/surveyScopeGuard');
 
 const surveysJsonPath = path.join(__dirname, '..', 'surveys.json');
@@ -70,9 +71,17 @@ function normalizeSchema(schemaJson) {
   return schemaJson;
 }
 
+function studentSurveyCopy(surveyKey) {
+  const key = String(surveyKey || '');
+  if (STUDENT_SURVEY_COPY[key]) return STUDENT_SURVEY_COPY[key];
+  if (key.startsWith('english_table_feedback')) return STUDENT_SURVEY_COPY.english_table_feedback_114_1;
+  if (key.startsWith('english_club_feedback')) return STUDENT_SURVEY_COPY.english_club_feedback_114_1;
+  return null;
+}
+
 function normalizeStudentFacingSurveyConfig(surveyKey, rawConfig) {
   if (!rawConfig || typeof rawConfig !== 'object') return rawConfig;
-  const copy = STUDENT_SURVEY_COPY[surveyKey];
+  const copy = studentSurveyCopy(surveyKey);
   if (!copy) return rawConfig;
   return {
     ...rawConfig,
@@ -245,7 +254,7 @@ async function legacyDuplicateExists(surveyKey, studentId) {
 async function moduleDuplicateExists(surveyId, surveyKey, studentId, rule, body) {
   const sid = String(studentId || '').trim();
   if (!sid) return false;
-  const policy = rule?.retakePolicy || 'once_ever';
+  const policy = normalizeRetakePolicy(rule);
   if (policy === 'unlimited') return false;
 
   if (policy === 'once_per_event') {
@@ -342,17 +351,23 @@ async function submitPublicResponse(surveyKey, body, req) {
   if (body.studentId !== undefined && body.studentId !== null) {
     const trimmed = String(body.studentId).trim();
     if (trimmed) {
-      const legDup = await legacyDuplicateExists(surveyKey, trimmed);
-      if (legDup) {
-        const err = new Error('您已填過此問卷');
-        err.statusCode = 400;
-        err.errorCode = 'SURVEY_ALREADY_FILLED';
-        throw err;
+      const policy = normalizeRetakePolicy(rule);
+      const alreadyFilledMessage = policy === 'once_per_semester'
+        ? '您本學期已填過此問卷'
+        : '您已填過此問卷';
+      if (policy === 'once_per_semester') {
+        const legDup = await legacyDuplicateExists(surveyKey, trimmed);
+        if (legDup) {
+          const err = new Error(alreadyFilledMessage);
+          err.statusCode = 400;
+          err.errorCode = 'SURVEY_ALREADY_FILLED';
+          throw err;
+        }
       }
-      if (pkg.surveyDbId && rule) {
+      if (pkg.surveyDbId && rule && policy !== 'unlimited') {
         const modDup = await moduleDuplicateExists(pkg.surveyDbId, surveyKey, trimmed, rule, body);
         if (modDup) {
-          const err = new Error('您已填過此問卷');
+          const err = new Error(alreadyFilledMessage);
           err.statusCode = 400;
           err.errorCode = 'SURVEY_ALREADY_FILLED';
           throw err;
@@ -783,7 +798,7 @@ async function putRules(surveyId, payload, actorId) {
       startDate: payload.startDate || null,
       endDate: payload.endDate || null,
       gatingMode: payload.gatingMode || 'reservation',
-      retakePolicy: payload.retakePolicy || 'once_ever',
+      retakePolicy: payload.retakePolicy || 'once_per_semester',
       retakeScope: payload.retakeScope || null,
       semesterKey: payload.semesterKey || null,
       targetEventType: payload.targetEventType || null,

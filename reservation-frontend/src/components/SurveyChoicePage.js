@@ -3,8 +3,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Spinner, Alert } from 'react-bootstrap';
 import { useLanguage } from '../context/LanguageContext';
-import { fetchEnabledSurveys } from '../services/surveyPublicApi';
+import { fetchEnabledSurveys, fetchMySemesterSurveys } from '../services/surveyPublicApi';
+import { loadStudentSession } from '../utils/studentSession';
 import EmptyState from './ui/EmptyState';
+import SurveyExitActions from './survey/SurveyExitActions';
 
 function getEventTypeLabel(types, t) {
   const set = new Set((types || []).map((x) => String(x || '').trim().toLowerCase()));
@@ -25,8 +27,14 @@ export default function SurveyChoicePage() {
   useEffect(() => {
     const fetchEnabled = async () => {
       try {
-        const data = await fetchEnabledSurveys();
-        setList(data);
+        const session = loadStudentSession();
+        if (session?.student) {
+          const mine = await fetchMySemesterSurveys();
+          setList(mine.surveys || []);
+        } else {
+          const data = await fetchEnabledSurveys();
+          setList(data);
+        }
       } catch (e) {
         setError(e.message || '載入失敗');
       } finally {
@@ -44,14 +52,14 @@ export default function SurveyChoicePage() {
         description={t('page.surveyEmptyDesc')}
         actions={
           <>
-            <Link to="/events" className="btn btn-primary btn-sm">
-              {t('page.surveyEmptyCtaEvents')}
-            </Link>
+            <SurveyExitActions
+              showEvents
+              eventsLabel={t('page.surveyEmptyCtaEvents')}
+              showHome
+              homeLabel={t('nav.home')}
+            />
             <Link to="/activities" className="btn btn-outline-primary btn-sm">
               {t('page.surveyEmptyCtaActivities')}
-            </Link>
-            <Link to="/" className="btn btn-outline-secondary btn-sm">
-              {t('nav.home')}
             </Link>
           </>
         }
@@ -72,12 +80,12 @@ export default function SurveyChoicePage() {
     return (
       <div className="container mt-5">
         <Alert variant="danger">{error}</Alert>
-        <Link to="/events" className="btn btn-primary me-2">
-          {t('page.surveyEmptyCtaEvents')}
-        </Link>
-        <Link to="/" className="btn btn-outline-secondary">
-          {t('nav.home')}
-        </Link>
+        <SurveyExitActions
+          showEvents
+          eventsLabel={t('page.surveyEmptyCtaEvents')}
+          showHome
+          homeLabel={t('nav.home')}
+        />
       </div>
     );
   }
@@ -96,14 +104,23 @@ export default function SurveyChoicePage() {
           </h4>
         </Card.Header>
         <Card.Body>
-          <p className="text-muted mb-4">
+          <p className="text-muted mb-3">
             請選擇要填寫的問卷。活動相關問卷（English Table／English Club）於預約前可能為必填；獨立問卷可直接填寫。
           </p>
+          <div className="mb-4">
+            <SurveyExitActions
+              showEvents
+              eventsLabel={t('page.surveyEmptyCtaEvents')}
+              showHome
+              homeLabel={t('nav.home')}
+            />
+          </div>
           <div className="d-flex flex-column flex-md-row gap-3 flex-wrap">
             {list.map((item) => (
               <Link
                 key={item.surveyId}
                 to={`/survey/${item.surveyId}`}
+                state={{ surveyReturnTo: '/survey/choice' }}
                 className="text-decoration-none"
                 style={{ flex: '1 1 200px' }}
               >
@@ -113,6 +130,13 @@ export default function SurveyChoicePage() {
                       <i className="fas fa-edit me-2" />
                       {item.surveyName}
                     </h5>
+                    {item.statusLabel ? (
+                      <div className="mb-1">
+                        <span className={`badge ${item.filled ? 'text-bg-success' : 'text-bg-warning'}`}>
+                          {item.statusLabel}
+                        </span>
+                      </div>
+                    ) : null}
                     {getEventTypeLabel(item.relatedEventTypes, t) ? (
                       <small className="text-muted">{getEventTypeLabel(item.relatedEventTypes, t)}</small>
                     ) : (
@@ -124,14 +148,6 @@ export default function SurveyChoicePage() {
                 </Card>
               </Link>
             ))}
-          </div>
-          <div className="mt-4 d-flex flex-wrap gap-2">
-            <Link to="/events" className="btn btn-outline-primary">
-              {t('page.surveyEmptyCtaEvents')}
-            </Link>
-            <Link to="/" className="btn btn-outline-secondary">
-              {t('nav.home')}
-            </Link>
           </div>
         </Card.Body>
       </Card>

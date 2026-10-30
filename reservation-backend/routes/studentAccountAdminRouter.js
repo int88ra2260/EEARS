@@ -1,6 +1,7 @@
 const express = require('express');
 const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
 const emailLogService = require('../services/emailLogService');
+const nsysuSsoClient = require('../services/nsysuSsoClient');
 const auditLogService = require('../services/auditLogService');
 const logger = require('../utils/logger');
 const {
@@ -54,6 +55,14 @@ router.get('/lookup', ...reviewAuth, async (req, res) => {
 });
 
 router.post('/:id/password-reset', ...reviewAuth, async (req, res) => {
+  if (nsysuSsoClient.isEnabled()) {
+    return res.status(400).json({
+      success: false,
+      code: 'CAMPUS_PASSWORD_MANAGED',
+      message: '登入密碼由單一入口管理，請學生到單一入口重設。',
+      redirectUrl: 'https://sso.nsysu.edu.tw',
+    });
+  }
   let prepared;
   try {
     prepared = await prepareResetByAccountId(req.params.id);

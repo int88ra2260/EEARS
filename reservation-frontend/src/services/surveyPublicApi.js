@@ -15,6 +15,13 @@ export async function fetchEnabledSurveys() {
   return Array.isArray(data) ? data : [];
 }
 
+export async function fetchMySemesterSurveys() {
+  const res = await fetchClient('/api/surveys/semester-mine', withStudentAuth());
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.message || data.error || '無法載入本學期問卷');
+  return data && Array.isArray(data.surveys) ? data : { currentSemester: '', surveys: [] };
+}
+
 export async function fetchPublicSurvey(surveyId) {
   const res = await fetchClient(`/api/surveys/public/${surveyId}`);
   const data = await parseJson(res);

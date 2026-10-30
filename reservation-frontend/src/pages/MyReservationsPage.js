@@ -51,7 +51,7 @@ export default function MyReservationsPage() {
 
   return (
     <div className="my-reservations-page my-reservations-page--lookup public-reservation-page">
-      <StudentRecordShell lead={t('page.myReservationsLead')}>
+      <StudentRecordShell lead={t('page.myReservationsLead')} titleKey="nav.myReservations">
 
       <ReservationResultList
         signedIn

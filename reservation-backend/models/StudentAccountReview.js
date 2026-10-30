@@ -21,7 +21,7 @@ const StudentAccountReview = sequelize.define('StudentAccountReview', {
   },
   passwordHash: {
     type: DataTypes.STRING(255),
-    allowNull: false,
+    allowNull: true,
   },
   status: {
     type: DataTypes.STRING(20),

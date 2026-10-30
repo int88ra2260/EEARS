@@ -1,7 +1,9 @@
 'use strict';
 
 const { Survey, SurveyRule } = require('../models');
-const { EVENT_TYPE_TO_SURVEY_KEY, ruleTimeAllows } = require('./surveyGateService');
+const { EVENT_TYPE_TO_SURVEY_KEY, hasCompletedForGate, ruleTimeAllows } = require('./surveyGateService');
+const { normalizeRetakePolicy, semesterStatusLabel } = require('./surveyRetakePolicy');
+const { getCurrentSemester } = require('../utils/semester');
 
 const ACTIVITY_TO_SURVEY_KEY = EVENT_TYPE_TO_SURVEY_KEY;
 
@@ -23,6 +25,26 @@ function activityTypeToEventTypes(activityType) {
 function isStandaloneActivityType(activityType) {
   const t = String(activityType || '').trim().toUpperCase();
   return !t || t === 'PUBLIC' || t === 'STANDALONE' || t === 'HOME';
+}
+
+function relatedTypesFromSurveyKey(surveyKey) {
+  const key = String(surveyKey || '');
+  if (key.startsWith('english_table_feedback')) return activityTypeToEventTypes('english_table');
+  if (key.startsWith('english_club_feedback')) return activityTypeToEventTypes('english_club');
+  const fromKey = Object.entries(ACTIVITY_TO_SURVEY_KEY).find(([, value]) => value === key);
+  return fromKey ? [fromKey[0]] : [];
+}
+
+/** 學生端名稱跟啟用中的活動走，不把問卷代碼裡的學期寫進標題。 */
+function studentFacingSurveyName(survey, activityType) {
+  const activity = String(activityType || '');
+  if (activity === 'ET' || activity === 'english_table' || activity === 'English Table') return 'English Table 問卷';
+  if (activity === 'EC' || activity === 'english_club' || activity === 'English Club') return 'English Club 問卷';
+  const key = String(survey?.surveyKey || '');
+  if (key.startsWith('english_table_feedback')) return 'English Table 問卷';
+  if (key.startsWith('english_club_feedback')) return 'English Club 問卷';
+  const raw = String(survey?.title || survey?.name || survey?.surveyKey || '').trim();
+  return raw.replace(/\s*[（(]\s*\d{3}-[12][^）)]*[）)]/g, '').trim() || raw;
 }
 
 /**
@@ -53,8 +75,7 @@ async function listEnabledActivitySurveys(now = new Date()) {
       channel = 'standalone';
       relatedEventTypes = [];
     } else if (!relatedEventTypes.length) {
-      const fromKey = Object.entries(ACTIVITY_TO_SURVEY_KEY).find(([, key]) => key === survey.surveyKey);
-      if (fromKey) relatedEventTypes = [fromKey[0]];
+      relatedEventTypes = relatedTypesFromSurveyKey(survey.surveyKey);
     }
 
     // 活動問卷：仍要求能對到 event type；獨立問卷可列出
@@ -65,7 +86,7 @@ async function listEnabledActivitySurveys(now = new Date()) {
 
     out.push({
       surveyId: survey.surveyKey,
-      surveyName: survey.title || survey.name || survey.surveyKey,
+      surveyName: studentFacingSurveyName(survey, activityType),
       relatedEventTypes,
       channel,
       isRequired: !!rule.isRequired,
@@ -81,4 +102,46 @@ async function listEnabledActivitySurveys(now = new Date()) {
   });
 }
 
-module.exports = { listEnabledActivitySurveys };
+/**
+ * 登入學生的本學期問卷狀態。身分只用 session 學號，不接受呼叫端自填學號。
+ */
+async function listSemesterSurveyStatus(studentId) {
+  const sid = String(studentId || '').trim();
+  const items = await listEnabledActivitySurveys();
+  const keys = items.map((item) => item.surveyId).filter(Boolean);
+  const surveys = keys.length
+    ? await Survey.findAll({
+      where: { surveyKey: keys },
+      include: [{ model: SurveyRule, required: false }],
+    })
+    : [];
+  const byKey = new Map(surveys.map((row) => [row.surveyKey, row]));
+  const out = [];
+  for (const item of items) {
+    const survey = byKey.get(item.surveyId);
+    const rule = survey?.SurveyRule || null;
+    const policy = normalizeRetakePolicy(rule);
+    let filled = false;
+    if (sid && survey && rule && !rule.isAnonymous && policy !== 'unlimited') {
+      filled = await hasCompletedForGate({
+        surveyId: survey.id,
+        surveyKey: survey.surveyKey,
+        rule,
+        studentId: sid,
+      });
+    }
+    out.push({
+      ...item,
+      filled,
+      statusLabel: rule?.isAnonymous ? '可填寫' : semesterStatusLabel(filled, policy),
+      retakePolicy: policy,
+    });
+  }
+  return { currentSemester: getCurrentSemester(), surveys: out };
+}
+
+module.exports = {
+  listEnabledActivitySurveys,
+  listSemesterSurveyStatus,
+  studentFacingSurveyName,
+};

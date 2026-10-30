@@ -404,8 +404,12 @@ describe('loginWithCampusSso', () => {
     expect(mockReplacePending).toHaveBeenCalled();
   });
 
-  it('keeps the mailbox already saved on the account', async () => {
-    const row = accountRow({ email: 'personal@example.com' });
+  it('keeps the mailbox already saved on the account and drops the local password', async () => {
+    const row = accountRow({
+      email: 'personal@example.com',
+      passwordHash: 'old-hash',
+      passwordChangedAt: new Date('2026-01-01T00:00:00Z'),
+    });
     mockFindOne.mockResolvedValue(row);
     const sso = ssoDouble();
 
@@ -415,9 +419,13 @@ describe('loginWithCampusSso', () => {
     }, sso);
 
     expect(account.email).toBe('personal@example.com');
+    expect(account.passwordHash).toBeNull();
+    expect(account.passwordChangedAt).toBeNull();
     expect(row.update).toHaveBeenCalledWith(expect.objectContaining({
       name: '王小明',
       ssoProvider: 'nsysu-sso',
+      passwordHash: null,
+      passwordChangedAt: null,
     }));
     expect(row.update.mock.calls[0][0]).not.toHaveProperty('campusProfile');
     expect(mockCreate).not.toHaveBeenCalled();

@@ -10,7 +10,7 @@ export default function EnglishTableSurveyModal({
   onClose,
   onSurveyComplete,
   userInfo,
-  surveyKey = 'english_table_feedback_114_1',
+  surveyKey = '',
 }) {
   const [surveyConfig, setSurveyConfig] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,10 @@ export default function EnglishTableSurveyModal({
 
   useEffect(() => {
     const loadSurveyConfig = async () => {
-      if (!show) return;
+      if (!show || !surveyKey) {
+        setLoading(false);
+        return;
+      }
       
       try {
         setLoading(true);
