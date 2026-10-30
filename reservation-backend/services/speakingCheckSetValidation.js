@@ -58,6 +58,54 @@ function normalizeSetTitle(value) {
   return cleanLine(value, 80) || '未命名題組';
 }
 
+const RATING_FIELDS = [
+  ['fluency', '流暢度', true],
+  ['pronunciationIntelligibility', '可懂度', true],
+  ['taskAchievement', '完成度', true],
+  ['grammar', '文法', false],
+  ['vocabulary', '用字', false],
+];
+
+function normalizeRatingValue(value, label, required) {
+  if (value == null || value === '') {
+    if (required) throw fail(400, 'RATING_REQUIRED', `請評${label}`);
+    return null;
+  }
+  const score = Number(value);
+  if (!Number.isInteger(score) || score < 1 || score > 5) {
+    throw fail(400, 'INVALID_RATING_VALUE', `${label}請選 1 到 5`);
+  }
+  return score;
+}
+
+function normalizeSpeakingCheckRating(body = {}) {
+  const rating = {};
+  RATING_FIELDS.forEach(([key, label, required]) => {
+    rating[key] = normalizeRatingValue(body[key], label, required);
+  });
+  rating.comments = cleanLine(body.comments, 2000) || null;
+  rating.rubricVersion = 'speaking-check-v1';
+  return rating;
+}
+
+function normalizeClientFeatures(value) {
+  let source = value;
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      source = JSON.parse(value);
+    } catch {
+      source = {};
+    }
+  }
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+  const features = {};
+  ['pauseCount', 'longPauseCount', 'totalPauseMs', 'averagePauseDurationMs'].forEach((key) => {
+    const number = Number(source[key]);
+    if (Number.isFinite(number) && number >= 0 && number < 1000000) features[key] = Math.round(number);
+  });
+  return features;
+}
+
 module.exports = {
   MIN_ITEMS,
   MAX_ITEMS,
@@ -67,4 +115,6 @@ module.exports = {
   normalizeJoinCode,
   normalizeDisplayName,
   normalizeSetTitle,
+  normalizeSpeakingCheckRating,
+  normalizeClientFeatures,
 };

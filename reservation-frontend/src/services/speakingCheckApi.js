@@ -95,6 +95,25 @@ export async function fetchSpeakingHostResults(setId) {
   return parseEnvelope(res, '無法載入結果');
 }
 
+export async function fetchSpeakingHostAudio(responseId) {
+  const res = await fetchClient(`/api/speaking-host/responses/${responseId}/audio`, { headers: hostHeaders() });
+  if (!res.ok) {
+    const err = new Error('錄音無法播放');
+    err.status = res.status;
+    throw err;
+  }
+  return res.blob();
+}
+
+export async function saveSpeakingHostRating(responseId, payload) {
+  const res = await fetchClient(`/api/speaking-host/responses/${responseId}/rating`, {
+    method: 'PUT',
+    headers: { ...hostHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseEnvelope(res, '無法儲存評分');
+}
+
 export async function joinSpeakingCheck(payload) {
   const res = await fetchClient('/api/speaking-check/join', {
     method: 'POST',
@@ -109,11 +128,20 @@ export async function fetchSpeakingCheckSession(participantUid) {
   return parseEnvelope(res, '無法恢復作答');
 }
 
-export async function submitSpeakingCheckResponse(participantUid, payload) {
+export async function submitSpeakingCheckResponse(participantUid, payload, audioBlob) {
+  const body = new FormData();
+  body.append('itemId', String(payload.itemId));
+  body.append('transcript', payload.transcript || '');
+  body.append('durationMs', payload.durationMs == null ? '' : String(payload.durationMs));
+  body.append('clientFeatures', JSON.stringify(payload.clientFeatures || {}));
+  if (audioBlob && audioBlob.size > 0) {
+    const type = audioBlob.type || 'audio/webm';
+    const extension = type.includes('mp4') || type.includes('m4a') ? 'm4a' : 'webm';
+    body.append('audio', audioBlob, `response.${extension}`);
+  }
   const res = await fetchClient(`/api/speaking-check/sessions/${encodeURIComponent(participantUid)}/responses`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body,
   });
   return parseEnvelope(res, '送出失敗，請再試一次');
 }

@@ -1,4 +1,8 @@
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
+const multer = require('multer');
+const { createMulterUploadErrorHandler } = require('../middlewares/multerUploadError');
 const {
   readHostToken,
   loginHost,
@@ -12,7 +16,41 @@ const {
   getSession,
   submitResponse,
   getResults,
+  getResponseAudio,
+  rateResponse,
 } = require('../services/speakingCheckSetService');
+
+const uploadDir = path.join(__dirname, '..', 'uploads', 'speaking-check');
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const audioUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase();
+      const safeExt = ext === '.mp4' || ext === '.m4a' || ext === '.webm' || ext === '.wav' || ext === '.ogg' ? ext : '.webm';
+      cb(null, `${Date.now()}-${Math.random().toString(16).slice(2)}${safeExt}`);
+    },
+  }),
+  limits: { fileSize: 12 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    const type = String(file.mimetype || '').toLowerCase();
+    if (type.startsWith('audio/') || type === 'video/webm') return cb(null, true);
+    const error = new Error('只允許上傳音訊檔');
+    return cb(error);
+  },
+});
+
+function speakingAudioUploadError(error, req, res, next) {
+  if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      success: false,
+      code: 'UPLOAD_FILE_TOO_LARGE',
+      message: '錄音檔太大，請再錄一次短一點的版本',
+    });
+  }
+  return createMulterUploadErrorHandler({ logLabel: 'Speaking check upload failed' })(error, req, res, next);
+}
 
 const router = express.Router();
 
@@ -95,6 +133,27 @@ router.post('/speaking-host/sets/:setId/close', async (req, res, next) => {
   }
 });
 
+router.get('/speaking-host/responses/:responseId/audio', async (req, res, next) => {
+  try {
+    const file = await getResponseAudio(hostIdFromRequest(req), req.params.responseId);
+    res.setHeader('Content-Type', file.mime);
+    res.setHeader('Content-Length', file.size);
+    res.setHeader('Cache-Control', 'private, no-store');
+    return fs.createReadStream(file.path).pipe(res);
+  } catch (error) {
+    return sendServiceError(res, next, error);
+  }
+});
+
+router.put('/speaking-host/responses/:responseId/rating', async (req, res, next) => {
+  try {
+    const data = await rateResponse(hostIdFromRequest(req), req.params.responseId, req.body || {});
+    return res.json({ success: true, data });
+  } catch (error) {
+    return sendServiceError(res, next, error);
+  }
+});
+
 router.get('/speaking-host/sets/:setId/results', async (req, res, next) => {
   try {
     const data = await getResults(hostIdFromRequest(req), req.params.setId);
@@ -122,13 +181,18 @@ router.get('/speaking-check/sessions/:participantUid', async (req, res, next) =>
   }
 });
 
-router.post('/speaking-check/sessions/:participantUid/responses', async (req, res, next) => {
-  try {
-    const data = await submitResponse(req.params.participantUid, req.body || {});
-    return res.json({ success: true, data });
-  } catch (error) {
-    return sendServiceError(res, next, error);
-  }
-});
+router.post(
+  '/speaking-check/sessions/:participantUid/responses',
+  audioUpload.single('audio'),
+  speakingAudioUploadError,
+  async (req, res, next) => {
+    try {
+      const data = await submitResponse(req.params.participantUid, req.body || {}, req.file || null);
+      return res.json({ success: true, data });
+    } catch (error) {
+      return sendServiceError(res, next, error);
+    }
+  },
+);
 
 module.exports = router;

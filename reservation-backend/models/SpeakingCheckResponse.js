@@ -13,6 +13,9 @@ const SpeakingCheckResponse = sequelize.define('SpeakingCheckResponse', {
   completionPercent: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true, field: 'completion_percent' },
   pronunciationPercent: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true, field: 'pronunciation_percent' },
   wordResults: { type: DataTypes.JSON, allowNull: true, field: 'word_results' },
+  clientFeatures: { type: DataTypes.JSON, allowNull: true, field: 'client_features' },
+  audioPath: { type: DataTypes.STRING(255), allowNull: true, field: 'audio_path' },
+  audioMime: { type: DataTypes.STRING(80), allowNull: true, field: 'audio_mime' },
   submittedAt: { type: DataTypes.DATE, allowNull: false, field: 'submitted_at' },
 }, {
   tableName: 'speaking_check_responses',

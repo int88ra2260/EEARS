@@ -10,8 +10,10 @@ import {
   fetchSpeakingHostSets,
   publishSpeakingHostSet,
   readSpeakingHostToken,
+  saveSpeakingHostRating,
   updateSpeakingHostSet,
 } from '../services/speakingCheckApi';
+import SpeakingHostResponseReview from './SpeakingHostResponseReview';
 import './SpeakingHostPage.css';
 
 const STATUS_LABEL = {
@@ -31,20 +33,6 @@ function formatCode(code) {
   const digits = String(code || '');
   if (digits.length !== 6) return digits;
   return `${digits.slice(0, 3)} ${digits.slice(3)}`;
-}
-
-function formatPercent(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? `${n}%` : '—';
-}
-
-function ScoreLine({ label, value }) {
-  return (
-    <span>
-      <small>{label}</small>
-      {formatPercent(value)}
-    </span>
-  );
 }
 
 export default function SpeakingHostPage() {
@@ -189,6 +177,29 @@ export default function SpeakingHostPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveRating = async (responseId, draft) => {
+    const saved = await saveSpeakingHostRating(responseId, draft);
+    setResults((current) => {
+      if (!current) return current;
+      const participants = current.participants.map((participant) => ({
+        ...participant,
+        responses: participant.responses.map((response) => (
+          response && response.id === responseId ? { ...response, rating: saved } : response
+        )),
+      }));
+      const ratedCount = participants.reduce(
+        (sum, participant) => sum + participant.responses.filter((response) => response?.rating).length,
+        0,
+      );
+      return {
+        ...current,
+        participants,
+        summary: { ...current.summary, ratedCount },
+      };
+    });
+    return saved;
   };
 
   const copyCode = async (code) => {
@@ -336,16 +347,18 @@ export default function SpeakingHostPage() {
         ) : null}
 
         {mode === 'results' && results ? (
-          <section className="speaking-host-panel" aria-label="題組結果">
+          <section className="speaking-host-panel speaking-host-panel--review" aria-label="題組結果">
             <button className="btn btn-link speaking-host-back" type="button" onClick={() => setMode('list')}>回到題組列表</button>
             <div className="speaking-host-results-head">
               <div>
                 <h2>{results.set.title}</h2>
                 <p>{results.set.joinCode ? `代碼 ${formatCode(results.set.joinCode)}` : '尚未公布'} · {STATUS_LABEL[results.set.status]}</p>
+                <p>百分比是自動回饋。錄音可以重聽，你的 1 到 5 分會留下來，之後用來對照自動分數。</p>
               </div>
               <div className="speaking-host-stats">
                 <span><strong>{results.summary.participantCount}</strong>人加入</span>
                 <span><strong>{results.summary.completedCount}</strong>人完成全部</span>
+                <span><strong>{results.summary.ratedCount || 0}</strong>題已評分</span>
               </div>
             </div>
             {results.participants.length === 0 ? (
@@ -368,11 +381,11 @@ export default function SpeakingHostPage() {
                           <li key={item.id}>
                             <strong>第 {item.position} 題</strong>
                             {response ? (
-                              <div className="speaking-host-scores">
-                                <ScoreLine label="流暢度" value={response.fluencyPercent} />
-                                <ScoreLine label="完成度" value={response.completionPercent} />
-                                <ScoreLine label="可懂度" value={response.pronunciationPercent} />
-                              </div>
+                              <SpeakingHostResponseReview
+                                response={response}
+                                targetText={item.targetText}
+                                onSave={saveRating}
+                              />
                             ) : <p>尚未作答</p>}
                           </li>
                         );

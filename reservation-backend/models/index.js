@@ -105,6 +105,7 @@ const SpeakingCheckSet = require('./SpeakingCheckSet');
 const SpeakingCheckItem = require('./SpeakingCheckItem');
 const SpeakingCheckParticipant = require('./SpeakingCheckParticipant');
 const SpeakingCheckResponse = require('./SpeakingCheckResponse');
+const SpeakingCheckRating = require('./SpeakingCheckRating');
 const LjStudentEvent = require('./LjStudentEvent');
 const LjAnalyticStudent = require('./LjAnalyticStudent');
 const LjAnalyticExam = require('./LjAnalyticExam');
@@ -160,6 +161,9 @@ SpeakingCheckParticipant.hasMany(SpeakingCheckResponse, { foreignKey: 'participa
 SpeakingCheckResponse.belongsTo(SpeakingCheckParticipant, { foreignKey: 'participantId', as: 'participant' });
 SpeakingCheckItem.hasMany(SpeakingCheckResponse, { foreignKey: 'itemId', as: 'responses', onDelete: 'CASCADE' });
 SpeakingCheckResponse.belongsTo(SpeakingCheckItem, { foreignKey: 'itemId', as: 'item' });
+SpeakingCheckResponse.hasOne(SpeakingCheckRating, { foreignKey: 'responseId', as: 'rating', onDelete: 'CASCADE' });
+SpeakingCheckRating.belongsTo(SpeakingCheckResponse, { foreignKey: 'responseId', as: 'response' });
+SpeakingCheckRating.belongsTo(SpeakingHost, { foreignKey: 'hostId', as: 'host' });
 
 EnglishLearningPassport.hasMany(EnglishLearningSubmission, {
   foreignKey: 'passportId',
@@ -499,6 +503,7 @@ module.exports = {
   SpeakingCheckItem,
   SpeakingCheckParticipant,
   SpeakingCheckResponse,
+  SpeakingCheckRating,
   LjStudentEvent,
   LjAnalyticStudent,
   LjAnalyticExam,

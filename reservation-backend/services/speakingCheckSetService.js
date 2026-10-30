@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { secretKey } = require('../config/jwtSecret');
@@ -8,6 +10,7 @@ const {
   SpeakingCheckItem,
   SpeakingCheckParticipant,
   SpeakingCheckResponse,
+  SpeakingCheckRating,
   sequelize,
 } = require('../models');
 const { buildAutomatedAnalysis } = require('./speakingDiagnosticService');
@@ -17,7 +20,12 @@ const {
   normalizeJoinCode,
   normalizeDisplayName,
   normalizeSetTitle,
+  normalizeSpeakingCheckRating,
+  normalizeClientFeatures,
 } = require('./speakingCheckSetValidation');
+
+const AUDIO_DIR = path.join(__dirname, '..', 'uploads', 'speaking-check');
+const AUDIO_PREFIX = 'uploads/speaking-check/';
 
 const HOST_TOKEN_TYP = 'speaking-host';
 
@@ -206,6 +214,62 @@ function responseDto(row) {
   };
 }
 
+function ratingDto(row) {
+  if (!row) return null;
+  return {
+    fluency: row.fluency,
+    pronunciationIntelligibility: row.pronunciationIntelligibility,
+    grammar: row.grammar,
+    vocabulary: row.vocabulary,
+    taskAchievement: row.taskAchievement,
+    comments: row.comments || '',
+    rubricVersion: row.rubricVersion,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function hostResponseDto(row) {
+  const features = row.clientFeatures || {};
+  return {
+    ...responseDto(row),
+    id: Number(row.id),
+    durationMs: row.durationMs,
+    pauseCount: Number.isFinite(Number(features.pauseCount)) ? Number(features.pauseCount) : null,
+    longPauseCount: Number.isFinite(Number(features.longPauseCount)) ? Number(features.longPauseCount) : null,
+    totalPauseMs: Number.isFinite(Number(features.totalPauseMs)) ? Number(features.totalPauseMs) : null,
+    hasAudio: Boolean(row.audioPath),
+    rating: ratingDto(row.rating),
+  };
+}
+
+function resolveStoredAudio(stored) {
+  const normalized = String(stored || '').replace(/\\/g, '/');
+  if (!normalized.startsWith(AUDIO_PREFIX)) return null;
+  const filename = path.basename(normalized);
+  if (`${AUDIO_PREFIX}${filename}` !== normalized) return null;
+  return path.join(AUDIO_DIR, filename);
+}
+
+function removeAudioFile(stored) {
+  const absolute = resolveStoredAudio(stored);
+  if (!absolute) return;
+  fs.unlink(absolute, () => {});
+}
+
+async function loadOwnedResponse(hostId, responseId) {
+  const row = await SpeakingCheckResponse.findByPk(responseId, {
+    include: [{
+      model: SpeakingCheckParticipant,
+      as: 'participant',
+      include: [{ model: SpeakingCheckSet, as: 'set', attributes: ['id', 'hostId'] }],
+    }],
+  });
+  if (!row || Number(row.participant?.set?.hostId) !== Number(hostId)) {
+    throw fail(404, 'RESPONSE_NOT_FOUND', '找不到這次作答');
+  }
+  return row;
+}
+
 function sessionDto(participant, setRow) {
   const items = [...(setRow.items || [])].sort((a, b) => a.position - b.position);
   const responses = participant.responses || [];
@@ -267,54 +331,90 @@ async function getSession(participantUid) {
   return sessionDto(participant, setRow);
 }
 
-async function submitResponse(participantUid, body = {}) {
-  const session = await getSession(participantUid);
-  if (session.set.status !== 'published') throw fail(409, 'SET_CLOSED', '這個題組已結束，不能再送出');
-  const itemId = Number(body.itemId);
-  const item = session.items.find((entry) => entry.id === itemId);
-  if (!item) throw fail(404, 'ITEM_NOT_FOUND', '找不到這一題');
-  const participant = await SpeakingCheckParticipant.findOne({ where: { participantUid } });
-  const durationMs = Number(body.durationMs);
-  const transcript = String(body.transcript || '').trim().slice(0, 4000);
-  const analysis = buildAutomatedAnalysis({
-    task: { taskType: 'read_aloud', targetText: item.targetText, level: 'B1', prompt: 'Read aloud.' },
-    transcript,
-    durationMs: Number.isFinite(durationMs) ? durationMs : null,
-    clientFeatures: body.clientFeatures && typeof body.clientFeatures === 'object' ? body.clientFeatures : {},
-    alignment: null,
-  });
-  const scores = analysis.presentationScores || {};
-  const payload = {
-    transcript,
-    durationMs: Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : null,
-    fluencyPercent: percentOrNull(scores.fluencyPercent),
-    completionPercent: percentOrNull(scores.completionPercent),
-    pronunciationPercent: percentOrNull(scores.pronunciationPercent),
-    wordResults: analysis.wordResults || [],
-    submittedAt: new Date(),
-  };
-  const existing = await SpeakingCheckResponse.findOne({
-    where: { participantId: participant.id, itemId },
-  });
-  if (existing) await existing.update(payload);
-  else await SpeakingCheckResponse.create({ ...payload, participantId: participant.id, itemId });
-  return {
-    ...payload,
-    itemId,
-    wordResults: payload.wordResults,
-  };
+function storedAudioFromUpload(file) {
+  if (!file || !file.filename || !file.size) return null;
+  const filename = path.basename(file.filename);
+  if (!filename || filename !== file.filename) return null;
+  const mime = String(file.mimetype || 'audio/webm').slice(0, 80);
+  return { audioPath: `${AUDIO_PREFIX}${filename}`, audioMime: mime };
+}
+
+async function submitResponse(participantUid, body = {}, file = null) {
+  const audio = storedAudioFromUpload(file);
+  let saved = false;
+  try {
+    const session = await getSession(participantUid);
+    if (session.set.status !== 'published') throw fail(409, 'SET_CLOSED', '這個題組已結束，不能再送出');
+    const itemId = Number(body.itemId);
+    const item = session.items.find((entry) => entry.id === itemId);
+    if (!item) throw fail(404, 'ITEM_NOT_FOUND', '找不到這一題');
+    const participant = await SpeakingCheckParticipant.findOne({ where: { participantUid } });
+    const durationMs = Number(body.durationMs);
+    const transcript = String(body.transcript || '').trim().slice(0, 4000);
+    const clientFeatures = normalizeClientFeatures(body.clientFeatures);
+    const analysis = buildAutomatedAnalysis({
+      task: { taskType: 'read_aloud', targetText: item.targetText, level: 'B1', prompt: 'Read aloud.' },
+      transcript,
+      durationMs: Number.isFinite(durationMs) ? durationMs : null,
+      clientFeatures,
+      alignment: null,
+    });
+    const scores = analysis.presentationScores || {};
+    const payload = {
+      transcript,
+      durationMs: Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : null,
+      fluencyPercent: percentOrNull(scores.fluencyPercent),
+      completionPercent: percentOrNull(scores.completionPercent),
+      pronunciationPercent: percentOrNull(scores.pronunciationPercent),
+      wordResults: analysis.wordResults || [],
+      clientFeatures,
+      submittedAt: new Date(),
+    };
+    if (audio) {
+      payload.audioPath = audio.audioPath;
+      payload.audioMime = audio.audioMime;
+    }
+    const existing = await SpeakingCheckResponse.findOne({
+      where: { participantId: participant.id, itemId },
+    });
+    if (existing) {
+      const previousAudio = existing.audioPath;
+      await existing.update(payload);
+      await SpeakingCheckRating.destroy({ where: { responseId: existing.id } });
+      if (audio && previousAudio && previousAudio !== audio.audioPath) removeAudioFile(previousAudio);
+    } else {
+      await SpeakingCheckResponse.create({ ...payload, participantId: participant.id, itemId });
+    }
+    saved = true;
+    return {
+      itemId,
+      transcript: payload.transcript,
+      fluencyPercent: payload.fluencyPercent,
+      completionPercent: payload.completionPercent,
+      pronunciationPercent: payload.pronunciationPercent,
+      wordResults: payload.wordResults,
+      submittedAt: payload.submittedAt,
+    };
+  } catch (error) {
+    if (audio && !saved) removeAudioFile(audio.audioPath);
+    throw error;
+  }
 }
 
 async function getResults(hostId, setId) {
   const setRow = await loadOwnedSet(hostId, setId);
   const participants = await SpeakingCheckParticipant.findAll({
     where: { setId: setRow.id },
-    include: [{ model: SpeakingCheckResponse, as: 'responses' }],
+    include: [{
+      model: SpeakingCheckResponse,
+      as: 'responses',
+      include: [{ model: SpeakingCheckRating, as: 'rating' }],
+    }],
     order: [[sequelize.col('SpeakingCheckParticipant.joined_at'), 'ASC']],
   });
   const items = [...setRow.items].sort((a, b) => a.position - b.position).map(itemDto);
   const rows = participants.map((participant) => {
-    const byItem = new Map((participant.responses || []).map((row) => [Number(row.itemId), responseDto(row)]));
+    const byItem = new Map((participant.responses || []).map((row) => [Number(row.itemId), hostResponseDto(row)]));
     return {
       id: Number(participant.id),
       displayName: participant.displayName,
@@ -329,9 +429,34 @@ async function getResults(hostId, setId) {
     summary: {
       participantCount: rows.length,
       completedCount: rows.filter((row) => row.completedCount >= items.length && items.length > 0).length,
+      responseCount: rows.reduce((sum, row) => sum + row.responses.filter(Boolean).length, 0),
+      ratedCount: rows.reduce((sum, row) => sum + row.responses.filter((response) => response?.rating).length, 0),
     },
     participants: rows,
   };
+}
+
+async function getResponseAudio(hostId, responseId) {
+  const row = await loadOwnedResponse(hostId, responseId);
+  const absolute = resolveStoredAudio(row.audioPath);
+  if (!absolute || !fs.existsSync(absolute)) {
+    throw fail(404, 'AUDIO_NOT_FOUND', '這次沒有留下可播放的錄音');
+  }
+  return {
+    path: absolute,
+    mime: row.audioMime || 'audio/webm',
+    size: fs.statSync(absolute).size,
+  };
+}
+
+async function rateResponse(hostId, responseId, body = {}) {
+  const row = await loadOwnedResponse(hostId, responseId);
+  const rating = normalizeSpeakingCheckRating(body);
+  const existing = await SpeakingCheckRating.findOne({ where: { responseId: row.id } });
+  const saved = existing
+    ? await existing.update({ ...rating, hostId: Number(hostId) })
+    : await SpeakingCheckRating.create({ ...rating, responseId: row.id, hostId: Number(hostId) });
+  return ratingDto(saved);
 }
 
 module.exports = {
@@ -348,4 +473,6 @@ module.exports = {
   getSession,
   submitResponse,
   getResults,
+  getResponseAudio,
+  rateResponse,
 };

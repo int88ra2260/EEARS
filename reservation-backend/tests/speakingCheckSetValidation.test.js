@@ -1,4 +1,10 @@
-const { assertPublishableSet, normalizeJoinCode, normalizeDisplayName } = require('../services/speakingCheckSetValidation');
+const {
+  assertPublishableSet,
+  normalizeJoinCode,
+  normalizeDisplayName,
+  normalizeSpeakingCheckRating,
+  normalizeClientFeatures,
+} = require('../services/speakingCheckSetValidation');
 
 describe('speaking check set validation', () => {
   test('rejects a single-question set', () => {
@@ -21,5 +27,23 @@ describe('speaking check set validation', () => {
     expect(normalizeJoinCode('12 34-56')).toBe('123456');
     expect(() => normalizeDisplayName('   ')).toThrow('請填你的名字');
     expect(normalizeDisplayName('  Amy  ')).toBe('Amy');
+  });
+
+  test('keeps teacher ratings on a 1 to 5 scale and drops unknown pause fields', () => {
+    expect(normalizeSpeakingCheckRating({
+      fluency: 4,
+      pronunciationIntelligibility: 3,
+      taskAchievement: 5,
+      comments: '  third sentence restarted  ',
+    })).toMatchObject({
+      fluency: 4,
+      pronunciationIntelligibility: 3,
+      taskAchievement: 5,
+      grammar: null,
+      vocabulary: null,
+      rubricVersion: 'speaking-check-v1',
+    });
+    expect(() => normalizeSpeakingCheckRating({ fluency: 6, pronunciationIntelligibility: 3, taskAchievement: 5 })).toThrow('1 到 5');
+    expect(normalizeClientFeatures('{"pauseCount":2,"secret":"no"}')).toEqual({ pauseCount: 2 });
   });
 });

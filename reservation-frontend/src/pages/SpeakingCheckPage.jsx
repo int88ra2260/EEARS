@@ -261,7 +261,7 @@ export default function SpeakingCheckPage() {
     }
   };
 
-  const submitCurrent = async ({ duration, features }) => {
+  const submitCurrent = async ({ duration, features, audioBlob }) => {
     if (!session || !current) return;
     setSubmitting(true);
     setError('');
@@ -271,7 +271,7 @@ export default function SpeakingCheckPage() {
         transcript: transcriptRef.current || '',
         durationMs: duration,
         clientFeatures: features || {},
-      });
+      }, audioBlob);
       setResult(data);
       setSession((previous) => {
         if (!previous) return previous;
@@ -318,7 +318,7 @@ export default function SpeakingCheckPage() {
         replaceAudioUrl(URL.createObjectURL(nextBlob));
         const features = await analyzeAudioBlob(nextBlob, nextDurationMs).catch(() => ({}));
         await new Promise((resolve) => window.setTimeout(resolve, 150));
-        await submitCurrent({ duration: nextDurationMs, features });
+        await submitCurrent({ duration: nextDurationMs, features, audioBlob: nextBlob });
       };
       startedAtRef.current = Date.now();
       setRecording(true);
