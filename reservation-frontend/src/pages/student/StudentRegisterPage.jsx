@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import StudentAccountEmailVerification from '../../components/student/StudentAccountEmailVerification';
-import { registerStudentAccount } from '../../services/studentAuthApi';
+import { fetchStudentLoginOptions, registerStudentAccount } from '../../services/studentAuthApi';
 import { safeStudentNext, saveStudentSession } from '../../utils/studentSession';
 import useStudentSession from '../../hooks/useStudentSession';
 
@@ -18,10 +18,23 @@ export default function StudentRegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [emailVerificationToken, setEmailVerificationToken] = useState('');
   const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [campusSso, setCampusSso] = useState(false);
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const session = useStudentSession();
   const next = safeStudentNext(params.get('next') || '/my-reservations');
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchStudentLoginOptions()
+      .then(({ ok, data }) => {
+        if (!cancelled && ok) setCampusSso(Boolean(data?.campusSso));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (session) {
     return <Navigate to={next} replace />;
@@ -62,6 +75,15 @@ export default function StudentRegisterPage() {
     <div className="d-flex justify-content-center">
       <div className="card p-4" style={{ width: '100%', maxWidth: 480 }}>
         <h1 className="h4 mb-2">建立帳號</h1>
+        {campusSso ? (
+          <>
+            <p className="text-muted small">
+              登入使用中山單一入口的學號與密碼。第一次登入成功就會建立 EEARS 帳號，不必在這裡另外設定密碼。
+            </p>
+            <Link className="btn btn-primary" to={`/student/login?next=${encodeURIComponent(next)}`}>前往登入</Link>
+          </>
+        ) : (
+        <>
         <p className="text-muted small">
           請使用學號，以及你常收信的信箱。我們會寄驗證碼，確認這個信箱是你本人的。學號與姓名會與名冊核對。
         </p>
@@ -111,6 +133,8 @@ export default function StudentRegisterPage() {
           {' '}
           <Link to={`/student/login?next=${encodeURIComponent(next)}`}>登入</Link>
         </p>
+        </>
+        )}
       </div>
     </div>
   );

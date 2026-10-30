@@ -352,3 +352,173 @@ describe('student auth middleware', () => {
     expect(mockTeacherFindByPk).not.toHaveBeenCalled();
   });
 });
+
+describe('loginWithCampusSso', () => {
+  const profile = {
+    STUID: 'B123456789',
+    CNAME: '王小明',
+    EMAIL: 'ming@gmail.com',
+    STAT_COD: '1',
+  };
+
+  function ssoDouble(overrides = {}) {
+    return {
+      authStu: jest.fn().mockResolvedValue(true),
+      verifyPasswordExpired: jest.fn().mockResolvedValue('OK'),
+      getStuAttr: jest.fn().mockResolvedValue(profile),
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    mockFindOne.mockReset();
+    mockCreate.mockReset();
+    mockReplacePending.mockReset();
+    mockReplacePending.mockResolvedValue(undefined);
+    loginAccountCooldown.resetLoginCooldownBucketsForTest();
+  });
+
+  it('creates an account from the campus profile and does not store the password', async () => {
+    mockFindOne.mockResolvedValue(null);
+    mockCreate.mockImplementation(async (row) => accountRow(row));
+    const sso = ssoDouble();
+
+    const account = await studentAuthService.loginWithCampusSso({
+      studentId: 'b123456789',
+      password: 'campus-secret',
+    }, sso);
+
+    expect(sso.authStu).toHaveBeenCalledWith({
+      stuid: 'B123456789',
+      password: 'campus-secret',
+      statCod: '1;2',
+    });
+    expect(account.email).toBe('ming@gmail.com');
+    expect(account.passwordHash).toBeNull();
+    expect(account.ssoProvider).toBe('nsysu-sso');
+    expect(account.ssoSubject).toBe('B123456789');
+    expect(mockReplacePending).toHaveBeenCalled();
+  });
+
+  it('keeps the mailbox already saved on the account', async () => {
+    const row = accountRow({ email: 'personal@example.com' });
+    mockFindOne.mockResolvedValue(row);
+    const sso = ssoDouble();
+
+    const account = await studentAuthService.loginWithCampusSso({
+      studentId: 'B123456789',
+      password: 'campus-secret',
+    }, sso);
+
+    expect(account.email).toBe('personal@example.com');
+    expect(row.update).toHaveBeenCalledWith(expect.objectContaining({
+      name: '王小明',
+      ssoProvider: 'nsysu-sso',
+    }));
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects a wrong campus password', async () => {
+    const sso = ssoDouble({ authStu: jest.fn().mockResolvedValue(false) });
+    await expect(studentAuthService.loginWithCampusSso({
+      studentId: 'B123456789',
+      password: 'wrong',
+    }, sso)).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    expect(sso.verifyPasswordExpired).not.toHaveBeenCalled();
+  });
+
+  it('asks the student to update an expired campus password', async () => {
+    const sso = ssoDouble({ verifyPasswordExpired: jest.fn().mockResolvedValue('NO_EXPIRE') });
+    await expect(studentAuthService.loginWithCampusSso({
+      studentId: 'B123456789',
+      password: 'campus-secret',
+    }, sso)).rejects.toMatchObject({
+      code: 'CAMPUS_PASSWORD_UPDATE_REQUIRED',
+      redirectUrl: 'https://sso.nsysu.edu.tw',
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('accepts a campus name that includes a middle dot', async () => {
+    mockFindOne.mockResolvedValue(null);
+    mockCreate.mockImplementation(async (row) => accountRow(row));
+    const sso = ssoDouble({
+      getStuAttr: jest.fn().mockResolvedValue({ ...profile, CNAME: '王·小明' }),
+    });
+
+    const account = await studentAuthService.loginWithCampusSso({
+      studentId: 'B123456789',
+      password: 'campus-secret',
+    }, sso);
+
+    expect(account.name).toBe('王·小明');
+  });
+
+  it('asks for a mailbox when the campus profile has no email', async () => {
+    mockFindOne.mockResolvedValue(null);
+    const sso = ssoDouble({
+      getStuAttr: jest.fn().mockResolvedValue({ ...profile, EMAIL: '' }),
+    });
+
+    await expect(studentAuthService.loginWithCampusSso({
+      studentId: 'B123456789',
+      password: 'campus-secret',
+    }, sso)).rejects.toMatchObject({
+      code: 'CAMPUS_EMAIL_REQUIRED',
+      studentId: 'B123456789',
+      name: '王小明',
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('creates the account after that mailbox is verified', async () => {
+    mockAssertEmailVerified.mockReturnValue(true);
+    mockFindOne.mockResolvedValue(null);
+    mockCreate.mockImplementation(async (row) => accountRow(row));
+    const sso = ssoDouble({
+      getStuAttr: jest.fn().mockResolvedValue({ ...profile, EMAIL: '' }),
+    });
+    let setupToken = '';
+    try {
+      await studentAuthService.loginWithCampusSso({
+        studentId: 'B123456789',
+        password: 'campus-secret',
+      }, sso);
+    } catch (error) {
+      setupToken = error.setupToken;
+    }
+
+    const account = await studentAuthService.completeCampusEmailSetup({
+      setupToken,
+      email: 'ming@gmail.com',
+      emailVerificationToken: 'verified-token',
+    });
+
+    expect(mockAssertEmailVerified).toHaveBeenCalled();
+    expect(account.email).toBe('ming@gmail.com');
+    expect(account.passwordHash).toBeNull();
+  });
+
+  it('does not change the local password while campus login is on', async () => {
+    process.env.NSYSU_SSO_ENABLED = 'true';
+    mockFindByPk.mockClear();
+    try {
+      await expect(studentAuthService.changePassword({
+        accountId: 4,
+        currentPassword: 'old-password',
+        newPassword: 'new-password',
+      })).rejects.toMatchObject({ code: 'CAMPUS_PASSWORD_MANAGED' });
+      expect(mockFindByPk).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.NSYSU_SSO_ENABLED;
+    }
+  });
+
+  it('does not log in when the campus service is unreachable', async () => {
+    const sso = ssoDouble({ authStu: jest.fn().mockRejectedValue(new Error('down')) });
+    await expect(studentAuthService.loginWithCampusSso({
+      studentId: 'B123456789',
+      password: 'campus-secret',
+    }, sso)).rejects.toMatchObject({ code: 'SSO_UNAVAILABLE' });
+  });
+});

@@ -35,6 +35,12 @@ export async function registerStudentAccount(payload) {
   return { ok: res.ok, status: res.status, data };
 }
 
+export async function fetchStudentLoginOptions() {
+  const res = await fetchClient('/api/student-auth/login-options');
+  const data = await parseJson(res);
+  return { ok: res.ok, data };
+}
+
 export async function loginStudentAccount(studentId, password) {
   const res = await fetchClient('/api/student-auth/login', {
     method: 'POST',
@@ -61,6 +67,26 @@ export async function confirmStudentPasswordReset(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function completeCampusEmailSetup(payload) {
+  const res = await fetchClient('/api/student-auth/campus-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function changeStudentNotificationEmail(payload) {
+  const res = await fetchClient('/api/student-auth/email', withStudentAuth({
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }));
   const data = await parseJson(res);
   return { ok: res.ok, status: res.status, data };
 }

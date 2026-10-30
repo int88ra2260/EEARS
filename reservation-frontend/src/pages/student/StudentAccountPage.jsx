@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { changeStudentPassword } from '../../services/studentAuthApi';
+import StudentAccountEmailVerification from '../../components/student/StudentAccountEmailVerification';
+import {
+  changeStudentNotificationEmail,
+  changeStudentPassword,
+  fetchStudentLoginOptions,
+} from '../../services/studentAuthApi';
+import { saveStudentSession } from '../../utils/studentSession';
 import useStudentSession from '../../hooks/useStudentSession';
 
 export default function StudentAccountPage() {
@@ -12,6 +18,51 @@ export default function StudentAccountPage() {
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [campusSso, setCampusSso] = useState(false);
+  const [mailbox, setMailbox] = useState(student?.email || '');
+  const [emailVerificationToken, setEmailVerificationToken] = useState('');
+  const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [emailNotice, setEmailNotice] = useState('');
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchStudentLoginOptions()
+      .then(({ ok, data }) => {
+        if (!cancelled && ok) setCampusSso(Boolean(data?.campusSso));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleEmailSubmit = async (event) => {
+    event.preventDefault();
+    setEmailSubmitting(true);
+    setEmailError('');
+    setEmailNotice('');
+    try {
+      const { ok, data } = await changeStudentNotificationEmail({
+        email: mailbox,
+        emailVerificationToken,
+      });
+      if (!ok || !data?.token || !data?.student) {
+        setEmailError(data?.message || '無法更新信箱');
+        return;
+      }
+      saveStudentSession({ token: data.token, student: data.student });
+      setMailbox(data.student.email);
+      setEmailVerificationToken('');
+      setVerifiedEmail('');
+      setEmailNotice('收信信箱已更新。之後的預約通知會寄到這個信箱。');
+    } catch {
+      setEmailError('與伺服器連線發生錯誤');
+    } finally {
+      setEmailSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -50,9 +101,42 @@ export default function StudentAccountPage() {
           <dd className="col-8">{student.email}</dd>
         </dl>
         <p className="text-muted small">
-          預約與個人紀錄都會使用這個學號和信箱。
+          預約與個人紀錄都會使用這個學號。通知信寄到下面的信箱。
         </p>
-        <h2 className="h6">變更密碼</h2>
+        <h2 className="h6">收信信箱</h2>
+        <form onSubmit={handleEmailSubmit}>
+          <div className="mb-3">
+            <label className="form-label" htmlFor="student-mailbox">信箱</label>
+            <input id="student-mailbox" className="form-control" type="email" value={mailbox} onChange={(e) => setMailbox(e.target.value)} autoComplete="email" required />
+          </div>
+          <StudentAccountEmailVerification
+            email={mailbox}
+            studentId={student.studentId}
+            emailVerificationToken={emailVerificationToken}
+            verifiedEmail={verifiedEmail}
+            onVerified={({ token, verifiedEmail: nextEmail }) => {
+              setEmailVerificationToken(token || '');
+              setVerifiedEmail(nextEmail || '');
+            }}
+          />
+          <button
+            className="btn btn-primary mt-3"
+            type="submit"
+            disabled={emailSubmitting || !emailVerificationToken || verifiedEmail !== mailbox.trim().toLowerCase()}
+          >
+            {emailSubmitting ? '更新中…' : '更新收信信箱'}
+          </button>
+        </form>
+        {emailNotice ? <p className="text-success mt-3 mb-0">{emailNotice}</p> : null}
+        {emailError ? <p className="text-danger mt-3 mb-0">{emailError}</p> : null}
+        <h2 className="h6 mt-4">登入密碼</h2>
+        {campusSso ? (
+          <>
+            <p className="text-muted small">登入密碼就是中山單一入口的密碼。請到單一入口修改，這裡不能改。</p>
+            <a className="btn btn-outline-primary" href="https://sso.nsysu.edu.tw">前往單一入口</a>
+          </>
+        ) : (
+        <>
         <p className="text-muted small">更新後會登出，請用新密碼重新登入。</p>
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
@@ -72,6 +156,8 @@ export default function StudentAccountPage() {
           </button>
         </form>
         {error ? <p className="text-danger mt-3 mb-0">{error}</p> : null}
+        </>
+        )}
         <p className="small mt-3 mb-0">
           <Link to="/my-reservations">回到我的預約</Link>
         </p>

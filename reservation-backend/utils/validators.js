@@ -5,8 +5,8 @@ const { createErrorMessage } = require('./errorMessages');
 // 學號驗證：一位大寫英文(B/M/D/I/J) + 9位數字
 const studentIdRegex = /^[BMDNIJ]\d{9}$/;
 
-// 姓名驗證：只能是中文或英文(可包含空格)
-const studentNameRegex = /^[\u4E00-\u9FA5A-Za-z\s]+$/;
+// 姓名：中文或英文，可含空白、間隔號、連字號、撇號
+const studentNameRegex = /^[\u4E00-\u9FA5A-Za-z][\u4E00-\u9FA5A-Za-z\s·・'’ʼ-]*$/;
 
 // Email 驗證
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

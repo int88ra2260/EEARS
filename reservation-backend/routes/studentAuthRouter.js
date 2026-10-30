@@ -2,6 +2,9 @@ const express = require('express');
 const {
   registerAccount,
   loginAccount,
+  loginWithCampusSso,
+  completeCampusEmailSetup,
+  changeNotificationEmail,
   changePassword,
   toPublicAccount,
   signStudentToken,
@@ -15,6 +18,7 @@ const logger = require('../utils/logger');
 const { studentAuthMiddleware } = require('../middlewares/studentAuth');
 const { createSimpleRateLimit } = require('../middlewares/publicAccessGuard');
 const { validateStudentId } = require('../utils/validators');
+const nsysuSsoClient = require('../services/nsysuSsoClient');
 
 const router = express.Router();
 
@@ -62,6 +66,13 @@ const emailCodeVerifyRateLimit = createSimpleRateLimit({
 
 function sendError(res, error) {
   const status = error.status || 500;
+  if (error.code === 'SSO_UNAVAILABLE') {
+    return res.status(503).json({
+      success: false,
+      code: 'SSO_UNAVAILABLE',
+      message: error.message || '單一入口暫時無法連線，請稍後再試',
+    });
+  }
   if (status >= 500) {
     return res.status(500).json({ success: false, code: 'STUDENT_AUTH_ERROR', message: '登入服務暫時無法使用' });
   }
@@ -75,6 +86,14 @@ function sendError(res, error) {
   }
   if (error.retryAfterSec) {
     body.retryAfterSec = error.retryAfterSec;
+  }
+  if (error.redirectUrl) {
+    body.redirectUrl = error.redirectUrl;
+  }
+  if (error.setupToken) {
+    body.setupToken = error.setupToken;
+    body.studentId = error.studentId;
+    body.name = error.name;
   }
   return res.status(status).json(body);
 }
@@ -141,6 +160,13 @@ router.post('/email-verification/verify', emailCodeVerifyRateLimit, async (req, 
 });
 
 router.post('/register', async (req, res) => {
+  if (nsysuSsoClient.isEnabled()) {
+    return res.status(400).json({
+      success: false,
+      code: 'CAMPUS_SSO_LOGIN',
+      message: '請用單一入口的學號與密碼登入，不必另外建立帳號。',
+    });
+  }
   try {
     const { studentId, name, email, password, passwordConfirm, emailVerificationToken } = req.body || {};
     if (!password || password !== passwordConfirm) {
@@ -175,10 +201,25 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+const loginRateLimit = createSimpleRateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  message: '登入嘗試次數過多，請稍後再試',
+});
+
+router.get('/login-options', (req, res) => {
+  res.json({
+    success: true,
+    campusSso: nsysuSsoClient.isEnabled(),
+  });
+});
+
+router.post('/login', loginRateLimit, async (req, res) => {
   try {
     const { studentId, password } = req.body || {};
-    const account = await loginAccount({ studentId, password });
+    const account = nsysuSsoClient.isEnabled()
+      ? await loginWithCampusSso({ studentId, password })
+      : await loginAccount({ studentId, password });
     return res.json({
       success: true,
       token: signStudentToken(account),
@@ -207,6 +248,14 @@ async function deliverPasswordResetCode(req, prepared) {
 }
 
 router.post('/password-reset/send', passwordResetSendRateLimit, async (req, res) => {
+  if (nsysuSsoClient.isEnabled()) {
+    return res.status(400).json({
+      success: false,
+      code: 'CAMPUS_PASSWORD_MANAGED',
+      message: '登入密碼由單一入口管理，請到單一入口重設。',
+      redirectUrl: 'https://sso.nsysu.edu.tw',
+    });
+  }
   try {
     const studentId = normalizeStudentId(req.body?.studentId);
     if (!studentId) {
@@ -242,6 +291,14 @@ router.post('/password-reset/send', passwordResetSendRateLimit, async (req, res)
 });
 
 router.post('/password-reset/confirm', passwordResetConfirmRateLimit, async (req, res) => {
+  if (nsysuSsoClient.isEnabled()) {
+    return res.status(400).json({
+      success: false,
+      code: 'CAMPUS_PASSWORD_MANAGED',
+      message: '登入密碼由單一入口管理，請到單一入口重設。',
+      redirectUrl: 'https://sso.nsysu.edu.tw',
+    });
+  }
   try {
     const { studentId, code, newPassword, newPasswordConfirm } = req.body || {};
     if (!newPassword || newPassword !== newPasswordConfirm) {
@@ -273,6 +330,40 @@ router.post('/password-reset/confirm', passwordResetConfirmRateLimit, async (req
 
 router.get('/me', studentAuthMiddleware, (req, res) => {
   res.json({ success: true, student: toPublicAccount(req.studentAccount) });
+});
+
+router.post('/campus-email', loginRateLimit, async (req, res) => {
+  try {
+    const account = await completeCampusEmailSetup({
+      setupToken: req.body?.setupToken,
+      email: req.body?.email,
+      emailVerificationToken: req.body?.emailVerificationToken,
+    });
+    return res.json({
+      success: true,
+      token: signStudentToken(account),
+      student: toPublicAccount(account),
+    });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+router.post('/email', studentAuthMiddleware, async (req, res) => {
+  try {
+    const account = await changeNotificationEmail({
+      accountId: req.studentAccount.id,
+      email: req.body?.email,
+      emailVerificationToken: req.body?.emailVerificationToken,
+    });
+    return res.json({
+      success: true,
+      token: signStudentToken(account),
+      student: toPublicAccount(account),
+    });
+  } catch (error) {
+    return sendError(res, error);
+  }
 });
 
 router.post('/password', studentAuthMiddleware, async (req, res) => {

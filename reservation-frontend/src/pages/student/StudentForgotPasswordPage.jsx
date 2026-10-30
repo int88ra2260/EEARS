@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   confirmStudentPasswordReset,
+  fetchStudentLoginOptions,
   sendStudentPasswordReset,
 } from '../../services/studentAuthApi';
 import { clearStudentSession, safeStudentNext } from '../../utils/studentSession';
@@ -20,6 +21,19 @@ export default function StudentForgotPasswordPage() {
   const [sending, setSending] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [cooldownSec, setCooldownSec] = useState(0);
+  const [campusSso, setCampusSso] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchStudentLoginOptions()
+      .then(({ ok, data }) => {
+        if (!cancelled && ok) setCampusSso(Boolean(data?.campusSso));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (cooldownSec <= 0) return undefined;
@@ -72,6 +86,21 @@ export default function StudentForgotPasswordPage() {
       setSubmitting(false);
     }
   };
+
+  if (campusSso) {
+    return (
+      <div className="d-flex justify-content-center">
+        <div className="card p-4" style={{ width: '100%', maxWidth: 440 }}>
+          <h1 className="h4 mb-2">忘記密碼</h1>
+          <p className="text-muted small">登入密碼就是中山單一入口的密碼。請到單一入口重設，再回到 EEARS 登入。</p>
+          <a className="btn btn-primary" href="https://sso.nsysu.edu.tw">前往單一入口</a>
+          <p className="small mt-3 mb-0">
+            <Link to={`/student/login?next=${encodeURIComponent(next)}`}>返回登入</Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="d-flex justify-content-center">
