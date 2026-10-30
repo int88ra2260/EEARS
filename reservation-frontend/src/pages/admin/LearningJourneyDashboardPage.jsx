@@ -412,6 +412,12 @@ export default function LearningJourneyDashboardPage() {
             students={students}
             semesterId={semesterId}
             pagination={studentsPagination}
+            hasActiveFilters={Boolean(
+              String(studentQuery.keyword || '').trim()
+              || String(studentQuery.grade || '').trim()
+              || String(studentQuery.department || '').trim()
+              || String(studentQuery.b2Skill || '').trim()
+            )}
             onPageChange={(nextOffset) => {
               const nextPage = Math.floor(Math.max(0, nextOffset) / Math.max(studentsPagination.limit, 1)) + 1;
               updateStudentQuery({ page: nextPage });
