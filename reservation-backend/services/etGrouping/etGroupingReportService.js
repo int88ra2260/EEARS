@@ -14,6 +14,7 @@ const { buildPreferenceAssignmentsForEvent } = require('./etLeaderPreferenceServ
 const etSessionTaskService = require('./etSessionTaskService');
 const { computeTaskStatsFromMatrix } = require('./etGroupingExportService');
 const { isCheckedInStatus } = require('./etTaskCompletion');
+const { sortLeaderSessions } = require('./leaderSessionOrder');
 const {
   READING_GUIDE,
   OBSERVATION_DISCLAIMER,
@@ -226,7 +227,7 @@ async function listMyLeaderSessions(teacherId, filters = {}) {
       as: 'event',
       required: true,
       attributes: [
-        'id', 'name', 'date', 'startTime', 'endTime', 'semesterId', 'eventType',
+        'id', 'name', 'date', 'startTime', 'endTime', 'location', 'semesterId', 'eventType',
       ],
     }],
     order: [[{ model: Event, as: 'event' }, 'date', 'DESC'], [{ model: Event, as: 'event' }, 'startTime', 'DESC']],
@@ -246,6 +247,7 @@ async function listMyLeaderSessions(teacherId, filters = {}) {
         date: event.date,
         startTime: event.startTime,
         endTime: event.endTime,
+        location: event.location || '',
         semesterId: event.semesterId,
         groupLabels: [],
       });
@@ -290,7 +292,7 @@ async function listMyLeaderSessions(teacherId, filters = {}) {
     console.error('Leader session pay gate failed:', err.message);
   }
 
-  return sessions.map((item) => {
+  const rows = sessions.map((item) => {
     const attendance = attendanceMap.get(`${item.eventId}:${teacherId}`) || null;
     let derivedStatus = attendance?.status || null;
     if (!attendance) {
@@ -316,6 +318,7 @@ async function listMyLeaderSessions(teacherId, filters = {}) {
       },
     };
   });
+  return sortLeaderSessions(rows);
 }
 
 async function writeReportsSummaryExcel(filters, res) {

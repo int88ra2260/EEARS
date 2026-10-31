@@ -1,4 +1,5 @@
 // utils/errorHandler.js - 前端統一的錯誤處理工具
+import { staffLoginPath } from './staffLoginNext';
 
 // 錯誤訊息映射
 const ERROR_MESSAGES = {
@@ -260,7 +261,7 @@ export async function authenticatedAPICall(url, options = {}, onTokenExpired = n
           localStorage.removeItem('token');
           localStorage.removeItem('userRole');
           localStorage.removeItem('username');
-          window.location.href = '/login';
+          window.location.href = staffLoginPath(`${window.location.pathname}${window.location.search}`);
         }
         return { success: false, error: 'TOKEN_EXPIRED' };
       }

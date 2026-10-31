@@ -1,8 +1,9 @@
 // ===== LoginPage.js（後台登入） =====
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { login as loginApi, loginSso as loginSsoApi, getLoginInfo } from '../services/authApi';
 import { getAdminRoleHomePath } from '../constants/adminNavigation';
+import { consumeStaffNext, rememberStaffNext, safeStaffNext } from '../utils/staffLoginNext';
 
 const LOGIN_MODE_KEY = 'eears.staffLoginMode';
 const EMPNO_PATTERN = /^[A-Za-z]\d{5,8}$/;
@@ -25,6 +26,7 @@ function LoginPage({ onLoginSuccess }) {
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const [optionsReady, setOptionsReady] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +69,15 @@ function LoginPage({ onLoginSuccess }) {
     }
     onLoginSuccess(data.token, data.role, usernameUsed, teacherName, data.mustResetPassword);
     const teacherLevel = data.teacherLevel || data.teacher?.teacherLevel || 'regular';
-    navigate(getAdminRoleHomePath({ role: data.role, teacherLevel }));
+    const home = getAdminRoleHomePath({ role: data.role, teacherLevel });
+    const requested = safeStaffNext(searchParams.get('next') || '');
+    if (data.mustResetPassword) {
+      if (requested) rememberStaffNext(requested);
+      navigate(home);
+      return;
+    }
+    consumeStaffNext();
+    navigate(requested || home);
   };
 
   const handleSubmit = async (e) => {

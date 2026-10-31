@@ -15,8 +15,9 @@ import { hasPermission } from '../../utils/accessControl';
 import { getSemesterOptions } from '../../utils/adminReportUtils';
 import UnreadAttentionDot from '../../components/learning-partner/UnreadAttentionDot';
 import { notifyLeaderMarkingAttention } from '../../hooks/useLeaderMarkingAttention';
-import { checkInLeaderAttendance, fetchEventPracticeBriefs, fetchLeaderMarkingAttention, fetchMyLeaderPayroll, fetchMyLeaderSessions } from '../../services/etGroupingApi';
+import { checkInLeaderAttendance, fetchEventPracticeBriefs, fetchEventTaskMarks, fetchLeaderMarkingAttention, fetchMyLeaderPayroll, fetchMyLeaderSessions } from '../../services/etGroupingApi';
 import { showErrorMessage, showSuccessMessage } from '../../utils/errorHandler';
+import { formatYearMonth, leaderSessionBadge, shiftYearMonth, sortLeaderSessions } from '../../utils/leaderSessions';
 import AdminListPager, { ADMIN_LIST_PAGE_SIZE, clampPage, slicePage } from '../../components/admin/AdminListPager';
 import './AdminEtLeaderSessionsPage.css';
 
@@ -50,12 +51,30 @@ function formatUntil(value) {
   });
 }
 
-function SessionActions({ row, onCheckIn, onBriefs, onTasks, stacked = false }) {
+function SessionWhen({ row, sessions }) {
+  const badge = leaderSessionBadge(row, sessions);
+  return (
+    <div className="small text-muted mb-2">
+      {badge ? (
+        <Badge bg={badge === '今天' ? 'primary' : 'info'} className="me-1">{badge}</Badge>
+      ) : null}
+      {row.date}
+      {' '}
+      {row.startTime}{row.endTime ? ` – ${row.endTime}` : ''}
+      {row.location ? <div>{row.location}</div> : null}
+    </div>
+  );
+}
+
+function SessionActions({ row, onRoster, onCheckIn, onBriefs, onTasks, stacked = false }) {
   const checkedIn = Boolean(row.attendance?.status);
   const className = stacked ? 'd-grid gap-2 leader-session-card__actions' : 'text-nowrap';
   const buttonClass = stacked ? '' : 'me-1';
   return (
     <div className={className}>
+      <Button size="sm" variant="outline-secondary" className={stacked ? '' : 'me-1'} onClick={() => onRoster(row)}>
+        這組名單
+      </Button>
       {!checkedIn && row.derivedStatus !== 'absent' ? (
         <Button size="sm" variant="success" className={buttonClass} onClick={() => onCheckIn(row)}>
           出席簽到
@@ -107,19 +126,18 @@ export default function AdminEtLeaderSessionsPage() {
   const [briefsLoading, setBriefsLoading] = useState(false);
   const [briefsError, setBriefsError] = useState('');
   const [page, setPage] = useState(1);
+  const [yearMonth, setYearMonth] = useState(currentYearMonth);
+  const [rosterEvent, setRosterEvent] = useState(null);
+  const [rosterRows, setRosterRows] = useState([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterError, setRosterError] = useState('');
 
   const loadSessions = useCallback(async () => {
     if (!token || !canAccess) return;
     setLoading(true);
     try {
       const rows = await fetchMyLeaderSessions(token, { semester: selectedSemester });
-      setSessions(rows || []);
-      try {
-        const mine = await fetchMyLeaderPayroll(token, currentYearMonth());
-        setPay(mine);
-      } catch {
-        setPay(null);
-      }
+      setSessions(sortLeaderSessions(rows || []));
       try {
         const notice = await fetchLeaderMarkingAttention(token);
         setAttention(notice);
@@ -137,9 +155,23 @@ export default function AdminEtLeaderSessionsPage() {
     }
   }, [token, canAccess, selectedSemester]);
 
+  const loadPay = useCallback(async () => {
+    if (!token || !canAccess) return;
+    try {
+      const mine = await fetchMyLeaderPayroll(token, yearMonth);
+      setPay(mine);
+    } catch {
+      setPay(null);
+    }
+  }, [token, canAccess, yearMonth]);
+
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
+
+  useEffect(() => {
+    loadPay();
+  }, [loadPay]);
 
   useEffect(() => {
     setPage(1);
@@ -178,6 +210,41 @@ export default function AdminEtLeaderSessionsPage() {
   const closeCheckIn = () => {
     setCheckInEvent(null);
     setCheckInToken('');
+  };
+
+  const openRoster = async (row) => {
+    setRosterEvent(row);
+    setRosterRows([]);
+    setRosterError('');
+    setRosterLoading(true);
+    try {
+      const [matrix, briefData] = await Promise.all([
+        fetchEventTaskMarks(token, row.eventId),
+        fetchEventPracticeBriefs(token, row.eventId),
+      ]);
+      const practiced = new Set((briefData?.briefs || []).map((brief) => String(brief.studentId)));
+      const students = (matrix?.students || []).map((student) => ({
+        ...student,
+        practiced: practiced.has(String(student.studentId)),
+      }));
+      students.sort((a, b) => {
+        const arrivedA = a.checkinStatus === '已簽到' ? 0 : 1;
+        const arrivedB = b.checkinStatus === '已簽到' ? 0 : 1;
+        if (arrivedA !== arrivedB) return arrivedA - arrivedB;
+        return String(a.studentName || '').localeCompare(String(b.studentName || ''), 'zh-Hant');
+      });
+      setRosterRows(students);
+    } catch (e) {
+      setRosterError(e.message || '無法載入這組名單');
+    } finally {
+      setRosterLoading(false);
+    }
+  };
+
+  const closeRoster = () => {
+    setRosterEvent(null);
+    setRosterRows([]);
+    setRosterError('');
   };
 
   const openBriefs = async (row) => {
@@ -282,24 +349,40 @@ export default function AdminEtLeaderSessionsPage() {
         </Alert>
       ) : null}
 
-      {pay && (sessions.length > 0 || pay.sessionCount > 0 || pay.pending?.length) ? (
-        <Card className="mb-3 border-0 shadow-sm">
-          <Card.Body>
-            <div className="d-flex flex-wrap justify-content-between gap-2">
-              <div>
-                <h2 className="h6 mb-1">{pay.yearMonth} 出席與預期薪水</h2>
-                <p className="small text-muted mb-0">
-                  已計入 {pay.sessionCount} 場、{pay.hours} 小時。
-                  {pay.pending?.length ? ` 另有 ${pay.pending.length} 場已簽到但任務未完成，完成後才會計入。` : ''}
-                  {Number(pay.hourlyRate) <= 0 ? ' 時薪尚未設定，金額先顯示 0。' : ''}
-                </p>
-              </div>
-              <div className="text-end">
-                <div className="small text-muted">目前計入</div>
-                <div className="fs-5 fw-semibold">NT$ {money(pay.subtotal)}</div>
+      <Card className="mb-3 border-0 shadow-sm">
+        <Card.Body>
+          <div className="d-flex flex-wrap justify-content-between gap-2">
+            <div>
+              <h2 className="h6 mb-1">{formatYearMonth(yearMonth)} 出席與預期薪水</h2>
+              <p className="small text-muted mb-0">
+                {pay ? (
+                  <>
+                    已計入 {pay.sessionCount} 場、{pay.hours} 小時。
+                    {pay.pending?.length ? ` 另有 ${pay.pending.length} 場已簽到但任務未完成，完成後才會計入。` : ''}
+                    {Number(pay.hourlyRate) <= 0 ? ' 時薪尚未設定，金額先顯示 0。' : ''}
+                  </>
+                ) : '這個月的薪水還在載入，或暫時讀不到。'}
+              </p>
+            </div>
+            <div className="text-end">
+              <div className="small text-muted">目前計入</div>
+              <div className="fs-5 fw-semibold">NT$ {money(pay?.subtotal)}</div>
+              <div className="leader-pay-months d-flex justify-content-end gap-2 mt-2">
+                <Button size="sm" variant="outline-secondary" onClick={() => setYearMonth((value) => shiftYearMonth(value, -1))}>
+                  上個月
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline-secondary"
+                  disabled={yearMonth >= currentYearMonth()}
+                  onClick={() => setYearMonth((value) => shiftYearMonth(value, 1))}
+                >
+                  下個月
+                </Button>
               </div>
             </div>
-            {(pay.pending || []).length ? (
+          </div>
+            {(pay?.pending || []).length ? (
               <ul className="small mb-0 mt-2">
                 {pay.pending.map((session) => (
                   <li key={session.eventId}>
@@ -309,9 +392,8 @@ export default function AdminEtLeaderSessionsPage() {
                 ))}
               </ul>
             ) : null}
-          </Card.Body>
-        </Card>
-      ) : null}
+        </Card.Body>
+      </Card>
 
       {loading ? (
         <div className="d-flex align-items-center gap-2 py-4">
@@ -340,11 +422,7 @@ export default function AdminEtLeaderSessionsPage() {
             {pagedSessions.rows.map((row) => (
               <article key={row.eventId} className="leader-session-card border rounded bg-white p-3 mb-2">
                 <div className="fw-semibold">{row.name}</div>
-                <div className="small text-muted mb-2">
-                  {row.date}
-                  {' '}
-                  {row.startTime}{row.endTime ? ` – ${row.endTime}` : ''}
-                </div>
+                <SessionWhen row={row} sessions={sessions} />
                 <div className="d-flex flex-wrap gap-1 mb-2">
                   {(row.groupLabels || []).map((label) => (
                     <Badge key={label} bg="light" text="dark" className="border">{label}</Badge>
@@ -355,6 +433,7 @@ export default function AdminEtLeaderSessionsPage() {
                 <SessionActions
                   row={row}
                   stacked
+                  onRoster={openRoster}
                   onCheckIn={openCheckIn}
                   onBriefs={openBriefs}
                   onTasks={openTasks}
@@ -368,6 +447,7 @@ export default function AdminEtLeaderSessionsPage() {
                 <tr>
                   <th>日期</th>
                   <th>時間</th>
+                  <th>地點</th>
                   <th>活動</th>
                   <th>負責組別</th>
                   <th>簽到</th>
@@ -376,10 +456,18 @@ export default function AdminEtLeaderSessionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {pagedSessions.rows.map((row) => (
+                {pagedSessions.rows.map((row) => {
+                  const badge = leaderSessionBadge(row, sessions);
+                  return (
                   <tr key={row.eventId}>
-                    <td>{row.date}</td>
+                    <td>
+                      {badge ? (
+                        <Badge bg={badge === '今天' ? 'primary' : 'info'} className="me-1">{badge}</Badge>
+                      ) : null}
+                      {row.date}
+                    </td>
                     <td>{row.startTime}{row.endTime ? ` – ${row.endTime}` : ''}</td>
+                    <td>{row.location || '—'}</td>
                     <td>{row.name}</td>
                     <td>
                       {(row.groupLabels || []).map((label) => (
@@ -391,13 +479,15 @@ export default function AdminEtLeaderSessionsPage() {
                     <td>
                       <SessionActions
                         row={row}
+                        onRoster={openRoster}
                         onCheckIn={openCheckIn}
                         onBriefs={openBriefs}
                         onTasks={openTasks}
                       />
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </Table>
           </div>
@@ -535,6 +625,62 @@ export default function AdminEtLeaderSessionsPage() {
         </Modal.Body>
         <Modal.Footer className="d-grid d-sm-flex justify-content-sm-end">
           <Button variant="outline-secondary" onClick={closeBriefs}>關閉</Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={Boolean(rosterEvent)} onHide={closeRoster} centered scrollable>
+        <Modal.Header closeButton>
+          <Modal.Title className="fs-6">這組名單</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {rosterEvent ? (
+            <p className="mb-2">
+              <strong>{rosterEvent.name}</strong>
+              <span className="text-muted small ms-2">
+                {rosterEvent.date}
+                {rosterEvent.location ? ` · ${rosterEvent.location}` : ''}
+              </span>
+            </p>
+          ) : null}
+          <p className="small text-muted">只列出你負責的組。已到的人排在前面。勾選仍在離場前的任務成效。</p>
+          {rosterLoading ? (
+            <div className="d-flex align-items-center gap-2">
+              <Spinner animation="border" size="sm" />
+              <span>載入這組名單…</span>
+            </div>
+          ) : null}
+          {rosterError ? <Alert variant="danger">{rosterError}</Alert> : null}
+          {!rosterLoading && !rosterError && !rosterRows.length ? (
+            <Alert variant="info" className="mb-0">這組還沒有學生。</Alert>
+          ) : null}
+          {!rosterLoading && rosterRows.length ? (
+            <div className="d-grid gap-2">
+              {rosterRows.map((student) => (
+                <article key={student.reservationId} className="border rounded p-3">
+                  <div className="d-flex justify-content-between gap-2">
+                    <div>
+                      <div className="fw-semibold">{student.studentName}</div>
+                      <div className="small text-muted">
+                        {student.studentId}
+                        {student.groupLabel ? ` · ${student.groupLabel}` : ''}
+                      </div>
+                    </div>
+                    <div className="d-flex flex-column align-items-end gap-1">
+                      <Badge bg={student.checkinStatus === '已簽到' ? 'success' : 'secondary'}>
+                        {student.checkinStatus === '已簽到' ? '已到' : '未到'}
+                      </Badge>
+                      <Badge bg={student.practiced ? 'info' : 'light'} text={student.practiced ? undefined : 'dark'} className={student.practiced ? '' : 'border'}>
+                        {student.practiced ? '有會前練習' : '尚未練習'}
+                      </Badge>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </Modal.Body>
+        <Modal.Footer className="d-grid d-sm-flex justify-content-sm-end">
+          <Button variant="outline-secondary" onClick={closeRoster}>關閉</Button>
         </Modal.Footer>
       </Modal>
     </div>

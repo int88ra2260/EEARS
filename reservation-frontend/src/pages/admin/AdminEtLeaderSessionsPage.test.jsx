@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   fetchMyLeaderPayroll: vi.fn(),
   fetchLeaderMarkingAttention: vi.fn(),
   fetchEventPracticeBriefs: vi.fn(),
+  fetchEventTaskMarks: vi.fn(),
   checkInLeaderAttendance: vi.fn(),
 }));
 
@@ -22,6 +23,7 @@ function session(index) {
     date: '2026-12-01',
     startTime: '18:00',
     endTime: '19:00',
+    location: '文學院',
     groupLabels: ['A'],
     derivedStatus: 'upcoming',
     attendance: null,
@@ -50,6 +52,8 @@ describe('AdminEtLeaderSessionsPage', () => {
     api.fetchMyLeaderSessions.mockResolvedValue(Array.from({ length: 7 }, (_, i) => session(i + 1)));
     api.fetchMyLeaderPayroll.mockResolvedValue(null);
     api.fetchLeaderMarkingAttention.mockResolvedValue({ count: 0 });
+    api.fetchEventTaskMarks.mockResolvedValue({ students: [] });
+    api.fetchEventPracticeBriefs.mockResolvedValue({ briefs: [] });
   });
 
   test('splits the instructions and pages sessions six at a time', async () => {
@@ -60,6 +64,7 @@ describe('AdminEtLeaderSessionsPage', () => {
     expect(screen.getAllByText('英語桌 1')).toHaveLength(2);
     expect(screen.queryByText('英語桌 7')).not.toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: '帶班場次分頁' })).toHaveTextContent('第 1–6 筆，共 7 筆');
+    expect(screen.getAllByText('文學院').length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: '下一頁' }));
 
@@ -68,6 +73,38 @@ describe('AdminEtLeaderSessionsPage', () => {
     });
     expect(screen.queryByText('英語桌 1')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '上一頁' })).toBeEnabled();
+  });
+
+  test('lists who arrived and who practiced, separate from task marks', async () => {
+    api.fetchMyLeaderSessions.mockResolvedValue([session(1)]);
+    api.fetchEventTaskMarks.mockResolvedValue({
+      students: [
+        { reservationId: 1, studentId: 'B1', studentName: '林小明', groupLabel: 'A', checkinStatus: '未簽到' },
+        { reservationId: 2, studentId: 'B2', studentName: '王小華', groupLabel: 'A', checkinStatus: '已簽到' },
+      ],
+    });
+    api.fetchEventPracticeBriefs.mockResolvedValue({
+      briefs: [{ studentId: 'B2', studentName: '王小華' }],
+    });
+    renderPage();
+    fireEvent.click((await screen.findAllByRole('button', { name: '這組名單' }))[0]);
+    expect(await screen.findByText('已到')).toBeInTheDocument();
+    expect(screen.getByText('未到')).toBeInTheDocument();
+    expect(screen.getByText('有會前練習')).toBeInTheDocument();
+    expect(screen.getByText('尚未練習')).toBeInTheDocument();
+    const names = screen.getAllByText(/林小明|王小華/).map((node) => node.textContent);
+    expect(names.indexOf('王小華')).toBeLessThan(names.indexOf('林小明'));
+  });
+
+  test('can look at last month of pay', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: '上個月' });
+    const current = api.fetchMyLeaderPayroll.mock.calls.at(-1)[1];
+    fireEvent.click(screen.getByRole('button', { name: '上個月' }));
+    await waitFor(() => {
+      const months = api.fetchMyLeaderPayroll.mock.calls.map((call) => call[1]);
+      expect(months.some((month) => month !== current)).toBe(true);
+    });
   });
 
   test('shows short check-in instructions', async () => {

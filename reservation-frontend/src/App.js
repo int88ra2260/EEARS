@@ -25,6 +25,7 @@ import RequireStudentAuth from './components/student/RequireStudentAuth';
 import ToastProvider from './components/ui/ToastProvider';
 import WeeklyHomeBanner from './components/layout/WeeklyHomeBanner';
 import { fetchCurrentWeeklyReport } from './services/weeklyReportApi';
+import { staffLoginPath } from './utils/staffLoginNext';
 
 // 其餘公開／後台頁一律 code-split，避免主包一次下載 FullCalendar、練習遊戲、GSAP 等。
 const EventsPage = lazy(() => import('./pages/EventsPage'));
@@ -156,7 +157,8 @@ function AdminLegacyRedirect({ to, fromLabel }) {
 /** 舊版班級明細 URL → Phase 1 新 path（納入 AdminLayout） */
 function LegacyClassDetailRedirect({ token }) {
   const { classId } = useParams();
-  if (!token) return <Navigate to="/login" replace />;
+  const returnTo = useLocation();
+  if (!token) return <Navigate to={staffLoginPath(`${returnTo.pathname}${returnTo.search}`)} replace />;
   const route = `/admin/classes/${classId}/detail`;
   const accessProfile = buildAccessProfile(token || '', localStorage.getItem('userRole') || '');
   const denied = getAdminRouteDeniedReason(accessProfile, route);
@@ -298,7 +300,7 @@ function AppContent() {
       }
       handleLogout();
       if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+        window.location.href = staffLoginPath(`${window.location.pathname}${window.location.search}`);
       }
     };
     const onAccountDisabled = () => {
@@ -313,7 +315,7 @@ function AppContent() {
       }
       handleLogout();
       if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+        window.location.href = staffLoginPath(`${window.location.pathname}${window.location.search}`);
       }
     };
     window.addEventListener('eears:access-stale', onAccessStale);
@@ -526,7 +528,7 @@ function AppContent() {
                     onLogout={handleLogout} 
                   />
                 ) : (
-                  <Navigate to="/login" replace />
+                  <Navigate to={staffLoginPath(`${location.pathname}${location.search}`)} replace />
                 )
               }
             >

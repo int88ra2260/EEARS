@@ -11,6 +11,7 @@ import { getAdminPageTitle } from '../constants/adminNavigation';
 import { getAdminRouteDeniedReason } from '../constants/adminRouteAccess';
 import { buildAccessProfile, buildNavContextFromAccessProfile } from '../utils/accessControl';
 import { parseJwtPayload } from '../utils/jwtPayload';
+import { staffLoginPath } from '../utils/staffLoginNext';
 import RouteLoading from './ui/RouteLoading';
 import './admin/adminLayout.css';
 import '../styles/admin-minimal.css';
@@ -124,9 +125,9 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
     setTimeout(() => {
       toast.warning('登入已過期，請重新登入');
       onLogout();
-      window.location.href = '/login';
+      window.location.href = staffLoginPath(`${location.pathname}${location.search}`);
     }, 1000);
-  }, [onLogout, toast]);
+  }, [onLogout, toast, location.pathname, location.search]);
 
   useEffect(() => {
     if (!token) return;

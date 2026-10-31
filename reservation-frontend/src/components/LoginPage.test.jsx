@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import LoginPage from './LoginPage';
 import { getLoginInfo, login as loginApi } from '../services/authApi';
@@ -91,5 +91,26 @@ describe('staff login fields', () => {
     fireEvent.click(screen.getByRole('button', { name: '改用本地帳號' }));
     expect(await screen.findByLabelText('帳號：')).toHaveValue('et-angelique');
     expect(localStorage.getItem('eears.staffLoginMode')).toBe('local');
+  });
+
+  test('returns to the check-in link after login', async () => {
+    loginApi.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { token: 'staff-token', role: 'leader', mustResetPassword: false },
+    });
+    render(
+      <MemoryRouter initialEntries={['/login?next=%2Fadmin%2Fet-grouping%2Fmy-sessions%3FeventId%3D3%26checkInToken%3Dabc']}>
+        <Routes>
+          <Route path="/login" element={<LoginPage onLoginSuccess={vi.fn()} />} />
+          <Route path="/admin/et-grouping/my-sessions" element={<div>帶班簽到</div>} />
+          <Route path="/admin/dashboard" element={<div>後台首頁</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.change(await screen.findByLabelText('帳號：'), { target: { value: 'et-angelique' } });
+    fireEvent.change(screen.getByLabelText('密碼：'), { target: { value: 'secret' } });
+    fireEvent.click(screen.getByRole('button', { name: '登入' }));
+    expect(await screen.findByText('帶班簽到')).toBeInTheDocument();
   });
 });

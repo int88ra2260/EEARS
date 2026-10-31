@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { Card, Form, Button, Alert } from 'react-bootstrap';
 import { changeTeacherPassword } from '../services/authApi';
 import { getAdminRoleHomePath } from '../constants/adminNavigation';
+import { consumeStaffNext } from '../utils/staffLoginNext';
 
 function passwordChecks(password, confirmPassword) {
   const classCount = [/[A-Z]/, /[a-z]/, /\d/, /[^A-Za-z0-9]/]
@@ -57,7 +58,7 @@ function ForceResetPassword() {
         localStorage.setItem('mustResetPassword', 'false');
         setMustResetPassword(false);
         setSuccess('密碼已更新，正在進入後台…');
-        window.location.replace(home);
+        window.location.replace(consumeStaffNext() || home);
         return;
       }
       setSuccess('密碼已更新，即將帶您重新登入…');
