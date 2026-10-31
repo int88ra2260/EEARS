@@ -15,31 +15,130 @@ import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
 import '../../components/student/StudentRecordShell.css';
 
+function AppIcon({ name }) {
+  const common = {
+    viewBox: '0 0 24 24',
+    width: '28',
+    height: '28',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: '1.8',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': true,
+  };
+  if (name === 'calendar') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M3 10h18M8 3v4M16 3v4" />
+      </svg>
+    );
+  }
+  if (name === 'survey') {
+    return (
+      <svg {...common}>
+        <rect x="6" y="3" width="12" height="18" rx="2" />
+        <path d="M9 8h6M9 12h6M9 16h4" />
+      </svg>
+    );
+  }
+  if (name === 'list') {
+    return (
+      <svg {...common}>
+        <path d="M9 7h11M9 12h11M9 17h11" />
+        <circle cx="5" cy="7" r="1" fill="currentColor" stroke="none" />
+        <circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="5" cy="17" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  if (name === 'chart') {
+    return (
+      <svg {...common}>
+        <path d="M4 19V5M4 19h16" />
+        <path d="M8 15v4M12 10v9M16 7v12" />
+      </svg>
+    );
+  }
+  if (name === 'mic') {
+    return (
+      <svg {...common}>
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M6 11a6 6 0 0 0 12 0M12 17v4" />
+      </svg>
+    );
+  }
+  if (name === 'award') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="9" r="5" />
+        <path d="M9 13.5 8 21l4-2 4 2-1-7.5" />
+      </svg>
+    );
+  }
+  if (name === 'edit') {
+    return (
+      <svg {...common}>
+        <path d="M4 20h4L18 10l-4-4L4 16v4z" />
+      </svg>
+    );
+  }
+  if (name === 'book') {
+    return (
+      <svg {...common}>
+        <path d="M5 4.5h6a3 3 0 0 1 3 3V20a3 3 0 0 0-3-3H5z" />
+        <path d="M19 4.5h-6a3 3 0 0 0-3 3V20a3 3 0 0 1 3-3h6z" />
+      </svg>
+    );
+  }
+  if (name === 'mail') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m4 7 8 6 8-6" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <circle cx="8" cy="14" r="3.2" />
+      <path d="M11 14h9M17 14v2.5M20 14v2" />
+    </svg>
+  );
+}
+
 const BOOKING_SHORTCUT = {
   to: '/events',
   title: '預約場次（預約活動）',
+  short: '預約場次',
   detail: '選擇開放中的場次完成預約',
+  icon: 'calendar',
   primary: true,
 };
 
 const BASE_SHORTCUTS = [
-  { to: '/my-reservations', title: '我的預約', detail: '查看、取消即將參加的活動' },
-  { to: '/student/progress', title: '我的紀錄', detail: '出席與學習紀錄' },
-  { to: '/student/speaking-portfolio', title: '口說紀錄', detail: '口說練習與回饋' },
-  { to: '/student/class-credit-allocation', title: '課堂加分', detail: '課堂加分配置' },
-  { to: '/student/english-learning-passport', title: '英語實踐歷程檔案', detail: '申請與通知使用這個帳號信箱' },
+  { to: '/my-reservations', title: '我的預約', short: '我的預約', detail: '查看、取消即將參加的活動', icon: 'list' },
+  { to: '/student/progress', title: '我的紀錄', short: '我的紀錄', detail: '出席與學習紀錄', icon: 'chart' },
+  { to: '/student/speaking-portfolio', title: '口說紀錄', short: '口說紀錄', detail: '口說練習與回饋', icon: 'mic' },
+  { to: '/student/class-credit-allocation', title: '課堂加分', short: '課堂加分', detail: '課堂加分配置', icon: 'award' },
+  { to: '/student/english-learning-passport', title: '英語實踐歷程檔案', short: '歷程檔案', detail: '申請與通知使用這個帳號信箱', icon: 'book' },
 ];
 
 const ENGLISH_TEST_SHORTCUTS = {
   register: {
     to: '/register/english-test',
     title: '培力英檢報名',
+    short: '培力報名',
     detail: '現在開放報名。用登入身分帶入可填欄位',
+    icon: 'edit',
   },
   edit: {
     to: '/register/english-test',
     title: '培力英檢資料修正',
+    short: '資料修正',
     detail: '報名已關閉。可以查詢或修正已送出的資料',
+    icon: 'edit',
   },
 };
 
@@ -62,6 +161,7 @@ export default function StudentAccountPage() {
   const [emailSubmitting, setEmailSubmitting] = useState(false);
   const [englishTestMode, setEnglishTestMode] = useState('hidden');
   const [surveyDetail, setSurveyDetail] = useState('查詢本學期是否已填');
+  const [openPanel, setOpenPanel] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,12 +213,18 @@ export default function StudentAccountPage() {
     {
       to: '/survey/choice',
       title: '本學期問卷',
+      short: '本學期問卷',
       detail: surveyDetail,
+      icon: 'survey',
     },
     ...BASE_SHORTCUTS.slice(0, 4),
     ...(englishTestMode === 'hidden' ? [] : [ENGLISH_TEST_SHORTCUTS[englishTestMode]]),
     BASE_SHORTCUTS[4],
   ];
+
+  const togglePanel = (panel) => {
+    setOpenPanel((current) => (current === panel ? null : panel));
+  };
 
   const handleEmailSubmit = async (event) => {
     event.preventDefault();
@@ -174,30 +280,56 @@ export default function StudentAccountPage() {
   return (
     <div className="student-account">
       <header className="student-account__hero">
-        <p className="student-account__eyebrow">我的帳號</p>
-        <h1 className="student-account__name">{student.name}</h1>
-        <p className="student-account__id">{student.studentId}</p>
+        <div>
+          <h1 className="student-account__name">{student.name}</h1>
+          <p className="student-account__id">{student.studentId}</p>
+        </div>
         <p className="student-account__mailbox">{student.email}</p>
       </header>
 
-      <section className="student-account__section student-account__section--nav">
-        <h2 className="student-account__heading">選擇要前往的功能</h2>
-        <div className="student-account__grid">
-          {shortcuts.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`student-account__shortcut${item.primary ? ' student-account__shortcut--primary' : ''}`}
-            >
-              <span className="student-account__shortcut-title">{item.title}</span>
-              <span className="student-account__shortcut-detail">{item.detail}</span>
-              <span className="student-account__shortcut-go">前往</span>
-            </Link>
-          ))}
-        </div>
-      </section>
+      <nav className="student-account__launcher" aria-label="帳號功能">
+        {shortcuts.map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={`student-account__app${item.primary ? ' student-account__app--primary' : ''}`}
+            aria-label={`${item.title}。${item.detail}`}
+          >
+            <span className="student-account__app-icon">
+              <AppIcon name={item.icon} />
+              {item.to === '/survey/choice' && surveyDetail.startsWith('本學期未填') ? (
+                <span className="student-account__app-dot" aria-hidden="true" />
+              ) : null}
+            </span>
+            <span className="student-account__app-label">{item.short}</span>
+          </Link>
+        ))}
+        <button
+          type="button"
+          className={`student-account__app${openPanel === 'email' ? ' is-open' : ''}`}
+          aria-expanded={openPanel === 'email'}
+          onClick={() => togglePanel('email')}
+        >
+          <span className="student-account__app-icon">
+            <AppIcon name="mail" />
+          </span>
+          <span className="student-account__app-label">通知信箱</span>
+        </button>
+        <button
+          type="button"
+          className={`student-account__app${openPanel === 'login' ? ' is-open' : ''}`}
+          aria-expanded={openPanel === 'login'}
+          onClick={() => togglePanel('login')}
+        >
+          <span className="student-account__app-icon">
+            <AppIcon name="key" />
+          </span>
+          <span className="student-account__app-label">登入方式</span>
+        </button>
+      </nav>
 
-      <section className="student-account__section">
+      {openPanel === 'email' ? (
+      <section className="student-account__section" id="student-account-email">
         <h2 className="h6">通知信箱</h2>
         <p className="text-muted small mb-2">
           {campusSso
@@ -255,8 +387,10 @@ export default function StudentAccountPage() {
           </button>
         )}
       </section>
+      ) : null}
 
-      <section className="student-account__section">
+      {openPanel === 'login' ? (
+      <section className="student-account__section" id="student-account-login">
         <h2 className="h6">登入方式</h2>
         {campusSso ? (
           <>
@@ -287,6 +421,7 @@ export default function StudentAccountPage() {
           </>
         )}
       </section>
+      ) : null}
     </div>
   );
 }

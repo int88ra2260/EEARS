@@ -44,45 +44,36 @@
 }
 
 .student-account__hero {
-  margin: 0 0 1.25rem;
-  padding: 1.25rem 1.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+  padding: 0.85rem 1rem;
   border: 1px solid rgba(42, 93, 159, 0.2);
   border-radius: 16px;
   background: #fff;
 }
 
-.student-account__eyebrow {
-  margin: 0 0 0.35rem;
-  color: #2a5d9f;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
 .student-account__name {
   margin: 0;
   color: #1f3f6e;
-  font-size: 1.75rem;
+  font-size: 1.35rem;
   font-weight: 800;
 }
 
 .student-account__id {
-  margin: 0.2rem 0 0;
+  margin: 0.15rem 0 0;
   color: #3d4d63;
-  font-size: 1rem;
-}
-
-.student-account__mailbox {
-  margin: 0.65rem 0 0;
-  color: #5c6b7e;
   font-size: 0.95rem;
 }
 
-.student-account__heading {
-  margin: 0 0 0.85rem;
-  color: #1f3f6e;
-  font-size: 1.15rem;
-  font-weight: 800;
+.student-account__mailbox {
+  margin: 0;
+  color: #5c6b7e;
+  font-size: 0.85rem;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .student-account__section {
@@ -93,53 +84,112 @@
   background: #fff;
 }
 
-.student-account__grid {
+.student-account__launcher {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.65rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem 0.35rem;
+  margin: 0 0 1rem;
+  padding: 0.85rem 0.35rem 1rem;
+  border: 1px solid rgba(42, 93, 159, 0.16);
+  border-radius: 16px;
+  background: #fff;
 }
 
-.student-account__shortcut {
+.student-account__app {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  min-height: 8.5rem;
-  padding: 1rem 1.05rem;
-  border: 1px solid rgba(42, 93, 159, 0.22);
-  border-radius: 14px;
-  background: #fff;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #1f3f6e;
+  font: inherit;
   text-decoration: none;
+  cursor: pointer;
+  appearance: none;
 }
 
-.student-account__shortcut:hover {
-  border-color: #2a5d9f;
-  background: rgba(42, 93, 159, 0.06);
-  color: #1f3f6e;
+.student-account__app:focus-visible {
+  outline: 2px solid #2a5d9f;
+  outline-offset: 3px;
+  border-radius: 12px;
 }
 
-.student-account__shortcut--primary {
-  border-color: #2a5d9f;
-  background: rgba(42, 93, 159, 0.1);
-}
-
-.student-account__shortcut--primary:hover {
-  background: rgba(42, 93, 159, 0.16);
-}
-
-.student-account__shortcut-title {
-  font-size: 1.05rem;
-  font-weight: 800;
-}
-
-.student-account__shortcut-detail {
-  color: #5c6b7e;
-  font-size: 0.9rem;
-}
-
-.student-account__shortcut-go {
-  margin-top: auto;
+.student-account__app-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 3.35rem;
+  height: 3.35rem;
+  border: 1px solid rgba(42, 93, 159, 0.16);
+  border-radius: 999px;
+  background: #fff;
   color: #2a5d9f;
-  font-size: 0.9rem;
+  box-shadow: 0 1px 2px rgba(31, 63, 110, 0.08);
+}
+
+.student-account__app--primary .student-account__app-icon {
+  border-color: #2a5d9f;
+  background: #2a5d9f;
+  color: #fff;
+}
+
+.student-account__app.is-open .student-account__app-icon,
+.student-account__app:hover .student-account__app-icon {
+  border-color: #2a5d9f;
+}
+
+.student-account__app-label {
+  max-width: 4.6rem;
+  color: #24344a;
+  font-size: 0.78rem;
   font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.student-account__app-dot {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.15rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #c2410c;
+}
+
+@media (max-width: 640px) {
+  .student-account__hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .student-account__mailbox {
+    text-align: left;
+  }
+}
+
+@media (min-width: 768px) {
+  .student-account__launcher {
+    gap: 1.15rem 0.75rem;
+    padding: 1.25rem 0.75rem 1.35rem;
+  }
+
+  .student-account__app-icon {
+    width: 4rem;
+    height: 4rem;
+  }
+
+  .student-account__app-label {
+    max-width: 6rem;
+    font-size: 0.9rem;
+  }
+
+  .student-account__name {
+    font-size: 1.6rem;
+  }
 }
