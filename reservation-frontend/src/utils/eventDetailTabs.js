@@ -22,7 +22,8 @@ export const EVENT_DETAIL_TAB_KEYS = Object.freeze({
  * }} visibility
  */
 export function resolveEventDetailTab(tab, visibility = {}) {
-  const allowed = new Set([EVENT_DETAIL_TAB_KEYS.reservations]);
+  const allowed = new Set();
+  if (visibility.reservationsVisible !== false) allowed.add(EVENT_DETAIL_TAB_KEYS.reservations);
   if (visibility.groupingVisible) allowed.add(EVENT_DETAIL_TAB_KEYS.grouping);
   if (visibility.taskMarksVisible) allowed.add(EVENT_DETAIL_TAB_KEYS.taskMarks);
   if (visibility.checkinVisible !== false) allowed.add(EVENT_DETAIL_TAB_KEYS.checkin);
@@ -31,7 +32,10 @@ export function resolveEventDetailTab(tab, visibility = {}) {
 
   const key = String(tab || '').trim();
   if (allowed.has(key)) return key;
-  return EVENT_DETAIL_TAB_KEYS.reservations;
+  if (allowed.has(EVENT_DETAIL_TAB_KEYS.reservations)) return EVENT_DETAIL_TAB_KEYS.reservations;
+  if (allowed.has(EVENT_DETAIL_TAB_KEYS.taskMarks)) return EVENT_DETAIL_TAB_KEYS.taskMarks;
+  const first = allowed.values().next().value;
+  return first || EVENT_DETAIL_TAB_KEYS.reservations;
 }
 
 /**

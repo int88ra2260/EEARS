@@ -53,6 +53,15 @@ function isNavGroup(node) {
   return Array.isArray(node?.children) && node.children.length > 0 && !node.path;
 }
 
+function countNavLeaves(nodes) {
+  let count = 0;
+  for (const node of nodes || []) {
+    if (isNavGroup(node)) count += countNavLeaves(node.children);
+    else if (node.path) count += 1;
+  }
+  return count;
+}
+
 function collectExpandableIds(nodes, out = []) {
   for (const node of nodes || []) {
     if (!isNavGroup(node)) continue;
@@ -70,6 +79,8 @@ function NavGlyph({ id, size = 16 }) {
 
 export default function AdminSidebar({ pathname, navContext, token, mobileOpen, onNavigate }) {
   const visible = useMemo(() => filterVisibleNav(ADMIN_NAV_SECTIONS, navContext), [navContext]);
+  const leafCount = useMemo(() => countNavLeaves(visible), [visible]);
+  const showNavTools = leafCount > 3;
   const active = useMemo(() => getSidebarActiveState(pathname, navContext), [pathname, navContext]);
   const [navQuery, setNavQuery] = useState('');
   const { showAttention: showLpOpsAttention } = useLearningPartnerOpsAttention(
@@ -113,13 +124,18 @@ export default function AdminSidebar({ pathname, navContext, token, mobileOpen, 
         next[active.sectionId] = true;
         changed = true;
       }
-      if (active.groupId && !next[active.groupId]) {
-        next[active.groupId] = true;
-        changed = true;
-      }
+      const groupIds = active.groupIds?.length
+        ? active.groupIds
+        : (active.groupId ? [active.groupId] : []);
+      groupIds.forEach((id) => {
+        if (!next[id]) {
+          next[id] = true;
+          changed = true;
+        }
+      });
       return changed ? next : prev;
     });
-  }, [active.sectionId, active.groupId]);
+  }, [active.sectionId, active.groupId, active.groupIds]);
 
   useEffect(() => {
     if (!showLpOpsAttention) return;
@@ -205,7 +221,12 @@ export default function AdminSidebar({ pathname, navContext, token, mobileOpen, 
 
   const renderGroup = (node, section, depth) => {
     const expanded = isExpanded(node.id);
-    const isActive = depth === 0 ? active.sectionId === node.id : active.groupId === node.id;
+    const groupIds = active.groupIds?.length
+      ? active.groupIds
+      : (active.groupId ? [active.groupId] : []);
+    const isActive = depth === 0
+      ? active.sectionId === node.id
+      : groupIds.includes(node.id);
     const sectionShowDot = depth === 0 && (
       (node.id === 'english' && showLpOpsAttention)
       || (node.id === 'events' && showLeaderMarking)
@@ -261,6 +282,7 @@ export default function AdminSidebar({ pathname, navContext, token, mobileOpen, 
       aria-label="後台主導覽"
     >
       <div className="admin-sidebar__brand">EEARS 後台</div>
+      {showNavTools ? (
       <div className="admin-sidebar__tools">
         <label className="visually-hidden" htmlFor="admin-sidebar-search">搜尋功能</label>
         <input
@@ -283,6 +305,7 @@ export default function AdminSidebar({ pathname, navContext, token, mobileOpen, 
           </div>
         ) : null}
       </div>
+      ) : null}
       <ul className="admin-sidebar__nav">
         {filteredVisible.length === 0 ? (
           <li className="px-2 py-2 small text-muted">找不到符合「{navQuery.trim()}」的功能</li>

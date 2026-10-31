@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import LoginPage from './LoginPage';
-import { login as loginApi } from '../services/authApi';
+import { getLoginInfo, login as loginApi } from '../services/authApi';
 
 vi.mock('../services/authApi', () => ({
   login: vi.fn(),
@@ -31,9 +31,9 @@ describe('staff login fields', () => {
     localStorage.clear();
   });
 
-  test('account and password inputs have accessible names', () => {
+  test('account and password inputs have accessible names', async () => {
     renderLogin();
-    const account = screen.getByLabelText('帳號：');
+    const account = await screen.findByLabelText('帳號：');
     const password = screen.getByLabelText('密碼：');
 
     expect(account).toHaveAttribute('id', 'staff-login-username');
@@ -42,8 +42,9 @@ describe('staff login fields', () => {
     expect(password).toHaveAttribute('autocomplete', 'current-password');
   });
 
-  test('each label is wired to its input', () => {
+  test('each label is wired to its input', async () => {
     renderLogin();
+    await screen.findByLabelText('帳號：');
     const accountLabel = screen.getByText('帳號：').closest('label');
     const passwordLabel = screen.getByText('密碼：').closest('label');
     expect(accountLabel.control).toBe(screen.getByLabelText('帳號：'));
@@ -57,7 +58,7 @@ describe('staff login fields', () => {
   test('failed login shows the existing error and does not store a token', async () => {
     loginApi.mockResolvedValue({ ok: false, status: 401, data: { error: '帳號或密碼錯誤' } });
     renderLogin();
-    fireEvent.change(screen.getByLabelText('帳號：'), { target: { value: 'staff' } });
+    fireEvent.change(await screen.findByLabelText('帳號：'), { target: { value: 'staff' } });
     fireEvent.change(screen.getByLabelText('密碼：'), { target: { value: 'secret' } });
     fireEvent.click(screen.getByRole('button', { name: '登入' }));
 
@@ -73,7 +74,7 @@ describe('staff login fields', () => {
       data: { token: 'staff-token', role: 'admin', mustResetPassword: false, teacher: { name: 'Ada' } },
     });
     const { onLoginSuccess } = renderLogin();
-    fireEvent.change(screen.getByLabelText('帳號：'), { target: { value: 'ada' } });
+    fireEvent.change(await screen.findByLabelText('帳號：'), { target: { value: 'ada' } });
     fireEvent.change(screen.getByLabelText('密碼：'), { target: { value: 'secret' } });
     fireEvent.click(screen.getByRole('button', { name: '登入' }));
 
@@ -81,5 +82,14 @@ describe('staff login fields', () => {
       expect(localStorage.getItem('token')).toBe('staff-token');
     });
     expect(onLoginSuccess).toHaveBeenCalledWith('staff-token', 'admin', 'ada', 'Ada', false);
+  });
+
+  test('a non-employee username on SSO points leaders to the local account', async () => {
+    getLoginInfo.mockResolvedValueOnce({ ssoEnabled: true });
+    renderLogin();
+    fireEvent.change(await screen.findByLabelText('員工編號：'), { target: { value: 'et-angelique' } });
+    fireEvent.click(screen.getByRole('button', { name: '改用本地帳號' }));
+    expect(await screen.findByLabelText('帳號：')).toHaveValue('et-angelique');
+    expect(localStorage.getItem('eears.staffLoginMode')).toBe('local');
   });
 });

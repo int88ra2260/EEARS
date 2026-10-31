@@ -19,14 +19,13 @@ import MetricCard from '../../components/learningAnalytics/MetricCard';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
-import LearningAnalyticsSemesterOpsPanel from '../../components/learningAnalytics/LearningAnalyticsSemesterOpsPanel';
 import MicroLearningEngagementPanel from '../../components/learningAnalytics/MicroLearningEngagementPanel';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
 import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import LaFold from '../../components/learningAnalytics/LaFold';
 import EvidenceQualityBadge from '../../components/learningAnalytics/EvidenceQualityBadge';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
-import { LA_FILTER_INTRO_COHORT, OVERVIEW_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import { OVERVIEW_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
 const EVIDENCE_QUALITY_USER_LABELS = {
   high: '高（英檢與參與紀錄較完整）',
@@ -127,7 +126,6 @@ export default function LearningAnalyticsOverviewPage() {
   }, [data]);
 
   const filterHasNoMatch = data?.hasData === false && meta?.hasAnalyticData;
-  const semesterId = appliedFilters.semester || '';
 
   return (
     <div>
@@ -140,14 +138,13 @@ export default function LearningAnalyticsOverviewPage() {
         title="總覽"
         showWorkingSet
         workingSetHere="overview"
-        question="先看這個學期的 B2 達標與缺口，再看分析快照上的能力分布。"
-        scope="A 區用學期名冊。B 區用分析快照，快照上的 B2 人數不是學期 KPI。"
+        question="看分析快照裡的能力分布，以及有多少人資料夠用來比較。"
+        scope="上呈的聽讀成對、說寫成對達標在 B2 KPI 報表。這一頁不計算學期達標人數。"
         howToRead={(
           <ol className="small mb-0 ps-3">
-            <li className="mb-1">本頁分為兩區：A 學期營運（名冊分母 KPI／缺口）與 B 能力觀察（分析快照累積）。</li>
-            <li className="mb-1">要看學期達標與匯出未達標／缺重測名單：選好學期後看 A 區，或到 B2 KPI 報表。</li>
-            <li className="mb-1">要比系所或入學年度，到系所比較；要看資源覆蓋與可觀察樣本，到資源覆蓋。</li>
-            <li>若 B 區顯示尚無資料，請先到學習歷程維運執行背景重建。</li>
+            <li className="mb-1">要看這個學期名冊的成對達標與缺口名單，到 B2 KPI 報表。</li>
+            <li className="mb-1">要找尚未達 B2、GSE 在 51–58 的人，到接近 B2；要看同一批學生，到學生探索。</li>
+            <li>若下面顯示尚無資料，請先到學習歷程維運執行背景重建。</li>
           </ol>
         )}
       >
@@ -174,25 +171,16 @@ export default function LearningAnalyticsOverviewPage() {
         filterTitle="篩選條件"
         submitLabel="套用篩選"
         showAdvanced={false}
-        intro={LA_FILTER_INTRO_COHORT}
+        intro="這些條件篩的是分析快照。學期名冊的成對達標請到 B2 KPI 報表。"
       />
       <LearningAnalyticsActiveFilters filters={appliedFilters} visibleKeys={OVERVIEW_FILTER_KEYS} />
 
       {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
 
-      <div className="mt-3">
-        <LearningAnalyticsSemesterOpsPanel
-          token={token}
-          semesterId={semesterId}
-          ready={ready}
-        />
-      </div>
-
-      <section className="la-zone la-zone--observe mt-3">
-        <div className="la-zone__badge">B · 能力觀察</div>
+      <section className="mt-3">
         <LearningAnalyticsPanelHeader
-          title="能力觀察（分析快照）"
-          lead="以下為長期能力分布與成長趨勢。上方「B2 以上達標率」是快照累積，不可當作學期 KPI。"
+          title="分析快照"
+          lead="長期能力分布與資料是否夠用來比較。聽讀成對、說寫成對的學期達標在 B2 KPI 報表。"
         />
 
         {loading ? (
@@ -225,22 +213,21 @@ export default function LearningAnalyticsOverviewPage() {
         {!loading && data?.hasData ? (
           <>
             <Alert variant="secondary" className="small py-2 mt-2">
-              此區<strong>不受「學期」名冊分母約束</strong>（學期篩選主要影響上方 A 區）。
-              正式聽讀／說寫達標請用 A 區或
+              學期名冊的聽讀成對、說寫成對達標在
               {' '}
               <Link to="/admin/learning-analytics/kpi-report">B2 KPI 報表</Link>
               。
             </Alert>
 
             <Row className="g-3 mt-1">
-              <Col md={3} sm={6}>
+              <Col md={4} sm={6}>
                 <MetricCard
                   label="納入快照學生"
                   value={formatNum(headline.studentsInAnalysis)}
                   tooltip="符合目前篩選條件、且已納入分析快照的學生人數；這是觀察母體，不等於學期名冊分母。"
                 />
               </Col>
-              <Col md={3} sm={6}>
+              <Col md={4} sm={6}>
                 <MetricCard
                   label="有效英檢覆蓋"
                   value={formatCoverage(headline.studentsWithValidExam, headline.studentsInAnalysis)}
@@ -248,20 +235,12 @@ export default function LearningAnalyticsOverviewPage() {
                   tooltip="納入快照學生中，至少有一筆可用英檢資料的人數比例。覆蓋不足時，成長與達標解讀都要降權。"
                 />
               </Col>
-              <Col md={3} sm={6}>
+              <Col md={4} sm={6}>
                 <MetricCard
                   label="前後測覆蓋"
                   value={formatCoverage(headline.studentsWithMultipleExams, headline.studentsInAnalysis)}
                   hint={`${formatNum(headline.studentsWithMultipleExams)} 人可算成長`}
                   tooltip="至少有兩次有效英檢紀錄，才能計算個人進步。這比平均成長更適合作為總覽主指標。"
-                />
-              </Col>
-              <Col md={3} sm={6}>
-                <MetricCard
-                  label="B2+（快照背景）"
-                  value={formatPct(headline.b2plusRate)}
-                  hint={`${formatNum(headline.b2plusCount)} 人；非學期 KPI`}
-                  tooltip="依分析快照中每位學生歷史最佳技能成績，CEFR 達 B2 或以上者所占比例。正式上呈請看 A 區或 B2 KPI 報表。"
                 />
               </Col>
             </Row>
@@ -322,7 +301,7 @@ export default function LearningAnalyticsOverviewPage() {
                     </table>
                   </div>
                   <p className="small text-muted mt-2 mb-0">
-                    成長值只應在「可算前後測」樣本足夠時解讀；正式缺口請以 A 區缺重測／無考試為主。
+                    成長值只應在「可算前後測」樣本足夠時解讀。缺重測與無考試的名單在 B2 KPI 報表。
                   </p>
                 </div>
               </Col>
@@ -427,13 +406,6 @@ export default function LearningAnalyticsOverviewPage() {
             </Row>
 
             <MicroLearningEngagementPanel token={token} ready={ready} />
-
-            <div className="d-flex flex-wrap gap-3 mt-3 pt-2 border-top small">
-              <Link to="/admin/learning-analytics/cohorts">系所比較</Link>
-              <Link to="/admin/learning-analytics/skills">技能成長</Link>
-              <Link to="/admin/learning-analytics/b1-plus">接近 B2</Link>
-              <Link to="/admin/learning-analytics/raw-data">匯出資料</Link>
-            </div>
           </>
         ) : null}
       </section>

@@ -6,6 +6,7 @@ import AdminEventDetailTabs from '../../components/admin/events/AdminEventDetail
 import AdminEventDetailHeader from '../../components/admin/events/AdminEventDetailHeader';
 import { EVENT_DETAIL_COPY } from '../../constants/adminEventDetailCopy';
 import { getAdminRoleHomeLabel, getAdminRoleHomePath } from '../../constants/adminNavigation';
+import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
 import {
   buildEventDetailSearchParams,
   resolveEventDetailTab,
@@ -26,8 +27,13 @@ export default function AdminEventDetailPage() {
     activeTab: requestedTab,
   });
 
+  const canOpenEventList = canAccessAdminRoute(accessProfile, '/admin/operations');
+  const backTo = canOpenEventList ? '/admin/operations' : getAdminRoleHomePath(accessProfile);
+  const backLabel = canOpenEventList ? '返回活動列表' : getAdminRoleHomeLabel(accessProfile);
+
   const tabVisibility = useMemo(
     () => ({
+      reservationsVisible: Boolean(ws.canViewReservations),
       groupingVisible: Boolean(ws.groupingTabProps?.visible),
       taskMarksVisible: Boolean(ws.taskMarksTabProps?.visible),
       checkinVisible: Boolean(ws.canCheckinStudents),
@@ -37,6 +43,7 @@ export default function AdminEventDetailPage() {
       violationsVisible: Boolean(ws.canManageViolations || ws.canViewBlacklist),
     }),
     [
+      ws.canViewReservations,
       ws.groupingTabProps?.visible,
       ws.taskMarksTabProps?.visible,
       ws.canCheckinStudents,
@@ -105,6 +112,8 @@ export default function AdminEventDetailPage() {
     <div>
       <AdminEventDetailHeader
         ws={ws}
+        backTo={backTo}
+        backLabel={backLabel}
         onGoCheckinTab={tabVisibility.checkinVisible ? () => setActiveTab('checkin') : null}
         onGoViolationsTab={tabVisibility.violationsVisible ? () => setActiveTab('violations') : null}
       />

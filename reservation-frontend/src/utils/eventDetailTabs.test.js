@@ -28,6 +28,18 @@ describe('resolveEventDetailTab', () => {
     expect(resolveEventDetailTab('violations', hidden)).toBe('reservations');
   });
 
+  it('sends leaders without a reservation list to task marks', () => {
+    const leader = {
+      reservationsVisible: false,
+      checkinVisible: false,
+      importExportVisible: false,
+      violationsVisible: false,
+      taskMarksVisible: true,
+    };
+    expect(resolveEventDetailTab('reservations', leader)).toBe('taskMarks');
+    expect(resolveEventDetailTab('taskMarks', leader)).toBe('taskMarks');
+  });
+
   it('gates ET tabs by visibility', () => {
     expect(resolveEventDetailTab('grouping', { groupingVisible: true })).toBe('grouping');
     expect(resolveEventDetailTab('grouping', { groupingVisible: false })).toBe('reservations');

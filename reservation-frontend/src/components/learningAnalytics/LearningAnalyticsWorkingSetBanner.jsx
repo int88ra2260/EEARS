@@ -21,9 +21,10 @@ export default function LearningAnalyticsWorkingSetBanner({ here = '' }) {
   return (
     <div className="la-working-set" role="status">
       <div className="la-working-set-copy">
-        <strong>這批人：</strong>
-        {workingSet.label}
-        {`（${formatCount(workingSet.studentIds.length)} 人）`}
+        <strong>
+          {`目前只分析這個群體：${workingSet.label}（${formatCount(workingSet.studentIds.length)} 人）`}
+        </strong>
+        <span className="la-working-set-note">這頁的統計只含這群學生。</span>
         {extra ? <span className="la-working-set-note">{extra}</span> : null}
       </div>
       <div className="la-working-set-actions">
@@ -33,7 +34,7 @@ export default function LearningAnalyticsWorkingSetBanner({ here = '' }) {
           </Link>
         ))}
         <Button type="button" size="sm" variant="outline-secondary" onClick={workingSet.clear}>
-          看全部
+          清除群體篩選
         </Button>
       </div>
     </div>

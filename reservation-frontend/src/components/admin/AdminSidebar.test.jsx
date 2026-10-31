@@ -32,6 +32,9 @@ describe('AdminSidebar nested navigation', () => {
 
     fireEvent.click(analytics);
     expect(analytics).toHaveAttribute('aria-expanded', 'true');
+    const compareGroup = screen.getByRole('button', { name: '比較與資料' });
+    expect(compareGroup).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(compareGroup);
     expect(screen.getByRole('link', { name: '系所比較' })).toHaveAttribute('href', '/admin/learning-analytics/cohorts');
   });
 

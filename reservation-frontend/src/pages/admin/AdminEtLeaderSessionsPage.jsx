@@ -17,6 +17,8 @@ import UnreadAttentionDot from '../../components/learning-partner/UnreadAttentio
 import { notifyLeaderMarkingAttention } from '../../hooks/useLeaderMarkingAttention';
 import { checkInLeaderAttendance, fetchEventPracticeBriefs, fetchLeaderMarkingAttention, fetchMyLeaderPayroll, fetchMyLeaderSessions } from '../../services/etGroupingApi';
 import { showErrorMessage, showSuccessMessage } from '../../utils/errorHandler';
+import AdminListPager, { ADMIN_LIST_PAGE_SIZE, clampPage, slicePage } from '../../components/admin/AdminListPager';
+import './AdminEtLeaderSessionsPage.css';
 
 function attendanceBadge(row) {
   const status = row.attendance?.status || row.derivedStatus;
@@ -46,6 +48,30 @@ function formatUntil(value) {
     minute: '2-digit',
     hourCycle: 'h23',
   });
+}
+
+function SessionActions({ row, onCheckIn, onBriefs, onTasks, stacked = false }) {
+  const checkedIn = Boolean(row.attendance?.status);
+  const className = stacked ? 'd-grid gap-2 leader-session-card__actions' : 'text-nowrap';
+  const buttonClass = stacked ? '' : 'me-1';
+  return (
+    <div className={className}>
+      {!checkedIn && row.derivedStatus !== 'absent' ? (
+        <Button size="sm" variant="success" className={buttonClass} onClick={() => onCheckIn(row)}>
+          出席簽到
+        </Button>
+      ) : null}
+      <Button size="sm" variant="outline-primary" className={stacked ? '' : 'me-1'} onClick={() => onBriefs(row)}>
+        會前回答
+      </Button>
+      <Button size="sm" variant="primary" onClick={() => onTasks(row)}>
+        {row.payGate?.status === 'pending' ? (
+          <UnreadAttentionDot className="me-1" label="這場還沒勾完" />
+        ) : null}
+        任務成效
+      </Button>
+    </div>
+  );
 }
 
 function payBadge(gate) {
@@ -80,6 +106,7 @@ export default function AdminEtLeaderSessionsPage() {
   const [briefs, setBriefs] = useState([]);
   const [briefsLoading, setBriefsLoading] = useState(false);
   const [briefsError, setBriefsError] = useState('');
+  const [page, setPage] = useState(1);
 
   const loadSessions = useCallback(async () => {
     if (!token || !canAccess) return;
@@ -113,6 +140,17 @@ export default function AdminEtLeaderSessionsPage() {
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedSemester]);
+
+  useEffect(() => {
+    setPage((prev) => clampPage(prev, sessions.length, ADMIN_LIST_PAGE_SIZE));
+  }, [sessions.length]);
+
+  const pagedSessions = slicePage(sessions, page, ADMIN_LIST_PAGE_SIZE);
+  const openTasks = (row) => navigate(`/admin/operations/${row.eventId}?tab=taskMarks`);
 
   // Deep link from on-site QR: /admin/et-grouping/my-sessions?eventId=&checkInToken=
   useEffect(() => {
@@ -193,8 +231,9 @@ export default function AdminEtLeaderSessionsPage() {
         <Card.Body>
           <Row className="g-2 align-items-end">
             <Col md={4}>
-              <Form.Label className="small mb-1">學期</Form.Label>
+              <Form.Label className="small mb-1" htmlFor="leader-session-semester">學期</Form.Label>
               <Form.Select
+                id="leader-session-semester"
                 size="sm"
                 value={selectedSemester}
                 onChange={(e) => setSelectedSemester(e.target.value)}
@@ -210,9 +249,12 @@ export default function AdminEtLeaderSessionsPage() {
               </Button>
             </Col>
           </Row>
-          <p className="small text-muted mb-0 mt-2">
-            活動當天先完成出席簽到，並在離場前把必填任務勾完。當天勾選最準。勾是或勾否都算，空白不算。超過 3 天就不能再勾，這場也不會計薪，要行政另外開放補勾。時數用活動表訂時間。
-          </p>
+          <ul className="leader-session-notes small text-muted">
+            <li>活動當天先出席簽到，離場前把必填任務勾完。當天勾選最準。</li>
+            <li>勾是或勾否都算完成，空白不算。</li>
+            <li>超過結束後 3 天就不能再勾，這場也不會計薪。要補勾請聯絡行政。</li>
+            <li>時數用活動表上的開始與結束時間。</li>
+          </ul>
         </Card.Body>
       </Card>
 
@@ -293,68 +335,80 @@ export default function AdminEtLeaderSessionsPage() {
       ) : null}
 
       {!loading && sessions.length > 0 ? (
-        <Table responsive hover size="sm" className="bg-white border">
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>時間</th>
-              <th>活動</th>
-              <th>負責組別</th>
-              <th>簽到</th>
-              <th>計薪</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {sessions.map((row) => {
-              const checkedIn = Boolean(row.attendance?.status);
-              return (
-                <tr key={row.eventId}>
-                  <td>{row.date}</td>
-                  <td>{row.startTime}{row.endTime ? ` – ${row.endTime}` : ''}</td>
-                  <td>{row.name}</td>
-                  <td>
-                    {(row.groupLabels || []).map((label) => (
-                      <Badge key={label} bg="light" text="dark" className="me-1 border">{label}</Badge>
-                    ))}
-                  </td>
-                  <td>{attendanceBadge(row)}</td>
-                  <td>{payBadge(row.payGate)}</td>
-                  <td className="text-nowrap">
-                    {!checkedIn && row.derivedStatus !== 'absent' ? (
-                      <Button
-                        size="sm"
-                        variant="success"
-                        className="me-1"
-                        onClick={() => openCheckIn(row)}
-                      >
-                        出席簽到
-                      </Button>
-                    ) : null}
-                    <Button
-                      size="sm"
-                      variant="outline-primary"
-                      className="me-1"
-                      onClick={() => openBriefs(row)}
-                    >
-                      會前回答
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => navigate(`/admin/operations/${row.eventId}?tab=taskMarks`)}
-                    >
-                      {row.payGate?.status === 'pending' ? (
-                        <UnreadAttentionDot className="me-1" label="這場還沒勾完" />
-                      ) : null}
-                      任務成效
-                    </Button>
-                  </td>
+        <>
+          <div className="d-md-none">
+            {pagedSessions.rows.map((row) => (
+              <article key={row.eventId} className="leader-session-card border rounded bg-white p-3 mb-2">
+                <div className="fw-semibold">{row.name}</div>
+                <div className="small text-muted mb-2">
+                  {row.date}
+                  {' '}
+                  {row.startTime}{row.endTime ? ` – ${row.endTime}` : ''}
+                </div>
+                <div className="d-flex flex-wrap gap-1 mb-2">
+                  {(row.groupLabels || []).map((label) => (
+                    <Badge key={label} bg="light" text="dark" className="border">{label}</Badge>
+                  ))}
+                  {attendanceBadge(row)}
+                  {payBadge(row.payGate)}
+                </div>
+                <SessionActions
+                  row={row}
+                  stacked
+                  onCheckIn={openCheckIn}
+                  onBriefs={openBriefs}
+                  onTasks={openTasks}
+                />
+              </article>
+            ))}
+          </div>
+          <div className="d-none d-md-block">
+            <Table hover size="sm" className="bg-white border mb-0">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>時間</th>
+                  <th>活動</th>
+                  <th>負責組別</th>
+                  <th>簽到</th>
+                  <th>計薪</th>
+                  <th />
                 </tr>
-              );
-            })}
-          </tbody>
-        </Table>
+              </thead>
+              <tbody>
+                {pagedSessions.rows.map((row) => (
+                  <tr key={row.eventId}>
+                    <td>{row.date}</td>
+                    <td>{row.startTime}{row.endTime ? ` – ${row.endTime}` : ''}</td>
+                    <td>{row.name}</td>
+                    <td>
+                      {(row.groupLabels || []).map((label) => (
+                        <Badge key={label} bg="light" text="dark" className="me-1 border">{label}</Badge>
+                      ))}
+                    </td>
+                    <td>{attendanceBadge(row)}</td>
+                    <td>{payBadge(row.payGate)}</td>
+                    <td>
+                      <SessionActions
+                        row={row}
+                        onCheckIn={openCheckIn}
+                        onBriefs={openBriefs}
+                        onTasks={openTasks}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
+          <AdminListPager
+            page={pagedSessions.current}
+            pages={pagedSessions.pages}
+            total={sessions.length}
+            onPage={setPage}
+            label="帶班場次分頁"
+          />
+        </>
       ) : null}
 
       <Modal show={Boolean(checkInEvent)} onHide={closeCheckIn} centered>
@@ -370,12 +424,11 @@ export default function AdminEtLeaderSessionsPage() {
                   {checkInEvent.date} {checkInEvent.startTime}
                 </span>
               </p>
-              <p className="small text-muted">
-                請掃描現場 QR（手機相機開啟連結會自動帶入），或向行政取得簽到碼後貼上。
-                開始前 30 分至開始後 10 分內為準時；之後至活動結束為遲到。
-              </p>
-              <Form.Label className="small">現場簽到碼</Form.Label>
+              <p className="small text-muted mb-1">用手機相機掃描現場 QR，或向行政取得簽到碼後貼上。</p>
+              <p className="small text-muted">開始前 30 分到開始後 10 分內是準時。之後到活動結束是遲到。</p>
+              <Form.Label className="small" htmlFor="leader-checkin-token">現場簽到碼</Form.Label>
               <Form.Control
+                id="leader-checkin-token"
                 value={checkInToken}
                 onChange={(e) => setCheckInToken(e.target.value)}
                 placeholder="貼上或輸入簽到碼"
@@ -384,7 +437,7 @@ export default function AdminEtLeaderSessionsPage() {
             </>
           ) : null}
         </Modal.Body>
-        <Modal.Footer>
+        <Modal.Footer className="d-grid gap-2 d-sm-flex justify-content-sm-end">
           <Button variant="outline-secondary" onClick={closeCheckIn} disabled={submitting}>
             取消
           </Button>
@@ -405,9 +458,8 @@ export default function AdminEtLeaderSessionsPage() {
               <span className="text-muted small ms-2">{briefEvent.date}</span>
             </p>
           ) : null}
-          <p className="small text-muted">
-            只列出你這組、而且練習時有填對學號的學生。這是開場用的第一句，不是分數。
-          </p>
+          <p className="small text-muted mb-1">只列出你這組、而且練習時有填對學號的學生。</p>
+          <p className="small text-muted">這是開場用的第一句，用來接話，不是分數。</p>
           {briefsLoading ? (
             <div className="d-flex align-items-center gap-2">
               <Spinner animation="border" size="sm" />
@@ -419,7 +471,31 @@ export default function AdminEtLeaderSessionsPage() {
             <Alert variant="info" className="mb-0">這組還沒有對到學號的會前練習。現場仍照題目討論。</Alert>
           ) : null}
           {!briefsLoading && briefs.length ? (
-            <Table size="sm" responsive className="mb-0">
+            <>
+            <div className="d-md-none">
+              {briefs.map((brief) => (
+                <article key={`${brief.studentId}-${brief.phase || 'any'}-${brief.questionNumber || '0'}`} className="border rounded p-3 mb-2">
+                  <div className="fw-semibold">{brief.studentName}</div>
+                  <div className="small text-muted mb-2">
+                    {brief.groupLabel ? `${brief.groupLabel} · ` : ''}
+                    {brief.questionNumber ? `第 ${brief.questionNumber} 題` : '未標題號'}
+                  </div>
+                  <div className="small text-secondary">系統聽到的第一句</div>
+                  <div className="mb-2">{brief.heard || '沒有辨識到英文'}</div>
+                  <div className="small text-secondary">可以怎麼接</div>
+                  <div>
+                    {brief.cue}
+                    {brief.phraseId ? (
+                      <div>
+                        <Link to={`/guides/activity-phrasebook/english-table#${brief.phraseId}`}>對應句庫</Link>
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="d-none d-md-block">
+            <Table size="sm" className="mb-0">
               <thead>
                 <tr>
                   <th>學生</th>
@@ -453,9 +529,11 @@ export default function AdminEtLeaderSessionsPage() {
                 ))}
               </tbody>
             </Table>
+            </div>
+            </>
           ) : null}
         </Modal.Body>
-        <Modal.Footer>
+        <Modal.Footer className="d-grid d-sm-flex justify-content-sm-end">
           <Button variant="outline-secondary" onClick={closeBriefs}>關閉</Button>
         </Modal.Footer>
       </Modal>

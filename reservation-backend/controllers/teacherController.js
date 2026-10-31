@@ -3,6 +3,8 @@ const { Teacher, Class, ClassMembership, ClassTeacher, sequelize } = require('..
 const loginAccountCooldown = require('../utils/loginAccountCooldown');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { secretKey } = require('../config/jwtSecret');
 const auditLogService = require('../services/auditLogService');
 const {
   syncPermissionOverrides,
@@ -960,7 +962,31 @@ async function changeOwnPassword(req, res, next) {
       req,
     });
 
-    res.json({ success: true });
+    const payload = {
+      id: teacher.id,
+      role: teacher.role,
+      user: teacher.username,
+      name: teacher.name,
+      mustResetPassword: false,
+      teacherLevel: teacher.teacherLevel || 'regular',
+      staffLevel: teacher.staffLevel || null,
+      workerLevel: teacher.workerLevel || null,
+      isDemo: !!teacher.isDemo,
+      accessVersion: teacher.accessVersion || 1,
+      permissions: teacher.permissions || null,
+      scopes: Array.isArray(teacher.scopes) ? teacher.scopes : null,
+    };
+    const token = jwt.sign(payload, secretKey, { expiresIn: '4h' });
+
+    res.json({
+      success: true,
+      token,
+      role: teacher.role,
+      teacherLevel: payload.teacherLevel,
+      staffLevel: payload.staffLevel,
+      workerLevel: payload.workerLevel,
+      mustResetPassword: false,
+    });
   } catch (error) {
     next(error);
   }

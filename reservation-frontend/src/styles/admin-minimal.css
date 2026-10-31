@@ -43,6 +43,8 @@
   background: var(--admin-pastel-green);
   color: var(--admin-pastel-green-text);
   border-color: rgba(52, 101, 56, 0.12);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .admin-badge--warn {
@@ -355,6 +357,44 @@
 
 .admin-layout-root .nav-tabs {
   border-bottom-color: var(--admin-border);
+}
+
+.admin-event-detail-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.admin-event-detail-tabs .nav-link {
+  white-space: nowrap;
+}
+
+.leader-task-student-card .form-check-input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.15rem;
+}
+
+@media (max-width: 767.98px) {
+  .admin-list-pager .btn {
+    min-height: 44px;
+    min-width: 4.5rem;
+  }
+
+  .leader-task-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--admin-surface, #fff);
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    padding: 0.75rem 0.25rem;
+    border-top: 1px solid var(--admin-border, #e6e6e6);
+  }
+
+  .leader-task-actions .btn,
+  .leader-task-student-card .btn {
+    min-height: 44px;
+  }
 }
 
 .admin-layout-root .nav-tabs .nav-link {

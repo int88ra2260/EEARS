@@ -311,12 +311,13 @@ export default function LearningAnalyticsKpiReportPage() {
       title="B2 KPI 報表"
       showWorkingSet
       workingSetHere="kpi"
-      question="依選定政策，算出這個學期名冊的聽讀、說寫達標人數與比例。"
-      scope="分母是選定學期的在學名冊。這頁的達標線是 B2，不是分析快照上的累積人數。"
+      question="依選定政策，算出這個學期名冊的聽讀成對、說寫成對達標人數與比例。"
+      scope="分母是選定學期的在學名冊。達標是聽讀成對、說寫成對，不是分析快照上的累積人數，也不是單一技能是否達 B2。"
       howToRead={(
         <ul className="small mb-0 ps-3">
           <li className="mb-1">先選 KPI 政策與名冊學期，再按執行報表。內建政策唯讀，要改規則請複製後編輯。</li>
-          <li>匯出 Excel 是達標結果；匯出缺口名單是未達標、缺重測或無考試的人。</li>
+          <li className="mb-1">預設規則是同一份測驗的聽讀成對、說寫成對。培力是聽讀合計至少 200、說寫合計至少 560，不可把不同測驗的技能拼在一起。</li>
+          <li>匯出 Excel 是成對達標結果；匯出缺口名單是未達標、缺重測或無考試的人。</li>
         </ul>
       )}
     >
