@@ -168,6 +168,7 @@ function mockStudentAccount(reservation, overrides = {}) {
     name: reservation.studentName,
     email: reservation.studentEmail,
     status: 'active',
+    emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
   };
   StudentAccount.findByPk.mockResolvedValue(account);
@@ -232,6 +233,20 @@ describe('DELETE /api/reservations/:id auth regression', () => {
       .send({ cancellationCode: '111222' });
     expect(res.status).toBe(401);
     expect(res.body.code).toBe('STUDENT_AUTH_REQUIRED');
+  });
+
+  it('前台：信箱未驗證不能取消', async () => {
+    const reservation = makeReservation();
+    const account = mockStudentAccount(reservation, { emailVerifiedAt: null });
+
+    const res = await request(app)
+      .post('/api/reservations/99/cancel-public')
+      .set('Authorization', studentAuthHeader(account))
+      .send({ cancellationCode: '111222' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('EMAIL_ACTIVATION_REQUIRED');
+    expect(reservation.destroy).not.toHaveBeenCalled();
   });
 
   it('前台：正確驗證碼可取消成功（新路由）', async () => {
