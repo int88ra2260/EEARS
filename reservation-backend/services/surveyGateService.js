@@ -11,8 +11,11 @@ const {
   SurveyModuleResponse,
   EnglishTableSurveyResponse,
   EnglishClubSurveyResponse,
+  Reservation,
+  Event,
 } = require('../models');
 const { getCurrentSemester } = require('../utils/semester');
+const { SEMESTER_RANGES, semesterIdFromDate, toTaipeiDateOnly } = require('../utils/semesterConstants');
 const eventTypeService = require('./eventTypeService');
 const { normalizeRetakePolicy } = require('./surveyRetakePolicy');
 
@@ -172,6 +175,98 @@ async function hasCompletedForGate(params) {
   return hasCompletedForGateWithSemester(params);
 }
 
+function addUtcDays(ymd, days) {
+  const [year, month, day] = String(ymd).split('-').map(Number);
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * 學期區間對半。115-1（2026-08-01～2027-01-31）上半到 2026-10-31，下半從 2026-11-01。
+ */
+function semesterHalves(semesterCode) {
+  const range = SEMESTER_RANGES[semesterCode];
+  if (!range?.start || !range?.end || range.start > range.end) return null;
+  const startMs = Date.parse(`${range.start}T00:00:00Z`);
+  const endMs = Date.parse(`${range.end}T00:00:00Z`);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  const inclusive = Math.round((endMs - startMs) / 86400000) + 1;
+  if (inclusive < 2) return null;
+  const firstLen = Math.floor(inclusive / 2);
+  const firstEnd = addUtcDays(range.start, firstLen - 1);
+  const secondStart = addUtcDays(firstEnd, 1);
+  return {
+    semester: semesterCode,
+    first: { start: range.start, end: firstEnd },
+    second: { start: secondStart, end: range.end },
+  };
+}
+
+async function hasPriorSameActivityReservation({ studentId, eventType, start, end, excludeEventId }) {
+  const sid = String(studentId || '').trim();
+  const types = eventTypeService.getEventTypeQueryValues(eventType);
+  if (!sid || !types.length || !start || !end) return false;
+  const where = { studentId: sid, checkinStatus: '已簽到' };
+  if (excludeEventId != null && excludeEventId !== '') {
+    where.eventId = { [Op.ne]: excludeEventId };
+  }
+  const row = await Reservation.findOne({
+    attributes: ['id'],
+    where,
+    include: [{
+      model: Event,
+      required: true,
+      attributes: [],
+      where: {
+        eventType: { [Op.in]: types },
+        date: { [Op.between]: [start, end] },
+      },
+    }],
+  });
+  return !!row;
+}
+
+/**
+ * 問卷從下半學期才開始要求。這個學期同一類活動已有簽到時，
+ * 下半學期再預約就要先填；還沒簽到參加過的不擋。ET／EC 分開計算。
+ */
+async function surveyAppliesToBooking({ studentId, event, semesterCode }) {
+  const eventDay = toTaipeiDateOnly(event?.date);
+  if (!eventDay) return false;
+  const semester = semesterCode || semesterIdFromDate(eventDay) || getCurrentSemester();
+  const range = SEMESTER_RANGES[semester];
+  const halves = semesterHalves(semester);
+  if (!range?.start || !range?.end || !halves) return false;
+  if (eventDay < halves.second.start || eventDay > halves.second.end) return false;
+  return hasPriorSameActivityReservation({
+    studentId,
+    eventType: event?.eventType,
+    start: range.start,
+    end: range.end,
+    excludeEventId: event?.id,
+  });
+}
+
+/** 帳號頁：這個學期是否已簽到參加過同一類活動，因此再次預約前要先填問卷。 */
+async function priorReservationRequiresSurvey({ studentId, eventTypes, semesterCode }) {
+  const semester = semesterCode || getCurrentSemester();
+  const range = SEMESTER_RANGES[semester];
+  if (!range?.start || !range?.end) return false;
+  const types = Array.isArray(eventTypes) ? eventTypes : [eventTypes];
+  for (const eventType of types) {
+    if (!eventType) continue;
+    const booked = await hasPriorSameActivityReservation({
+      studentId,
+      eventType,
+      start: range.start,
+      end: range.end,
+    });
+    if (booked) return true;
+  }
+  return false;
+}
+
 function ruleTimeAllows(rule, now = new Date()) {
   const startAt = rule.startAt || rule.startDate;
   const endAt = rule.endAt || rule.endDate;
@@ -193,4 +288,7 @@ module.exports = {
   hasCompletedForGate,
   hasCompletedForGateWithSemester,
   ruleTimeAllows,
+  semesterHalves,
+  surveyAppliesToBooking,
+  priorReservationRequiresSurvey,
 };

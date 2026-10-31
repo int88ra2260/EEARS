@@ -2,6 +2,7 @@ jest.mock('../../services/surveyGateService', () => ({
   resolveGateContext: jest.fn(),
   hasCompletedForGate: jest.fn(),
   ruleTimeAllows: jest.fn(() => ({ ok: true })),
+  surveyAppliesToBooking: jest.fn(async () => true),
 }));
 
 jest.mock('../../models', () => ({
@@ -66,7 +67,7 @@ describe('survey gate fail-close behavior', () => {
       studentId: 'B123456789',
       eventType: 'Job Talk',
     });
-    expect(Event.findByPk).toHaveBeenCalledWith(1, { attributes: ['id', 'eventType'] });
+    expect(Event.findByPk).toHaveBeenCalledWith(1, { attributes: ['id', 'eventType', 'date'] });
     expect(res.statusCode).toBe(409);
     expect(res.payload.code).toBe('ENGLISH_TABLE_SURVEY_REQUIRED');
   });

@@ -105,7 +105,7 @@ export default function SurveyChoicePage() {
         </Card.Header>
         <Card.Body>
           <p className="text-muted mb-3">
-            請選擇要填寫的問卷。活動相關問卷（English Table／English Club）於預約前可能為必填；獨立問卷可直接填寫。
+            請選擇要填寫的問卷。這個學期已經簽到參加過 English Table 或 English Club 的同學，下半學期再次預約同一類活動前要先填問卷；還沒簽到參加過的不用填。
           </p>
           <div className="mb-4">
             <SurveyExitActions

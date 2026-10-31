@@ -196,12 +196,15 @@ export default function StudentAccountPage() {
           setSurveyDetail('目前沒有開放中的問卷');
           return;
         }
-        const pending = surveys.filter((item) => item.isRequired && !item.filled);
+        const pending = surveys.filter((item) => item.bookingSurveyRequired && !item.filled);
         if (!pending.length) {
-          setSurveyDetail('本學期都已填');
+          const stillOpen = surveys.some((item) => !item.filled);
+          setSurveyDetail(stillOpen
+            ? '還沒簽到參加過的話，再次預約前不用填問卷'
+            : '本學期都已填');
           return;
         }
-        setSurveyDetail(`本學期未填：${pending.map((item) => item.surveyName).join('、')}`);
+        setSurveyDetail(`再次預約前需填：${pending.map((item) => item.surveyName).join('、')}`);
       })
       .catch(() => {
         if (!cancelled) setSurveyDetail('查看本學期問卷與填寫狀態');
@@ -314,7 +317,7 @@ export default function StudentAccountPage() {
           >
             <span className="student-account__app-icon">
               <AppIcon name={item.icon} />
-              {item.to === '/survey/choice' && surveyDetail.startsWith('本學期未填') ? (
+              {item.to === '/survey/choice' && surveyDetail.startsWith('再次預約前需填') ? (
                 <span className="student-account__app-dot" aria-hidden="true" />
               ) : null}
             </span>

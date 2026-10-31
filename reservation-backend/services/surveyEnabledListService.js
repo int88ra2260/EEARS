@@ -1,7 +1,7 @@
 'use strict';
 
 const { Survey, SurveyRule } = require('../models');
-const { EVENT_TYPE_TO_SURVEY_KEY, hasCompletedForGate, ruleTimeAllows } = require('./surveyGateService');
+const { EVENT_TYPE_TO_SURVEY_KEY, hasCompletedForGate, ruleTimeAllows, priorReservationRequiresSurvey } = require('./surveyGateService');
 const { normalizeRetakePolicy, semesterStatusLabel } = require('./surveyRetakePolicy');
 const { getCurrentSemester } = require('../utils/semester');
 
@@ -122,6 +122,7 @@ async function listSemesterSurveyStatus(studentId) {
     const rule = survey?.SurveyRule || null;
     const policy = normalizeRetakePolicy(rule);
     let filled = false;
+    let bookingSurveyRequired = false;
     if (sid && survey && rule && !rule.isAnonymous && policy !== 'unlimited') {
       filled = await hasCompletedForGate({
         surveyId: survey.id,
@@ -129,11 +130,22 @@ async function listSemesterSurveyStatus(studentId) {
         rule,
         studentId: sid,
       });
+      if (rule.isRequired) {
+        bookingSurveyRequired = await priorReservationRequiresSurvey({
+          studentId: sid,
+          eventTypes: item.relatedEventTypes,
+        });
+      }
+    }
+    let statusLabel = rule?.isAnonymous ? '可填寫' : semesterStatusLabel(filled, policy);
+    if (!filled && rule?.isRequired && !rule?.isAnonymous && !bookingSurveyRequired) {
+      statusLabel = '還沒簽到參加過，可不填';
     }
     out.push({
       ...item,
       filled,
-      statusLabel: rule?.isAnonymous ? '可填寫' : semesterStatusLabel(filled, policy),
+      bookingSurveyRequired,
+      statusLabel,
       retakePolicy: policy,
     });
   }

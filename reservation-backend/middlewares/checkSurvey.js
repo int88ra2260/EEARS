@@ -1,6 +1,11 @@
 // middlewares/checkSurvey.js
 const { Event } = require('../models');
-const { resolveGateContext, hasCompletedForGate, ruleTimeAllows } = require('../services/surveyGateService');
+const {
+  resolveGateContext,
+  hasCompletedForGate,
+  ruleTimeAllows,
+  surveyAppliesToBooking,
+} = require('../services/surveyGateService');
 const { isEnglishTableEventType, isEnglishClubEventType } = require('../utils/eventCapacity');
 
 /**
@@ -17,7 +22,7 @@ async function checkSurvey(req, res, next) {
       return next();
     }
 
-    const event = await Event.findByPk(eventId, { attributes: ['id', 'eventType'] });
+    const event = await Event.findByPk(eventId, { attributes: ['id', 'eventType', 'date'] });
     if (!event) {
       return res.status(404).json({
         message: '找不到活動資料',
@@ -43,6 +48,20 @@ async function checkSurvey(req, res, next) {
 
     const trimmedStudentId = String(studentId).trim();
     if (!trimmedStudentId) {
+      return next();
+    }
+
+    let applies = false;
+    try {
+      applies = await surveyAppliesToBooking({ studentId: trimmedStudentId, event });
+    } catch (e) {
+      console.error('[checkSurvey] surveyAppliesToBooking 失敗:', e);
+      return res.status(500).json({
+        message: '問卷檢查失敗，請稍後再試',
+        code: 'SURVEY_CHECK_FAILED',
+      });
+    }
+    if (!applies) {
       return next();
     }
 

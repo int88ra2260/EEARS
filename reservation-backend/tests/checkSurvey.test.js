@@ -2,12 +2,13 @@
 
 const { checkSurvey } = require('../middlewares/checkSurvey');
 const { Event } = require('../models');
-const { resolveGateContext, hasCompletedForGate, ruleTimeAllows } = require('../services/surveyGateService');
+const { resolveGateContext, hasCompletedForGate, ruleTimeAllows, surveyAppliesToBooking } = require('../services/surveyGateService');
 
 jest.mock('../services/surveyGateService', () => ({
   resolveGateContext: jest.fn(),
   hasCompletedForGate: jest.fn(),
   ruleTimeAllows: jest.fn(() => ({ ok: true })),
+  surveyAppliesToBooking: jest.fn(async () => true),
 }));
 
 jest.mock('../models', () => ({
@@ -84,6 +85,14 @@ describe('checkSurvey Middleware', () => {
     ruleTimeAllows.mockReturnValue({ ok: false, reason: 'not_started' });
     await checkSurvey(req, res, next);
     expect(next).toHaveBeenCalled();
+    expect(hasCompletedForGate).not.toHaveBeenCalled();
+  });
+
+  it('本學期第一次預約不要求問卷', async () => {
+    surveyAppliesToBooking.mockResolvedValueOnce(false);
+    await checkSurvey(req, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
     expect(hasCompletedForGate).not.toHaveBeenCalled();
   });
 

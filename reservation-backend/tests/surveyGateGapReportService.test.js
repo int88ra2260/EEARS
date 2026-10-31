@@ -8,6 +8,7 @@ jest.mock('../services/surveyGateService', () => ({
   resolveGateContext: jest.fn(),
   hasCompletedForGateWithSemester: jest.fn(),
   ruleTimeAllows: jest.fn(() => ({ ok: true })),
+  surveyAppliesToBooking: jest.fn(async () => true),
 }));
 
 jest.mock('../models', () => ({
@@ -60,6 +61,7 @@ describe('surveyGateGapReportService.listSurveyGateGaps', () => {
     Semester.findByPk.mockResolvedValue({ id: 3, code: '114-2' });
     Event.count.mockResolvedValue(0);
     surveyGateService.resolveGateContext.mockResolvedValue(productCtx);
+    surveyGateService.surveyAppliesToBooking.mockResolvedValue(true);
   });
 
   it('未完成問卷者出現在 gaps', async () => {
@@ -82,6 +84,24 @@ describe('surveyGateGapReportService.listSurveyGateGaps', () => {
     expect(data.rows).toHaveLength(1);
     expect(data.rows[0].studentId).toBe('B111111111');
     expect(data.meta.gateActive).toBe(true);
+  });
+
+  it('本學期第一次預約不列入缺口', async () => {
+    surveyGateService.surveyAppliesToBooking.mockResolvedValue(false);
+    surveyGateService.hasCompletedForGateWithSemester.mockResolvedValue(false);
+    Reservation.findAll.mockResolvedValue([
+      reservationRow({
+        studentId: 'B333333333',
+        name: '第一次',
+        email: 'first@nsysu.edu.tw',
+        eventId: 12,
+        eventType: 'English Table',
+      }),
+    ]);
+
+    const data = await listSurveyGateGaps({ semesterId: 3, activityType: 'ET' });
+    expect(data.rows).toHaveLength(0);
+    expect(surveyGateService.hasCompletedForGateWithSemester).not.toHaveBeenCalled();
   });
 
   it('已完成問卷者不出現', async () => {

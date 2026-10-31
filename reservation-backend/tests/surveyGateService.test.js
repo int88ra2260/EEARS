@@ -9,8 +9,11 @@ jest.mock('../models', () => ({
   SurveyModuleResponse: { findOne: jest.fn() },
   EnglishTableSurveyResponse: { findOne: jest.fn() },
   EnglishClubSurveyResponse: { findOne: jest.fn() },
+  Reservation: { findOne: jest.fn() },
+  Event: {},
 }));
 
+const { Op } = require('sequelize');
 const { getCurrentSemester } = require('../utils/semester');
 const {
   EnglishTableSurveyResponse,
@@ -18,12 +21,15 @@ const {
   SurveyModuleResponse,
   Survey,
   SurveyRule,
+  Reservation,
 } = require('../models');
 const {
   hasCompletedForGate,
   hasCompletedForGateWithSemester,
   resolveGateContext,
   legacyModelForSurveyKey,
+  semesterHalves,
+  surveyAppliesToBooking,
 } = require('../services/surveyGateService');
 
 describe('surveyGateService resolveGateContext', () => {
@@ -147,5 +153,51 @@ describe('surveyGateService hasCompletedForGateWithSemester', () => {
     expect(SurveyModuleResponse.findOne).toHaveBeenCalledWith({
       where: { surveyId: 5, studentId: 'B2', status: 'completed', semester: '114-2' },
     });
+  });
+});
+
+describe('surveyAppliesToBooking', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('115-1 上半到 10/31，下半從 11/1', () => {
+    expect(semesterHalves('115-1')).toEqual({
+      semester: '115-1',
+      first: { start: '2026-08-01', end: '2026-10-31' },
+      second: { start: '2026-11-01', end: '2027-01-31' },
+    });
+  });
+
+  it('上半學期的場次不要求問卷', async () => {
+    const applies = await surveyAppliesToBooking({
+      studentId: 'B1',
+      event: { eventType: 'english_table', date: '2026-10-20' },
+    });
+    expect(applies).toBe(false);
+    expect(Reservation.findOne).not.toHaveBeenCalled();
+  });
+
+  it('下半學期且本學期已簽到參加過才要求問卷', async () => {
+    Reservation.findOne.mockResolvedValue({ id: 9 });
+    const applies = await surveyAppliesToBooking({
+      studentId: 'B1',
+      event: { id: 44, eventType: 'english_table', date: '2026-11-05' },
+    });
+    expect(applies).toBe(true);
+    const query = Reservation.findOne.mock.calls[0][0];
+    expect(query.where.studentId).toBe('B1');
+    expect(query.where.checkinStatus).toBe('已簽到');
+    expect(query.where.eventId).toEqual({ [Op.ne]: 44 });
+    expect(query.include[0].where.date).toEqual({ [Op.between]: ['2026-08-01', '2027-01-31'] });
+  });
+
+  it('下半學期但本學期還沒簽到，不要求問卷', async () => {
+    Reservation.findOne.mockResolvedValue(null);
+    const applies = await surveyAppliesToBooking({
+      studentId: 'B1',
+      event: { eventType: 'english_club', date: '2026-11-05' },
+    });
+    expect(applies).toBe(false);
   });
 });

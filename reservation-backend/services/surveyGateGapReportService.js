@@ -9,6 +9,7 @@ const {
   resolveGateContext,
   hasCompletedForGateWithSemester,
   ruleTimeAllows,
+  surveyAppliesToBooking,
 } = require('./surveyGateService');
 const { maskEmail } = require('../utils/piiMask');
 const surveyModuleService = require('./surveyModuleService');
@@ -244,6 +245,13 @@ async function computeGapRows(reservations, gate, semesterCode) {
     scanned += 1;
     const event = reservation.Event;
     if (!event) continue;
+
+    const applies = await surveyAppliesToBooking({
+      studentId: reservation.studentId,
+      event,
+      semesterCode,
+    });
+    if (!applies) continue;
 
     const completed = await hasCompletedForGateWithSemester({
       surveyId: gate.surveyId,
