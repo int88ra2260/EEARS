@@ -220,6 +220,10 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '刪除批次',
   ],
 
+  'la-report': ['學期達標', '正式報表', '聽讀成對'],
+  'la-people': ['學生名單', '尚未達標', '同一批'],
+  'la-resources': ['課師活動', '參與覆蓋'],
+  'la-compare': ['系所差異', 'GSE 比較', '原始匯出'],
   'learning-analytics-overview': ['KPI', '總覽', '趨勢比較', '中心成效'],
   'learning-analytics-kpi-report': ['B2 KPI', '一鍵報表', 'KPI 報表'],
   'learning-analytics-cohorts': ['入學屆別', 'cohort', '群體'],
