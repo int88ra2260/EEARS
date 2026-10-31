@@ -7,7 +7,6 @@
 
 const { Teacher, sequelize } = require('../models');
 const nsysuSsoClient = require('./nsysuSsoClient');
-const { personNamesMatch } = require('../utils/personName');
 const logger = require('../utils/logger');
 
 const CAMPUS_SSO_HOME = 'https://sso.nsysu.edu.tw';
@@ -53,52 +52,17 @@ async function findTeacherByEmail(email) {
 }
 
 /**
- * 依 SSO 資料對應 teachers 帳號。
- * 順序：姓名 → 員工編號(username) → 信箱。
- * 同名多筆時，再以員編／信箱在同名候選中消歧；仍無法唯一對應則拒絕。
+ * 依 SSO 資料對應 teachers 帳號（僅允許中心已建檔帳號，絕不自動建立）。
+ * 對應鍵只用強識別：員工編號(username) → 信箱。
+ * 不用姓名單獨對應，避免校內其他同名教職員誤入中心帳號。
  *
  * @returns {Promise<{ teacher: object, matchBy: string }|null>}
  */
 async function resolveTeacherFromSsoProfile(ssoProfile, empno) {
-  const ssoName = String(ssoProfile?.NAME || '').trim();
   const ssoEmail = normalizeEmail(ssoProfile?.EMAIL);
   const ssoEmpno = normalizeEmpno(empno || ssoProfile?.EMPNO);
 
-  // 1) 姓名
-  if (ssoName) {
-    const allTeachers = await Teacher.findAll();
-    const nameMatches = allTeachers.filter((t) => personNamesMatch(t.name, ssoName));
-
-    if (nameMatches.length === 1) {
-      return { teacher: nameMatches[0], matchBy: 'name' };
-    }
-
-    if (nameMatches.length > 1) {
-      if (ssoEmpno) {
-        const byEmpno = nameMatches.filter(
-          (t) => normalizeEmpno(t.username) === ssoEmpno
-        );
-        if (byEmpno.length === 1) {
-          return { teacher: byEmpno[0], matchBy: 'name+empno' };
-        }
-      }
-      if (ssoEmail) {
-        const byEmail = nameMatches.filter(
-          (t) => normalizeEmail(t.email) === ssoEmail
-        );
-        if (byEmail.length === 1) {
-          return { teacher: byEmail[0], matchBy: 'name+email' };
-        }
-      }
-      throw httpError(
-        403,
-        'ACCOUNT_AMBIGUOUS',
-        '系統中有多名同名帳號，無法自動對應，請聯繫管理員'
-      );
-    }
-  }
-
-  // 2) 員工編號 → username
+  // 1) 員工編號 → username（中心建帳時建議 username＝員編）
   if (ssoEmpno) {
     const byUsername = await findTeacherByUsername(ssoEmpno);
     if (byUsername) {
@@ -106,7 +70,7 @@ async function resolveTeacherFromSsoProfile(ssoProfile, empno) {
     }
   }
 
-  // 3) 信箱 → email
+  // 2) 信箱 → email（既有帳號 username 未必是員編時的備援）
   if (ssoEmail) {
     const byEmail = await findTeacherByEmail(ssoEmail);
     if (byEmail) {
@@ -201,11 +165,16 @@ async function loginWithCampusSso({ userName, password }, sso = nsysuSsoClient) 
     throw httpError(403, 'ACCOUNT_DISABLED', '此帳號已離職，無法登入');
   }
 
-  // 5. 對應到 teachers：姓名 → 員工編號 → 信箱
+  // 5. 僅對應中心已建檔帳號（員工編號／信箱）；未建檔一律拒絕，不自動開通
   const resolved = await resolveTeacherFromSsoProfile(ssoProfile, normalizedUserName);
   if (!resolved) {
+    logger.warn('SSO 登入拒絕：系統尚未建檔', {
+      userName: normalizedUserName,
+      empno: ssoProfile.EMPNO,
+      email: ssoProfile.EMAIL ? normalizeEmail(ssoProfile.EMAIL) : null,
+    });
     throw httpError(403, 'ACCOUNT_NOT_FOUND',
-      '找不到對應的系統帳號（請確認姓名／員工編號／信箱是否已建檔），請聯繫管理員'
+      '您的帳號尚未由英語中心建立，無法登入。請聯繫管理員開通後再試'
     );
   }
 

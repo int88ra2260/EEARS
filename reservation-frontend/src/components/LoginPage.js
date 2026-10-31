@@ -68,7 +68,7 @@ function LoginPage({ onLoginSuccess }) {
           window.open(data.redirectUrl, '_blank');
         }, 1500);
       } else if (data.code === 'ACCOUNT_NOT_FOUND') {
-        setError('您的員工編號尚未在系統中建立帳號，請聯繫管理員');
+        setError(data.error || '您的帳號尚未由英語中心建立，無法登入。請聯繫管理員開通後再試');
       } else {
         setError(data.error || data.message || '登入失敗');
       }
