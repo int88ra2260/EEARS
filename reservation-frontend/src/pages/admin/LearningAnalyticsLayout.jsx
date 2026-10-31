@@ -5,40 +5,31 @@ import { P } from '../../constants/permissions';
 import '../../components/learningAnalytics/learningAnalytics.css';
 
 /**
- * 頁內只留頁名，滑過可看這頁在回答什麼。完整選單在左側。
+ * 頁內依四件事分列：上呈、找人、看資源、比較與資料。
+ * 滑過頁名可看這頁在回答什麼。左側選單分組與這裡相同。
  */
 const NAV_GROUPS = [
   {
     id: 'report',
-    title: '上呈與總覽',
+    title: '上呈',
     items: [
       {
         to: '/admin/learning-analytics/overview',
         label: '總覽',
-        hint: '學期營運 KPI vs 能力觀察',
+        hint: '分析快照的能力分布與資料夠不夠',
         end: false,
       },
       {
         to: '/admin/learning-analytics/kpi-report',
         label: 'B2 KPI 報表',
-        hint: '正式上呈：聽讀／說寫達標人數',
+        hint: '上呈：聽讀成對、說寫成對達標',
       },
     ],
   },
   {
-    id: 'ability',
-    title: '能力觀察',
+    id: 'people',
+    title: '找人',
     items: [
-      {
-        to: '/admin/learning-analytics/cohorts',
-        label: '系所比較',
-        hint: '依系所／入學年看差異',
-      },
-      {
-        to: '/admin/learning-analytics/skills',
-        label: '技能成長',
-        hint: '聽讀說寫 GSE 成長',
-      },
       {
         to: '/admin/learning-analytics/b1-plus',
         label: '接近 B2',
@@ -63,7 +54,7 @@ const NAV_GROUPS = [
   },
   {
     id: 'resource',
-    title: '資源營運',
+    title: '看資源',
     items: [
       {
         to: '/admin/learning-analytics/offerings',
@@ -78,9 +69,19 @@ const NAV_GROUPS = [
     ],
   },
   {
-    id: 'ops',
-    title: '資料與設定',
+    id: 'compare',
+    title: '比較與資料',
     items: [
+      {
+        to: '/admin/learning-analytics/cohorts',
+        label: '系所比較',
+        hint: '依系所／入學年看 GSE 差異',
+      },
+      {
+        to: '/admin/learning-analytics/skills',
+        label: '技能成長',
+        hint: '聽讀說寫 GSE 成長',
+      },
       {
         to: '/admin/learning-analytics/raw-data',
         label: '資料匯出',
@@ -110,21 +111,26 @@ export default function LearningAnalyticsLayout() {
     [canManageSettings]
   );
 
-  const items = groups.flatMap((group) => group.items);
-
   return (
     <div className="learning-analytics-shell">
-      <nav className="la-subnav" aria-label="學習成效分析">
-        {items.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            title={item.hint}
-            className={({ isActive }) => (isActive ? 'active' : undefined)}
-          >
-            {item.label}
-          </NavLink>
+      <nav className="la-subnav-rows" aria-label="學習成效分析">
+        {groups.map((group) => (
+          <div key={group.id} className="la-subnav-row">
+            <span className="la-subnav-row-title">{group.title}</span>
+            <div className="la-subnav-row-links">
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  title={item.hint}
+                  className={({ isActive }) => (isActive ? 'active' : undefined)}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
       <Outlet />

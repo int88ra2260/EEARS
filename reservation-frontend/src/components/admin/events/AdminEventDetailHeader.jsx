@@ -8,7 +8,13 @@ import { resolveEventTypeDisplayName } from '../../../services/eventTypeApi';
 /**
  * 活動明細頁首：基本資料 + 狀態摘要（不重複 AdminLayout 之「活動明細」標題）
  */
-export default function AdminEventDetailHeader({ ws, onGoCheckinTab, onGoViolationsTab }) {
+export default function AdminEventDetailHeader({
+  ws,
+  onGoCheckinTab,
+  onGoViolationsTab,
+  backTo = '/admin/operations',
+  backLabel = '返回活動列表',
+}) {
   const cap = ws.eventMeta?.maxCapacity;
   const loc = ws.eventMeta?.location;
   const endT = ws.eventMeta?.endTime;
@@ -57,9 +63,9 @@ export default function AdminEventDetailHeader({ ws, onGoCheckinTab, onGoViolati
           </div>
         </div>
         <div className="d-flex flex-column align-items-stretch gap-2 flex-shrink-0">
-          <Link to="/admin/operations">
+          <Link to={backTo}>
             <Button variant="outline-secondary" size="sm" className="w-100">
-              ← 返回活動列表
+              ← {backLabel}
             </Button>
           </Link>
           {onGoCheckinTab && kioskPath && ws.canCheckinStudents ? (

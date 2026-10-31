@@ -51,8 +51,15 @@ export default function AdminEventDetailTabs({
   const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
+  const showReservations = reservationsTabProps?.canViewReservations !== false;
   const showGrouping = Boolean(groupingTabProps?.visible);
   const showTaskMarks = Boolean(taskMarksTabProps?.visible);
+  const leaderMarkingOnly = showTaskMarks
+    && !showReservations
+    && !showGrouping
+    && !showCheckin
+    && !showImportExport
+    && !showViolations;
 
   const openCancelReservationModal = useCallback((reservation) => {
     setCancelTarget(reservation);
@@ -84,6 +91,15 @@ export default function AdminEventDetailTabs({
 
   const goCheckinTab = useCallback(() => setTabKey('checkin'), [setTabKey]);
 
+  if (leaderMarkingOnly) {
+    return (
+      <>
+        <p className="text-muted small mb-3">{EVENT_DETAIL_COPY.tabFlowHintLeader}</p>
+        <AdminEventTaskMarksTab tabProps={taskMarksTabProps} />
+      </>
+    );
+  }
+
   return (
     <>
       <p className="text-muted small mb-2">
@@ -98,14 +114,16 @@ export default function AdminEventDetailTabs({
         mountOnEnter
         unmountOnExit
       >
-        <Tab eventKey="reservations" title="預約名單">
-          <AdminEventReservationsTab
-            tabProps={reservationsTabProps}
-            onOpenViolationTab={handleOpenViolationTab}
-            onOpenCancel={openCancelReservationModal}
-            onGoCheckinTab={goCheckinTab}
-          />
-        </Tab>
+        {showReservations ? (
+          <Tab eventKey="reservations" title="預約名單">
+            <AdminEventReservationsTab
+              tabProps={reservationsTabProps}
+              onOpenViolationTab={handleOpenViolationTab}
+              onOpenCancel={openCancelReservationModal}
+              onGoCheckinTab={goCheckinTab}
+            />
+          </Tab>
+        ) : null}
 
         {showGrouping ? (
           <Tab eventKey="grouping" title="能力分組">

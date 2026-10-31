@@ -264,6 +264,7 @@ export const ADMIN_NAV_SECTIONS = [
     label: '活動與預約',
     expandable: true,
     hint: '日常簽到與違規請從活動列表進入明細分頁',
+    hintRequiresLeafId: 'events-list',
     children: [
       {
         id: 'events-list',
@@ -482,112 +483,136 @@ export const ADMIN_NAV_SECTIONS = [
         label: '學習成效',
         children: [
           {
-            id: 'learning-analytics-overview',
-            label: '學習成效總覽',
-            path: '/admin/learning-analytics/overview',
-            matchPrefixes: ['/admin/learning-analytics/overview'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '英語學習成效分析',
-            breadcrumbLabel: '學習成效總覽',
+            id: 'la-report',
+            label: '上呈',
+            children: [
+              {
+                id: 'learning-analytics-overview',
+                label: '學習成效總覽',
+                path: '/admin/learning-analytics/overview',
+                matchPrefixes: ['/admin/learning-analytics/overview'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: '英語學習成效分析',
+                breadcrumbLabel: '學習成效總覽',
+              },
+              {
+                id: 'learning-analytics-kpi-report',
+                label: 'B2 KPI 報表',
+                path: '/admin/learning-analytics/kpi-report',
+                matchPrefixes: ['/admin/learning-analytics/kpi-report'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: 'B2 KPI 一鍵報表',
+                breadcrumbLabel: 'B2 KPI 報表',
+              },
+            ],
           },
           {
-            id: 'learning-analytics-kpi-report',
-            label: 'B2 KPI 報表',
-            path: '/admin/learning-analytics/kpi-report',
-            matchPrefixes: ['/admin/learning-analytics/kpi-report'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: 'B2 KPI 一鍵報表',
-            breadcrumbLabel: 'B2 KPI 報表',
+            id: 'la-people',
+            label: '找人',
+            children: [
+              {
+                id: 'learning-analytics-b1-plus',
+                label: '接近 B2',
+                path: '/admin/learning-analytics/b1-plus',
+                matchPrefixes: ['/admin/learning-analytics/b1-plus'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: '接近 B2',
+                breadcrumbLabel: '接近 B2',
+              },
+              {
+                id: 'learning-analytics-explore',
+                label: '學生探索',
+                path: '/admin/learning-analytics/explore',
+                matchPrefixes: ['/admin/learning-analytics/explore'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: '學生探索',
+                breadcrumbLabel: '學生探索',
+              },
+              {
+                id: 'learning-analytics-tracking',
+                label: '追蹤名單',
+                path: '/admin/learning-analytics/tracking-cohorts',
+                matchPrefixes: ['/admin/learning-analytics/tracking-cohorts'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: '追蹤名單',
+                breadcrumbLabel: '追蹤名單',
+              },
+              {
+                id: 'learning-analytics-students',
+                label: '個人軌跡',
+                path: '/admin/learning-analytics/students',
+                matchPrefixes: ['/admin/learning-analytics/students'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: '學生個人學習軌跡',
+                breadcrumbLabel: '個人軌跡',
+              },
+            ],
           },
           {
-            id: 'learning-analytics-cohorts',
-            label: '系所比較',
-            path: '/admin/learning-analytics/cohorts',
-            matchPrefixes: ['/admin/learning-analytics/cohorts'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '系所／入學年比較',
-            breadcrumbLabel: '系所比較',
+            id: 'la-resources',
+            label: '看資源',
+            children: [
+              {
+                id: 'learning-analytics-offerings',
+                label: '課／師／活動',
+                path: '/admin/learning-analytics/offerings',
+                matchPrefixes: ['/admin/learning-analytics/offerings'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: '課程／教師／活動細項',
+                breadcrumbLabel: '課／師／活動',
+              },
+              {
+                id: 'learning-analytics-resources',
+                label: '資源覆蓋',
+                path: '/admin/learning-analytics/resources',
+                matchPrefixes: ['/admin/learning-analytics/resources'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: '資源參與覆蓋',
+                breadcrumbLabel: '資源覆蓋',
+              },
+            ],
           },
           {
-            id: 'learning-analytics-offerings',
-            label: '課／師／活動',
-            path: '/admin/learning-analytics/offerings',
-            matchPrefixes: ['/admin/learning-analytics/offerings'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '課程／教師／活動細項',
-            breadcrumbLabel: '課／師／活動',
-          },
-          {
-            id: 'learning-analytics-resources',
-            label: '資源覆蓋',
-            path: '/admin/learning-analytics/resources',
-            matchPrefixes: ['/admin/learning-analytics/resources'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '資源參與覆蓋',
-            breadcrumbLabel: '資源覆蓋',
-          },
-          {
-            id: 'learning-analytics-skills',
-            label: '技能成長',
-            path: '/admin/learning-analytics/skills',
-            matchPrefixes: ['/admin/learning-analytics/skills'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '聽讀說寫技能成長',
-            breadcrumbLabel: '技能成長',
-          },
-          {
-            id: 'learning-analytics-b1-plus',
-            label: '接近 B2',
-            path: '/admin/learning-analytics/b1-plus',
-            matchPrefixes: ['/admin/learning-analytics/b1-plus'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '接近 B2',
-            breadcrumbLabel: '接近 B2',
-          },
-          {
-            id: 'learning-analytics-explore',
-            label: '學生探索',
-            path: '/admin/learning-analytics/explore',
-            matchPrefixes: ['/admin/learning-analytics/explore'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '學生探索',
-            breadcrumbLabel: '學生探索',
-          },
-          {
-            id: 'learning-analytics-tracking',
-            label: '追蹤名單',
-            path: '/admin/learning-analytics/tracking-cohorts',
-            matchPrefixes: ['/admin/learning-analytics/tracking-cohorts'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '追蹤名單',
-            breadcrumbLabel: '追蹤名單',
-          },
-          {
-            id: 'learning-analytics-students',
-            label: '個人軌跡',
-            path: '/admin/learning-analytics/students',
-            matchPrefixes: ['/admin/learning-analytics/students'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '學生個人學習軌跡',
-            breadcrumbLabel: '個人軌跡',
-          },
-          {
-            id: 'learning-analytics-raw',
-            label: '資料匯出',
-            path: '/admin/learning-analytics/raw-data',
-            matchPrefixes: ['/admin/learning-analytics/raw-data'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '原始資料匯出',
-            breadcrumbLabel: '資料匯出',
-          },
-          {
-            id: 'learning-analytics-settings',
-            label: '分析設定',
-            path: '/admin/learning-analytics/settings',
-            matchPrefixes: ['/admin/learning-analytics/settings'],
-            visibility: 'perm:can_manage_learning_analytics_settings',
-            pageTitle: '分析設定與資料版本',
-            breadcrumbLabel: '分析設定',
+            id: 'la-compare',
+            label: '比較與資料',
+            children: [
+              {
+                id: 'learning-analytics-cohorts',
+                label: '系所比較',
+                path: '/admin/learning-analytics/cohorts',
+                matchPrefixes: ['/admin/learning-analytics/cohorts'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: '系所／入學年比較',
+                breadcrumbLabel: '系所比較',
+              },
+              {
+                id: 'learning-analytics-skills',
+                label: '技能成長',
+                path: '/admin/learning-analytics/skills',
+                matchPrefixes: ['/admin/learning-analytics/skills'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: '聽讀說寫技能成長',
+                breadcrumbLabel: '技能成長',
+              },
+              {
+                id: 'learning-analytics-raw',
+                label: '資料匯出',
+                path: '/admin/learning-analytics/raw-data',
+                matchPrefixes: ['/admin/learning-analytics/raw-data'],
+                visibility: 'perm:can_view_learning_analytics',
+                pageTitle: '原始資料匯出',
+                breadcrumbLabel: '資料匯出',
+              },
+              {
+                id: 'learning-analytics-settings',
+                label: '分析設定',
+                path: '/admin/learning-analytics/settings',
+                matchPrefixes: ['/admin/learning-analytics/settings'],
+                visibility: 'perm:can_manage_learning_analytics_settings',
+                pageTitle: '分析設定與資料版本',
+                breadcrumbLabel: '分析設定',
+              },
+            ],
           },
         ],
       },
@@ -939,18 +964,19 @@ function flattenLeaves(sections) {
   /** @type {{ section: AdminNavSection, group: AdminNavSection|null, leaf: AdminNavLeaf }[]} */
   const out = [];
 
-  function walk(nodes, section, group) {
+  function walk(nodes, section, groupChain) {
     for (const node of nodes) {
       if (isNavGroup(node)) {
-        if (!section) walk(node.children, node, null);
-        else walk(node.children, section, node);
+        if (!section) walk(node.children, node, []);
+        else walk(node.children, section, groupChain.concat(node));
         continue;
       }
       if (!node.path) continue;
       const owner = section || node;
       out.push({
         section: owner,
-        group: group || null,
+        group: groupChain[0] || null,
+        groupChain,
         leaf: section
           ? node
           : {
@@ -966,7 +992,7 @@ function flattenLeaves(sections) {
     }
   }
 
-  walk(sections, null, null);
+  walk(sections, null, []);
   return out;
 }
 
@@ -1203,6 +1229,7 @@ export function getAdminPageMeta(pathname, ctx) {
     breadcrumbLeaf,
     sectionId: best.section.id,
     groupId: best.group?.id || null,
+    groupIds: (best.groupChain || []).map((group) => group.id),
     childId: best.leaf.id,
   };
 }
@@ -1212,12 +1239,23 @@ export function getAdminPageMeta(pathname, ctx) {
  * @param {AdminNavContext} c
  * @returns {AdminNavSection[]}
  */
+function treeHasLeafId(nodes, id) {
+  for (const node of nodes || []) {
+    if (node.id === id) return true;
+    if (node.children && treeHasLeafId(node.children, id)) return true;
+  }
+  return false;
+}
+
 function filterNavNode(node, c) {
   if (isNavGroup(node)) {
     if (node.visibility && !isNavItemVisible(node.visibility, c)) return null;
     const children = node.children.map((child) => filterNavNode(child, c)).filter(Boolean);
     if (children.length === 0) return null;
-    return { ...node, children };
+    const hint = node.hintRequiresLeafId && !treeHasLeafId(children, node.hintRequiresLeafId)
+      ? undefined
+      : node.hint;
+    return { ...node, children, hint };
   }
   if (!canShowAdminNavItem(node, c)) return null;
   return { ...node };
@@ -1332,6 +1370,7 @@ export function getSidebarActiveState(pathname, ctx) {
   return {
     sectionId: meta.sectionId,
     groupId: meta.groupId || null,
+    groupIds: meta.groupIds || (meta.groupId ? [meta.groupId] : []),
     childId: meta.childId,
   };
 }

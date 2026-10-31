@@ -1,0 +1,20 @@
+.leader-session-notes {
+  margin: 0.75rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.leader-session-notes li + li {
+  margin-top: 0.25rem;
+}
+
+.leader-session-card__actions .btn,
+.leader-pay-months .btn {
+  min-height: 44px;
+}
+
+@media (max-width: 767.98px) {
+  .admin-list-pager .btn {
+    min-height: 44px;
+    min-width: 4.5rem;
+  }
+}

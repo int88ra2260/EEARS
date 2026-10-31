@@ -2,6 +2,18 @@ import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Card, Form, Button, Alert } from 'react-bootstrap';
 import { changeTeacherPassword } from '../services/authApi';
+import { getAdminRoleHomePath } from '../constants/adminNavigation';
+import { consumeStaffNext } from '../utils/staffLoginNext';
+
+function passwordChecks(password, confirmPassword) {
+  const classCount = [/[A-Z]/, /[a-z]/, /\d/, /[^A-Za-z0-9]/]
+    .filter((pattern) => pattern.test(password)).length;
+  return [
+    { ok: password.length >= 12, label: '至少 12 碼' },
+    { ok: classCount >= 3, label: '大寫、小寫、數字、符號至少三種' },
+    { ok: password.length > 0 && password === confirmPassword, label: '兩次輸入相同' },
+  ];
+}
 
 function ForceResetPassword() {
   const { token, mustResetPassword, setMustResetPassword } = useOutletContext();
@@ -33,7 +45,22 @@ function ForceResetPassword() {
 
     try {
       setLoading(true);
-      await changeTeacherPassword(token, { currentPassword, newPassword });
+      const data = await changeTeacherPassword(token, { currentPassword, newPassword });
+      if (mustResetPassword && data?.token) {
+        const role = data.role || localStorage.getItem('userRole') || '';
+        const home = getAdminRoleHomePath({
+          role,
+          teacherLevel: data.teacherLevel,
+          workerLevel: data.workerLevel,
+        });
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('userRole', role);
+        localStorage.setItem('mustResetPassword', 'false');
+        setMustResetPassword(false);
+        setSuccess('密碼已更新，正在進入後台…');
+        window.location.replace(consumeStaffNext() || home);
+        return;
+      }
       setSuccess('密碼已更新，即將帶您重新登入…');
       try {
         window.dispatchEvent(
@@ -64,7 +91,7 @@ function ForceResetPassword() {
         <Card.Body>
           <Card.Title className="mb-3">{mustResetPassword ? '首次登入，請變更密碼' : '變更密碼'}</Card.Title>
           <Card.Text className="text-muted">
-            為保障帳號安全，請設定一組全新的密碼。密碼需至少 12 碼，並符合至少三種字元類型：大寫英文、小寫英文、數字、符號。不可使用常見弱密碼，亦不可包含帳號、Email 或姓名。
+            這組密碼只給英語中心後台。學生預約請用學生登入。密碼至少 12 碼，並包含大寫、小寫、數字、符號中的至少三種。不可使用常見弱密碼，也不可包含帳號、Email 或姓名。
           </Card.Text>
           {error && <Alert variant="danger">{error}</Alert>}
           {success && <Alert variant="success">{success}</Alert>}
@@ -80,7 +107,7 @@ function ForceResetPassword() {
               />
             </Form.Group>
             {requireCurrent && (
-              <Form.Group className="mb-3">
+              <Form.Group className="mb-3" controlId="staff-current-password">
                 <Form.Label>目前密碼</Form.Label>
                 <Form.Control
                   type={passwordInputType}
@@ -91,8 +118,8 @@ function ForceResetPassword() {
                 />
               </Form.Group>
             )}
-            <Form.Group className="mb-3">
-              <Form.Label>新密碼 *</Form.Label>
+            <Form.Group className="mb-3" controlId="staff-new-password">
+              <Form.Label>新密碼</Form.Label>
               <Form.Control
                 type={passwordInputType}
                 value={newPassword}
@@ -100,10 +127,11 @@ function ForceResetPassword() {
                 autoComplete="new-password"
                 disabled={loading}
                 required
+                aria-describedby="staff-password-checklist"
               />
             </Form.Group>
-            <Form.Group className="mb-4">
-              <Form.Label>確認新密碼 *</Form.Label>
+            <Form.Group className="mb-3" controlId="staff-confirm-password">
+              <Form.Label>確認新密碼</Form.Label>
               <Form.Control
                 type={passwordInputType}
                 value={confirmPassword}
@@ -113,6 +141,13 @@ function ForceResetPassword() {
                 required
               />
             </Form.Group>
+            <ul id="staff-password-checklist" className="small ps-3 mb-4">
+              {passwordChecks(newPassword, confirmPassword).map((item) => (
+                <li key={item.label} className={item.ok ? 'text-success' : 'text-muted'}>
+                  {item.ok ? '已符合：' : '尚未符合：'}{item.label}
+                </li>
+              ))}
+            </ul>
             <Button type="submit" className="w-100" disabled={loading}>
               {loading ? '送出中...' : '更新密碼'}
             </Button>

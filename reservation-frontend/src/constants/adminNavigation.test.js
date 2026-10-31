@@ -144,7 +144,12 @@ describe('ADMIN_NAV_SECTIONS learning IA', () => {
     );
     const analyticsGroup = learningOutcomesSection?.children?.find((child) => child.id === 'learning-analytics');
     expect(analyticsGroup?.label).toBe('學習成效');
-    expect(analyticsGroup?.children?.map((child) => child.id)).toContain('learning-analytics-overview');
+    expect(analyticsGroup?.children?.map((child) => child.id)).toEqual([
+      'la-report',
+      'la-people',
+      'la-resources',
+      'la-compare',
+    ]);
     expect(ADMIN_NAV_SECTIONS.map((section) => section.id)).not.toContain('learning-analytics');
   });
 });
@@ -229,6 +234,16 @@ describe('getAdminBreadcrumbs', () => {
       '學習成效',
       '系所比較',
     ]);
+  });
+
+  it('hides the events-list hint when that page is not in the menu', () => {
+    const leaderCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'leader'));
+    const leaderEvents = filterVisibleNav(ADMIN_NAV_SECTIONS, leaderCtx).find((section) => section.id === 'events');
+    expect(leaderEvents?.hint).toBeUndefined();
+
+    const adminCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
+    const adminEvents = filterVisibleNav(ADMIN_NAV_SECTIONS, adminCtx).find((section) => section.id === 'events');
+    expect(adminEvents?.hint).toMatch(/活動列表/);
   });
 
   it('points 後台 crumb to leader home', () => {

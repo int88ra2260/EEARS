@@ -28,6 +28,9 @@ export const EVENT_DETAIL_COPY = {
   /** 分頁流程提示（English Table） */
   tabFlowHintEt:
     '建議流程：預約名單 → 能力分組（場前）→ 簽到管理（現場）→ 任務成效 → 活動後違規與未到。匯入與匯出為工具分頁。',
+  /** Leader 只勾自己場次的任務 */
+  tabFlowHintLeader:
+    '勾完必選題後按儲存。回到我的帶班場次可以換場。',
   /** 預約名單：職責說明 */
   reservationsRole:
     '此分頁以完整名單查詢為主；現場簽到請至「簽到管理」，違規／批次未到請至「違規與未到處理」。',
