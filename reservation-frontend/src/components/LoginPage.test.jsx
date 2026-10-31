@@ -7,6 +7,8 @@ import { login as loginApi } from '../services/authApi';
 
 vi.mock('../services/authApi', () => ({
   login: vi.fn(),
+  loginSso: vi.fn(),
+  getLoginInfo: vi.fn(() => Promise.resolve({ ssoEnabled: false })),
 }));
 
 vi.mock('../constants/adminNavigation', () => ({
