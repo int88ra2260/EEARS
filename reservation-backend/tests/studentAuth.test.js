@@ -275,7 +275,7 @@ describe('student auth middleware', () => {
   });
 
   it('overwrites the submitted student id with the logged-in account', async () => {
-    const row = accountRow();
+    const row = accountRow({ emailVerifiedAt: new Date('2026-10-31T00:00:00Z') });
     mockFindByPk.mockResolvedValue(row);
     const token = jwt.sign({
       typ: 'student',
@@ -317,7 +317,10 @@ describe('student auth middleware', () => {
   });
 
   it('accepts a token issued after the last password change', async () => {
-    const row = accountRow({ passwordChangedAt: new Date(Date.now() - 60 * 1000) });
+    const row = accountRow({
+      passwordChangedAt: new Date(Date.now() - 60 * 1000),
+      emailVerifiedAt: new Date('2026-10-31T00:00:00Z'),
+    });
     mockFindByPk.mockResolvedValue(row);
     const token = jwt.sign({
       typ: 'student',
@@ -334,6 +337,27 @@ describe('student auth middleware', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.studentId).toBe('B123456789');
+  });
+
+  it('blocks a signed-in student until the mailbox is verified', async () => {
+    const row = accountRow({ emailVerifiedAt: null });
+    mockFindByPk.mockResolvedValue(row);
+    const token = jwt.sign({
+      typ: 'student',
+      id: row.id,
+      studentId: row.studentId,
+      name: row.name,
+      email: row.email,
+    }, secretKey, { expiresIn: '1h' });
+
+    const res = await request(appWithStudentRoute())
+      .post('/reservations')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ studentId: 'M000000000' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('EMAIL_ACTIVATION_REQUIRED');
+    expect(res.body.redirectUrl).toBe('/student/account');
   });
 
   it('does not let a student token through staff auth even if the id matches a teacher', async () => {
@@ -401,6 +425,7 @@ describe('loginWithCampusSso', () => {
     expect(account.passwordHash).toBeNull();
     expect(account.ssoProvider).toBe('nsysu-sso');
     expect(account.ssoSubject).toBe('B123456789');
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty('emailVerifiedAt');
     expect(mockReplacePending).toHaveBeenCalled();
   });
 
@@ -428,6 +453,7 @@ describe('loginWithCampusSso', () => {
       passwordChangedAt: null,
     }));
     expect(row.update.mock.calls[0][0]).not.toHaveProperty('campusProfile');
+    expect(row.update.mock.calls[0][0]).not.toHaveProperty('emailVerifiedAt');
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
@@ -510,6 +536,7 @@ describe('loginWithCampusSso', () => {
     expect(mockAssertEmailVerified).toHaveBeenCalled();
     expect(account.email).toBe('ming@gmail.com');
     expect(account.passwordHash).toBeNull();
+    expect(account.emailVerifiedAt).toEqual(expect.any(Date));
   });
 
   it('does not change the local password while campus login is on', async () => {
@@ -562,5 +589,63 @@ describe('loginWithCampusSso', () => {
       studentId: 'B123456789',
       password: 'campus-secret',
     }, sso)).rejects.toMatchObject({ code: 'SSO_UNAVAILABLE' });
+  });
+
+  it('marks the mailbox verified even when the address stays the same', async () => {
+    const row = accountRow({ email: 'personal@example.com', emailVerifiedAt: null });
+    mockFindByPk.mockResolvedValue(row);
+    mockFindOne.mockResolvedValue(row);
+
+    const account = await studentAuthService.changeNotificationEmail({
+      accountId: 4,
+      email: 'personal@example.com',
+      emailVerificationToken: 'verified-token',
+    });
+
+    expect(account.email).toBe('personal@example.com');
+    expect(account.emailVerifiedAt).toEqual(expect.any(Date));
+    expect(row.update).toHaveBeenCalledWith(expect.objectContaining({
+      email: 'personal@example.com',
+      emailVerifiedAt: expect.any(Date),
+    }));
+  });
+});
+
+const { requireStudentEmailVerified } = require('../middlewares/studentAuth');
+
+describe('student email activation', () => {
+  function mockResponse() {
+    const res = {
+      statusCode: 0,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        this.body = payload;
+        return this;
+      },
+    };
+    return res;
+  }
+
+  it('blocks personal actions until the mailbox is verified', () => {
+    const res = mockResponse();
+    const next = jest.fn();
+    requireStudentEmailVerified({ studentAccount: { emailVerifiedAt: null } }, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({
+      code: 'EMAIL_ACTIVATION_REQUIRED',
+      redirectUrl: '/student/account',
+    });
+  });
+
+  it('continues when the mailbox is already verified', () => {
+    const res = mockResponse();
+    const next = jest.fn();
+    requireStudentEmailVerified({ studentAccount: { emailVerifiedAt: new Date() } }, res, next);
+    expect(next).toHaveBeenCalled();
   });
 });

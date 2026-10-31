@@ -14,6 +14,8 @@ export default function StudentAccountEmailVerification({
   emailVerificationToken,
   verifiedEmail,
   onVerified,
+  hint = '驗證碼約 10 分鐘內有效。完成驗證後才能建立帳號。',
+  verifiedMessage = '信箱已驗證，可以建立帳號',
 }) {
   const [code, setCode] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
@@ -84,7 +86,7 @@ export default function StudentAccountEmailVerification({
         return;
       }
       setStatusVariant('success');
-      setStatusMsg('信箱已驗證，可以建立帳號');
+      setStatusMsg(verifiedMessage);
       onVerified({
         token: data.emailVerificationToken,
         verifiedEmail: data.email || normalizedEmail,
@@ -134,7 +136,7 @@ export default function StudentAccountEmailVerification({
       </div>
       {verifiedOk ? <p className="text-success small mt-2 mb-0">這個信箱已驗證。</p> : null}
       {statusMsg ? <p className={`text-${statusVariant} small mt-2 mb-0`}>{statusMsg}</p> : null}
-      <p className="form-text mb-0">驗證碼約 10 分鐘內有效。完成驗證後才能建立帳號。</p>
+      <p className="form-text mb-0">{hint}</p>
     </div>
   );
 }

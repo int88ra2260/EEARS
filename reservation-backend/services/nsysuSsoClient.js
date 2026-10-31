@@ -2,6 +2,8 @@
 
 const SOAP_NAMESPACE = 'urn:xmethods-delayed-demo';
 const DEFAULT_ENDPOINT = 'https://sso.nsysu.edu.tw/ssoWebservice/ws_server.php';
+
+// 學生屬性
 const AUTH_ATTRS = ['STUID', 'CNAME', 'EMAIL', 'STAT_COD'];
 const STUDENT_ATTRS = [
   'STUID',
@@ -18,6 +20,24 @@ const STUDENT_ATTRS = [
   'BIRTH_MM',
   'BIRTH_DD',
   'STAT_COD',
+];
+
+// 教職員屬性（不含 IDNO 身分證號，避免 PII 風險）
+const EMPLOYEE_AUTH_ATTRS = ['EMPNO', 'NAME', 'EMAIL', 'LEAVE'];
+const EMPLOYEE_ATTRS = [
+  'EMPNO',      // 員工編號
+  'NAME',       // 姓名
+  'PKIND',      // 屬性（身分類別）
+  'GRPNO',      // 群組代號
+  'UNICOD1',    // 一級單位代號
+  'DPT_DESC1',  // 一級單位名稱
+  'UNICOD2',    // 二級單位代號
+  'DPT_DESC2',  // 二級單位名稱
+  'LEAVE',      // 是否離職
+  'TITCOD',     // 職稱編號
+  'TITLE',      // 職稱名稱
+  'EMAIL',      // 電子信箱
+  'POFTEL',     // 辦公室電話
 ];
 
 function isEnabled() {
@@ -108,15 +128,63 @@ async function getStuAttr({ stuid, password, statCod = '1;2', attrs = STUDENT_AT
   }, {});
 }
 
+// ========== 教職員 API ==========
+
+/**
+ * 教職員認證
+ * @param {Object} params
+ * @param {string} params.userName - 員工編號
+ * @param {string} params.password - 密碼
+ * @param {Object} [deps] - 依賴注入（測試用）
+ * @returns {Promise<boolean>} 認證成功返回 true
+ */
+async function authUser({ userName, password }, deps) {
+  const result = await callOperation('authUser', [userName, password, 'ENC'], deps);
+  return isAccepted(result);
+}
+
+/**
+ * 取得教職員屬性
+ * @param {Object} params
+ * @param {string} params.userName - 員工編號
+ * @param {string} params.password - 密碼
+ * @param {string[]} [params.attrs] - 要取得的屬性，預設 EMPLOYEE_ATTRS
+ * @param {Object} [deps] - 依賴注入（測試用）
+ * @returns {Promise<Object|null>} 教職員資料物件
+ */
+async function getAttr({ userName, password, attrs = EMPLOYEE_ATTRS }, deps) {
+  const fields = Array.isArray(attrs) && attrs.length ? attrs : EMPLOYEE_ATTRS;
+  const raw = await callOperation(
+    'getAttr',
+    [userName, password, 'ENC', fields.join(';')],
+    deps,
+  );
+  if (!raw) return null;
+  const parts = raw.split(';');
+  return fields.reduce((profile, key, index) => {
+    profile[key] = String(parts[index] || '').trim();
+    return profile;
+  }, {});
+}
+
 module.exports = {
+  // 通用
   isEnabled,
   endpoint,
   buildEnvelope,
   parseResult,
   isAccepted,
-  authStu,
   verifyPasswordExpired,
+  
+  // 學生 API
+  authStu,
   getStuAttr,
   AUTH_ATTRS,
   STUDENT_ATTRS,
+  
+  // 教職員 API
+  authUser,
+  getAttr,
+  EMPLOYEE_AUTH_ATTRS,
+  EMPLOYEE_ATTRS,
 };

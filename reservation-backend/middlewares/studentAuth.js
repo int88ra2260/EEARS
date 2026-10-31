@@ -68,28 +68,43 @@ function optionalStudentAuth(req, res, next) {
   return verifyPresentedStudentToken(token, req, res, next);
 }
 
+function requireStudentEmailVerified(req, res, next) {
+  const account = req.studentAccount;
+  if (!account) return unauthorized(res);
+  if (account.emailVerifiedAt) return next();
+  return res.status(403).json({
+    success: false,
+    code: 'EMAIL_ACTIVATION_REQUIRED',
+    message: '請先到我的帳號收驗證碼，確認收信信箱後再使用。',
+    redirectUrl: '/student/account',
+  });
+}
+
 /**
  * 以登入帳號覆寫請求裡的學號／姓名。email 預設一併覆寫。
  * 培力報名保留表單信箱（可能另有驗證），只綁學號與姓名。
+ * 尚未驗證收信信箱的帳號不能使用這些個人功能。
  */
 function bindStudentIdentity(options = {}) {
   const bindEmail = options.email !== false;
   return function bindStudentIdentityMiddleware(req, res, next) {
-    const account = req.studentAccount;
-    if (!account) return unauthorized(res);
-    const apply = (target) => {
-      if (!target || typeof target !== 'object') return;
-      target.studentId = account.studentId;
-      target.studentName = account.name;
-      target.name = account.name;
-      if (bindEmail) {
-        target.studentEmail = account.email;
-        target.email = account.email;
-      }
-    };
-    apply(req.body);
-    apply(req.query);
-    return next();
+    requireStudentEmailVerified(req, res, (err) => {
+      if (err || res.headersSent) return undefined;
+      const account = req.studentAccount;
+      const apply = (target) => {
+        if (!target || typeof target !== 'object') return;
+        target.studentId = account.studentId;
+        target.studentName = account.name;
+        target.name = account.name;
+        if (bindEmail) {
+          target.studentEmail = account.email;
+          target.email = account.email;
+        }
+      };
+      apply(req.body);
+      apply(req.query);
+      return next();
+    });
   };
 }
 
@@ -97,5 +112,6 @@ module.exports = {
   isStudentAccessToken,
   studentAuthMiddleware,
   optionalStudentAuth,
+  requireStudentEmailVerified,
   bindStudentIdentity,
 };

@@ -62,6 +62,7 @@ export default function EventBookingModal({ show, event, onClose }) {
 
   const booking = useEventBooking();
   const studentSession = loadStudentSession();
+  const emailReady = Boolean(studentSession?.student?.emailVerifiedAt);
   const {
     form,
     message,
@@ -325,10 +326,12 @@ export default function EventBookingModal({ show, event, onClose }) {
 
           {isMobileSessionPanel ? (
             <p className="event-booking-mobile-hint mb-0" role="status">
-              {studentSession ? t('booking.mobileSessionStep') : (
-                campusSso
-                  ? '請先用學號和中山單一入口的密碼登入，再繼續預約。'
-                  : '請先登入學生帳號，再繼續預約。'
+              {studentSession && emailReady ? t('booking.mobileSessionStep') : (
+                studentSession
+                  ? '請先到我的帳號收驗證碼，啟動後再預約。'
+                  : campusSso
+                    ? '請先用學號和中山單一入口的密碼登入，再繼續預約。'
+                    : '請先登入學生帳號，再繼續預約。'
               )}
             </p>
           ) : null}
@@ -349,7 +352,14 @@ export default function EventBookingModal({ show, event, onClose }) {
             </div>
           ) : null}
 
-          {showStep1Form && studentSession ? (
+          {showStep1Form && studentSession && !emailReady ? (
+            <div data-booking-step="1" className="alert alert-info mb-0" role="status">
+              <p className="mb-2">請先到「我的帳號」確認收信信箱並輸入驗證碼。帳號啟動後才能預約。</p>
+              <Link className="btn btn-primary btn-sm" to="/student/account">前往我的帳號</Link>
+            </div>
+          ) : null}
+
+          {showStep1Form && studentSession && emailReady ? (
             <div data-booking-step="1">
               {waitlistInfo.isFull && (
                 <div className="alert alert-warning py-2 mb-3" role="alert">
@@ -433,7 +443,7 @@ export default function EventBookingModal({ show, event, onClose }) {
             </div>
           )}
 
-          {bookingStep === 1 && showStep1Form && studentSession && (
+          {bookingStep === 1 && showStep1Form && studentSession && emailReady && (
             <div className={isMobile ? 'd-flex w-100 gap-2' : 'd-flex gap-2'}>
               <Button
                 variant="secondary"

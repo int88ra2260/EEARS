@@ -60,6 +60,7 @@ function toPublicAccount(account) {
     status: account.status,
     ssoLinked: Boolean(account.ssoProvider && account.ssoSubject),
     ssoProvider: account.ssoProvider || null,
+    emailVerifiedAt: account.emailVerifiedAt || null,
   };
 }
 
@@ -335,12 +336,16 @@ function readCampusEmailSetup(token) {
 async function completeCampusEmailSetup({ setupToken, email, emailVerificationToken }) {
   const payload = readCampusEmailSetup(setupToken);
   assertEmailVerifiedToken({ token: emailVerificationToken, email });
-  return upsertCampusAccount({
+  const account = await upsertCampusAccount({
     STUID: payload.studentId,
     CNAME: payload.name,
     EMAIL: email,
     STAT_COD: '',
   });
+  const emailVerifiedAt = new Date();
+  await account.update({ emailVerifiedAt });
+  Object.assign(account, { emailVerifiedAt });
+  return account;
 }
 
 async function refreshCampusProfile({ studentId, password }, sso = nsysuSsoClient) {
@@ -421,15 +426,13 @@ async function changeNotificationEmail({ accountId, email, emailVerificationToke
   }
   const normalized = normalizeEmail(email);
   assertEmailVerifiedToken({ token: emailVerificationToken, email: normalized });
-  if (normalized === account.email) {
-    return account;
-  }
   const owner = await StudentAccount.findOne({ where: { email: normalized } });
   if (owner && owner.id !== account.id) {
     throw httpError(409, 'STUDENT_EMAIL_EXISTS', '此信箱已建立帳號，請換一個信箱');
   }
-  await account.update({ email: normalized });
-  Object.assign(account, { email: normalized });
+  const emailVerifiedAt = new Date();
+  await account.update({ email: normalized, emailVerifiedAt });
+  Object.assign(account, { email: normalized, emailVerifiedAt });
   return account;
 }
 

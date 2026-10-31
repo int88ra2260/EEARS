@@ -6,7 +6,7 @@ const { EnglishTableSurveyResponse, EnglishClubSurveyResponse, SurveySettings } 
 const { authMiddleware, requirePermission, requireAnyPermission, requireSurveyAccess, P } = require('../middlewares/auth');
 const { logLegacySurveyExportAudit } = require('../utils/legacySurveyExportAudit');
 const { legacyDeprecationHeaders } = require('../middlewares/legacyDeprecation');
-const { optionalStudentAuth, studentAuthMiddleware } = require('../middlewares/studentAuth');
+const { optionalStudentAuth, studentAuthMiddleware, requireStudentEmailVerified } = require('../middlewares/studentAuth');
 const surveyModuleService = require('../services/surveyModuleService');
 const { getCurrentSemester, isValidSemester } = require('../utils/semester');
 
@@ -113,7 +113,7 @@ router.get('/enabled', async (req, res, next) => {
   }
 });
 
-router.get('/semester-mine', studentAuthMiddleware, async (req, res, next) => {
+router.get('/semester-mine', studentAuthMiddleware, requireStudentEmailVerified, async (req, res, next) => {
   try {
     const { listSemesterSurveyStatus } = require('../services/surveyEnabledListService');
     const data = await listSemesterSurveyStatus(req.studentAccount.studentId);

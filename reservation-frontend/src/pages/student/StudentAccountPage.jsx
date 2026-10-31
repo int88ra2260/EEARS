@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import StudentAccountEmailVerification from '../../components/student/StudentAccountEmailVerification';
 import {
   changeStudentNotificationEmail,
@@ -13,6 +13,7 @@ import { saveStudentSession } from '../../utils/studentSession';
 import { fetchMySemesterSurveys } from '../../services/surveyPublicApi';
 import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
+import { safeStudentNext } from '../../utils/studentSession';
 import '../../components/student/StudentRecordShell.css';
 
 function AppIcon({ name }) {
@@ -144,6 +145,7 @@ const ENGLISH_TEST_SHORTCUTS = {
 
 export default function StudentAccountPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const session = useStudentSession();
   const student = session?.student;
   const [currentPassword, setCurrentPassword] = useState('');
@@ -184,6 +186,7 @@ export default function StudentAccountPage() {
   }, []);
 
   useEffect(() => {
+    if (!student?.emailVerifiedAt) return undefined;
     let cancelled = false;
     fetchMySemesterSurveys()
       .then((data) => {
@@ -206,7 +209,7 @@ export default function StudentAccountPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [student?.emailVerifiedAt]);
 
   const shortcuts = [
     BOOKING_SHORTCUT,
@@ -245,7 +248,14 @@ export default function StudentAccountPage() {
       setEmailVerificationToken('');
       setVerifiedEmail('');
       setEditingEmail(false);
-      setEmailNotice('收信信箱已更新。之後的通知會寄到這個信箱。');
+      const wasActivation = !student.emailVerifiedAt;
+      setEmailNotice(wasActivation
+        ? '信箱已確認，帳號已啟動。之後的通知會寄到這個信箱。'
+        : '收信信箱已更新。之後的通知會寄到這個信箱。');
+      if (wasActivation) {
+        const next = safeStudentNext(params.get('next') || '');
+        if (next && next !== '/student/account') navigate(next);
+      }
     } catch {
       setEmailError('與伺服器連線發生錯誤');
     } finally {
@@ -276,6 +286,7 @@ export default function StudentAccountPage() {
   };
 
   if (!student) return null;
+  const needsActivation = !student.emailVerifiedAt;
 
   return (
     <div className="student-account">
@@ -287,8 +298,14 @@ export default function StudentAccountPage() {
         <p className="student-account__mailbox">{student.email}</p>
       </header>
 
+      {needsActivation ? (
+        <p className="student-account__section text-muted small mb-3" role="status">
+          帳號還沒啟動。單一入口帶入的信箱不一定是你平常會看的信箱。請確認或改成你會收的信箱，再到信箱收驗證碼。啟動前不能預約，也不能查看個人紀錄。
+        </p>
+      ) : null}
+
       <nav className="student-account__launcher" aria-label="帳號功能">
-        {shortcuts.map((item) => (
+        {needsActivation ? null : shortcuts.map((item) => (
           <Link
             key={item.to}
             to={item.to}
@@ -328,18 +345,22 @@ export default function StudentAccountPage() {
         </button>
       </nav>
 
-      {openPanel === 'email' ? (
+      {needsActivation || openPanel === 'email' ? (
       <section className="student-account__section" id="student-account-email">
-        <h2 className="h6">通知信箱</h2>
+        <h2 className="h6">{needsActivation ? '啟動帳號' : '通知信箱'}</h2>
         <p className="text-muted small mb-2">
-          {campusSso
-            ? '預約、培力與歷程檔案的通知寄到這個信箱。它可以和單一入口的信箱不同。'
-            : '預約、培力與歷程檔案的通知寄到這個信箱。'}
+          {needsActivation
+            ? '驗證碼會寄到下面這個信箱。若這不是你平常使用的信箱，先改成你會看的再寄出。'
+            : campusSso
+              ? '預約、培力與歷程檔案的通知寄到這個信箱。它可以和單一入口的信箱不同。'
+              : '預約、培力與歷程檔案的通知寄到這個信箱。'}
         </p>
         {emailNotice ? <p className="text-success small">{emailNotice}</p> : null}
-        {editingEmail ? (
+        {needsActivation || editingEmail ? (
           <form onSubmit={handleEmailSubmit}>
-            <label className="form-label" htmlFor="student-mailbox">新的信箱</label>
+            <label className="form-label" htmlFor="student-mailbox">
+              {needsActivation ? '收信信箱' : '新的信箱'}
+            </label>
             <input
               id="student-mailbox"
               className="form-control mb-3"
@@ -354,6 +375,10 @@ export default function StudentAccountPage() {
               studentId={student.studentId}
               emailVerificationToken={emailVerificationToken}
               verifiedEmail={verifiedEmail}
+              hint={needsActivation
+                ? '驗證碼約 10 分鐘內有效。確認後即可按「啟動帳號」。'
+                : '驗證碼約 10 分鐘內有效。確認後才會更新收信信箱。'}
+              verifiedMessage={needsActivation ? '信箱已驗證，可以啟動帳號' : '信箱已驗證，可以更新收信信箱'}
               onVerified={({ token, verifiedEmail: nextEmail }) => {
                 setEmailVerificationToken(token || '');
                 setVerifiedEmail(nextEmail || '');
@@ -365,19 +390,21 @@ export default function StudentAccountPage() {
                 type="submit"
                 disabled={emailSubmitting || !emailVerificationToken || verifiedEmail !== mailbox.trim().toLowerCase()}
               >
-                {emailSubmitting ? '更新中…' : '更新收信信箱'}
+                {emailSubmitting ? '確認中…' : (needsActivation ? '啟動帳號' : '更新收信信箱')}
               </button>
-              <button
-                className="btn btn-outline-secondary"
-                type="button"
-                onClick={() => {
-                  setEditingEmail(false);
-                  setMailbox(student.email);
-                  setEmailError('');
-                }}
-              >
-                取消
-              </button>
+              {needsActivation ? null : (
+                <button
+                  className="btn btn-outline-secondary"
+                  type="button"
+                  onClick={() => {
+                    setEditingEmail(false);
+                    setMailbox(student.email);
+                    setEmailError('');
+                  }}
+                >
+                  取消
+                </button>
+              )}
             </div>
             {emailError ? <p className="text-danger mt-3 mb-0">{emailError}</p> : null}
           </form>

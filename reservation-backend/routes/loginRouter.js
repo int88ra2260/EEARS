@@ -8,6 +8,7 @@ const { Teacher, sequelize } = require('../models');
 const auditLogService = require('../services/auditLogService');
 const logger = require('../utils/logger');
 const loginAccountCooldown = require('../utils/loginAccountCooldown');
+const adminSsoAuthService = require('../services/adminSsoAuthService');
 
 /** 記憶體 IP 限流（無新套件）：僅限制 POST 頻率，不鎖帳號、不洩漏帳號是否存在 */
 const LOGIN_RATE_WINDOW_MS = 15 * 60 * 1000;
@@ -242,6 +243,154 @@ router.post('/login', (req, res, next) => {
     });
   } catch (error) {
     logger.error('登入錯誤', error);
+    return res.status(500).json({ success: false, error: '登入過程中發生錯誤' });
+  }
+});
+
+// GET /api/login/info - 取得登入選項
+router.get('/login/info', (req, res) => {
+  return res.json({
+    success: true,
+    data: {
+      ssoEnabled: adminSsoAuthService.isEnabled(),
+      ssoName: '中山單一入口',
+      localLoginEnabled: true,
+    },
+  });
+});
+
+// POST /api/login/sso - SSO 登入
+router.post('/login/sso', (req, res, next) => {
+  if (!checkLoginRateLimit(req)) {
+    return res.status(429).json({ error: '登入嘗試過於頻繁，請稍後再試。' });
+  }
+  next();
+}, async (req, res) => {
+  try {
+    // 檢查 SSO 是否啟用
+    if (!adminSsoAuthService.isEnabled()) {
+      return res.status(400).json({
+        success: false,
+        code: 'SSO_DISABLED',
+        error: '單一入口登入未啟用',
+      });
+    }
+
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: '缺少員工編號或密碼' });
+    }
+
+    // SSO 登入
+    const { teacher, ssoProfile, authMethod } = await adminSsoAuthService.loginWithCampusSso({
+      userName: username,
+      password,
+    });
+
+    // 清除登入冷卻
+    loginAccountCooldown.clearLoginCooldown(username);
+
+    // 建立 JWT token
+    const payload = {
+      id: teacher.id,
+      role: teacher.role,
+      user: teacher.username,
+      name: teacher.name,
+      mustResetPassword: false, // SSO 登入不需要重設密碼
+      teacherLevel: teacher.teacherLevel || 'regular',
+      staffLevel: teacher.staffLevel || null,
+      workerLevel: teacher.workerLevel || null,
+      isDemo: !!teacher.isDemo,
+      accessVersion: teacher.accessVersion || 1,
+      permissions: teacher.permissions || null,
+      scopes: Array.isArray(teacher.scopes) ? teacher.scopes : null,
+    };
+
+    const token = jwt.sign(payload, secretKey, { expiresIn: '4h' });
+
+    // 記錄登入成功
+    const successMeta = buildLoginSecurityMeta(req, username, {
+      reasonCode: 'SUCCESS',
+      role: teacher.role,
+      authMethod,
+      ssoEmpno: ssoProfile.EMPNO,
+    });
+
+    auditLogService.logAudit({
+      module: 'auth',
+      action: 'login_success_sso',
+      entityType: 'Teacher',
+      entityId: String(teacher.id),
+      targetSummary: loginAccountCooldown.maskUsernameForAudit(username),
+      afterData: successMeta,
+      operatorId: teacher.id,
+      operatorRole: teacher.role,
+      operatorName: teacher.name,
+      req,
+      immediate: true,
+    });
+
+    if (HIGH_PRIVILEGE_LOGIN_ROLES.has(teacher.role)) {
+      logLoginSecurity(req, 'login_success_admin_sso', {
+        username,
+        entityId: teacher.id,
+        operatorId: teacher.id,
+        operatorRole: teacher.role,
+        operatorName: teacher.name,
+        afterData: { reasonCode: 'SUCCESS', role: teacher.role, authMethod },
+      });
+    }
+
+    return res.json({
+      message: '登入成功',
+      token,
+      role: teacher.role,
+      teacherLevel: teacher.teacherLevel || 'regular',
+      staffLevel: teacher.staffLevel || null,
+      workerLevel: teacher.workerLevel || null,
+      mustResetPassword: false,
+      isDemo: !!teacher.isDemo,
+      authMethod,
+      teacher: {
+        id: teacher.id,
+        name: teacher.name,
+        username: teacher.username,
+        email: teacher.email,
+        role: teacher.role,
+        teacherLevel: teacher.teacherLevel || 'regular',
+        staffLevel: teacher.staffLevel || null,
+        workerLevel: teacher.workerLevel || null,
+        isDemo: !!teacher.isDemo,
+        accessVersion: teacher.accessVersion || 1,
+        permissions: teacher.permissions || null,
+        scopes: Array.isArray(teacher.scopes) ? teacher.scopes : null,
+      },
+    });
+  } catch (error) {
+    // 處理已知錯誤
+    if (error.code) {
+      // 記錄失敗
+      auditLogService.queueAuthLoginFailure(req, req.body?.username || '', null, error.code);
+      logLoginSecurity(req, 'login_failed_sso', {
+        username: req.body?.username || '',
+        entityId: 'sso',
+        status: 'failed',
+        errorMessage: error.code,
+        afterData: { reasonCode: error.code },
+      });
+
+      const response = {
+        success: false,
+        code: error.code,
+        error: error.message,
+      };
+      if (error.redirectUrl) {
+        response.redirectUrl = error.redirectUrl;
+      }
+      return res.status(error.status || 500).json(response);
+    }
+
+    logger.error('SSO 登入錯誤', error);
     return res.status(500).json({ success: false, error: '登入過程中發生錯誤' });
   }
 });

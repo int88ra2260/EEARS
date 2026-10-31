@@ -31,6 +31,7 @@ export function saveStudentSession({ token, student }) {
     email: String(student.email || '').trim(),
     ssoLinked: Boolean(student.ssoLinked),
     ssoProvider: student.ssoProvider || null,
+    emailVerifiedAt: student.emailVerifiedAt || null,
   };
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));

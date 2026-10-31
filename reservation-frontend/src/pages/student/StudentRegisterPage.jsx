@@ -67,7 +67,7 @@ export default function StudentRegisterPage() {
         {campusSso ? (
           <>
             <p className="text-muted small">
-              登入使用中山單一入口的學號與密碼。第一次登入成功就會開通，不必在這裡另外設定密碼。若你以前在這個網站自設過密碼，請改從登入頁使用單一入口的密碼。
+              登入使用中山單一入口的學號與密碼。第一次登入後要先確認收信信箱，帳號才會啟動，不必在這裡另外設定密碼。若你以前在這個網站自設過密碼，請改從登入頁使用單一入口的密碼。
             </p>
             <Link className="btn btn-primary" to={`/student/login?next=${encodeURIComponent(next)}`}>前往登入</Link>
           </>

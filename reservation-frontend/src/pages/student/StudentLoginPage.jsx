@@ -37,6 +37,9 @@ export default function StudentLoginPage() {
   }, [leavingAfterPasswordChange]);
 
   if (session && !leavingAfterPasswordChange) {
+    if (!session.student.emailVerifiedAt) {
+      return <Navigate to="/student/account" replace />;
+    }
     return <Navigate to={next} replace />;
   }
 
@@ -62,6 +65,13 @@ export default function StudentLoginPage() {
         return;
       }
       saveStudentSession({ token: data.token, student: data.student });
+      if (!data.student.emailVerifiedAt) {
+        const target = next && next !== '/student/account'
+          ? `/student/account?next=${encodeURIComponent(next)}`
+          : '/student/account';
+        navigate(target, { replace: true });
+        return;
+      }
       navigate(next, { replace: true });
     } catch {
       setError('與伺服器連線發生錯誤');
@@ -105,15 +115,15 @@ export default function StudentLoginPage() {
         <h1 className="h4 mb-2">登入</h1>
         <p className="text-muted small">
           {campusSso
-            ? '使用你在中山單一入口的學號與密碼。不必另外建立帳號，第一次登入成功就會開通。'
+            ? '使用你在中山單一入口的學號與密碼。不必另外建立帳號。第一次登入後，要先確認收信信箱，帳號才會啟動。'
             : '登入後可以預約，以及查看我的紀錄、口說紀錄、課堂加分配置與培力報名。'}
           {params.get('next') ? ' 登入後會回到你剛才要使用的頁面。' : ''}
         </p>
         {campusSso ? (
           <ul className="small mb-3 ps-3">
             <li>密碼就是你在 sso.nsysu.edu.tw 使用的那一組。以前在這個網站自設的密碼不能再登入。</li>
-            <li>登入後可以預約，以及查看我的紀錄、口說紀錄、課堂加分配置與培力報名。</li>
-            <li>預約通知先寄到單一入口的信箱。若那不是你常收的信箱，登入後到「我的帳號」更換並完成驗證。</li>
+            <li>帳號啟動後可以預約，以及查看我的紀錄、口說紀錄、課堂加分配置與培力報名。</li>
+            <li>登入後先到「我的帳號」確認收信信箱。單一入口的信箱不一定是你平常會看的，可以改成別的信箱，再到信箱收驗證碼。啟動前不能預約或查看個人紀錄。</li>
             <li>忘記密碼、還在用預設密碼，或密碼已到期：先到單一入口處理，再回到這裡登入。</li>
             <li>取消預約時，仍要輸入預約信裡的驗證碼。</li>
           </ul>

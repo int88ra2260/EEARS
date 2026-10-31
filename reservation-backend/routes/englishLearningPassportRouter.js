@@ -92,6 +92,14 @@ function requireStudentContext(req, res, next) {
   studentAuthMiddleware(req, res, (err) => {
     if (err) return next(err);
     if (res.headersSent) return undefined;
+    if (!req.studentAccount.emailVerifiedAt) {
+      return res.status(403).json({
+        success: false,
+        code: 'EMAIL_ACTIVATION_REQUIRED',
+        message: '請先到我的帳號收驗證碼，確認收信信箱後再使用。',
+        redirectUrl: '/student/account',
+      });
+    }
     try {
       req.studentContext = passportService.assertLinkedAccountContext(req.studentAccount);
       return next();

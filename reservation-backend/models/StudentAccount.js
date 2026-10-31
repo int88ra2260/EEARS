@@ -44,6 +44,10 @@ const StudentAccount = sequelize.define('StudentAccount', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  emailVerifiedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
   lastLoginAt: {
     type: DataTypes.DATE,
     allowNull: true,
