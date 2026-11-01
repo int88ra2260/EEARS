@@ -25,6 +25,7 @@ const activityOpsShadowRuntime = require('./pilots/activityOpsShadowRuntime');
 const bestepFileQualityContract = require('./pilots/bestepFileQualityContract');
 const bestepFileQualityFindings = require('./pilots/bestepFileQualityFindings');
 const bestepFileQualityValidator = require('./pilots/bestepFileQualityValidator');
+const bestepFileQualityShadowRuntime = require('./pilots/bestepFileQualityShadowRuntime');
 const { ContractRegistryError } = require('./errors');
 
 module.exports = {
@@ -53,5 +54,6 @@ module.exports = {
   ...bestepFileQualityContract,
   ...bestepFileQualityFindings,
   ...bestepFileQualityValidator,
+  ...bestepFileQualityShadowRuntime,
   ContractRegistryError,
 };

@@ -11,6 +11,7 @@ const {
 } = require('../models');
 const { Op } = require('sequelize');
 const { findRegistrationForSemester } = require('./englishTestRegistrationService');
+const bestepFileQualityShadow = require('../analytics-contracts/pilots/bestepFileQualityShadowRuntime');
 
 // CEFR 等級列表
 const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
@@ -447,6 +448,8 @@ async function importScoreData(filePath, semester) {
   const errors = [];
   let imported = 0;
   let skipped = 0;
+  let rows = [];
+  let sourceFile = null;
   const importBatchId = newBestepImportBatchId('scores');
 
   try {
@@ -454,9 +457,8 @@ async function importScoreData(filePath, semester) {
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(worksheet, { defval: null });
-
-    const sourceFile = path.basename(filePath);
+    rows = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+    sourceFile = path.basename(filePath);
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -646,19 +648,38 @@ async function importScoreData(filePath, semester) {
     }
 
     await transaction.commit();
-
-    return {
-      imported,
-      skipped,
-      errors,
-      importBatchId,
-      sourceFile
-    };
-
   } catch (error) {
     await transaction.rollback();
     throw error;
   }
+
+  const outcome = {
+    imported,
+    skipped,
+    errors,
+    importBatchId,
+    sourceFile,
+  };
+  try {
+    if (bestepFileQualityShadow.isBestepFileQualityShadowEnabled()) {
+      bestepFileQualityShadow.observeBestepScoreImport({
+        rows,
+        errors,
+        semester,
+        importBatchId,
+        sourceFile,
+        imported,
+        skipped,
+      }, {
+        getFieldValue,
+        parseNullableScore,
+        normalizeCefrLevel,
+      });
+    }
+  } catch (_shadowErr) {
+    bestepFileQualityShadow.discardBestepFileQualityShadowFailure();
+  }
+  return outcome;
 }
 
 /**
