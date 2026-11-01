@@ -225,4 +225,16 @@ describe('analytics hub page', () => {
     );
     expect(screen.queryByRole('link', { name: '返回成效分析中心' })).toBeNull();
   });
+
+  test('shows an empty-entry notice when the hub opens but no destinations are allowed', () => {
+    renderHub(token({
+      role: 'teacher',
+      teacherLevel: 'regular',
+      permissions: { can_view_classes: false },
+    }));
+    expect(screen.getByTestId('analytics-hub-empty')).toHaveTextContent('目前沒有可用分析入口');
+    expect(screen.queryByRole('link', { name: '活動營運總覽' })).toBeNull();
+    expect(screen.queryByRole('link', { name: '班級列表' })).toBeNull();
+    expect(screen.queryByRole('link', { name: '資源覆蓋' })).toBeNull();
+  });
 });

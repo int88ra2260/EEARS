@@ -45,6 +45,9 @@ function HubLinks({ links }) {
 export default function AnalyticsHubPage() {
   const { token } = useOutletContext() || {};
   const model = buildAnalyticsHub(buildAccessProfile(token));
+  const hasUsableEntry = model.sections.some((section) => (
+    section.links.some((link) => link.allowed)
+  ));
 
   useEffect(() => {
     document.title = '成效分析中心 | EEARS';
@@ -61,6 +64,11 @@ export default function AnalyticsHubPage() {
           <Link to={model.homePath}>{model.homeLabel}</Link>
         </p>
       </header>
+      {!hasUsableEntry ? (
+        <p className="analytics-hub__empty" data-testid="analytics-hub-empty" role="status">
+          目前沒有可用分析入口。你仍可查看下方說明，但不會因此取得新的權限。
+        </p>
+      ) : null}
       <div className="analytics-hub__grid">
         {model.sections.map((section) => (
           <section key={section.id} className="analytics-hub__card" aria-labelledby={`analytics-hub-${section.id}`}>
