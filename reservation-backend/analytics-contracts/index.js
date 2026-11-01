@@ -22,6 +22,9 @@ const activityOpsPilot = require('./pilots/activityOpsOverviewPilot');
 const activityOpsFieldContract = require('./pilots/activityOpsFieldContract');
 const activityOpsShadowValidator = require('./pilots/activityOpsShadowValidator');
 const activityOpsShadowRuntime = require('./pilots/activityOpsShadowRuntime');
+const bestepFileQualityContract = require('./pilots/bestepFileQualityContract');
+const bestepFileQualityFindings = require('./pilots/bestepFileQualityFindings');
+const bestepFileQualityValidator = require('./pilots/bestepFileQualityValidator');
 const { ContractRegistryError } = require('./errors');
 
 module.exports = {
@@ -47,5 +50,8 @@ module.exports = {
   ...activityOpsFieldContract,
   ...activityOpsShadowValidator,
   ...activityOpsShadowRuntime,
+  ...bestepFileQualityContract,
+  ...bestepFileQualityFindings,
+  ...bestepFileQualityValidator,
   ContractRegistryError,
 };
