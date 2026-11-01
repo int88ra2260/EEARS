@@ -7,6 +7,7 @@ const {
   sendClassScopeDenied,
 } = require('../services/accessControl/classScopeGuard');
 const { logExportAudit } = require('../utils/exportAudit');
+const bestepClassAnalyticsShadow = require('../analytics-contracts/pilots/bestepClassAnalyticsShadowRuntime');
 
 function sanitizeFileName(name) {
   return String(name || '')
@@ -56,6 +57,26 @@ async function getBestepOverview(req, res, next) {
         search: search.trim()
       }
     );
+
+    try {
+      if (bestepClassAnalyticsShadow.isBestepClassAnalyticsShadowEnabled()) {
+        const shadowResult = bestepClassAnalyticsShadow.observeBestepClassAnalytics({
+          result,
+          queryContext: {
+            semester,
+            examType,
+            page: parseInt(page, 10),
+            pageSize: parseInt(pageSize, 10),
+            searchPresent: Boolean(search && String(search).trim()),
+          },
+        });
+        if (shadowResult && typeof shadowResult.then === 'function') {
+          shadowResult.then(() => {}, () => {});
+        }
+      }
+    } catch (_shadowErr) {
+      bestepClassAnalyticsShadow.discardBestepClassAnalyticsShadowFailure();
+    }
 
     res.json(result);
   } catch (error) {

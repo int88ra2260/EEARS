@@ -28,6 +28,7 @@ const bestepFileQualityValidator = require('./pilots/bestepFileQualityValidator'
 const bestepFileQualityShadowRuntime = require('./pilots/bestepFileQualityShadowRuntime');
 const bestepClassAnalyticsContract = require('./pilots/bestepClassAnalyticsContract');
 const bestepClassAnalyticsValidator = require('./pilots/bestepClassAnalyticsValidator');
+const bestepClassAnalyticsShadowRuntime = require('./pilots/bestepClassAnalyticsShadowRuntime');
 const { ContractRegistryError } = require('./errors');
 
 module.exports = {
@@ -59,5 +60,6 @@ module.exports = {
   ...bestepFileQualityShadowRuntime,
   ...bestepClassAnalyticsContract,
   ...bestepClassAnalyticsValidator,
+  ...bestepClassAnalyticsShadowRuntime,
   ContractRegistryError,
 };
