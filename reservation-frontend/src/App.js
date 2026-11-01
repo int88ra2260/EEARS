@@ -78,6 +78,7 @@ const ClassBestepOverview = lazy(() => import('./components/ClassBestepOverview'
 const AdminClassCreditAllocationPage = lazy(() => import('./pages/admin/AdminClassCreditAllocationPage'));
 const TeacherDashboardPage = lazy(() => import('./components/TeacherDashboardPage'));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
+const AnalyticsHubPage = lazy(() => import('./pages/admin/AnalyticsHubPage'));
 const RiskDetectionPage = lazy(() => import('./components/RiskDetectionPage'));
 const ReportPage = lazy(() => import('./components/ReportPage'));
 const AnnouncementManagementPage = lazy(() => import('./pages/admin/AnnouncementManagementPage'));
@@ -650,6 +651,7 @@ function AppContent() {
               <Route path="english-learning-passports/:id" element={<EnglishLearningPassportDetailPage />} />
               <Route path="analytics/student/:studentId" element={<AnalyticsStudentProfileRedirect />} />
               <Route path="analytics/students" element={<AdminLegacyRedirect to="/admin/learning-journey" fromLabel="學生學習歷程查詢（舊網址）" />} />
+            <Route path="analytics" element={<AnalyticsHubPage />} />
             <Route path="analytics/overview" element={<AdminAnalyticsPage />} />
             <Route path="analytics/risk" element={<RiskDetectionPage />} />
               <Route path="analytics/trends" element={<AdminLegacyRedirect to="/admin/analytics/overview" fromLabel="趨勢分析（舊網址）" />} />

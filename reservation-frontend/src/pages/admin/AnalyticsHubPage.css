@@ -1,0 +1,72 @@
+.analytics-hub {
+  max-width: 1100px;
+  padding: 1.25rem 1rem 2.5rem;
+  color: var(--color-text-primary, #2f3437);
+  overflow-wrap: anywhere;
+}
+
+.analytics-hub__header h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+}
+
+.analytics-hub__header p,
+.analytics-hub__card p,
+.analytics-hub__usage li,
+.analytics-hub__notes li {
+  line-height: 1.55;
+}
+
+.analytics-hub a:focus-visible {
+  outline: 2px solid var(--color-primary, #2a5d9f);
+  outline-offset: 3px;
+}
+
+.analytics-hub__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.analytics-hub__card,
+.analytics-hub__usage {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--color-border, #d8e0ea);
+  border-radius: 0.5rem;
+  background: var(--color-bg-paper, #fff);
+}
+
+.analytics-hub__card h2,
+.analytics-hub__usage h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.analytics-hub__links,
+.analytics-hub__notes,
+.analytics-hub__usage ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.analytics-hub__links li + li {
+  margin-top: 0.75rem;
+}
+
+.analytics-hub__detail,
+.analytics-hub__denied {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-secondary, #5a6169);
+}
+
+.analytics-hub__usage {
+  margin-top: 1rem;
+}
+
+@media (min-width: 768px) {
+  .analytics-hub__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

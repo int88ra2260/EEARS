@@ -320,6 +320,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   'system-diagnostics': ['診斷', 'ping', '健康檢查', 'API 診斷'],
   'system-ops-scripts': ['備份', 'backup', '寫作工坊', 'EWL', '同步', '腳本', '維運'],
   'system-trip-count': ['分帳', '旅遊', 'TripCount', '結算', '轉帳'],
+  'analytics-hub': ['成效分析中心', '分析入口', 'analytics hub'],
 };
 
 /**

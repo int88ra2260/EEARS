@@ -130,6 +130,8 @@ export function isNavItemVisible(visibility, c) {
       // 工讀生不進營運總覽（活動工讀側欄另以 leaf allowlist 收斂）
       if (c.actualUserRole === 'worker') return false;
       return true;
+    case 'analyticsHub':
+      return canAccessAdminRoute(c?.accessProfile, '/admin/analytics');
     case 'operationsAnalytics':
       return (
         c?.accessProfile?.permissionSet?.has?.(P.CAN_VIEW_ANALYTICS) ||
@@ -736,9 +738,18 @@ export const ADMIN_NAV_SECTIONS = [
   {
     id: 'analytics',
     label: '營運分析與報表',
-    visibility: 'operationsAnalytics',
+    visibility: 'analyticsHub',
     expandable: true,
     children: [
+      {
+        id: 'analytics-hub',
+        label: '成效分析中心',
+        path: '/admin/analytics',
+        matchPrefixes: ['/admin/analytics'],
+        visibility: 'analyticsHub',
+        pageTitle: '成效分析中心',
+        breadcrumbLabel: '成效分析中心',
+      },
       {
         id: 'analytics-students',
         // 舊學號搜尋入口（已自側欄隱藏）；正式查詢請用「英語學習歷程中心」學生清單
