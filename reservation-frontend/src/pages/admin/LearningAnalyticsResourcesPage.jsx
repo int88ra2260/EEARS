@@ -11,6 +11,8 @@ import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead'
 import { RESOURCE_TYPE_LABELS, SKILL_LABELS } from '../../components/learningAnalytics/learningAnalyticsCopy';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 import { LA_FILTER_INTRO_RESOURCES, RESOURCE_COVERAGE_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import LearningResourceReading, { LearningDetailLinks } from '../../components/learningAnalytics/LearningResourceReading';
+import { formatObservedCount } from './learningParticipationReading';
 
 function resourceLabel(type) {
   return RESOURCE_TYPE_LABELS[type] || type;
@@ -49,6 +51,7 @@ export default function LearningAnalyticsResourcesPage() {
     if (!ready) return;
     setLoading(true);
     setError('');
+    setData(null);
     try {
       setData(await getLearningAnalyticsResources(token, withWorkingSet(apiParams())));
     } catch (e) {
@@ -87,15 +90,7 @@ export default function LearningAnalyticsResourcesPage() {
         workingSetHere="resources"
         question="哪些資源有人參加、哪些資源有足夠前後測可以觀察。"
         scope="分析快照裡的學生，依資源類型彙總。這頁不做資源成效排名。"
-        howToRead={(
-          <ol className="small mb-0 ps-3">
-            <li className="mb-1">先看描述表：誰參加多、有多少人能算成長、資料是否足夠解讀。</li>
-            <li className="mb-1">有前後測太少時不要解讀平均。跨英檢工具的原始分不宜直接互比。</li>
-            <li>
-              要盯某一門課、老師或活動，到課／師／活動。正式達標到 B2 KPI 報表。
-            </li>
-          </ol>
-        )}
+        howToRead={<LearningResourceReading rows={data?.resourceEffectiveness} />}
       >
 
       <LearningAnalyticsFilters
@@ -116,8 +111,18 @@ export default function LearningAnalyticsResourcesPage() {
       />
       <LearningAnalyticsActiveFilters filters={appliedFilters} visibleKeys={RESOURCE_COVERAGE_FILTER_KEYS} />
 
+      <p className="small mt-3 mb-0" data-testid="learning-reading">
+        參加過的人數是不重複學生數，不是事件次數，也不代表資源造成能力提升。
+      </p>
+      <LearningDetailLinks />
+
       {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
-      {loading ? <div className="text-center py-5"><Spinner animation="border" /></div> : null}
+      {loading ? (
+        <div className="text-center py-5" role="status">
+          <Spinner animation="border" />
+          <span className="visually-hidden">載入中</span>
+        </div>
+      ) : null}
 
       {!loading && data ? (
         <>
@@ -146,21 +151,47 @@ export default function LearningAnalyticsResourcesPage() {
                   {rows.length ? rows.map((row) => (
                     <tr key={row.resourceType}>
                       <td className="fw-semibold">{resourceLabel(row.resourceType)}</td>
-                      <td className="text-end">{row.participantCount ?? '—'}</td>
-                      <td className="text-end">{row.growthSampleSize ?? '—'}</td>
+                      <td className="text-end">{formatObservedCount(row.participantCount)}</td>
+                      <td className="text-end">{formatObservedCount(row.growthSampleSize)}</td>
                       <td className="text-end fw-semibold">{formatDelta(row.rawGrowthAverage)}</td>
                       <td className="small d-none d-md-table-cell">{skillList(row.mainSkills)}</td>
                       <td><EvidenceQualityBadge level={row.evidenceLevel} /></td>
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={6} className="text-muted text-center py-4">尚無資源資料</td>
+                      <td colSpan={6} className="text-muted text-center py-4">尚無可用紀錄。不能推論沒有學習。</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
+          {Array.isArray(data?.skillExposure?.byResource) && data.skillExposure.byResource.length ? (
+            <div className="la-panel mt-3">
+              <LearningAnalyticsPanelHeader
+                title="可觀察事件"
+                lead="事件次數不是不重複學生數，也不是學習效果。"
+              />
+              <div className="table-responsive">
+                <table className="table table-sm align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>資源類型</th>
+                      <th className="text-end">可觀察事件次數</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.skillExposure.byResource.map((row) => (
+                      <tr key={`event-${row.resourceType}`}>
+                        <td>{resourceLabel(row.resourceType)}</td>
+                        <td className="text-end">{formatObservedCount(row.events)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </>
       ) : null}
       </LearningAnalyticsPageFrame>

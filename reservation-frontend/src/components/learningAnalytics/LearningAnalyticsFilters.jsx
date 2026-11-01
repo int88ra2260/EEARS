@@ -70,10 +70,10 @@ function FilterHintIcon({ hint, hintId }) {
   );
 }
 
-function FilterField({ label, hint, hintId, children }) {
+function FilterField({ label, hint, hintId, controlId, children }) {
   return (
     <Form.Group className="la-filter-field mb-0">
-      <Form.Label className="small text-muted mb-1 la-filter-label d-inline-flex align-items-center gap-1 flex-wrap">
+      <Form.Label htmlFor={controlId} className="small text-muted mb-1 la-filter-label d-inline-flex align-items-center gap-1 flex-wrap">
         <span>{label}</span>
         <FilterHintIcon hint={hint} hintId={hintId} />
       </Form.Label>
@@ -92,9 +92,10 @@ function SelectField({
   disabled,
   groupedOptions = null,
 }) {
+  const selectId = React.useId();
   return (
-    <FilterField label={label} hint={hint} hintId={hintId}>
-      <Form.Select value={value} onChange={onChange} disabled={disabled}>
+    <FilterField label={label} hint={hint} hintId={hintId} controlId={selectId}>
+      <Form.Select id={selectId} value={value} onChange={onChange} disabled={disabled}>
         {groupedOptions?.length ? (
           <>
             {options.filter((o) => !o.value).map((opt) => (

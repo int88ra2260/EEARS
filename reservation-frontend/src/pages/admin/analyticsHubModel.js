@@ -38,25 +38,25 @@ const LEARNING_LINKS = [
     id: 'resources',
     label: '資源覆蓋',
     to: '/admin/learning-analytics/resources',
-    detail: '學生接觸過哪些學習資源。',
+    detail: '已掛學號的資源接觸。人數不是事件次數，接觸不是效果。',
   },
   {
     id: 'students',
     label: '個人軌跡',
     to: '/admin/learning-analytics/students',
-    detail: '有權限時查看參與歷程。',
+    detail: '個人歷程。沒有紀錄不能當成沒有參與。',
   },
   {
     id: 'offerings',
     label: '課／師／活動',
     to: '/admin/learning-analytics/offerings',
-    detail: '參與樣本與細項資料是否夠用。',
+    detail: '課、師、活動的參與樣本與資料是否夠用。',
   },
   {
     id: 'overview',
     label: '能力總覽',
     to: '/admin/learning-analytics/overview',
-    detail: '分析快照的分布。',
+    detail: '分析快照的能力分布。探索性觀察，不是因果。',
   },
 ];
 

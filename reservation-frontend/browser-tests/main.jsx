@@ -8,12 +8,15 @@ import AdminAnalyticsPage from '../src/pages/admin/AdminAnalyticsPage.jsx';
 import AnalyticsHubPage from '../src/pages/admin/AnalyticsHubPage.jsx';
 import ClassOverview from '../src/components/ClassOverview';
 import ClassBestepOverview from '../src/components/ClassBestepOverview';
+import LearningAnalyticsResourcesPage from '../src/pages/admin/LearningAnalyticsResourcesPage.jsx';
+import LearningAnalyticsSkillsPage from '../src/pages/admin/LearningAnalyticsSkillsPage.jsx';
 
 const params = new URLSearchParams(window.location.search);
 const requestedRoute = params.get('route');
 const entry = requestedRoute === '/admin/analytics'
   || requestedRoute === '/admin/analytics/overview'
   || (requestedRoute && requestedRoute.startsWith('/admin/classes'))
+  || (requestedRoute && requestedRoute.startsWith('/admin/learning-analytics'))
   ? requestedRoute
   : '';
 
@@ -57,7 +60,8 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/operations" element={<h1>活動列表</h1>} />
           <Route path="/admin/classes" element={<ClassOverview />} />
           <Route path="/admin/classes/:classId/bestep" element={<ClassBestepOverview />} />
-          <Route path="/admin/learning-analytics/resources" element={<h1>資源覆蓋</h1>} />
+          <Route path="/admin/learning-analytics/resources" element={<LearningAnalyticsResourcesPage />} />
+          <Route path="/admin/learning-analytics/skills" element={<LearningAnalyticsSkillsPage />} />
         </Route>
       </Routes>
     </MemoryRouter>

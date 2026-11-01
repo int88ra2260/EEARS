@@ -147,7 +147,7 @@ export const RAW_EXPORT_FILTER_KEYS = [
 /** 使用者可讀的指標說明 */
 export const LA_TERM_HELP = Object.freeze({
   gse: '能力分數：把不同英檢換成同一把尺，才能比進步。不是官方認證分數。',
-  adjustedGrowth: '校正後進步：扣掉起始程度差異後的進步，較適合作群體比較。',
+  adjustedGrowth: '校正後進步：扣掉起始程度差異後的探索性估計，較適合作群體比較。不是因果證明。',
   modelRun: '分析紀錄：把目前篩選下的結果存下來，方便之後對照。',
 });
 
