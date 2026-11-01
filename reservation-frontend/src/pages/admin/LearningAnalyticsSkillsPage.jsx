@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import Alert from 'react-bootstrap/Alert';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
@@ -26,6 +27,8 @@ import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead'
 import { LA_FILTER_INTRO_SKILLS, SKILL_GROWTH_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 import { getLearningAnalyticsSkills } from '../../services/learningAnalyticsService';
+import { buildAccessProfile } from '../../utils/accessControl';
+import AnalyticsHubReturn from './AnalyticsHubReturn';
 
 const SKILL_LABELS = {
   listening: '聽力',
@@ -348,6 +351,8 @@ export default function LearningAnalyticsSkillsPage() {
     withWorkingSet,
     token,
   } = useLearningAnalyticsBootstrap({ scopeKeys: SKILL_GROWTH_FILTER_KEYS });
+  const outlet = useOutletContext() || {};
+  const accessProfile = buildAccessProfile(outlet.token || token);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -466,6 +471,7 @@ export default function LearningAnalyticsSkillsPage() {
 
       <LearningAnalyticsPageFrame
         title="技能成長"
+        actions={<AnalyticsHubReturn accessProfile={accessProfile} />}
         showWorkingSet
         workingSetHere="skills"
         question="看聽、讀、說、寫有沒有夠多人可以判讀的成長。"

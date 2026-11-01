@@ -13,6 +13,7 @@ import ClassOverviewTable from './admin/classes/ClassOverviewTable';
 import ClassOverviewDeleteModal from './admin/classes/ClassOverviewDeleteModal';
 import ClassOverviewUploadModal from './admin/classes/ClassOverviewUploadModal';
 import ClassOverviewUploadResultModal from './admin/classes/ClassOverviewUploadResultModal';
+import AnalyticsHubReturn from '../pages/admin/AnalyticsHubReturn';
 export default function ClassOverview() {
   const navigate = useNavigate();
   const { userRole, token, accessProfile: ctxAccess } = useOutletContext() || {};
@@ -86,6 +87,7 @@ export default function ClassOverview() {
   return (
     <div className="container-fluid">
       {canManageClasses ? <ImportCenterNotice variant="import" /> : null}
+      <AnalyticsHubReturn accessProfile={accessProfile} />
 
       <ClassOverviewToolbar
         semester={filters.semester}

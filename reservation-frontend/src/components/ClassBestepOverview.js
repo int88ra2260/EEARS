@@ -1,6 +1,6 @@
 // src/components/ClassBestepOverview.js
 import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { Alert, Button } from 'react-bootstrap';
 import { useClassBestepOverview } from '../hooks/useClassBestepOverview';
 import ClassBestepDataReading from './admin/classes/ClassBestepDataReading';
@@ -8,10 +8,14 @@ import ClassBestepFilters from './admin/classes/ClassBestepFilters';
 import ClassBestepStatisticsCards from './admin/classes/ClassBestepStatisticsCards';
 import ClassBestepStudentsTable from './admin/classes/ClassBestepStudentsTable';
 import ClassBestepStudentModal from './admin/classes/ClassBestepStudentModal';
+import AnalyticsHubReturn from '../pages/admin/AnalyticsHubReturn';
+import { buildAccessProfile } from '../utils/accessControl';
 
 export default function ClassBestepOverview() {
   const { classId } = useParams();
   const navigate = useNavigate();
+  const outlet = useOutletContext() || {};
+  const accessProfile = buildAccessProfile(outlet.token || '');
   const {
     loading,
     error,
@@ -51,6 +55,7 @@ export default function ClassBestepOverview() {
           </div>
         </div>
       </div>
+      <AnalyticsHubReturn accessProfile={accessProfile} />
 
       {error && <Alert variant="danger">{error}</Alert>}
 

@@ -18,6 +18,7 @@ import {
 } from '../../constants/adminRouteAccess';
 import { buildAccessProfile, buildNavContextFromAccessProfile } from '../../utils/accessControl';
 import AnalyticsHubPage from './AnalyticsHubPage';
+import AnalyticsHubReturn from './AnalyticsHubReturn';
 import { buildAnalyticsHub } from './analyticsHubModel';
 
 const appSource = fs.readFileSync(
@@ -178,6 +179,12 @@ describe('analytics hub page', () => {
     expect(screen.getByRole('link', { name: '活動營運總覽' }).getAttribute('href')).toBe('/admin/analytics/overview');
     expect(screen.getByRole('link', { name: '班級列表' }).getAttribute('href')).toBe('/admin/classes');
     expect(screen.getByRole('link', { name: '資源覆蓋' }).getAttribute('href')).toBe('/admin/learning-analytics/resources');
+    expect(screen.getAllByText('主要入口').length).toBe(3);
+    expect(screen.getByText(/預約筆數與不重複學生數不同/)).toBeTruthy();
+    expect(screen.getByText(/既有通過率尚未核准/)).toBeTruthy();
+    expect(screen.getAllByText(/都不是已確認的因果效果/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/比例分母不同/)).toBeTruthy();
+    expect(screen.getAllByRole('link').every((link) => !String(link.getAttribute('href')).includes('?'))).toBe(true);
     const destinations = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
     expect(destinations.some((href) => href.includes('/bestep'))).toBe(false);
     expect(screen.getByText(/B2 標記不是活動造成的語言能力提升/)).toBeTruthy();
@@ -202,5 +209,20 @@ describe('analytics hub page', () => {
     expect(screen.queryByRole('link', { name: '活動營運總覽' })).toBeNull();
     expect(screen.queryByRole('link', { name: '班級列表' })).toBeNull();
     expect(screen.getAllByText(/沒有權限/).length).toBeGreaterThan(0);
+  });
+
+  test('return link uses the hub route and stays hidden without hub access', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <AnalyticsHubReturn accessProfile={admin} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: '返回成效分析中心' }).getAttribute('href')).toBe('/admin/analytics');
+    rerender(
+      <MemoryRouter>
+        <AnalyticsHubReturn accessProfile={office} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('link', { name: '返回成效分析中心' })).toBeNull();
   });
 });

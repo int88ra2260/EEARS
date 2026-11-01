@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import Alert from 'react-bootstrap/Alert';
 import Spinner from 'react-bootstrap/Spinner';
 import { getLearningAnalyticsResources } from '../../services/learningAnalyticsService';
@@ -13,6 +14,8 @@ import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsB
 import { LA_FILTER_INTRO_RESOURCES, RESOURCE_COVERAGE_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 import LearningResourceReading, { LearningDetailLinks } from '../../components/learningAnalytics/LearningResourceReading';
 import { formatObservedCount } from './learningParticipationReading';
+import AnalyticsHubReturn from './AnalyticsHubReturn';
+import { buildAccessProfile } from '../../utils/accessControl';
 
 function resourceLabel(type) {
   return RESOURCE_TYPE_LABELS[type] || type;
@@ -43,6 +46,8 @@ export default function LearningAnalyticsResourcesPage() {
     withWorkingSet,
     token,
   } = useLearningAnalyticsBootstrap({ scopeKeys: RESOURCE_COVERAGE_FILTER_KEYS });
+  const outlet = useOutletContext() || {};
+  const accessProfile = buildAccessProfile(outlet.token || token);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -86,6 +91,7 @@ export default function LearningAnalyticsResourcesPage() {
 
       <LearningAnalyticsPageFrame
         title="資源覆蓋"
+        actions={<AnalyticsHubReturn accessProfile={accessProfile} />}
         showWorkingSet
         workingSetHere="resources"
         question="哪些資源有人參加、哪些資源有足夠前後測可以觀察。"

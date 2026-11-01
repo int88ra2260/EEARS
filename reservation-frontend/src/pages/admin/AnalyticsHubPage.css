@@ -56,9 +56,19 @@
 }
 
 .analytics-hub__detail,
-.analytics-hub__denied {
+.analytics-hub__denied,
+.analytics-hub__scope,
+.analytics-hub__entry-label {
   margin: 0.25rem 0 0;
   color: var(--color-text-secondary, #5a6169);
+}
+
+.analytics-hub__entry-label {
+  font-size: 0.85rem;
+}
+
+.analytics-hub__primary {
+  font-weight: 650;
 }
 
 .analytics-hub__usage {

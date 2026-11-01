@@ -23,10 +23,10 @@ const entry = requestedRoute === '/admin/analytics'
 function harnessToken() {
   if (!entry) return 'analytics-browser-harness';
   const profile = params.get('profile') || 'admin';
-  const payload = profile === 'teacher'
-    ? { role: 'teacher', teacherLevel: 'regular' }
-    : profile === 'learning'
-    ? {
+  if (profile === 'anonymous') return '';
+  const payloads = {
+    teacher: { role: 'teacher', teacherLevel: 'regular' },
+    learning: {
       role: 'teacher',
       teacherLevel: 'regular',
       permissions: {
@@ -34,10 +34,22 @@ function harnessToken() {
         can_view_classes: false,
         can_view_learning_analytics: true,
       },
-    }
-    : profile === 'none'
-      ? { role: 'office_staff', staffLevel: 'event_lead' }
-      : { role: 'admin' };
+    },
+    classOnly: {
+      role: 'teacher',
+      teacherLevel: 'regular',
+      permissions: { can_view_analytics: false },
+    },
+    operations: {
+      role: 'teacher',
+      teacherLevel: 'regular',
+      permissions: { can_view_classes: false },
+    },
+    executive: { role: 'teacher', teacherLevel: 'executive' },
+    none: { role: 'office_staff', staffLevel: 'event_lead' },
+    admin: { role: 'admin' },
+  };
+  const payload = payloads[profile] || payloads.admin;
   const body = btoa(JSON.stringify(payload))
     .replace(/=+$/, '')
     .replace(/\+/g, '-')
