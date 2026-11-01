@@ -662,7 +662,7 @@ async function importScoreData(filePath, semester) {
   };
   try {
     if (bestepFileQualityShadow.isBestepFileQualityShadowEnabled()) {
-      bestepFileQualityShadow.observeBestepScoreImport({
+      const shadowResult = bestepFileQualityShadow.observeBestepScoreImport({
         rows,
         errors,
         semester,
@@ -670,11 +670,15 @@ async function importScoreData(filePath, semester) {
         sourceFile,
         imported,
         skipped,
+        commitSucceeded: true,
       }, {
         getFieldValue,
         parseNullableScore,
         normalizeCefrLevel,
       });
+      if (shadowResult && typeof shadowResult.then === 'function') {
+        shadowResult.then(() => {}, () => {});
+      }
     }
   } catch (_shadowErr) {
     bestepFileQualityShadow.discardBestepFileQualityShadowFailure();

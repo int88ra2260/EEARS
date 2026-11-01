@@ -145,4 +145,43 @@ describe('BESTEP score import controller shadow boundary', () => {
     expect(failedOn.body).toEqual(failedOff.body);
     expect(runSync).not.toHaveBeenCalled();
   });
+
+  test('K1-17 K1-18 sync and response failures keep the original controller behavior', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    runSync.mockRejectedValueOnce(new Error('sync failed SYN1'));
+    const scheduled = await invoke(successResult(2));
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(scheduled.statusCode).toBe(200);
+    expect(scheduled.body.imported).toBe(2);
+    expect(scheduled.body.analyticsPromoteScheduled).toBe(true);
+    expect(JSON.stringify(scheduled.body)).not.toContain('sync failed');
+
+    process.env.BESTEP_FILE_QUALITY_SHADOW_ENABLED = 'true';
+    const unlink = jest.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
+    const file = tempFile();
+    importScoreData.mockResolvedValue(successResult(1));
+    let writes = 0;
+    const res = {
+      statusCode: 200,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        writes += 1;
+        if (writes === 1) throw new Error('response failed');
+        this.body = payload;
+        return this;
+      },
+    };
+    await importScores({
+      body: { semester: '114-2' },
+      file: { path: file, originalname: 'scores.xlsx' },
+    }, res, jest.fn());
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toEqual({ error: 'response failed' });
+    unlink.mockRestore();
+    errorSpy.mockRestore();
+  });
 });

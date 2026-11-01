@@ -165,4 +165,78 @@ describe('BESTEP score import shadow boundary', () => {
     fs.unlinkSync(failing);
     liveObserve.mockRestore();
   });
+
+  test('K1-05 K1-06 K1-07 commit success is the only committed shadow', async () => {
+    process.env.BESTEP_FILE_QUALITY_SHADOW_ENABLED = 'true';
+    const observe = jest.spyOn(runtime, 'observeBestepScoreImport');
+    const file = writeBook([sheetRow('SYN1'), sheetRow('MIS1')]);
+    const result = await importScoreData(file, '114-2');
+    expect(result.imported).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(observe).toHaveBeenCalledTimes(1);
+    expect(observe.mock.calls[0][0].commitSucceeded).toBe(true);
+    const diagnostic = observe.mock.results[0].value;
+    expect(diagnostic.counts.committedRowCount).toBe(1);
+    expect(diagnostic.counts.validatedRowCount).toBeNull();
+    expect(diagnostic.counts.upsertSucceededRowCount).toBe(1);
+    expect(diagnostic.populations.rawFileRows.sourceStage).toBe('parsed_worksheet_rows');
+    expect(diagnostic.populations.rawFileRows.originalFileFidelity).toBe('not_verified');
+    expect(diagnostic.populations.acceptedScoreRows.sourceStage).toBe('committed_normalized_prefix');
+    expect(diagnostic.populations.acceptedScoreRows.evaluatedRowCount).toBe(1);
+    expect(result.qualityReport).toBeUndefined();
+    fs.unlinkSync(file);
+    observe.mockRestore();
+
+    const blocked = jest.spyOn(runtime, 'observeBestepScoreImport');
+    transaction.commit.mockRejectedValueOnce(new Error('commit failed'));
+    const failing = writeBook([sheetRow('SYN1')]);
+    await expect(importScoreData(failing, '114-2')).rejects.toThrow('commit failed');
+    expect(transaction.rollback).toHaveBeenCalled();
+    expect(blocked).not.toHaveBeenCalled();
+    fs.unlinkSync(failing);
+    blocked.mockRestore();
+  });
+
+  test('K1-08 K1-14 K1-15 parse and upsert failures stay on the import path', async () => {
+    process.env.BESTEP_FILE_QUALITY_SHADOW_ENABLED = 'true';
+    const observe = jest.spyOn(runtime, 'observeBestepScoreImport').mockImplementation(() => {
+      throw new Error('student SYN1 shadow');
+    });
+    const file = writeBook([sheetRow('SYN1')]);
+    const shadowed = await importScoreData(file, '114-2');
+    expect(shadowed.imported).toBe(1);
+    expect(shadowed.errors).toEqual([]);
+    fs.unlinkSync(file);
+    observe.mockRestore();
+
+    const liveObserve = jest.spyOn(runtime, 'observeBestepScoreImport');
+    readFile.mockImplementation(() => { throw new Error('parse failed SYN1'); });
+    const unreadable = writeBook([sheetRow('SYN1')]);
+    await expect(importScoreData(unreadable, '114-2')).rejects.toThrow('parse failed SYN1');
+    expect(liveObserve).not.toHaveBeenCalled();
+    expect(transaction.rollback).toHaveBeenCalled();
+    fs.unlinkSync(unreadable);
+    liveObserve.mockRestore();
+
+    readFile.mockRestore();
+    readFile = jest.spyOn(XLSX, 'readFile');
+    BestepExamScore.upsert.mockRejectedValue(new Error('upsert failed SYN1'));
+    const offFile = writeBook([sheetRow('SYN1')]);
+    delete process.env.BESTEP_FILE_QUALITY_SHADOW_ENABLED;
+    const off = await importScoreData(offFile, '114-2');
+    process.env.BESTEP_FILE_QUALITY_SHADOW_ENABLED = 'true';
+    const onObserve = jest.spyOn(runtime, 'observeBestepScoreImport');
+    const onFile = writeBook([sheetRow('SYN1')]);
+    const on = await importScoreData(onFile, '114-2');
+    expect(comparable(on)).toEqual(comparable(off));
+    expect(on.imported).toBe(0);
+    expect(on.skipped).toBe(1);
+    expect(on.errors[0].error).toBe('PROCESSING_ERROR');
+    expect(on.errors[0].message).toBe('upsert failed SYN1');
+    expect(JSON.stringify(onObserve.mock.results[0].value)).not.toContain('SYN1');
+    expect(transaction.commit).toHaveBeenCalled();
+    fs.unlinkSync(offFile);
+    fs.unlinkSync(onFile);
+    onObserve.mockRestore();
+  });
 });
