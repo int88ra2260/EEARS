@@ -23,7 +23,7 @@ test('admin hub links existing pages and does not invent a class BESTEP url', as
   await expect(page.getByText('三個 Shadow 預設關閉')).toBeVisible();
   await expect(page.getByText('不能解讀成某個活動造成了進步')).toBeVisible();
   await page.getByRole('link', { name: '班級列表' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: '班級列表' })).toBeVisible();
+  await expect(page.getByText('學期：')).toBeVisible();
 });
 
 test('learning-only profile cannot follow operations or class links', async ({ page }) => {

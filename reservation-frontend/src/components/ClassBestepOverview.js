@@ -3,6 +3,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Alert, Button } from 'react-bootstrap';
 import { useClassBestepOverview } from '../hooks/useClassBestepOverview';
+import ClassBestepDataReading from './admin/classes/ClassBestepDataReading';
 import ClassBestepFilters from './admin/classes/ClassBestepFilters';
 import ClassBestepStatisticsCards from './admin/classes/ClassBestepStatisticsCards';
 import ClassBestepStudentsTable from './admin/classes/ClassBestepStudentsTable';
@@ -58,6 +59,8 @@ export default function ClassBestepOverview() {
         onFilterChange={handleFilterChange}
         onSearchChange={handleSearchChange}
       />
+
+      <ClassBestepDataReading statistics={statistics} />
 
       <ClassBestepStatisticsCards statistics={statistics} />
 

@@ -6,15 +6,19 @@ import '../src/index.css';
 import '../src/styles/design-system.css';
 import AdminAnalyticsPage from '../src/pages/admin/AdminAnalyticsPage.jsx';
 import AnalyticsHubPage from '../src/pages/admin/AnalyticsHubPage.jsx';
+import ClassOverview from '../src/components/ClassOverview';
+import ClassBestepOverview from '../src/components/ClassBestepOverview';
 
 const params = new URLSearchParams(window.location.search);
 const requestedRoute = params.get('route');
-const analyticsRoute = requestedRoute === '/admin/analytics' || requestedRoute === '/admin/analytics/overview'
+const entry = requestedRoute === '/admin/analytics'
+  || requestedRoute === '/admin/analytics/overview'
+  || (requestedRoute && requestedRoute.startsWith('/admin/classes'))
   ? requestedRoute
   : '';
 
 function harnessToken() {
-  if (!analyticsRoute) return 'analytics-browser-harness';
+  if (!entry) return 'analytics-browser-harness';
   const profile = params.get('profile') || 'admin';
   const payload = profile === 'teacher'
     ? { role: 'teacher', teacherLevel: 'regular' }
@@ -44,14 +48,15 @@ function HarnessLayout() {
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <MemoryRouter initialEntries={[analyticsRoute || '/analytics-browser-harness']}>
+    <MemoryRouter initialEntries={[entry || '/analytics-browser-harness']}>
       <Routes>
         <Route element={<HarnessLayout />}>
           <Route path="/analytics-browser-harness" element={<AdminAnalyticsPage />} />
           <Route path="/admin/analytics" element={<AnalyticsHubPage />} />
           <Route path="/admin/analytics/overview" element={<AdminAnalyticsPage />} />
           <Route path="/admin/operations" element={<h1>活動列表</h1>} />
-          <Route path="/admin/classes" element={<h1>班級列表</h1>} />
+          <Route path="/admin/classes" element={<ClassOverview />} />
+          <Route path="/admin/classes/:classId/bestep" element={<ClassBestepOverview />} />
           <Route path="/admin/learning-analytics/resources" element={<h1>資源覆蓋</h1>} />
         </Route>
       </Routes>

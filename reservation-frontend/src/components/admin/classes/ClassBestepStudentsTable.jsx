@@ -4,6 +4,7 @@ import {
   formatAttendanceCell,
   formatExamTypeLabel,
   formatLevelBadge,
+  formatStoredScore,
   renderPersonalRegistrationBadge,
 } from '../../../utils/classBestepDisplayHelpers';
 
@@ -41,6 +42,9 @@ export default function ClassBestepStudentsTable({
         </Button>
       </Card.Header>
       <Card.Body>
+        <p className="small text-muted">
+          畫面中的未確認出席，在既有匯出格式可能以空白呈現。這次沒有修改匯出檔。
+        </p>
         {loading ? (
           <div className="text-center py-4">
             <Spinner animation="border" />
@@ -100,7 +104,7 @@ export default function ClassBestepStudentsTable({
                         {student.score ? (
                           <div>
                             <div className="mb-1">
-                              <small>總分: <strong>{student.score.totalScore == null || student.score.totalScore === '' ? '-' : student.score.totalScore}</strong></small>
+                              <small>總分: <strong>{formatStoredScore(student.score.totalScore)}</strong></small>
                             </div>
                             <div className="mb-1">
                               <small>

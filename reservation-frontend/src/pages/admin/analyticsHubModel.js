@@ -29,7 +29,7 @@ const BESTEP_LINKS = [
     id: 'classes',
     label: '班級列表',
     to: '/admin/classes',
-    detail: '從班級進入該班的報名、到考與四技能。這不是全校彙總。',
+    detail: '進入班級列表後，用該列的「查看 BESTEP 分析」開啟該班。這裡不組班級網址，也不顯示個人成績。',
   },
 ];
 

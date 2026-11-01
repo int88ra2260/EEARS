@@ -76,12 +76,14 @@ export default function ClassBestepStatisticsCards({ statistics }) {
       <Col md={3}>
         <Card className="text-center">
           <Card.Body>
-            <h5 className={statistics.passedCount > 0 ? 'text-success' : 'text-muted'}>
-              {statistics.passedCount}
-            </h5>
-            <p className="mb-0">達標人數</p>
-            <small className="text-muted">({statistics.passRate}%)</small>
-            {statistics.avgScore && (
+            <h5>{statistics.passedCount ?? '—'}</h5>
+            <p className="mb-0">既有通過人數</p>
+            <small className="text-muted">
+              既有統計口徑{' '}
+              {statistics.passRate == null || statistics.passRate === '' ? '—' : `${statistics.passRate}%`}
+            </small>
+            <p className="small text-muted mb-0 mt-1">尚未核准為官方達標率</p>
+            {statistics.avgScore != null && statistics.avgScore !== '' && (
               <div className="mt-1">
                 <small className="text-muted">平均分: {statistics.avgScore}</small>
               </div>

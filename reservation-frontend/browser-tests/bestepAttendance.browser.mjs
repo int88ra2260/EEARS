@@ -385,7 +385,7 @@ test('N1 pagination search and exam filter stay on the real controls', async ({ 
 test('N1 empty state does not invent attendance', async ({ page }) => {
   const state = await openHarness(page, 'empty');
   await expect(page.getByText('沒有找到符合條件的資料')).toBeVisible();
-  await expect(page.getByText('缺席')).toHaveCount(0);
+  await expect(page.locator('tbody').getByText('缺席')).toHaveCount(0);
   expect(state.blocked).toEqual([]);
   expect(state.pageErrors).toEqual([]);
 });
@@ -404,7 +404,7 @@ test('N1 error state does not render a student table', async ({ page }) => {
   const state = await openHarness(page, 'error');
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(page.getByText('SYN-N1-A')).toHaveCount(0);
-  await expect(page.getByText('缺席')).toHaveCount(0);
+  await expect(page.locator('tbody').getByText('缺席')).toHaveCount(0);
   expect(state.blocked).toEqual([]);
   expect(state.pageErrors).toEqual([]);
   expect(state.calls.every((call) => call.path === OVERVIEW_PATH)).toBe(true);

@@ -77,7 +77,7 @@ export default function ClassOverviewTable({
                           className="me-2"
                           onClick={() => onViewBestep(item.classId)}
                         >
-                          BESTEP
+                          查看 BESTEP 分析
                         </Button>
                       </div>
                       {canManageClasses && (

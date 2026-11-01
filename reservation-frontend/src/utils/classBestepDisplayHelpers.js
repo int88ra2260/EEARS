@@ -27,6 +27,12 @@ export function getRegistrationStatusInfo(status) {
   return statusMap[status] || { label: status, variant: 'secondary' };
 }
 
+export function formatStoredScore(value) {
+  if (value === null || value === undefined || value === '') return '-';
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : '-';
+}
+
 export function formatLevelBadge(level) {
   if (!level) return '-';
   const levelColors = {
