@@ -116,6 +116,17 @@ describe('Class BESTEP attendance cells', () => {
     expect(onExport).toHaveBeenCalledTimes(1);
   });
 
+  test('keeps a numeric zero total score visible', () => {
+    renderTable([student({
+      studentId: 'SYN-N-ZERO',
+      attendance: { L: { attended: true } },
+      score: { totalScore: 0, passed: false },
+    })]);
+    const row = screen.getByText('SYN-N-ZERO').closest('tr');
+    expect(row.textContent.replace(/\s+/g, ' ')).toContain('總分: 0');
+    expect(row.textContent).not.toContain('總分: -');
+  });
+
   test('keeps the existing search and exam-type filters', () => {
     render(
       <ClassBestepFilters

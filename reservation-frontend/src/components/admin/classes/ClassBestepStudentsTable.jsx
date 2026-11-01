@@ -100,7 +100,7 @@ export default function ClassBestepStudentsTable({
                         {student.score ? (
                           <div>
                             <div className="mb-1">
-                              <small>總分: <strong>{student.score.totalScore || '-'}</strong></small>
+                              <small>總分: <strong>{student.score.totalScore == null || student.score.totalScore === '' ? '-' : student.score.totalScore}</strong></small>
                             </div>
                             <div className="mb-1">
                               <small>
