@@ -1,0 +1,33 @@
+metric_id,legacy_logic,legacy_surface,domain,usage_default,strategy,decision_gate,official_allowed_now
+ops.event.count,S1-A,analytics overview,DOM-OPS,monitoring,Retain,,no
+ops.reservation.row_count,S1-A,analytics overview,DOM-OPS,monitoring,Retain,,no
+ops.reservation.checkin_row_count,S1-A,analytics overview,DOM-OPS,monitoring,Retain,,no
+ops.reservation.checkin_row_rate,S1-A,analytics overview,DOM-OPS,monitoring,Retain,,no
+ops.capacity.reservation_over_seats,S1-A,analytics overview,DOM-OPS,monitoring,Retain,,no
+ops.roster.distinct_checkin_students,S1-B,class KPI,DOM-PART,monitoring,Retain,,no
+ops.roster.distinct_checkin_rate,S1-B,class KPI,DOM-PART,monitoring,Retain,,no
+ops.roster.avg_checkin_count,S1-B,class KPI,DOM-PART,monitoring,Retain,,no
+ops.participation.streak,NONE,none,DOM-PART,proposed,Proposed,,no
+bestep.file.skill_score,S2,class BESTEP,DOM-ATTAIN,monitoring,Retain,D10,no
+bestep.file.skill_level,S2,class BESTEP,DOM-ATTAIN,monitoring,Retain,D10,no
+bestep.file.skill_reached_b2,S2,class BESTEP,DOM-ATTAIN,monitoring,Retain,D1,no
+bestep.file.four_skill_cefr_b2,S2,class BESTEP,DOM-ATTAIN,monitoring,Retain,D1;D6,no
+ops.roster.bestep_pass_over_attendance,S1-B,admin KPI,DOM-ATTAIN,monitoring,Retain,D1;D6,no
+bestep.file.attendance_lr_sw_avg,S1-B,admin KPI,DOM-PART,monitoring,Retain,,no
+ops.registration.legacy_has_cefr_b2,S1-A,reservation overview legacy,DOM-ATTAIN,hidden,Deprecate Candidate,,no
+roster.pair_pass.listening_reading,S6,KPI report,DOM-ATTAIN,monitoring,Retain,D1;D2;D5,no
+roster.pair_pass.speaking_writing,S6,KPI report,DOM-ATTAIN,monitoring,Retain,D1;D2;D5,no
+roster.pair_pass.both_pairs,S6,none,DOM-ATTAIN,proposed,Proposed,D1,no
+roster.best_skill_rank_b2,S5,b2-report,DOM-STATE,monitoring,Reorganize,D9,no
+roster.best_skill_state,S5,bestSkillService,DOM-STATE,monitoring,Reorganize,D9,no
+snapshot.exam_cell_rank_b2,S7,analytic exams,DOM-STATE,exploratory,Retain,D11,no
+snapshot.near_b2_gse,S7,b1-plus page,DOM-STATE,monitoring,Retain,,no
+snapshot.gse_raw_delta,S7,skills page,DOM-LONG,exploratory,Retain,D8,no
+snapshot.gse_adjusted_delta,S7,skills and LVA,DOM-LONG,exploratory,Retain,D8,no
+snapshot.skill_exposure,S7,analytic exams,DOM-LONG,exploratory,Retain,,no
+snapshot.growth_episode,S7,model run,DOM-LONG,exploratory,Retain,,no
+snapshot.resource_effect,S7,LVA,DOM-EXPLORE,exploratory,Retain,,no
+snapshot.evidence_quality,S7,filters,DOM-GOV,exploratory,Retain,,no
+trace.micro_learning.30d,TRACE,overview panel,DOM-PART,monitoring,Retain,,no
+etgroup.gse_snapshot,ETGROUP,grouping assignment,DOM-STATE,monitoring,Retain,,no
+partner.score_gap,S4-B,learning partner outcome,DOM-EXPLORE,exploratory,Retain,,no

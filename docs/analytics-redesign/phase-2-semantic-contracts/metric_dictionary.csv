@@ -1,0 +1,33 @@
+metric_id,display_name,logic_id,temporal_contract,conflict_group,verification
+ops.event.count,活動場次,S1-A,TC-OPS-DATE-SEMESTER,,PARTIALLY_VERIFIED
+ops.reservation.row_count,預約人次（列）,S1-A,TC-OPS-DATE-SEMESTER,attendance_unit,VERIFIED
+ops.reservation.checkin_row_count,簽到列數,S1-A,TC-OPS-DATE-SEMESTER,attendance_unit,VERIFIED
+ops.reservation.checkin_row_rate,出席率（列）,S1-A,TC-OPS-DATE-SEMESTER,attendance_rate,VERIFIED
+ops.roster.distinct_checkin_students,不重複簽到學生,S1-B,TC-OPS-DATE-STRING,attendance_unit,VERIFIED
+ops.roster.distinct_checkin_rate,參與率（名單）,S1-B,TC-OPS-DATE-STRING,attendance_rate,VERIFIED
+ops.roster.avg_checkin_count,參與頻率,S1-B,TC-OPS-DATE-STRING,,VERIFIED
+ops.participation.streak,持續參與,NONE,NONE,,NOT_IMPLEMENTED
+ops.capacity.reservation_over_seats,名額利用率,S1-A,TC-OPS-DATE-SEMESTER,resource,VERIFIED
+bestep.file.skill_score,培力技能分數,S2,TC-BESTEP-FILE-SEMESTER,,VERIFIED
+bestep.file.skill_level,培力技能等級,S2,TC-BESTEP-FILE-SEMESTER,cefr_plus,VERIFIED
+bestep.file.skill_reached_b2,培力單科達 B2,S2,TC-BESTEP-FILE-SEMESTER,attainment,VERIFIED
+bestep.file.four_skill_cefr_b2,四項等級達 B2,S2,TC-BESTEP-FILE-SEMESTER,attainment,VERIFIED
+ops.roster.bestep_pass_over_attendance,行政培力通過率,S1-B,TC-BESTEP-FILE-SEMESTER,attainment,VERIFIED
+bestep.file.attendance_lr_sw_avg,行政培力出席率,S1-B,TC-BESTEP-FILE-SEMESTER,attendance_rate,VERIFIED
+ops.registration.legacy_has_cefr_b2,報名表 B2 標記率,S1-A,TC-BESTEP-FILE-SEMESTER,attainment,VERIFIED
+roster.pair_pass.listening_reading,聽讀成對,S6,TC-ROSTER-LIFETIME-DEFAULT,attainment,VERIFIED
+roster.pair_pass.speaking_writing,說寫成對,S6,TC-ROSTER-LIFETIME-DEFAULT,attainment,VERIFIED
+roster.pair_pass.both_pairs,兩組成對都過,S6,TC-ROSTER-LIFETIME-DEFAULT,attainment,NOT_IMPLEMENTED
+roster.best_skill_rank_b2,歷史最佳達 B2,S5,TC-ROSTER-BEST-ASOF-NOW,attainment,VERIFIED
+roster.best_skill_state,歷史最佳狀態,S5,TC-ROSTER-BEST-ASOF-NOW,,VERIFIED
+snapshot.exam_cell_rank_b2,快照考試格達 B2,S7,TC-SNAPSHOT-VERSION,attainment,VERIFIED
+snapshot.near_b2_gse,接近 B2,S7,TC-SNAPSHOT-VERSION,,VERIFIED
+snapshot.gse_raw_delta,同工具前後梯差,S7,TC-EXAM-SESSION,,PARTIALLY_VERIFIED
+snapshot.gse_adjusted_delta,校正後成長,S7,TC-SNAPSHOT-VERSION,,VERIFIED
+snapshot.skill_exposure,考前技能暴露時數,S7,TC-EXPOSURE-BEFORE-EXAM,resource,PARTIALLY_VERIFIED
+snapshot.growth_episode,成長段計數,S7,TC-SNAPSHOT-VERSION,,PARTIALLY_VERIFIED
+snapshot.resource_effect,資源效果估計,S7,TC-SNAPSHOT-VERSION,,VERIFIED
+snapshot.evidence_quality,證據品質帶,S7,TC-SNAPSHOT-VERSION,,PARTIALLY_VERIFIED
+trace.micro_learning.30d,微學習 30 日,TRACE,TC-TRACE-ROLLING-30D,,PARTIALLY_VERIFIED
+etgroup.gse_snapshot,分組 GSE 快照,ETGROUP,TC-SNAPSHOT-VERSION,,PARTIALLY_VERIFIED
+partner.score_gap,有伴與非有伴分數差,S4-B,TC-BESTEP-FILE-SEMESTER,,VERIFIED
