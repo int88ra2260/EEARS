@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState, useId, useRef } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import { Card, Form, Spinner, Alert, Button, Table } from 'react-bootstrap';
+import { Form, Spinner, Alert, Button, Table } from 'react-bootstrap';
 import {
   ResponsiveContainer,
   LineChart,
@@ -48,6 +48,7 @@ import {
   formatPct1,
   isAllNumericZero,
 } from './activityOpsPresentation';
+import './AdminAnalyticsPage.css';
 
 function formatDateLabel(dateStr) {
   if (!dateStr) return '';
@@ -163,7 +164,7 @@ function RegistrationSupplement({ rateLabel }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="mt-4" data-testid="ops-registration-supplement">
+    <div className="ops-overview__supplement" data-testid="ops-registration-supplement">
       <button
         type="button"
         className="btn btn-link btn-sm p-0"
@@ -186,16 +187,16 @@ function RegistrationSupplement({ rateLabel }) {
   );
 }
 
-function KpiCard({ metricKey, title, value, note }) {
+function KpiCard({ metricKey, title, value, note, emphasis = false }) {
   const noteId = useId();
   const [open, setOpen] = useState(false);
 
   return (
     <div className="col-12 col-sm-6 col-xl-4">
-      <Card className="h-100">
-        <Card.Body>
+      <div className={`card ops-kpi-card h-100${emphasis ? ' ops-kpi-card--emphasis' : ''}`}>
+        <div className="card-body">
           <div className="d-flex justify-content-between align-items-start gap-2">
-            <div className="text-muted small">{title}</div>
+            <div className="ops-kpi-card__label">{title}</div>
             {note ? (
               <button
                 type="button"
@@ -209,18 +210,18 @@ function KpiCard({ metricKey, title, value, note }) {
               </button>
             ) : null}
           </div>
-          <div className="fs-4 fw-semibold mt-1 text-break" data-testid={`ops-value-${metricKey}`}>
+          <div className="ops-kpi-card__value text-break" data-testid={`ops-value-${metricKey}`}>
             {value}
           </div>
           {note ? (
-            <div id={noteId} hidden={!open} className="small text-muted mt-2">
+            <div id={noteId} hidden={!open} className="ops-kpi-card__note">
               {note.map((line) => (
-                <p key={line} className="mb-1">{line}</p>
+                <p key={line}>{line}</p>
               ))}
             </div>
           ) : null}
-        </Card.Body>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
@@ -452,54 +453,74 @@ export default function AdminAnalyticsPage() {
     setClassRankings([]);
   };
 
+  const dateWindowLabel = activityDateWindow || '此學期尚未列入共用日期設定';
+
   return (
-    <div className="container-fluid px-2 px-md-3">
-      <div className="d-flex flex-wrap justify-content-end align-items-start gap-2 mb-2">
-        <div className="d-flex flex-wrap align-items-center gap-2">
-          <Form.Group className="mb-0">
-            <Form.Label className="small text-muted me-2 mb-0" htmlFor="ops-semester">學期</Form.Label>
-            <div style={{ width: '100%', maxWidth: 220 }}>
-              <Form.Select
-                id="ops-semester"
-                aria-label="學期"
-                value={semester}
-                onChange={(e) => {
-                  setSemester(e.target.value);
-                  clearVisibleStats();
-                }}
-                className="w-100"
-                disabled={refreshing}
-              >
-                {SEMESTER_OPTIONS.filter((o) => o.value).map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Form.Select>
-            </div>
-          </Form.Group>
-          <Button variant="outline-primary" size="sm" onClick={() => load()} disabled={refreshing || !token}>
-            {refreshing ? '更新中…' : '重新整理'}
-          </Button>
+    <div className="container-fluid px-2 px-md-3 ops-overview">
+      {/* Section A — Page Header */}
+      <header className="ops-overview__header">
+        <div>
+          <h1>活動營運總覽</h1>
+          <p className="ops-overview__lede">
+            看中心提供多少名額、有多少預約、簽到與違規落差，以及哪些活動類型較忙。學習成果與 B2 達標請至「學習成效分析」。
+          </p>
+        </div>
+      </header>
+
+      {/* Section B — Unified Filter Toolbar */}
+      <div className="ops-overview__toolbar" role="region" aria-label="篩選工具列">
+        <Form.Group className="mb-0">
+          <Form.Label className="small text-muted me-2 mb-0" htmlFor="ops-semester">學期</Form.Label>
+          <div style={{ width: '100%', maxWidth: 220 }}>
+            <Form.Select
+              id="ops-semester"
+              aria-label="學期"
+              value={semester}
+              onChange={(e) => {
+                setSemester(e.target.value);
+                clearVisibleStats();
+              }}
+              className="w-100"
+              disabled={refreshing}
+            >
+              {SEMESTER_OPTIONS.filter((o) => o.value).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Form.Select>
+          </div>
+        </Form.Group>
+        <Button variant="outline-primary" size="sm" onClick={() => load()} disabled={refreshing || !token}>
+          {refreshing ? '更新中…' : '重新整理'}
+        </Button>
+        <div className="ops-overview__scope" aria-live="polite">
+          <span className="ops-overview__chip">
+            目前範圍：<strong>{semester}</strong>
+          </span>
+          <span className="ops-overview__chip ops-overview__chip--muted" title={OPS_TIME_FIELD}>
+            活動日期 {dateWindowLabel}
+          </span>
         </div>
       </div>
-      <p className="text-muted small mb-3">
-        本頁只呈現<strong>活動營運</strong>：中心提供多少名額、有多少預約、簽到差距，以及哪些類型較忙。學習成果與 B2 達標請至「學習成效分析」。
-      </p>
 
-      <Card className="mb-4">
-        <Card.Header className="fw-semibold">活動營運總覽</Card.Header>
-        <Card.Body>
-          <div data-testid="ops-context" className="mb-3">
-            <p className="mb-1">學期 <strong>{semester}</strong></p>
-            <p className="mb-1">
-              活動日期{' '}
-              <strong>{activityDateWindow || '此學期尚未列入共用日期設定'}</strong>
+      {/* KPI + Observation + Detail panel */}
+      <section className="ops-overview__panel" aria-labelledby="ops-overview-title">
+        <div className="ops-overview__panel-head">
+          <h2 id="ops-overview-title">營運概況</h2>
+          <p>預約營運數字；不同母體的百分比不可直接互比績效。</p>
+        </div>
+        <div className="ops-overview__panel-body">
+          <div data-testid="ops-context" className="ops-overview__context">
+            <p>學期 <strong>{semester}</strong></p>
+            <p>
+              活動日期 <strong>{dateWindowLabel}</strong>
             </p>
-            <p className="text-muted small mb-1">{OPS_POPULATION}</p>
-            <p className="text-muted small mb-1">主要時間欄位：{OPS_TIME_FIELD}</p>
+            <p className="text-muted small mb-0">{OPS_POPULATION}</p>
+            <p className="text-muted small mb-0">主要時間欄位：{OPS_TIME_FIELD}</p>
             <p className="text-muted small mb-0">報名資料補充資訊使用報名學期標籤，不使用這個活動日期。</p>
           </div>
+
           {resLoading && (
             <div className="text-center py-3" role="status">
               <Spinner animation="border" size="sm" className="me-2" />
@@ -512,91 +533,83 @@ export default function AdminAnalyticsPage() {
               所選活動日期區間內，名額、預約筆數、預約名額比、簽到與違規狀態比皆為 0。
             </Alert>
           )}
+
+          {/* Section C — KPI Overview (capacity first for keyboard contract) */}
+          {!resLoading && !resError && reservationOverview && (
+            <div data-testid="ops-core-kpis" className="mb-4">
+              <div className="row g-3">
+                <KpiCard
+                  metricKey="capacity"
+                  title={OPS_LABELS.totalEventCapacity}
+                  value={formatCount(reservationKpis.totalEventCapacity)}
+                  note={OPS_NOTES.totalEventCapacity}
+                  emphasis
+                />
+                <KpiCard
+                  metricKey="reservations"
+                  title={OPS_LABELS.totalReservations}
+                  value={formatCount(reservationKpis.totalReservations)}
+                  note={OPS_NOTES.totalReservations}
+                  emphasis
+                />
+                <KpiCard
+                  metricKey="booking"
+                  title={OPS_LABELS.bookingRate}
+                  value={formatPct1(reservationKpis.bookingRate)}
+                  note={OPS_NOTES.bookingRate}
+                />
+                <KpiCard
+                  metricKey="attendance"
+                  title={OPS_LABELS.attendanceRate}
+                  value={formatPct1(reservationKpis.attendanceRate)}
+                  note={OPS_NOTES.attendanceRate}
+                />
+                <KpiCard
+                  metricKey="violation"
+                  title={OPS_LABELS.violationRate}
+                  value={formatPct1(reservationKpis.violationRate)}
+                  note={OPS_NOTES.violationRate}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Section D — Management Observations */}
           {!resLoading && !resError && reservationOverview && (
             <section className="mb-4" aria-labelledby="ops-observation" data-testid="ops-observation">
               <h2 id="ops-observation" className="h6 mb-2">營運觀察</h2>
-              <ul className="small mb-3">
-                {operationsObservation.lines.map((line) => (
-                  <li key={line} className="mb-1">{line}</li>
-                ))}
-              </ul>
-              {operationsObservation.actions.length > 0 ? (
-                <ul className="list-unstyled small mb-0">
-                  {operationsObservation.actions.map((action) => (
-                    <li key={action.id} className="mb-2">
-                      <Link to={action.to}>{action.label}</Link>
-                      <p className="text-muted mb-0">{action.hint}</p>
-                    </li>
+              <div className="ops-observation">
+                <ul className="ops-observation__lines">
+                  {operationsObservation.lines.map((line) => (
+                    <li key={line}>{line}</li>
                   ))}
                 </ul>
-              ) : (
-                <p className="small text-muted mb-2">此帳號沒有可進入的活動列表、簽到統計、違規管理、高風險追蹤或營運報表。</p>
-              )}
-              {operationsObservation.hubPath ? (
-                <p className="small mb-0">
-                  <Link to={operationsObservation.hubPath}>返回成效分析中心</Link>
-                </p>
-              ) : null}
+                <div>
+                  {operationsObservation.actions.length > 0 ? (
+                    <ul className="ops-observation__actions">
+                      {operationsObservation.actions.map((action) => (
+                        <li key={action.id}>
+                          <Link className="ops-observation__action" to={action.to}>
+                            <span className="ops-observation__action-label">{action.label}</span>
+                            <span className="ops-observation__action-hint">{action.hint}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="small text-muted mb-2">此帳號沒有可進入的活動列表、簽到統計、違規管理、高風險追蹤或營運報表。</p>
+                  )}
+                  {operationsObservation.hubPath ? (
+                    <p className="small mb-0 mt-2">
+                      <Link to={operationsObservation.hubPath}>返回成效分析中心</Link>
+                    </p>
+                  ) : null}
+                </div>
+              </div>
             </section>
           )}
-          {!resLoading && !resError && reservationOverview && (
-            <div data-testid="ops-core-kpis">
-              <section className="mb-4" aria-labelledby="ops-supply">
-                <h2 id="ops-supply" className="h6 mb-1">資源供給</h2>
-                <p className="text-muted small mb-2">本學期中心提供多少活動名額？</p>
-                <div className="row g-3">
-                  <KpiCard
-                    metricKey="capacity"
-                    title={OPS_LABELS.totalEventCapacity}
-                    value={formatCount(reservationKpis.totalEventCapacity)}
-                    note={OPS_NOTES.totalEventCapacity}
-                  />
-                </div>
-              </section>
-              <section className="mb-4" aria-labelledby="ops-demand">
-                <h2 id="ops-demand" className="h6 mb-1">預約需求</h2>
-                <p className="text-muted small mb-2">目前有多少預約，相對名額的比例是多少？</p>
-                <div className="row g-3">
-                  <KpiCard
-                    metricKey="reservations"
-                    title={OPS_LABELS.totalReservations}
-                    value={formatCount(reservationKpis.totalReservations)}
-                    note={OPS_NOTES.totalReservations}
-                  />
-                  <KpiCard
-                    metricKey="booking"
-                    title={OPS_LABELS.bookingRate}
-                    value={formatPct1(reservationKpis.bookingRate)}
-                    note={OPS_NOTES.bookingRate}
-                  />
-                </div>
-              </section>
-              <section className="mb-4" aria-labelledby="ops-attendance">
-                <h2 id="ops-attendance" className="h6 mb-1">簽到與使用</h2>
-                <p className="text-muted small mb-2">預約列裡，有多少已經簽到？</p>
-                <div className="row g-3">
-                  <KpiCard
-                    metricKey="attendance"
-                    title={OPS_LABELS.attendanceRate}
-                    value={formatPct1(reservationKpis.attendanceRate)}
-                    note={OPS_NOTES.attendanceRate}
-                  />
-                </div>
-              </section>
-              <section className="mb-0" aria-labelledby="ops-exceptions">
-                <h2 id="ops-exceptions" className="h6 mb-1">行政例外</h2>
-                <p className="text-muted small mb-2">預約列裡，有多少已登記違規？</p>
-                <div className="row g-3">
-                  <KpiCard
-                    metricKey="violation"
-                    title={OPS_LABELS.violationRate}
-                    value={formatPct1(reservationKpis.violationRate)}
-                    note={OPS_NOTES.violationRate}
-                  />
-                </div>
-              </section>
-            </div>
-          )}
+
+          {/* Section F — Detailed Data */}
           {!resLoading && !resError && reservationOverview && (
             <>
               <hr className="my-4" />
@@ -618,10 +631,10 @@ export default function AdminAnalyticsPage() {
                 </Alert>
               )}
               {capacityBreakdown.byEventType.length > 0 && (
-                <div className="mb-4" data-testid="capacity-by-type">
+                <div className="mb-4 ops-overview__table-wrap" data-testid="capacity-by-type">
                   <div className="text-muted small mb-2">依活動類型</div>
                   <div className="table-responsive">
-                    <Table striped bordered hover size="sm" className="mb-0">
+                    <Table striped hover size="sm" className="mb-0">
                       <thead className="table-light">
                         <tr>
                           <th>活動類型</th>
@@ -645,10 +658,10 @@ export default function AdminAnalyticsPage() {
                 </div>
               )}
               {capacityBreakdown.byEvent.length > 0 && (
-                <div data-testid="capacity-by-event">
+                <div className="ops-overview__table-wrap" data-testid="capacity-by-event">
                   <div className="text-muted small mb-2">依場次（活動）</div>
                   <div className="table-responsive" style={{ maxHeight: 420, overflowY: 'auto' }}>
-                    <Table striped bordered hover size="sm" className="mb-0">
+                    <Table striped hover size="sm" className="mb-0">
                       <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                         <tr>
                           <th>日期</th>
@@ -677,18 +690,22 @@ export default function AdminAnalyticsPage() {
               )}
             </>
           )}
+
+          {/* Section G — Supplementary Information */}
           {!resLoading && !resError && reservationOverview && (
             <RegistrationSupplement rateLabel={formatPct1(reservationKpis.englishPassRate)} />
           )}
-        </Card.Body>
-      </Card>
+        </div>
+      </section>
 
-      {/* 圖表（預約營運）— 共用 chart kit */}
-      <div className="mb-4">
+      {/* Section E — Charts & Trends */}
+      <div className="ops-overview__charts mb-4">
         <div className="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
           <div>
-            <h5 className="mb-1">活動趨勢與班級排行</h5>
-            <p className="text-muted small mb-0">預約營運：活動趨勢、預約列簽到率與班級違規狀態排行。</p>
+            <h2 className="h5 mb-1">活動趨勢與班級排行</h2>
+            <p className="text-muted small mb-0">
+              回答：預約是否集中在某些日期？簽到是否下滑？哪些班級的違規狀態比偏高需行政追蹤？
+            </p>
           </div>
         </div>
 
@@ -712,7 +729,7 @@ export default function AdminAnalyticsPage() {
               <div className="col-12 col-lg-6">
                 <ChartCard
                   title="活動趨勢（依活動日期）"
-                  description="每日預約筆數"
+                  description={`每日預約筆數 · 學期 ${semester}`}
                   plotHeight={320}
                 >
                   <ResponsiveContainer width="100%" height="100%">
@@ -730,6 +747,7 @@ export default function AdminAnalyticsPage() {
                         axisLine={false}
                         tickLine={false}
                         allowDecimals={false}
+                        label={{ value: '筆', position: 'insideTopLeft', offset: 0, fill: '#8a939e', fontSize: 11 }}
                       />
                       <RechartsTooltip
                         content={(tipProps) => (
@@ -760,7 +778,7 @@ export default function AdminAnalyticsPage() {
               <div className="col-12 col-lg-6">
                 <ChartCard
                   title="預約列簽到率（依活動日期）"
-                  description="每日已簽到預約列 ÷ 當日預約列"
+                  description={`每日已簽到預約列 ÷ 當日預約列 · 學期 ${semester}`}
                   plotHeight={320}
                 >
                   <ResponsiveContainer width="100%" height="100%">
@@ -811,7 +829,7 @@ export default function AdminAnalyticsPage() {
               <div className="col-12">
                 <ChartCard
                   title="班級排行（Top 10，依預約列違規狀態比）"
-                  description="比例越高越需要行政追蹤。這仍是班級內的預約列狀態比。"
+                  description={`比例越高越需要行政追蹤。這仍是班級內的預約列狀態比 · 學期 ${semester}`}
                   plotHeight={340}
                 >
                   <ResponsiveContainer width="100%" height="100%">
