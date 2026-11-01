@@ -46,6 +46,21 @@ export function renderPersonalRegistrationBadge(registration) {
   return <Badge bg={info.variant}>{info.label}</Badge>;
 }
 
+function attendanceStateLabel(attended) {
+  if (attended === true) return { text: '出席', variant: 'success' };
+  if (attended === false) return { text: '缺席', variant: 'danger' };
+  return { text: '未確認', variant: 'secondary' };
+}
+
+function renderAttendanceBadge(prefix, record, className) {
+  const { text, variant } = attendanceStateLabel(record && record.attended);
+  return (
+    <Badge bg={variant} className={className}>
+      {prefix}: {text}
+    </Badge>
+  );
+}
+
 export function formatAttendanceCell(attendance) {
   if (!attendance || Object.keys(attendance).length === 0) {
     return <Badge bg="secondary">未匯入</Badge>;
@@ -60,44 +75,24 @@ export function formatAttendanceCell(attendance) {
     <div>
       {(l || r) && (
         <div className="mb-1">
-          {l && (
-            <Badge bg={l.attended ? 'success' : 'danger'} className="me-1">
-              L: {l.attended ? '出席' : '缺席'}
-            </Badge>
-          )}
-          {r && (
-            <Badge bg={r.attended ? 'success' : 'danger'}>
-              R: {r.attended ? '出席' : '缺席'}
-            </Badge>
-          )}
+          {l && renderAttendanceBadge('L', l, 'me-1')}
+          {r && renderAttendanceBadge('R', r)}
         </div>
       )}
       {(s || w) && (
         <div>
-          {s && (
-            <Badge bg={s.attended ? 'success' : 'danger'} className="me-1">
-              S: {s.attended ? '出席' : '缺席'}
-            </Badge>
-          )}
-          {w && (
-            <Badge bg={w.attended ? 'success' : 'danger'}>
-              W: {w.attended ? '出席' : '缺席'}
-            </Badge>
-          )}
+          {s && renderAttendanceBadge('S', s, 'me-1')}
+          {w && renderAttendanceBadge('W', w)}
         </div>
       )}
       {!l && !r && lr && (
         <div className="mb-1">
-          <Badge bg={lr.attended ? 'success' : 'danger'}>
-            LR: {lr.attended ? '出席' : '缺席'}
-          </Badge>
+          {renderAttendanceBadge('LR', lr)}
         </div>
       )}
       {!s && !w && sw && (
         <div>
-          <Badge bg={sw.attended ? 'success' : 'danger'}>
-            SW: {sw.attended ? '出席' : '缺席'}
-          </Badge>
+          {renderAttendanceBadge('SW', sw)}
         </div>
       )}
     </div>
