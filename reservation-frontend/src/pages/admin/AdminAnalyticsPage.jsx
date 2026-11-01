@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState, useId } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useId, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Card, Form, Spinner, Alert, OverlayTrigger, Tooltip, Button, Table } from 'react-bootstrap';
+import { Card, Form, Spinner, Alert, Button, Table } from 'react-bootstrap';
 import {
   ResponsiveContainer,
   LineChart,
@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 
 import dayjs from 'dayjs';
-import { getCurrentSemester, SEMESTER_OPTIONS, SEMESTER_RANGES } from '../../utils/semesterUtils';
+import { getCurrentSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
 import {
   fetchAnalyticsClasses,
   fetchAnalyticsEvents,
@@ -34,18 +34,24 @@ import {
   ChartGrid,
   ChartTooltip,
 } from '../../components/charts';
+import {
+  OPS_LABELS,
+  OPS_NOTES,
+  OPS_POPULATION,
+  OPS_TIME_FIELD,
+  REGISTRATION_SUPPLEMENT_NOTES,
+  finiteOrNull,
+  formatActivityDateWindow,
+  formatCount,
+  formatPct1,
+  isAllNumericZero,
+} from './activityOpsPresentation';
 
 function formatDateLabel(dateStr) {
   if (!dateStr) return '';
   const dt = dayjs(dateStr);
   if (!dt.isValid()) return String(dateStr);
   return dt.format('MM/DD');
-}
-
-function formatPct1(n) {
-  const x = Number(n);
-  if (Number.isNaN(x)) return '—';
-  return `${x.toFixed(1)}%`;
 }
 
 function getFirstArray(obj, keys) {
@@ -58,14 +64,11 @@ function getFirstArray(obj, keys) {
 
 function normalizeCapacityItem(row) {
   const eventType = row?.eventType || row?.activityType || row?.type || '未分類';
-  const totalReservations = Number(row?.totalReservations ?? row?.reservedCount ?? row?.reservationsCount ?? 0);
-  const totalEventCapacity = Number(row?.totalEventCapacity ?? row?.capacity ?? row?.maxCapacity ?? 0);
-  const bookingRate = Number(row?.bookingRate ?? row?.utilizationRate ?? 0);
   return {
     eventType: String(eventType || '未分類'),
-    totalReservations,
-    totalEventCapacity,
-    bookingRate,
+    totalReservations: finiteOrNull(row?.totalReservations ?? row?.reservedCount ?? row?.reservationsCount),
+    totalEventCapacity: finiteOrNull(row?.totalEventCapacity ?? row?.capacity ?? row?.maxCapacity),
+    bookingRate: finiteOrNull(row?.bookingRate ?? row?.utilizationRate),
   };
 }
 
@@ -153,27 +156,39 @@ function describeApiShape(json) {
     : `keys: ${keys.join(', ') || '(none)'}`;
 }
 
-function KpiCard({ title, value, suffix = '', hint }) {
-  const tipId = useId();
-  const titleNode = hint ? (
-    <OverlayTrigger placement="top" overlay={<Tooltip id={tipId}>{hint}</Tooltip>}>
-      <span className="text-muted small" style={{ cursor: 'help', borderBottom: '1px dotted #999' }}>
-        {title}
-      </span>
-    </OverlayTrigger>
-  ) : (
-    <div className="text-muted small">{title}</div>
-  );
+function KpiCard({ metricKey, title, value, note }) {
+  const noteId = useId();
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="col-12 col-md-6 col-xl-4">
+    <div className="col-12 col-sm-6 col-xl-4">
       <Card className="h-100">
         <Card.Body>
-          {titleNode}
-          <div className="fs-4 fw-semibold mt-1">
-            {value}
-            {suffix}
+          <div className="d-flex justify-content-between align-items-start gap-2">
+            <div className="text-muted small">{title}</div>
+            {note ? (
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0 text-nowrap"
+                aria-expanded={open}
+                aria-controls={noteId}
+                aria-label={`${title}說明`}
+                onClick={() => setOpen((current) => !current)}
+              >
+                說明
+              </button>
+            ) : null}
           </div>
+          <div className="fs-4 fw-semibold mt-1" data-testid={`ops-value-${metricKey}`}>
+            {value}
+          </div>
+          {open && note ? (
+            <div id={noteId} className="small text-muted mt-2">
+              {note.map((line) => (
+                <p key={line} className="mb-1">{line}</p>
+              ))}
+            </div>
+          ) : null}
         </Card.Body>
       </Card>
     </div>
@@ -197,11 +212,19 @@ export default function AdminAnalyticsPage() {
   const [activityTrend, setActivityTrend] = useState([]);
   const [attendanceTrend, setAttendanceTrend] = useState([]);
   const [classRankings, setClassRankings] = useState([]);
+  const loadSeq = useRef(0);
 
   const refreshing = resLoading || chartsLoading;
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setResLoading(false);
+      setChartsLoading(false);
+      return;
+    }
+    const requestedSemester = semester;
+    const requestId = loadSeq.current + 1;
+    loadSeq.current = requestId;
     const kind = 'reservation';
 
     setResLoading(true);
@@ -219,16 +242,18 @@ export default function AdminAnalyticsPage() {
     const resP = (async () => {
       try {
         const [json, breakdownFirst] = await Promise.all([
-          fetchAnalyticsOverview(token, semester, { kind }),
-          fetchReservationCapacityBreakdown(token, semester),
+          fetchAnalyticsOverview(token, requestedSemester, { kind }),
+          fetchReservationCapacityBreakdown(token, requestedSemester),
         ]);
+        if (loadSeq.current !== requestId) return;
         setReservationOverview(json || null);
         const overviewBreakdownData = normalizeCapacityBreakdownPayload(json);
 
         let bdRes = breakdownFirst.res;
         let bdJson = breakdownFirst.json;
         if (bdRes.ok && Object.keys(bdJson || {}).length === 0) {
-          const retry = await fetchReservationCapacityBreakdown(token, semester, { retry: true });
+          const retry = await fetchReservationCapacityBreakdown(token, requestedSemester, { retry: true });
+          if (loadSeq.current !== requestId) return;
           bdRes = retry.res;
           bdJson = retry.json;
         }
@@ -239,9 +264,10 @@ export default function AdminAnalyticsPage() {
             status: bdRes.status,
             keys,
             normalizedItemCount: bdData?.byEventType?.length || 0,
-            semester: bdData?.semester || semester,
+            semester: bdData?.semester || requestedSemester,
           });
         }
+        if (loadSeq.current !== requestId) return;
         if (bdData) {
           setCapacityBreakdown({
             byEventType: bdData.byEventType,
@@ -258,33 +284,36 @@ export default function AdminAnalyticsPage() {
           );
         }
       } catch (e) {
+        if (loadSeq.current !== requestId) return;
         setResError(e?.message || '載入失敗');
         setReservationOverview(null);
         setCapacityBreakdown({ byEventType: [], byEvent: [] });
         setCapacityBreakdownError('');
       } finally {
-        setResLoading(false);
+        if (loadSeq.current === requestId) setResLoading(false);
       }
     })();
 
     const chartsP = (async () => {
       try {
         const [trendsJson, eventsJson, classesJson] = await Promise.all([
-          fetchAnalyticsTrends(token, semester, kind),
-          fetchAnalyticsEvents(token, semester),
-          fetchAnalyticsClasses(token, semester),
+          fetchAnalyticsTrends(token, requestedSemester, kind),
+          fetchAnalyticsEvents(token, requestedSemester),
+          fetchAnalyticsClasses(token, requestedSemester),
         ]);
+        if (loadSeq.current !== requestId) return;
 
         setActivityTrend(trendsJson?.activityTrend || []);
         setAttendanceTrend(eventsJson?.attendanceTrend || []);
         setClassRankings(classesJson?.rankings || []);
       } catch (e) {
+        if (loadSeq.current !== requestId) return;
         setChartsError(e?.message || '圖表資料載入失敗');
         setActivityTrend([]);
         setAttendanceTrend([]);
         setClassRankings([]);
       } finally {
-        setChartsLoading(false);
+        if (loadSeq.current === requestId) setChartsLoading(false);
       }
     })();
 
@@ -295,33 +324,33 @@ export default function AdminAnalyticsPage() {
     load();
   }, [load]);
 
-  const semesterRangeLabel = useMemo(() => {
-    const r = SEMESTER_RANGES[semester];
-    if (!r) return String(semester || '');
-    return `${semester}（${r.start}～${r.end}）`;
-  }, [semester]);
+  const activityDateWindow = useMemo(() => formatActivityDateWindow(semester), [semester]);
 
   const reservationKpis = useMemo(() => {
     if (!reservationOverview) {
       return {
-        totalReservations: 0,
-        bookingRate: 0,
-        attendanceRate: 0,
-        violationRate: 0,
+        totalReservations: null,
+        totalEventCapacity: null,
+        bookingRate: null,
+        attendanceRate: null,
+        violationRate: null,
+        englishPassRate: null,
       };
     }
     return {
-      totalReservations: Number(reservationOverview.totalReservations || 0),
-      bookingRate: Number(reservationOverview.bookingRate || 0),
-      attendanceRate: Number(reservationOverview.attendanceRate || 0),
-      violationRate: Number(reservationOverview.violationRate || 0),
+      totalReservations: finiteOrNull(reservationOverview.totalReservations),
+      totalEventCapacity: finiteOrNull(reservationOverview.totalEventCapacity),
+      bookingRate: finiteOrNull(reservationOverview.bookingRate),
+      attendanceRate: finiteOrNull(reservationOverview.attendanceRate),
+      violationRate: finiteOrNull(reservationOverview.violationRate),
+      englishPassRate: finiteOrNull(reservationOverview.englishPassRate),
     };
   }, [reservationOverview]);
 
   const activityChartData = useMemo(() => {
     return (activityTrend || []).map((p) => ({
       date: formatDateLabel(p.date),
-      reservationsCount: Number(p.reservationsCount || 0),
+      reservationsCount: finiteOrNull(p.reservationsCount),
       rawDate: p.date,
     }));
   }, [activityTrend]);
@@ -329,7 +358,7 @@ export default function AdminAnalyticsPage() {
   const attendanceChartData = useMemo(() => {
     return (attendanceTrend || []).map((p) => ({
       date: formatDateLabel(p.date),
-      attendanceRate: Number(p.attendanceRate || 0),
+      attendanceRate: finiteOrNull(p.attendanceRate),
       rawDate: p.date,
     }));
   }, [attendanceTrend]);
@@ -338,9 +367,9 @@ export default function AdminAnalyticsPage() {
     return (classRankings || []).map((c) => ({
       classKey: c.className ? c.className : `Class ${c.classId}`,
       classId: c.classId,
-      violationRate: Number(c.violationRate || 0),
-      attendanceRate: Number(c.attendanceRate || 0),
-      reservationsCount: Number(c.reservationsCount || 0),
+      violationRate: finiteOrNull(c.violationRate),
+      attendanceRate: finiteOrNull(c.attendanceRate),
+      reservationsCount: finiteOrNull(c.reservationsCount),
     }));
   }, [classRankings]);
 
@@ -348,36 +377,59 @@ export default function AdminAnalyticsPage() {
     !resLoading &&
     !resError &&
     reservationOverview &&
-    Number(reservationKpis.totalReservations || 0) === 0 &&
-    Number(reservationKpis.bookingRate || 0) === 0 &&
-    Number(reservationKpis.attendanceRate || 0) === 0 &&
-    Number(reservationKpis.violationRate || 0) === 0;
+    isAllNumericZero([
+      reservationKpis.totalReservations,
+      reservationKpis.totalEventCapacity,
+      reservationKpis.bookingRate,
+      reservationKpis.attendanceRate,
+      reservationKpis.violationRate,
+    ]);
 
   const chartsNoData =
     !chartsLoading &&
     !chartsError &&
-    (activityChartData || []).every((p) => Number(p.reservationsCount || 0) === 0) &&
+    (activityChartData || []).every((p) => finiteOrNull(p.reservationsCount) === 0) &&
     (attendanceChartData || []).length === 0 &&
     (classChartData || []).length === 0;
+
+  const clearVisibleStats = () => {
+    setReservationOverview(null);
+    setCapacityBreakdown({ byEventType: [], byEvent: [] });
+    setResError('');
+    setCapacityBreakdownError('');
+    setResLoading(true);
+    setChartsLoading(true);
+    setChartsError('');
+    setActivityTrend([]);
+    setAttendanceTrend([]);
+    setClassRankings([]);
+  };
 
   return (
     <div className="container-fluid px-2 px-md-3">
       <div className="d-flex flex-wrap justify-content-end align-items-start gap-2 mb-2">
         <div className="d-flex flex-wrap align-items-center gap-2">
           <Form.Group className="mb-0">
-            <Form.Label className="small text-muted me-2 mb-0">學期</Form.Label>
-            <Form.Select
-              value={semester}
-              onChange={(e) => setSemester(e.target.value)}
-              style={{ width: 180, display: 'inline-block' }}
-              disabled={refreshing}
-            >
-              {SEMESTER_OPTIONS.filter((o) => o.value).map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Form.Select>
+            <Form.Label className="small text-muted me-2 mb-0" htmlFor="ops-semester">學期</Form.Label>
+            <div style={{ width: '100%', maxWidth: 220 }}>
+              <Form.Select
+                id="ops-semester"
+                aria-label="學期"
+                value={semester}
+                onChange={(e) => {
+                  setSemester(e.target.value);
+                  clearVisibleStats();
+                }}
+                className="w-100"
+                disabled={refreshing}
+              >
+                {SEMESTER_OPTIONS.filter((o) => o.value).map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Form.Select>
+            </div>
           </Form.Group>
           <Button variant="outline-primary" size="sm" onClick={() => load()} disabled={refreshing || !token}>
             {refreshing ? '更新中…' : '重新整理'}
@@ -385,17 +437,24 @@ export default function AdminAnalyticsPage() {
         </div>
       </div>
       <p className="text-muted small mb-3">
-        本頁只呈現<strong>活動營運</strong>相關資料：預約量、名額利用率、簽到、違規與需優先處理的班級排行。正式學習成果、B2 KPI 與學生能力軌跡請至「學習成效分析」。
+        本頁只呈現<strong>活動營運</strong>：中心提供多少名額、有多少預約、簽到差距，以及哪些類型較忙。學習成果與 B2 達標請至「學習成效分析」。
       </p>
 
       <Card className="mb-4">
-        <Card.Header className="fw-semibold">活動預約營運概況</Card.Header>
+        <Card.Header className="fw-semibold">活動營運總覽</Card.Header>
         <Card.Body>
-          <p className="text-muted small mb-3">
-            本區統計<strong>活動預約、名額利用率、簽到與違規</strong>資料，用來判斷活動供給、出席與行政追蹤壓力；不解讀學生能力或 B2 達標。
-          </p>
+          <div data-testid="ops-context" className="mb-3">
+            <p className="mb-1">學期 <strong>{semester}</strong></p>
+            <p className="mb-1">
+              活動日期{' '}
+              <strong>{activityDateWindow || '此學期尚未列入共用日期設定'}</strong>
+            </p>
+            <p className="text-muted small mb-1">{OPS_POPULATION}</p>
+            <p className="text-muted small mb-1">主要時間欄位：{OPS_TIME_FIELD}</p>
+            <p className="text-muted small mb-0">報名資料補充資訊使用報名學期標籤，不使用這個活動日期。</p>
+          </div>
           {resLoading && (
-            <div className="text-center py-3">
+            <div className="text-center py-3" role="status">
               <Spinner animation="border" size="sm" className="me-2" />
               載入中…
             </div>
@@ -403,69 +462,106 @@ export default function AdminAnalyticsPage() {
           {resError && !resLoading && <Alert variant="danger">{resError}</Alert>}
           {!resLoading && !resError && reservationAllZero && (
             <Alert variant="secondary" className="py-2 small mb-3">
-              本學期尚無活動預約紀錄（或所選區間內預約、預約率、簽到與違規皆為 0）。
+              所選活動日期區間內，名額、預約筆數、預約名額比、簽到與違規狀態比皆為 0。
             </Alert>
           )}
-          {!resLoading && !resError && (
-            <div className="row g-3 mb-0">
-              <KpiCard title="總預約數" value={reservationKpis.totalReservations} hint="本學期日期區間內之活動預約筆數。" />
-              <KpiCard
-                title="預約率"
-                value={formatPct1(reservationKpis.bookingRate)}
-                hint="總預約數 ÷ 本學期日期區間內各活動 maxCapacity 加總（可開放名額總數）；反映名額被預約之比例。"
-              />
-              <KpiCard
-                title="簽到出席率（預約）"
-                value={formatPct1(reservationKpis.attendanceRate)}
-                hint="已簽到 ÷ 總預約（依活動日期篩選之學期區間）。"
-              />
-              <KpiCard
-                title="違規率（預約）"
-                value={formatPct1(reservationKpis.violationRate)}
-                hint="已登記違規 ÷ 總預約。"
-              />
+          {!resLoading && !resError && reservationOverview && (
+            <div data-testid="ops-core-kpis">
+              <section className="mb-4" aria-labelledby="ops-supply">
+                <h2 id="ops-supply" className="h6 mb-1">資源供給</h2>
+                <p className="text-muted small mb-2">本學期中心提供多少活動名額？</p>
+                <div className="row g-3">
+                  <KpiCard
+                    metricKey="capacity"
+                    title={OPS_LABELS.totalEventCapacity}
+                    value={formatCount(reservationKpis.totalEventCapacity)}
+                    note={OPS_NOTES.totalEventCapacity}
+                  />
+                </div>
+              </section>
+              <section className="mb-4" aria-labelledby="ops-demand">
+                <h2 id="ops-demand" className="h6 mb-1">預約需求</h2>
+                <p className="text-muted small mb-2">目前有多少預約，相對名額的比例是多少？</p>
+                <div className="row g-3">
+                  <KpiCard
+                    metricKey="reservations"
+                    title={OPS_LABELS.totalReservations}
+                    value={formatCount(reservationKpis.totalReservations)}
+                    note={OPS_NOTES.totalReservations}
+                  />
+                  <KpiCard
+                    metricKey="booking"
+                    title={OPS_LABELS.bookingRate}
+                    value={formatPct1(reservationKpis.bookingRate)}
+                    note={OPS_NOTES.bookingRate}
+                  />
+                </div>
+              </section>
+              <section className="mb-4" aria-labelledby="ops-attendance">
+                <h2 id="ops-attendance" className="h6 mb-1">簽到與使用</h2>
+                <p className="text-muted small mb-2">預約列裡，有多少已經簽到？</p>
+                <div className="row g-3">
+                  <KpiCard
+                    metricKey="attendance"
+                    title={OPS_LABELS.attendanceRate}
+                    value={formatPct1(reservationKpis.attendanceRate)}
+                    note={OPS_NOTES.attendanceRate}
+                  />
+                </div>
+              </section>
+              <section className="mb-0" aria-labelledby="ops-exceptions">
+                <h2 id="ops-exceptions" className="h6 mb-1">行政例外</h2>
+                <p className="text-muted small mb-2">預約列裡，有多少已登記違規？</p>
+                <div className="row g-3">
+                  <KpiCard
+                    metricKey="violation"
+                    title={OPS_LABELS.violationRate}
+                    value={formatPct1(reservationKpis.violationRate)}
+                    note={OPS_NOTES.violationRate}
+                  />
+                </div>
+              </section>
             </div>
           )}
-          {!resLoading && !resError && (
+          {!resLoading && !resError && reservationOverview && (
             <>
               <hr className="my-4" />
-              <h6 className="fw-semibold mb-2">名額利用率（分項）</h6>
+              <h2 className="h6 fw-semibold mb-2">活動類型與場次</h2>
               <p className="text-muted small mb-3">
-                與上方整體「預約率」相同口徑：已預約筆數 ÷ 可開放名額（<code>events.maxCapacity</code>
-                ）。下表依<strong>活動類型</strong>彙總，以及<strong>各場次</strong>逐筆列出；篩選條件為目前所選學期之日期區間：
-                <strong>{semesterRangeLabel}</strong>（後端以活動日 <code>CAST(TRIM(events.date) AS DATE)</code> 比對）。
+                類型表與場次表是同一份分項的不同粒度。類型列不與另一種形狀再加總。口徑與上方預約名額比相同：預約筆數 ÷ 活動名額。
+                活動日期 <strong>{activityDateWindow || semester}</strong>。
               </p>
               {capacityBreakdownError && (
                 <Alert variant="warning" className="py-2 small mb-3">
-                  名額利用率分項載入失敗：{capacityBreakdownError}
+                  分項資料載入失敗：{capacityBreakdownError}
                 </Alert>
               )}
               {capacityBreakdown.byEventType.length === 0 && capacityBreakdown.byEvent.length === 0 && !capacityBreakdownError && (
                 <Alert variant="secondary" className="py-2 small mb-0">
-                  於<strong>{semesterRangeLabel}</strong>
+                  於<strong>{activityDateWindow || semester}</strong>
                   內查無活動資料，故無法分項統計。若實際已有活動，請確認活動日期是否落在此區間，或活動日欄位是否為可解析之日期（建議
                   YYYY-MM-DD）。
                 </Alert>
               )}
               {capacityBreakdown.byEventType.length > 0 && (
-                <div className="mb-4">
+                <div className="mb-4" data-testid="capacity-by-type">
                   <div className="text-muted small mb-2">依活動類型</div>
                   <div className="table-responsive">
                     <Table striped bordered hover size="sm" className="mb-0">
                       <thead className="table-light">
                         <tr>
                           <th>活動類型</th>
-                          <th className="text-end">可開放名額</th>
-                          <th className="text-end">已預約筆數</th>
-                          <th className="text-end">名額利用率</th>
+                          <th className="text-end">活動名額</th>
+                          <th className="text-end">預約筆數</th>
+                          <th className="text-end">預約名額比</th>
                         </tr>
                       </thead>
                       <tbody>
                         {capacityBreakdown.byEventType.map((row) => (
                           <tr key={row.eventType}>
                             <td>{row.eventType}</td>
-                            <td className="text-end">{row.totalEventCapacity}</td>
-                            <td className="text-end">{row.totalReservations}</td>
+                            <td className="text-end">{formatCount(row.totalEventCapacity)}</td>
+                            <td className="text-end">{formatCount(row.totalReservations)}</td>
                             <td className="text-end">{formatPct1(row.bookingRate)}</td>
                           </tr>
                         ))}
@@ -475,7 +571,7 @@ export default function AdminAnalyticsPage() {
                 </div>
               )}
               {capacityBreakdown.byEvent.length > 0 && (
-                <div>
+                <div data-testid="capacity-by-event">
                   <div className="text-muted small mb-2">依場次（活動）</div>
                   <div className="table-responsive" style={{ maxHeight: 420, overflowY: 'auto' }}>
                     <Table striped bordered hover size="sm" className="mb-0">
@@ -486,7 +582,7 @@ export default function AdminAnalyticsPage() {
                           <th>類型</th>
                           <th className="text-end">名額</th>
                           <th className="text-end">已預約</th>
-                          <th className="text-end">預約率</th>
+                          <th className="text-end">預約名額比</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -495,8 +591,8 @@ export default function AdminAnalyticsPage() {
                             <td>{formatDateLabel(row.eventDate)}</td>
                             <td>{row.eventName}</td>
                             <td>{row.eventType}</td>
-                            <td className="text-end">{row.maxCapacity}</td>
-                            <td className="text-end">{row.totalReservations}</td>
+                            <td className="text-end">{formatCount(row.maxCapacity)}</td>
+                            <td className="text-end">{formatCount(row.totalReservations)}</td>
                             <td className="text-end">{formatPct1(row.bookingRate)}</td>
                           </tr>
                         ))}
@@ -507,6 +603,20 @@ export default function AdminAnalyticsPage() {
               )}
             </>
           )}
+          {!resLoading && !resError && reservationOverview && (
+            <details className="mt-4" data-testid="ops-registration-supplement">
+              <summary>報名資料補充資訊</summary>
+              <div className="small text-muted mt-2">
+                <div className="text-body">{OPS_LABELS.englishPassRate}</div>
+                <div className="fs-5 fw-semibold text-body my-1" data-testid="ops-value-english">
+                  {formatPct1(reservationKpis.englishPassRate)}
+                </div>
+                {REGISTRATION_SUPPLEMENT_NOTES.map((line) => (
+                  <p key={line} className="mb-1">{line}</p>
+                ))}
+              </div>
+            </details>
+          )}
         </Card.Body>
       </Card>
 
@@ -515,7 +625,7 @@ export default function AdminAnalyticsPage() {
         <div className="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
           <div>
             <h5 className="mb-1">活動趨勢與班級排行</h5>
-            <p className="text-muted small mb-0">預約營運：活動趨勢、出席率與班級違規排行。</p>
+            <p className="text-muted small mb-0">預約營運：活動趨勢、預約列簽到率與班級違規狀態排行。</p>
           </div>
         </div>
 
@@ -530,7 +640,7 @@ export default function AdminAnalyticsPage() {
         {!chartsLoading && !chartsError && chartsNoData && (
           <ChartCard
             empty
-            emptyHint="尚無足夠資料產生圖表（活動趨勢、出席趨勢或班級排行皆為空）。"
+            emptyHint="尚無足夠資料產生圖表（活動趨勢、簽到趨勢或班級排行皆為空）。"
           />
         )}
         {!chartsLoading && !chartsError && !chartsNoData && (
@@ -539,7 +649,7 @@ export default function AdminAnalyticsPage() {
               <div className="col-12 col-lg-6">
                 <ChartCard
                   title="活動趨勢（依活動日期）"
-                  description="每日預約筆數變化"
+                  description="每日預約筆數"
                   plotHeight={320}
                 >
                   <ResponsiveContainer width="100%" height="100%">
@@ -562,15 +672,15 @@ export default function AdminAnalyticsPage() {
                         content={(tipProps) => (
                           <ChartTooltip
                             {...tipProps}
-                            formatName={() => '預約數'}
-                            formatValue={(v) => `${v} 筆`}
+                            formatName={() => '預約筆數'}
+                            formatValue={(v) => (finiteOrNull(v) === null ? '—' : `${v} 筆`)}
                           />
                         )}
                       />
                       <Line
                         type="monotone"
                         dataKey="reservationsCount"
-                        name="預約數"
+                        name="預約筆數"
                         stroke={CHART_SERIES.primary}
                         strokeWidth={2.5}
                         dot={false}
@@ -586,8 +696,8 @@ export default function AdminAnalyticsPage() {
 
               <div className="col-12 col-lg-6">
                 <ChartCard
-                  title="出席率（依活動日期）"
-                  description="每日出席率（%）"
+                  title="預約列簽到率（依活動日期）"
+                  description="每日已簽到預約列 ÷ 當日預約列"
                   plotHeight={320}
                 >
                   <ResponsiveContainer width="100%" height="100%">
@@ -611,7 +721,7 @@ export default function AdminAnalyticsPage() {
                         content={(tipProps) => (
                           <ChartTooltip
                             {...tipProps}
-                            formatName={() => '出席率'}
+                            formatName={() => '預約列簽到率'}
                             formatValue={(v) => formatPct1(v)}
                           />
                         )}
@@ -619,7 +729,7 @@ export default function AdminAnalyticsPage() {
                       <Line
                         type="monotone"
                         dataKey="attendanceRate"
-                        name="出席率"
+                        name="預約列簽到率"
                         stroke={CHART_SERIES.success}
                         strokeWidth={2.5}
                         dot={false}
@@ -637,8 +747,8 @@ export default function AdminAnalyticsPage() {
             <div className="row g-3">
               <div className="col-12">
                 <ChartCard
-                  title="班級排行（Top 10，依違規率由高到低）"
-                  description="違規率越高越需關注"
+                  title="班級排行（Top 10，依預約列違規狀態比）"
+                  description="比例越高越需要行政追蹤。這仍是班級內的預約列狀態比。"
                   plotHeight={340}
                 >
                   <ResponsiveContainer width="100%" height="100%">
@@ -663,14 +773,14 @@ export default function AdminAnalyticsPage() {
                         content={(tipProps) => (
                           <ChartTooltip
                             {...tipProps}
-                            formatName={() => '違規率'}
+                            formatName={() => '預約列違規狀態比'}
                             formatValue={(v) => formatPct1(v)}
                           />
                         )}
                       />
                       <Bar
                         dataKey="violationRate"
-                        name="違規率"
+                        name="預約列違規狀態比"
                         radius={[10, 10, 0, 0]}
                         maxBarSize={48}
                         isAnimationActive
