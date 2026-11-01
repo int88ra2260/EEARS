@@ -2,6 +2,7 @@ import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import AdminAnalyticsPage from './AdminAnalyticsPage';
@@ -106,7 +107,11 @@ function mockHappyPath(overviewBody = overview()) {
 }
 
 function renderPage() {
-  return render(<AdminAnalyticsPage />);
+  return render(
+    <MemoryRouter>
+      <AdminAnalyticsPage />
+    </MemoryRouter>,
+  );
 }
 
 describe('AdminAnalyticsPage operational overview', () => {
@@ -279,6 +284,10 @@ describe('AdminAnalyticsPage operational overview', () => {
     expect(within(typeTable).getAllByRole('row')).toHaveLength(2);
     expect(within(typeTable).getAllByText('10')).toHaveLength(1);
     expect(screen.getByTestId('ops-value-reservations')).toHaveTextContent('10');
+    expect(screen.getByTestId('ops-observation')).toHaveTextContent('預約筆數主要出現在「English Table」');
+    expect(screen.getByTestId('ops-observation')).toHaveTextContent('不是不重複學生人數');
+    expect(screen.getByTestId('ops-observation')).not.toHaveTextContent('供給不足');
+    expect(screen.queryByRole('link', { name: '開啟活動列表' })).toBeNull();
     expect(screen.queryByText('20')).toBeNull();
   });
 

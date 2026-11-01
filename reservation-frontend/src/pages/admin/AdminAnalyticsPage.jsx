@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState, useId, useRef } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { Card, Form, Spinner, Alert, Button, Table } from 'react-bootstrap';
 import {
   ResponsiveContainer,
@@ -15,6 +15,8 @@ import {
 
 import dayjs from 'dayjs';
 import { getCurrentSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
+import { buildAccessProfile } from '../../utils/accessControl';
+import { buildOperationsObservation } from './operationsObservation';
 import {
   fetchAnalyticsClasses,
   fetchAnalyticsEvents,
@@ -353,6 +355,7 @@ export default function AdminAnalyticsPage() {
   }, [load]);
 
   const activityDateWindow = useMemo(() => formatActivityDateWindow(semester), [semester]);
+  const accessProfile = useMemo(() => buildAccessProfile(token), [token]);
 
   const reservationKpis = useMemo(() => {
     if (!reservationOverview) {
@@ -400,6 +403,22 @@ export default function AdminAnalyticsPage() {
       reservationsCount: finiteOrNull(c.reservationsCount),
     }));
   }, [classRankings]);
+
+  const operationsObservation = useMemo(() => buildOperationsObservation({
+    semester,
+    dateWindow: activityDateWindow,
+    byEventType: capacityBreakdown.byEventType,
+    attendanceRate: reservationKpis.attendanceRate,
+    violationRate: reservationKpis.violationRate,
+    accessProfile,
+  }), [
+    semester,
+    activityDateWindow,
+    capacityBreakdown.byEventType,
+    reservationKpis.attendanceRate,
+    reservationKpis.violationRate,
+    accessProfile,
+  ]);
 
   const reservationAllZero =
     !resLoading &&
@@ -492,6 +511,33 @@ export default function AdminAnalyticsPage() {
             <Alert variant="secondary" className="py-2 small mb-3">
               所選活動日期區間內，名額、預約筆數、預約名額比、簽到與違規狀態比皆為 0。
             </Alert>
+          )}
+          {!resLoading && !resError && reservationOverview && (
+            <section className="mb-4" aria-labelledby="ops-observation" data-testid="ops-observation">
+              <h2 id="ops-observation" className="h6 mb-2">營運觀察</h2>
+              <ul className="small mb-3">
+                {operationsObservation.lines.map((line) => (
+                  <li key={line} className="mb-1">{line}</li>
+                ))}
+              </ul>
+              {operationsObservation.actions.length > 0 ? (
+                <ul className="list-unstyled small mb-0">
+                  {operationsObservation.actions.map((action) => (
+                    <li key={action.id} className="mb-2">
+                      <Link to={action.to}>{action.label}</Link>
+                      <p className="text-muted mb-0">{action.hint}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="small text-muted mb-2">此帳號沒有可進入的活動列表、簽到統計、違規管理、高風險追蹤或營運報表。</p>
+              )}
+              {operationsObservation.hubPath ? (
+                <p className="small mb-0">
+                  <Link to={operationsObservation.hubPath}>返回成效分析中心</Link>
+                </p>
+              ) : null}
+            </section>
           )}
           {!resLoading && !resError && reservationOverview && (
             <div data-testid="ops-core-kpis">

@@ -8,12 +8,17 @@ import AdminAnalyticsPage from '../src/pages/admin/AdminAnalyticsPage.jsx';
 import AnalyticsHubPage from '../src/pages/admin/AnalyticsHubPage.jsx';
 
 const params = new URLSearchParams(window.location.search);
-const hubRoute = params.get('route') === '/admin/analytics';
+const requestedRoute = params.get('route');
+const analyticsRoute = requestedRoute === '/admin/analytics' || requestedRoute === '/admin/analytics/overview'
+  ? requestedRoute
+  : '';
 
 function harnessToken() {
-  if (!hubRoute) return 'analytics-browser-harness';
+  if (!analyticsRoute) return 'analytics-browser-harness';
   const profile = params.get('profile') || 'admin';
-  const payload = profile === 'learning'
+  const payload = profile === 'teacher'
+    ? { role: 'teacher', teacherLevel: 'regular' }
+    : profile === 'learning'
     ? {
       role: 'teacher',
       teacherLevel: 'regular',
@@ -39,12 +44,13 @@ function HarnessLayout() {
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <MemoryRouter initialEntries={[hubRoute ? '/admin/analytics' : '/analytics-browser-harness']}>
+    <MemoryRouter initialEntries={[analyticsRoute || '/analytics-browser-harness']}>
       <Routes>
         <Route element={<HarnessLayout />}>
           <Route path="/analytics-browser-harness" element={<AdminAnalyticsPage />} />
           <Route path="/admin/analytics" element={<AnalyticsHubPage />} />
           <Route path="/admin/analytics/overview" element={<AdminAnalyticsPage />} />
+          <Route path="/admin/operations" element={<h1>活動列表</h1>} />
           <Route path="/admin/classes" element={<h1>班級列表</h1>} />
           <Route path="/admin/learning-analytics/resources" element={<h1>資源覆蓋</h1>} />
         </Route>
