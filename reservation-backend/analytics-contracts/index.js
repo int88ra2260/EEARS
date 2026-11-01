@@ -19,6 +19,9 @@ const assessmentObservation = require('./assessmentObservation');
 const assessmentAdapters = require('./assessmentAdapters');
 const assessmentComparison = require('./assessmentComparison');
 const activityOpsPilot = require('./pilots/activityOpsOverviewPilot');
+const activityOpsFieldContract = require('./pilots/activityOpsFieldContract');
+const activityOpsShadowValidator = require('./pilots/activityOpsShadowValidator');
+const activityOpsShadowRuntime = require('./pilots/activityOpsShadowRuntime');
 const { ContractRegistryError } = require('./errors');
 
 module.exports = {
@@ -41,5 +44,8 @@ module.exports = {
   ...assessmentAdapters,
   ...assessmentComparison,
   ...activityOpsPilot,
+  ...activityOpsFieldContract,
+  ...activityOpsShadowValidator,
+  ...activityOpsShadowRuntime,
   ContractRegistryError,
 };

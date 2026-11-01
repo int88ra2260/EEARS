@@ -7,6 +7,7 @@ const { assertCanAccessStudent, sendStudentScopeDenied } = require('../services/
 const studentProfileService = require('../services/studentProfileService');
 const classEvaluationService = require('../services/classEvaluationService');
 const analyticsService = require('../services/analyticsService');
+const activityOpsShadow = require('../analytics-contracts/pilots/activityOpsShadowRuntime');
 const teacherEvaluationService = require('../services/teacherEvaluationService');
 const riskDetectionService = require('../services/riskDetectionService');
 const trendAnalysisService = require('../services/trendAnalysisService');
@@ -124,6 +125,16 @@ async function getOverview(req, res, next) {
       kindStr === 'reservation'
         ? await analyticsService.getReservationOverview(semesterStr)
         : await analyticsService.getAdminOverview(semesterStr);
+    if (kindStr === 'reservation') {
+      try {
+        activityOpsShadow.runActivityOpsShadow({
+          semesterId: semesterStr,
+          legacyResult: data,
+        });
+      } catch (_shadowErr) {
+        activityOpsShadow.discardShadowFailure();
+      }
+    }
     res.json(data);
   } catch (err) {
     if (err.message === '不支援的學期') {
