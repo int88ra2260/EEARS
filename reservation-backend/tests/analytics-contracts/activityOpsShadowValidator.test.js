@@ -283,6 +283,37 @@ describe('activity ops field contract and shadow validator', () => {
     expect(reportFor(badRow).errors.map((item) => item.fieldPath)).toContain('capacityBreakdown.items[]');
   });
 
+  test('code-backed findings stay partial until a database check', () => {
+    const reservations = getActivityOpsFieldCard('totalReservations');
+    const capacity = getActivityOpsFieldCard('totalEventCapacity');
+    const violation = getActivityOpsFieldCard('violationRate');
+    const items = getActivityOpsFieldCard('capacityBreakdown.items');
+    const summary = getActivityOpsFieldCard('capacityBreakdown.summary');
+
+    expect(reservations.exclusionRules).toMatch(/刪除預約列/);
+    expect(reservations.exclusionRules).toMatch(/cancellationCode/);
+    expect(reservations.verificationStatus).toBe('partial');
+    expect(capacity.knownLimitations).toMatch(/hiddenFromStudents/);
+    expect(capacity.knownLimitations).toMatch(/停辦/);
+    expect(violation.knownLimitations).toMatch(/event_violations/);
+    expect(violation.metricId).toBeNull();
+    expect(violation.proposalStatus).toBe('PROPOSED');
+    expect(items.knownLimitations).toMatch(/byEventType/);
+    expect(items.knownLimitations).toMatch(/F-OPS-06/);
+    expect(summary.knownLimitations).toMatch(/F-OPS-09/);
+    expect(getActivityOpsFieldCard('englishPassRate').crossDomain).toBe(true);
+    [
+      'totalReservations',
+      'bookingRate',
+      'attendanceRate',
+      'violationRate',
+      'englishPassRate',
+      'totalEventCapacity',
+    ].forEach((fieldPath) => {
+      expect(getActivityOpsFieldCard(fieldPath).verificationStatus).toBe('partial');
+    });
+  });
+
   test('every response card uses a known semantic type', () => {
     const allowed = new Set([
       'metric',
