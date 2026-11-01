@@ -156,6 +156,34 @@ function describeApiShape(json) {
     : `keys: ${keys.join(', ') || '(none)'}`;
 }
 
+function RegistrationSupplement({ rateLabel }) {
+  const noteId = useId();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-4" data-testid="ops-registration-supplement">
+      <button
+        type="button"
+        className="btn btn-link btn-sm p-0"
+        aria-expanded={open}
+        aria-controls={noteId}
+        onClick={() => setOpen((current) => !current)}
+      >
+        報名資料補充資訊
+      </button>
+      <div id={noteId} hidden={!open} className="small text-muted mt-2">
+        <div className="text-body">{OPS_LABELS.englishPassRate}</div>
+        <div className="fs-5 fw-semibold text-body my-1 text-break" data-testid="ops-value-english">
+          {rateLabel}
+        </div>
+        {REGISTRATION_SUPPLEMENT_NOTES.map((line) => (
+          <p key={line} className="mb-1">{line}</p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function KpiCard({ metricKey, title, value, note }) {
   const noteId = useId();
   const [open, setOpen] = useState(false);
@@ -179,11 +207,11 @@ function KpiCard({ metricKey, title, value, note }) {
               </button>
             ) : null}
           </div>
-          <div className="fs-4 fw-semibold mt-1" data-testid={`ops-value-${metricKey}`}>
+          <div className="fs-4 fw-semibold mt-1 text-break" data-testid={`ops-value-${metricKey}`}>
             {value}
           </div>
-          {open && note ? (
-            <div id={noteId} className="small text-muted mt-2">
+          {note ? (
+            <div id={noteId} hidden={!open} className="small text-muted mt-2">
               {note.map((line) => (
                 <p key={line} className="mb-1">{line}</p>
               ))}
@@ -604,18 +632,7 @@ export default function AdminAnalyticsPage() {
             </>
           )}
           {!resLoading && !resError && reservationOverview && (
-            <details className="mt-4" data-testid="ops-registration-supplement">
-              <summary>報名資料補充資訊</summary>
-              <div className="small text-muted mt-2">
-                <div className="text-body">{OPS_LABELS.englishPassRate}</div>
-                <div className="fs-5 fw-semibold text-body my-1" data-testid="ops-value-english">
-                  {formatPct1(reservationKpis.englishPassRate)}
-                </div>
-                {REGISTRATION_SUPPLEMENT_NOTES.map((line) => (
-                  <p key={line} className="mb-1">{line}</p>
-                ))}
-              </div>
-            </details>
+            <RegistrationSupplement rateLabel={formatPct1(reservationKpis.englishPassRate)} />
           )}
         </Card.Body>
       </Card>

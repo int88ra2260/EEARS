@@ -2,6 +2,7 @@ import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import AdminAnalyticsPage from './AdminAnalyticsPage';
 import {
@@ -132,13 +133,22 @@ describe('AdminAnalyticsPage operational overview', () => {
   });
 
   test('U06 U07 keep the registration B2 flag out of core KPIs and inside the supplement', async () => {
+    const user = userEvent.setup();
     renderPage();
     await screen.findByTestId('ops-core-kpis');
     expect(within(screen.getByTestId('ops-core-kpis')).queryByText('報名資料 B2 標記比例')).toBeNull();
     const supplement = screen.getByTestId('ops-registration-supplement');
-    expect(within(supplement).getByText('報名資料 B2 標記比例')).toBeInTheDocument();
+    const toggle = within(supplement).getByRole('button', { name: '報名資料補充資訊' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(within(supplement).getByText('報名資料 B2 標記比例')).not.toBeVisible();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(within(supplement).getByText('報名資料 B2 標記比例')).toBeVisible();
     expect(within(supplement).getByTestId('ops-value-english')).toHaveTextContent('12.5%');
     expect(within(supplement).getByText(/沒有與活動預約做 JOIN/)).toBeInTheDocument();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(within(supplement).queryByText('報名資料 B2 標記比例')).not.toBeVisible();
   });
 
   test('U09 formats the activity window from shared semester config', async () => {
@@ -170,22 +180,63 @@ describe('AdminAnalyticsPage operational overview', () => {
   });
 
   test('U11 does not keep the previous semester numbers while the next request is loading', async () => {
-    const pending = [];
+    const overviewPending = [];
+    const breakdownPending = [];
+    const trendsPending = [];
+    const eventsPending = [];
+    const classesPending = [];
     fetchAnalyticsOverview.mockImplementation(
-      () => new Promise((resolve) => pending.push(resolve))
+      () => new Promise((resolve) => overviewPending.push(resolve))
     );
+    fetchReservationCapacityBreakdown.mockImplementation(
+      () => new Promise((resolve) => breakdownPending.push(resolve))
+    );
+    fetchAnalyticsTrends.mockImplementation(
+      () => new Promise((resolve) => trendsPending.push(resolve))
+    );
+    fetchAnalyticsEvents.mockImplementation(
+      () => new Promise((resolve) => eventsPending.push(resolve))
+    );
+    fetchAnalyticsClasses.mockImplementation(
+      () => new Promise((resolve) => classesPending.push(resolve))
+    );
+
     renderPage();
-    await waitFor(() => expect(pending.length).toBe(1));
+    await waitFor(() => {
+      expect(overviewPending).toHaveLength(1);
+      expect(breakdownPending).toHaveLength(1);
+      expect(trendsPending).toHaveLength(1);
+      expect(eventsPending).toHaveLength(1);
+      expect(classesPending).toHaveLength(1);
+    });
+
     await act(async () => {
-      pending[0](overview({ totalReservations: 777 }));
+      breakdownPending[0](breakdown());
+      trendsPending[0]({ activityTrend: [{ date: '2026-03-02', reservationsCount: 3 }] });
+      eventsPending[0]({ attendanceTrend: [{ date: '2026-03-02', attendanceRate: 50 }] });
+      classesPending[0]({
+        rankings: [{ classId: 1, className: 'A班', violationRate: 5, attendanceRate: 50, reservationsCount: 2 }],
+      });
+      overviewPending[0](overview({ totalReservations: 777 }));
     });
     expect(await screen.findByTestId('ops-value-reservations')).toHaveTextContent('777');
 
     fireEvent.change(screen.getByLabelText('學期'), { target: { value: '114-1' } });
+    await waitFor(() => expect(overviewPending).toHaveLength(2));
     expect(screen.queryByText('777')).toBeNull();
     expect(screen.getByRole('status')).toHaveTextContent('載入中');
     expect(screen.getByTestId('ops-context')).toHaveTextContent('114-1');
     expect(screen.queryByTestId('ops-value-reservations')).toBeNull();
+
+    await act(async () => {
+      breakdownPending[1](breakdown());
+      trendsPending[1]({ activityTrend: [] });
+      eventsPending[1]({ attendanceTrend: [] });
+      classesPending[1]({ rankings: [] });
+      overviewPending[1](overview({ totalReservations: 4 }));
+    });
+    expect(await screen.findByTestId('ops-value-reservations')).toHaveTextContent('4');
+    expect(screen.queryByText('777')).toBeNull();
   });
 
   test('U12 shows an API error instead of zero KPIs', async () => {
@@ -215,6 +266,8 @@ describe('AdminAnalyticsPage operational overview', () => {
     expect(screen.getByTestId('ops-value-attendance')).toHaveTextContent('—');
     expect(screen.getByTestId('ops-value-booking')).toHaveTextContent('0.0%');
     expect(screen.getByTestId('ops-value-violation')).toHaveTextContent('0.0%');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '報名資料補充資訊' }));
     expect(screen.getByTestId('ops-value-english')).toHaveTextContent('—');
     expect(screen.queryByText(/皆為 0/)).toBeNull();
   });
@@ -248,15 +301,31 @@ describe('AdminAnalyticsPage operational overview', () => {
     expect(screen.getByRole('button', { name: '重新整理' })).toBeInTheDocument();
   });
 
-  test('U19 metric notes are buttons that can take keyboard focus', async () => {
+  test('U19 metric notes open from click, Enter, and Space without trapping focus', async () => {
+    const user = userEvent.setup();
     renderPage();
-    const noteButton = await screen.findByRole('button', { name: '預約筆數說明' });
-    expect(noteButton.tagName).toBe('BUTTON');
-    noteButton.focus();
-    expect(noteButton).toHaveFocus();
-    expect(noteButton).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(noteButton);
-    expect(noteButton).toHaveAttribute('aria-expanded', 'true');
+    const semester = await screen.findByLabelText('學期');
+    semester.focus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: '重新整理' })).toHaveFocus();
+    await user.tab();
+    const capacityNote = screen.getByRole('button', { name: '活動總名額說明' });
+    expect(capacityNote).toHaveFocus();
+    expect(capacityNote).toHaveAttribute('aria-expanded', 'false');
+
+    await user.keyboard('{Enter}');
+    expect(capacityNote).toHaveAttribute('aria-expanded', 'true');
+    expect(document.getElementById(capacityNote.getAttribute('aria-controls'))).not.toHaveAttribute('hidden');
+    expect(screen.getByText(/不是場次數/)).toBeVisible();
+
+    await user.keyboard(' ');
+    expect(capacityNote).toHaveAttribute('aria-expanded', 'false');
+    expect(capacityNote).toHaveFocus();
+    expect(screen.getByText(/不是場次數/)).not.toBeVisible();
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: '預約筆數說明' })).toHaveFocus();
+    await user.keyboard('{Enter}');
     expect(screen.getByText(/不是累計預約總次數/)).toBeInTheDocument();
   });
 
@@ -270,7 +339,8 @@ describe('AdminAnalyticsPage operational overview', () => {
     expect(await screen.findByTestId('ops-value-booking')).toHaveTextContent('33.3%');
     expect(screen.getByTestId('ops-value-booking')).not.toHaveTextContent('1.0%');
     expect(formatPct1(33.33)).toBe('33.3%');
-    expect(screen.queryByText(/場次數|不重複學生|取消率/)).toBeNull();
+    expect(screen.queryByRole('heading', { name: /場次數|取消率|不重複學生/ })).toBeNull();
+    expect(screen.queryByTestId('ops-value-event-count')).toBeNull();
     expect(screen.queryByLabelText('分析類型')).toBeNull();
     expect(fetchAnalyticsOverview.mock.calls.every((call) => call[2]?.kind === 'reservation')).toBe(true);
   });
@@ -290,5 +360,50 @@ describe('AdminAnalyticsPage operational overview', () => {
     const access = fs.readFileSync(path.resolve('src/constants/adminRouteAccess.js'), 'utf8');
     expect(app).toMatch(/path="analytics\/overview"/);
     expect(access).toMatch(/pattern: '\/admin\/analytics\/overview'/);
+  });
+
+  test('refresh repeats the current semester request and restores the API value', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByTestId('ops-value-reservations');
+    await user.click(screen.getByRole('button', { name: '重新整理' }));
+    await waitFor(() => expect(fetchAnalyticsOverview).toHaveBeenCalledTimes(2));
+    expect(fetchAnalyticsOverview).toHaveBeenLastCalledWith('test-token', '114-2', { kind: 'reservation' });
+    expect(fetchAnalyticsTrends).toHaveBeenLastCalledWith('test-token', '114-2', 'reservation');
+    expect(await screen.findByTestId('ops-value-reservations')).toHaveTextContent('10');
+  });
+
+  test('all-zero payload stays zero and empty charts are described in text', async () => {
+    mockHappyPath(overview({
+      totalReservations: 0,
+      totalEventCapacity: 0,
+      bookingRate: 0,
+      attendanceRate: 0,
+      violationRate: 0,
+      englishPassRate: 0,
+    }));
+    fetchAnalyticsTrends.mockResolvedValue({ activityTrend: [] });
+    fetchAnalyticsEvents.mockResolvedValue({ attendanceTrend: [] });
+    fetchAnalyticsClasses.mockResolvedValue({ rankings: [] });
+    fetchReservationCapacityBreakdown.mockResolvedValue({
+      res: { ok: true, status: 200 },
+      json: { semester: '114-2', items: [], byEventType: [], byEvent: [], summary: null },
+    });
+    renderPage();
+    expect(await screen.findByText(/皆為 0/)).toBeInTheDocument();
+    expect(screen.getByTestId('ops-value-reservations')).toHaveTextContent(/^0$/);
+    expect(screen.getByTestId('ops-value-booking')).toHaveTextContent('0.0%');
+    expect(screen.getByText(/查無活動資料/)).toBeInTheDocument();
+    expect(screen.getByText(/尚無足夠資料產生圖表/)).toBeInTheDocument();
+  });
+
+  test('breakdown tables keep a horizontal scroll container', async () => {
+    renderPage();
+    const typeTable = await screen.findByTestId('capacity-by-type');
+    const eventTable = screen.getByTestId('capacity-by-event');
+    expect(typeTable.querySelector('.table-responsive')).toBeTruthy();
+    expect(eventTable.querySelector('.table-responsive')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: '活動類型' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '活動名稱' })).toBeInTheDocument();
   });
 });
