@@ -25,6 +25,11 @@ test('expandRegistrationToComponents maps exam types to atomic parts', () => {
   assert.deepEqual(expandRegistrationToComponents('NON'), []);
 });
 
+test('missing attendance stays unknown and is not a no-show', () => {
+  assert.equal(resolveComponentAttended({}, 'L'), null);
+  assert.equal(resolveComponentAttended({ L: { attended: false } }, 'L'), false);
+});
+
 test('resolveComponentAttended falls back to LR/SW composite records', () => {
   const attendance = {
     LR: { attended: false },
