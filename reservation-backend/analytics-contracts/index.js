@@ -18,6 +18,7 @@ const assessmentFlags = require('./assessmentQualityFlags');
 const assessmentObservation = require('./assessmentObservation');
 const assessmentAdapters = require('./assessmentAdapters');
 const assessmentComparison = require('./assessmentComparison');
+const activityOpsPilot = require('./pilots/activityOpsOverviewPilot');
 const { ContractRegistryError } = require('./errors');
 
 module.exports = {
@@ -39,5 +40,6 @@ module.exports = {
   ...assessmentObservation,
   ...assessmentAdapters,
   ...assessmentComparison,
+  ...activityOpsPilot,
   ContractRegistryError,
 };
