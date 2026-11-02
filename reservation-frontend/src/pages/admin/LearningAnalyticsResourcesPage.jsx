@@ -44,6 +44,7 @@ export default function LearningAnalyticsResourcesPage() {
     ready,
     apiParams,
     withWorkingSet,
+    workingSetScope,
     token,
   } = useLearningAnalyticsBootstrap({ scopeKeys: RESOURCE_COVERAGE_FILTER_KEYS });
   const outlet = useOutletContext() || {};
@@ -94,6 +95,7 @@ export default function LearningAnalyticsResourcesPage() {
         actions={<AnalyticsHubReturn accessProfile={accessProfile} />}
         showWorkingSet
         workingSetHere="resources"
+        workingSetScope={workingSetScope}
         question="哪些資源有人參加、哪些資源有足夠前後測可以觀察。"
         scope="分析快照裡的學生，依資源類型彙總。這頁不做資源成效排名。"
         howToRead={<LearningResourceReading rows={data?.resourceEffectiveness} />}

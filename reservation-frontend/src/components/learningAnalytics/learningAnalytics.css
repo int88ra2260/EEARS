@@ -934,9 +934,18 @@ th.la-num .la-colhead {
 
 .la-explorer {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 1rem;
+  grid-template-columns: 15.5rem minmax(0, 1fr);
+  gap: 0.75rem;
   align-items: start;
+  min-width: 0;
+}
+
+.la-explorer.is-filters-closed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.la-explorer.is-filters-closed .la-explorer-filters {
+  display: none;
 }
 
 .la-explorer-filters {
@@ -1068,20 +1077,50 @@ th.la-num .la-colhead {
   margin-left: 0.35rem;
 }
 
+.la-explorer-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.la-explorer-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .la-explorer-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
 }
 
 .la-explorer-stats div {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: 0.35rem;
 }
 
 .la-explorer-stats strong {
-  font-size: 1.15rem;
-  font-weight: 600;
+  font-size: 1.05rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.la-stat-def {
+  font-size: 0.75rem;
+  color: var(--la-muted, #5c6770);
+}
+
+.la-stat-def summary {
+  cursor: pointer;
+}
+
+.la-stat-def p {
+  max-width: 16rem;
+  margin: 0.25rem 0 0;
 }
 
 .la-explorer-stats span {
@@ -1095,7 +1134,9 @@ th.la-num .la-colhead {
   }
 
   .la-explorer-filters {
-    max-height: 46dvh;
+    position: static;
+    max-height: none;
+    z-index: auto;
   }
 }
 
@@ -1248,6 +1289,168 @@ th.la-num .la-colhead {
 .la-working-set-note {
   display: block;
   margin-top: 0.2rem;
+}
+
+.la-working-set.is-paused {
+  background: #fff8ef;
+  border-color: #ead7b8;
+}
+
+.la-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(20, 32, 48, 0.28);
+  z-index: 1040;
+}
+
+.la-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 1041;
+  width: min(40rem, calc(100vw - 1.5rem));
+  height: 100%;
+  overflow: auto;
+  background: #fff;
+  border-left: 1px solid #d7e3f4;
+  padding: 1rem 1.15rem 1.5rem;
+}
+
+.la-drawer__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.la-drawer__kicker {
+  margin: 0 0 0.15rem;
+  color: var(--la-muted, #5c6770);
+  font-size: 0.75rem;
+}
+
+.la-drawer .table th,
+.la-drawer .table td {
+  white-space: nowrap;
+}
+
+@media (max-width: 767.98px) {
+  .la-drawer {
+    width: 100%;
+  }
+}
+
+.la-page-body--finder {
+  min-width: 0;
+}
+
+.la-finder-scope {
+  margin: 0 0 0.75rem;
+  color: var(--la-muted);
+  font-size: 0.85rem;
+}
+
+.la-finder-scope summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.la-finder-scope p {
+  max-width: 42rem;
+  margin: 0.35rem 0 0;
+}
+
+.la-student-cards {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.la-student-card {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--la-border);
+}
+
+.la-student-card__id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+}
+
+.la-student-card__meta {
+  margin: 0.2rem 0 0;
+  color: var(--la-muted);
+  font-size: 0.85rem;
+}
+
+.la-student-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+}
+
+.la-student-table th,
+.la-student-table td {
+  vertical-align: top;
+}
+
+.la-student-table th {
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 767.98px) {
+  .la-student-table-wrap {
+    display: none;
+  }
+
+  .la-student-cards {
+    display: block;
+  }
+
+  .la-explorer-head__actions .btn,
+  .la-student-card__actions .btn,
+  .la-explorer-actions .btn {
+    min-height: 2.25rem;
+  }
+}
+
+.la-find-flow {
+  margin-bottom: 0.65rem;
+}
+
+.la-find-flow__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.la-find-flow__modes a {
+  border: 1px solid var(--la-border);
+  border-radius: 999px;
+  color: var(--la-ink);
+  padding: 0.2rem 0.7rem;
+  text-decoration: none;
+}
+
+.la-find-flow__modes a.active {
+  background: var(--la-accent);
+  border-color: var(--la-accent);
+  color: #fff;
+}
+
+.la-find-flow__population {
+  color: var(--la-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0.4rem 0 0;
+  max-width: 46rem;
 }
 
 .la-next-actions,

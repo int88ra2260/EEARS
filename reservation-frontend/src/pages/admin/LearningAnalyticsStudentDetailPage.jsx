@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import FindStudentsFlow from '../../components/learningAnalytics/FindStudentsFlow';
 import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -111,7 +112,15 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
     return rows.filter((ev) => DEFAULT_LANES.has(ev.lane));
   }, [journey?.timeline, showAllTimeline]);
 
-  const backTo = focus === 'skills' ? '/admin/learning-analytics/skills' : '/admin/learning-analytics/students';
+  const requestedReturn = searchParams.get('returnTo') || '';
+  const safeReturn = requestedReturn.startsWith('/admin/learning-analytics/')
+    && !requestedReturn.startsWith('/admin/learning-analytics/students/')
+    ? requestedReturn
+    : '';
+  const backTo = safeReturn || (focus === 'skills' ? '/admin/learning-analytics/skills' : '/admin/learning-analytics/students');
+  const backLabel = safeReturn
+    ? '返回名單'
+    : `返回${focus === 'skills' ? '技能成長' : '學習軌跡'}`;
   const fromGap = searchParams.get('from') === 'kpi' || searchParams.get('from') === 'gap';
 
   if (!studentId) {
@@ -120,6 +129,10 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
 
   return (
     <div>
+      <FindStudentsFlow
+        mode="student"
+        population="這是個人完整頁。返回會回到來源名單；這個人的紀錄不會被當成另一種統計母體。"
+      />
       <LearningAnalyticsDataHealth
         meta={meta}
         error={metaError}
@@ -127,7 +140,7 @@ export default function LearningAnalyticsStudentDetailPage({ focus = 'journey' }
       />
       <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
         <Button as={Link} to={backTo} variant="outline-secondary" size="sm">
-          ← 返回{focus === 'skills' ? '技能成長' : '學習軌跡'}
+          ← {backLabel}
         </Button>
         {fromGap ? (
           <Button as={Link} to="/admin/learning-analytics/kpi-report" variant="outline-secondary" size="sm">

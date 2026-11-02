@@ -65,6 +65,7 @@ export default function LearningAnalyticsOverviewPage() {
     ready,
     apiParams,
     withWorkingSet,
+    workingSetScope,
     token,
     semesterFromUrl,
   } = useLearningAnalyticsBootstrap({ scopeKeys: OVERVIEW_FILTER_KEYS });
@@ -138,6 +139,7 @@ export default function LearningAnalyticsOverviewPage() {
         title="總覽"
         showWorkingSet
         workingSetHere="overview"
+        workingSetScope={workingSetScope}
         question="看分析快照裡的能力分布，以及有多少人資料夠用來比較。"
         scope="上呈的聽讀成對、說寫成對達標在 B2 KPI 報表。這一頁不計算學期達標人數。"
         howToRead={(

@@ -3,6 +3,8 @@ import {
   filterAdminNavByQuery,
   filterVisibleNav,
   getAdminBreadcrumbs,
+  getAdminPageMeta,
+  isFinderWorkspace,
   getAdminRoleHomeLabel,
   getAdminRoleHomePath,
   getDefaultExpandedSectionIds,
@@ -147,10 +149,63 @@ describe('ADMIN_NAV_SECTIONS learning IA', () => {
     expect(analyticsGroup?.children?.map((child) => child.id)).toEqual([
       'la-report',
       'la-people',
+      'learning-analytics-explore',
+      'learning-analytics-b1-plus',
+      'learning-analytics-tracking',
+      'learning-analytics-students',
       'la-resources',
       'la-compare',
     ]);
+    expect(analyticsGroup.children.find((child) => child.id === 'la-people')).toMatchObject({
+      label: '找學生',
+      path: '/admin/learning-analytics/explore',
+    });
+    expect(analyticsGroup.children.filter((child) => child.hiddenFromNav).map((child) => child.id)).toEqual([
+      'learning-analytics-explore',
+      'learning-analytics-b1-plus',
+      'learning-analytics-tracking',
+      'learning-analytics-students',
+    ]);
     expect(ADMIN_NAV_SECTIONS.map((section) => section.id)).not.toContain('learning-analytics');
+  });
+});
+
+describe('找學生 sidebar entry', () => {
+  const ctx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
+
+  function visibleLabels(nodes, labels = []) {
+    for (const node of nodes || []) {
+      if (node.children?.length && !node.path) visibleLabels(node.children, labels);
+      else labels.push(node.label);
+    }
+    return labels;
+  }
+
+  it('keeps one visible entry and the old page titles', () => {
+    const labels = visibleLabels(filterVisibleNav(ADMIN_NAV_SECTIONS, ctx));
+    expect(labels.filter((label) => label === '找學生')).toEqual(['找學生']);
+    expect(labels.filter((label) => ['學生探索', '接近 B2', '追蹤名單', '個人軌跡'].includes(label))).toEqual([]);
+
+    expect(isFinderWorkspace('/admin/learning-analytics/explore')).toBe(true);
+    expect(isFinderWorkspace('/admin/learning-analytics/students/S100')).toBe(true);
+    expect(isFinderWorkspace('/admin/learning-analytics/overview')).toBe(false);
+    expect(getAdminPageMeta('/admin/learning-analytics/explore', ctx)).toMatchObject({
+      pageTitle: '學生探索',
+      childId: 'la-people',
+      sectionId: 'learning-outcomes',
+    });
+    expect(getAdminPageMeta('/admin/learning-analytics/b1-plus', ctx)).toMatchObject({
+      pageTitle: '接近 B2',
+      childId: 'la-people',
+    });
+    expect(getAdminPageMeta('/admin/learning-analytics/tracking-cohorts/c1', ctx)).toMatchObject({
+      pageTitle: '追蹤名單',
+      childId: 'la-people',
+    });
+    expect(getAdminPageMeta('/admin/learning-analytics/students/S100', ctx)).toMatchObject({
+      pageTitle: '學生個人學習軌跡',
+      childId: 'la-people',
+    });
   });
 });
 

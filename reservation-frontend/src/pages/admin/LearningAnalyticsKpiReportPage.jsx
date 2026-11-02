@@ -71,8 +71,9 @@ export default function LearningAnalyticsKpiReportPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [report, setReport] = useState(null);
-  const workingSet = useLearningAnalyticsWorkingSet();
-  const workingSetKey = workingSet.studentIds.join(',');
+  const workingSetScope = useMemo(() => ({ semester: semesterId || '' }), [semesterId]);
+  const workingSet = useLearningAnalyticsWorkingSet(workingSetScope);
+  const workingSetKey = workingSet.applied ? workingSet.studentIds.join(',') : '';
   const seenWorkingSet = useRef(null);
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -311,6 +312,7 @@ export default function LearningAnalyticsKpiReportPage() {
       title="B2 KPI 報表"
       showWorkingSet
       workingSetHere="kpi"
+      workingSetScope={workingSetScope}
       question="依選定政策，算出這個學期名冊的聽讀成對、說寫成對達標人數與比例。"
       scope="分母是選定學期的在學名冊。達標是聽讀成對、說寫成對，不是分析快照上的累積人數，也不是單一技能是否達 B2。"
       howToRead={(
@@ -594,6 +596,7 @@ export default function LearningAnalyticsKpiReportPage() {
               total={reportStudentIds.length}
               truncated={reportStudentIds.length > 2000}
               note="分母仍是這個學期的名冊。"
+              semester={semesterId}
               source="kpi-report"
               sourcePath="/admin/learning-analytics/kpi-report"
               hide={['kpi']}
@@ -606,6 +609,7 @@ export default function LearningAnalyticsKpiReportPage() {
               total={unmetStudentIds.length}
               truncated={unmetStudentIds.length > 2000}
               note="至少有一個達標項目未通過。"
+              semester={semesterId}
               source="kpi-unmet"
               sourcePath="/admin/learning-analytics/kpi-report"
               hide={['kpi']}

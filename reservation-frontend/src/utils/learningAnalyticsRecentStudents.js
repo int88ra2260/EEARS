@@ -52,7 +52,44 @@ export function clearRecentStudents() {
   }
 }
 
-export function studentTrajectoryPath(studentId) {
+export function studentTrajectoryPath(studentId, returnTo = '') {
   const sid = String(studentId || '').trim().toUpperCase();
-  return `/admin/learning-analytics/students/${encodeURIComponent(sid)}`;
+  const path = `/admin/learning-analytics/students/${encodeURIComponent(sid)}`;
+  const back = String(returnTo || '');
+  if (!back.startsWith('/admin/learning-analytics/') || back.startsWith('/admin/learning-analytics/students/')) {
+    return path;
+  }
+  return `${path}?returnTo=${encodeURIComponent(back)}`;
+}
+
+const LIST_SCROLL_KEY = 'eears.la.findStudents.scroll.v1';
+
+export function rememberFindListScroll() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(LIST_SCROLL_KEY, JSON.stringify({
+      path: `${window.location.pathname}${window.location.search}`,
+      y: window.scrollY,
+    }));
+  } catch {
+    // 私密瀏覽寫不進 session 時，返回仍回到來源網址。
+  }
+}
+
+export function restoreFindListScroll() {
+  if (typeof window === 'undefined') return;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(LIST_SCROLL_KEY) || 'null');
+    const here = `${window.location.pathname}${window.location.search}`;
+    if (!saved || saved.path !== here) return;
+    sessionStorage.removeItem(LIST_SCROLL_KEY);
+    const y = Number(saved.y) || 0;
+    const apply = () => window.scrollTo(0, y);
+    apply();
+    window.requestAnimationFrame(apply);
+    window.setTimeout(apply, 50);
+    window.setTimeout(apply, 180);
+  } catch {
+    // 舊資料壞掉就留在頁首。
+  }
 }

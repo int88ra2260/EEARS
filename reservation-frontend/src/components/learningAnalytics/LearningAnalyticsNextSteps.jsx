@@ -18,6 +18,8 @@ export default function LearningAnalyticsNextSteps({
   note = '',
   source = '',
   sourcePath = '',
+  snapshotVersion = '',
+  semester = '',
   hide = [],
 }) {
   const navigate = useNavigate();
@@ -39,6 +41,10 @@ export default function LearningAnalyticsNextSteps({
       note,
       source,
       sourcePath,
+      context: {
+        snapshotVersion: snapshotVersion || '',
+        semester: semester || '',
+      },
     });
     navigate(path);
   };

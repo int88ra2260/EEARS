@@ -243,15 +243,18 @@ export function getAdminRoleHomeLabel(accessProfile) {
   return '返回後台首頁';
 }
 
-export function canShowAdminNavItem(item, c) {
-  if (item?.hiddenFromNav) return false;
+function canUseNavMeta(item, c) {
   if (item?.visibility && !isNavItemVisible(item.visibility, c)) return false;
   if (item?.path && !canAccessAdminRoute(c?.accessProfile, item.path)) return false;
-  // 活動工讀：僅保留活動列表
   if (isEventOpsWorkerMenu(c) && item?.id && !item?.children) {
     return EVENT_OPS_WORKER_NAV_LEAF_IDS.has(item.id);
   }
   return true;
+}
+
+export function canShowAdminNavItem(item, c) {
+  if (item?.hiddenFromNav) return false;
+  return canUseNavMeta(item, c);
 }
 
 /**
@@ -510,45 +513,58 @@ export const ADMIN_NAV_SECTIONS = [
           },
           {
             id: 'la-people',
-            label: '找人',
-            children: [
-              {
-                id: 'learning-analytics-b1-plus',
-                label: '接近 B2',
-                path: '/admin/learning-analytics/b1-plus',
-                matchPrefixes: ['/admin/learning-analytics/b1-plus'],
-                visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '接近 B2',
-                breadcrumbLabel: '接近 B2',
-              },
-              {
-                id: 'learning-analytics-explore',
-                label: '學生探索',
-                path: '/admin/learning-analytics/explore',
-                matchPrefixes: ['/admin/learning-analytics/explore'],
-                visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '學生探索',
-                breadcrumbLabel: '學生探索',
-              },
-              {
-                id: 'learning-analytics-tracking',
-                label: '追蹤名單',
-                path: '/admin/learning-analytics/tracking-cohorts',
-                matchPrefixes: ['/admin/learning-analytics/tracking-cohorts'],
-                visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '追蹤名單',
-                breadcrumbLabel: '追蹤名單',
-              },
-              {
-                id: 'learning-analytics-students',
-                label: '個人軌跡',
-                path: '/admin/learning-analytics/students',
-                matchPrefixes: ['/admin/learning-analytics/students'],
-                visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '學生個人學習軌跡',
-                breadcrumbLabel: '個人軌跡',
-              },
+            label: '找學生',
+            path: '/admin/learning-analytics/explore',
+            matchPrefixes: [
+              '/admin/learning-analytics/explore',
+              '/admin/learning-analytics/b1-plus',
+              '/admin/learning-analytics/tracking-cohorts',
+              '/admin/learning-analytics/students',
             ],
+            visibility: 'perm:can_view_learning_analytics',
+            pageTitle: '找學生',
+            breadcrumbLabel: '找學生',
+            searchTerms: ['學生探索', '接近 B2', '追蹤名單', '個人軌跡', '學號'],
+          },
+          {
+            id: 'learning-analytics-explore',
+            label: '學生探索',
+            path: '/admin/learning-analytics/explore',
+            matchPrefixes: ['/admin/learning-analytics/explore'],
+            visibility: 'perm:can_view_learning_analytics',
+            pageTitle: '學生探索',
+            breadcrumbLabel: '學生探索',
+            hiddenFromNav: true,
+          },
+          {
+            id: 'learning-analytics-b1-plus',
+            label: '接近 B2',
+            path: '/admin/learning-analytics/b1-plus',
+            matchPrefixes: ['/admin/learning-analytics/b1-plus'],
+            visibility: 'perm:can_view_learning_analytics',
+            pageTitle: '接近 B2',
+            breadcrumbLabel: '接近 B2',
+            hiddenFromNav: true,
+          },
+          {
+            id: 'learning-analytics-tracking',
+            label: '追蹤名單',
+            path: '/admin/learning-analytics/tracking-cohorts',
+            matchPrefixes: ['/admin/learning-analytics/tracking-cohorts'],
+            visibility: 'perm:can_view_learning_analytics',
+            pageTitle: '追蹤名單',
+            breadcrumbLabel: '追蹤名單',
+            hiddenFromNav: true,
+          },
+          {
+            id: 'learning-analytics-students',
+            label: '個人軌跡',
+            path: '/admin/learning-analytics/students',
+            matchPrefixes: ['/admin/learning-analytics/students'],
+            visibility: 'perm:can_view_learning_analytics',
+            pageTitle: '學生個人學習軌跡',
+            breadcrumbLabel: '個人軌跡',
+            hiddenFromNav: true,
           },
           {
             id: 'la-resources',
@@ -1007,6 +1023,13 @@ function flattenLeaves(sections) {
   return out;
 }
 
+/** 找學生工作區：頁內已有自己的標題，殼層不再重複顯示頁名。 */
+const FINDER_WORKSPACE = /\/admin\/learning-analytics\/(explore|b1-plus|tracking-cohorts|students)(\/|$)/;
+
+export function isFinderWorkspace(pathname) {
+  return FINDER_WORKSPACE.test(pathname || '');
+}
+
 /**
  * 最長前綴匹配 pathname（用於 breadcrumb / 標題 / active）
  * @param {string} pathname
@@ -1189,6 +1212,28 @@ export function getAdminPageMeta(pathname, ctx) {
     }
   }
 
+  let bestTitle = best;
+  if (best?.leaf?.id === 'la-people') {
+    const hiddenPairs = flattenLeaves(ADMIN_NAV_SECTIONS).filter(
+      (pair) => pair.leaf.hiddenFromNav && canUseNavMeta(pair.leaf, ctx)
+    );
+    let titleScore = bestScore;
+    let titlePathLength = 0;
+    for (const pair of hiddenPairs) {
+      const prefs = pair.leaf.matchPrefixes || [pair.leaf.path];
+      const len = bestPrefixLength(pathname, prefs);
+      if (len <= 0) continue;
+      const ownPath = pair.leaf.path && (pathname === pair.leaf.path || pathname.startsWith(`${pair.leaf.path}/`))
+        ? pair.leaf.path.length
+        : 0;
+      if (len > titleScore || (len === titleScore && ownPath > titlePathLength)) {
+        titleScore = len;
+        titlePathLength = ownPath;
+        bestTitle = pair;
+      }
+    }
+  }
+
   if (!best || bestScore <= 0) {
     return {
       groupLabel: '後台',
@@ -1200,8 +1245,9 @@ export function getAdminPageMeta(pathname, ctx) {
   }
 
   // 學生 profile
-  let breadcrumbLeaf = best.leaf.breadcrumbLabel || best.leaf.label;
-  let pageTitle = best.leaf.pageTitle || best.leaf.label;
+  const titleLeaf = bestTitle?.leaf || best.leaf;
+  let breadcrumbLeaf = titleLeaf.breadcrumbLabel || titleLeaf.label;
+  let pageTitle = titleLeaf.pageTitle || titleLeaf.label;
   if (pathname.startsWith('/admin/analytics/student/')) {
     const english = filtered.find((s) => s.id === 'english');
     if (english) {

@@ -255,6 +255,8 @@ async function pageOverflow(page) {
 
 test('operations flow uses AdminLayout, real activity list, URL history, and return', async ({ page }) => {
   const leaked = await installApis(page);
+  // 合成活動固定在 2026-11-01。時鐘鎖在同一天，預設「今日」與「不限日期」都會看到它。
+  await page.clock.install({ time: new Date('2026-11-01T04:00:00.000Z') });
   await page.goto(appUrl('/admin/analytics', 'admin'));
   await expect(page).toHaveURL(/\/admin\/analytics/);
   await expect(page.getByRole('heading', { level: 1, name: '成效分析中心' })).toBeVisible();
@@ -265,10 +267,9 @@ test('operations flow uses AdminLayout, real activity list, URL history, and ret
   await expect(page.getByTestId('ops-observation')).toContainText('預約列');
   await page.getByRole('link', { name: '開啟活動列表' }).click();
   await expect(page).toHaveURL(/\/admin\/operations/);
-  const clearDate = page.getByRole('button', { name: '不限日期' });
-  if (await clearDate.count()) {
-    await clearDate.click();
-  }
+  await expect(page.getByText('合成活動')).toBeVisible();
+  await page.getByRole('button', { name: '不限日期' }).click();
+  await expect(page.getByRole('textbox', { name: '日期', exact: true })).toHaveValue('');
   await expect(page.getByText('合成活動')).toBeVisible();
   await expect(page.getByLabel('活動概況')).toBeVisible();
 

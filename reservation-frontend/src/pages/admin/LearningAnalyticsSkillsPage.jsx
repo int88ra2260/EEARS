@@ -349,6 +349,7 @@ export default function LearningAnalyticsSkillsPage() {
     ready,
     apiParams,
     withWorkingSet,
+    workingSetScope,
     token,
   } = useLearningAnalyticsBootstrap({ scopeKeys: SKILL_GROWTH_FILTER_KEYS });
   const outlet = useOutletContext() || {};
@@ -474,6 +475,7 @@ export default function LearningAnalyticsSkillsPage() {
         actions={<AnalyticsHubReturn accessProfile={accessProfile} />}
         showWorkingSet
         workingSetHere="skills"
+        workingSetScope={workingSetScope}
         question="看聽、讀、說、寫有沒有夠多人可以判讀的成長。"
         scope="分析快照裡、有前後測的學生。這頁用來觀察四技能，不用來排名老師或課程。"
         howToRead={(
@@ -611,6 +613,7 @@ export default function LearningAnalyticsSkillsPage() {
                     total={nextSet.total}
                     truncated={nextSet.truncated}
                     note={nextSet.note}
+                    snapshotVersion={appliedFilters.snapshot_version || ''}
                     source={nextSet.source}
                     sourcePath="/admin/learning-analytics/skills"
                   />

@@ -18,8 +18,14 @@ import ClassBestepOverview from '../src/components/ClassBestepOverview';
 import AnalyticsHubPage from '../src/pages/admin/AnalyticsHubPage';
 import AdminAnalyticsPage from '../src/pages/admin/AdminAnalyticsPage';
 import LearningAnalyticsLayout from '../src/pages/admin/LearningAnalyticsLayout';
+import LearningAnalyticsB1PlusPage from '../src/pages/admin/LearningAnalyticsB1PlusPage';
+import LearningAnalyticsKpiReportPage from '../src/pages/admin/LearningAnalyticsKpiReportPage';
 import LearningAnalyticsResourcesPage from '../src/pages/admin/LearningAnalyticsResourcesPage';
 import LearningAnalyticsSkillsPage from '../src/pages/admin/LearningAnalyticsSkillsPage';
+import LearningAnalyticsStudentDetailPage from '../src/pages/admin/LearningAnalyticsStudentDetailPage';
+import LearningAnalyticsStudentExplorerPage from '../src/pages/admin/LearningAnalyticsStudentExplorerPage';
+import LearningAnalyticsStudentJourneyPage from '../src/pages/admin/LearningAnalyticsStudentJourneyPage';
+import LearningAnalyticsTrackingCohortsPage from '../src/pages/admin/LearningAnalyticsTrackingCohortsPage';
 import LoginPage from '../src/components/LoginPage';
 import { staffLoginPath } from '../src/utils/staffLoginNext';
 import { applyHarnessAuth } from './appAuth';
@@ -81,6 +87,13 @@ function AppHarness() {
             <Route path="learning-analytics" element={<LearningAnalyticsLayout />}>
               <Route path="resources" element={<LearningAnalyticsResourcesPage />} />
               <Route path="skills" element={<LearningAnalyticsSkillsPage />} />
+              <Route path="kpi-report" element={<LearningAnalyticsKpiReportPage />} />
+              <Route path="explore" element={<LearningAnalyticsStudentExplorerPage />} />
+              <Route path="b1-plus" element={<LearningAnalyticsB1PlusPage />} />
+              <Route path="tracking-cohorts" element={<LearningAnalyticsTrackingCohortsPage />} />
+              <Route path="tracking-cohorts/:id" element={<LearningAnalyticsTrackingCohortsPage />} />
+              <Route path="students" element={<LearningAnalyticsStudentJourneyPage />} />
+              <Route path="students/:studentId" element={<LearningAnalyticsStudentDetailPage />} />
             </Route>
           </Route>
           <Route path="*" element={<p>harness-not-found</p>} />

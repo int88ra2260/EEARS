@@ -333,7 +333,15 @@ function isExtremeStudent(avg, distribution) {
   return false;
 }
 
-function StudentDetailTable({ students, distribution, skewFlagged, direction, handoffLabel }) {
+function StudentDetailTable({
+  students,
+  distribution,
+  skewFlagged,
+  direction,
+  handoffLabel,
+  snapshotVersion = '',
+  semester = '',
+}) {
   if (!students?.length) return <p className="small text-muted mb-0">尚無學生明細。</p>;
   const withGrowth = students.filter((s) => s.growthSampleSize > 0).length;
   const gseWarnCount = students.filter((s) => s.gseResolutionWarning?.flagged).length;
@@ -358,6 +366,8 @@ function StudentDetailTable({ students, distribution, skewFlagged, direction, ha
         label={label}
         studentIds={students.map((student) => student.studentId)}
         note="這是這一列的學生，不是整個學期名冊。"
+        snapshotVersion={snapshotVersion}
+        semester={semester}
         source="offering-students"
         sourcePath="/admin/learning-analytics/offerings"
       />
@@ -366,6 +376,8 @@ function StudentDetailTable({ students, distribution, skewFlagged, direction, ha
           label={`${label}裡原始分有進步的人`}
           studentIds={improvedIds}
           note="只含平均原始進步大於 0 的人。"
+          snapshotVersion={snapshotVersion}
+          semester={semester}
           source="offering-improved"
           sourcePath="/admin/learning-analytics/offerings"
         />
@@ -528,6 +540,7 @@ export default function LearningAnalyticsOfferingsPage() {
     ready,
     apiParams,
     withWorkingSet,
+    workingSetScope,
     token,
   } = useLearningAnalyticsBootstrap({
     scopeKeys: OFFERING_SCOPE_KEYS,
@@ -656,6 +669,7 @@ export default function LearningAnalyticsOfferingsPage() {
         title="課／師／活動"
         showWorkingSet
         workingSetHere="offerings"
+        workingSetScope={workingSetScope}
         question="看某一門課、一位教師或一場活動：多少人參與、多少人可算成長、進步多少。"
         scope="依課程、教師或活動彙總。數字是觀察關聯，不是「上了就會進步」。"
         howToRead={(
@@ -937,6 +951,8 @@ export default function LearningAnalyticsOfferingsPage() {
                                       skewFlagged={skewFlagged}
                                       direction={stats.direction}
                                       handoffLabel={row.label || '這份名單的學生'}
+                                      snapshotVersion={appliedFilters.snapshot_version || ''}
+                                      semester={appliedFilters.semester || ''}
                                     />
                                   ) : null}
                                 </div>

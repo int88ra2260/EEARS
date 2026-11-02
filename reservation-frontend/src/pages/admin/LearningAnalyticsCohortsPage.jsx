@@ -101,6 +101,7 @@ export default function LearningAnalyticsCohortsPage() {
     apiParams,
 
     withWorkingSet,
+    workingSetScope,
 
     token,
 
@@ -168,6 +169,7 @@ export default function LearningAnalyticsCohortsPage() {
         title="系所比較"
         showWorkingSet
         workingSetHere="cohorts"
+        workingSetScope={workingSetScope}
         question="依系所或入學年，看學生人數、英檢覆蓋與前後測樣本差在哪。"
         scope="分析快照裡的學生。怎麼切只改表格分組，不另算一套人。"
         howToRead={(

@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
+import { isFinderWorkspace } from '../../constants/adminNavigation';
 import '../../components/learningAnalytics/learningAnalytics.css';
 
 /**
- * 頁內依四件事分列：上呈、找人、看資源、比較與資料。
- * 滑過頁名可看這頁在回答什麼。左側選單分組與這裡相同。
+ * 頁內分列：上呈、看資源、比較與資料。
+ * 找學生只留在左側選單；條件探索、接近 B2、追蹤名單與學號用頁內流程切換。
  */
 const NAV_GROUPS = [
   {
@@ -23,32 +24,6 @@ const NAV_GROUPS = [
         to: '/admin/learning-analytics/kpi-report',
         label: 'B2 KPI 報表',
         hint: '上呈：聽讀成對、說寫成對達標',
-      },
-    ],
-  },
-  {
-    id: 'people',
-    title: '找人',
-    items: [
-      {
-        to: '/admin/learning-analytics/b1-plus',
-        label: '接近 B2',
-        hint: 'GSE 51–58：前測、修課、活動',
-      },
-      {
-        to: '/admin/learning-analytics/explore',
-        label: '學生探索',
-        hint: '左側篩選，右側看名單',
-      },
-      {
-        to: '/admin/learning-analytics/tracking-cohorts',
-        label: '追蹤名單',
-        hint: '固定一批學生，之後回來看變化',
-      },
-      {
-        to: '/admin/learning-analytics/students',
-        label: '個人軌跡',
-        hint: '從名單點進輔導摘要',
       },
     ],
   },
@@ -98,6 +73,8 @@ const NAV_GROUPS = [
 ];
 
 export default function LearningAnalyticsLayout() {
+  const location = useLocation();
+  const finderWorkspace = isFinderWorkspace(location.pathname);
   const canManageSettings = useMemo(() => {
     const token = localStorage.getItem('token');
     return hasPermission(buildAccessProfile(token), P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS);
@@ -113,7 +90,7 @@ export default function LearningAnalyticsLayout() {
 
   return (
     <div className="learning-analytics-shell">
-      <nav className="la-subnav-rows" aria-label="學習成效分析">
+      {finderWorkspace ? null : <nav className="la-subnav-rows" aria-label="學習成效分析">
         {groups.map((group) => (
           <div key={group.id} className="la-subnav-row">
             <span className="la-subnav-row-title">{group.title}</span>
@@ -132,7 +109,7 @@ export default function LearningAnalyticsLayout() {
             </div>
           </div>
         ))}
-      </nav>
+      </nav>}
       <Outlet />
     </div>
   );

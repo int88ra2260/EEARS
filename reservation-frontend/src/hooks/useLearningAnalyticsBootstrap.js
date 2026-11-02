@@ -97,7 +97,18 @@ export function useLearningAnalyticsBootstrap({
     () => filtersToApiParams(appliedFilters),
     [appliedFilters]
   );
-  const workingSet = useLearningAnalyticsWorkingSet();
+  const workingSetScope = useMemo(() => {
+    const keys = scopeKeys || ['snapshot_version', 'semester'];
+    const scope = {};
+    if (keys.includes('snapshot_version')) {
+      scope.snapshotVersion = appliedFilters.snapshot_version || '';
+    }
+    if (keys.includes('semester')) {
+      scope.semester = appliedFilters.semester || '';
+    }
+    return scope;
+  }, [appliedFilters.semester, appliedFilters.snapshot_version, scopeKeys]);
+  const workingSet = useLearningAnalyticsWorkingSet(workingSetScope);
   const withWorkingSet = workingSet.withWorkingSet;
 
   const writeUrl = useCallback((nextFilters) => {
@@ -137,6 +148,7 @@ export function useLearningAnalyticsBootstrap({
     ready,
     apiParams,
     withWorkingSet,
+    workingSetScope,
     semesterFromUrl,
   };
 }

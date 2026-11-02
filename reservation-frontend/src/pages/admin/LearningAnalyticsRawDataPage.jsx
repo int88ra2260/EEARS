@@ -37,6 +37,7 @@ export default function LearningAnalyticsRawDataPage() {
     ready,
     apiParams,
     withWorkingSet,
+    workingSetScope,
     token,
   } = useLearningAnalyticsBootstrap({ scopeKeys: RAW_EXPORT_FILTER_KEYS });
   const [dataset, setDataset] = useState('students');
@@ -137,6 +138,7 @@ export default function LearningAnalyticsRawDataPage() {
         title="資料匯出"
         showWorkingSet
         workingSetHere="export"
+        workingSetScope={workingSetScope}
         question="預覽並下載目前分析快照的底層資料。"
         scope="這是分析摘要，不是全系統原始檔。調整條件後按套用篩選，再匯出。預覽最多 100 筆。"
       >
