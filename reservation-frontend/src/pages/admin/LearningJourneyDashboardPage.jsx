@@ -320,7 +320,7 @@ export default function LearningJourneyDashboardPage() {
     <div className="container-fluid py-3">
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <p className="text-muted mb-0">
-          依學期查看 CEFR B2 以上人數、分項統計與學生清單。請用下方「學生清單」以學號或姓名搜尋。
+          依學期查看單技能 CEFR B2 以上人數、分項統計與學生清單。資料範圍：學期名冊。
         </p>
       </div>
 
@@ -348,7 +348,7 @@ export default function LearningJourneyDashboardPage() {
       </div>
 
       <div className="card mb-3">
-        <div className="card-header fw-semibold">成效分析摘要</div>
+        <div className="card-header fw-semibold">學習成效分析</div>
         <div className="card-body">
           <LearningJourneyAnalyticsPanel token={token} semesterId={semesterId} />
         </div>

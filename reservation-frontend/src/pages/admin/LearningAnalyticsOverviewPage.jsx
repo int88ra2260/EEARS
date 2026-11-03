@@ -19,6 +19,7 @@ import MetricCard from '../../components/learningAnalytics/MetricCard';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
+import OutcomesModeSwitch from '../../components/learningAnalytics/OutcomesModeSwitch';
 import MicroLearningEngagementPanel from '../../components/learningAnalytics/MicroLearningEngagementPanel';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
 import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
@@ -136,20 +137,21 @@ export default function LearningAnalyticsOverviewPage() {
         snapshotVersion={appliedFilters.snapshot_version}
       />
       <LearningAnalyticsPageFrame
-        title="總覽"
+        title="學習成效概況"
         showWorkingSet
         workingSetHere="overview"
         workingSetScope={workingSetScope}
-        question="看分析快照裡的能力分布，以及有多少人資料夠用來比較。"
-        scope="上呈的聽讀成對、說寫成對達標在 B2 KPI 報表。這一頁不計算學期達標人數。"
+        question="查看學生英語能力分布、資料覆蓋情況與可比較的學習紀錄。"
         howToRead={(
           <ol className="small mb-0 ps-3">
-            <li className="mb-1">要看這個學期名冊的成對達標與缺口名單，到 B2 KPI 報表。</li>
-            <li className="mb-1">要找尚未達 B2、GSE 在 51–58 的人，到接近 B2；要看同一批學生，到學生探索。</li>
-            <li>若下面顯示尚無資料，請先到學習歷程維運執行背景重建。</li>
+            <li className="mb-1">這一頁的人數來自分析快照，不是學期名冊，也不是聽讀成對或說寫成對 KPI。</li>
+            <li className="mb-1">不同測驗、不同技能的 CEFR 只是分布對照，不是同一項正式能力指標。</li>
+            <li>資源參與不能解釋成能力成長的原因。</li>
           </ol>
         )}
       >
+      <OutcomesModeSwitch />
+      <p className="la-scope-note">分析範圍：學習成效快照</p>
       {(semesterFromUrl || filters.semester) ? (
         <Alert variant="light" className="small py-2 mb-3 border">
           您是從學習歷程儀表板進入？
@@ -215,10 +217,8 @@ export default function LearningAnalyticsOverviewPage() {
         {!loading && data?.hasData ? (
           <>
             <Alert variant="secondary" className="small py-2 mt-2">
-              學期名冊的聽讀成對、說寫成對達標在
-              {' '}
-              <Link to="/admin/learning-analytics/kpi-report">B2 KPI 報表</Link>
-              。
+              圖上的 CEFR 是各來源等級的人數分布。缺資料的人留在缺漏，不算未達標。
+              聽讀成對與說寫成對請切到「學期 B2 KPI」。
             </Alert>
 
             <Row className="g-3 mt-1">
@@ -309,7 +309,16 @@ export default function LearningAnalyticsOverviewPage() {
               </Col>
             </Row>
 
-            <Row className="g-3 mt-1">
+            <p className="small text-muted mt-3 mb-2">
+              資源時數與可觀察樣本的詳細分析在
+              {' '}
+              <Link to="/admin/learning-analytics/resources">資源覆蓋</Link>
+              。參與紀錄不是能力成長的原因。
+            </p>
+            <details className="la-panel mb-3">
+              <summary className="fw-semibold">資源參與摘要</summary>
+              <div className="pt-3">
+            <Row className="g-3">
               <Col lg={7}>
                 <div className="la-panel">
                   <LearningAnalyticsPanelHeader
@@ -365,6 +374,8 @@ export default function LearningAnalyticsOverviewPage() {
                 </div>
               </Col>
             </Row>
+              </div>
+            </details>
 
             <Row className="g-3 mt-1">
               <Col md={6}>
@@ -407,7 +418,12 @@ export default function LearningAnalyticsOverviewPage() {
               </Col>
             </Row>
 
-            <MicroLearningEngagementPanel token={token} ready={ready} />
+            <details className="la-panel mt-3">
+              <summary className="fw-semibold">微學習參與</summary>
+              <div className="pt-3">
+                <MicroLearningEngagementPanel token={token} ready={ready} />
+              </div>
+            </details>
           </>
         ) : null}
       </section>

@@ -22,7 +22,7 @@ const NAV_GROUPS = [
       },
       {
         to: '/admin/learning-analytics/kpi-report',
-        label: 'B2 KPI 報表',
+        label: '學期 B2 KPI',
         hint: '上呈：聽讀成對、說寫成對達標',
       },
     ],
@@ -75,6 +75,7 @@ const NAV_GROUPS = [
 export default function LearningAnalyticsLayout() {
   const location = useLocation();
   const finderWorkspace = isFinderWorkspace(location.pathname);
+  const outcomesWorkspace = /\/learning-analytics\/(overview|kpi-report)\/?$/.test(location.pathname);
   const canManageSettings = useMemo(() => {
     const token = localStorage.getItem('token');
     return hasPermission(buildAccessProfile(token), P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS);
@@ -90,7 +91,7 @@ export default function LearningAnalyticsLayout() {
 
   return (
     <div className="learning-analytics-shell">
-      {finderWorkspace ? null : <nav className="la-subnav-rows" aria-label="學習成效分析">
+      {finderWorkspace || outcomesWorkspace ? null : <nav className="la-subnav-rows" aria-label="學習成效分析">
         {groups.map((group) => (
           <div key={group.id} className="la-subnav-row">
             <span className="la-subnav-row-title">{group.title}</span>

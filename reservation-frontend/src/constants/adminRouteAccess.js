@@ -405,7 +405,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/learning-analytics/kpi-report',
-    label: 'B2 KPI 報表',
+    label: '學期 B2 KPI',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },

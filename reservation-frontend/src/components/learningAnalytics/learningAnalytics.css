@@ -1470,3 +1470,44 @@ th.text-center .la-colhead {
   align-items: center;
   text-align: center;
 }
+
+.outcomes-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.outcomes-mode a {
+  border: 1px solid var(--la-border);
+  border-radius: 999px;
+  color: var(--la-ink);
+  padding: 0.28rem 0.8rem;
+  text-decoration: none;
+}
+
+.outcomes-mode a.active {
+  background: var(--la-accent);
+  border-color: var(--la-accent);
+  color: #fff;
+}
+
+.la-scope-note {
+  background: var(--la-surface);
+  border: 1px solid var(--la-border);
+  border-radius: 0.5rem;
+  color: var(--la-ink);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.la-kpi-table td,
+.la-kpi-table th {
+  white-space: nowrap;
+}
+
+.la-kpi-table td.text-end,
+.la-kpi-table th.text-end {
+  text-align: right;
+}

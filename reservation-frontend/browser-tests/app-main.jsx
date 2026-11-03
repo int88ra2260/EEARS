@@ -18,6 +18,8 @@ import ClassBestepOverview from '../src/components/ClassBestepOverview';
 import AnalyticsHubPage from '../src/pages/admin/AnalyticsHubPage';
 import AdminAnalyticsPage from '../src/pages/admin/AdminAnalyticsPage';
 import LearningAnalyticsLayout from '../src/pages/admin/LearningAnalyticsLayout';
+import LearningAnalyticsOverviewPage from '../src/pages/admin/LearningAnalyticsOverviewPage';
+import LearningJourneyDashboardPage from '../src/pages/admin/LearningJourneyDashboardPage';
 import LearningAnalyticsB1PlusPage from '../src/pages/admin/LearningAnalyticsB1PlusPage';
 import LearningAnalyticsKpiReportPage from '../src/pages/admin/LearningAnalyticsKpiReportPage';
 import LearningAnalyticsResourcesPage from '../src/pages/admin/LearningAnalyticsResourcesPage';
@@ -86,7 +88,9 @@ function AppHarness() {
             <Route path="classes" element={<ClassOverview />} />
             <Route path="classes/:classId/bestep" element={<ClassBestepOverview />} />
             <Route path="english-test" element={<EnglishTestManagement />} />
+            <Route path="learning-journey" element={<LearningJourneyDashboardPage />} />
             <Route path="learning-analytics" element={<LearningAnalyticsLayout />}>
+              <Route path="overview" element={<LearningAnalyticsOverviewPage />} />
               <Route path="resources" element={<LearningAnalyticsResourcesPage />} />
               <Route path="skills" element={<LearningAnalyticsSkillsPage />} />
               <Route path="kpi-report" element={<LearningAnalyticsKpiReportPage />} />

@@ -21,6 +21,7 @@ export default function LearningAnalyticsNextSteps({
   snapshotVersion = '',
   semester = '',
   hide = [],
+  title = '',
 }) {
   const navigate = useNavigate();
   const ids = useMemo(() => normalizeStudentIds(studentIds), [studentIds]);
@@ -52,7 +53,7 @@ export default function LearningAnalyticsNextSteps({
   return (
     <div className="la-next">
       <div className="la-next-copy">
-        <div className="la-next-title">接下來看這批人</div>
+        <div className="la-next-title">{title || '接下來看這批人'}</div>
         <p className="la-next-note mb-0">
           {label}，{countText}
           {note ? `。${note}` : '。'}
