@@ -1564,6 +1564,23 @@ th.text-center .la-colhead {
   gap: 0.35rem;
 }
 
+.la-compare-summary {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  margin: 0.75rem 0 1rem;
+}
+
+.la-compare-summary span {
+  color: var(--la-muted);
+  display: block;
+  font-size: 0.75rem;
+}
+
+.la-compare-summary strong {
+  font-size: 1.25rem;
+}
+
 .la-dimension button[aria-pressed="true"] {
   background: var(--la-accent);
   border-color: var(--la-accent);

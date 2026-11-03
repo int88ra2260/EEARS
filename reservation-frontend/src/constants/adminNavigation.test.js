@@ -196,6 +196,32 @@ describe('資源與開課 sidebar entry', () => {
   });
 });
 
+describe('群體與技能比較 sidebar entry', () => {
+  const ctx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
+
+  function visibleLabels(nodes, labels = []) {
+    for (const node of nodes || []) {
+      if (node.children?.length && !node.path) visibleLabels(node.children, labels);
+      else labels.push(node.label);
+    }
+    return labels;
+  }
+
+  it('keeps one entry and both old urls', () => {
+    const labels = visibleLabels(filterVisibleNav(ADMIN_NAV_SECTIONS, ctx));
+    expect(labels.filter((label) => label === '群體與技能比較')).toEqual(['群體與技能比較']);
+    expect(labels.filter((label) => ['系所比較', '技能成長'].includes(label))).toEqual([]);
+    expect(getAdminPageMeta('/admin/learning-analytics/cohorts', ctx)).toMatchObject({
+      pageTitle: '群體與技能比較',
+      childId: 'learning-analytics-cohorts',
+    });
+    expect(getAdminPageMeta('/admin/learning-analytics/skills', ctx)).toMatchObject({
+      pageTitle: '群體與技能比較',
+      childId: 'learning-analytics-cohorts',
+    });
+  });
+});
+
 describe('找學生 sidebar entry', () => {
   const ctx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
 
@@ -313,7 +339,7 @@ describe('getAdminBreadcrumbs', () => {
       '後台',
       '學習歷程與成果',
       '學習成效',
-      '系所比較',
+      '群體與技能比較',
     ]);
   });
 

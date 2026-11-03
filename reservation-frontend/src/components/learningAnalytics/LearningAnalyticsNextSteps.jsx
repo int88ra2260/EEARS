@@ -6,7 +6,7 @@ import { normalizeStudentIds, saveWorkingSet } from '../../utils/learningAnalyti
 
 const DESTINATIONS = [
   { id: 'kpi', label: '看這批人的 B2 達標', path: '/admin/learning-analytics/kpi-report', variant: 'primary' },
-  { id: 'export', label: '匯出這批人的資料', path: '/admin/learning-analytics/raw-data', variant: 'outline-primary' },
+  { id: 'export', label: '前往原始資料匯出', path: '/admin/learning-analytics/raw-data', variant: 'outline-primary' },
   { id: 'explore', label: '在學生探索打開', path: '/admin/learning-analytics/explore', variant: 'outline-secondary' },
 ];
 
@@ -22,6 +22,7 @@ export default function LearningAnalyticsNextSteps({
   semester = '',
   hide = [],
   title = '',
+  canExport = true,
 }) {
   const navigate = useNavigate();
   const ids = useMemo(() => normalizeStudentIds(studentIds), [studentIds]);
@@ -31,7 +32,11 @@ export default function LearningAnalyticsNextSteps({
   const countText = truncated && shownTotal > ids.length
     ? `${formatCount(ids.length)} / ${formatCount(shownTotal)} 人`
     : `${formatCount(ids.length)} 人`;
-  const actions = DESTINATIONS.filter((item) => !hide.includes(item.id));
+  const actions = DESTINATIONS.filter((item) => {
+    if (hide.includes(item.id)) return false;
+    if (item.id === 'export' && canExport === false) return false;
+    return true;
+  });
 
   const go = (path) => {
     saveWorkingSet({

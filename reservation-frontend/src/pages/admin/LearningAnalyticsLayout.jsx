@@ -44,13 +44,8 @@ const NAV_GROUPS = [
     items: [
       {
         to: '/admin/learning-analytics/cohorts',
-        label: '系所比較',
-        hint: '依系所／入學年看 GSE 差異',
-      },
-      {
-        to: '/admin/learning-analytics/skills',
-        label: '技能成長',
-        hint: '聽讀說寫 GSE 成長',
+        label: '群體與技能比較',
+        hint: '群體英檢覆蓋與四技能前後測',
       },
       {
         to: '/admin/learning-analytics/raw-data',
@@ -72,6 +67,7 @@ export default function LearningAnalyticsLayout() {
   const finderWorkspace = isFinderWorkspace(location.pathname);
   const outcomesWorkspace = /\/learning-analytics\/(overview|kpi-report)\/?$/.test(location.pathname);
   const resourcesWorkspace = /\/learning-analytics\/(resources|offerings)\/?$/.test(location.pathname);
+  const comparisonWorkspace = /\/learning-analytics\/(cohorts|skills)\/?$/.test(location.pathname);
   const canManageSettings = useMemo(() => {
     const token = localStorage.getItem('token');
     return hasPermission(buildAccessProfile(token), P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS);
@@ -87,7 +83,7 @@ export default function LearningAnalyticsLayout() {
 
   return (
     <div className="learning-analytics-shell">
-      {finderWorkspace || outcomesWorkspace || resourcesWorkspace ? null : <nav className="la-subnav-rows" aria-label="學習成效分析">
+      {finderWorkspace || outcomesWorkspace || resourcesWorkspace || comparisonWorkspace ? null : <nav className="la-subnav-rows" aria-label="學習成效分析">
         {groups.map((group) => (
           <div key={group.id} className="la-subnav-row">
             <span className="la-subnav-row-title">{group.title}</span>

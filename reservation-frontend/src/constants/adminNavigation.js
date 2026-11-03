@@ -590,21 +590,15 @@ export const ADMIN_NAV_SECTIONS = [
             children: [
               {
                 id: 'learning-analytics-cohorts',
-                label: '系所比較',
+                label: '群體與技能比較',
                 path: '/admin/learning-analytics/cohorts',
-                matchPrefixes: ['/admin/learning-analytics/cohorts'],
+                matchPrefixes: [
+                  '/admin/learning-analytics/cohorts',
+                  '/admin/learning-analytics/skills',
+                ],
                 visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '系所／入學年比較',
-                breadcrumbLabel: '系所比較',
-              },
-              {
-                id: 'learning-analytics-skills',
-                label: '技能成長',
-                path: '/admin/learning-analytics/skills',
-                matchPrefixes: ['/admin/learning-analytics/skills'],
-                visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '聽讀說寫技能成長',
-                breadcrumbLabel: '技能成長',
+                pageTitle: '群體與技能比較',
+                breadcrumbLabel: '群體與技能比較',
               },
               {
                 id: 'learning-analytics-raw',

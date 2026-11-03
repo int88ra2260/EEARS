@@ -411,7 +411,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/learning-analytics/cohorts',
-    label: '系所比較',
+    label: '群體與技能比較',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
@@ -429,7 +429,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/learning-analytics/skills',
-    label: '技能成長',
+    label: '群體與技能比較',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
     exact: false,

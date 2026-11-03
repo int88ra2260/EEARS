@@ -35,7 +35,9 @@ describe('AdminSidebar nested navigation', () => {
     const compareGroup = screen.getByRole('button', { name: '比較與資料' });
     expect(compareGroup).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(compareGroup);
-    expect(screen.getByRole('link', { name: '系所比較' })).toHaveAttribute('href', '/admin/learning-analytics/cohorts');
+    expect(screen.getByRole('link', { name: '群體與技能比較' })).toHaveAttribute('href', '/admin/learning-analytics/cohorts');
+    expect(screen.queryByRole('link', { name: '系所比較' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '技能成長' })).not.toBeInTheDocument();
   });
 
   test('highlights 找學生 for the old finder urls', () => {
@@ -64,7 +66,7 @@ describe('AdminSidebar nested navigation', () => {
     expect(screen.getByRole('button', { name: '學習歷程與成果' })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('button', { name: '學習成效' })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('button', { name: '問卷與回饋' })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('link', { name: '系所比較' })).toHaveClass('admin-sidebar__link--active');
+    expect(screen.getByRole('link', { name: '群體與技能比較' })).toHaveClass('admin-sidebar__link--active');
   });
 
   test('collapse all and expand all cover nested groups', () => {
