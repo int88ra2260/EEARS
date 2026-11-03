@@ -776,12 +776,12 @@ export const ADMIN_NAV_SECTIONS = [
       },
       {
         id: 'analytics-risk',
-        label: '高風險行政追蹤',
+        label: '高關注名單',
         path: '/admin/analytics/risk',
         matchPrefixes: ['/admin/analytics/risk'],
         visibility: 'adminOnly',
-        pageTitle: '高風險行政追蹤',
-        breadcrumbLabel: '高風險行政追蹤',
+        pageTitle: '高關注名單',
+        breadcrumbLabel: '高關注名單',
       },
       {
         id: 'analytics-reports',

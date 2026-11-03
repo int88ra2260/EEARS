@@ -16,6 +16,7 @@ import {
 import dayjs from 'dayjs';
 import { getCurrentSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
 import { buildAccessProfile } from '../../utils/accessControl';
+import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
 import { buildOperationsObservation } from './operationsObservation';
 import {
   fetchAnalyticsClasses,
@@ -49,6 +50,33 @@ import {
   isAllNumericZero,
 } from './activityOpsPresentation';
 import './AdminAnalyticsPage.css';
+import './operationsSurfaces.css';
+
+function useNarrowScreen() {
+  const query = '(max-width: 767.98px)';
+  const [narrow, setNarrow] = useState(() => (
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(query).matches
+      : false
+  ));
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const media = window.matchMedia(query);
+    const apply = () => setNarrow(media.matches);
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, []);
+  return narrow;
+}
+
+function eventDetailHref(eventId, accessProfile) {
+  const id = Number(eventId);
+  if (!Number.isInteger(id) || id <= 0) return '';
+  const href = `/admin/operations/${id}`;
+  if (!canAccessAdminRoute(accessProfile, href)) return '';
+  return href;
+}
 
 function formatDateLabel(dateStr) {
   if (!dateStr) return '';
@@ -135,28 +163,6 @@ function normalizeCapacityBreakdownPayload(json) {
   }
 
   return null;
-}
-
-function summarizeApiData(json) {
-  if (json == null) return 'empty';
-  if (Array.isArray(json)) return `array(${json.length})`;
-  if (typeof json !== 'object') return String(json).slice(0, 120);
-  try {
-    return JSON.stringify(json).slice(0, 300);
-  } catch (_) {
-    return '[unserializable object]';
-  }
-}
-
-function describeApiShape(json) {
-  if (json == null) return 'empty';
-  if (Array.isArray(json)) return `array(${json.length})`;
-  if (typeof json !== 'object') return typeof json;
-  const keys = Object.keys(json).slice(0, 8);
-  const dataKeys = json.data && typeof json.data === 'object' ? Object.keys(json.data).slice(0, 8) : [];
-  return dataKeys.length
-    ? `keys: ${keys.join(', ') || '(none)'}; data keys: ${dataKeys.join(', ')}`
-    : `keys: ${keys.join(', ') || '(none)'}`;
 }
 
 function RegistrationSupplement({ rateLabel }) {
@@ -310,7 +316,7 @@ export default function AdminAnalyticsPage() {
           const bdMsg = parseApiError(bdRes, bdJson);
           setCapacityBreakdownError(
             bdRes.ok
-              ? `分項名額資料格式異常（HTTP ${bdRes.status}; ${describeApiShape(bdJson)}; raw: ${summarizeApiData(bdJson)}），請重新整理或聯絡管理員。`
+              ? '分項名額的回應格式無法讀取。請重新整理。'
               : bdMsg
           );
         }
@@ -454,6 +460,7 @@ export default function AdminAnalyticsPage() {
   };
 
   const dateWindowLabel = activityDateWindow || '此學期尚未列入共用日期設定';
+  const narrow = useNarrowScreen();
 
   return (
     <div className="container-fluid px-2 px-md-3 ops-overview">
@@ -617,6 +624,7 @@ export default function AdminAnalyticsPage() {
               <p className="text-muted small mb-3">
                 類型表與場次表是同一份分項的不同粒度。類型列不與另一種形狀再加總。口徑與上方預約名額比相同：預約筆數 ÷ 活動名額。
                 活動日期 <strong>{activityDateWindow || semester}</strong>。
+                場次會列出這個活動日期區間內的活動，場次名額加總等於活動總名額。
               </p>
               {capacityBreakdownError && (
                 <Alert variant="warning" className="py-2 small mb-3">
@@ -630,7 +638,30 @@ export default function AdminAnalyticsPage() {
                   YYYY-MM-DD）。
                 </Alert>
               )}
-              {capacityBreakdown.byEventType.length > 0 && (
+              {capacityBreakdown.byEventType.length > 0 && (narrow ? (
+                <div className="mb-4" data-testid="capacity-by-type">
+                  <div className="text-muted small mb-2">依活動類型</div>
+                  {capacityBreakdown.byEventType.map((row) => (
+                    <article key={row.eventType} className="ops-result-card">
+                      <h3>{row.eventType}</h3>
+                      <dl className="ops-result-card__metrics">
+                        <div>
+                          <dt>活動名額</dt>
+                          <dd>{formatCount(row.totalEventCapacity)}</dd>
+                        </div>
+                        <div>
+                          <dt>預約筆數</dt>
+                          <dd>{formatCount(row.totalReservations)}</dd>
+                        </div>
+                        <div>
+                          <dt>預約名額比</dt>
+                          <dd>{formatPct1(row.bookingRate)}</dd>
+                        </div>
+                      </dl>
+                    </article>
+                  ))}
+                </div>
+              ) : (
                 <div className="mb-4 ops-overview__table-wrap" data-testid="capacity-by-type">
                   <div className="text-muted small mb-2">依活動類型</div>
                   <div className="table-responsive">
@@ -656,8 +687,41 @@ export default function AdminAnalyticsPage() {
                     </Table>
                   </div>
                 </div>
-              )}
-              {capacityBreakdown.byEvent.length > 0 && (
+              ))}
+              {capacityBreakdown.byEvent.length > 0 && (narrow ? (
+                <div data-testid="capacity-by-event">
+                  <div className="text-muted small mb-2">依場次（活動）</div>
+                  <p className="small text-muted">
+                    {canAccessAdminRoute(accessProfile, '/admin/operations/1')
+                      ? '查看這場活動會打開既有活動明細。該頁不會自動套用這裡的學期。'
+                      : '這個帳號不能開啟活動明細，所以這裡只列出場次。'}
+                  </p>
+                  {capacityBreakdown.byEvent.map((row) => {
+                    const href = eventDetailHref(row.eventId, accessProfile);
+                    return (
+                      <article key={row.eventId || row.eventName} className="ops-result-card">
+                        <h3>{row.eventName}</h3>
+                        <p className="small text-muted mb-0">{`${formatDateLabel(row.eventDate)} · ${row.eventType}`}</p>
+                        <dl className="ops-result-card__metrics">
+                          <div>
+                            <dt>名額</dt>
+                            <dd>{formatCount(row.maxCapacity)}</dd>
+                          </div>
+                          <div>
+                            <dt>已預約</dt>
+                            <dd>{formatCount(row.totalReservations)}</dd>
+                          </div>
+                          <div>
+                            <dt>預約名額比</dt>
+                            <dd>{formatPct1(row.bookingRate)}</dd>
+                          </div>
+                        </dl>
+                        {href ? <Link to={href}>查看這場活動</Link> : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
                 <div className="ops-overview__table-wrap" data-testid="capacity-by-event">
                   <div className="text-muted small mb-2">依場次（活動）</div>
                   <div className="table-responsive" style={{ maxHeight: 420, overflowY: 'auto' }}>
@@ -673,21 +737,33 @@ export default function AdminAnalyticsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {capacityBreakdown.byEvent.map((row) => (
-                          <tr key={row.eventId}>
+                        {capacityBreakdown.byEvent.map((row) => {
+                          const href = eventDetailHref(row.eventId, accessProfile);
+                          return (
+                          <tr key={row.eventId || row.eventName}>
                             <td>{formatDateLabel(row.eventDate)}</td>
-                            <td>{row.eventName}</td>
+                            <td>
+                              {href ? (
+                                <Link to={href}>{row.eventName}</Link>
+                              ) : row.eventName}
+                            </td>
                             <td>{row.eventType}</td>
                             <td className="text-end">{formatCount(row.maxCapacity)}</td>
                             <td className="text-end">{formatCount(row.totalReservations)}</td>
                             <td className="text-end">{formatPct1(row.bookingRate)}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </Table>
                   </div>
+                  <p className="small text-muted mt-2 mb-0">
+                    {canAccessAdminRoute(accessProfile, '/admin/operations/1')
+                      ? '查看這場活動會打開既有活動明細。該頁不會自動套用這裡的學期。'
+                      : '這個帳號不能開啟活動明細，所以這裡只列出場次。'}
+                  </p>
                 </div>
-              )}
+              ))}
             </>
           )}
 
@@ -723,7 +799,32 @@ export default function AdminAnalyticsPage() {
             emptyHint="尚無足夠資料產生圖表（活動趨勢、簽到趨勢或班級排行皆為空）。"
           />
         )}
-        {!chartsLoading && !chartsError && !chartsNoData && (
+        {!chartsLoading && !chartsError && !chartsNoData && narrow && (
+          <div data-testid="ops-chart-list">
+            <article className="ops-result-card">
+              <h3>活動趨勢（依活動日期）</h3>
+              <p className="small text-muted">每日預約筆數，單位是筆。</p>
+              {activityChartData.map((row) => (
+                <p key={row.rawDate || row.date} className="mb-1">{row.date}：{formatCount(row.reservationsCount)} 筆</p>
+              ))}
+            </article>
+            <article className="ops-result-card">
+              <h3>預約列簽到率（依活動日期）</h3>
+              <p className="small text-muted">已簽到預約列 ÷ 當日預約列，單位是百分比。</p>
+              {attendanceChartData.map((row) => (
+                <p key={row.rawDate || row.date} className="mb-1">{row.date}：{formatPct1(row.attendanceRate)}</p>
+              ))}
+            </article>
+            <article className="ops-result-card">
+              <h3>班級違規狀態比（前 10 名）</h3>
+              <p className="small text-muted">違規狀態的預約列 ÷ 該班預約列。</p>
+              {classChartData.map((row) => (
+                <p key={row.classKey} className="mb-1">{row.classKey}：{formatPct1(row.violationRate)}</p>
+              ))}
+            </article>
+          </div>
+        )}
+        {!chartsLoading && !chartsError && !chartsNoData && !narrow && (
           <>
             <div className="row g-3 mb-3">
               <div className="col-12 col-lg-6">

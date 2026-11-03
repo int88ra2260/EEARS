@@ -13,7 +13,7 @@ const OPERATIONS_LINKS = [
   },
   {
     id: 'risk',
-    label: '高風險行政追蹤',
+    label: '高關注名單',
     to: '/admin/analytics/risk',
     detail: '既有行政例外清單。',
   },

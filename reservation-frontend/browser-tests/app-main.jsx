@@ -6,6 +6,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useParams,
 } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../src/index.css';
@@ -17,6 +18,8 @@ import ClassOverview from '../src/components/ClassOverview';
 import ClassBestepOverview from '../src/components/ClassBestepOverview';
 import AnalyticsHubPage from '../src/pages/admin/AnalyticsHubPage';
 import AdminAnalyticsPage from '../src/pages/admin/AdminAnalyticsPage';
+import RiskDetectionPage from '../src/components/RiskDetectionPage';
+import ReportPage from '../src/components/ReportPage';
 import LearningAnalyticsLayout from '../src/pages/admin/LearningAnalyticsLayout';
 import LearningAnalyticsOverviewPage from '../src/pages/admin/LearningAnalyticsOverviewPage';
 import LearningJourneyDashboardPage from '../src/pages/admin/LearningJourneyDashboardPage';
@@ -38,6 +41,11 @@ import { applyHarnessAuth } from './appAuth';
 const params = new URLSearchParams(window.location.search);
 const profile = params.get('profile') || 'admin';
 const boot = applyHarnessAuth(profile);
+
+function HarnessStudentRedirect() {
+  const { studentId } = useParams();
+  return <Navigate to={`/admin/learning-journey/students/${encodeURIComponent(studentId || '')}`} replace />;
+}
 
 function AdminShell({ auth, onLogout }) {
   const location = useLocation();
@@ -86,6 +94,11 @@ function AppHarness() {
           <Route path="/admin" element={<AdminShell auth={auth} onLogout={logout} />}>
             <Route path="analytics" element={<AnalyticsHubPage />} />
             <Route path="analytics/overview" element={<AdminAnalyticsPage />} />
+            <Route path="analytics/risk" element={<RiskDetectionPage />} />
+            <Route path="analytics/trends" element={<Navigate to="/admin/analytics/overview" replace />} />
+            <Route path="analytics/teacher-impact" element={<Navigate to="/admin/analytics/overview" replace />} />
+            <Route path="analytics/student/:studentId" element={<HarnessStudentRedirect />} />
+            <Route path="reports" element={<ReportPage />} />
             <Route path="operations" element={<AdminHome />} />
             <Route path="classes" element={<ClassOverview />} />
             <Route path="classes/:classId/bestep" element={<ClassBestepOverview />} />

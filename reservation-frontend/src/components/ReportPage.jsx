@@ -1,24 +1,43 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Card, Form, Button, Alert, Modal } from 'react-bootstrap';
+import { Form, Button, Alert, Modal } from 'react-bootstrap';
 import { SEMESTER_OPTIONS } from '../utils/semesterUtils';
 import { handleAPIError, showSuccessMessage } from '../utils/errorHandler';
 import { fetchClient } from '../utils/fetchClient';
 import { parseFilenameFromContentDisposition } from '../utils/reportDownload';
+import { hasPermission } from '../utils/accessControl';
+import { P } from '../constants/permissions';
+import '../pages/admin/operationsSurfaces.css';
+
+const REPORTS = [
+  {
+    id: 'overview',
+    title: '活動營運總覽工作簿',
+    purpose: '留存某一學期的活動預約，並附上既有的班級行政追蹤。',
+    range: '所選學期活動日期內的活動與預約，另含班級行政追蹤。',
+    sheets: '報表摘要、活動預約營運、班級行政追蹤',
+    detail: '這不是活動營運總覽畫面的逐列存檔。工作簿沿用既有欄名：總預約數、預約率、簽到出席率（預約）。這些數字與總覽頁同一組結果，欄名與畫面上的「預約筆數」「預約名額比」「預約列簽到率」不同。只有學期會進入檔案。下載檔名會標成 overview 與該學期。',
+  },
+  {
+    id: 'high-risk',
+    title: '高關注名單工作簿',
+    purpose: '匯出所選學期班級名冊裡、依既有 high 規則列出的學生，供行政追蹤。',
+    range: '所選學期的班級名冊，只含目前標成 high 的學生。',
+    sheets: '報表摘要、高風險名單',
+    detail: '這份檔案依所選學期重新產生，不套用高關注名單頁的搜尋字，也不是學習成效不足的判定。工作表名稱仍是既有的「高風險名單」。下載檔名會標成 high-risk 與該學期。',
+  },
+];
 
 const METRIC_HELP_SUMMARY = (
   <>
     <p className="mb-2">
-      <strong>活動營運總覽</strong>：只包含活動預約數、名額利用率、簽到出席率、違規率，以及班級名冊層級的行政追蹤指標。
+      活動營運總覽工作簿的活動表，使用與活動營運總覽相同的預約筆數、名額與簽到列。檔案裡的欄名仍是既有報表用詞。
     </p>
     <p className="mb-2">
-      <strong>高風險學生名單</strong>：母體為 <code>class_memberships</code> 班級名冊，只列出 riskLevel=high 的行政追蹤名單。
-    </p>
-    <p className="mb-2">
-      <strong>不含正式學習成效</strong>：B2 KPI、學生能力軌跡、技能成長、系所比較與課／師／活動成效分析，請至「學習成效分析」。
+      高關注名單工作簿的母體是班級名冊，只列出既有 high。它與活動營運總覽的預約母體不同。
     </p>
     <p className="mb-0">
-      <strong>generatedAt</strong>：報表產生時間；不是資料匯入或分析快照完成時間。
+      generatedAt 是按下下載時的產生時間，不是資料快照完成時間。檔案不含學習成效分析的 B2 或技能指標。
     </p>
   </>
 );
@@ -32,33 +51,27 @@ function fallbackFilename(scope, semester, format) {
 export default function ReportPage() {
   const outlet = useOutletContext() || {};
   const token = outlet.token || localStorage.getItem('token');
+  const canExport = !outlet.accessProfile || hasPermission(outlet.accessProfile, P.CAN_EXPORT_REPORTS);
 
-  const [scope, setScope] = useState('overview');
   const [semester, setSemester] = useState('114-1');
-  /** 正式建議僅 Excel；PDF 未安裝 pdfkit 時 API 回 501 */
   const [format] = useState('xlsx');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [downloading, setDownloading] = useState(false);
   const [showMetricsModal, setShowMetricsModal] = useState(false);
 
-  const getUrl = () => {
+  const getUrl = (scope) => {
     const qs = `semester=${encodeURIComponent(semester)}&format=${encodeURIComponent(format)}`;
     if (scope === 'high-risk') return `/api/reports/high-risk?${qs}`;
     return `/api/reports/overview?${qs}`;
   };
 
-  const scopeDescription = useMemo(() => {
-    if (scope === 'overview') return '多工作表：報表摘要、活動預約營運、班級行政追蹤。';
-    return '班級名冊母體、僅列高風險（high），供行政追蹤與輔導分流使用。';
-  }, [scope]);
-
-  const onDownload = async () => {
+  const onDownload = async (scope) => {
     setError('');
     setSuccess('');
     setDownloading(true);
     try {
-      const url = getUrl();
+      const url = getUrl(scope);
       const res = await fetchClient(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
         const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
@@ -115,10 +128,13 @@ export default function ReportPage() {
 
   return (
     <div className="container-fluid px-2 px-md-3">
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h1 className="h5 mb-0 text-primary">營運報表下載</h1>
+      <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+          <h1 className="h4 mb-2">營運報表下載</h1>
+          <p className="text-muted mb-0">選擇一份既有工作簿與學期。按下下載後，伺服器會依該學期重新產生 Excel。格式只有 xlsx。</p>
+        </div>
         <Button variant="outline-primary" size="sm" onClick={() => setShowMetricsModal(true)}>
-          查看指標定義摘要
+          查看口徑說明
         </Button>
       </div>
 
@@ -145,39 +161,41 @@ export default function ReportPage() {
         </Modal.Footer>
       </Modal>
 
-      <Alert variant="info" className="small py-2">
-        <strong>正式建議格式：Excel（.xlsx）。</strong>
-        PDF 匯出需後端安裝 pdfkit 並完成版型驗證；目前環境<strong>未啟用</strong>，若強制以 PDF 請求將回傳 501（
-        <code>PDF_EXPORT_UNAVAILABLE</code>）。下載檔名以伺服器 <code>Content-Disposition</code> 為準。
-      </Alert>
+      <Form.Group className="mb-3" style={{ maxWidth: 240 }}>
+        <Form.Label htmlFor="report-semester">學期</Form.Label>
+        <Form.Select id="report-semester" value={semester} onChange={(e) => setSemester(e.target.value)}>
+          {SEMESTER_OPTIONS.filter((o) => o.value).map((o) => (
+            <option key={o.value} value={o.value}>{o.label || o.value}</option>
+          ))}
+        </Form.Select>
+      </Form.Group>
 
-      <Card className="border-primary-subtle">
-        <Card.Body>
-          <div className="d-flex gap-2 flex-wrap align-items-end">
-            <Form.Group>
-              <Form.Label>報表範圍</Form.Label>
-              <Form.Select value={scope} onChange={(e) => setScope(e.target.value)}>
-                <option value="overview">活動營運總覽（Overview）</option>
-                <option value="high-risk">高風險學生名單（班級名冊母體）</option>
-              </Form.Select>
-              <Form.Text className="text-muted">{scopeDescription}</Form.Text>
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>學期</Form.Label>
-              <Form.Select value={semester} onChange={(e) => setSemester(e.target.value)}>
-                {SEMESTER_OPTIONS.filter((o) => o.value).map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label || o.value}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-            <Button variant="primary" onClick={onDownload} disabled={downloading}>
-              {downloading ? '下載中…' : '下載 Excel 報表'}
-            </Button>
-          </div>
-        </Card.Body>
-      </Card>
+      {REPORTS.map((item) => (
+        <article key={item.id} className="ops-report-card">
+          <h2>{item.title}</h2>
+          <p className="mb-2">{item.purpose}</p>
+          <p className="small mb-1"><strong>學期：</strong>{semester}</p>
+          <p className="small mb-1"><strong>格式：</strong>xlsx</p>
+          <p className="small mb-2"><strong>資料範圍：</strong>{item.range}</p>
+          <details className="small mb-3">
+            <summary>查看資料範圍與口徑</summary>
+            <p className="mb-1 mt-2"><strong>工作表：</strong>{item.sheets}</p>
+            <p className="text-muted mb-0">{item.detail}</p>
+          </details>
+          <Button
+            variant="primary"
+            onClick={() => onDownload(item.id)}
+            disabled={downloading || !canExport}
+            data-testid={`report-download-${item.id}`}
+          >
+            {downloading ? '產生中…' : `下載這份 Excel（${semester}）`}
+          </Button>
+        </article>
+      ))}
+
+      {!canExport && (
+        <Alert variant="warning">這個帳號沒有報表下載權限，無法取得工作簿。</Alert>
+      )}
     </div>
   );
 }

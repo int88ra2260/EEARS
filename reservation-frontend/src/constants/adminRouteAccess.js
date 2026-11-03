@@ -526,7 +526,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/analytics/risk',
-    label: '高風險行政追蹤',
+    label: '高關注名單',
     allowAdminOrExecutive: true,
   },
   {
