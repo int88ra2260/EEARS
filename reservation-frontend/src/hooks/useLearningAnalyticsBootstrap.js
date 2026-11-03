@@ -22,6 +22,7 @@ import { useLearningAnalyticsWorkingSet } from '../utils/learningAnalyticsWorkin
 export function useLearningAnalyticsBootstrap({
   scopeKeys = null,
   defaultSemester = 'none',
+  preserveSearchKeys = [],
 } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const semesterFromUrl = (searchParams.get('semester') || '').trim();
@@ -116,8 +117,12 @@ export function useLearningAnalyticsBootstrap({
     Object.entries(filtersToApiParams(nextFilters)).forEach(([key, value]) => {
       if (key !== 'snapshot_version') next.set(key, String(value));
     });
+    for (const key of preserveSearchKeys) {
+      const value = searchParams.get(key);
+      if (value) next.set(key, value);
+    }
     setSearchParams(next, { replace: true });
-  }, [setSearchParams]);
+  }, [preserveSearchKeys, searchParams, setSearchParams]);
 
   const applyFilters = useCallback(() => {
     const nextFilters = narrow({ ...filters });

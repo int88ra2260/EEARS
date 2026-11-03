@@ -175,6 +175,7 @@ test('learning flow opens resources, skills, and returns without a shared filter
   await expect(resources).toHaveAttribute('href', '/admin/learning-analytics/resources');
   await resources.click();
   await expect(page.getByTestId('learning-reading')).toContainText('不代表資源造成能力提升');
+  await page.getByRole('button', { name: '怎麼讀這頁' }).click();
   await page.getByRole('link', { name: '開啟技能成長' }).click();
   await expect(page.getByRole('heading', { level: 1, name: '技能成長' })).toBeVisible();
   await expect(page.getByText('不代表課程造成進步').first()).toBeVisible();

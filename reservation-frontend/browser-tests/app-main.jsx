@@ -23,6 +23,7 @@ import LearningJourneyDashboardPage from '../src/pages/admin/LearningJourneyDash
 import LearningAnalyticsB1PlusPage from '../src/pages/admin/LearningAnalyticsB1PlusPage';
 import LearningAnalyticsKpiReportPage from '../src/pages/admin/LearningAnalyticsKpiReportPage';
 import LearningAnalyticsResourcesPage from '../src/pages/admin/LearningAnalyticsResourcesPage';
+import LearningAnalyticsOfferingsPage from '../src/pages/admin/LearningAnalyticsOfferingsPage';
 import LearningAnalyticsSkillsPage from '../src/pages/admin/LearningAnalyticsSkillsPage';
 import LearningAnalyticsStudentDetailPage from '../src/pages/admin/LearningAnalyticsStudentDetailPage';
 import LearningAnalyticsStudentExplorerPage from '../src/pages/admin/LearningAnalyticsStudentExplorerPage';
@@ -92,6 +93,7 @@ function AppHarness() {
             <Route path="learning-analytics" element={<LearningAnalyticsLayout />}>
               <Route path="overview" element={<LearningAnalyticsOverviewPage />} />
               <Route path="resources" element={<LearningAnalyticsResourcesPage />} />
+              <Route path="offerings" element={<LearningAnalyticsOfferingsPage />} />
               <Route path="skills" element={<LearningAnalyticsSkillsPage />} />
               <Route path="kpi-report" element={<LearningAnalyticsKpiReportPage />} />
               <Route path="explore" element={<LearningAnalyticsStudentExplorerPage />} />

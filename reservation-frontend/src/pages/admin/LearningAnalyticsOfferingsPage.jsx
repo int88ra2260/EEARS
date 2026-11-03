@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Alert from 'react-bootstrap/Alert';
 import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
-import Collapse from 'react-bootstrap/Collapse';
 import Form from 'react-bootstrap/Form';
 import Spinner from 'react-bootstrap/Spinner';
 import {
@@ -14,7 +13,8 @@ import {
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
-import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
+import ResourcesModeSwitch from '../../components/learningAnalytics/ResourcesModeSwitch';
+import { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import LaFold from '../../components/learningAnalytics/LaFold';
 import StudentTrajectoryLink from '../../components/learningAnalytics/StudentTrajectoryLink';
 import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
@@ -22,6 +22,14 @@ import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsB
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { downloadBlob } from '../../utils/learningJourneyOperationsHelpers';
 import { P } from '../../constants/permissions';
+import {
+  formatObservedCount,
+  formatObservedDelta,
+  offeringScopeLabel,
+  shouldApplyAnalyticsResult,
+} from './learningParticipationReading';
+
+const OFFERING_SEARCH_KEYS = ['dimension', 'offering'];
 
 const DIMENSION_OPTIONS = [
   { value: 'course', label: '課程' },
@@ -49,6 +57,7 @@ function formatPct(rate) {
 }
 
 function formatDelta(value) {
+  if (value === null || value === undefined || value === '') return '—';
   const n = Number(value);
   if (!Number.isFinite(n)) return '—';
   return n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1);
@@ -249,16 +258,17 @@ function DirectionCell({ direction }) {
 }
 
 /** 平均 + 中位／四分位，便於判斷是否被極端值拉高 */
-function DeltaWithDistribution({ avg, distribution, skewFlagged }) {
-  if (avg == null && distribution?.median == null) {
-    return <span className="text-muted">—</span>;
+function DeltaWithDistribution({ avg, sampleSize, distribution, skewFlagged }) {
+  const shown = formatObservedDelta(avg, sampleSize);
+  if (shown === '—' || shown === '無可比較樣本') {
+    return <span className="text-muted">{shown}</span>;
   }
   const qTitle = distribution?.p25 != null && distribution?.p75 != null
     ? `Q1–Q3：${formatDelta(distribution.p25)} ～ ${formatDelta(distribution.p75)}`
     : '';
   return (
     <div className={skewFlagged ? 'border-start border-warning border-3 ps-2' : undefined}>
-      <div className="fw-semibold">{formatDelta(avg)}</div>
+      <div className="fw-semibold">{shown}</div>
       {distribution?.median != null ? (
         <div className="small text-muted" title={qTitle || undefined}>
           中位 {formatDelta(distribution.median)}
@@ -279,21 +289,21 @@ function SkillBreakdownTable({ rows }) {
         <thead>
           <tr>
             <th>技能</th>
-            <th className="text-end"><ColumnHead {...HEAD.growthStudents} /></th>
-            <th className="text-end"><ColumnHead {...HEAD.rawGain} /></th>
-            <th className="text-end"><ColumnHead {...HEAD.actualGse} /></th>
-            <th className="text-end"><ColumnHead {...HEAD.beyondExpected} /></th>
-            <th className="text-end"><ColumnHead {...HEAD.anySkillUp} /></th>
+            <th className="text-end">可比較樣本</th>
+            <th className="text-end">平均變化</th>
+            <th className="text-end">GSE 變化</th>
+            <th className="text-end">校正後變化</th>
+            <th className="text-end">任一技能</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.skill}>
               <td>{row.label || SKILL_LABELS[row.skill] || row.skill}</td>
-              <td className="text-end">{row.growthSampleSize}</td>
-              <td className="text-end">{formatDelta(row.avgRawDelta)}</td>
-              <td className="text-end">{formatDelta(row.avgActualGseGrowth)}</td>
-              <td className="text-end">{formatDelta(row.avgAdjustedGseGrowth)}</td>
+              <td className="text-end">{formatObservedCount(row.growthSampleSize)}</td>
+              <td className="text-end">{formatObservedDelta(row.avgRawDelta, row.growthSampleSize)}</td>
+              <td className="text-end">{formatObservedDelta(row.avgActualGseGrowth, row.growthSampleSize)}</td>
+              <td className="text-end">{formatObservedDelta(row.avgAdjustedGseGrowth, row.growthSampleSize)}</td>
               <td className="text-end">{formatPct(row.improvedRateAny)}</td>
             </tr>
           ))}
@@ -304,6 +314,7 @@ function SkillBreakdownTable({ rows }) {
 }
 
 function studentDirection(avg) {
+  if (avg === null || avg === undefined || avg === '') return null;
   const n = Number(avg);
   if (!Number.isFinite(n)) return null;
   if (n > 0) return 'improved';
@@ -387,13 +398,13 @@ function StudentDetailTable({
           <thead>
             <tr>
               <th>學號</th>
-              <th className="text-end"><ColumnHead {...HEAD.pairCount} /></th>
-              <th className="text-center"><ColumnHead {...HEAD.direction} /></th>
-              <th className="text-end"><ColumnHead {...HEAD.rawGain} /></th>
-              <th className="text-end"><ColumnHead {...HEAD.actualGse} /></th>
-              <th className="text-end"><ColumnHead {...HEAD.beyondExpected} /></th>
-              <th className="text-end"><ColumnHead {...HEAD.anySkillUp} /></th>
-              <th className="text-end"><ColumnHead {...HEAD.allSkillsUp} /></th>
+              <th className="text-end">配對次數</th>
+              <th className="text-center">方向</th>
+              <th className="text-end">平均變化</th>
+              <th className="text-end">GSE 變化</th>
+              <th className="text-end">校正後變化</th>
+              <th className="text-end">任一技能</th>
+              <th className="text-end">四項技能</th>
             </tr>
           </thead>
           <tbody>
@@ -528,6 +539,80 @@ function countOfferingsColSpan(dimension, showAdvanced) {
 /** 細項分析僅適用學期／資料版本，不沿用學生群體篩選 */
 const OFFERING_SCOPE_KEYS = ['semester', 'snapshot_version'];
 
+const OFFERING_METRIC_DEFS = [
+  ['參與人數', '曾經出現在這門課、這位教師或這場活動的不重複學生數。'],
+  ['可比較樣本', '其中有前測也有後測、可以比較後來差多少的人數。'],
+  ['進步／持平／退步', '依同一份測驗的原始分，後測高於、等於或低於前測的人數。'],
+  ['平均變化', '同一份測驗的原始分，後測減前測。不同測驗的分數不能互比。樣本不足時不顯示 0.0。'],
+  ['資料品質', '平均是否被少數人拉高或拉低，或同一把尺和原始分對不上。'],
+  ['GSE 變化', '先換成同一把尺再算後測減前測。沒有量尺說明時，不當作正式比較。'],
+  ['校正後變化', '已扣除入學程度與兩次測驗間隔的估計。不是因果效果，也不用來排名。'],
+];
+
+function offeringObservation(row) {
+  const sample = Number(row?.growthSampleSize);
+  if (!Number.isFinite(sample) || sample <= 0) return '樣本不足，無法判讀平均變化';
+  return `可觀察的前後測變化 ${formatObservedDelta(row.avgRawDelta, row.growthSampleSize)}`;
+}
+
+function OfferingExpanded({
+  row,
+  detail,
+  stats,
+  skewFlagged,
+  showAdvancedColumns,
+  detailLoadingKey,
+  snapshotVersion,
+  semester,
+}) {
+  return (
+    <div className="la-offering-detail">
+      {row.privacySuppressed ? (
+        <Alert variant="warning" className="mb-3 py-2 small">{row.suppressionReason}</Alert>
+      ) : null}
+      {skewFlagged ? (
+        <Alert variant="warning" className="mb-3 py-2 small">
+          {stats.outlierSkew?.reason || '此列平均可能受少數極端值影響；請對照中位數與學生明細。'}
+        </Alert>
+      ) : null}
+      {stats.source === 'detail' || stats.source === 'partial' ? (
+        <Alert variant="info" className="mb-3 py-2 small">
+          {stats.source === 'partial'
+            ? '列上暫只顯示「平均 > 0」人數。展開學生明細後，會依個人進步補齊持平／退步、中位數與極端值警示。'
+            : '以下方向／中位／極端值由學生明細推算，並已回填上方列。'}
+        </Alert>
+      ) : null}
+      {!showAdvancedColumns ? <AdvancedMetricsStrip row={row} stats={stats} /> : null}
+      <div className="mb-3">
+        <div className="small fw-semibold mb-2">各技能明細</div>
+        <div className="la-detail-scroll">
+          <SkillBreakdownTable rows={row.skillBreakdown} />
+        </div>
+      </div>
+      <div>
+        <div className="small fw-semibold mb-2">學生明細（點學號可看個人軌跡）</div>
+        {detailLoadingKey === row.offeringKey ? (
+          <div className="text-center py-3"><Spinner size="sm" animation="border" /></div>
+        ) : null}
+        {detail?.error ? <Alert variant="danger" className="mb-0 py-2 small">{detail.error}</Alert> : null}
+        {detail?.students ? (
+          <div className="la-detail-scroll">
+            <StudentDetailTable
+              students={detail.students}
+              distribution={stats.rawDistribution}
+              skewFlagged={skewFlagged}
+              direction={stats.direction}
+              handoffLabel={row.label || '這份名單的學生'}
+              snapshotVersion={snapshotVersion}
+              semester={semester}
+            />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function LearningAnalyticsOfferingsPage() {
   const {
     meta,
@@ -545,22 +630,40 @@ export default function LearningAnalyticsOfferingsPage() {
   } = useLearningAnalyticsBootstrap({
     scopeKeys: OFFERING_SCOPE_KEYS,
     defaultSemester: 'current',
+    preserveSearchKeys: OFFERING_SEARCH_KEYS,
   });
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const requestedDimension = searchParams.get('dimension');
-  const [dimension, setDimension] = useState(
-    DIMENSION_OPTIONS.some((opt) => opt.value === requestedDimension) ? requestedDimension : 'course',
-  );
+  const dimension = DIMENSION_OPTIONS.some((opt) => opt.value === requestedDimension)
+    ? requestedDimension
+    : 'course';
   const [instructorGrouping, setInstructorGrouping] = useState('by_semester');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
-  const [expandedKey, setExpandedKey] = useState('');
+  const [expandedKey, setExpandedKey] = useState(() => searchParams.get('offering') || '');
+  const runSeq = useRef(0);
+  const offeringRef = useRef(searchParams.get('offering') || '');
+  offeringRef.current = searchParams.get('offering') || '';
   const [detailLoadingKey, setDetailLoadingKey] = useState('');
   const [detailByKey, setDetailByKey] = useState({});
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
   const [showAdvancedColumns, setShowAdvancedColumns] = useState(false);
+  const [offeringsCards, setOfferingsCards] = useState(() => (
+    typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(max-width: 767.98px)').matches
+  ));
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const media = window.matchMedia('(max-width: 767.98px)');
+    const apply = () => setOfferingsCards(media.matches);
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, []);
 
   const accessProfile = useMemo(() => buildAccessProfile(token), [token]);
   const canExport = hasPermission(accessProfile, P.CAN_EXPORT_LEARNING_ANALYTICS);
@@ -569,30 +672,43 @@ export default function LearningAnalyticsOfferingsPage() {
     showSnapshotFilter ? ['semester', 'snapshot_version'] : ['semester']
   ), [showSnapshotFilter]);
 
-  const load = useCallback(async () => {
-    if (!ready) return;
-    setLoading(true);
-    setError('');
-    try {
-      const payload = await getLearningAnalyticsOfferings(token, withWorkingSet({
-        ...apiParams(),
-        dimension,
-        instructor_grouping: dimension === 'instructor' ? instructorGrouping : undefined,
-      }));
-      setData(payload);
-      setExpandedKey('');
-      setDetailByKey({});
-    } catch (e) {
-      setData(null);
-      setError(e.message || '載入失敗');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, apiParams, withWorkingSet, dimension, instructorGrouping, ready]);
+  const selectDimension = useCallback((value) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('dimension', value);
+    next.delete('offering');
+    setSearchParams(next);
+    setExpandedKey('');
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!ready) return undefined;
+    const seq = runSeq.current + 1;
+    runSeq.current = seq;
+    const controller = new AbortController();
+    setLoading(true);
+    setError('');
+    setData(null);
+    setDetailByKey({});
+    getLearningAnalyticsOfferings(token, withWorkingSet({
+      ...apiParams(),
+      dimension,
+      instructor_grouping: dimension === 'instructor' ? instructorGrouping : undefined,
+    }), { signal: controller.signal })
+      .then((payload) => {
+        if (!shouldApplyAnalyticsResult(seq, runSeq.current)) return;
+        setData(payload);
+        setExpandedKey(offeringRef.current);
+      })
+      .catch((e) => {
+        if (!shouldApplyAnalyticsResult(seq, runSeq.current) || e?.name === 'AbortError') return;
+        setData(null);
+        setError(e.message || '載入失敗');
+      })
+      .finally(() => {
+        if (shouldApplyAnalyticsResult(seq, runSeq.current)) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [token, apiParams, withWorkingSet, dimension, instructorGrouping, ready]);
 
   const loadDetail = useCallback(async (offeringKey) => {
     if (!ready || detailByKey[offeringKey]) return;
@@ -615,13 +731,40 @@ export default function LearningAnalyticsOfferingsPage() {
     }
   }, [apiParams, withWorkingSet, detailByKey, dimension, instructorGrouping, ready, token]);
 
+  useEffect(() => {
+    if (expandedKey && data) loadDetail(expandedKey);
+  }, [expandedKey, data, loadDetail]);
+
   const toggleRow = useCallback((offeringKey) => {
-    setExpandedKey((prev) => {
-      const next = prev === offeringKey ? '' : offeringKey;
-      if (next) loadDetail(next);
-      return next;
+    try {
+      sessionStorage.setItem('la.offerings.scroll', String(window.scrollY || 0));
+    } catch {
+      // 私密瀏覽時仍可展開明細。
+    }
+    const next = expandedKey === offeringKey ? '' : offeringKey;
+    const params = new URLSearchParams(searchParams);
+    if (next) {
+      params.set('offering', next);
+      loadDetail(next);
+    } else {
+      params.delete('offering');
+    }
+    setExpandedKey(next);
+    setSearchParams(params, { replace: true });
+  }, [expandedKey, loadDetail, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem('la.offerings.scroll');
+    if (!expandedKey || !stored) return undefined;
+    const frame = requestAnimationFrame(() => {
+      try {
+        window.scrollTo(0, Number(stored) || 0);
+      } catch {
+        // jsdom 沒有實作 scrollTo。
+      }
     });
-  }, [loadDetail]);
+    return () => cancelAnimationFrame(frame);
+  }, [expandedKey]);
 
   const handleExport = useCallback(async () => {
     if (!ready || !canExport) return;
@@ -651,11 +794,7 @@ export default function LearningAnalyticsOfferingsPage() {
     });
     return list;
   }, [data?.rows]);
-  const showSemesterHint = useMemo(
-    () => (dimension === 'course' || dimension === 'activity')
-      && !appliedFilters.semester,
-    [dimension, appliedFilters.semester]
-  );
+  const scopeLabel = offeringScopeLabel(appliedFilters.semester || data?.semester);
 
   return (
     <div>
@@ -666,12 +805,11 @@ export default function LearningAnalyticsOfferingsPage() {
       />
 
       <LearningAnalyticsPageFrame
-        title="課／師／活動"
+        title="資源與開課分析"
         showWorkingSet
         workingSetHere="offerings"
         workingSetScope={workingSetScope}
-        question="看某一門課、一位教師或一場活動：多少人參與、多少人可算成長、進步多少。"
-        scope="依課程、教師或活動彙總。數字是觀察關聯，不是「上了就會進步」。"
+        question="查看英語學習資源的參與情況，以及相關學生可觀察的學習紀錄。"
         howToRead={(
           <ol className="small mb-0 ps-3">
             <li className="mb-1">先選學期，再用「怎麼切」選課程、教師、活動或資源類別。</li>
@@ -681,10 +819,16 @@ export default function LearningAnalyticsOfferingsPage() {
           </ol>
         )}
       >
-      <Alert variant="secondary" className="small py-2">
-        <strong>非因果。</strong>
+      <ResourcesModeSwitch />
+      <p className="la-scope-note" data-testid="la-scope-note">
+        {scopeLabel}
+        。這頁的學期會篩修課與活動細項。未選學期時，課程與活動是跨學期彙總，不是只屬於本學期。
+        {data?.snapshotVersion ? ` 資料版本 ${data.snapshotVersion}。` : ''}
         {' '}
-        數字高不代表「上這門課就會進步」。可計算成長少於 {data?.minGrowthSample || 10} 人時，平均與進步率會遮蔽。
+        和參與與覆蓋的快照彙總不是同一份母體。
+      </p>
+      <Alert variant="secondary" className="small py-2">
+        數字是目前範圍裡可觀察的前後測變化，不是「上了這門課就會進步」。可比較樣本少於 {data?.minGrowthSample || 10} 人時，平均會遮蔽，樣本不足就無法判讀。
       </Alert>
 
       <LearningAnalyticsFilters
@@ -709,14 +853,22 @@ export default function LearningAnalyticsOfferingsPage() {
       />
 
       <div className="d-flex flex-wrap gap-3 align-items-end mt-3">
-        <Form.Group style={{ minWidth: 220 }}>
-          <Form.Label className="small text-muted">怎麼切</Form.Label>
-          <Form.Select value={dimension} onChange={(e) => setDimension(e.target.value)} disabled={loading}>
+        <div>
+          <div className="small text-muted mb-1">正在比較</div>
+          <div className="la-dimension" role="group" aria-label="分析維度">
             {DIMENSION_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <button
+                key={opt.value}
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                aria-pressed={dimension === opt.value}
+                onClick={() => selectDimension(opt.value)}
+              >
+                {opt.label}
+              </button>
             ))}
-          </Form.Select>
-        </Form.Group>
+          </div>
+        </div>
         {dimension === 'instructor' ? (
           <Form.Group style={{ minWidth: 220 }}>
             <Form.Label className="small text-muted">教師彙總方式</Form.Label>
@@ -730,11 +882,6 @@ export default function LearningAnalyticsOfferingsPage() {
               ))}
             </Form.Select>
           </Form.Group>
-        ) : null}
-        {data?.semester ? (
-          <Badge bg="light" text="dark" className="mb-2">
-            學期篩選：{data.semester}
-          </Badge>
         ) : null}
         {data?.teacherScope === 'teacher' ? (
           <Badge bg="secondary" className="mb-2">僅顯示您的授課細項</Badge>
@@ -753,8 +900,9 @@ export default function LearningAnalyticsOfferingsPage() {
           className="mb-2"
           onClick={handleExport}
           disabled={!canExport || !ready || loading || exporting || !rows.length}
+          title="課／師／活動 Excel。查詢參數、維度與目前畫面相同。"
         >
-          {exporting ? '匯出中…' : '匯出 Excel'}
+          {exporting ? '匯出中…' : '下載目前結果'}
         </Button>
       </div>
 
@@ -765,10 +913,8 @@ export default function LearningAnalyticsOfferingsPage() {
       ) : null}
       {exportError ? <Alert variant="danger" className="mt-3 mb-0">{exportError}</Alert> : null}
 
-      {showSemesterHint ? (
-        <Alert variant="warning" className="mt-3 mb-0">
-          建議先選擇學期，以便聚焦單一學期的課程或活動細項；教師維度可切換「跨學期合併」。
-        </Alert>
+      {!appliedFilters.semester ? (
+        <p className="small mt-3 mb-0" data-testid="offering-cross-semester">目前範圍：跨學期</p>
       ) : null}
 
       {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
@@ -781,16 +927,31 @@ export default function LearningAnalyticsOfferingsPage() {
               {dimensionLabel(data.dimension)}細項（{data.rowCount} 列）
             </div>
             <div className="small text-muted">
-              預設主指標：進步／持平／退步 ＋ 平均原始進步
-              {showAdvancedColumns ? ' · 已顯示進階欄' : ' · 進階欄已隱藏'}
+              {showAdvancedColumns ? '已顯示進階欄' : '進階欄已隱藏'}
             </div>
           </div>
+          <details className="la-metric-defs mb-3">
+            <summary>指標定義</summary>
+            <dl>
+              {OFFERING_METRIC_DEFS.map(([term, meaning]) => (
+                <div key={term}>
+                  <dt>{term}</dt>
+                  <dd>{meaning}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
           {data.growthScaleGuidance?.summary ? (
             <p className="small text-muted mb-3">{data.growthScaleGuidance.summary}</p>
           ) : (
-            <Alert variant="warning" className="mb-3 py-2 small">
-              後端尚未回傳量尺說明（contract：{data.contractVersion || '未知'}）。
-              請重啟後端至 offerings.v4。同測進步請先看原始分；GSE 僅作跨測驗參考。
+            <Alert variant="warning" className="mb-3 py-2 small" data-testid="offering-scale-warning">
+              目前無法確認部分成長指標的計算依據，暫不建議把 GSE 或校正後變化當作正式比較。同一份測驗的原始分變化仍須對照可比較樣本。
+              <details className="mt-2">
+                <summary>技術細節</summary>
+                <p className="mb-0 mt-1">
+                  這次回應沒有量尺說明。contract：{data.contractVersion || '未提供'}。畫面沒有改寫既有計算結果。
+                </p>
+              </details>
             </Alert>
           )}
           {(data.improvementDefinitions || []).length ? (
@@ -811,6 +972,56 @@ export default function LearningAnalyticsOfferingsPage() {
           ) : null}
           {!rows.length ? (
             <p className="small text-muted mb-0">目前篩選條件下沒有可顯示的細項資料。</p>
+          ) : offeringsCards ? (
+            <div className="la-offering-cards" data-testid="offering-cards">
+              {rows.map((row) => {
+                const isOpen = expandedKey === row.offeringKey;
+                const detail = detailByKey[row.offeringKey];
+                const stats = resolveRowDisplayStats(row, detail?.students);
+                const skewFlagged = Boolean(stats.outlierSkew?.flagged);
+                const scopeText = row.semesterLabel || row.semesterId || (row.semesterIds || []).join('、') || scopeLabel;
+                return (
+                  <article key={row.offeringKey} className="la-offering-card" data-testid="offering-card">
+                    <h3>{row.label}</h3>
+                    <p className="small text-muted mb-0">{scopeText}</p>
+                    <dl className="la-offering-metrics">
+                      <div>
+                        <dt>參與人數</dt>
+                        <dd>{formatObservedCount(row.participantCount)} 人</dd>
+                      </div>
+                      <div>
+                        <dt>可比較樣本</dt>
+                        <dd>{formatObservedCount(row.growthSampleSize)} 人</dd>
+                      </div>
+                    </dl>
+                    <p className="mb-2">{offeringObservation(row)}</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline-secondary"
+                      aria-expanded={isOpen}
+                      onClick={() => toggleRow(row.offeringKey)}
+                    >
+                      {isOpen ? '收合明細' : '查看詳細資料'}
+                    </Button>
+                    {isOpen ? (
+                      <div className="mt-3">
+                        <OfferingExpanded
+                          row={row}
+                          detail={detail}
+                          stats={stats}
+                          skewFlagged={skewFlagged}
+                          showAdvancedColumns={showAdvancedColumns}
+                          detailLoadingKey={detailLoadingKey}
+                          snapshotVersion={appliedFilters.snapshot_version || ''}
+                          semester={appliedFilters.semester || ''}
+                        />
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
           ) : (
             <div className="table-responsive">
               <table className="table table-sm align-middle mb-0 la-offerings-table">
@@ -824,19 +1035,19 @@ export default function LearningAnalyticsOfferingsPage() {
                     ) : null}
                     {dimension === 'activity' ? <th>日期</th> : null}
                     {dimension === 'instructor' ? <th className="text-end">開課數</th> : null}
-                    <th className="text-end"><ColumnHead {...HEAD.participants} /></th>
-                    <th className="text-end"><ColumnHead {...HEAD.growthStudents} /></th>
-                    <th className="text-end"><ColumnHead {...HEAD.directionMix} /></th>
-                    <th className="text-end"><ColumnHead {...HEAD.rawGain} /></th>
+                    <th className="text-end">參與人數</th>
+                    <th className="text-end">可比較樣本</th>
+                    <th className="text-end">進步／持平／退步</th>
+                    <th className="text-end">平均變化</th>
                     {showAdvancedColumns ? (
                       <>
-                        <th className="text-end"><ColumnHead {...HEAD.anySkillUp} /></th>
-                        <th className="text-end"><ColumnHead {...HEAD.allSkillsUp} /></th>
-                        <th className="text-end"><ColumnHead {...HEAD.actualGse} /></th>
-                        <th className="text-end"><ColumnHead {...HEAD.beyondExpected} /></th>
+                        <th className="text-end">至少一項變好</th>
+                        <th className="text-end">四項都變好</th>
+                        <th className="text-end">GSE 變化</th>
+                        <th className="text-end">校正後變化</th>
                       </>
                     ) : null}
-                    <th className="text-center"><ColumnHead {...HEAD.caution} /></th>
+                    <th className="text-center">資料品質</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -861,16 +1072,17 @@ export default function LearningAnalyticsOfferingsPage() {
                               {isOpen ? '▼' : '▶'}
                             </Button>
                           </td>
-                          <td className="fw-semibold">{row.label}</td>
+                          <td className="fw-semibold la-offerings-name">{row.label}</td>
                           <DimensionMetaCells dimension={dimension} row={row} />
-                          <td className="text-end">{row.participantCount ?? 0}</td>
-                          <td className="text-end">{row.growthSampleSize ?? 0}</td>
+                          <td className="text-end">{formatObservedCount(row.participantCount)} 人</td>
+                          <td className="text-end">{formatObservedCount(row.growthSampleSize)} 人</td>
                           <td className="text-end">
                             <DirectionCell direction={stats.direction} />
                           </td>
                           <td className="text-end">
                             <DeltaWithDistribution
                               avg={row.avgRawDelta}
+                              sampleSize={row.growthSampleSize}
                               distribution={stats.rawDistribution}
                               skewFlagged={skewFlagged}
                             />
@@ -886,6 +1098,7 @@ export default function LearningAnalyticsOfferingsPage() {
                               <td className="text-end">
                                 <DeltaWithDistribution
                                   avg={row.avgActualGseGrowth}
+                                  sampleSize={row.growthSampleSize}
                                   distribution={stats.gseActualDistribution}
                                   skewFlagged={false}
                                 />
@@ -893,6 +1106,7 @@ export default function LearningAnalyticsOfferingsPage() {
                               <td className="text-end">
                                 <DeltaWithDistribution
                                   avg={row.avgAdjustedGseGrowth}
+                                  sampleSize={row.growthSampleSize}
                                   distribution={stats.gseAdjustedDistribution}
                                   skewFlagged={false}
                                 />
@@ -907,59 +1121,24 @@ export default function LearningAnalyticsOfferingsPage() {
                             />
                           </td>
                         </tr>
-                        <tr>
-                          <td colSpan={colSpan} className="p-0 border-0">
-                            <Collapse in={isOpen}>
+                        {isOpen ? (
+                          <tr>
+                            <td colSpan={colSpan} className="p-0 border-0">
                               <div className="p-3 bg-light border-top">
-                                {row.privacySuppressed ? (
-                                  <Alert variant="warning" className="mb-3 py-2 small">
-                                    {row.suppressionReason}
-                                  </Alert>
-                                ) : null}
-                                {skewFlagged ? (
-                                  <Alert variant="warning" className="mb-3 py-2 small">
-                                    {stats.outlierSkew?.reason
-                                      || '此列平均可能受少數極端值影響；請對照中位數與學生明細。'}
-                                  </Alert>
-                                ) : null}
-                                {stats.source === 'detail' || stats.source === 'partial' ? (
-                                  <Alert variant="info" className="mb-3 py-2 small">
-                                    {stats.source === 'partial'
-                                      ? '列上暫只顯示「平均 > 0」人數。展開學生明細後，會依個人進步補齊持平／退步、中位數與極端值警示。'
-                                      : '以下方向／中位／極端值由學生明細推算，並已回填上方列。'}
-                                  </Alert>
-                                ) : null}
-                                {!showAdvancedColumns ? (
-                                  <AdvancedMetricsStrip row={row} stats={stats} />
-                                ) : null}
-                                <div className="mb-3">
-                                  <div className="small fw-semibold mb-2">各技能明細</div>
-                                  <SkillBreakdownTable rows={row.skillBreakdown} />
-                                </div>
-                                <div>
-                                  <div className="small fw-semibold mb-2">學生明細（點學號可看個人軌跡）</div>
-                                  {detailLoadingKey === row.offeringKey ? (
-                                    <div className="text-center py-3"><Spinner size="sm" animation="border" /></div>
-                                  ) : null}
-                                  {detail?.error ? (
-                                    <Alert variant="danger" className="mb-0 py-2 small">{detail.error}</Alert>
-                                  ) : null}
-                                  {detail?.students ? (
-                                    <StudentDetailTable
-                                      students={detail.students}
-                                      distribution={stats.rawDistribution}
-                                      skewFlagged={skewFlagged}
-                                      direction={stats.direction}
-                                      handoffLabel={row.label || '這份名單的學生'}
-                                      snapshotVersion={appliedFilters.snapshot_version || ''}
-                                      semester={appliedFilters.semester || ''}
-                                    />
-                                  ) : null}
-                                </div>
+                                <OfferingExpanded
+                                  row={row}
+                                  detail={detail}
+                                  stats={stats}
+                                  skewFlagged={skewFlagged}
+                                  showAdvancedColumns={showAdvancedColumns}
+                                  detailLoadingKey={detailLoadingKey}
+                                  snapshotVersion={appliedFilters.snapshot_version || ''}
+                                  semester={appliedFilters.semester || ''}
+                                />
                               </div>
-                            </Collapse>
-                          </td>
-                        </tr>
+                            </td>
+                          </tr>
+                        ) : null}
                       </React.Fragment>
                     );
                   })}

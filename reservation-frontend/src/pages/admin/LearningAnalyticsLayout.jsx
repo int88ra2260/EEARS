@@ -32,14 +32,9 @@ const NAV_GROUPS = [
     title: '看資源',
     items: [
       {
-        to: '/admin/learning-analytics/offerings',
-        label: '課／師／活動',
-        hint: '參與、樣本、細項資料品質',
-      },
-      {
         to: '/admin/learning-analytics/resources',
-        label: '資源覆蓋',
-        hint: '類型參與與可觀察樣本',
+        label: '資源與開課',
+        hint: '參與覆蓋，以及課程、教師與活動觀察',
       },
     ],
   },
@@ -76,6 +71,7 @@ export default function LearningAnalyticsLayout() {
   const location = useLocation();
   const finderWorkspace = isFinderWorkspace(location.pathname);
   const outcomesWorkspace = /\/learning-analytics\/(overview|kpi-report)\/?$/.test(location.pathname);
+  const resourcesWorkspace = /\/learning-analytics\/(resources|offerings)\/?$/.test(location.pathname);
   const canManageSettings = useMemo(() => {
     const token = localStorage.getItem('token');
     return hasPermission(buildAccessProfile(token), P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS);
@@ -91,7 +87,7 @@ export default function LearningAnalyticsLayout() {
 
   return (
     <div className="learning-analytics-shell">
-      {finderWorkspace || outcomesWorkspace ? null : <nav className="la-subnav-rows" aria-label="學習成效分析">
+      {finderWorkspace || outcomesWorkspace || resourcesWorkspace ? null : <nav className="la-subnav-rows" aria-label="學習成效分析">
         {groups.map((group) => (
           <div key={group.id} className="la-subnav-row">
             <span className="la-subnav-row-title">{group.title}</span>

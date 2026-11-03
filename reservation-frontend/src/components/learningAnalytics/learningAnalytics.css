@@ -1492,6 +1492,94 @@ th.text-center .la-colhead {
   color: #fff;
 }
 
+.la-offerings-name {
+  min-width: 8rem;
+  white-space: normal;
+  word-break: keep-all;
+}
+
+.la-offering-card {
+  border: 1px solid var(--la-border);
+  border-radius: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.9rem 1rem;
+}
+
+.la-offering-card h3 {
+  font-size: 1.05rem;
+  line-height: 1.4;
+  margin: 0 0 0.2rem;
+  word-break: keep-all;
+}
+
+.la-offering-metrics {
+  display: grid;
+  gap: 0.65rem 1rem;
+  grid-template-columns: 1fr 1fr;
+  margin: 0.75rem 0;
+}
+
+.la-offering-metrics dt {
+  color: var(--la-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.la-offering-metrics dd {
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin: 0;
+}
+
+.la-metric-defs summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.la-metric-defs dl {
+  margin: 0.5rem 0 0;
+}
+
+.la-metric-defs dt {
+  font-weight: 650;
+}
+
+.la-metric-defs dd {
+  margin: 0 0 0.55rem;
+}
+
+.la-detail-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.la-detail-scroll th,
+.la-detail-scroll td {
+  white-space: nowrap;
+}
+
+.la-dimension {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.la-dimension button[aria-pressed="true"] {
+  background: var(--la-accent);
+  border-color: var(--la-accent);
+  color: #fff;
+}
+
+.la-resources-table th,
+.la-offerings-table th {
+  white-space: normal;
+  vertical-align: bottom;
+}
+
+.la-page-body {
+  min-width: 0;
+}
+
 .la-scope-note {
   background: var(--la-surface);
   border: 1px solid var(--la-border);

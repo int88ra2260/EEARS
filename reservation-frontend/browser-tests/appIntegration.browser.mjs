@@ -307,7 +307,7 @@ test('learning flow keeps resource and event counts separate under AdminLayout',
   await page.goto(appUrl('/admin/analytics', 'admin'));
   await page.getByRole('main').getByRole('link', { name: '資源覆蓋' }).click();
   await expect(page).toHaveURL(/\/admin\/learning-analytics\/resources/);
-  await expect(page.getByRole('heading', { level: 1, name: '資源覆蓋' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '資源與開課分析' })).toBeVisible();
   await expect(page.getByTestId('learning-reading')).toContainText('不代表資源造成能力提升');
   await page.getByRole('button', { name: '怎麼讀這頁' }).click();
   await expect(page.getByText(/不重複學生數/).first()).toBeVisible();

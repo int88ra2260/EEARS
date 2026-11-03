@@ -86,7 +86,7 @@ export const LA_FILTER_INTRO_COHORTS = '這些條件篩的是分析快照裡的�
 export const LA_FILTER_INTRO_SKILLS = '這些條件篩的是分析快照裡、可以拿來算技能成長的學生。';
 
 /** 資源覆蓋：看各類型的參與與可觀察樣本 */
-export const LA_FILTER_INTRO_RESOURCES = '這些條件篩的是分析快照裡的學生，用來算各資源類型的參與人數與可觀察樣本。';
+export const LA_FILTER_INTRO_RESOURCES = '這些條件篩的是分析快照裡的學生。資源覆蓋 API 不依學期切分，所以這裡沒有學期篩選。';
 
 /** 原始資料匯出頁：篩選會真正縮小匯出範圍 */
 export const LA_FILTER_INTRO_RAW_EXPORT = '此頁篩選會套用到預覽與匯出。若只要某學年度學生，請用「學年度」或「入學年度（級）」；「入學學期」對應 enrollment_term（如 114-2）。資料版本請選「建議｜全域分析」。';
@@ -123,7 +123,6 @@ export const SKILL_GROWTH_FILTER_KEYS = [
 /** 資源覆蓋頁：看資源是否有足夠可觀察樣本，不做研究型配對調參 */
 export const RESOURCE_COVERAGE_FILTER_KEYS = [
   'snapshot_version',
-  'semester',
   'cohort',
   'college',
   'department',

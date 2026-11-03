@@ -170,6 +170,32 @@ describe('ADMIN_NAV_SECTIONS learning IA', () => {
   });
 });
 
+describe('資源與開課 sidebar entry', () => {
+  const ctx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
+
+  function visibleLabels(nodes, labels = []) {
+    for (const node of nodes || []) {
+      if (node.children?.length && !node.path) visibleLabels(node.children, labels);
+      else labels.push(node.label);
+    }
+    return labels;
+  }
+
+  it('keeps one entry and both old urls', () => {
+    const labels = visibleLabels(filterVisibleNav(ADMIN_NAV_SECTIONS, ctx));
+    expect(labels.filter((label) => label === '資源與開課')).toEqual(['資源與開課']);
+    expect(labels.filter((label) => ['資源覆蓋', '課／師／活動'].includes(label))).toEqual([]);
+    expect(getAdminPageMeta('/admin/learning-analytics/resources', ctx)).toMatchObject({
+      pageTitle: '資源與開課',
+      childId: 'learning-analytics-resources',
+    });
+    expect(getAdminPageMeta('/admin/learning-analytics/offerings', ctx)).toMatchObject({
+      pageTitle: '資源與開課',
+      childId: 'learning-analytics-resources',
+    });
+  });
+});
+
 describe('找學生 sidebar entry', () => {
   const ctx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
 
