@@ -270,7 +270,7 @@ test.describe('find students on the admin shell', () => {
 
     const sidebar = page.getByRole('complementary', { name: '後台主導覽' });
     await sidebar.getByRole('button', { name: '比較與資料' }).click();
-    await sidebar.getByRole('link', { name: '技能成長' }).click();
+    await sidebar.getByRole('link', { name: '群體與技能比較' }).click();
     await expect(banner).toContainText('固定名單');
     await page.getByRole('combobox', { name: '資料版本' }).selectOption('snap-b');
     await page.getByRole('button', { name: '套用篩選' }).click();
@@ -280,7 +280,8 @@ test.describe('find students on the admin shell', () => {
     await expect(banner).not.toContainText('重新篩選');
 
     await page.goto('/admin/learning-analytics/kpi-report?profile=learning');
-    await page.getByPlaceholder('例：115-1').fill('115-9');
+    await page.getByRole('combobox', { name: '名冊學期' }).selectOption('__custom');
+    await page.getByRole('textbox', { name: '其他學期代碼' }).fill('115-9');
     await expect(banner).toContainText('尚未套用這份固定名單');
     await page.getByRole('button', { name: '沿用這份固定名單' }).click();
     await expect(banner).toContainText('固定名單');

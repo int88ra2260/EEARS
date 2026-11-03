@@ -3,13 +3,13 @@
 export const LEARNING_DETAIL_LINKS = Object.freeze([
   {
     id: 'skills',
-    label: '開啟技能成長',
+    label: '開啟群體與技能比較',
     to: '/admin/learning-analytics/skills',
-    hint: '既有前後測與校正後進步。這頁的篩選不會自動帶過去。',
+    hint: '開啟技能成長模式。這頁的篩選不會自動帶過去。',
   },
   {
     id: 'offerings',
-    label: '開啟課／師／活動',
+    label: '開啟資源與開課',
     to: '/admin/learning-analytics/offerings',
     hint: '既有參與樣本與細項。',
   },

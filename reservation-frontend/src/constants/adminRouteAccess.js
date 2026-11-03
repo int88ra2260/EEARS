@@ -399,7 +399,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/learning-analytics/overview',
-    label: '能力總覽',
+    label: '學習成效概況',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
@@ -417,13 +417,13 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/learning-analytics/offerings',
-    label: '課／師／活動',
+    label: '資源與開課',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
     pattern: '/admin/learning-analytics/resources',
-    label: '資源覆蓋',
+    label: '資源與開課',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },

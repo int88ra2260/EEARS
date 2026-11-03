@@ -17,7 +17,8 @@ test('admin hub links existing pages and does not invent a class BESTEP url', as
   await expect(page.getByRole('heading', { level: 1, name: '成效分析中心' })).toBeVisible();
   await expect(page.getByRole('link', { name: '活動營運總覽' })).toHaveAttribute('href', '/admin/analytics/overview');
   await expect(page.getByRole('link', { name: '班級列表' })).toHaveAttribute('href', '/admin/classes');
-  await expect(page.getByRole('link', { name: '資源覆蓋' })).toHaveAttribute('href', '/admin/learning-analytics/resources');
+  await expect(page.getByRole('main').getByRole('link', { name: '資源與開課' })).toHaveAttribute('href', '/admin/learning-analytics/resources');
+  await expect(page.getByRole('main').getByRole('link', { name: 'BESTEP 數據分析' })).toHaveAttribute('href', '/admin/english-test?tab=analytics');
   const hrefs = await page.locator('a').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')));
   expect(hrefs.some((href) => String(href).includes('/bestep'))).toBe(false);
   await expect(page.getByText('三個 Shadow 預設關閉')).toBeVisible();
@@ -28,7 +29,7 @@ test('admin hub links existing pages and does not invent a class BESTEP url', as
 
 test('learning-only profile cannot follow operations or class links', async ({ page }) => {
   await page.goto(`${HUB}&profile=learning`);
-  await expect(page.getByRole('link', { name: '資源覆蓋' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '資源與開課' })).toBeVisible();
   await expect(page.getByRole('link', { name: '活動營運總覽' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '班級列表' })).toHaveCount(0);
   await expect(page.getByText('活動營運總覽：沒有權限').first()).toBeVisible();
@@ -39,7 +40,7 @@ test('office staff profile has no analytics destinations', async ({ page }) => {
   await expect(page.getByRole('heading', { name: '成效分析中心' })).toBeVisible();
   await expect(page.getByRole('link', { name: '活動營運總覽' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '班級列表' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: '資源覆蓋' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: '資源與開課' })).toHaveCount(0);
 });
 
 test('hub links are keyboard focusable and cards fit the viewport', async ({ page }) => {

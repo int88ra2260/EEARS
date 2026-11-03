@@ -173,18 +173,24 @@ describe('analytics hub page', () => {
     renderHub(token({ role: 'admin' }));
     expect(screen.getByRole('heading', { level: 1, name: '成效分析中心' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: '中心營運分析' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'BESTEP 測驗分析' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'BESTEP 數據分析' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: '學習參與與歷程' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: '資料品質與使用限制' })).toBeTruthy();
     expect(screen.getByRole('link', { name: '活動營運總覽' }).getAttribute('href')).toBe('/admin/analytics/overview');
     expect(screen.getByRole('link', { name: '班級列表' }).getAttribute('href')).toBe('/admin/classes');
-    expect(screen.getByRole('link', { name: '資源覆蓋' }).getAttribute('href')).toBe('/admin/learning-analytics/resources');
+    expect(screen.getByRole('link', { name: '資源與開課' }).getAttribute('href')).toBe('/admin/learning-analytics/resources');
+    expect(screen.getByRole('link', { name: 'BESTEP 數據分析' }).getAttribute('href')).toBe('/admin/english-test?tab=analytics');
+    expect(screen.queryByRole('link', { name: '資源覆蓋' })).toBeNull();
+    expect(screen.queryByRole('link', { name: '課／師／活動' })).toBeNull();
     expect(screen.getAllByText('主要入口').length).toBe(3);
     expect(screen.getByText(/預約筆數與不重複學生數不同/)).toBeTruthy();
     expect(screen.getByText(/既有通過率尚未核准/)).toBeTruthy();
     expect(screen.getAllByText(/都不是已確認的因果效果/).length).toBeGreaterThan(0);
     expect(screen.getByText(/比例分母不同/)).toBeTruthy();
-    expect(screen.getAllByRole('link').every((link) => !String(link.getAttribute('href')).includes('?'))).toBe(true);
+    const queryLinks = screen.getAllByRole('link')
+      .map((link) => link.getAttribute('href'))
+      .filter((href) => String(href).includes('?'));
+    expect(queryLinks).toEqual(['/admin/english-test?tab=analytics']);
     const destinations = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
     expect(destinations.some((href) => href.includes('/bestep'))).toBe(false);
     expect(screen.getByText(/B2 標記不是活動造成的語言能力提升/)).toBeTruthy();
@@ -205,7 +211,8 @@ describe('analytics hub page', () => {
         can_view_learning_analytics: true,
       },
     }));
-    expect(screen.getByRole('link', { name: '資源覆蓋' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '資源與開課' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'BESTEP 數據分析' })).toBeNull();
     expect(screen.queryByRole('link', { name: '活動營運總覽' })).toBeNull();
     expect(screen.queryByRole('link', { name: '班級列表' })).toBeNull();
     expect(screen.getAllByText(/沒有權限/).length).toBeGreaterThan(0);
@@ -235,6 +242,7 @@ describe('analytics hub page', () => {
     expect(screen.getByTestId('analytics-hub-empty')).toHaveTextContent('目前沒有可用分析入口');
     expect(screen.queryByRole('link', { name: '活動營運總覽' })).toBeNull();
     expect(screen.queryByRole('link', { name: '班級列表' })).toBeNull();
-    expect(screen.queryByRole('link', { name: '資源覆蓋' })).toBeNull();
+    expect(screen.queryByRole('link', { name: '資源與開課' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'BESTEP 數據分析' })).toBeNull();
   });
 });

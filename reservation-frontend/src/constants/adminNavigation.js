@@ -493,12 +493,12 @@ export const ADMIN_NAV_SECTIONS = [
             children: [
               {
                 id: 'learning-analytics-overview',
-                label: '學習成效總覽',
+                label: '學習成效概況',
                 path: '/admin/learning-analytics/overview',
                 matchPrefixes: ['/admin/learning-analytics/overview'],
                 visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '英語學習成效分析',
-                breadcrumbLabel: '學習成效總覽',
+                pageTitle: '學習成效概況',
+                breadcrumbLabel: '學習成效概況',
               },
               {
                 id: 'learning-analytics-kpi-report',

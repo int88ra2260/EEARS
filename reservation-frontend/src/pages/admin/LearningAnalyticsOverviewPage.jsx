@@ -274,7 +274,7 @@ export default function LearningAnalyticsOverviewPage() {
                 <div className="la-panel">
                   <LearningAnalyticsPanelHeader
                     title="成長資料可用性"
-                    lead="先看有多少資料能支撐成長解讀；平均成長請到技能成長頁查看分布與明細。"
+                    lead="先看有多少資料能支撐成長解讀；平均成長請到群體與技能比較查看分布與明細。"
                   />
                   <div className="table-responsive">
                     <table className="table table-sm align-middle mb-0">
@@ -303,7 +303,7 @@ export default function LearningAnalyticsOverviewPage() {
                     </table>
                   </div>
                   <p className="small text-muted mt-2 mb-0">
-                    成長值只應在「可算前後測」樣本足夠時解讀。缺重測與無考試的名單在 B2 KPI 報表。
+                    成長值只應在「可算前後測」樣本足夠時解讀。缺重測與無考試的名單在學期 B2 KPI。
                   </p>
                 </div>
               </Col>
@@ -312,8 +312,8 @@ export default function LearningAnalyticsOverviewPage() {
             <p className="small text-muted mt-3 mb-2">
               資源時數與可觀察樣本的詳細分析在
               {' '}
-              <Link to="/admin/learning-analytics/resources">資源覆蓋</Link>
-              。參與紀錄不是能力成長的原因。
+              <Link to="/admin/learning-analytics/resources">資源與開課</Link>
+              。進入後可切換參與覆蓋與課程活動。參與紀錄不是能力成長的原因。
             </p>
             <details className="la-panel mb-3">
               <summary className="fw-semibold">資源參與摘要</summary>
@@ -368,7 +368,7 @@ export default function LearningAnalyticsOverviewPage() {
                   <p className="small text-muted mt-2 mb-0">
                     若要看課程、教師或活動層級，請先確認「可算成長」樣本是否足夠，再到
                     {' '}
-                    <Link to="/admin/learning-analytics/offerings">課／師／活動</Link>
+                    <Link to="/admin/learning-analytics/offerings">資源與開課的課程與活動</Link>
                     。
                   </p>
                 </div>

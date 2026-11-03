@@ -25,6 +25,7 @@ import LearningAnalyticsOverviewPage from '../src/pages/admin/LearningAnalyticsO
 import LearningJourneyDashboardPage from '../src/pages/admin/LearningJourneyDashboardPage';
 import LearningAnalyticsB1PlusPage from '../src/pages/admin/LearningAnalyticsB1PlusPage';
 import LearningAnalyticsKpiReportPage from '../src/pages/admin/LearningAnalyticsKpiReportPage';
+import LearningAnalyticsRawDataPage from '../src/pages/admin/LearningAnalyticsRawDataPage';
 import LearningAnalyticsResourcesPage from '../src/pages/admin/LearningAnalyticsResourcesPage';
 import LearningAnalyticsOfferingsPage from '../src/pages/admin/LearningAnalyticsOfferingsPage';
 import LearningAnalyticsCohortsPage from '../src/pages/admin/LearningAnalyticsCohortsPage';
@@ -111,6 +112,7 @@ function AppHarness() {
               <Route path="cohorts" element={<LearningAnalyticsCohortsPage />} />
               <Route path="skills" element={<LearningAnalyticsSkillsPage />} />
               <Route path="kpi-report" element={<LearningAnalyticsKpiReportPage />} />
+              <Route path="raw-data" element={<LearningAnalyticsRawDataPage />} />
               <Route path="explore" element={<LearningAnalyticsStudentExplorerPage />} />
               <Route path="b1-plus" element={<LearningAnalyticsB1PlusPage />} />
               <Route path="tracking-cohorts" element={<LearningAnalyticsTrackingCohortsPage />} />

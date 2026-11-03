@@ -231,6 +231,6 @@ test.describe('student explorer visual review', () => {
     await expect(page.getByRole('navigation', { name: '學習成效分析' })).toHaveCount(0);
     const sidebar = page.getByRole('complementary', { name: '後台主導覽' });
     await sidebar.getByRole('button', { name: '上呈' }).click();
-    await expect(sidebar.getByRole('link', { name: '總覽' })).toBeVisible();
+    await expect(sidebar.getByRole('link', { name: '學習成效概況' })).toBeVisible();
   });
 });

@@ -171,13 +171,13 @@ test('BESTEP flow opens the class page, a student, and returns to the hub', asyn
 test('learning flow opens resources, skills, and returns without a shared filter', async ({ page }) => {
   await installApis(page);
   await page.goto(`${HUB}&profile=admin`);
-  const resources = page.getByRole('link', { name: '資源覆蓋' });
+  const resources = page.getByRole('main').getByRole('link', { name: '資源與開課' });
   await expect(resources).toHaveAttribute('href', '/admin/learning-analytics/resources');
   await resources.click();
   await expect(page.getByTestId('learning-reading')).toContainText('不代表資源造成能力提升');
   await page.getByRole('button', { name: '怎麼讀這頁' }).click();
-  await page.getByRole('link', { name: '開啟技能成長' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: '技能成長' })).toBeVisible();
+  await page.getByRole('link', { name: '開啟群體與技能比較' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: '群體與技能比較' })).toBeVisible();
   await expect(page.getByText('不代表課程造成進步').first()).toBeVisible();
   const back = page.getByRole('link', { name: '返回成效分析中心' });
   await expect(back).toHaveAttribute('href', '/admin/analytics');
@@ -187,14 +187,14 @@ test('learning flow opens resources, skills, and returns without a shared filter
 
 test('hub shows only the domains each profile can open', async ({ page }) => {
   const cases = [
-    ['admin', ['活動營運總覽', '班級列表', '資源覆蓋'], []],
-    ['executive', ['活動營運總覽', '班級列表', '資源覆蓋'], []],
-    ['classOnly', ['班級列表'], ['活動營運總覽', '資源覆蓋']],
-    ['learning', ['資源覆蓋'], ['活動營運總覽', '班級列表']],
+    ['admin', ['活動營運總覽', '班級列表', '資源與開課', 'BESTEP 數據分析'], []],
+    ['executive', ['活動營運總覽', '班級列表', '資源與開課', 'BESTEP 數據分析'], []],
+    ['classOnly', ['班級列表'], ['活動營運總覽', '資源與開課', 'BESTEP 數據分析']],
+    ['learning', ['資源與開課'], ['活動營運總覽', '班級列表', 'BESTEP 數據分析']],
     // 一般教師的活動分析權限可進 Hub，但活動營運總覽只開放 admin / executive。
-    ['operations', [], ['活動營運總覽', '班級列表', '資源覆蓋']],
-    ['none', [], ['活動營運總覽', '班級列表', '資源覆蓋']],
-    ['anonymous', [], ['活動營運總覽', '班級列表', '資源覆蓋']],
+    ['operations', [], ['活動營運總覽', '班級列表', '資源與開課', 'BESTEP 數據分析']],
+    ['none', [], ['活動營運總覽', '班級列表', '資源與開課', 'BESTEP 數據分析']],
+    ['anonymous', [], ['活動營運總覽', '班級列表', '資源與開課', 'BESTEP 數據分析']],
   ];
   for (const [profile, visible, hidden] of cases) {
     await page.goto(`${HUB}&profile=${profile}`);

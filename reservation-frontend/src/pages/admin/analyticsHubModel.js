@@ -27,44 +27,58 @@ const OPERATIONS_LINKS = [
 
 const BESTEP_LINKS = [
   {
+    id: 'bestep-analytics',
+    label: 'BESTEP 數據分析',
+    to: '/admin/english-test?tab=analytics',
+    accessPath: '/admin/english-test',
+    detail: '全中心的報名、出席紀錄與四技能。出席缺漏不是確認缺席。這不是班級頁，也不是學習成效快照。通過率尚未核定。',
+    primary: true,
+  },
+  {
     id: 'classes',
     label: '班級列表',
     to: '/admin/classes',
-    detail: '進入班級列表後，用該列的「查看 BESTEP 分析」開啟該班。這裡不組班級網址，也不顯示個人成績。',
-    primary: true,
+    detail: '進入班級後可看該班 BESTEP。這裡不組班級網址，也不顯示個人成績。',
   },
 ];
 
 const LEARNING_LINKS = [
   {
-    id: 'resources',
-    label: '資源覆蓋',
-    to: '/admin/learning-analytics/resources',
-    detail: '已掛學號的資源接觸。人數不是事件次數，接觸不是效果。',
+    id: 'overview',
+    label: '學習成效概況',
+    to: '/admin/learning-analytics/overview',
+    detail: '分析快照的能力分布。不是學期名冊，也不是聽讀成對 KPI。',
     primary: true,
   },
   {
+    id: 'kpi',
+    label: '學期 B2 KPI',
+    to: '/admin/learning-analytics/kpi-report',
+    detail: '學期名冊的聽讀成對與說寫成對。不與分析快照人數相加。',
+  },
+  {
     id: 'students',
-    label: '個人軌跡',
-    to: '/admin/learning-analytics/students',
-    detail: '個人歷程。沒有紀錄不能當成沒有參與。',
+    label: '找學生',
+    to: '/admin/learning-analytics/explore',
+    detail: '依條件找學生，並可開啟個人學習紀錄。篩選留在這個工作區。',
   },
   {
-    id: 'offerings',
-    label: '課／師／活動',
-    to: '/admin/learning-analytics/offerings',
-    detail: '課、師、活動的參與樣本與資料是否夠用。',
+    id: 'resources',
+    label: '資源與開課',
+    to: '/admin/learning-analytics/resources',
+    detail: '參與覆蓋，以及課程、教師與活動觀察，是同一工作區的兩種模式。人數不是事件次數。',
   },
   {
-    id: 'overview',
-    label: '能力總覽',
-    to: '/admin/learning-analytics/overview',
-    detail: '分析快照的能力分布。探索性觀察，不是因果。',
+    id: 'comparison',
+    label: '群體與技能比較',
+    to: '/admin/learning-analytics/cohorts',
+    detail: '群體英檢覆蓋與四技能前後測。缺少技能資料不是沒有測驗。',
   },
 ];
 
 function gateLink(accessProfile, link) {
-  const allowed = canAccessAdminRoute(accessProfile, link.to);
+  const path = link.accessPath || String(link.to).split('?')[0];
+  const allowed = canAccessAdminRoute(accessProfile, path);
   return {
     ...link,
     allowed,
@@ -86,9 +100,9 @@ export function buildAnalyticsHub(accessProfile) {
       },
       {
         id: 'bestep',
-        title: 'BESTEP 測驗分析',
-        summary: '報名、到考與四技能在班級頁。班級統計不是全校測驗分析。通過率尚未核定，不能當成官方達標率。',
-        scope: '統計單位是該班報名、出席與技能分。時間跟班級學期與測驗資料走，不沿用營運頁的活動日期。',
+        title: 'BESTEP 數據分析',
+        summary: '全中心的報名、出席紀錄與四技能在 BESTEP 數據分析。班級頁只代表該班，不能代替全中心。通過率尚未核定，不能當成官方達標率。',
+        scope: '全中心與單一班級是不同母體。時間跟培力英檢學期與測驗資料走，不沿用營運頁的活動日期，也不是學習成效快照。',
         links: BESTEP_LINKS.map((link) => gateLink(accessProfile, link)),
       },
       {

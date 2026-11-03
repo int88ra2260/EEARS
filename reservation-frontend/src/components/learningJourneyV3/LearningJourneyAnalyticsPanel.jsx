@@ -30,7 +30,7 @@ export default function LearningJourneyAnalyticsPanel({ semesterId }) {
           查看學習成效分析
         </Link>
         <Link className="btn btn-outline-secondary btn-sm" to={resourcesHref}>
-          資源覆蓋
+          資源與開課
         </Link>
         <Link className="btn btn-outline-secondary btn-sm" to="/admin/learning-journey/operations">
           學習歷程維運

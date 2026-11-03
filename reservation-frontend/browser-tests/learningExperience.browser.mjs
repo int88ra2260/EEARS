@@ -114,7 +114,7 @@ async function pageOverflow(page) {
 test('hub opens resource exposure, evidence limits, and the existing skills page', async ({ page }) => {
   const leaked = await mockLearning(page);
   await page.goto(HUB);
-  await page.getByRole('link', { name: '資源覆蓋' }).click();
+  await page.getByRole('main').getByRole('link', { name: '資源與開課' }).click();
   await expect(page.getByRole('heading', { level: 1, name: '資源與開課分析' })).toBeVisible();
   await expect(page.getByTestId('learning-reading')).toContainText('不代表資源造成能力提升');
   await expect(page.getByRole('cell', { name: '通識英文' }).first()).toBeVisible();
@@ -127,8 +127,8 @@ test('hub opens resource exposure, evidence limits, and the existing skills page
   await page.getByRole('button', { name: '套用篩選' }).click();
   await expect(page.getByRole('cell', { name: 'EAP 寫作／學術英文' }).first()).toBeVisible();
   await expect(page.getByRole('cell', { name: '通識英文' })).toHaveCount(0);
-  await page.getByRole('link', { name: '開啟技能成長' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: '技能成長' })).toBeVisible();
+  await page.getByRole('link', { name: '開啟群體與技能比較' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: '群體與技能比較' })).toBeVisible();
   await expect(page.getByText('不代表課程造成進步').first()).toBeVisible();
   expect(leaked).toEqual([]);
 });

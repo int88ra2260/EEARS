@@ -16,7 +16,7 @@ const NAV_GROUPS = [
     items: [
       {
         to: '/admin/learning-analytics/overview',
-        label: '總覽',
+        label: '學習成效概況',
         hint: '分析快照的能力分布與資料夠不夠',
         end: false,
       },

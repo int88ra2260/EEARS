@@ -305,15 +305,15 @@ test('BESTEP flow opens the real class pages under AdminLayout', async ({ page }
 test('learning flow keeps resource and event counts separate under AdminLayout', async ({ page }) => {
   const leaked = await installApis(page);
   await page.goto(appUrl('/admin/analytics', 'admin'));
-  await page.getByRole('main').getByRole('link', { name: '資源覆蓋' }).click();
+  await page.getByRole('main').getByRole('link', { name: '資源與開課' }).click();
   await expect(page).toHaveURL(/\/admin\/learning-analytics\/resources/);
   await expect(page.getByRole('heading', { level: 1, name: '資源與開課分析' })).toBeVisible();
   await expect(page.getByTestId('learning-reading')).toContainText('不代表資源造成能力提升');
   await page.getByRole('button', { name: '怎麼讀這頁' }).click();
   await expect(page.getByText(/不重複學生數/).first()).toBeVisible();
-  await page.getByRole('link', { name: '開啟技能成長' }).click();
+  await page.getByRole('link', { name: '開啟群體與技能比較' }).click();
   await expect(page).toHaveURL(/\/admin\/learning-analytics\/skills/);
-  await expect(page.getByRole('heading', { level: 1, name: '技能成長' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '群體與技能比較' })).toBeVisible();
   await expect(page.getByText('不代表課程造成進步').first()).toBeVisible();
   await page.getByRole('link', { name: '返回成效分析中心' }).click();
   await expect(page).toHaveURL(/\/admin\/analytics$/);

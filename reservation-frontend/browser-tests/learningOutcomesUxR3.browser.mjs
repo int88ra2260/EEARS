@@ -225,7 +225,7 @@ test.describe(`learning outcomes ux r3 (${phase})`, () => {
       await expect(page.getByRole('heading', { name: '總覽' })).toBeVisible();
       await expect(page.getByText('英語中心資源參與')).toBeVisible();
     } else {
-      await expect(page.getByRole('heading', { name: '學習成效概況' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1, name: '學習成效概況' })).toBeVisible();
       await expect(page.getByText('分析範圍：學習成效快照')).toBeVisible();
       await expect(page.locator('.outcomes-mode').getByRole('link', { name: '學期 B2 KPI' })).toBeVisible();
       await expect(page.getByText('資源參與摘要')).toBeVisible();

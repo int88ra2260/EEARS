@@ -100,11 +100,15 @@ describe('learning participation reading', () => {
     const admin = buildAnalyticsHub(profile({ role: 'admin' }));
     const learning = admin.sections.find((section) => section.id === 'learning');
     expect(learning.links.map((link) => link.to)).toEqual([
-      '/admin/learning-analytics/resources',
-      '/admin/learning-analytics/students',
-      '/admin/learning-analytics/offerings',
       '/admin/learning-analytics/overview',
+      '/admin/learning-analytics/kpi-report',
+      '/admin/learning-analytics/explore',
+      '/admin/learning-analytics/resources',
+      '/admin/learning-analytics/cohorts',
     ]);
+    expect(canAccessAdminRoute(profile({ role: 'admin' }), '/admin/learning-analytics/students')).toBe(true);
+    expect(canAccessAdminRoute(profile({ role: 'admin' }), '/admin/learning-analytics/offerings')).toBe(true);
+    expect(canAccessAdminRoute(profile({ role: 'admin' }), '/admin/learning-analytics/skills')).toBe(true);
     expect(learning.links.every((link) => link.allowed)).toBe(true);
     expect(JSON.stringify(learning)).not.toMatch(/studentId|SYN-STU|@/);
     expect(learning.summary).toContain('不能解讀成某個活動造成了進步');
@@ -182,7 +186,7 @@ describe('learning resources page', () => {
     expect(screen.queryByText('0.0')).toBeNull();
     expect(screen.queryByLabelText('學期')).toBeNull();
     await user.click(screen.getByRole('button', { name: '怎麼讀這頁' }));
-    expect(screen.getByRole('link', { name: '開啟技能成長' }).getAttribute('href')).toBe('/admin/learning-analytics/skills');
+    expect(screen.getByRole('link', { name: '開啟群體與技能比較' }).getAttribute('href')).toBe('/admin/learning-analytics/skills');
     expect(screen.queryByText('SYN-STU')).toBeNull();
     expect(screen.getByText(geRow.interpretation)).toBeTruthy();
     expect(screen.getByText(/這份資源回應沒有排除原因明細/)).toBeTruthy();
