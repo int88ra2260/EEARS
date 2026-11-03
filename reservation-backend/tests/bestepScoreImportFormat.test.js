@@ -35,6 +35,10 @@ test('BESTEP score import keeps zero scores and normalizes CEFR plus levels', ()
   assert.equal(parseNullableScore(''), null);
   assert.equal(normalizeCefrLevel('B2+'), 'B2');
   assert.equal(normalizeCefrLevel('A2+'), 'A2');
+  assert.equal(normalizeCefrLevel('C1+'), 'C1');
+  assert.equal(normalizeCefrLevel('C1'), 'C1');
+  assert.equal(normalizeCefrLevel(' c2 '), 'C2');
+  assert.notEqual(normalizeCefrLevel('B2+'), 'C1');
   assert.equal(normalizeCefrLevel('未達A1'), 'A1');
   assert.equal(normalizeCefrLevel(null), null);
 });

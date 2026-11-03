@@ -1,92 +1,260 @@
-/* 培力英檢數據分析 — 圖表殼層改用共用 kit；此檔保留圓環 legend／donut 專用樣式 */
-
-.et-analytics-donut-value {
-  font-size: 1.65rem;
-  font-weight: 700;
-  fill: #2f3437;
+.et-analytics {
+  color: #2f3437;
+  min-width: 0;
+  max-width: 100%;
 }
 
-.et-analytics-donut-label {
-  font-size: 0.78rem;
-  fill: #6a7176;
+.et-analytics-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem 1.5rem;
 }
 
-.et-analytics-legend {
+.et-analytics-title {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.3;
+}
+
+.et-analytics-purpose,
+.et-analytics-range,
+.et-analytics-panel-head p,
+.et-analytics-facts p,
+.et-analytics-observation,
+.et-analytics-gap p,
+.et-analytics-unit,
+.et-analytics-omitted {
+  color: #5d656b;
+  font-size: 0.92rem;
+}
+
+.et-analytics-purpose {
+  max-width: 40rem;
+  margin: 0.35rem 0 0;
+}
+
+.et-analytics-filter {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  max-height: 320px;
-  overflow: auto;
-  padding-right: 0.25rem;
+  gap: 0.3rem;
+  min-width: min(100%, 18rem);
 }
 
-.et-analytics-legend__item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 0.2rem 0.75rem;
+.et-analytics-filter label {
+  font-size: 0.78rem;
+  color: #5d656b;
+}
+
+.et-analytics-filter select {
   width: 100%;
-  text-align: left;
-  border: 1px solid transparent;
-  background: #f7f9fb;
-  border-radius: 10px;
-  padding: 0.55rem 0.7rem;
-  transition: background 160ms ease, border-color 160ms ease, opacity 160ms ease;
+  min-height: 2.4rem;
+  border: 1px solid rgba(47, 52, 55, 0.18);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.35rem 0.7rem;
 }
 
-.et-analytics-legend__item:hover,
-.et-analytics-legend__item.is-active {
-  background: #eaf1fc;
-  border-color: rgba(42, 93, 159, 0.18);
+.et-analytics-range {
+  margin: 0.9rem 0 0;
 }
 
-.et-analytics-legend__item.is-dimmed {
-  opacity: 0.45;
-}
-
-.et-analytics-legend__meta {
+.et-analytics-topics,
+.et-analytics-slices,
+.et-analytics-view {
   display: flex;
-  align-items: center;
-  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
-.et-analytics-legend__name {
+.et-analytics-topics {
+  margin-top: 1rem;
+}
+
+.et-analytics-topics button,
+.et-analytics-slices button,
+.et-analytics-view button {
+  border: 1px solid rgba(47, 52, 55, 0.16);
+  background: #fff;
+  color: #2f3437;
+  border-radius: 999px;
+  min-height: 2.25rem;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.9rem;
+}
+
+.et-analytics-topics button[aria-selected='true'],
+.et-analytics-slices button[aria-pressed='true'],
+.et-analytics-view button[aria-pressed='true'] {
+  background: #2a5d9f;
+  border-color: #2a5d9f;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.22rem;
+}
+
+.et-analytics-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 1rem 0 0;
+  border: 1px solid rgba(47, 52, 55, 0.12);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.et-analytics-facts > div {
+  padding: 0.9rem 1rem 0.8rem;
+}
+
+.et-analytics-facts > div + div {
+  border-left: 1px solid rgba(47, 52, 55, 0.08);
+}
+
+.et-analytics-facts dt {
+  font-size: 0.78rem;
+  color: #5d656b;
+  font-weight: 600;
+}
+
+.et-analytics-facts dd {
+  margin: 0.15rem 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.et-analytics-facts dd.et-analytics-ratio {
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+
+.et-analytics-facts p,
+.et-analytics-panel-head p,
+.et-analytics-unit,
+.et-analytics-omitted,
+.et-analytics-observation {
+  margin: 0;
+}
+
+.et-analytics-slices {
+  margin-top: 0.9rem;
+}
+
+.et-analytics-panel,
+.et-analytics-gap,
+.et-analytics-status,
+.et-analytics-alert {
+  margin-top: 0.9rem;
+}
+
+.et-analytics-panel,
+.et-analytics-gap {
+  border: 1px solid rgba(47, 52, 55, 0.12);
+  border-radius: 12px;
+  background: #fff;
+  padding: 1rem 1rem 1.1rem;
+}
+
+.et-analytics-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem 1rem;
+}
+
+.et-analytics-panel h3,
+.et-analytics-gap h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.et-analytics-panel-head p,
+.et-analytics-unit,
+.et-analytics-omitted {
+  margin-top: 0.25rem;
+}
+
+.et-analytics-plot,
+.et-analytics-table-wrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.et-analytics-table-wrap {
+  overflow-x: auto;
+}
+
+.et-analytics-caveat {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-left: 3px solid #8a6a32;
+  background: #f7f4ee;
+  color: #3d3832;
+  font-size: 0.92rem;
+}
+
+.et-analytics-status {
+  padding: 1.25rem 1rem;
+  border: 1px dashed rgba(47, 52, 55, 0.2);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.et-analytics-table {
+  margin-top: 0.75rem;
+}
+
+.et-analytics-caption {
+  caption-side: bottom;
+  padding-top: 0.6rem;
+  color: #5d656b;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.et-analytics-table th,
+.et-analytics-table td {
   white-space: nowrap;
-  font-size: 0.88rem;
+}
+
+.et-analytics-definition {
+  margin-top: 0.9rem;
+  font-size: 0.86rem;
+  color: #5d656b;
+}
+
+.et-analytics-definition summary {
+  cursor: pointer;
   color: #2f3437;
 }
 
-.et-analytics-legend__stats {
-  display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  font-size: 0.82rem;
+.et-analytics-definition ul {
+  margin: 0.45rem 0 0;
+  padding-left: 1.1rem;
 }
 
-.et-analytics-legend__bar {
-  grid-column: 1 / -1;
-  display: block;
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(47, 52, 55, 0.06);
-  overflow: hidden;
+.et-analytics-observation {
+  margin-top: 0.75rem;
 }
 
-.et-analytics-legend__bar > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-}
+@media (max-width: 720px) {
+  .et-analytics-facts {
+    grid-template-columns: 1fr;
+  }
 
-.et-analytics-table thead {
-  background: #f7f9fb;
-}
+  .et-analytics-facts > div + div {
+    border-left: 0;
+    border-top: 1px solid rgba(47, 52, 55, 0.08);
+  }
 
-.et-analytics-table th {
-  font-size: 0.8rem;
-  color: #6a7176;
-  font-weight: 600;
-  border-bottom-width: 1px;
+  .et-analytics-title {
+    font-size: 1.2rem;
+  }
 }

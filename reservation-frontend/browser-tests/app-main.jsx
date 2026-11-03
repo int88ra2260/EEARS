@@ -26,6 +26,7 @@ import LearningAnalyticsStudentDetailPage from '../src/pages/admin/LearningAnaly
 import LearningAnalyticsStudentExplorerPage from '../src/pages/admin/LearningAnalyticsStudentExplorerPage';
 import LearningAnalyticsStudentJourneyPage from '../src/pages/admin/LearningAnalyticsStudentJourneyPage';
 import LearningAnalyticsTrackingCohortsPage from '../src/pages/admin/LearningAnalyticsTrackingCohortsPage';
+import EnglishTestManagement from '../src/components/EnglishTestManagement';
 import LoginPage from '../src/components/LoginPage';
 import { staffLoginPath } from '../src/utils/staffLoginNext';
 import { applyHarnessAuth } from './appAuth';
@@ -84,6 +85,7 @@ function AppHarness() {
             <Route path="operations" element={<AdminHome />} />
             <Route path="classes" element={<ClassOverview />} />
             <Route path="classes/:classId/bestep" element={<ClassBestepOverview />} />
+            <Route path="english-test" element={<EnglishTestManagement />} />
             <Route path="learning-analytics" element={<LearningAnalyticsLayout />}>
               <Route path="resources" element={<LearningAnalyticsResourcesPage />} />
               <Route path="skills" element={<LearningAnalyticsSkillsPage />} />

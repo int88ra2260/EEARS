@@ -181,6 +181,11 @@ export async function fetchEnglishTestAnalyticsStats(token, { semester } = {}) {
       data.semesterCounts && typeof data.semesterCounts === 'object' && !Array.isArray(data.semesterCounts)
         ? data.semesterCounts
         : {},
+    registrationSummary: data.registrationSummary && typeof data.registrationSummary === 'object'
+      ? data.registrationSummary
+      : null,
+    attendance: data.attendance && typeof data.attendance === 'object' ? data.attendance : null,
+    scores: data.scores && typeof data.scores === 'object' ? data.scores : null,
   };
 }
 

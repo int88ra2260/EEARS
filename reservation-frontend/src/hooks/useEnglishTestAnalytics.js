@@ -16,6 +16,9 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
   const [infoSourceStats, setInfoSourceStats] = useState(EMPTY_BUCKET);
   const [departmentStats, setDepartmentStats] = useState(EMPTY_BUCKET);
   const [gradeStats, setGradeStats] = useState(EMPTY_BUCKET);
+  const [registrationSummary, setRegistrationSummary] = useState(null);
+  const [attendanceSummary, setAttendanceSummary] = useState(null);
+  const [scoreSummary, setScoreSummary] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState('');
   const hydratedRef = useRef(false);
@@ -36,6 +39,9 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
       setAvailableSemesters(json.availableSemesters || []);
       setSemesterCounts(json.semesterCounts || {});
       setActiveSemester(json.activeSemester || '');
+      setRegistrationSummary(json.registrationSummary || null);
+      setAttendanceSummary(json.attendance || null);
+      setScoreSummary(json.scores || null);
       if (!hydratedRef.current) {
         hydratedRef.current = true;
         const resolved =
@@ -52,6 +58,9 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
       setInfoSourceStats(EMPTY_BUCKET);
       setDepartmentStats(EMPTY_BUCKET);
       setGradeStats(EMPTY_BUCKET);
+      setRegistrationSummary(null);
+      setAttendanceSummary(null);
+      setScoreSummary(null);
       setAnalyticsError(e?.message || '載入統計失敗，請確認後端已重啟並包含數據分析 API');
     } finally {
       setAnalyticsLoading(false);
@@ -72,6 +81,9 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
     infoSourceStats,
     departmentStats,
     gradeStats,
+    registrationSummary,
+    attendanceSummary,
+    scoreSummary,
     analyticsLoading,
     analyticsError,
     loadAnalyticsStats,
