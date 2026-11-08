@@ -431,7 +431,7 @@ describe('AdminAnalyticsPage operational overview', () => {
     expect(screen.getByText('這個帳號不能開啟活動明細，所以這裡只列出場次。')).toBeInTheDocument();
   });
 
-  test('narrow screens replace the session table with cards and a readable trend list', async () => {
+  test('narrow screens replace the session table with cards and keep the charts', async () => {
     harness.token = adminToken();
     const previous = window.matchMedia;
     window.matchMedia = (query) => ({
@@ -445,8 +445,10 @@ describe('AdminAnalyticsPage operational overview', () => {
       const eventList = await screen.findByTestId('capacity-by-event');
       expect(eventList.querySelector('table')).toBeNull();
       expect(screen.getByRole('link', { name: '查看這場活動' })).toHaveAttribute('href', '/admin/operations/9');
-      expect(screen.getByTestId('ops-chart-list')).toHaveTextContent('3 筆');
-      expect(screen.getByTestId('ops-chart-list')).toHaveTextContent('50.0%');
+      expect(screen.getByRole('heading', { name: '活動趨勢（依活動日期）' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: '預約列簽到率（依活動日期）' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: '班級排行（Top 10，依預約列違規狀態比）' })).toBeInTheDocument();
+      expect(screen.queryByTestId('ops-chart-list')).toBeNull();
     } finally {
       view.unmount();
       window.matchMedia = previous;

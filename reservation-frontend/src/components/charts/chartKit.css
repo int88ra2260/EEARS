@@ -6,6 +6,8 @@
   border-radius: 12px;
   overflow: hidden;
   background: #fff;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .eears-chart-card__header {
@@ -100,4 +102,5 @@
 
 .eears-chart-plot {
   width: 100%;
+  min-width: 0;
 }

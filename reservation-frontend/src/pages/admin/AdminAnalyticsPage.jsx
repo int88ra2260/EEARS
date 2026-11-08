@@ -799,32 +799,7 @@ export default function AdminAnalyticsPage() {
             emptyHint="尚無足夠資料產生圖表（活動趨勢、簽到趨勢或班級排行皆為空）。"
           />
         )}
-        {!chartsLoading && !chartsError && !chartsNoData && narrow && (
-          <div data-testid="ops-chart-list">
-            <article className="ops-result-card">
-              <h3>活動趨勢（依活動日期）</h3>
-              <p className="small text-muted">每日預約筆數，單位是筆。</p>
-              {activityChartData.map((row) => (
-                <p key={row.rawDate || row.date} className="mb-1">{row.date}：{formatCount(row.reservationsCount)} 筆</p>
-              ))}
-            </article>
-            <article className="ops-result-card">
-              <h3>預約列簽到率（依活動日期）</h3>
-              <p className="small text-muted">已簽到預約列 ÷ 當日預約列，單位是百分比。</p>
-              {attendanceChartData.map((row) => (
-                <p key={row.rawDate || row.date} className="mb-1">{row.date}：{formatPct1(row.attendanceRate)}</p>
-              ))}
-            </article>
-            <article className="ops-result-card">
-              <h3>班級違規狀態比（前 10 名）</h3>
-              <p className="small text-muted">違規狀態的預約列 ÷ 該班預約列。</p>
-              {classChartData.map((row) => (
-                <p key={row.classKey} className="mb-1">{row.classKey}：{formatPct1(row.violationRate)}</p>
-              ))}
-            </article>
-          </div>
-        )}
-        {!chartsLoading && !chartsError && !chartsNoData && !narrow && (
+        {!chartsLoading && !chartsError && !chartsNoData && (
           <>
             <div className="row g-3 mb-3">
               <div className="col-12 col-lg-6">
