@@ -478,6 +478,46 @@ describe('loginWithCampusSso', () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
+  it('accepts a campus name that uses a private-use character', async () => {
+    mockFindOne.mockResolvedValue(null);
+    mockCreate.mockImplementation(async (row) => accountRow(row));
+    const sso = ssoDouble({
+      getStuAttr: jest.fn().mockResolvedValue({ ...profile, CNAME: '曾\uE273鈞' }),
+    });
+
+    const account = await studentAuthService.loginWithCampusSso({
+      studentId: 'B123456789',
+      password: 'campus-secret',
+    }, sso);
+
+    expect(account.name).toBe('曾\uE273鈞');
+  });
+
+  it('still rejects a campus profile whose name is an email or whose student id is missing', async () => {
+    const missingId = ssoDouble({
+      getStuAttr: jest.fn().mockResolvedValue({ ...profile, STUID: '' }),
+    });
+    await expect(studentAuthService.loginWithCampusSso({
+      studentId: 'B123456789',
+      password: 'campus-secret',
+    }, missingId)).rejects.toMatchObject({
+      code: 'SSO_BAD_PROFILE',
+      message: '單一入口沒有回傳完整的學號與姓名',
+    });
+
+    const shiftedEmail = ssoDouble({
+      getStuAttr: jest.fn().mockResolvedValue({ ...profile, CNAME: 'ming@gmail.com' }),
+    });
+    await expect(studentAuthService.loginWithCampusSso({
+      studentId: 'B123456789',
+      password: 'campus-secret',
+    }, shiftedEmail)).rejects.toMatchObject({
+      code: 'SSO_BAD_PROFILE',
+      message: '單一入口回傳的姓名含有無法使用的字元',
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
   it('accepts a campus name that includes a middle dot', async () => {
     mockFindOne.mockResolvedValue(null);
     mockCreate.mockImplementation(async (row) => accountRow(row));

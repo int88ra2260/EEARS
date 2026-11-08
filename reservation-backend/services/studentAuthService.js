@@ -10,7 +10,7 @@ const {
 } = require('../utils/validators');
 const { assertEmailVerifiedToken } = require('./studentAccountEmailVerificationService');
 const { findOfficialIdentity } = require('./studentIdentityRosterService');
-const { compactPersonName, normalizePersonName } = require('../utils/personName');
+const { compactPersonName, normalizePersonName, isCampusPersonName } = require('../utils/personName');
 const {
   savePendingReview,
   findPendingByStudentId,
@@ -256,8 +256,11 @@ async function upsertCampusAccount(profile) {
   if (statCod && !CAMPUS_STAT_COD.split(';').includes(statCod)) {
     throw httpError(403, 'CAMPUS_STUDENT_INACTIVE', '此學號目前不是在學狀態，無法登入');
   }
-  if (!validateStudentId(studentId) || !validateName(name)) {
+  if (!validateStudentId(studentId) || !name) {
     throw httpError(400, 'SSO_BAD_PROFILE', '單一入口沒有回傳完整的學號與姓名');
+  }
+  if (!isCampusPersonName(name)) {
+    throw httpError(400, 'SSO_BAD_PROFILE', '單一入口回傳的姓名含有無法使用的字元');
   }
 
   const now = new Date();

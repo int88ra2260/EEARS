@@ -24,8 +24,21 @@ function personNamesMatch(left, right) {
   return normalizePersonName(left) === normalizePersonName(right);
 }
 
+/**
+ * 單一入口回傳的姓名。比自行填寫的表單多接受：
+ * 擴充區漢字，以及校園造字用的私人使用區（U+E000–U+F8FF）。
+ * 不含數字、@、句點，避免學號或信箱被分號拆錯欄後當成姓名。
+ */
+const campusPersonNameRegex = /^[\p{Script=Han}A-Za-z\uE000-\uF8FF][\p{Script=Han}A-Za-z\uE000-\uF8FF\s·・'’ʼ-]*$/u;
+
+function isCampusPersonName(value) {
+  const name = compactPersonName(value);
+  return name.length > 0 && name.length <= 100 && campusPersonNameRegex.test(name);
+}
+
 module.exports = {
   compactPersonName,
   normalizePersonName,
   personNamesMatch,
+  isCampusPersonName,
 };
