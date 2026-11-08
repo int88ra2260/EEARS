@@ -1806,6 +1806,31 @@ Email: emicenter@mail.nsysu.edu.tw
 Phone: (07) 525-2000 ext. 5808
 `,
   }),
+
+  studentFeedbackNotice: (data) => ({
+    from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
+    to: data.centerEmail || 'emicenter@mail.nsysu.edu.tw',
+    replyTo: data.studentEmail || undefined,
+    subject: `【EEARS】${data.kindLabel || '學生回報'}：${data.categoryLabel || ''} — ${data.studentId || ''} ${data.studentName || ''}`.trim(),
+    text: `
+英語中心同仁您好，
+
+有一位學生從「我的帳號」送來${data.kindLabel || '回報'}。這封信是學生回報，與活動現場的學生證簽到無關。
+
+類型：${data.kindLabel || ''}
+項目：${data.categoryLabel || ''}
+時間：${data.submittedAt || ''}
+學號：${data.studentId || ''}
+姓名：${data.studentName || ''}
+信箱：${data.studentEmail || ''}
+${data.emailVerified ? '收信信箱已驗證。' : '收信信箱尚未驗證。'}
+
+內容：
+${data.message || ''}
+
+請由中心信箱回覆學生。此內容不會公開給其他學生。
+`.trim(),
+  }),
 };
 
 // 根據模板類型選擇對應的 transporter 和發件人

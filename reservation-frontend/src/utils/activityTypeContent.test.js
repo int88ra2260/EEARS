@@ -1,6 +1,7 @@
 import {
   activityTypeContentKey,
   buildActivityTypeContentSeedItems,
+  getActivityImageDefaultSrc,
   getActivityTypeContentKeys,
   pairSecondaryCtaUrlKey,
   parseActivityTypeContentKey,

@@ -294,7 +294,10 @@ export function getActivityImageDefaultSrc(contentKey) {
   const key = String(contentKey || '');
   if (FIXED_ACTIVITY_IMAGE_DEFAULTS[key]) return FIXED_ACTIVITY_IMAGE_DEFAULTS[key];
   const parsed = parseActivityTypeContentKey(key);
-  if (parsed?.field === 'imageUrl') return IMAGES.englishTable;
+  if (parsed?.field === 'imageUrl') {
+    if (parsed.code === 'other') return IMAGES.other;
+    return IMAGES.englishTable;
+  }
   return '';
 }
 

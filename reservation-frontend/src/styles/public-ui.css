@@ -48,6 +48,10 @@
   box-shadow: 0 8px 30px rgba(28, 61, 110, 0.055);
 }
 
+.app-main.public-site.container.public-site--wide {
+  max-width: min(100% - 1.5rem, 1360px);
+}
+
 .public-site .app-main,
 .app-main.public-site {
   max-width: 1200px;

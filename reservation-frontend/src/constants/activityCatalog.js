@@ -117,7 +117,7 @@ export function buildBookableActivityCards(eventTypes) {
       formatKey: keys.formatKey,
       durationKey: keys.durationKey,
       visualKeys: keys.visualKeys,
-      image: IMAGES.englishTable,
+      image: row.code === 'other' ? IMAGES.other : IMAGES.englishTable,
       imageKey: keys.imageKey,
       secondaryCtaLabelKey: keys.secondaryCtaLabelKey,
       secondaryCtaUrlKey: keys.secondaryCtaUrlKey,

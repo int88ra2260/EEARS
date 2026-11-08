@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import EventCalendarSection from './EventCalendarSection';
 
-const state = vi.hoisted(() => ({ lang: 'zh' }));
+const state = vi.hoisted(() => ({ lang: 'zh', mobile: false }));
 
 vi.mock('@fullcalendar/react', () => ({
   default: React.forwardRef((props, _ref) => (
@@ -15,13 +15,16 @@ vi.mock('@fullcalendar/react', () => ({
       data-prev-week={typeof props.buttonHints?.prev === 'function' ? props.buttonHints.prev('週', 'week') : ''}
       data-next-week={typeof props.buttonHints?.next === 'function' ? props.buttonHints.next('週', 'week') : ''}
       data-locale={typeof props.locale === 'string' ? props.locale : props.locale?.code}
+      data-initial-view={props.initialView}
     />
   )),
 }));
 
 vi.mock('@fullcalendar/daygrid', () => ({ default: {} }));
 vi.mock('@fullcalendar/list', () => ({ default: {} }));
-vi.mock('../../hooks/useMediaQuery', () => ({ default: () => false }));
+vi.mock('../../hooks/useMediaQuery', () => ({
+  default: (query) => String(query).includes('767') && state.mobile,
+}));
 vi.mock('../ui/useToast', () => ({ default: () => vi.fn() }));
 vi.mock('../../context/LanguageContext', () => ({
   useLanguage: () => ({ lang: state.lang }),
@@ -63,6 +66,7 @@ function renderCalendar() {
 describe('event calendar labels', () => {
   beforeEach(() => {
     state.lang = 'zh';
+    state.mobile = false;
   });
 
   test('Chinese locale supplies today and month navigation labels', () => {
@@ -74,6 +78,16 @@ describe('event calendar labels', () => {
     expect(calendar).toHaveAttribute('data-prev-week', '上週');
     expect(calendar).toHaveAttribute('data-next-week', '下週');
     expect(calendar).toHaveAttribute('data-locale', 'zh-tw');
+  });
+
+  test('desktop opens the month grid and phones open the list', () => {
+    const { unmount } = renderCalendar();
+    expect(screen.getByTestId('calendar')).toHaveAttribute('data-initial-view', 'dayGridMonth');
+    unmount();
+
+    state.mobile = true;
+    renderCalendar();
+    expect(screen.getByTestId('calendar')).toHaveAttribute('data-initial-view', 'listWeek');
   });
 
   test('English locale supplies English toolbar labels', () => {

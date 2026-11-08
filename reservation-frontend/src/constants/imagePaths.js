@@ -16,6 +16,7 @@ export const IMAGES = {
   englishTable: `${BASE}/english_table.jpg`,
   englishClub: `${BASE}/english_club.jpg`,
   internationalForum: `${BASE}/international_forum.jpg`,
+  other: `${BASE}/future_talk.jpg`,
   placeholder: `${BASE}/placeholder.jpg`,
   jobTalk: [
     `${BASE}/job_talk_1.jpg`,

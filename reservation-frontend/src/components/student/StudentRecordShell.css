@@ -161,6 +161,33 @@
   background: #c2410c;
 }
 
+.student-feedback__identity {
+  display: grid;
+  gap: 0.2rem 1rem;
+  margin: 0;
+}
+
+.student-feedback__identity div {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.student-feedback__identity dt {
+  margin: 0;
+  color: #5c6b7e;
+  font-weight: 600;
+}
+
+.student-feedback__identity dd {
+  margin: 0;
+}
+
+.student-feedback__kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+
 @media (max-width: 640px) {
   .student-account__hero {
     flex-direction: column;

@@ -3,6 +3,23 @@
   padding-bottom: 2.5rem;
 }
 
+.learning-resources-page.activities-page {
+  max-width: none;
+}
+
+@media (min-width: 1180px) {
+  .learning-resources-page .activities-practice-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .learning-resources-page .activities-practice-card:only-child {
+    grid-column: 1 / -1;
+    justify-self: start;
+    width: 100%;
+    max-width: 28rem;
+  }
+}
+
 .learning-resources-page .page-header {
   margin-bottom: 2rem;
 }

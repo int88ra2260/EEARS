@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import StudentAccountEmailVerification from '../../components/student/StudentAccountEmailVerification';
+import StudentFeedbackPanel from '../../components/student/StudentFeedbackPanel';
 import {
   changeStudentNotificationEmail,
   changeStudentPassword,
@@ -452,6 +453,8 @@ export default function StudentAccountPage() {
         )}
       </section>
       ) : null}
+
+      <StudentFeedbackPanel student={student} />
     </div>
   );
 }

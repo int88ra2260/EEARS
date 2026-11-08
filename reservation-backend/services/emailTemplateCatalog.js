@@ -657,6 +657,36 @@ const EMAIL_TEMPLATE_CATALOG = [
       followUpEn: 'These hours have been applied to 英文中級. You do not need to assign them yourself.',
     },
   },
+  {
+    key: 'studentFeedbackNotice',
+    category: 'account',
+    categoryLabel: '學生帳號',
+    name: '學生問題回報／許願',
+    description: '學生從我的帳號送出問題或建議後，寄給英語中心。不會公開給其他學生。',
+    channel: 'reservation',
+    variables: [
+      { name: 'centerEmail', description: '中心收件信箱', required: true },
+      { name: 'studentEmail', description: '學生信箱', required: true },
+      { name: 'studentId', description: '學號', required: true },
+      { name: 'studentName', description: '學生姓名', required: true },
+      { name: 'kindLabel', description: '問題回報或建議／許願' },
+      { name: 'categoryLabel', description: '項目' },
+      { name: 'message', description: '學生填寫的內容', required: true },
+      { name: 'emailVerified', description: '收信信箱是否已驗證' },
+      { name: 'submittedAt', description: '送出時間' },
+    ],
+    sampleData: {
+      centerEmail: 'emicenter@mail.nsysu.edu.tw',
+      studentEmail: 'student@example.com',
+      studentId: 'B123456789',
+      studentName: '王小明',
+      kindLabel: '問題回報',
+      categoryLabel: '預約或取消',
+      message: '預約按鈕按了沒有反應。',
+      emailVerified: true,
+      submittedAt: '2026/11/08 14:00',
+    },
+  },
 ];
 
 const CATALOG_BY_KEY = Object.fromEntries(EMAIL_TEMPLATE_CATALOG.map((t) => [t.key, t]));

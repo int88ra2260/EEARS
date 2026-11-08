@@ -818,6 +818,15 @@ export const ADMIN_NAV_SECTIONS = [
         breadcrumbLabel: '公告管理',
       },
       {
+        id: 'student-feedback',
+        label: '學生回報',
+        path: '/admin/student-feedback',
+        matchPrefixes: ['/admin/student-feedback'],
+        visibility: 'perm:can_view_student_feedback',
+        pageTitle: '學生回報',
+        breadcrumbLabel: '學生回報',
+      },
+      {
         id: 'weekly-reports',
         label: '英語中心週報',
         path: '/admin/weekly-reports',

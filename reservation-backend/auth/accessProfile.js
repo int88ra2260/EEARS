@@ -205,6 +205,7 @@ function buildBasePermissionSet(user) {
 
       // 公告（保留）
       P.CAN_MANAGE_ANNOUNCEMENTS,
+      P.CAN_VIEW_STUDENT_FEEDBACK,
 
       // 學生端文案
       P.CAN_MANAGE_SITE_CONTENT,
@@ -286,6 +287,7 @@ function buildBasePermissionSet(user) {
       P.CAN_REVIEW_ENGLISH_LEARNING_SUBMISSIONS,
       P.CAN_EXPORT_ENGLISH_LEARNING_PASSPORTS,
       P.CAN_MANAGE_ANNOUNCEMENTS,
+      P.CAN_VIEW_STUDENT_FEEDBACK,
       P.CAN_MANAGE_SITE_CONTENT,
       P.CAN_MANAGE_SETTINGS,
     ];
@@ -301,6 +303,7 @@ function buildBasePermissionSet(user) {
       P.CAN_RECORD_VIOLATIONS,
       P.CAN_MANAGE_VIOLATIONS,
       P.CAN_MANAGE_ANNOUNCEMENTS,
+      P.CAN_VIEW_STUDENT_FEEDBACK,
       P.CAN_MANAGE_ET_GROUPING,
       P.CAN_VIEW_ET_GROUPING,
       P.CAN_EXPORT_ET_GROUPING,
@@ -378,6 +381,7 @@ function buildBasePermissionSet(user) {
         P.CAN_EXPORT_ET_GROUPING,
         // 公告、週報（週報 API 沿用 can_manage_announcements）、網站文案
         P.CAN_MANAGE_ANNOUNCEMENTS,
+        P.CAN_VIEW_STUDENT_FEEDBACK,
         P.CAN_MANAGE_SITE_CONTENT,
         // 帳號治理（不可管理 admin／執行長，見 teacherController）
         P.CAN_MANAGE_ACCOUNTS,

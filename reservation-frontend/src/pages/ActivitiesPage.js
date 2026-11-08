@@ -47,6 +47,8 @@ function ActivityCardActions({ card, t }) {
     );
   }
 
+  const showLeaders = card.slug === 'english-table' || card.type === 'english_table';
+
   return (
     <div className="activity-card-actions">
       <Link to={`/activities/${card.slug}`} className="btn btn-primary activity-card-cta">
@@ -57,6 +59,14 @@ function ActivityCardActions({ card, t }) {
         secondary={secondary}
         visual={visual}
       />
+      {showLeaders ? (
+        <Link
+          to="/activities/english-table/leaders"
+          className="btn btn-outline-primary activity-card-cta activity-card-cta--leaders"
+        >
+          <ContentText k="leadersTeam.cardCta" />
+        </Link>
+      ) : null}
     </div>
   );
 }
@@ -128,7 +138,7 @@ export default function ActivitiesPage() {
 
   return (
 
-    <div className="activities-page">
+    <div className="activities-page activities-page--catalog">
 
       <PageHeader
 

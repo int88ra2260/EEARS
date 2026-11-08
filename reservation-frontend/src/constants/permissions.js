@@ -46,6 +46,7 @@ export const P = {
   CAN_MANAGE_SETTINGS: 'can_manage_settings',
   CAN_MANAGE_FEATURE_FLAGS: 'can_manage_feature_flags',
   CAN_MANAGE_ANNOUNCEMENTS: 'can_manage_announcements',
+  CAN_VIEW_STUDENT_FEEDBACK: 'can_view_student_feedback',
   CAN_MANAGE_SITE_CONTENT: 'can_manage_site_content',
   CAN_VIEW_AUDIT_LOGS: 'can_view_audit_logs',
   CAN_VIEW_ENGLISH_TEST_TRACKING: 'can_view_english_test_tracking',

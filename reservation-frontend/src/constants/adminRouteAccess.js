@@ -177,6 +177,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
 
   { pattern: '/admin/announcements', label: '公告管理', anyPermissions: [P.CAN_MANAGE_ANNOUNCEMENTS] },
+  { pattern: '/admin/student-feedback', label: '學生回報', anyPermissions: [P.CAN_VIEW_STUDENT_FEEDBACK] },
   { pattern: '/admin/announcements/new', label: '新增公告', anyPermissions: [P.CAN_MANAGE_ANNOUNCEMENTS] },
   {
     pattern: '/admin/announcements/:id/edit',

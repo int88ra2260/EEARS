@@ -43,6 +43,7 @@ const WeeklyPage = lazy(() => import('./pages/WeeklyPage'));
 const WeeklyPreviewPage = lazy(() => import('./pages/WeeklyPreviewPage'));
 const ActivityDetailPage = lazy(() => import('./pages/ActivityDetailPage'));
 const EnglishTableTopicsPage = lazy(() => import('./pages/EnglishTableTopicsPage'));
+const LeadersTeamPage = lazy(() => import('./pages/LeadersTeamPage'));
 const AnnouncementsPage = lazy(() => import('./pages/AnnouncementsPage'));
 const AnnouncementDetailPage = lazy(() => import('./pages/AnnouncementDetailPage'));
 const MyReservationsPage = lazy(() => import('./pages/MyReservationsPage'));
@@ -82,6 +83,7 @@ const AnalyticsHubPage = lazy(() => import('./pages/admin/AnalyticsHubPage'));
 const RiskDetectionPage = lazy(() => import('./components/RiskDetectionPage'));
 const ReportPage = lazy(() => import('./components/ReportPage'));
 const AnnouncementManagementPage = lazy(() => import('./pages/admin/AnnouncementManagementPage'));
+const AdminStudentFeedbackPage = lazy(() => import('./pages/admin/AdminStudentFeedbackPage'));
 const AnnouncementEditorPage = lazy(() => import('./pages/admin/AnnouncementEditorPage'));
 const AdminWeeklyReportPage = lazy(() => import('./pages/admin/AdminWeeklyReportPage'));
 const AdminWeeklyReportEditorPage = lazy(() => import('./pages/admin/AdminWeeklyReportEditorPage'));
@@ -476,6 +478,7 @@ function AppContent() {
             <Route path="/guides/activity-phrasebook" element={<ActivityPhrasebookPage />} />
             <Route path="/guides/activity-phrasebook/:activityType" element={<ActivityPhrasebookPage />} />
             <Route path="/activities/english-table/topics" element={<EnglishTableTopicsPage />} />
+            <Route path="/activities/english-table/leaders" element={<LeadersTeamPage />} />
             <Route path="/activities/:slug" element={<ActivityDetailPage />} />
             <Route path="/my-reservations" element={<RequireStudentAuth><MyReservationsPage /></RequireStudentAuth>} />
             <Route path="/announcements" element={<AnnouncementsPage />} />
@@ -583,6 +586,7 @@ function AppContent() {
               />
               <Route path="survey-settings" element={<AdminLegacyRedirect to="/admin/survey-rules" fromLabel="問卷設定（舊網址）" />} />
               <Route path="announcements" element={<AnnouncementManagementPage />} />
+              <Route path="student-feedback" element={<AdminStudentFeedbackPage />} />
               <Route path="announcements/new" element={<AnnouncementEditorPage />} />
               <Route path="announcements/:id/edit" element={<AnnouncementEditorPage />} />
               <Route path="weekly-reports" element={<AdminWeeklyReportPage />} />

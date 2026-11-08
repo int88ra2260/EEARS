@@ -9,6 +9,7 @@ import { LEARNING_GUIDES_CATALOG } from '../constants/learningGuidesCatalog';
 import ActivityStepOneTools from '../components/activities/ActivityStepOneTools';
 import './LearningResourcesPage.css';
 import './ActivitiesPage.css';
+import '../components/guides/ActivityPhrasebook.css';
 import '../components/activities/ActivityStepOneTools.css';
 
 const LEARNING_SITES = [

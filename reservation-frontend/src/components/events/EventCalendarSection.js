@@ -267,7 +267,7 @@ export default forwardRef(function EventCalendarSection({
         ref={calendarRef}
         key={`${isMobile ? 'mobile-list' : 'desktop-month'}-${lang}`}
         plugins={[dayGridPlugin, listPlugin]}
-        initialView="dayGridMonth"
+        initialView={isMobile ? 'listWeek' : 'dayGridMonth'}
         locale={lang === LANG_EN ? 'en' : zhTwLocale}
         buttonText={{
           today: t('home.today'),
