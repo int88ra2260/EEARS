@@ -4,6 +4,7 @@ const {
   compactPersonName,
   normalizePersonName,
   personNamesMatch,
+  isCampusPersonName,
 } = require('../utils/personName');
 
 describe('personName', () => {
@@ -25,5 +26,13 @@ describe('personName', () => {
     expect(personNamesMatch('杜威', '杜維')).toBe(false);
     expect(normalizePersonName('王小明')).toBe('王小明');
     expect(normalizePersonName('王小華')).toBe('王小華');
+  });
+
+  it('accepts a campus name that uses a private-use character', () => {
+    expect(isCampusPersonName('曾\uE273鈞')).toBe(true);
+    expect(isCampusPersonName('王小明')).toBe(true);
+    expect(isCampusPersonName('')).toBe(false);
+    expect(isCampusPersonName('a0908338229@gmail.com')).toBe(false);
+    expect(isCampusPersonName('B122030033')).toBe(false);
   });
 });
