@@ -21,14 +21,16 @@ import GrowthMetricsExplainer from '../../components/learningAnalytics/GrowthMet
 import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
-import MetricCard from '../../components/learningAnalytics/MetricCard';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
 import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import { LA_FILTER_INTRO_SKILLS, SKILL_GROWTH_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import ComparisonModeSwitch from '../../components/learningAnalytics/ComparisonModeSwitch';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
 import { getLearningAnalyticsSkills } from '../../services/learningAnalyticsService';
-import { buildAccessProfile } from '../../utils/accessControl';
+import { P } from '../../constants/permissions';
+import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import AnalyticsHubReturn from './AnalyticsHubReturn';
+import { formatObservedDelta, shouldApplyAnalyticsResult } from './learningParticipationReading';
 
 const SKILL_LABELS = {
   listening: '聽力',
@@ -40,23 +42,41 @@ const SKILL_LABELS = {
 const SKILL_ORDER = ['listening', 'reading', 'speaking', 'writing'];
 
 const MIN_INTERPRETABLE_SAMPLE = 5;
-const STRONG_GROWTH_GSE = 5;
-const LOW_GROWTH_RATIO = 0.4;
 
 function pct(value) {
+  if (value == null || value === '') return '—';
   const n = Number(value);
   if (!Number.isFinite(n)) return '—';
   return `${Math.round(n * 100)}%`;
 }
 
 function numberOrNull(value) {
+  if (value == null || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
 function formatCount(value) {
   const n = Number(value);
-  return Number.isFinite(n) ? String(n) : '0';
+  return Number.isFinite(n) ? String(n) : '—';
+}
+
+function useNarrowScreen() {
+  const query = '(max-width: 767.98px)';
+  const [narrow, setNarrow] = useState(() => (
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(query).matches
+      : false
+  ));
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const media = window.matchMedia(query);
+    const onChange = () => setNarrow(media.matches);
+    onChange();
+    media.addEventListener?.('change', onChange);
+    return () => media.removeEventListener?.('change', onChange);
+  }, []);
+  return narrow;
 }
 
 function formatGse(value) {
@@ -89,46 +109,52 @@ function describeStartingBands(bands) {
 }
 
 function buildSkillJudgement(row) {
-  const sampleSize = Number(row.sampleSize || 0);
+  if (row.missing) {
+    return {
+      tone: 'muted',
+      status: '未提供可判讀資料',
+      summary: '這份回應沒有這項技能的列。不能因此說完全沒有測驗紀錄，也不能解讀成沒有進步。',
+    };
+  }
+  const sampleSize = Number(row.sampleSize);
   const actual = numberOrNull(row.actual);
-  const ratio = numberOrNull(row.growthRatio);
+
+  if (!Number.isFinite(sampleSize) || sampleSize <= 0) {
+    return {
+      tone: 'muted',
+      status: '無可比較樣本',
+      summary: '沒有可比較的前後測。不能解讀成沒有進步。',
+    };
+  }
 
   if (sampleSize < MIN_INTERPRETABLE_SAMPLE || actual == null) {
     return {
       tone: 'muted',
       status: '資料不足',
-      summary: '目前不適合判讀成效。優先補足前後測或確認匯入資料。',
+      summary: '可比較筆數還少，或平均沒有算出來。先不要判讀高低。',
     };
   }
 
-  if (actual >= STRONG_GROWTH_GSE && (ratio == null || ratio >= 0.5)) {
+  if (actual === 0) {
     return {
-      tone: 'positive',
-      status: '成長明確',
-      summary: '平均成長與進步比例都偏正向，可作為本期較穩定的技能訊號。',
+      tone: 'watch',
+      status: '平均沒有變化',
+      summary: '可比較樣本的平均 GSE 變化是 0.0。這是觀察到的零，不是缺資料。',
     };
   }
 
   if (actual > 0) {
     return {
       tone: 'watch',
-      status: '小幅成長',
-      summary: '有正向成長，但幅度或進步比例仍需搭配學生明細確認。',
-    };
-  }
-
-  if (ratio != null && ratio < LOW_GROWTH_RATIO) {
-    return {
-      tone: 'risk',
-      status: '需要追查',
-      summary: '進步學生比例偏低，建議往下看個別學生與課程參與紀錄。',
+      status: '平均上升',
+      summary: '可比較樣本的平均 GSE 變化是正的。請搭配樣本數與資料品質判讀，不能和其他技能排名。',
     };
   }
 
   return {
-    tone: 'risk',
-    status: '未見成長',
-    summary: '平均成長未轉正，需確認是否為缺測、分組差異或教學介入不足。',
+    tone: 'watch',
+    status: '平均下降',
+    summary: '可比較樣本的平均 GSE 變化是負的。這是描述，不是課程效果。',
   };
 }
 
@@ -141,54 +167,40 @@ function compareSkillPriority(a, b) {
   return bSample - aSample;
 }
 
+function describeObservedSkill(row) {
+  const name = row.skill;
+  const actual = numberOrNull(row.actual);
+  if (actual == null) return `${name}具有可比較的測驗紀錄，平均尚未提供，仍需搭配資料品質判讀。`;
+  if (actual === 0) return `${name}具有可比較的測驗紀錄，平均變化是 0.0，仍需搭配資料品質判讀。`;
+  if (actual > 0) return `${name}具有可觀察的前後測變化，請搭配樣本數與資料品質判讀。`;
+  return `${name}的可比較樣本平均變化是負的。這是描述，不是課程效果。`;
+}
+
 function buildPageSummary(rows) {
   const interpretable = rows.filter((row) => row.judgement.tone !== 'muted');
   const insufficient = rows.filter((row) => row.judgement.tone === 'muted');
-  const strongest = [...interpretable].sort(compareSkillPriority)[0] || null;
-  const risk = interpretable.find((row) => row.judgement.tone === 'risk') || null;
+  const base = { interpretable, insufficient, strongest: null, risk: null };
 
   if (!rows.length) {
     return {
+      ...base,
       headline: '目前沒有可呈現的技能成長資料。',
       action: '請先確認篩選條件、前後測匯入與快照版本。',
-      interpretable,
-      insufficient,
-      strongest,
-      risk,
     };
   }
 
   if (!interpretable.length) {
     return {
-      headline: '目前四技能都還不能穩定判讀。',
-      action: '下一步應先補足前後測樣本，而不是解讀成效高低。',
-      interpretable,
-      insufficient,
-      strongest,
-      risk,
-    };
-  }
-
-  if (risk) {
-    return {
-      headline: `${risk.skill} 需要優先追查；${strongest?.skill || '部分技能'}呈現較明確成長。`,
-      action: '建議先檢查低成長技能的學生明細，再回到課程或活動配置調整。',
-      interpretable,
-      insufficient,
-      strongest,
-      risk,
+      ...base,
+      headline: '目前沒有足以判讀方向的技能資料。',
+      action: '未回傳的技能是未提供可判讀資料，不能解讀成沒有測驗或沒有進步。',
     };
   }
 
   return {
-    headline: `${strongest?.skill || '可判讀技能'}是目前最明確的成長訊號。`,
-    action: insufficient.length
-      ? '樣本不足的技能仍不建議解讀，請先補測或補資料。'
-      : '可進一步到學生明細確認哪些學生與活動經驗推動了成長。',
-    interpretable,
-    insufficient,
-    strongest,
-    risk,
+    ...base,
+    headline: interpretable.map(describeObservedSkill).join(''),
+    action: '請搭配各技能自己的樣本數與資料品質判讀。',
   };
 }
 
@@ -302,26 +314,35 @@ function SkillInsightCard({ row, startingBands, onGrowthRatioClick }) {
       <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
         <div>
           <div className="la-skill-growth-card__title">{row.skill}</div>
-          <div className="la-skill-growth-card__meta">能算進步的筆數 {formatCount(row.sampleSize)}</div>
+          <div className="la-skill-growth-card__meta">
+            {row.missing ? '未提供可判讀資料' : `可比較筆數 ${formatCount(row.sampleSize)}`}
+          </div>
         </div>
         <span className="la-skill-growth-card__status">{row.judgement.status}</span>
       </div>
 
       <div className="la-skill-growth-card__metrics">
         <div>
-          <span title={HEAD.actualGse.hint}>平均：後測減前測</span>
-          <strong>{formatGse(row.actual)}</strong>
+          <span>平均 GSE 變化</span>
+          <strong>{row.missing ? '—' : formatObservedDelta(row.actual, row.sampleSize)}</strong>
         </div>
-        <button
-          type="button"
-          className="la-skill-growth-card__metric-action"
-          onClick={() => onGrowthRatioClick?.(row.key, row.skill)}
-          title={`查看${row.skill}裡 GSE 有進步的學生，並可把這批人帶到 KPI 或匯出`}
-        >
-          <span>有進步學生</span>
-          <strong>{pct(row.growthRatio)}</strong>
-          <em>點擊查看明細</em>
-        </button>
+        {Number(row.sampleSize) > 0 ? (
+          <button
+            type="button"
+            className="la-skill-growth-card__metric-action"
+            onClick={() => onGrowthRatioClick?.(row.key, row.skill)}
+            title={`查看${row.skill}裡 GSE 有進步的學生，並可把這批人帶到 KPI 或原始資料頁`}
+          >
+            <span>有進步學生</span>
+            <strong>{pct(row.growthRatio)}</strong>
+            <em>點擊查看明細</em>
+          </button>
+        ) : (
+          <div>
+            <span>有進步學生</span>
+            <strong>—</strong>
+          </div>
+        )}
       </div>
 
       <div className="la-skill-growth-card__peers">
@@ -349,10 +370,14 @@ export default function LearningAnalyticsSkillsPage() {
     ready,
     apiParams,
     withWorkingSet,
+    workingSetScope,
     token,
   } = useLearningAnalyticsBootstrap({ scopeKeys: SKILL_GROWTH_FILTER_KEYS });
   const outlet = useOutletContext() || {};
   const accessProfile = buildAccessProfile(outlet.token || token);
+  const canExport = hasPermission(accessProfile, P.CAN_EXPORT_LEARNING_ANALYTICS);
+  const narrow = useNarrowScreen();
+  const runSeq = useRef(0);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -384,23 +409,28 @@ export default function LearningAnalyticsSkillsPage() {
     return () => window.clearTimeout(timer);
   }, [episodeFocus]);
 
-  const load = useCallback(async () => {
-    if (!ready) return;
+  useEffect(() => {
+    if (!ready) return undefined;
+    const seq = runSeq.current + 1;
+    runSeq.current = seq;
+    const controller = new AbortController();
     setLoading(true);
     setError('');
-    try {
-      setData(await getLearningAnalyticsSkills(token, withWorkingSet(apiParams())));
-    } catch (e) {
-      setData(null);
-      setError(e.message || '載入失敗');
-    } finally {
-      setLoading(false);
-    }
+    getLearningAnalyticsSkills(token, withWorkingSet(apiParams()), { signal: controller.signal })
+      .then((payload) => {
+        if (!shouldApplyAnalyticsResult(seq, runSeq.current)) return;
+        setData(payload);
+      })
+      .catch((e) => {
+        if (!shouldApplyAnalyticsResult(seq, runSeq.current) || e?.name === 'AbortError') return;
+        setData(null);
+        setError(e.message || '載入失敗');
+      })
+      .finally(() => {
+        if (shouldApplyAnalyticsResult(seq, runSeq.current)) setLoading(false);
+      });
+    return () => controller.abort();
   }, [token, apiParams, withWorkingSet, ready]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const growth = data?.growth;
 
@@ -409,26 +439,46 @@ export default function LearningAnalyticsSkillsPage() {
     const adjusted = data?.adjustedGrowth?.bySkill || [];
     const adjMap = new Map(adjusted.map((r) => [r.skill, r.adjustedGseGrowthAverage]));
 
-    return bySkill
-      .filter((r) => SKILL_LABELS[r.skill])
-      .map((r) => {
-        const row = {
-          key: r.skill,
-          skill: r.label || SKILL_LABELS[r.skill],
-          actual: numberOrNull(r.actualGseGrowthAverage),
-          adjusted: numberOrNull(adjMap.get(r.skill) ?? r.adjustedGseGrowthAverage),
-          rawInstrument: numberOrNull(r.rawGrowthAverage),
-          sampleSize: Number(r.sampleSize || 0),
-          improvedCount: Number(r.improvedCount || 0),
-          growthRatio: numberOrNull(r.growthStudentRatio),
+    const byKey = new Map(bySkill.filter((r) => SKILL_LABELS[r.skill]).map((r) => [r.skill, r]));
+    return SKILL_ORDER.map((skill) => {
+      const source = byKey.get(skill);
+      if (!source) {
+        const missing = {
+          key: skill,
+          skill: SKILL_LABELS[skill],
+          missing: true,
+          actual: null,
+          adjusted: null,
+          rawInstrument: null,
+          sampleSize: null,
+          improvedCount: null,
+          growthRatio: null,
         };
-        return { ...row, judgement: buildSkillJudgement(row) };
-      });
+        return { ...missing, judgement: buildSkillJudgement(missing) };
+      }
+      const row = {
+        key: skill,
+        skill: source.label || SKILL_LABELS[skill],
+        missing: false,
+        actual: numberOrNull(source.actualGseGrowthAverage),
+        adjusted: numberOrNull(adjMap.get(skill) ?? source.adjustedGseGrowthAverage),
+        rawInstrument: numberOrNull(source.rawGrowthAverage),
+        sampleSize: Number(source.sampleSize || 0),
+        improvedCount: Number(source.improvedCount || 0),
+        growthRatio: numberOrNull(source.growthStudentRatio),
+      };
+      return { ...row, judgement: buildSkillJudgement(row) };
+    });
   }, [data, growth]);
 
   const sortedChartData = useMemo(() => {
     return [...chartData].sort(compareSkillPriority);
   }, [chartData]);
+
+  const plottedChartData = useMemo(
+    () => sortedChartData.filter((row) => row.sampleSize > 0 && row.actual != null),
+    [sortedChartData],
+  );
 
   const pageSummary = useMemo(() => buildPageSummary(chartData), [chartData]);
 
@@ -470,12 +520,13 @@ export default function LearningAnalyticsSkillsPage() {
       />
 
       <LearningAnalyticsPageFrame
-        title="技能成長"
+        title="群體與技能比較"
         actions={<AnalyticsHubReturn accessProfile={accessProfile} />}
         showWorkingSet
         workingSetHere="skills"
-        question="看聽、讀、說、寫有沒有夠多人可以判讀的成長。"
-        scope="分析快照裡、有前後測的學生。這頁用來觀察四技能，不用來排名老師或課程。"
+        workingSetScope={workingSetScope}
+        question="查看各技能可比較測驗資料及觀察到的能力變化。"
+        scope="分析快照裡、有前後測的學生。四技能分開看，原始分數不能加總，也不用來排名老師或課程。"
         howToRead={(
           <>
             <ol className="small mb-3 ps-3">
@@ -488,12 +539,16 @@ export default function LearningAnalyticsSkillsPage() {
           </>
         )}
       >
+      <ComparisonModeSwitch />
+      <p className="la-scope-note" data-testid="la-scope-note">
+        {`資料範圍：分析快照 ${data?.snapshotVersion || appliedFilters.snapshot_version || '尚未載入'}。目前模式是技能成長。聽力、閱讀、口說、寫作各自計算，不能把原始分數加在一起。`}
+      </p>
       <LearningAnalyticsFilters
         filters={filters}
         onChange={setFilters}
         onSubmit={applyFilters}
         onReset={resetFilters}
-        loading={loading || !ready}
+        loading={!ready}
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
         snapshotOptions={meta?.snapshots}
@@ -508,17 +563,22 @@ export default function LearningAnalyticsSkillsPage() {
 
       {loading ? <div className="text-center py-5"><Spinner animation="border" /></div> : null}
 
+      {!loading && !error && !data ? (
+        <p className="la-scope-note">這份回應沒有技能資料。不能解讀成沒有測驗。</p>
+      ) : null}
+
       {!loading && data ? (
         <>
           <Row className="g-3 mt-1">
-            <Col lg={8}>
+            <Col xs={12}>
               <div className="la-panel la-skill-growth-summary">
-                <div className="la-panel-title">本頁結論</div>
+                <div className="la-panel-title">技能成長</div>
                 <p className="la-skill-growth-summary__headline mb-2">{pageSummary.headline}</p>
                 <p className="la-panel-lead mb-3">{pageSummary.action}</p>
                 <div className="la-skill-growth-summary__facts">
+                  <span>有前後測人數：{formatCount(growth?.summary?.retestCount ?? data.growthEpisodes?.retestStudentCount)}</span>
                   <span>可判讀：{pageSummary.interpretable.map((row) => row.skill).join('、') || '無'}</span>
-                  <span>樣本不足：{pageSummary.insufficient.map((row) => row.skill).join('、') || '無'}</span>
+                  <span>先不要判讀方向：{pageSummary.insufficient.map((row) => row.skill).join('、') || '無'}</span>
                   <span>判讀門檻：至少 {MIN_INTERPRETABLE_SAMPLE} 筆前後測</span>
                 </div>
                 {Number(growth?.summary?.excludedPlaceholderScoreRows) > 0 ? (
@@ -527,20 +587,6 @@ export default function LearningAnalyticsSkillsPage() {
                   </p>
                 ) : null}
               </div>
-            </Col>
-            <Col sm={6} lg={2}>
-              <MetricCard
-                label="有前後測人數"
-                value={growth?.summary?.retestCount ?? data.growthEpisodes?.retestStudentCount ?? 0}
-                hint="同一人只計一次；至少一項技能有前測與後測分差"
-              />
-            </Col>
-            <Col sm={6} lg={2}>
-              <MetricCard
-                label="可判讀技能"
-                value={`${pageSummary.interpretable.length}/4`}
-                hint="樣本不足不解讀"
-              />
             </Col>
           </Row>
 
@@ -556,17 +602,18 @@ export default function LearningAnalyticsSkillsPage() {
             ))}
           </Row>
 
+          {narrow ? null : (
           <Row className="g-3 mt-1">
             <Col xs={12}>
               <div className="la-panel">
-                <div className="la-panel-title">技能成長排序</div>
+                <div className="la-panel-title">各技能平均 GSE 變化</div>
                 <p className="small text-muted mb-2">
-                  這張圖只依平均 GSE 成長排序。起點高低的差別在下方表格，不要把長條較短讀成課程比較沒效。
+                  這張圖只畫有可比較樣本、且平均已算出來的技能。長條較短是觀察到的 GSE 變化較小，不是課程比較沒效。不同技能的原始分數沒有畫在同一條軸上。
                 </p>
 
                 <div style={{ width: '100%', height: 300 }}>
                   <ResponsiveContainer>
-                    <BarChart data={sortedChartData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <BarChart data={plottedChartData} layout="vertical" margin={{ left: 8, right: 16 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                       <XAxis type="number" tick={{ fontSize: 11 }} />
                       <YAxis type="category" dataKey="skill" width={48} tick={{ fontSize: 12 }} />
@@ -579,7 +626,7 @@ export default function LearningAnalyticsSkillsPage() {
                       />
                       <ReferenceLine x={0} stroke="#8b8b8b" />
                       <Bar dataKey="actual" name="actual" radius={[0, 4, 4, 0]}>
-                        {sortedChartData.map((row) => (
+                        {plottedChartData.map((row) => (
                           <Cell key={row.key} fill={row.judgement.tone === 'risk' ? '#b45309' : '#2c5282'} />
                         ))}
                       </Bar>
@@ -589,6 +636,7 @@ export default function LearningAnalyticsSkillsPage() {
               </div>
             </Col>
           </Row>
+          )}
 
           <Row className="g-3 mt-1">
             <Col xs={12}>
@@ -602,7 +650,7 @@ export default function LearningAnalyticsSkillsPage() {
                 <div className="la-panel-title">學生前後測明細：用於追查個別案例</div>
                 <p className="small text-muted">
                   「跟同樣起點比」是把這個人放回同一科、前測落在同一區間的那一群。比過的人愈多，代表在起點相近的人裡面進步較快。不到 5 人的組不排名。
-                  時數只算考試前的課程／活動。點上方卡片的「有進步學生」，會鎖定該科全部有進步的人，再帶到 B2 達標或匯出。
+                  時數只算考試前的課程／活動。點上方卡片的「有進步學生」，會鎖定該科全部有進步的人，再帶到 B2 達標或原始資料頁。有匯出權限才能在那一頁下載檔案。
                 </p>
                 {nextSet ? (
                   <LearningAnalyticsNextSteps
@@ -611,8 +659,10 @@ export default function LearningAnalyticsSkillsPage() {
                     total={nextSet.total}
                     truncated={nextSet.truncated}
                     note={nextSet.note}
+                    snapshotVersion={appliedFilters.snapshot_version || ''}
                     source={nextSet.source}
                     sourcePath="/admin/learning-analytics/skills"
+                    canExport={canExport}
                   />
                 ) : null}
                 <GrowthEpisodeTable

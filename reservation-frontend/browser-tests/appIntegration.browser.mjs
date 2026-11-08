@@ -255,6 +255,8 @@ async function pageOverflow(page) {
 
 test('operations flow uses AdminLayout, real activity list, URL history, and return', async ({ page }) => {
   const leaked = await installApis(page);
+  // 合成活動固定在 2026-11-01。時鐘鎖在同一天，預設「今日」與「不限日期」都會看到它。
+  await page.clock.install({ time: new Date('2026-11-01T04:00:00.000Z') });
   await page.goto(appUrl('/admin/analytics', 'admin'));
   await expect(page).toHaveURL(/\/admin\/analytics/);
   await expect(page.getByRole('heading', { level: 1, name: '成效分析中心' })).toBeVisible();
@@ -265,10 +267,9 @@ test('operations flow uses AdminLayout, real activity list, URL history, and ret
   await expect(page.getByTestId('ops-observation')).toContainText('預約列');
   await page.getByRole('link', { name: '開啟活動列表' }).click();
   await expect(page).toHaveURL(/\/admin\/operations/);
-  const clearDate = page.getByRole('button', { name: '不限日期' });
-  if (await clearDate.count()) {
-    await clearDate.click();
-  }
+  await expect(page.getByText('合成活動')).toBeVisible();
+  await page.getByRole('button', { name: '不限日期' }).click();
+  await expect(page.getByRole('textbox', { name: '日期', exact: true })).toHaveValue('');
   await expect(page.getByText('合成活動')).toBeVisible();
   await expect(page.getByLabel('活動概況')).toBeVisible();
 
@@ -304,15 +305,15 @@ test('BESTEP flow opens the real class pages under AdminLayout', async ({ page }
 test('learning flow keeps resource and event counts separate under AdminLayout', async ({ page }) => {
   const leaked = await installApis(page);
   await page.goto(appUrl('/admin/analytics', 'admin'));
-  await page.getByRole('main').getByRole('link', { name: '資源覆蓋' }).click();
+  await page.getByRole('main').getByRole('link', { name: '資源與開課' }).click();
   await expect(page).toHaveURL(/\/admin\/learning-analytics\/resources/);
-  await expect(page.getByRole('heading', { level: 1, name: '資源覆蓋' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '資源與開課分析' })).toBeVisible();
   await expect(page.getByTestId('learning-reading')).toContainText('不代表資源造成能力提升');
   await page.getByRole('button', { name: '怎麼讀這頁' }).click();
   await expect(page.getByText(/不重複學生數/).first()).toBeVisible();
-  await page.getByRole('link', { name: '開啟技能成長' }).click();
+  await page.getByRole('link', { name: '開啟群體與技能比較' }).click();
   await expect(page).toHaveURL(/\/admin\/learning-analytics\/skills/);
-  await expect(page.getByRole('heading', { level: 1, name: '技能成長' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '群體與技能比較' })).toBeVisible();
   await expect(page.getByText('不代表課程造成進步').first()).toBeVisible();
   await page.getByRole('link', { name: '返回成效分析中心' }).click();
   await expect(page).toHaveURL(/\/admin\/analytics$/);

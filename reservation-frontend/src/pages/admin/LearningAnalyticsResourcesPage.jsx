@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import Alert from 'react-bootstrap/Alert';
 import Spinner from 'react-bootstrap/Spinner';
@@ -8,12 +8,18 @@ import LearningAnalyticsDataHealth from '../../components/learningAnalytics/Lear
 import EvidenceQualityBadge from '../../components/learningAnalytics/EvidenceQualityBadge';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
-import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import { RESOURCE_TYPE_LABELS, SKILL_LABELS } from '../../components/learningAnalytics/learningAnalyticsCopy';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
-import { LA_FILTER_INTRO_RESOURCES, RESOURCE_COVERAGE_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import { RESOURCE_COVERAGE_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 import LearningResourceReading, { LearningDetailLinks } from '../../components/learningAnalytics/LearningResourceReading';
-import { formatObservedCount } from './learningParticipationReading';
+import ResourcesModeSwitch from '../../components/learningAnalytics/ResourcesModeSwitch';
+import {
+  describeResourceCoverage,
+  formatObservedCount,
+  formatObservedDelta,
+  resourceEventCount,
+  shouldApplyAnalyticsResult,
+} from './learningParticipationReading';
 import AnalyticsHubReturn from './AnalyticsHubReturn';
 import { buildAccessProfile } from '../../utils/accessControl';
 
@@ -24,12 +30,6 @@ function resourceLabel(type) {
 function skillList(skills) {
   if (!Array.isArray(skills) || !skills.length) return '—';
   return skills.map((s) => SKILL_LABELS[s] || s).join('、');
-}
-
-function formatDelta(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
-  return n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1);
 }
 
 export default function LearningAnalyticsResourcesPage() {
@@ -44,6 +44,7 @@ export default function LearningAnalyticsResourcesPage() {
     ready,
     apiParams,
     withWorkingSet,
+    workingSetScope,
     token,
   } = useLearningAnalyticsBootstrap({ scopeKeys: RESOURCE_COVERAGE_FILTER_KEYS });
   const outlet = useOutletContext() || {};
@@ -51,32 +52,38 @@ export default function LearningAnalyticsResourcesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
+  const runSeq = useRef(0);
 
-  const load = useCallback(async () => {
-    if (!ready) return;
+  useEffect(() => {
+    if (!ready) return undefined;
+    const seq = runSeq.current + 1;
+    runSeq.current = seq;
+    const controller = new AbortController();
     setLoading(true);
     setError('');
     setData(null);
-    try {
-      setData(await getLearningAnalyticsResources(token, withWorkingSet(apiParams())));
-    } catch (e) {
-      setData(null);
-      setError(e.message || '載入失敗');
-    } finally {
-      setLoading(false);
-    }
+    getLearningAnalyticsResources(token, withWorkingSet(apiParams()), { signal: controller.signal })
+      .then((payload) => {
+        if (!shouldApplyAnalyticsResult(seq, runSeq.current)) return;
+        setData(payload);
+      })
+      .catch((e) => {
+        if (!shouldApplyAnalyticsResult(seq, runSeq.current) || e?.name === 'AbortError') return;
+        setData(null);
+        setError(e.message || '載入失敗');
+      })
+      .finally(() => {
+        if (shouldApplyAnalyticsResult(seq, runSeq.current)) setLoading(false);
+      });
+    return () => controller.abort();
   }, [token, apiParams, withWorkingSet, ready]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const rows = useMemo(() => {
     const list = [...(data?.resourceEffectiveness || [])];
     list.sort((a, b) => {
-      const g = (Number(b.growthSampleSize) || 0) - (Number(a.growthSampleSize) || 0);
-      if (g !== 0) return g;
-      return (Number(b.participantCount) || 0) - (Number(a.participantCount) || 0);
+      const participants = (Number(b.participantCount) || 0) - (Number(a.participantCount) || 0);
+      if (participants !== 0) return participants;
+      return (Number(b.growthSampleSize) || 0) - (Number(a.growthSampleSize) || 0);
     });
     return list;
   }, [data?.resourceEffectiveness]);
@@ -90,21 +97,38 @@ export default function LearningAnalyticsResourcesPage() {
       />
 
       <LearningAnalyticsPageFrame
-        title="資源覆蓋"
+        title="資源與開課分析"
         actions={<AnalyticsHubReturn accessProfile={accessProfile} />}
         showWorkingSet
         workingSetHere="resources"
-        question="哪些資源有人參加、哪些資源有足夠前後測可以觀察。"
-        scope="分析快照裡的學生，依資源類型彙總。這頁不做資源成效排名。"
-        howToRead={<LearningResourceReading rows={data?.resourceEffectiveness} />}
+        workingSetScope={workingSetScope}
+        question="查看英語學習資源的參與情況，以及相關學生可觀察的學習紀錄。"
+        howToRead={(
+          <>
+            <LearningResourceReading rows={data?.resourceEffectiveness} />
+            <ul className="small mb-2 ps-3">
+              <li>沒有人參與：參與人數是 0。</li>
+              <li>有人參與但沒有可比較前後測：參與人數大於 0，可比較樣本是 0。這不是「資源沒有效果」。</li>
+              <li>這份 API 沒有單獨的「有測驗紀錄但無法比較成長」人數。</li>
+              <li>事件次數與不重複學生數分開計算。可比較樣本是 0 時，平均變化顯示「無可比較樣本」，不會顯示成 0.0。</li>
+            </ul>
+            <LearningDetailLinks />
+          </>
+        )}
       >
+      <ResourcesModeSwitch />
+      <p className="la-scope-note" data-testid="la-scope-note">
+        資料範圍：分析快照
+        {data?.snapshotVersion ? ` ${data.snapshotVersion}` : ''}
+        。學院、系所、入學年度篩的是這份快照。此頁不依學期切分。
+      </p>
 
       <LearningAnalyticsFilters
         filters={filters}
         onChange={setFilters}
         onSubmit={applyFilters}
         onReset={resetFilters}
-        loading={loading || !ready}
+        loading={!ready}
         filterOptions={meta?.filterOptions}
         matchingCaliperDefault={meta?.matchingCaliperDefault}
         snapshotOptions={meta?.snapshots}
@@ -113,14 +137,13 @@ export default function LearningAnalyticsResourcesPage() {
         groupSnapshots
         filterTitle="篩選條件"
         submitLabel="套用篩選"
-        intro={LA_FILTER_INTRO_RESOURCES}
+        intro={null}
       />
       <LearningAnalyticsActiveFilters filters={appliedFilters} visibleKeys={RESOURCE_COVERAGE_FILTER_KEYS} />
 
       <p className="small mt-3 mb-0" data-testid="learning-reading">
         參加過的人數是不重複學生數，不是事件次數，也不代表資源造成能力提升。
       </p>
-      <LearningDetailLinks />
 
       {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
       {loading ? (
@@ -135,22 +158,20 @@ export default function LearningAnalyticsResourcesPage() {
           <div className="la-panel mt-3">
             <LearningAnalyticsPanelHeader
               title="資源類型覆蓋"
-              lead="先看參與人數與可算前後測樣本；原始分進步只作內部參考，跨英檢不宜直接互比。"
-              tooltip="有參加該資源、且有前後測的學生，其工具原始分進步平均。沒有扣掉背景差異；跨英檢工具不宜直接互比。"
+              lead="參與人數、事件次數與可比較樣本。平均變化不是資源造成的效果。"
             />
-            <p className="small text-muted mb-3">
-              預設先看參加過的人數、能算進步的人數、資料夠不夠。這份測驗多幾分只作參考，不同英檢不能互比；列依能算進步的人數排序。
-            </p>
             <div className="table-responsive">
               <table className="table table-sm table-hover align-middle mb-0 la-table la-resources-table">
                 <thead>
                   <tr>
                     <th>資源類型</th>
-                    <th className="text-end"><ColumnHead {...HEAD.participants} /></th>
-                    <th className="text-end"><ColumnHead {...HEAD.growthStudents} /></th>
-                    <th className="text-end"><ColumnHead {...HEAD.rawGain} /></th>
-                    <th className="d-none d-md-table-cell"><ColumnHead {...HEAD.mainSkills} /></th>
-                    <th><ColumnHead {...HEAD.evidence} /></th>
+                    <th className="text-end">參與人數</th>
+                    <th className="text-end">參與事件次數</th>
+                    <th className="text-end">可比較樣本</th>
+                    <th>可觀察性</th>
+                    <th className="text-end">平均變化</th>
+                    <th className="d-none d-md-table-cell">主要技能</th>
+                    <th>資料狀態</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -158,46 +179,22 @@ export default function LearningAnalyticsResourcesPage() {
                     <tr key={row.resourceType}>
                       <td className="fw-semibold">{resourceLabel(row.resourceType)}</td>
                       <td className="text-end">{formatObservedCount(row.participantCount)}</td>
+                      <td className="text-end">{formatObservedCount(resourceEventCount(data?.skillExposure?.byResource, row.resourceType))}</td>
                       <td className="text-end">{formatObservedCount(row.growthSampleSize)}</td>
-                      <td className="text-end fw-semibold">{formatDelta(row.rawGrowthAverage)}</td>
+                      <td className="small">{describeResourceCoverage(row)}</td>
+                      <td className="text-end fw-semibold">{formatObservedDelta(row.rawGrowthAverage, row.growthSampleSize)}</td>
                       <td className="small d-none d-md-table-cell">{skillList(row.mainSkills)}</td>
                       <td><EvidenceQualityBadge level={row.evidenceLevel} /></td>
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={6} className="text-muted text-center py-4">尚無可用紀錄。不能推論沒有學習。</td>
+                      <td colSpan={8} className="text-muted text-center py-4">尚無可用紀錄。不能推論沒有學習。</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
-          {Array.isArray(data?.skillExposure?.byResource) && data.skillExposure.byResource.length ? (
-            <div className="la-panel mt-3">
-              <LearningAnalyticsPanelHeader
-                title="可觀察事件"
-                lead="事件次數不是不重複學生數，也不是學習效果。"
-              />
-              <div className="table-responsive">
-                <table className="table table-sm align-middle mb-0">
-                  <thead>
-                    <tr>
-                      <th>資源類型</th>
-                      <th className="text-end">可觀察事件次數</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.skillExposure.byResource.map((row) => (
-                      <tr key={`event-${row.resourceType}`}>
-                        <td>{resourceLabel(row.resourceType)}</td>
-                        <td className="text-end">{formatObservedCount(row.events)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : null}
         </>
       ) : null}
       </LearningAnalyticsPageFrame>

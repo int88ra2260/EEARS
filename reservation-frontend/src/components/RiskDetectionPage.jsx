@@ -1,13 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useOutletContext, useNavigate, Link } from 'react-router-dom';
-import { Card, Table, Button, Spinner, Alert, Form, Badge } from 'react-bootstrap';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useOutletContext, Link } from 'react-router-dom';
+import { Button, Spinner, Alert, Form } from 'react-bootstrap';
 import { getCurrentSemester, SEMESTER_OPTIONS } from '../utils/semesterUtils';
+import { buildAccessProfile } from '../utils/accessControl';
+import { canAccessAdminRoute } from '../constants/adminRouteAccess';
 import { handleAPIError } from '../utils/errorHandler';
 import { fetchAnalyticsRisk } from '../services/reportsAdminApi';
+import '../pages/admin/operationsSurfaces.css';
 
-const RISK_LABEL = { low: '低', medium: '中', high: '高' };
-
-/** 後端 key 之行政補充說明（若已有 label 仍以 label 為主） */
 const REASON_KEY_HINT = {
   noShow: '未到／缺席',
   lowParticipation: '低參與',
@@ -15,21 +15,40 @@ const REASON_KEY_HINT = {
   violation: '違規紀錄',
 };
 
-function formatReasonLine(reason) {
-  const label = reason.label || REASON_KEY_HINT[reason.key] || reason.key;
-  return (
-    <span>
-      <strong>{label}</strong>
-      {' — '}
-      觀測值 <code>{String(reason.value)}</code>，影響分數 <span className="text-danger">+{reason.contribution}</span>
-    </span>
-  );
+function useNarrowScreen() {
+  const query = '(max-width: 767.98px)';
+  const [narrow, setNarrow] = useState(() => (
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(query).matches
+      : false
+  ));
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const media = window.matchMedia(query);
+    const apply = () => setNarrow(media.matches);
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, []);
+  return narrow;
+}
+
+function canOpenStudentRecord(accessProfile, studentId) {
+  if (!studentId) return false;
+  return canAccessAdminRoute(accessProfile, `/admin/analytics/student/${studentId}`)
+    && canAccessAdminRoute(accessProfile, `/admin/learning-journey/students/${studentId}`);
+}
+
+function reasonLabel(reason) {
+  return reason.label || REASON_KEY_HINT[reason.key] || reason.key || '未命名條件';
 }
 
 export default function RiskDetectionPage() {
-  const navigate = useNavigate();
   const outlet = useOutletContext() || {};
   const token = outlet.token || localStorage.getItem('token');
+  const accessProfile = useMemo(() => buildAccessProfile(token), [token]);
+  const narrow = useNarrowScreen();
+  const requestSeq = useRef(0);
 
   const [semester, setSemester] = useState(getCurrentSemester() || '114-1');
   const [loading, setLoading] = useState(false);
@@ -39,21 +58,25 @@ export default function RiskDetectionPage() {
 
   const load = useCallback(async () => {
     if (!token || !semester) return;
+    const seq = requestSeq.current + 1;
+    requestSeq.current = seq;
     setLoading(true);
     setError('');
+    setRisks([]);
     try {
       const json = await fetchAnalyticsRisk(token, semester);
-      setRisks(json.risks || []);
+      if (seq !== requestSeq.current) return;
+      setRisks(Array.isArray(json?.risks) ? json.risks : []);
     } catch (e) {
+      if (seq !== requestSeq.current) return;
       const fallback = handleAPIError(e);
-      const msg =
-        e?.message && typeof e.message === 'string' && e.message.trim()
-          ? e.message
-          : fallback?.display || fallback?.zh || '載入失敗';
+      const msg = e?.message && typeof e.message === 'string' && e.message.trim()
+        ? e.message
+        : fallback?.display || fallback?.zh || '載入失敗';
       setError(msg);
       setRisks([]);
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [token, semester]);
 
@@ -75,130 +98,176 @@ export default function RiskDetectionPage() {
 
   const profileQuery = `fromSemester=${encodeURIComponent(semester)}&toSemester=${encodeURIComponent(semester)}`;
 
+  const renderReasons = (row) => {
+    const reasons = row.reasons || [];
+    if (reasons.length === 0) return <p className="small text-muted mb-0">這筆沒有回傳判定條件。</p>;
+    return (
+      <ul className="small mb-0 ps-3">
+        {reasons.map((reason, idx) => (
+          <li key={`${row.studentId}-${reason.key}-${idx}`}>
+            {reasonLabel(reason)}
+            {reason.value === null || reason.value === undefined ? '，觀測值未提供' : `，觀測值 ${reason.value}`}
+            {reason.contribution === null || reason.contribution === undefined
+              ? ''
+              : `，既有加權 ${reason.contribution}`}
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+  const renderStudent = (row) => {
+    const sid = row.studentId;
+    const profileTo = canOpenStudentRecord(accessProfile, sid)
+      ? `/admin/analytics/student/${encodeURIComponent(sid)}?${profileQuery}`
+      : '';
+    const place = [row.department, row.className || row.classId].filter(Boolean).join(' · ') || '未提供系所或班級';
+    return (
+      <article key={sid} className="ops-risk-card" data-testid="risk-student">
+        <h2>{row.studentName && String(row.studentName).trim() ? row.studentName : '未提供姓名'}</h2>
+        <p className="small text-muted mb-2">{`${sid} · ${place}`}</p>
+        <dl className="ops-result-card__metrics">
+          <div>
+            <dt>既有分數</dt>
+            <dd>{row.riskScore === null || row.riskScore === undefined ? '—' : row.riskScore}</dd>
+          </div>
+          <div>
+            <dt>名單狀態</dt>
+            <dd>{row.riskLevel === 'high' ? '既有高關注' : (row.riskLevel || '未提供')}</dd>
+          </div>
+        </dl>
+        {narrow ? (
+          <details>
+            <summary>判定條件</summary>
+            {renderReasons(row)}
+          </details>
+        ) : renderReasons(row)}
+        <p className="small mt-2 mb-0">
+          {profileTo ? (
+            <>
+              <Link to={profileTo}>查看學習歷程</Link>
+              <span className="text-muted">。學習歷程是另一份資料，不會沿用這張名單的分數。</span>
+            </>
+          ) : (
+            <span className="text-muted">這個帳號不能開啟這位學生的學習歷程。</span>
+          )}
+        </p>
+      </article>
+    );
+  };
+
   return (
     <div className="container-fluid px-2 px-md-3">
-      <Alert variant="info" className="small py-2 mb-3">
-        <strong>母體：</strong>本學期 <code>class_memberships</code> 曾出現之 DISTINCT 學生（班級名冊口徑，非 LJ active roster）。
-        <strong> 規則：</strong>風險分數由未到、簽到參與偏低、BESTEP 報名狀態、違規紀錄等因子加權。
-        <strong> 清單：</strong>目前 API 僅回傳 <strong>高風險（riskLevel=high）</strong> 學生，不含中／低風險。
-      </Alert>
-      <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-        <div className="flex-grow-1" style={{ minWidth: 200, maxWidth: 420 }}>
-          <Form.Label className="small text-muted mb-1">搜尋（學號、姓名、系所、班級）</Form.Label>
-          <Form.Control
-            size="sm"
-            placeholder="輸入關鍵字篩選…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            disabled={loading}
-          />
-        </div>
-        <div className="d-flex align-items-center gap-2 flex-wrap">
-          <Form.Select value={semester} onChange={(e) => setSemester(e.target.value)} style={{ width: 180 }}>
+      <header className="mb-3">
+        <h1 className="h4 mb-2">班級名冊高關注名單</h1>
+        <p className="text-muted mb-2">
+          側欄的「高關注名單」就是這一頁。它依既有 high 規則列出所選學期班級名冊裡的學生，供行政追蹤。既有分數沒有在這裡重新計算。
+        </p>
+        <p className="small text-muted mb-0">
+          母體是所選學期的班級名冊，不是全中心所有學生。名單只包含 riskLevel 為 high 的列，沒有中、低分級。這不是活動預約異常名單，也不是英語學習成效不足的判定。
+        </p>
+      </header>
+
+      <div className="d-flex flex-wrap align-items-end gap-2 mb-3">
+        <Form.Group>
+          <Form.Label className="small text-muted mb-1" htmlFor="risk-semester">學期</Form.Label>
+          <Form.Select
+            id="risk-semester"
+            value={semester}
+            onChange={(e) => setSemester(e.target.value)}
+            style={{ width: 180 }}
+          >
             {SEMESTER_OPTIONS.filter((o) => o.value).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
+              <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </Form.Select>
-          <Button variant="outline-primary" size="sm" onClick={load} disabled={loading}>
-            {loading ? '更新中…' : '重新整理'}
-          </Button>
-          <Button variant="outline-secondary" size="sm" onClick={() => navigate('/admin/analytics/overview')}>
-            返回活動營運總覽
-          </Button>
-        </div>
+        </Form.Group>
+        <Form.Group className="flex-grow-1" style={{ minWidth: 200, maxWidth: 420 }}>
+          <Form.Label className="small text-muted mb-1" htmlFor="risk-search">在這份名單裡尋找</Form.Label>
+          <Form.Control
+            id="risk-search"
+            size="sm"
+            placeholder="學號、姓名、系所或班級"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </Form.Group>
+        <Button variant="outline-primary" size="sm" onClick={load} disabled={loading}>
+          {loading ? '更新中…' : '重新整理'}
+        </Button>
       </div>
 
-      <Alert variant="secondary" className="small py-2 mb-3">
-        <strong>匯出：</strong>請至「報表下載」選擇 <strong>高風險學生名單</strong>（Excel）；本頁提供即時篩選與學習歷程連結。
+      <Alert variant="secondary" className="small py-2">
+        Excel 在「營運報表下載」的高關注名單工作簿。那份檔案依學期重新產生，不套用這裡的搜尋字。
+        {' '}
+        <Link to="/admin/reports">前往報表下載</Link>
       </Alert>
 
       {loading && (
-        <div className="text-center py-5">
+        <div className="text-center py-5" data-testid="risk-loading">
           <Spinner animation="border" className="text-primary" />
-          <div className="text-muted small mt-2">載入高風險名冊…</div>
+          <div className="text-muted small mt-2">正在讀取 {semester} 的班級名冊名單…</div>
         </div>
       )}
       {error && !loading && <Alert variant="danger">{error}</Alert>}
 
-      {!loading && (
-        <Card className="border-danger-subtle">
-          <Card.Header className="d-flex justify-content-between align-items-center flex-wrap gap-2 bg-danger-subtle">
-            <div className="fw-semibold">班級名冊高風險學生（僅列 high）</div>
-            <div className="small text-muted">
-              學期：{semester}，筆數：{risks.length}
-              {search.trim() ? `（篩選後 ${filteredRisks.length} 筆）` : ''}
-            </div>
-          </Card.Header>
-          <Card.Body>
-            {!error && risks.length === 0 && (
-              <Alert variant="success" className="mb-3 py-2">
-                目前沒有高風險學生（於本學期班級名冊母體與現行規則下）。
-              </Alert>
-            )}
-            {risks.length > 0 && filteredRisks.length === 0 && (
-              <Alert variant="warning" className="mb-3 py-2">
-                沒有符合搜尋條件的學生，請調整關鍵字。
-              </Alert>
-            )}
+      {!loading && !error && risks.length === 0 && (
+        <Alert variant="secondary">
+          本學期沒有符合目前高關注條件的名單。這不代表所有學生都沒有需要處理的事項。
+        </Alert>
+      )}
+      {!loading && risks.length > 0 && filteredRisks.length === 0 && (
+        <Alert variant="warning">這份名單裡沒有符合搜尋的學生。</Alert>
+      )}
+      {!loading && filteredRisks.length > 0 && (
+        <section aria-label="高關注學生">
+          <p className="small text-muted">
+            {semester}，名單 {risks.length} 人
+            {search.trim() ? `，搜尋後 ${filteredRisks.length} 人` : ''}。
+          </p>
+          {narrow ? filteredRisks.map(renderStudent) : (
             <div className="table-responsive">
-              <Table striped hover size="sm" className="mb-0 align-middle">
+              <table className="table table-sm align-middle">
                 <thead>
                   <tr>
-                    <th>學號</th>
-                    <th>姓名</th>
+                    <th>學生</th>
                     <th>系所／班級</th>
-                    <th>風險分數</th>
-                    <th>風險等級</th>
-                    <th>風險原因</th>
+                    <th>既有分數</th>
+                    <th>判定條件</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRisks.map((r) => {
-                    const sid = r.studentId;
-                    const profileTo = `/admin/analytics/student/${encodeURIComponent(sid)}?${profileQuery}`;
-                    const showName = r.studentName && String(r.studentName).trim();
+                  {filteredRisks.map((row) => {
+                    const sid = row.studentId;
+                    const profileTo = canOpenStudentRecord(accessProfile, sid)
+                      ? `/admin/analytics/student/${encodeURIComponent(sid)}?${profileQuery}`
+                      : '';
                     return (
-                      <tr key={sid}>
+                      <tr key={sid} data-testid="risk-student">
                         <td>
-                          <Link to={profileTo}>{sid}</Link>
-                        </td>
-                        <td>
-                          {showName ? (
-                            <Link to={profileTo} className="text-decoration-none">
-                              {r.studentName}
-                            </Link>
+                          {profileTo ? (
+                            <Link to={profileTo}>{row.studentName || sid}</Link>
                           ) : (
-                            '—'
+                            <span>{row.studentName || sid}</span>
                           )}
-                        </td>
-                        <td className="small text-muted">
-                          {[r.department, r.className || r.classId].filter(Boolean).join(' · ') || '—'}
-                        </td>
-                        <td>{r.riskScore}</td>
-                        <td>
-                          <Badge bg="danger">{RISK_LABEL[r.riskLevel] || r.riskLevel}</Badge>
+                          <div className="small text-muted">{sid}</div>
+                          {profileTo ? null : (
+                            <div className="small text-muted">這個帳號不能開啟這位學生的學習歷程。</div>
+                          )}
                         </td>
                         <td className="small">
-                          {(r.reasons || []).length > 0 ? (
-                            <ul className="mb-0 ps-3">
-                              {(r.reasons || []).map((reason, idx) => (
-                                <li key={`${sid}-${reason.key}-${idx}`}>{formatReasonLine(reason)}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            '—'
-                          )}
+                          {[row.department, row.className || row.classId].filter(Boolean).join(' · ') || '—'}
                         </td>
+                        <td>{row.riskScore === null || row.riskScore === undefined ? '—' : row.riskScore}</td>
+                        <td>{renderReasons(row)}</td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </Table>
+              </table>
             </div>
-          </Card.Body>
-        </Card>
+          )}
+        </section>
       )}
     </div>
   );

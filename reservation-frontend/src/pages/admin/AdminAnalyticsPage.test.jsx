@@ -16,11 +16,21 @@ import {
 import { SEMESTER_RANGES } from '../../utils/semesterUtils';
 import { formatActivityDateWindow, formatPct1 } from './activityOpsPresentation';
 
+const harness = vi.hoisted(() => ({ token: 'test-token' }));
+
+function adminToken() {
+  const body = btoa(JSON.stringify({ role: 'admin' }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `e.${body}.s`;
+}
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    useOutletContext: () => ({ token: 'test-token' }),
+    useOutletContext: () => ({ token: harness.token }),
   };
 });
 
@@ -117,6 +127,7 @@ function renderPage() {
 describe('AdminAnalyticsPage operational overview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    harness.token = 'test-token';
     mockHappyPath();
   });
 
@@ -404,6 +415,44 @@ describe('AdminAnalyticsPage operational overview', () => {
     expect(screen.getByTestId('ops-value-booking')).toHaveTextContent('0.0%');
     expect(screen.getByText(/查無活動資料/)).toBeInTheDocument();
     expect(screen.getByText(/尚無足夠資料產生圖表/)).toBeInTheDocument();
+  });
+
+  test('session names open the existing event detail route when the account can view it', async () => {
+    harness.token = adminToken();
+    renderPage();
+    expect(await screen.findByRole('link', { name: '週一桌' })).toHaveAttribute('href', '/admin/operations/9');
+    expect(screen.getByText(/場次名額加總等於活動總名額/)).toBeInTheDocument();
+  });
+
+  test('hides the event detail link when the account cannot open it', async () => {
+    renderPage();
+    await screen.findByText('週一桌');
+    expect(screen.queryByRole('link', { name: '週一桌' })).toBeNull();
+    expect(screen.getByText('這個帳號不能開啟活動明細，所以這裡只列出場次。')).toBeInTheDocument();
+  });
+
+  test('narrow screens replace the session table with cards and keep the charts', async () => {
+    harness.token = adminToken();
+    const previous = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: String(query).includes('767.98px'),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    });
+    const view = renderPage();
+    try {
+      const eventList = await screen.findByTestId('capacity-by-event');
+      expect(eventList.querySelector('table')).toBeNull();
+      expect(screen.getByRole('link', { name: '查看這場活動' })).toHaveAttribute('href', '/admin/operations/9');
+      expect(screen.getByRole('heading', { name: '活動趨勢（依活動日期）' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: '預約列簽到率（依活動日期）' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: '班級排行（Top 10，依預約列違規狀態比）' })).toBeInTheDocument();
+      expect(screen.queryByTestId('ops-chart-list')).toBeNull();
+    } finally {
+      view.unmount();
+      window.matchMedia = previous;
+    }
   });
 
   test('breakdown tables keep a horizontal scroll container', async () => {

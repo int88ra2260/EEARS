@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   deleteLearningAnalyticsTrackingCohort,
   getLearningAnalyticsTrackingCohort,
@@ -10,7 +10,12 @@ import {
 } from '../../services/learningAnalyticsService';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
 import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
-import { studentTrajectoryPath } from '../../utils/learningAnalyticsRecentStudents';
+import StudentExplorerDetailDrawer from '../../components/learningAnalytics/StudentExplorerDetailDrawer';
+import {
+  rememberFindListScroll,
+  restoreFindListScroll,
+  studentTrajectoryPath,
+} from '../../utils/learningAnalyticsRecentStudents';
 
 const PAGE_SIZE = 40;
 
@@ -61,10 +66,18 @@ export default function LearningAnalyticsTrackingCohortsPage() {
   const [list, setList] = useState([]);
   const [detail, setDetail] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const location = useLocation();
+  const listReturn = `${location.pathname}${location.search}`;
 
   useEffect(() => {
     setOffset(0);
+    setSelectedStudentId('');
   }, [id]);
+
+  useEffect(() => {
+    restoreFindListScroll();
+  }, [listReturn]);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,11 +121,9 @@ export default function LearningAnalyticsTrackingCohortsPage() {
     return (
       <LearningAnalyticsPageFrame
         title="追蹤名單"
+        findMode="tracking"
         question="固定一批學生，之後用最新數據和當時的英檢、時數比較。"
         scope="名單裡的人停在儲存當下。打開時會用最新分析快照對照當時的數字。"
-        actions={(
-          <Link className="btn btn-sm btn-outline-secondary" to="/admin/learning-analytics/explore">回學生探索</Link>
-        )}
       >
       <section className="la-panel">
         {error ? <Alert variant="danger">{error}</Alert> : null}
@@ -162,6 +173,7 @@ export default function LearningAnalyticsTrackingCohortsPage() {
   return (
     <LearningAnalyticsPageFrame
       title={cohort?.name || '追蹤名單'}
+      findMode="tracking"
       question="這一批人保持不變，數字拿來和儲存當下比較。"
       scope={cohort ? `${filterSummary(cohort.filters)}。建立於 ${formatWhen(cohort.createdAt)}。` : '分析快照上的最新英檢與時數。'}
       actions={(
@@ -224,8 +236,17 @@ export default function LearningAnalyticsTrackingCohortsPage() {
               {detail.items.map((row) => (
                 <tr key={row.studentId}>
                   <td>
-                    <Link className="font-monospace" to={studentTrajectoryPath(row.studentId)}>{row.studentId}</Link>
+                    <button
+                      type="button"
+                      className="btn btn-link p-0 font-monospace align-baseline"
+                      onClick={() => setSelectedStudentId(row.studentId)}
+                    >
+                      {row.studentId}
+                    </button>
                     {row.studentName ? <div className="small text-muted">{row.studentName}</div> : null}
+                    <div>
+                      <Link className="small" to={studentTrajectoryPath(row.studentId, listReturn)} onClick={rememberFindListScroll}>完整軌跡</Link>
+                    </div>
                     {row.missingFromSnapshot ? <div className="small text-warning">最新快照沒有這位學生</div> : null}
                   </td>
                   <td>{row.department || '—'}</td>
@@ -255,6 +276,13 @@ export default function LearningAnalyticsTrackingCohortsPage() {
             下一頁
           </Button>
         </div>
+      ) : null}
+      {selectedStudentId ? (
+        <StudentExplorerDetailDrawer
+          studentId={selectedStudentId}
+          token={token}
+          onClose={() => setSelectedStudentId('')}
+        />
       ) : null}
     </section>
     </LearningAnalyticsPageFrame>

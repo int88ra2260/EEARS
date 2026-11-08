@@ -23,9 +23,9 @@ export const OPERATIONS_FOLLOW_UPS = Object.freeze([
   },
   {
     id: 'risk',
-    label: '開啟高風險行政追蹤',
+    label: '開啟高關注名單',
     to: '/admin/analytics/risk',
-    hint: '高風險頁使用自己的學期控制，這裡不代傳篩選。',
+    hint: '高關注名單使用自己的學期控制，這裡不代傳篩選。',
   },
   {
     id: 'reports',

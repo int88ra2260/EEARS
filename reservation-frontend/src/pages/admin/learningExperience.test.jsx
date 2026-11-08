@@ -8,7 +8,14 @@ import { buildAccessProfile } from '../../utils/accessControl';
 import { LA_TERM_HELP } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 import GrowthMetricsExplainer from '../../components/learningAnalytics/GrowthMetricsExplainer';
 import { buildAnalyticsHub } from './analyticsHubModel';
-import { describeResourceExposure, formatObservedCount } from './learningParticipationReading';
+import {
+  describeResourceCoverage,
+  describeResourceExposure,
+  formatObservedCount,
+  formatObservedDelta,
+  offeringScopeLabel,
+  shouldApplyAnalyticsResult,
+} from './learningParticipationReading';
 import LearningAnalyticsResourcesPage from './LearningAnalyticsResourcesPage';
 import { getLearningAnalyticsMeta, getLearningAnalyticsResources } from '../../services/learningAnalyticsService';
 
@@ -68,6 +75,20 @@ describe('learning participation reading', () => {
     expect(reading.anonymity).toContain('不會把匿名軌跡配成');
     expect(reading.causation).toContain('不代表該資源造成能力提升');
     expect(reading.apiInterpretation).toBe(geRow.interpretation);
+    expect(describeResourceCoverage(geRow)).toContain('沒有可比較的前後測');
+    expect(describeResourceCoverage({ participantCount: 0, growthSampleSize: 0 })).toBe('沒有人參與');
+    expect(describeResourceCoverage({ participantCount: null, growthSampleSize: 0 })).toContain('尚未回傳');
+    expect(offeringScopeLabel('')).toBe('目前範圍：跨學期');
+    expect(offeringScopeLabel('115-1')).toBe('目前範圍：115-1');
+    expect(shouldApplyAnalyticsResult(1, 2)).toBe(false);
+    expect(shouldApplyAnalyticsResult(2, 2)).toBe(true);
+    expect(formatObservedDelta(0, 0)).toBe('無可比較樣本');
+    expect(formatObservedDelta(null, 0)).toBe('無可比較樣本');
+    expect(formatObservedDelta(0, 4)).toBe('0.0');
+    expect(formatObservedDelta(1.25, 4)).toBe('+1.3');
+    expect(formatObservedDelta(-0.4, 4)).toBe('-0.4');
+    expect(formatObservedDelta(null, 4)).toBe('—');
+    expect(formatObservedDelta(0, null)).toBe('—');
   });
 
   test('does not treat a closed causal flag as permission to claim an effect', () => {
@@ -79,11 +100,15 @@ describe('learning participation reading', () => {
     const admin = buildAnalyticsHub(profile({ role: 'admin' }));
     const learning = admin.sections.find((section) => section.id === 'learning');
     expect(learning.links.map((link) => link.to)).toEqual([
-      '/admin/learning-analytics/resources',
-      '/admin/learning-analytics/students',
-      '/admin/learning-analytics/offerings',
       '/admin/learning-analytics/overview',
+      '/admin/learning-analytics/kpi-report',
+      '/admin/learning-analytics/explore',
+      '/admin/learning-analytics/resources',
+      '/admin/learning-analytics/cohorts',
     ]);
+    expect(canAccessAdminRoute(profile({ role: 'admin' }), '/admin/learning-analytics/students')).toBe(true);
+    expect(canAccessAdminRoute(profile({ role: 'admin' }), '/admin/learning-analytics/offerings')).toBe(true);
+    expect(canAccessAdminRoute(profile({ role: 'admin' }), '/admin/learning-analytics/skills')).toBe(true);
     expect(learning.links.every((link) => link.allowed)).toBe(true);
     expect(JSON.stringify(learning)).not.toMatch(/studentId|SYN-STU|@/);
     expect(learning.summary).toContain('不能解讀成某個活動造成了進步');
@@ -151,14 +176,18 @@ describe('learning resources page', () => {
         releaseSecond = resolve;
       }));
     renderPage();
-    expect((await screen.findAllByText('通識英文')).length).toBe(2);
-    expect(screen.getByText('可觀察事件次數')).toBeTruthy();
+    expect((await screen.findAllByText('通識英文')).length).toBe(1);
+    expect(screen.getByText('參與事件次數')).toBeTruthy();
     expect(screen.getByText('5')).toBeTruthy();
     expect(screen.getByText('2')).toBeTruthy();
     expect(screen.getByText('0')).toBeTruthy();
-    expect(screen.getByRole('link', { name: '開啟技能成長' }).getAttribute('href')).toBe('/admin/learning-analytics/skills');
-    expect(screen.queryByText('SYN-STU')).toBeNull();
+    expect(screen.getByText('有人參與，但沒有可比較的前後測')).toBeTruthy();
+    expect(screen.getByText('無可比較樣本')).toBeTruthy();
+    expect(screen.queryByText('0.0')).toBeNull();
+    expect(screen.queryByLabelText('學期')).toBeNull();
     await user.click(screen.getByRole('button', { name: '怎麼讀這頁' }));
+    expect(screen.getByRole('link', { name: '開啟群體與技能比較' }).getAttribute('href')).toBe('/admin/learning-analytics/skills');
+    expect(screen.queryByText('SYN-STU')).toBeNull();
     expect(screen.getByText(geRow.interpretation)).toBeTruthy();
     expect(screen.getByText(/這份資源回應沒有排除原因明細/)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: '套用篩選' }));
@@ -177,6 +206,31 @@ describe('learning resources page', () => {
     const table = screen.getAllByRole('table')[0];
     expect(within(table).getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.queryAllByText('通識英文')).toEqual([]);
+  });
+
+  test('renders zero, positive, negative, and missing averages on the page', async () => {
+    getLearningAnalyticsResources.mockResolvedValue({
+      causalClaimAllowed: false,
+      resourceEffectiveness: [
+        { ...geRow, rawGrowthAverage: 0 },
+        { ...geRow, resourceType: 'ENGLISH_TABLE', participantCount: 6, growthSampleSize: 4, rawGrowthAverage: 0 },
+        { ...geRow, resourceType: 'JOB_TALK', participantCount: 6, growthSampleSize: 4, rawGrowthAverage: 1.2 },
+        { ...geRow, resourceType: 'WORKSHOP', participantCount: 6, growthSampleSize: 4, rawGrowthAverage: -0.4 },
+        { ...geRow, resourceType: 'ESP', participantCount: 6, growthSampleSize: 4, rawGrowthAverage: null },
+      ],
+      skillExposure: { byResource: [] },
+    });
+    renderPage();
+    const table = await screen.findByRole('table');
+    const rows = within(table).getAllByRole('row');
+    const textOf = (label) => rows.find((row) => row.textContent.includes(label)).textContent;
+    expect(textOf('通識英文')).toContain('無可比較樣本');
+    expect(textOf('通識英文')).not.toContain('0.0');
+    expect(textOf('English Table')).toContain('0.0');
+    expect(textOf('Job Talk')).toContain('+1.2');
+    expect(textOf('工作坊')).toContain('-0.4');
+    expect(textOf('ESP 專業英文')).toContain('—');
+    expect(textOf('ESP 專業英文')).not.toContain('0.0');
   });
 
   test('keeps an empty snapshot from becoming a zero or a no-learning claim', async () => {

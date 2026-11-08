@@ -1,21 +1,26 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
 import Pagination from 'react-bootstrap/Pagination';
 import Spinner from 'react-bootstrap/Spinner';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   createLearningAnalyticsTrackingCohort,
   exportLearningAnalyticsStudentExplorer,
   getLearningAnalyticsStudentExplorer,
 } from '../../services/learningAnalyticsService';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
-import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
+import StudentExplorerDetailDrawer from '../../components/learningAnalytics/StudentExplorerDetailDrawer';
 import { useLearningAnalyticsWorkingSet } from '../../utils/learningAnalyticsWorkingSet';
-import { pushRecentStudent, studentTrajectoryPath } from '../../utils/learningAnalyticsRecentStudents';
+import {
+  pushRecentStudent,
+  rememberFindListScroll,
+  restoreFindListScroll,
+  studentTrajectoryPath,
+} from '../../utils/learningAnalyticsRecentStudents';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
 
@@ -126,11 +131,8 @@ function buildChips(filters) {
   return chips;
 }
 
-function examPhaseLabel(row) {
-  if (row.hasPreTest && row.hasPostTest) return '前後測';
-  if (row.hasPreTest) return '前測';
-  if (row.hasPostTest) return '後測';
-  return row.hasValidExam ? '有效' : '無';
+function examRecordLabel(row) {
+  return `${row.hasPreTest ? '有前測' : '沒有前測'} · ${row.hasPostTest ? '有後測' : '沒有後測'}`;
 }
 
 function displayName(row) {
@@ -158,6 +160,10 @@ export default function LearningAnalyticsStudentExplorerPage() {
   const [savedCohort, setSavedCohort] = useState(null);
   const [data, setData] = useState(null);
   const [pageDraft, setPageDraft] = useState('1');
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const location = useLocation();
+  const listReturn = `${location.pathname}${location.search}`;
   const { active: workingSetActive, withWorkingSet } = useLearningAnalyticsWorkingSet();
 
   const queryKey = JSON.stringify(applied);
@@ -194,6 +200,21 @@ export default function LearningAnalyticsStudentExplorerPage() {
     if (currentPage > 0) setPageDraft(String(currentPage));
   }, [currentPage]);
 
+  useEffect(() => {
+    if (!data?.items?.length) return undefined;
+    restoreFindListScroll();
+    return undefined;
+  }, [listReturn, data?.items?.length]);
+
+  useLayoutEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const query = window.matchMedia('(max-width: 991.98px)');
+    const apply = () => setFiltersOpen(!query.matches);
+    apply();
+    query.addEventListener('change', apply);
+    return () => query.removeEventListener('change', apply);
+  }, []);
+
   const patchDraft = (patch) => setDraft((current) => ({ ...current, ...patch }));
 
   const applyFilters = (next) => {
@@ -210,8 +231,11 @@ export default function LearningAnalyticsStudentExplorerPage() {
     setOffset(0);
   };
 
+  const closeStudent = useCallback(() => setSelectedStudentId(''), []);
+
   const openStudent = (row) => {
     pushRecentStudent({ studentId: row.studentId, name: row.studentName });
+    setSelectedStudentId(row.studentId);
   };
 
   const exportLimit = data?.options?.exportRowLimit || 5000;
@@ -269,13 +293,14 @@ export default function LearningAnalyticsStudentExplorerPage() {
   return (
     <LearningAnalyticsPageFrame
       title="學生探索"
+      findMode="explore"
       showWorkingSet
       workingSetHere="explore"
-      question="用條件找出一批學生，再點進個人軌跡。"
+      question="用條件找出學生，點學號看明細。"
       scope="分析快照裡的學生。條件改完後按搜尋才會重查。學測只用於起始分級，不算英檢前測。"
     >
-    <div className="la-explorer">
-      <aside className="la-explorer-filters" aria-label="篩選條件">
+    <div className={`la-explorer${filtersOpen ? ' is-filters-open' : ' is-filters-closed'}`}>
+      <aside id="la-explorer-filters" className="la-explorer-filters" aria-label="篩選條件">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -335,8 +360,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
             </label>
           </details>
 
-          <details className="la-explorer-group" open>
-            <summary>學習紀錄</summary>
+          <details className="la-explorer-group">
+            <summary>英檢與能力</summary>
             <div className="la-explorer-block">
               <div className="la-explorer-block-title">有效英檢</div>
               <label className="la-explorer-field">
@@ -363,8 +388,12 @@ export default function LearningAnalyticsStudentExplorerPage() {
                   ))}
                 </Form.Select>
               </label>
-              <small className="la-explorer-note">前測是第一梯有效英檢（含只有一次）；後測是第二梯。學測不算前測。</small>
+              <small className="la-explorer-note">前測是第一梯有效英檢（含只有一次）；後測是第二梯。學測不算前測。名單不換算 GSE。</small>
             </div>
+          </details>
+
+          <details className="la-explorer-group">
+            <summary>學習紀錄</summary>
             <label className="la-explorer-field">
               <span>活動時數至少</span>
               <Form.Select
@@ -411,66 +440,61 @@ export default function LearningAnalyticsStudentExplorerPage() {
             </div>
           </details>
 
+          {JSON.stringify(draft) !== JSON.stringify(applied) ? (
+            <p className="la-explorer-pending">條件已改，按搜尋才會更新名單。</p>
+          ) : null}
           <div className="la-explorer-actions">
             <Button type="submit" variant="primary" size="sm">搜尋</Button>
             <Button type="button" variant="outline-secondary" size="sm" onClick={() => applyFilters({ ...EMPTY_FILTERS })}>
               重設
             </Button>
+            <Button type="button" variant="outline-secondary" size="sm" className="d-lg-none" onClick={() => setFiltersOpen(false)}>
+              回到結果
+            </Button>
           </div>
         </form>
       </aside>
 
-      <section className="la-explorer-results" aria-label="學生名單">
+      <section className="la-explorer-results" aria-label="學生結果">
         <div className="la-explorer-toolbar">
-          <div>
-            <h2 className="la-explorer-title">學生名單</h2>
-            <p className="la-explorer-lead">
-              {data?.snapshotVersion ? `資料版本 ${data.snapshotVersion}。` : '符合條件的學生會列在下方。'}
-            </p>
-          </div>
-          <div className="la-explorer-chips" aria-label="目前篩選">
-            {chips.length === 0 ? <span className="la-explorer-chip is-quiet">目前是全部學生</span> : null}
-            {chips.map((chip) => (
-              <button key={chip.key} type="button" className="la-explorer-chip" onClick={() => clearChip(chip.key)}>
-                {chip.label}
-                <span aria-hidden="true">×</span>
-              </button>
-            ))}
-          </div>
-          <div className="la-explorer-stats">
+          <div className="la-explorer-head">
             <div>
-              <strong>{summary ? summary.matched.toLocaleString('zh-Hant') : '—'}</strong>
-              <span>符合條件</span>
+              <h2 className="la-explorer-title">學生結果</h2>
+              <p className="la-explorer-lead">
+                {data?.snapshotVersion ? `資料版本 ${data.snapshotVersion}` : '分析快照'}
+                {loading ? ' · 載入中…' : ` · ${pageStart}–${pageEnd} / ${total.toLocaleString('zh-Hant')}`}
+              </p>
             </div>
-            <div>
-              <strong>{summary ? summary.withValidExam.toLocaleString('zh-Hant') : '—'}</strong>
-              <span>具有效英檢</span>
+            <div className="la-explorer-stats" aria-label="結果摘要">
+              <div>
+                <strong>{summary ? summary.matched.toLocaleString('zh-Hant') : '—'}</strong>
+                <span>符合條件</span>
+              </div>
+              <div>
+                <strong>{summary ? summary.withValidExam.toLocaleString('zh-Hant') : '—'}</strong>
+                <details className="la-stat-def">
+                  <summary>具有效英檢</summary>
+                  <p>
+                    目前篩選結果裡，至少有一筆有原始分的英檢。學測分級不算；只有報名沒有成績，或已排除的紀錄不算。0 分仍算有成績。
+                  </p>
+                </details>
+              </div>
+              <div>
+                <strong>{summary?.averageActivityHours == null ? '—' : `${summary.averageActivityHours} hr`}</strong>
+                <span>平均活動時數</span>
+              </div>
             </div>
-            <div>
-              <strong>{summary?.averageActivityHours == null ? '—' : `${summary.averageActivityHours} hr`}</strong>
-              <span>平均活動時數</span>
-            </div>
-          </div>
-        </div>
-        {data?.handoff?.studentIds?.length && (chips.length > 0 || workingSetActive || data.handoff.total <= 2000) ? (
-          <LearningAnalyticsNextSteps
-            label={workingSetActive ? '目前這批人裡、符合搜尋條件的學生' : '目前搜尋結果'}
-            studentIds={data.handoff.studentIds}
-            total={data.handoff.total}
-            truncated={data.handoff.truncated}
-            note={workingSetActive ? '會再依目前的搜尋條件縮小。' : ''}
-            source="student-explorer"
-            sourcePath="/admin/learning-analytics/explore"
-            hide={['explore']}
-          />
-        ) : null}
-
-        {error ? <Alert variant="danger">{error}</Alert> : null}
-
-        <div className="la-panel">
-          <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
-            <div className="la-panel-title mb-0">學生名單</div>
-            <div className="d-flex align-items-center gap-2">
+            <div className="la-explorer-head__actions">
+              <Button
+                type="button"
+                size="sm"
+                variant={filtersOpen ? 'secondary' : 'outline-secondary'}
+                aria-expanded={filtersOpen}
+                aria-controls="la-explorer-filters"
+                onClick={() => setFiltersOpen((open) => !open)}
+              >
+                篩選條件
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -493,11 +517,35 @@ export default function LearningAnalyticsStudentExplorerPage() {
               ) : (
                 <span className="small text-muted">匯出名單需要學習成效分析匯出權限。</span>
               )}
-              <div className="small text-muted">
-                {loading ? '載入中…' : `${pageStart}–${pageEnd} / ${total.toLocaleString('zh-Hant')}`}
-              </div>
             </div>
           </div>
+          <div className="la-explorer-chips" role="group" aria-label="目前篩選">
+            {chips.length === 0 ? <span className="la-explorer-chip is-quiet">目前是全部學生</span> : null}
+            {chips.map((chip) => (
+              <button key={chip.key} type="button" className="la-explorer-chip" onClick={() => clearChip(chip.key)}>
+                {chip.label}
+                <span aria-hidden="true">×</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        {data?.handoff?.studentIds?.length && (chips.length > 0 || workingSetActive || data.handoff.total <= 2000) ? (
+          <LearningAnalyticsNextSteps
+            label={workingSetActive ? '目前這批人裡、符合搜尋條件的學生' : '目前搜尋結果'}
+            studentIds={data.handoff.studentIds}
+            total={data.handoff.total}
+            truncated={data.handoff.truncated}
+            note={workingSetActive ? '會再依目前的搜尋條件縮小。' : ''}
+            snapshotVersion={data?.snapshotVersion || ''}
+            source="student-explorer"
+            sourcePath="/admin/learning-analytics/explore"
+            hide={['explore']}
+          />
+        ) : null}
+
+        {error ? <Alert variant="danger">{error}</Alert> : null}
+
+        <div className="la-panel">
           {total > exportLimit ? (
             <p className="small text-muted mb-2">
               符合條件 {total.toLocaleString('zh-Hant')} 人，匯出與追蹤名單最多各保留 {exportLimit.toLocaleString('zh-Hant')} 人（依學號排序）。
@@ -557,50 +605,87 @@ export default function LearningAnalyticsStudentExplorerPage() {
             <p className="text-muted mb-0">
               {chips.length === 0 && !(data.options?.departments?.length)
                 ? '目前沒有分析快照可探索。請先完成學習歷程分析重建。'
-                : '這個條件下沒有學生。可在左側放寬條件後再套用。'}
+                : '這個條件下沒有學生。放寬篩選條件後再搜尋。'}
             </p>
           ) : null}
           {data?.items?.length ? (
-            <div className="table-responsive">
-              <table className="table table-sm table-hover align-middle mb-0">
-                <thead>
-                  <tr>
-                    <th>學生</th>
-                    <th>系所</th>
-                    <th><ColumnHead {...HEAD.admissionYear} /></th>
-                    <th><ColumnHead {...HEAD.placement} /></th>
-                    <th><ColumnHead {...HEAD.examPhase} /></th>
-                    <th className="text-end"><ColumnHead {...HEAD.activityHours} /></th>
-                    <th className="text-end"><ColumnHead {...HEAD.courseHours} /></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((row) => {
-                    const name = displayName(row);
-                    return (
-                    <tr key={row.studentId}>
-                      <td>
-                        <Link
-                          className="font-monospace"
-                          to={studentTrajectoryPath(row.studentId)}
-                          onClick={() => openStudent(row)}
-                        >
-                          {row.studentId}
-                        </Link>
-                        {name ? <div className="small text-muted">{name}</div> : null}
-                      </td>
-                      <td>{row.department || '—'}</td>
-                      <td>{row.cohort || '—'}</td>
-                      <td>{row.placementLabel || '—'}</td>
-                      <td>{examPhaseLabel(row)}</td>
-                      <td>{formatHours(row.totalActivityHours)}</td>
-                      <td>{formatHours(row.totalCourseHours)}</td>
+            <>
+              <div className="table-responsive la-student-table-wrap">
+                <table className="table table-sm table-hover align-middle mb-0 la-student-table">
+                  <thead>
+                    <tr>
+                      <th>學生</th>
+                      <th>系所／入學</th>
+                      <th title="前測是第一梯有效英檢，後測是第二梯。這裡只顯示有沒有紀錄，不換算 GSE。">英檢</th>
+                      <th className="text-end" title="累積活動時數。0 是有紀錄且為 0，— 是沒有時數。">活動</th>
+                      <th className="text-end" title="修課時數。0 是有紀錄且為 0，— 是沒有時數。">修課</th>
+                      <th>詳情</th>
                     </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {data.items.map((row) => {
+                      const name = displayName(row);
+                      return (
+                        <tr key={row.studentId}>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn btn-link p-0 font-monospace align-baseline"
+                              onClick={() => openStudent(row)}
+                            >
+                              {row.studentId}
+                            </button>
+                            {name ? <div className="small text-muted">{name}</div> : null}
+                          </td>
+                          <td>
+                            <div>{row.department || '—'}</div>
+                            <div className="small text-muted">
+                              {row.cohort ? `入學 ${row.cohort}` : '入學年未提供'}
+                              {row.placementLabel ? ` · ${row.placementLabel}` : ''}
+                            </div>
+                          </td>
+                          <td>{examRecordLabel(row)}</td>
+                          <td className="text-end">{formatHours(row.totalActivityHours)}</td>
+                          <td className="text-end">{formatHours(row.totalCourseHours)}</td>
+                          <td className="text-nowrap">
+                            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => openStudent(row)}>查看</button>
+                            <Link className="small ms-2" to={studentTrajectoryPath(row.studentId, listReturn)} onClick={rememberFindListScroll}>完整軌跡</Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <ul className="la-student-cards">
+                {data.items.map((row) => {
+                  const name = displayName(row);
+                  return (
+                    <li key={`card-${row.studentId}`} className="la-student-card">
+                      <div className="la-student-card__id">
+                        <button type="button" className="btn btn-link p-0 font-monospace" onClick={() => openStudent(row)}>
+                          {row.studentId}
+                        </button>
+                        {name ? <span>{name}</span> : null}
+                      </div>
+                      <p className="la-student-card__meta">
+                        {row.department || '—'}
+                        {row.cohort ? ` · 入學 ${row.cohort}` : ''}
+                        {row.placementLabel ? ` · ${row.placementLabel}` : ''}
+                      </p>
+                      <p className="la-student-card__meta">{examRecordLabel(row)}</p>
+                      <p className="la-student-card__meta">
+                        活動 {formatHours(row.totalActivityHours)} · 修課 {formatHours(row.totalCourseHours)}
+                      </p>
+                      <div className="la-student-card__actions">
+                        <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => openStudent(row)}>查看</button>
+                        <Link className="small" to={studentTrajectoryPath(row.studentId, listReturn)} onClick={rememberFindListScroll}>完整軌跡</Link>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           ) : null}
           {totalPages > 0 ? (
             <div className="d-flex flex-wrap justify-content-end align-items-center gap-2 mt-3">
@@ -674,6 +759,14 @@ export default function LearningAnalyticsStudentExplorerPage() {
         </div>
       </section>
     </div>
+    {selectedStudentId ? (
+      <StudentExplorerDetailDrawer
+        studentId={selectedStudentId}
+        token={token}
+        snapshotVersion={data?.snapshotVersion || ''}
+        onClose={closeStudent}
+      />
+    ) : null}
     </LearningAnalyticsPageFrame>
   );
 }

@@ -11,6 +11,7 @@
 /test-results
 /blob-report
 /browser-tests/evidence
+/review-output
 
 # production
 /build

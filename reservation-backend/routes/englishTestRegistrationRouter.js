@@ -1504,10 +1504,12 @@ router.get('/english-test/registrations/stats/analytics', ...englishRegViewAuth,
     }
 
     const filterSemester = semester === 'all' ? '' : semester;
-    const [infoSource, department, grade] = await Promise.all([
+    const { loadBestepAnalyticsExtension } = require('../services/bestepAnalyticsAggregateService');
+    const [infoSource, department, grade, extension] = await Promise.all([
       queryRegistrationGroupStats('infoSource', { semester: filterSemester }),
       queryRegistrationGroupStats('department', { semester: filterSemester }),
       queryRegistrationGroupStats('grade', { semester: filterSemester }),
+      loadBestepAnalyticsExtension(semester),
     ]);
     res.json({
       infoSource,
@@ -1517,6 +1519,9 @@ router.get('/english-test/registrations/stats/analytics', ...englishRegViewAuth,
       activeSemester,
       availableSemesters,
       semesterCounts,
+      registrationSummary: extension.registrationSummary,
+      attendance: extension.attendance,
+      scores: extension.scores,
     });
   } catch (error) {
     logger.error('英檢數據分析統計錯誤', error);

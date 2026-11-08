@@ -12,6 +12,7 @@ import LearningAnalyticsNextSteps from '../../components/learningAnalytics/Learn
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
 import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import KpiPolicyEditorModal from '../../components/learningAnalytics/KpiPolicyEditorModal';
+import OutcomesModeSwitch from '../../components/learningAnalytics/OutcomesModeSwitch';
 import StudentTrajectoryLink from '../../components/learningAnalytics/StudentTrajectoryLink';
 import { SEMESTER_OPTIONS, getCurrentSemester } from '../../utils/semesterUtils';
 import {
@@ -33,6 +34,45 @@ import { useLearningAnalyticsWorkingSet } from '../../utils/learningAnalyticsWor
 function formatPct(rate) {
   if (rate == null || !Number.isFinite(Number(rate))) return '—';
   return `${(Number(rate) * 100).toFixed(1)}%`;
+}
+
+export function isKpiQueryStale(executedKey, currentKey, hasReport) {
+  return Boolean(hasReport) && Boolean(executedKey) && executedKey !== currentKey;
+}
+
+export function resolveKpiRunAcceptance({
+  requestSeq,
+  latestSeq,
+  requestSemester,
+  responseSemester,
+}) {
+  if (requestSeq !== latestSeq) return { accept: false, reason: 'stale' };
+  const requested = String(requestSemester || '').trim();
+  const responded = String(responseSemester || '').trim();
+  if (responded && responded !== requested) {
+    return {
+      accept: false,
+      reason: 'semester-mismatch',
+      requestSemester: requested,
+      responseSemester: responded,
+    };
+  }
+  return { accept: true, semesterId: requested };
+}
+
+export function formatKpiGeneratedAt(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
 }
 
 function formatProof(proof) {
@@ -71,9 +111,20 @@ export default function LearningAnalyticsKpiReportPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [report, setReport] = useState(null);
-  const workingSet = useLearningAnalyticsWorkingSet();
-  const workingSetKey = workingSet.studentIds.join(',');
+  const [executedKey, setExecutedKey] = useState('');
+  const [manageOpen, setManageOpen] = useState(false);
+  const [customSemester, setCustomSemester] = useState(false);
+  const workingSetScope = useMemo(() => ({ semester: semesterId || '' }), [semesterId]);
+  const workingSet = useLearningAnalyticsWorkingSet(workingSetScope);
+  const workingSetKey = workingSet.applied ? workingSet.studentIds.join(',') : '';
   const seenWorkingSet = useRef(null);
+  const runSeq = useRef(0);
+  const semesterRef = useRef(semesterId);
+  const policyRef = useRef(policyId);
+  const workingSetRef = useRef(workingSetKey);
+  semesterRef.current = semesterId;
+  policyRef.current = policyId;
+  workingSetRef.current = workingSetKey;
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState('create');
@@ -97,6 +148,15 @@ export default function LearningAnalyticsKpiReportPage() {
       ? '已改看帶來的名單。請再按執行報表。'
       : '已改回整份名冊。請再按執行報表。');
   }, [workingSetKey]);
+
+  const currentQueryKey = `${policyId}|${semesterId}|${workingSetKey}`;
+  const reportStale = isKpiQueryStale(executedKey, currentQueryKey, report);
+
+  useEffect(() => {
+    if (!reportStale) return;
+    setReport(null);
+    setNotice('學期或政策已變更，請重新執行報表。');
+  }, [reportStale]);
 
   const reportStudentIds = useMemo(
     () => (report?.rows || []).map((row) => row.studentId),
@@ -235,21 +295,52 @@ export default function LearningAnalyticsKpiReportPage() {
       setError('已封存政策無法執行報表，請先取消封存或改選其他政策');
       return;
     }
+    const requestPolicyId = policyId;
+    const requestSemester = semesterId;
+    const requestWorkingSet = workingSetKey;
+    const seq = runSeq.current + 1;
+    runSeq.current = seq;
     setRunning(true);
     setError('');
     setNotice('');
     try {
       const data = await runLearningAnalyticsKpiReport(token, workingSet.withWorkingSet({
-        policyId: Number(policyId),
-        semesterId,
+        policyId: Number(requestPolicyId),
+        semesterId: requestSemester,
         includeRows: true,
       }));
+      const decision = resolveKpiRunAcceptance({
+        requestSeq: seq,
+        latestSeq: runSeq.current,
+        requestSemester,
+        responseSemester: data?.population?.semesterId,
+      });
+      if (!decision.accept) {
+        if (decision.reason === 'semester-mismatch' && seq === runSeq.current) {
+          setReport(null);
+          setExecutedKey('');
+          setError(`回應的名冊學期是 ${decision.responseSemester}，與送出的 ${decision.requestSemester} 不同，這份數字不顯示。`);
+        }
+        return;
+      }
+      if (
+        semesterRef.current !== requestSemester
+        || policyRef.current !== requestPolicyId
+        || workingSetRef.current !== requestWorkingSet
+      ) {
+        if (seq === runSeq.current) {
+          setNotice('學期或政策已變更，請重新執行報表。');
+        }
+        return;
+      }
       setReport(data);
+      setExecutedKey(`${requestPolicyId}|${requestSemester}|${requestWorkingSet}`);
     } catch (e) {
+      if (seq !== runSeq.current) return;
       setError(e.message || '執行報表失敗');
       setReport(null);
     } finally {
-      setRunning(false);
+      if (seq === runSeq.current) setRunning(false);
     }
   };
 
@@ -308,19 +399,21 @@ export default function LearningAnalyticsKpiReportPage() {
 
   return (
     <LearningAnalyticsPageFrame
-      title="B2 KPI 報表"
+      title="學期 B2 KPI"
       showWorkingSet
       workingSetHere="kpi"
+      workingSetScope={workingSetScope}
       question="依選定政策，算出這個學期名冊的聽讀成對、說寫成對達標人數與比例。"
-      scope="分母是選定學期的在學名冊。達標是聽讀成對、說寫成對，不是分析快照上的累積人數，也不是單一技能是否達 B2。"
       howToRead={(
         <ul className="small mb-0 ps-3">
-          <li className="mb-1">先選 KPI 政策與名冊學期，再按執行報表。內建政策唯讀，要改規則請複製後編輯。</li>
-          <li className="mb-1">預設規則是同一份測驗的聽讀成對、說寫成對。培力是聽讀合計至少 200、說寫合計至少 560，不可把不同測驗的技能拼在一起。</li>
+          <li className="mb-1">先選 KPI 政策與名冊學期，再按執行報表。改了條件後，上一份數字會清掉。</li>
+          <li className="mb-1">分母是選定學期的在學名冊。達標是成對技能，不是單一技能是否達 B2，也不是分析快照人數。</li>
           <li>匯出 Excel 是成對達標結果；匯出缺口名單是未達標、缺重測或無考試的人。</li>
         </ul>
       )}
     >
+      <OutcomesModeSwitch />
+      <p className="la-scope-note">分析範圍：指定學期名冊與 KPI 政策</p>
 
       {error ? <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert> : null}
       {notice ? <Alert variant="success" onClose={() => setNotice('')} dismissible>{notice}</Alert> : null}
@@ -333,6 +426,18 @@ export default function LearningAnalyticsKpiReportPage() {
             </div>
           ) : (
             <div className="row g-3 align-items-end">
+              <div className="col-12">
+                <p className="small text-muted mb-0">
+                  目前政策：{selectedPolicy?.name || '尚未選擇'}
+                  {' · '}
+                  目前學期：{semesterId || '尚未選擇'}
+                  {' · '}
+                  統計母體：指定學期名冊
+                  {report && !reportStale
+                    ? `（${report.population?.totalStudents ?? '—'} 人，結果學期 ${report.population?.semesterId || semesterId}）`
+                    : '（按執行報表後才計算）'}
+                </p>
+              </div>
               <div className="col-md-5">
                 <Form.Label>KPI 政策</Form.Label>
                 <Form.Select
@@ -366,18 +471,35 @@ export default function LearningAnalyticsKpiReportPage() {
                 ) : null}
               </div>
               <div className="col-md-3">
-                <Form.Label>名冊學期（分母）</Form.Label>
-                <Form.Control
-                  list="la-kpi-semester-options"
-                  value={semesterId}
-                  placeholder="例：115-1"
-                  onChange={(e) => setSemesterId(e.target.value.trim())}
-                />
-                <datalist id="la-kpi-semester-options">
+                <Form.Label htmlFor="la-kpi-semester">名冊學期</Form.Label>
+                <Form.Select
+                  id="la-kpi-semester"
+                  aria-label="名冊學期"
+                  value={customSemester || !semesterOptions.some((o) => o.value === semesterId) ? '__custom' : semesterId}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (next === '__custom') {
+                      setCustomSemester(true);
+                      return;
+                    }
+                    setCustomSemester(false);
+                    setSemesterId(next);
+                  }}
+                >
                   {semesterOptions.map((o) => (
                     <option key={o.value} value={o.value}>{o.label || o.value}</option>
                   ))}
-                </datalist>
+                  <option value="__custom">其他學期</option>
+                </Form.Select>
+                {customSemester || !semesterOptions.some((o) => o.value === semesterId) ? (
+                  <Form.Control
+                    className="mt-2"
+                    aria-label="其他學期代碼"
+                    value={semesterId}
+                    placeholder="例：109-2"
+                    onChange={(e) => setSemesterId(e.target.value.trim())}
+                  />
+                ) : null}
               </div>
               <div className="col-md-4 d-flex flex-wrap gap-2">
                 <Button variant="primary" onClick={handleRun} disabled={running || !policyId || !semesterId}>
@@ -416,6 +538,22 @@ export default function LearningAnalyticsKpiReportPage() {
       </div>
 
       {canManage ? (
+        <div className="mb-3">
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={() => setManageOpen((open) => !open)}
+          >
+            {manageOpen ? '收合政策管理' : '管理政策'}
+          </Button>
+        </div>
+      ) : (
+        <Alert variant="light" className="border mb-3 small text-muted">
+          政策庫新建／編輯／封存需「分析設定」權限。目前可選用既有政策執行報表。
+        </Alert>
+      )}
+
+      {canManage && manageOpen ? (
         <div className="card border-0 shadow-sm mb-3">
           <div className="card-body">
             <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
@@ -525,13 +663,9 @@ export default function LearningAnalyticsKpiReportPage() {
             </div>
           </div>
         </div>
-      ) : (
-        <Alert variant="light" className="border mb-3 small text-muted">
-          政策庫新建／編輯／封存需「分析設定」權限。目前可選用既有政策執行報表。
-        </Alert>
-      )}
+      ) : null}
 
-      {report ? (
+      {report && !reportStale ? (
         <>
           <div className="row g-3 mb-3">
             <div className="col-md-3">
@@ -540,7 +674,7 @@ export default function LearningAnalyticsKpiReportPage() {
                 value={report.population?.totalStudents ?? '—'}
                 hint={report.population?.workingSet
                   ? `帶來 ${report.population.workingSet.requested} 人，名冊命中 ${report.population.workingSet.matchedRoster}`
-                  : report.population?.semesterId}
+                  : `名冊學期 ${report.population?.semesterId || ''}`}
               />
             </div>
             <div className="col-md-3">
@@ -589,11 +723,13 @@ export default function LearningAnalyticsKpiReportPage() {
           ) : null}
           {reportStudentIds.length ? (
             <LearningAnalyticsNextSteps
+              title="這份報表的學生"
               label="這份報表的學生"
               studentIds={reportStudentIds}
               total={reportStudentIds.length}
               truncated={reportStudentIds.length > 2000}
               note="分母仍是這個學期的名冊。"
+              semester={report.population?.semesterId || ''}
               source="kpi-report"
               sourcePath="/admin/learning-analytics/kpi-report"
               hide={['kpi']}
@@ -601,11 +737,13 @@ export default function LearningAnalyticsKpiReportPage() {
           ) : null}
           {unmetStudentIds.length ? (
             <LearningAnalyticsNextSteps
-              label="這份報表裡未達標的學生"
+              title="未達標的學生"
+              label="未達標的學生"
               studentIds={unmetStudentIds}
               total={unmetStudentIds.length}
               truncated={unmetStudentIds.length > 2000}
               note="至少有一個達標項目未通過。"
+              semester={report.population?.semesterId || ''}
               source="kpi-unmet"
               sourcePath="/admin/learning-analytics/kpi-report"
               hide={['kpi']}
@@ -638,7 +776,7 @@ export default function LearningAnalyticsKpiReportPage() {
             <div className="card-body">
               <LearningAnalyticsPanelHeader
                 title="學生明細"
-                lead={`政策：${report.policy?.name} · 產生於 ${report.generatedAt || ''} · 點學號可開個人軌跡`}
+                lead={`政策：${report.policy?.name} · 產生於 ${formatKpiGeneratedAt(report.generatedAt) || '—'} · 點學號可開個人軌跡`}
               />
               <div className="table-responsive">
                 <Table hover size="sm" className="mb-0 align-middle">

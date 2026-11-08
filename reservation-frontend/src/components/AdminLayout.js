@@ -7,7 +7,7 @@ import useToast from './ui/useToast';
 import AdminSidebar from './admin/AdminSidebar';
 import AdminBreadcrumbs from './admin/AdminBreadcrumbs';
 import AdminAccessDenied from './system/AdminAccessDenied';
-import { getAdminPageTitle } from '../constants/adminNavigation';
+import { getAdminPageTitle, isFinderWorkspace } from '../constants/adminNavigation';
 import { getAdminRouteDeniedReason } from '../constants/adminRouteAccess';
 import { buildAccessProfile, buildNavContextFromAccessProfile } from '../utils/accessControl';
 import { parseJwtPayload } from '../utils/jwtPayload';
@@ -240,7 +240,9 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
 
         {!kioskMode && (
           <div className="admin-page-header">
-            <h2 className="admin-page-header__title">{pageTitle}</h2>
+            {isFinderWorkspace(location.pathname) ? null : (
+              <h2 className="admin-page-header__title">{pageTitle}</h2>
+            )}
             <AdminBreadcrumbs
               pathname={location.pathname}
               navContext={navContext}

@@ -399,37 +399,37 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/learning-analytics/overview',
-    label: '能力總覽',
+    label: '學習成效概況',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
     pattern: '/admin/learning-analytics/kpi-report',
-    label: 'B2 KPI 報表',
+    label: '學期 B2 KPI',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
     pattern: '/admin/learning-analytics/cohorts',
-    label: '系所比較',
+    label: '群體與技能比較',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
     pattern: '/admin/learning-analytics/offerings',
-    label: '課／師／活動',
+    label: '資源與開課',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
     pattern: '/admin/learning-analytics/resources',
-    label: '資源覆蓋',
+    label: '資源與開課',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
   },
   {
     pattern: '/admin/learning-analytics/skills',
-    label: '技能成長',
+    label: '群體與技能比較',
     allowAdminOrExecutive: true,
     anyPermissions: [P.CAN_VIEW_LEARNING_ANALYTICS],
     exact: false,
@@ -526,7 +526,7 @@ export const ADMIN_ROUTE_ACCESS = [
   },
   {
     pattern: '/admin/analytics/risk',
-    label: '高風險行政追蹤',
+    label: '高關注名單',
     allowAdminOrExecutive: true,
   },
   {

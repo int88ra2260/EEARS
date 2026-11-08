@@ -17,7 +17,7 @@ const meta = {
     tableCounts: { lj_student_events: 4 },
     recommendedSnapshotVersion: 'synthetic-snapshot',
     hasAnalyticData: true,
-    filterOptions: {},
+    filterOptions: { cohorts: [{ value: '113', label: '113' }] },
   },
 };
 
@@ -82,8 +82,8 @@ async function mockLearning(page, mode = 'ok') {
         await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ success: false, error: 'SQL exploded' }) });
         return;
       }
-      const semester = url.searchParams.get('semester') || '';
-      const which = mode === 'empty' ? 'empty' : (semester === '114-1' ? 'second' : 'first');
+      const cohort = url.searchParams.get('cohort') || '';
+      const which = mode === 'empty' ? 'empty' : (cohort === '113' ? 'second' : 'first');
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(resourcesBody(which)) });
       return;
     }
@@ -114,8 +114,8 @@ async function pageOverflow(page) {
 test('hub opens resource exposure, evidence limits, and the existing skills page', async ({ page }) => {
   const leaked = await mockLearning(page);
   await page.goto(HUB);
-  await page.getByRole('link', { name: '資源覆蓋' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: '資源覆蓋' })).toBeVisible();
+  await page.getByRole('main').getByRole('link', { name: '資源與開課' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: '資源與開課分析' })).toBeVisible();
   await expect(page.getByTestId('learning-reading')).toContainText('不代表資源造成能力提升');
   await expect(page.getByRole('cell', { name: '通識英文' }).first()).toBeVisible();
   await expect(page.getByRole('cell', { name: '0', exact: true }).first()).toBeVisible();
@@ -123,12 +123,12 @@ test('hub opens resource exposure, evidence limits, and the existing skills page
   await expect(page.getByText('不會把匿名軌跡配成')).toBeVisible();
   await expect(page.getByText('不會改寫成未觀察')).toBeVisible();
   await expect(page.getByText('這份資源回應沒有排除原因明細')).toBeVisible();
-  await page.getByLabel('學期').selectOption('114-1');
+  await page.getByLabel('入學年度').selectOption('113');
   await page.getByRole('button', { name: '套用篩選' }).click();
   await expect(page.getByRole('cell', { name: 'EAP 寫作／學術英文' }).first()).toBeVisible();
   await expect(page.getByRole('cell', { name: '通識英文' })).toHaveCount(0);
-  await page.getByRole('link', { name: '開啟技能成長' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: '技能成長' })).toBeVisible();
+  await page.getByRole('link', { name: '開啟群體與技能比較' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: '群體與技能比較' })).toBeVisible();
   await expect(page.getByText('不代表課程造成進步').first()).toBeVisible();
   expect(leaked).toEqual([]);
 });
@@ -151,7 +151,7 @@ test('resource reading stays inside the viewport and the disclosure is keyboard 
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto('/browser-tests/index.html?route=/admin/learning-analytics/resources&profile=admin');
-    await expect(page.getByRole('heading', { level: 1, name: '資源覆蓋' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '資源與開課分析' })).toBeVisible();
     const fold = page.getByRole('button', { name: '怎麼讀這頁' });
     await fold.focus();
     await expect(fold).toBeFocused();

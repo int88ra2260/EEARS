@@ -22,6 +22,7 @@ import { useLearningAnalyticsWorkingSet } from '../utils/learningAnalyticsWorkin
 export function useLearningAnalyticsBootstrap({
   scopeKeys = null,
   defaultSemester = 'none',
+  preserveSearchKeys = [],
 } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const semesterFromUrl = (searchParams.get('semester') || '').trim();
@@ -97,7 +98,18 @@ export function useLearningAnalyticsBootstrap({
     () => filtersToApiParams(appliedFilters),
     [appliedFilters]
   );
-  const workingSet = useLearningAnalyticsWorkingSet();
+  const workingSetScope = useMemo(() => {
+    const keys = scopeKeys || ['snapshot_version', 'semester'];
+    const scope = {};
+    if (keys.includes('snapshot_version')) {
+      scope.snapshotVersion = appliedFilters.snapshot_version || '';
+    }
+    if (keys.includes('semester')) {
+      scope.semester = appliedFilters.semester || '';
+    }
+    return scope;
+  }, [appliedFilters.semester, appliedFilters.snapshot_version, scopeKeys]);
+  const workingSet = useLearningAnalyticsWorkingSet(workingSetScope);
   const withWorkingSet = workingSet.withWorkingSet;
 
   const writeUrl = useCallback((nextFilters) => {
@@ -105,8 +117,12 @@ export function useLearningAnalyticsBootstrap({
     Object.entries(filtersToApiParams(nextFilters)).forEach(([key, value]) => {
       if (key !== 'snapshot_version') next.set(key, String(value));
     });
+    for (const key of preserveSearchKeys) {
+      const value = searchParams.get(key);
+      if (value) next.set(key, value);
+    }
     setSearchParams(next, { replace: true });
-  }, [setSearchParams]);
+  }, [preserveSearchKeys, searchParams, setSearchParams]);
 
   const applyFilters = useCallback(() => {
     const nextFilters = narrow({ ...filters });
@@ -137,6 +153,7 @@ export function useLearningAnalyticsBootstrap({
     ready,
     apiParams,
     withWorkingSet,
+    workingSetScope,
     semesterFromUrl,
   };
 }

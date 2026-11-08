@@ -3,13 +3,13 @@
 export const LEARNING_DETAIL_LINKS = Object.freeze([
   {
     id: 'skills',
-    label: '開啟技能成長',
+    label: '開啟群體與技能比較',
     to: '/admin/learning-analytics/skills',
-    hint: '既有前後測與校正後進步。這頁的篩選不會自動帶過去。',
+    hint: '開啟技能成長模式。這頁的篩選不會自動帶過去。',
   },
   {
     id: 'offerings',
-    label: '開啟課／師／活動',
+    label: '開啟資源與開課',
     to: '/admin/learning-analytics/offerings',
     hint: '既有參與樣本與細項。',
   },
@@ -25,6 +25,53 @@ export function formatObservedCount(value) {
   if (value === null || value === undefined || value === '') return '—';
   const n = Number(value);
   return Number.isFinite(n) ? String(n) : '—';
+}
+
+export function shouldApplyAnalyticsResult(requestSeq, latestSeq) {
+  return requestSeq === latestSeq;
+}
+
+export function describeResourceCoverage(row) {
+  const participants = row?.participantCount;
+  const comparable = row?.growthSampleSize;
+  if (participants == null || participants === '') return '參與人數尚未回傳';
+  const participantCount = Number(participants);
+  if (!Number.isFinite(participantCount)) return '參與人數尚未回傳';
+  if (participantCount === 0) return '沒有人參與';
+  if (comparable == null || comparable === '') return '有人參與，可比較樣本尚未回傳';
+  const comparableCount = Number(comparable);
+  if (!Number.isFinite(comparableCount)) return '有人參與，可比較樣本尚未回傳';
+  if (comparableCount === 0) return '有人參與，但沒有可比較的前後測';
+  if (row?.evidenceLevel === 'descriptive_low') return '可比較樣本偏少，不足以判讀差異';
+  return '具有可比較的前後測紀錄';
+}
+
+export function resourceEventCount(exposureRows, resourceType) {
+  const row = (exposureRows || []).find((item) => item?.resourceType === resourceType);
+  if (!row || row.events == null || row.events === '') return null;
+  return row.events;
+}
+
+export function offeringScopeLabel(semester) {
+  const value = String(semester || '').trim();
+  if (!value) return '目前範圍：跨學期';
+  return `目前範圍：${value}`;
+}
+
+/**
+ * 平均變化只在可比較樣本大於 0 時顯示數字。
+ * null 不能經 Number() 變成 0。樣本為 0 時，即使原值是 0 也不顯示成已觀察到的 0.0。
+ */
+export function formatObservedDelta(value, sampleSize) {
+  if (sampleSize === null || sampleSize === undefined || sampleSize === '') return '—';
+  const sample = Number(sampleSize);
+  if (!Number.isFinite(sample)) return '—';
+  if (sample <= 0) return '無可比較樣本';
+  if (value === null || value === undefined || value === '') return '—';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  if (n > 0) return `+${n.toFixed(1)}`;
+  return n.toFixed(1);
 }
 
 export function describeResourceExposure(rows) {

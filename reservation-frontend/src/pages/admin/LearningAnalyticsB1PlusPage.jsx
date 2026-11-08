@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import StudentExplorerDetailDrawer from '../../components/learningAnalytics/StudentExplorerDetailDrawer';
 import {
   getLearningAnalyticsB1Plus,
   getLearningAnalyticsMeta,
@@ -12,7 +13,12 @@ import LearningAnalyticsNextSteps from '../../components/learningAnalytics/Learn
 import LearningAnalyticsStatus from '../../components/learningAnalytics/LearningAnalyticsStatus';
 import MetricCard from '../../components/learningAnalytics/MetricCard';
 import { formatCount, formatHours, formatRate } from '../../components/learningAnalytics/learningAnalyticsFormat';
-import { pushRecentStudent, studentTrajectoryPath } from '../../utils/learningAnalyticsRecentStudents';
+import {
+  pushRecentStudent,
+  rememberFindListScroll,
+  restoreFindListScroll,
+  studentTrajectoryPath,
+} from '../../utils/learningAnalyticsRecentStudents';
 import { useLearningAnalyticsWorkingSet } from '../../utils/learningAnalyticsWorkingSet';
 
 const PAGE_SIZE = 40;
@@ -86,7 +92,14 @@ export default function LearningAnalyticsB1PlusPage() {
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [meta, setMeta] = useState(null);
-  const { active: workingSetActive, withWorkingSet } = useLearningAnalyticsWorkingSet();
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const location = useLocation();
+  const listReturn = `${location.pathname}${location.search}`;
+  const workingSetScope = useMemo(
+    () => ({ snapshotVersion: applied.snapshot_version || '' }),
+    [applied.snapshot_version]
+  );
+  const { applied: workingSetApplied, withWorkingSet } = useLearningAnalyticsWorkingSet(workingSetScope);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,6 +177,10 @@ export default function LearningAnalyticsB1PlusPage() {
     return list;
   }, [applied]);
 
+  useEffect(() => {
+    restoreFindListScroll();
+  }, [listReturn]);
+
   const patchDraft = (patch) => setDraft((current) => ({ ...current, ...patch }));
 
   const applyFilters = (event) => {
@@ -201,8 +218,10 @@ export default function LearningAnalyticsB1PlusPage() {
   return (
     <LearningAnalyticsPageFrame
       title="接近 B2"
+      findMode="b1-plus"
       showWorkingSet
       workingSetHere="b1-plus"
+      workingSetScope={workingSetScope}
       question="找還沒達 B2、但能力已接近 B2 的學生：看前測落點、有沒有修課、有沒有參加活動。"
       scope={data?.definition?.rule || 'B2 仍是達標線。這頁用 GSE 51–58（B1+ 帶）找出接近 B2、尚未達標的人。'}
       howToRead={(
@@ -374,11 +393,12 @@ export default function LearningAnalyticsB1PlusPage() {
 
           {matched > 0 && data?.handoff?.studentIds?.length ? (
             <LearningAnalyticsNextSteps
-              label={workingSetActive ? '這批人裡接近 B2 的人' : '目前這份接近 B2 名單'}
+              label={workingSetApplied ? '這批人裡接近 B2 的人' : '目前這份接近 B2 名單'}
               studentIds={data.handoff.studentIds}
               total={data.handoff.total}
               truncated={data.handoff.truncated}
               note="已套用畫面上的切法。B2 達標仍用學期名冊，不在名冊的人不會進分母。"
+              snapshotVersion={applied.snapshot_version || ''}
               source="b1-plus"
               sourcePath="/admin/learning-analytics/b1-plus"
             />
@@ -424,13 +444,26 @@ export default function LearningAnalyticsB1PlusPage() {
                         {(data.items || []).map((row) => (
                           <tr key={row.studentId}>
                             <td>
-                              <Link
-                                to={studentTrajectoryPath(row.studentId)}
-                                onClick={() => pushRecentStudent({ studentId: row.studentId, name: row.studentName })}
+                              <button
+                                type="button"
+                                className="btn btn-link p-0 font-monospace align-baseline"
+                                onClick={() => {
+                                  pushRecentStudent({ studentId: row.studentId, name: row.studentName });
+                                  setSelectedStudentId(row.studentId);
+                                }}
                               >
                                 {row.studentId}
-                              </Link>
+                              </button>
                               {row.studentName ? <div className="small text-muted">{row.studentName}</div> : null}
+                              <div>
+                                <Link
+                                  className="small"
+                                  to={studentTrajectoryPath(row.studentId, listReturn)}
+                                  onClick={rememberFindListScroll}
+                                >
+                                  完整軌跡
+                                </Link>
+                              </div>
                             </td>
                             <td>{row.department || '—'}</td>
                             <td>{row.cohort || '—'}</td>
@@ -487,6 +520,14 @@ export default function LearningAnalyticsB1PlusPage() {
             </div>
           ) : null}
         </>
+      ) : null}
+      {selectedStudentId ? (
+        <StudentExplorerDetailDrawer
+          studentId={selectedStudentId}
+          token={token}
+          snapshotVersion={applied.snapshot_version || ''}
+          onClose={() => setSelectedStudentId('')}
+        />
       ) : null}
     </LearningAnalyticsPageFrame>
   );

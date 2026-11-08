@@ -1,24 +1,31 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
-import LaFold from '../../components/learningAnalytics/LaFold';
 import {
   clearRecentStudents,
   pushRecentStudent,
   readRecentStudents,
+  rememberFindListScroll,
+  restoreFindListScroll,
   studentTrajectoryPath,
 } from '../../utils/learningAnalyticsRecentStudents';
 
 export default function LearningAnalyticsStudentJourneyPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const listReturn = `${location.pathname}${location.search}`;
   const [studentId, setStudentId] = useState('');
   const [recent, setRecent] = useState(() => readRecentStudents());
 
   useEffect(() => {
     setRecent(readRecentStudents());
   }, []);
+
+  useEffect(() => {
+    restoreFindListScroll();
+  }, [listReturn]);
 
   const analyticsPath = useMemo(
     () => (studentId ? studentTrajectoryPath(studentId) : null),
@@ -30,7 +37,8 @@ export default function LearningAnalyticsStudentJourneyPage() {
     if (!normalized) return;
     pushRecentStudent({ studentId: normalized, name });
     setRecent(readRecentStudents());
-    navigate(studentTrajectoryPath(normalized));
+    rememberFindListScroll();
+    navigate(studentTrajectoryPath(normalized, listReturn));
   };
 
   const handleSubmit = (e) => {
@@ -46,23 +54,11 @@ export default function LearningAnalyticsStudentJourneyPage() {
   return (
     <LearningAnalyticsPageFrame
       title="個人軌跡"
+      findMode="student"
       question="輸入學號，看這位學生的輔導摘要、前後測與時間線。"
       scope="從名單、KPI 或課／師／活動點學號進來，或在這裡直接查。"
     >
       <div className="la-panel mb-3">
-        <LaFold label="怎麼找到人？" className="mb-3">
-          <ul className="small mb-0 ps-3">
-            <li className="mb-1">
-              從
-              {' '}
-              <Link to="/admin/learning-analytics/kpi-report">B2 KPI 報表</Link>
-              {' '}
-              學生明細點學號（上呈／缺口閉環）。
-            </li>
-            <li className="mb-1">從課／師／活動展開列的學號點進來。</li>
-            <li>或在下方輸入學號；最近查詢會留在本機瀏覽器。</li>
-          </ul>
-        </LaFold>
         <Form
           className="d-flex flex-wrap gap-2 align-items-end"
           onSubmit={handleSubmit}
