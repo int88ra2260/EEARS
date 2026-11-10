@@ -9,7 +9,7 @@
  * @property {string} howTo
  * @property {string} previewPath
  * @property {string} previewLabel
- * @property {'site-content'|'page-content'|'media-library'} kind
+ * @property {'site-content'|'page-content'|'media-library'|'leaders-team'} kind
  * @property {string} [pageTab]
  * @property {string[]} [siteSections] - 嵌入 site-content 時限定的文案區塊
  * @property {boolean} [headerMatch] - 對應前台 Header 探索選單
@@ -118,6 +118,16 @@ export const STUDENT_CONTENT_AREAS = [
     previewPath: '/course-guide',
     previewLabel: '修課說明',
     kind: 'media-library',
+  },
+  {
+    id: 'leaders-team',
+    label: '管理 LEADERS 介紹',
+    shortLabel: 'LEADERS 介紹',
+    description: 'English Table LEADERS 介紹頁的名單、順序、大頭照與公開介紹。',
+    howTo: '選擇一位後修改顯示名稱、是否公開、照片與介紹。照片從媒體庫挑選。學號、信箱和時薪不在這裡。',
+    previewPath: '/activities/english-table/leaders',
+    previewLabel: 'LEADERS 介紹',
+    kind: 'leaders-team',
   },
   {
     id: 'scroll-world',

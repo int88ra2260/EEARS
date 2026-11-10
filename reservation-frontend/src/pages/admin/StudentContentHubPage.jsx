@@ -4,6 +4,7 @@ import { Navigate, useSearchParams } from 'react-router-dom';
 import SiteContentManagementPage from './SiteContentManagementPage';
 import PageContentManagementPage from './PageContentManagementPage';
 import MediaLibraryPanel from '../../components/media/MediaLibraryPanel';
+import AdminLeadersTeamPage from './AdminLeadersTeamPage';
 import { STUDENT_CONTENT_AREAS, getStudentContentArea } from './studentContentAreas';
 import './StudentContentHubPage.css';
 
@@ -158,6 +159,8 @@ export default function StudentContentHubPage() {
               />
             ) : area.kind === 'media-library' ? (
               <MediaLibraryPanel />
+            ) : area.kind === 'leaders-team' ? (
+              <AdminLeadersTeamPage embedded />
             ) : (
               <PageContentManagementPage embedded forcedTab={area.pageTab} />
             )}

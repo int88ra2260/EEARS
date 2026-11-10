@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import PageHeader from '../components/layout/PageHeader';
@@ -8,6 +8,7 @@ import {
   listLeaders,
   youtubeEmbedUrl,
 } from '../data/leadersTeam';
+import { fetchPublicLeaders } from '../services/leadersTeamPublicApi';
 import './LeadersTeamPage.css';
 
 const LEADER_SLIDES = [
@@ -157,7 +158,22 @@ function LeaderCard({ leader, t }) {
 
 export default function LeadersTeamPage() {
   const { t } = useLanguage();
-  const leaders = useMemo(() => listLeaders(), []);
+  const [leaders, setLeaders] = useState(() => listLeaders());
+  const [loadedFromApi, setLoadedFromApi] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublicLeaders()
+      .then((data) => {
+        if (cancelled || !Array.isArray(data?.leaders)) return;
+        setLeaders(data.leaders);
+        setLoadedFromApi(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const breadcrumbs = [
     { label: t('nav.home'), path: '/' },
     { label: t('nav.activities'), path: '/activities' },
@@ -182,9 +198,13 @@ export default function LeadersTeamPage() {
 
       <section className="leaders-team-list" aria-labelledby="leaders-team-list-title">
         <h2 id="leaders-team-list-title" className="visually-hidden">{t('leadersTeam.listTitle')}</h2>
-        {leaders.map((leader) => (
-          <LeaderCard key={leader.id} leader={leader} t={t} />
-        ))}
+        {loadedFromApi && leaders.length === 0 ? (
+          <p>{t('leadersTeam.empty')}</p>
+        ) : (
+          leaders.map((leader) => (
+            <LeaderCard key={leader.id} leader={leader} t={t} />
+          ))
+        )}
       </section>
 
       <div className="leaders-team-actions">

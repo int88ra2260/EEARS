@@ -358,6 +358,41 @@ describe('getAdminBreadcrumbs', () => {
     const trail = getAdminBreadcrumbs('/admin/et-grouping/my-sessions', leaderCtx);
     expect(trail[0]).toEqual({ label: '後台', to: '/admin/et-grouping/my-sessions' });
   });
+
+  it('shows the public leaders editor to ET managers and content editors', () => {
+    const tokenFor = (payload) => {
+      const body = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      return `e30.${body}.sig`;
+    };
+    const leafIds = (profile) => {
+      const ids = [];
+      const walk = (nodes) => {
+        (nodes || []).forEach((node) => {
+          ids.push(node.id);
+          walk(node.children);
+        });
+      };
+      walk(filterVisibleNav(ADMIN_NAV_SECTIONS, buildNavContextFromAccessProfile(profile)));
+      return ids;
+    };
+
+    const etManager = buildAccessProfile(
+      tokenFor({ role: 'teacher', teacherLevel: 'et_manager' }),
+      'teacher',
+    );
+    const editor = buildAccessProfile(
+      tokenFor({ role: 'worker', workerLevel: 'content_editor' }),
+      'worker',
+    );
+    const leader = buildAccessProfile('', 'leader');
+
+    expect(leafIds(etManager)).toContain('et-leader-public-profiles');
+    expect(leafIds(editor)).toContain('et-leader-public-profiles');
+    expect(leafIds(leader)).not.toContain('et-leader-public-profiles');
+    expect(canAccessAdminRoute(etManager, '/admin/leaders-team')).toBe(true);
+    expect(canAccessAdminRoute(editor, '/admin/leaders-team')).toBe(true);
+    expect(canAccessAdminRoute(leader, '/admin/leaders-team')).toBe(false);
+  });
 });
 
 describe('filterAdminNavByQuery', () => {

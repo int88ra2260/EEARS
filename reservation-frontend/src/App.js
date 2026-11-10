@@ -113,6 +113,7 @@ const AdminEtGroupingReportsPage = lazy(() => import('./pages/admin/AdminEtGroup
 const AdminEtStudentTrendsPage = lazy(() => import('./pages/admin/AdminEtStudentTrendsPage'));
 const AdminEtLeaderSessionsPage = lazy(() => import('./pages/admin/AdminEtLeaderSessionsPage'));
 const AdminEtLeaderPayrollPage = lazy(() => import('./pages/admin/AdminEtLeaderPayrollPage'));
+const AdminLeadersTeamPage = lazy(() => import('./pages/admin/AdminLeadersTeamPage'));
 const AdminEventParticipationStatsPage = lazy(() => import('./pages/admin/AdminEventParticipationStatsPage'));
 const EnglishTestImportHubPage = lazy(() => import('./pages/admin/EnglishTestImportHubPage'));
 const LearningJourneyDashboardPage = lazy(() => import('./pages/admin/LearningJourneyDashboardPage'));
@@ -554,6 +555,7 @@ function AppContent() {
               <Route path="et-grouping/payroll" element={<AdminEtLeaderPayrollPage />} />
               <Route path="et-grouping/student-trends" element={<AdminEtStudentTrendsPage />} />
               <Route path="et-grouping/my-sessions" element={<AdminEtLeaderSessionsPage />} />
+              <Route path="leaders-team" element={<AdminLeadersTeamPage />} />
               <Route path="operations" element={<AdminHome />} />
               <Route path="classes/credit-allocation" element={<AdminClassCreditAllocationPage />} />
               <Route path="classes/:classId/bestep" element={<ClassBestepOverview />} />

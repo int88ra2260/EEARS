@@ -59,6 +59,12 @@ export const ADMIN_ROUTE_ACCESS = [
     anyPermissions: [P.CAN_MARK_ET_SESSION_TASKS],
   },
   {
+    pattern: '/admin/leaders-team',
+    label: 'LEADERS 介紹',
+    anyPermissions: [P.CAN_MANAGE_ET_GROUPING, P.CAN_MANAGE_SITE_CONTENT],
+    denyRoles: ['leader'],
+  },
+  {
     pattern: '/admin/operations/:eventId/checkin-kiosk',
     label: '現場簽到 Kiosk',
     anyPermissions: [P.CAN_CHECKIN_STUDENTS],

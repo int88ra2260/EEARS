@@ -2,9 +2,14 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import LeadersTeamPage from './LeadersTeamPage';
 import { LEADERS_TEAM } from '../data/leadersTeam';
+import { fetchPublicLeaders } from '../services/leadersTeamPublicApi';
+
+vi.mock('../services/leadersTeamPublicApi', () => ({
+  fetchPublicLeaders: vi.fn(async () => ({ leaders: null })),
+}));
 
 vi.mock('../context/LanguageContext', () => ({
   useLanguage: () => ({
@@ -35,6 +40,10 @@ vi.mock('../context/LanguageContext', () => ({
 }));
 
 describe('LeadersTeamPage', () => {
+  beforeEach(() => {
+    fetchPublicLeaders.mockResolvedValue({ leaders: null });
+  });
+
   test('lists every leader nameplate and links back to English Table', () => {
     render(
       <MemoryRouter>
@@ -72,5 +81,30 @@ describe('LeadersTeamPage', () => {
     expect(screen.getByRole('button', { name: '暫停' })).toHaveAttribute('aria-pressed', 'true');
     await user.click(screen.getByRole('button', { name: '播放' }));
     expect(screen.getByRole('button', { name: '播放' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('uses the published cards from the public api', async () => {
+    fetchPublicLeaders.mockResolvedValue({
+      leaders: [{
+        id: 'ada',
+        name: '測試 Ada',
+        photo: '',
+        degree: '外文系',
+        experience: '',
+        languages: '',
+        focus: '',
+        videoId: '',
+      }],
+    });
+
+    render(
+      <MemoryRouter>
+        <LeadersTeamPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { level: 2, name: '測試 Ada' })).toBeInTheDocument();
+    expect(screen.getByText('外文系')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: '謝宗叡 Udon' })).not.toBeInTheDocument();
   });
 });

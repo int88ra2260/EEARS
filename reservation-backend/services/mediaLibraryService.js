@@ -1,7 +1,15 @@
 const path = require('path');
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { MediaAsset, CourseGuideTopic, WeeklyReport, Announcement, WeeklyMedia, EmailTemplateOverride } = require('../models');
+const {
+  MediaAsset,
+  CourseGuideTopic,
+  WeeklyReport,
+  Announcement,
+  WeeklyMedia,
+  EmailTemplateOverride,
+  LeaderPublicProfile,
+} = require('../models');
 const { safeNormalizeFilename } = require('./learningJourney/utils/safeNormalizeFilename');
 
 const MEDIA_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'media');
@@ -332,6 +340,25 @@ async function findMediaReferences(asset) {
     }
   } catch {
     // EmailTemplateOverride / attachmentsJson 可能尚未 migrate
+  }
+
+  if (url) {
+    try {
+      const profiles = await LeaderPublicProfile.findAll({
+        attributes: ['id', 'slug', 'displayName'],
+        where: { photoUrl: url },
+      });
+      profiles.forEach((profile) => {
+        refs.push({
+          type: 'leader-public-profile',
+          id: profile.id,
+          slug: profile.slug,
+          label: `LEADERS 介紹 · ${profile.displayName || profile.slug}`,
+        });
+      });
+    } catch {
+      // LeaderPublicProfiles 可能尚未 migrate
+    }
   }
 
   return refs;

@@ -544,6 +544,7 @@ export const translations = {
       slideAwardsAlt: '英文寫作比賽頒獎合影',
       backToActivities: '返回活動總覽',
       bookEnglishTable: '預約 English Table',
+      empty: '本學期的介紹正在更新。',
     },
     phrasebook: {
       pageTitle: 'Activity Phrasebook｜活動英語應答指南',
@@ -1733,6 +1734,7 @@ export const translations = {
       slideAwardsAlt: 'Group photo at an English writing contest award ceremony',
       backToActivities: 'Back to activities',
       bookEnglishTable: 'Book English Table',
+      empty: 'This semester’s introductions are being updated.',
     },
     phrasebook: {
       pageTitle: 'Activity Phrasebook',

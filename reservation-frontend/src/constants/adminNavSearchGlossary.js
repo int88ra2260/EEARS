@@ -55,6 +55,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '任務勾選',
     '英語桌帶班',
   ],
+  'et-leader-public-profiles': ['LEADERS 介紹', '大頭照', '介紹頁', 'English Table 團隊'],
   'et-grouping': ['ET', '英語桌', '分組', 'Leader', '帶班'],
   'events-compliance': [
     '違規',

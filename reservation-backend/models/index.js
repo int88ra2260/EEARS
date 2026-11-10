@@ -59,6 +59,7 @@ const ScrollWorldTestSegment = require('./ScrollWorldTestSegment');
 const CourseGuideSection = require('./CourseGuideSection');
 const CourseGuideTopic = require('./CourseGuideTopic');
 const MediaAsset = require('./MediaAsset');
+const LeaderPublicProfile = require('./LeaderPublicProfile');
 const AuditLog = require('./AuditLog');
 const EmailLog = require('./EmailLog');
 const EmailTemplateOverride = require('./EmailTemplateOverride');
@@ -459,6 +460,7 @@ module.exports = {
   CourseGuideSection,
   CourseGuideTopic,
   MediaAsset,
+  LeaderPublicProfile,
   AuditLog,
   EmailLog,
   EmailTemplateOverride,

@@ -140,6 +140,12 @@ export function isNavItemVisible(visibility, c) {
       );
     case 'weeklyReports':
       return canAccessWeeklyReports(c?.accessProfile);
+    case 'leadersPublicEditor': {
+      const set = c?.accessProfile?.permissionSet;
+      return !!(set && set.has && (
+        set.has(P.CAN_MANAGE_ET_GROUPING) || set.has(P.CAN_MANAGE_SITE_CONTENT)
+      ));
+    }
     case 'accountNav':
       if (c?.accessProfile?.permissionSet?.has(P.CAN_MANAGE_ACCOUNTS)) return true;
       return !!c?.accessProfile?.role;
@@ -355,6 +361,15 @@ export const ADMIN_NAV_SECTIONS = [
             visibility: 'perm:can_mark_et_session_tasks',
             pageTitle: '我的帶班場次',
             breadcrumbLabel: '我的帶班場次',
+          },
+          {
+            id: 'et-leader-public-profiles',
+            label: 'LEADERS 介紹',
+            path: '/admin/leaders-team',
+            matchPrefixes: ['/admin/leaders-team'],
+            visibility: 'leadersPublicEditor',
+            pageTitle: 'LEADERS 介紹',
+            breadcrumbLabel: 'LEADERS 介紹',
           },
         ],
       },
