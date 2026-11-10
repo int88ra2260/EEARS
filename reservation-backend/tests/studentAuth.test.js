@@ -490,7 +490,7 @@ describe('loginWithCampusSso', () => {
       password: 'campus-secret',
     }, sso);
 
-    expect(account.name).toBe('曾\uE273鈞');
+    expect(account.name).toBe('曾祺鈞');
   });
 
   it('still rejects a campus profile whose name is an email or whose student id is missing', async () => {

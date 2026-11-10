@@ -28,6 +28,12 @@ describe('personName', () => {
     expect(normalizePersonName('王小華')).toBe('王小華');
   });
 
+  it('replaces the campus private-use character for 祺', () => {
+    expect(compactPersonName('曾\uE273鈞')).toBe('曾祺鈞');
+    expect(personNamesMatch('曾\uE273鈞', '曾祺鈞')).toBe(true);
+    expect(compactPersonName('曾\uE123鈞')).toBe('曾\uE123鈞');
+  });
+
   it('accepts a campus name that uses a private-use character', () => {
     expect(isCampusPersonName('曾\uE273鈞')).toBe(true);
     expect(isCampusPersonName('王小明')).toBe(true);

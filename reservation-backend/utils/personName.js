@@ -5,10 +5,20 @@
  * 名冊匯入常在漢字之間插入空白（例如兩個字的「杜 威」），
  * 與學生自行填寫的「杜威」應視為同一人。
  * 英文姓名保留單字之間的空白，只摺疊連續空白。
+ *
+ * 中山單一入口與部分名冊把「祺」回傳成私人使用區 U+E273。
+ * 這個字在一般字型會變成亂碼，標準漢字是 U+797A。
  */
+const CAMPUS_PRIVATE_USE_TO_HAN = Object.freeze({
+  '\uE273': '祺',
+});
+
+function replaceCampusPrivateUseCharacters(value) {
+  return String(value || '').replace(/[\uE000-\uF8FF]/g, (ch) => CAMPUS_PRIVATE_USE_TO_HAN[ch] || ch);
+}
 
 function compactPersonName(value) {
-  const text = String(value || '')
+  const text = replaceCampusPrivateUseCharacters(value)
     .normalize('NFKC')
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
     .trim()
