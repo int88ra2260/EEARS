@@ -20,7 +20,8 @@
   --home-pastel-green: var(--color-success-light);
   --home-pastel-green-text: var(--color-success);
   --home-pastel-yellow: var(--color-warning-light);
-  --home-pastel-yellow-text: var(--color-warning);
+  /* 與公開淺黃底相同：字色用 #856404，不把 --color-warning 改深。 */
+  --home-pastel-yellow-text: #856404;
   --home-pastel-red: var(--color-danger-light);
   --home-pastel-red-text: var(--color-danger);
   --home-pastel-neutral: #eef2f7;

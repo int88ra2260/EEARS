@@ -16,7 +16,8 @@
   --pub-success-bg: var(--color-success-light);
   --pub-success-text: var(--color-success);
   --pub-warning-bg: var(--color-warning-light);
-  --pub-warning-text: var(--color-warning);
+  /* 淺黃底上的 --color-warning 是 4.42:1。字色沿用已通過的 #856404，不改全域 token。 */
+  --pub-warning-text: #856404;
   --pub-danger-bg: var(--color-danger-light);
   --pub-danger-text: var(--color-danger);
   --pub-info-bg: var(--color-info-light);
