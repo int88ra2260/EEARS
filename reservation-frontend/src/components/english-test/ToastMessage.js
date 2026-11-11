@@ -31,12 +31,11 @@ export default function ToastMessage({
   const bgClass = {
     success: 'bg-success text-white',
     danger: 'bg-danger text-white',
-    warning: 'bg-warning text-dark',
+    warning: 'bg-warning text-white',
     info: 'bg-info text-white',
   }[variant] || 'bg-success text-white';
 
-  const closeClass =
-    variant === 'warning' ? 'btn-close btn-sm ms-2' : 'btn-close btn-close-white btn-sm ms-2';
+  const closeClass = 'btn-close btn-close-white btn-sm ms-2';
 
   return (
     <div
