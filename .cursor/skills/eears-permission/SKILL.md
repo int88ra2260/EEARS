@@ -27,6 +27,8 @@ license: MIT
 
 ## Hard Constraints（不可違背）
 
+管理 API 必須做權限檢查，這條在 `.cursor/rules/core.mdc`。下面是變更時的檔案與測試順序。
+
 1. 後端必須驗證
    - 前端「隱藏 UI」不可視為權限策略本身
    - 所有敏感 endpoint 必須有 `authMiddleware` + `requirePermission(P.XXX)` 或 scope guard

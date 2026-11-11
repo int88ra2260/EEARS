@@ -16,6 +16,8 @@ license: MIT
   - 學習成效分析（GSE 分帶、接近 B2、CEFR 達標呈現）→ 見 `eears-learning-analytics`
 - 你需要決定「該補哪些測試」來降低 regression risk
 
+契約正文在 `.cursor/rules/core.mdc` 與 `.cursor/rules/learning-analytics.mdc`。這裡只決定補哪些測試。
+
 ## Current Test Landscape（以 repo 為準）
 
 - 後端：`reservation-backend/tests/**/*.test.js`

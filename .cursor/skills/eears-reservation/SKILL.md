@@ -13,31 +13,20 @@ license: MIT
 
 ## API/Endpoint 對照（以實際路由為準）
 
-- 預約建立（公開）：`reservation-backend/routes/reservationRouter.js` 中
-  - `router.post('/reservations', checkSurvey, ...)`
-- 公開取消：`/reservations/:id/cancel-public`（deprecated 混合取消需避免）
-- 管理端取消：`/admin/reservations/:id`
-- 候補已停用：`POST /events/:eventId/waitlist` 回 `410` / `WAITLIST_DISABLED`
-  - 不要加回學生端加入候補或取消後自動轉正
+- 預約建立：`reservationRouter.js` 的 `POST /reservations` 依序為 `studentAuthMiddleware`、`bindStudentIdentity()`、`checkSurvey`
+- 學生取消：`POST /reservations/:id/cancel-public`，同樣先綁 session，再由 `cancelReservationPublic` 比對 `cancellationCode`
+- 管理端刪除：`DELETE /admin/reservations/:id`，不使用取消驗證碼
+- 舊 `DELETE /reservations/:id` 維持 410
+- 候補加入：`POST /events/:eventId/waitlist` 回 410，`errorCode` 為 `WAITLIST_DISABLED`。不要加回加入候補或 `promoteNextWaitlistedStudent`
 
-## Core Business Rules（硬約束）
+## 任務步驟
 
-1. 截止時數：依活動類型 `cutoffHours`（seed 預設 2；可於後台編輯）
-   - 後端：`reservation-backend/utils/reservationTime.js` + `eventTypeService`
-   - 前端：`reservation-frontend/src/utils/reservationTime.js`
-   - 取消與預約使用同一 `cutoffHours`
+契約條文見 `.cursor/rules/core.mdc`。改預約流程時照這個順序：
 
-2. 預約開放窗依活動類型 `openRule`（存在 `event_types`）
-   - 勿把某類型的 days_before 誤當成全站統一限制
-
-3. `events.eventType` 存 **code**（如 `english_table`），顯示名在類型目錄
-
-4. 預約前檢查的順序與語意
-   - 若問卷 Gate 適用（類型 `surveyGateEnabled` + product mode + rule required），未完成必須擋下
-   - 若 blacklist 適用，blacklisted 期間必須擋下
-   - 額滿即無法再預約（不開放候補）
-
-5. 學生預約、查詢與取消自己的預約屬於須登入的個人功能，操作者為 session 綁定的學號。登入上線前，既有公開表單與取消驗證碼仍有效。
+1. 前後端一起看時間計算：`reservation-backend/utils/reservationTime.js`、`services/eventTypeService.js`、`reservation-frontend/src/utils/reservationTime.js`。改一邊就要同步另一邊並補後端測試。
+2. `events.eventType` 存 code（如 `english_table`），顯示名在類型目錄。開放窗讀該類型的 `openRule`，不要把某一類型的天數當成全站限制。
+3. 預約前檢查維持既有順序：黑名單、問卷 Gate、名額與重複預約。額滿不能改成開放候補。
+4. 學生取消若改到驗證碼或截止，先讀 `cancelReservationPublic`。未授權時不要拿掉 `cancellationCode` 比對。
 
 ## Hard Checklist（改動前逐項確認）
 

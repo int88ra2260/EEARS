@@ -5,6 +5,8 @@ alwaysApply: false
 
 # eears-permission-change-workflow（權限變更）
 
+Cursor 的規則目錄是 `.cursor/rules/`，技能是 `.cursor/skills/*/SKILL.md`。這個檔不在這兩個載入路徑，不會自動觸發。操作步驟見 `eears-permission`。這裡保留權限變更回報模板。
+
 ## 1) 觸發時機
 
 - 新增/調整後台權限鍵（`P.CAN_*`）

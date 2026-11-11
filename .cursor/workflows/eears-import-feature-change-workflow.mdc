@@ -5,6 +5,8 @@ alwaysApply: false
 
 # eears-import-feature-change-workflow（匯入功能變更）
 
+Cursor 的規則目錄是 `.cursor/rules/`，技能是 `.cursor/skills/*/SKILL.md`。這個檔不在這兩個載入路徑，不會自動觸發。操作步驟見 `eears-data-import-excel`。這裡保留匯入變更回報模板。
+
 ## 1) 觸發時機
 
 - 修改任何 Excel 匯入模組（LJ、BESTEP、班級名冊、英檢、刷卡等）

@@ -5,6 +5,8 @@ alwaysApply: false
 
 # eears-bugfix-workflow（Bug 修復）
 
+Cursor 的規則目錄是 `.cursor/rules/`，技能是 `.cursor/skills/*/SKILL.md`。這個檔不在這兩個載入路徑，不會自動觸發。不變條件見 `.cursor/rules/core.mdc`。修復步驟見 `eears-domain-core`、`eears-reservation` 或對應領域 skill。這裡保留驗收回報模板。
+
 ## 1) 觸發時機
 
 - 任何學生端/管理端出現：
@@ -45,7 +47,7 @@ alwaysApply: false
 
 - 是否引入新的 PII/token log？
 - 是否改動錯誤碼或 redirectUrl 造成前端誤導？
-- 是否把截止寫死成 2 小時？已提交程式仍比對取消驗證碼；該比對刪除之後，不要把驗證碼加回去。
+- 是否把截止寫死成 2 小時？學生公開取消仍比對 `cancellationCode`。未授權時不要拿掉這個比對，也不要把其他 worktree 尚未合併的移除修改當成契約。
 - 是否確保沒有把 fail-close 改成 next() 放行？
 
 ## 6) 最終回報格式

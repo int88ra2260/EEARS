@@ -5,6 +5,8 @@ alwaysApply: false
 
 # eears-ui-ux-optimization-workflow（UI/UX 優化）
 
+Cursor 的規則目錄是 `.cursor/rules/`，技能是 `.cursor/skills/*/SKILL.md`。這個檔不在這兩個載入路徑，不會自動觸發。視覺與可及性約束見 `.cursor/rules/frontend.mdc`。這裡保留 UI 驗收回報模板。沒有單獨的 UI skill。
+
 ## 1) 觸發時機
 
 - 改善桌機/後台可用性、表單/Modal 體驗

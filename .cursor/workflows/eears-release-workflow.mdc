@@ -5,6 +5,8 @@ alwaysApply: false
 
 # eears-release-workflow（上線前 Release）
 
+Cursor 的規則目錄是 `.cursor/rules/`，技能是 `.cursor/skills/*/SKILL.md`。這個檔不在這兩個載入路徑，不會自動觸發。部署步驟見 `eears-deployment-iis`。不變條件見 `.cursor/rules/core.mdc`。這裡保留上線前 smoke 與回報模板。
+
 ## 1) 觸發時機
 
 - 合併到 `main` 前的上線準備

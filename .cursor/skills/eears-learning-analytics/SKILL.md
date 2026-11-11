@@ -17,6 +17,8 @@ license: MIT
 
 ## 產品量尺（必須遵守）
 
+短契約在 `.cursor/rules/learning-analytics.mdc`，含 CEFR／GSE 分工與 `causalClaimAllowed = false`。這裡保留檔案、working set 與檢查順序，不改指標定義。
+
 CEFR 只用在最後呈現或是看有沒有達標使用，GSE 是用作資料比較使用，因為教務處和教育部要看的是 CEFR 的成果，但是因為每個測驗雖然 CEFR 一樣但由於級距關係看不出差異所以才使用 GSE 作為比較時使用。
 
 因此：
