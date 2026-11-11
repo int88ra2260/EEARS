@@ -169,6 +169,39 @@ describe('admin dashboard empty states', () => {
     expect(screen.queryByText('尚未有活動')).toBeNull();
   });
 
+  test('uses one primary action and keeps partial health off bootstrap warning text', () => {
+    useAdminDashboardProduct.mockReturnValue(readyState({
+      todayEventCount: 1,
+      kpiEnglishPending: kpi(KPI_STATUS.SUCCESS, 2),
+      kpiAnnouncementDraft: kpi(KPI_STATUS.SUCCESS, 1),
+      violations: [{ id: 3 }],
+      violationsSectionStatus: KPI_STATUS.SUCCESS,
+      healthState: {
+        status: KPI_STATUS.SUCCESS,
+        health: {
+          services: {
+            db: { status: 'ok', latencyMs: 35 },
+            email: { status: 'ok', latencyMs: 650 },
+          },
+        },
+        requestId: null,
+      },
+    }));
+    renderDashboard();
+
+    const primary = screen.getByRole('link', { name: '前往簽到／管理' });
+    expect(primary.className).toContain('admin-dashboard__btn--primary');
+    expect(screen.getByRole('link', { name: '前往審核' }).className).toContain('admin-dashboard__btn--secondary');
+    expect(screen.getByRole('link', { name: '前往公告' }).className).toContain('admin-dashboard__btn--secondary');
+    expect(screen.getByRole('link', { name: '前往處理' }).className).toContain('admin-dashboard__btn--secondary');
+    expect(screen.getByRole('link', { name: '前往系統設定' }).className).toContain('admin-dashboard__btn--secondary');
+    expect(document.querySelectorAll('.admin-dashboard__btn--primary')).toHaveLength(1);
+
+    const partial = screen.getByText('部分異常');
+    expect(partial.className).toContain('admin-dashboard__status--partial');
+    expect(partial.className).not.toContain('text-warning');
+  });
+
   test('a permission-style metric error stays on the metric card', () => {
     useAdminDashboardProduct.mockReturnValue(readyState({
       recentEvents: [{ id: 7, name: 'English Table', date: '2026-10-30', startTime: '10:00', endTime: '11:00' }],

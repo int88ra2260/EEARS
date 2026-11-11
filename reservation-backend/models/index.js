@@ -21,6 +21,7 @@ const StudentAccount = require('./StudentAccount');
 const StudentAccountEmailVerification = require('./StudentAccountEmailVerification');
 const StudentAccountReview = require('./StudentAccountReview');
 const StudentFeedback = require('./StudentFeedback');
+const StudentFeedbackMessage = require('./StudentFeedbackMessage');
 const StudentAccountPasswordReset = require('./StudentAccountPasswordReset');
 const ClassTeacher = require('./ClassTeacher');
 const EnglishTestRegistration = require('./EnglishTestRegistration');
@@ -401,6 +402,11 @@ LjTrackingCohort.hasMany(LjTrackingCohortMember, {
 });
 LjTrackingCohortMember.belongsTo(LjTrackingCohort, { foreignKey: 'cohortId', as: 'cohort' });
 
+StudentFeedback.belongsTo(Teacher, { foreignKey: 'assignedTeacherId', as: 'assignee' });
+StudentFeedback.hasMany(StudentFeedbackMessage, { foreignKey: 'feedbackId', as: 'messages' });
+StudentFeedbackMessage.belongsTo(StudentFeedback, { foreignKey: 'feedbackId' });
+StudentFeedbackMessage.belongsTo(Teacher, { foreignKey: 'teacherId', as: 'author' });
+
 module.exports = {
   sequelize,
   User,
@@ -423,6 +429,7 @@ module.exports = {
   StudentAccountEmailVerification,
   StudentAccountReview,
   StudentFeedback,
+  StudentFeedbackMessage,
   StudentAccountPasswordReset,
   ClassTeacher,
   EnglishTestRegistration,

@@ -26,11 +26,7 @@ function ReservationSearchModal({ show, onClose }) {
     validationErrors,
     searchError,
     cancelingReservationId,
-    cancellationCode,
-    setCancellationCode,
     search,
-    startCancel,
-    cancelCancel,
     performCancel,
     cancelError,
     cancelLoading,
@@ -75,10 +71,6 @@ function ReservationSearchModal({ show, onClose }) {
                 cancelLoading={cancelLoading}
                 cancelError={cancelError}
                 searchError={searchError}
-                cancellationCode={cancellationCode}
-                onCancellationCodeChange={setCancellationCode}
-                onStartCancel={startCancel}
-                onCancelCancel={cancelCancel}
                 onConfirmCancel={performCancel}
                 loading={loading}
               />

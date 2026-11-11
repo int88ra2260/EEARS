@@ -17,7 +17,7 @@ license: MIT
 
 你必須理解以下不可違背語意（以 `.cursor/rules/eears-business-rules.mdc` 為準）：
 
-- 學生個人功能必須登入，session 綁定 `studentId`：預約、我的預約、我的紀錄、口說紀錄、課堂加分配置、培力報名。登入不能跳過黑名單、問卷 Gate、名額、重複預約、截止時間。學生登入上線前，既有公開表單與取消驗證碼仍有效，不得提前移除。
+- 學生個人功能必須登入，session 綁定 `studentId`：預約、我的預約、我的紀錄、口說紀錄、課堂加分配置、培力報名。登入不能跳過黑名單、問卷 Gate、名額、重複預約、截止時間。取消預約只認 session 學號，不再使用取消驗證碼。
 - 預約／取消截止為活動開始前 **`cutoffHours` 小時**（來源 `event_types`；seed 預設 `2`；後台可編輯）。**不要**寫死「一律 2 小時」或假設存在 `RESERVATION_CUTOFF_HOURS` 常數。
 - 黑名單：違規累積到門檻後封鎖預約（違規次數以當學期計算、跨學期歸零），且以週日邏輯解封
 - 問卷 Gate：依活動類型 `surveyGateEnabled`；啟用規則未完成要 fail-close（409 + `redirectUrl`）

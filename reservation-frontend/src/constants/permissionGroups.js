@@ -161,6 +161,7 @@ export const PERMISSION_FIELD_META = {
   [P.CAN_MANAGE_VIOLATIONS]: { label: '違規管理', description: '違規案件維護。', systemOnly: false },
   [P.CAN_MANAGE_ANNOUNCEMENTS]: { label: '公告管理', description: '後台公告維護。', systemOnly: false },
   [P.CAN_VIEW_STUDENT_FEEDBACK]: { label: '學生回報', description: '查看學生從帳號頁送來的問題與建議，內容不公開。', systemOnly: false },
+  [P.CAN_MANAGE_STUDENT_FEEDBACK]: { label: '學生回報（處理）', description: '回覆、指派、寫內部備註與結案。學生看不到內部備註。', systemOnly: false },
   [P.CAN_MANAGE_SITE_CONTENT]: { label: '學生端內容管理', description: '學生端文案（含活動介紹、關於我們）、學習資源、法規表單與修課說明。', systemOnly: false },
   [P.CAN_MANAGE_SETTINGS]: {
     label: '系統設定',
@@ -227,7 +228,7 @@ export const PERMISSION_GROUPS = [
     id: 'announcements',
     title: '公告與學生端內容',
     blurb: '公告、週報與學生端網站內容。',
-    keys: [P.CAN_MANAGE_ANNOUNCEMENTS, P.CAN_VIEW_STUDENT_FEEDBACK, P.CAN_MANAGE_SITE_CONTENT],
+    keys: [P.CAN_MANAGE_ANNOUNCEMENTS, P.CAN_VIEW_STUDENT_FEEDBACK, P.CAN_MANAGE_STUDENT_FEEDBACK, P.CAN_MANAGE_SITE_CONTENT],
   },
   {
     id: 'surveys',

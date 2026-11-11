@@ -45,7 +45,7 @@ alwaysApply: false
 
 - 是否引入新的 PII/token log？
 - 是否改動錯誤碼或 redirectUrl 造成前端誤導？
-- 是否破壞 2hr / 取消驗證碼行為？
+- 是否破壞 cutoffHours，或讓未登入者取消別人的預約？
 - 是否確保沒有把 fail-close 改成 next() 放行？
 
 ## 6) 最終回報格式

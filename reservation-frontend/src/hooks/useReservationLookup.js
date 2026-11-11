@@ -2,7 +2,7 @@
  * 預約查詢與取消流程狀態與 API 封裝
  * 供 MyReservationsPage 與 ReservationSearchModal 共用，保持 API contract 一致
  */
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import dayjs from 'dayjs';
 import { validateReservationFields } from '../utils/validators';
 import { loadReservationIdentity, saveReservationIdentity } from '../utils/studentIdentityStorage';
@@ -38,14 +38,8 @@ export default function useReservationLookup({ showToast } = {}) {
   const [validationErrors, setValidationErrors] = useState({});
   const [searchError, setSearchError] = useState('');
   const [cancelingReservationId, setCancelingReservationId] = useState(null);
-  const [cancellationCode, setCancellationCode] = useState('');
   const [cancelError, setCancelError] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
-
-  useEffect(() => {
-    // 使用者輸入新驗證碼時，清掉先前錯誤訊息
-    if (cancelingReservationId && cancellationCode) setCancelError('');
-  }, [cancellationCode, cancelingReservationId]);
 
   const search = useCallback(async () => {
     const trimmed = {
@@ -90,47 +84,7 @@ export default function useReservationLookup({ showToast } = {}) {
     }
   }, [studentId, studentName, studentEmail]);
 
-  const startCancel = useCallback((rid) => {
-    setCancelingReservationId(rid);
-    setCancellationCode('');
-    setCancelError('');
-  }, []);
-
-  const cancelCancel = useCallback(() => {
-    setCancelingReservationId(null);
-    setCancellationCode('');
-    setCancelError('');
-    setCancelLoading(false);
-  }, []);
-
-  const mapCancellationErrorToFriendly = (rawMessage) => {
-    const msg = String(rawMessage || '');
-
-    if (msg.includes('驗證碼錯誤') || msg.toLowerCase().includes('invalid verification code')) {
-      return '驗證碼錯誤，請確認是否使用最新一封 Email 中的取消驗證碼。';
-    }
-    if (msg.includes('請提供驗證碼') || msg.toLowerCase().includes('please provide the verification code')) {
-      return '缺少驗證碼，請輸入 Email 中收到的取消驗證碼後再嘗試。';
-    }
-    if (msg.includes('活動開始前2小時內不可取消') || msg.toLowerCase().includes('cannot cancel reservation within 2 hours')) {
-      return msg; // 保留後端已經具體描述的文字
-    }
-    return msg || '取消預約失敗，請稍後再試';
-  };
-
   const performCancel = useCallback(async (rid) => {
-    if (!cancellationCode || !cancellationCode.trim()) {
-      setCancelError('缺少驗證碼，請輸入 Email 中收到的取消驗證碼後再嘗試。');
-      if (typeof showToast === 'function') {
-        showToast('請輸入驗證碼 (Please enter the verification code)', 'warning');
-      } else {
-        // fallback：若未傳入 showToast，仍透過統一 toast
-        try {
-          window.dispatchEvent(new CustomEvent('eears:toast', { detail: { message: '請輸入驗證碼 (Please enter the verification code)', variant: 'warning' } }));
-        } catch (_) {}
-      }
-      return;
-    }
     const ok = await confirm({
       title: '確認取消預約？',
       description: '此操作無法復原。',
@@ -140,17 +94,13 @@ export default function useReservationLookup({ showToast } = {}) {
     });
     if (!ok) return;
     try {
+      setCancelingReservationId(rid);
       setCancelLoading(true);
       setCancelError('');
       const targetRecord = records.find((r) => r.id === rid);
-      await cancelReservation(rid, cancellationCode, {
-        studentId,
-        studentName,
-        studentEmail,
-      });
+      await cancelReservation(rid);
       setRecords((prev) => prev.filter((r) => r.id !== rid));
       setCancelingReservationId(null);
-      setCancellationCode('');
       setCancelLoading(false);
 
       const bookingCode = formatBookingCode(targetRecord?.bookingCode, targetRecord?.reservationId || targetRecord?.id);
@@ -168,9 +118,9 @@ export default function useReservationLookup({ showToast } = {}) {
       }
     } catch (err) {
       setCancelLoading(false);
-      const rid = err?.requestId || null;
-      const friendlyBase = mapCancellationErrorToFriendly(err?.message || err);
-      const friendly = rid ? `${friendlyBase}（錯誤識別碼：${rid}）` : friendlyBase;
+      const requestId = err?.requestId || null;
+      const friendlyBase = err?.message || '取消預約失敗，請稍後再試';
+      const friendly = requestId ? `${friendlyBase}（錯誤識別碼：${requestId}）` : friendlyBase;
       setCancelError(friendly);
       if (typeof showToast === 'function') {
         showToast(friendly, 'danger');
@@ -180,7 +130,7 @@ export default function useReservationLookup({ showToast } = {}) {
         } catch (_) {}
       }
     }
-  }, [cancellationCode, showToast, confirm, records, studentId, studentName, studentEmail]);
+  }, [showToast, confirm, records]);
 
   return {
     form: { studentId, setStudentId, studentName, setStudentName, studentEmail, setStudentEmail },
@@ -189,13 +139,9 @@ export default function useReservationLookup({ showToast } = {}) {
     validationErrors,
     searchError,
     cancelingReservationId,
-    cancellationCode,
-    setCancellationCode,
     cancelError,
     cancelLoading,
     search,
-    startCancel,
-    cancelCancel,
     performCancel,
   };
 }

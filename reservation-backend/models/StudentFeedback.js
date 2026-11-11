@@ -41,12 +41,32 @@ const StudentFeedback = sequelize.define('StudentFeedback', {
     allowNull: false,
     defaultValue: 'pending',
   },
+  status: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'open',
+  },
+  replyRequested: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+  },
+  assignedTeacherId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  closedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   tableName: 'student_feedback',
   indexes: [
     { fields: ['studentId', 'createdAt'], name: 'idx_student_feedback_student_created' },
     { fields: ['createdAt'], name: 'idx_student_feedback_created' },
     { fields: ['kind', 'createdAt'], name: 'idx_student_feedback_kind_created' },
+    { fields: ['status', 'createdAt'], name: 'idx_student_feedback_status_created' },
+    { fields: ['assignedTeacherId'], name: 'idx_student_feedback_assignee' },
   ],
 });
 

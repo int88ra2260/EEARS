@@ -161,8 +161,8 @@ export const DEFAULT_FAQ_SEED = [
     label: '取消預約',
     questionZh: '無法出席時可以取消預約嗎？',
     questionEn: 'Can I cancel if I cannot attend?',
-    answerZh: '可以。請在該活動的取消截止時間前登入，到「查詢／取消我的預約」，用預約信裡的驗證碼取消。截止時間依活動類型而定。若未取消且未到場，會被記為違規。',
-    answerEn: 'Yes. Sign in and open My Reservations before that activity’s cancellation deadline, then cancel with the code from your booking email. The deadline depends on the activity type. A no-show without cancellation counts as a violation.',
+    answerZh: '可以。請在該活動的取消截止時間前登入，到「我的預約」自行取消。不必再輸入預約信裡的驗證碼。截止時間依活動類型而定。若未取消且未到場，會被記為違規。',
+    answerEn: 'Yes. Sign in and open My Reservations before that activity’s cancellation deadline, then cancel there. You do not need a code from the booking email. The deadline depends on the activity type. A no-show without cancellation counts as a violation.',
   },
   {
     label: '問卷要求',

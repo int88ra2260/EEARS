@@ -37,12 +37,12 @@ license: MIT
    - 若 blacklist 適用，blacklisted 期間必須擋下
    - 額滿即無法再預約（不開放候補）
 
-5. 學生預約、查詢與取消自己的預約屬於須登入的個人功能，操作者為 session 綁定的學號。登入上線前，既有公開表單與取消驗證碼仍有效。
+5. 學生預約、查詢與取消自己的預約屬於須登入的個人功能，操作者為 session 綁定的學號。取消不再核對取消驗證碼。
 
 ## Hard Checklist（改動前逐項確認）
 
 - [ ] 這次改動是否觸及 `reservationTime.js`（後端/前端雙份一致性）？
-- [ ] 若涉及取消：有沒有保留驗證碼（cancellationCode）的要求與同一 `cutoffHours` 截止？
+- [ ] 若涉及取消：是否仍只允許 session 學號取消自己的預約，並沿用同一 `cutoffHours` 截止？
 - [ ] 不要重新啟用 waitlist 加入或 `promoteNextWaitlistedStudent`
 - [ ] 若涉及 error codes：
   - 問卷 Gate 仍回 `409` 並附 `redirectUrl: /survey/{surveyKey}`

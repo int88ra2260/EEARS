@@ -249,14 +249,14 @@ describe('DELETE /api/reservations/:id auth regression', () => {
     expect(reservation.destroy).not.toHaveBeenCalled();
   });
 
-  it('前台：正確驗證碼可取消成功（新路由）', async () => {
+  it('前台：登入學號相符即可取消，不看請求裡的學號或驗證碼', async () => {
     const reservation = makeReservation({
       date: '2026-04-10',
       startTime: '15:00:00',
       cancellationCode: '111222',
     });
     mockReservationFindByPk.mockResolvedValueOnce(reservation);
-    const account = mockStudentAccount(reservation);
+    const account = mockStudentAccount(reservation, { email: 'other-inbox@example.com' });
 
     const res = await request(app)
       .post('/api/reservations/99/cancel-public')
@@ -265,7 +265,7 @@ describe('DELETE /api/reservations/:id auth regression', () => {
         studentId: 'someone-else',
         studentName: 'Not Me',
         email: 'wrong@example.com',
-        cancellationCode: '111222',
+        cancellationCode: '999999',
       });
 
     expect(res.status).toBe(200);
@@ -274,39 +274,18 @@ describe('DELETE /api/reservations/:id auth regression', () => {
     expect(reservation.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it('前台：錯誤驗證碼不會取消（新路由 fail-close）', async () => {
+  it('前台：其他學號不能取消，即使帶著舊驗證碼', async () => {
     const reservation = makeReservation({
       date: '2026-04-10',
       startTime: '15:00:00',
       cancellationCode: '111222',
     });
     mockReservationFindByPk.mockResolvedValueOnce(reservation);
-    const account = mockStudentAccount(reservation);
-
-    const res = await request(app)
-      .post('/api/reservations/99/cancel-public')
-      .set('Authorization', studentAuthHeader(account))
-      .send({
-        studentId: reservation.studentId,
-        studentName: reservation.studentName,
-        email: reservation.studentEmail,
-        cancellationCode: '999999',
-      });
-
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.found).toBe(false);
-    expect(reservation.destroy).not.toHaveBeenCalled();
-  });
-
-  it('前台：登入身分與預約不符不會成功取消', async () => {
-    const reservation = makeReservation({
-      date: '2026-04-10',
-      startTime: '11:00:00',
-      cancellationCode: '111222',
+    const account = mockStudentAccount(reservation, {
+      studentId: 'B999999999',
+      name: 'Other Student',
+      email: 'other@example.com',
     });
-    mockReservationFindByPk.mockResolvedValueOnce(reservation);
-    const account = mockStudentAccount(reservation, { email: 'wrong@example.com' });
 
     const res = await request(app)
       .post('/api/reservations/99/cancel-public')

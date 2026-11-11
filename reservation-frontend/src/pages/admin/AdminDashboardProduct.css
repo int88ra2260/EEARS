@@ -1,0 +1,362 @@
+/*
+ * 營運總覽試點。只在 .admin-layout-root .admin-dashboard 內生效。
+ * 沿用 design-system.css 的 Institutional Academic Blue，不改後台殼層畫布。
+ */
+
+.admin-layout-root .admin-dashboard {
+  --dash-warning: var(--color-warning);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  min-width: 0;
+  max-width: 100%;
+  color: var(--color-text-primary);
+}
+
+.admin-layout-root .admin-dashboard__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.admin-layout-root .admin-dashboard__note {
+  flex: 1 1 18rem;
+  margin: 0;
+  max-width: 68ch;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+}
+
+.admin-layout-root .admin-dashboard__card,
+.admin-layout-root .admin-dashboard .card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-paper);
+  box-shadow: none;
+}
+
+.admin-layout-root .admin-dashboard .card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.admin-layout-root .admin-dashboard .card-body {
+  padding: 1rem 1.1rem;
+}
+
+.admin-layout-root .admin-dashboard .card-header {
+  padding: 0.7rem 1.1rem;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.admin-layout-root .admin-dashboard__panel-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  line-height: 1.4;
+}
+
+.admin-layout-root .admin-dashboard__panel-lead {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.admin-layout-root .admin-dashboard__status-row,
+.admin-layout-root .admin-dashboard__todo,
+.admin-layout-root .admin-dashboard__section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  min-width: 0;
+}
+
+.admin-layout-root .admin-dashboard__status-copy,
+.admin-layout-root .admin-dashboard__todo-label {
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.admin-layout-root .admin-dashboard__status-metrics {
+  min-width: 0;
+  flex: 1 1 16rem;
+  margin: 0.35rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.admin-layout-root .admin-dashboard__status {
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+}
+
+.admin-layout-root .admin-dashboard__status--ok {
+  color: var(--color-success);
+}
+
+.admin-layout-root .admin-dashboard__status--partial {
+  color: var(--dash-warning);
+}
+
+.admin-layout-root .admin-dashboard__status--error,
+.admin-layout-root .admin-dashboard__hint--danger {
+  color: var(--color-danger);
+}
+
+.admin-layout-root .admin-dashboard__hint {
+  margin-top: 0.5rem;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.admin-layout-root .admin-dashboard__todos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-layout-root .admin-dashboard__todo {
+  align-items: center;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.admin-layout-root .admin-dashboard__todo:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.admin-layout-root .admin-dashboard__todo-label {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.admin-layout-root .admin-dashboard__empty-banner {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-paper);
+}
+
+.admin-layout-root .admin-dashboard__empty-banner p {
+  margin: 0.25rem 0 0;
+}
+
+.admin-layout-root .admin-dashboard__metrics,
+.admin-layout-root .admin-dashboard__shortcuts,
+.admin-layout-root .admin-dashboard__split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .admin-layout-root .admin-dashboard__metrics,
+  .admin-layout-root .admin-dashboard__shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 992px) {
+  .admin-layout-root .admin-dashboard__split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .admin-layout-root .admin-dashboard__metrics,
+  .admin-layout-root .admin-dashboard__shortcuts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.admin-layout-root .admin-dashboard__kpi-label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.admin-layout-root .admin-dashboard__kpi-range {
+  margin-top: 0.2rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
+
+.admin-layout-root .admin-dashboard__kpi-value {
+  margin-top: 0.65rem;
+  color: var(--color-text-primary);
+  font-size: 1.75rem;
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.admin-layout-root .admin-dashboard__section-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+
+.admin-layout-root .admin-dashboard__quick-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  height: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-paper);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.admin-layout-root .admin-dashboard__quick-link:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.admin-layout-root .admin-dashboard__quick-link-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+}
+
+.admin-layout-root .admin-dashboard__quick-link-desc {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.admin-layout-root .admin-dashboard__record-link,
+.admin-layout-root .admin-dashboard__text-link {
+  color: var(--color-primary-dark);
+  text-decoration: none;
+  text-underline-offset: 0.18em;
+}
+
+.admin-layout-root .admin-dashboard__record-link:hover,
+.admin-layout-root .admin-dashboard__text-link:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}
+
+.admin-layout-root .admin-dashboard__list {
+  margin: 0;
+}
+
+.admin-layout-root .admin-dashboard__list .list-group-item {
+  background: transparent;
+  overflow-wrap: anywhere;
+}
+
+.admin-layout-root .admin-dashboard__meta {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.admin-layout-root .admin-dashboard .admin-dashboard__btn {
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  white-space: normal;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-white);
+}
+
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--primary:hover,
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--primary:active,
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--primary:focus {
+  background-color: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  color: var(--color-text-white);
+}
+
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--secondary {
+  background: var(--color-bg-paper);
+  border: 1px solid var(--color-text-muted);
+  color: var(--color-text-primary);
+}
+
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--secondary:hover,
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--secondary:active,
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--secondary:focus {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
+
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--tertiary {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  vertical-align: baseline;
+}
+
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--tertiary:hover,
+.admin-layout-root .admin-dashboard .admin-dashboard__btn--tertiary:focus {
+  background: transparent;
+  color: var(--color-primary-dark);
+}
+
+.admin-layout-root .admin-dashboard .admin-dashboard__btn:disabled,
+.admin-layout-root .admin-dashboard .admin-dashboard__btn:disabled:hover {
+  opacity: 1;
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.admin-layout-root .admin-dashboard a:focus-visible,
+.admin-layout-root .admin-dashboard button:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 2px;
+}
+
+@media (max-width: 767.98px) {
+  .admin-layout-root .admin-dashboard .admin-dashboard__btn--primary,
+  .admin-layout-root .admin-dashboard .admin-dashboard__btn--secondary {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-layout-root .admin-dashboard .admin-dashboard__btn,
+  .admin-layout-root .admin-dashboard__quick-link {
+    transition: none;
+  }
+}
