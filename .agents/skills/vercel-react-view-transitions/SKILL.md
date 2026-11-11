@@ -317,4 +317,4 @@ Always add the reduced motion CSS from `references/css-recipes.md` to your globa
 
 ## Full Compiled Document
 
-For the complete guide with all reference files expanded: `AGENTS.md`
+For the complete guide with all reference files expanded: `compiled-guide.md`

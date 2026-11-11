@@ -1,5 +1,7 @@
 # vercel-optimize
 
+EEARS packaging: this checkout keeps the cross-agent entry at `cross-agent.md`. The sentence about the project `AGENTS.md` means the repository root file. If an update restores this skill's `AGENTS.md`, run `.agents/normalize-vercel-skill-packaging.ps1`.
+
 Optimize cost and performance for supported projects on Vercel.
 
 This skill uses Vercel metrics to find high-impact improvements in your app. Every recommendation is backed by observed data, scoped code evidence, and version-aware docs.

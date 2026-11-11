@@ -7,6 +7,8 @@ metadata:
 
 # Vercel Optimize
 
+Cross-agent entry point: [cross-agent.md](cross-agent.md).
+
 Run an observability-first Vercel optimization audit. Do not inspect source files until `signals.json` exists and a deterministic gate points to a route, file, or project setting.
 
 Core doctrine: read [references/doctrine.md](references/doctrine.md) if any rule is unclear.

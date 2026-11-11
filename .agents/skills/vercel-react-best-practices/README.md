@@ -1,5 +1,7 @@
 # React Best Practices
 
+EEARS packaging: this checkout keeps the compiled guide at `compiled-guide.md`. Upstream `pnpm build` is not vendored here. If an update restores `AGENTS.md`, run `.agents/normalize-vercel-skill-packaging.ps1`.
+
 A structured repository for creating and maintaining React Best Practices optimized for agents and LLMs.
 
 ## Structure
@@ -10,7 +12,7 @@ A structured repository for creating and maintaining React Best Practices optimi
   - `area-description.md` - Individual rule files
 - `src/` - Build scripts and utilities
 - `metadata.json` - Document metadata (version, organization, abstract)
-- __`AGENTS.md`__ - Compiled output (generated)
+- __`compiled-guide.md`__ - Compiled output (generated upstream as AGENTS.md)
 - __`test-cases.json`__ - Test cases for LLM evaluation (generated)
 
 ## Getting Started
