@@ -44,6 +44,7 @@ Import Runs（後端紀錄彙整與維運）：
 
 4. 欄位驗證要對應既有模板/別名
 - 中英別名、欄位順序差異要沿用既有映射/驗證規則。
+- 一批寫入若包在 Sequelize transaction，驗證失敗或中途錯誤不得留下半套列。回滾沿用既有 rollback service。
 
 ## Suggested Steps（修改匯入時的實作順序）
 

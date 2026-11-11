@@ -1,0 +1,38 @@
+---
+description: EEARS 跨任務不變條件
+alwaysApply: true
+---
+
+# EEARS Core
+
+只放跨任務不能破壞的條件。步驟、模板與路徑慣例在 Scoped Rules 與 Skills。
+
+## 架構
+
+- Monorepo：`reservation-backend`（Express + Sequelize + MySQL、CommonJS）與 `reservation-frontend`（Vite + React 18）。
+- 本機後端 port 3000。前端 Vite port 3001，`/api` proxy 到 3000，build 輸出 `build/`。
+- 時區是 `Asia/Taipei`。學期區間以 `shared/semesterConfig.js` 為準。
+- Schema 只能用 Sequelize migration。生產環境不要開 `sequelize.sync()` 或 `ENABLE_DB_SYNC`。
+- 只改任務相關檔案。回應使用繁體中文。
+
+## 身分、權限與安全
+
+- 學生個人功能必須登入。預約、取消自己的預約、我的紀錄、口說紀錄、課堂加分配置、培力報名都使用既有 `studentAuthMiddleware`，並以 `bindStudentIdentity` 把學號與姓名改成 session 帳號。未驗證信箱不能使用這些功能。不要另做一套登入，也不要把這些功能改回匿名表單。活動列表與公告可以不登入。
+- 學生主鍵仍是學號。不要改成只認密碼或 email，不要讓請求正文指定別人的學號。學生帳號與後台 `teachers` 分開。不要代收選課密碼，也不要代登選課系統。
+- 登入不能跳過黑名單、問卷 Gate、名額、重複預約、截止時間。
+- 學生取消只認 session 綁定的學號，且須在該活動類型的 `cutoffHours` 之前。`cancelReservationPublic` 不再寄送或核對 `cancellationCode`。未登入不能取消。管理端刪除也不使用驗證碼。舊 `DELETE /reservations/:id` 維持 410。
+- 管理 API 必須 `authMiddleware` + `requirePermission`。權限鍵前後端同步。前端隱藏不能取代後端檢查。
+- 生產 `JWT_SECRET` 至少 32 字元。`.env`、JWT secret、資料庫密碼不進版控。
+- 不要把 token、`cancellationCode` 或學生 PII 寫進 log 或對外錯誤。上傳保持大小、類型與檔名檢查，避免 path traversal。
+
+## 預約、黑名單、問卷
+
+- 截止讀活動類型 `cutoffHours`。預約與公開取消用同一個值。Seed 預設是 2，不要把文件或邏輯寫死成一律 2 小時。對照前後端 `reservationTime.js` 與 `eventTypeService.js`。
+- `openRule` 是開放起算，不是統一禁預約天數。Job Talk 的 7 day 不是「活動前 7 天不可預約」，也不是問卷寬限。
+- 黑名單期間不能預約。違規次數只算當學期 `BlackListRecord`，跨學期不累計。達門檻後，解封時間由 `computeBlacklistUnlockDate` 算到週日 23:59。保留預約前檢查，以及黑名單期間取消預約的既有行為。
+- 問卷 Gate 在規則啟用且時間有效時，未完成必須由 `checkSurvey` 回 409，`redirectUrl` 為 `/survey/{surveyKey}`，並保留既有 `code`。不要改成放行。
+- 加入候補維持停用。`POST /api/events/:eventId/waitlist` 回 410，`errorCode` 為 `WAITLIST_DISABLED`。不要重新開放登記或自動轉正。
+
+## 授權
+
+沒有明確授權時，不要 commit、push、merge 或部署，也不要跳過 git hooks。

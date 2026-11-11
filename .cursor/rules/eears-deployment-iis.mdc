@@ -1,12 +1,6 @@
 ---
-description: EEARS Windows IIS 部署/回滾/環境變數守則
-globs:
-  - "reservation-backend/server.js"
-  - "public/web.config"
-  - "reservation-frontend/public/web.config"
-  - "reservation-backend/.env.example"
-  - "reservation-backend/scripts/**/*.js"
-  - "reservation-backend/scripts/**/*.mjs"
+description: Windows IIS、PM2 與部署檔的操作限制
+globs: reservation-backend/server.js, reservation-backend/ecosystem.config.cjs, reservation-backend/.env.example, reservation-frontend/public/web.config, scripts/ops/**/*
 alwaysApply: false
 ---
 
@@ -17,7 +11,7 @@ alwaysApply: false
 ## 1) 部署模式
 
 - 後端提供 SPA 靜態檔與 fallback：`reservation-backend/server.js` 的 `build/` 靜態服務 + `app.get('*', ...)`。
-- IIS 以 reverse proxy 提向 `http://127.0.0.1:3000/{R:0}`（`public/web.config`）。
+- Repository 裡的 IIS 設定是 `reservation-frontend/public/web.config`。Vite 會把它複製到 `reservation-backend/build/web.config`。Reverse proxy 指向 `http://127.0.0.1:3000/{R:0}`。沒有另一份 repo 根目錄 `public/web.config`。
 
 ## 2) 時區與 env
 

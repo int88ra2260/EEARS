@@ -1,0 +1,31 @@
+---
+description: React、Bootstrap、設計系統、可及性與 Motion 的前端約束
+globs: reservation-frontend/src/**/*.js, reservation-frontend/src/**/*.jsx, reservation-frontend/src/**/*.css, reservation-frontend/vite.config.js
+alwaysApply: false
+---
+
+# 前端
+
+業務不變條件在 `core.mdc`。這裡只保留碰到前端檔案時的技術約束。
+
+## 目錄與路由
+
+- 新頁面放 `src/pages/` 或 `src/pages/admin/`（`.jsx`）。可重用元件放 `src/components/{domain}/`。API 放 `src/services/` 或既有 fetch client。
+- 路由在 `src/App.js`。新後台頁要同時檢查 `adminRouteAccess.js`、`adminNavigation.js` 與後端權限。不要改既有 path，除非任務明確要求。
+- API 使用相對路徑 `/api`。不要硬編 host，也不要改 Vite `build.outDir = build` 與 proxy。
+- 不使用 Redux。權限 UI 走 `useAccessControl()`，後台共用狀態走 `useAdminContext()`。前端隱藏不能取代後端權限檢查。
+
+## Bootstrap、設計系統、可及性
+
+- 排版與基礎元件用 Bootstrap 5 + react-bootstrap。靜態色與間距走 `src/styles/design-system.css` 的既有變數（主色 `#2a5d9f`）。公開頁不要另引一套主色。
+- 列表與表單要有 loading、error、empty。錯誤不要直接露出 token、驗證碼或學生 PII。表單錯誤要靠近欄位，不要只靠 toast。
+- Modal 必須能用鍵盤與按鈕關閉。確認對話用 `ConfirmDialog`，提示用 `ToastProvider`。
+- 手機版保留 FullCalendar 月曆。點擊活動以 modal 顯示完整資訊。卡片可以縮，黑名單、未填問卷、截止、名額已滿、重複預約這些狀態不能消失。不要為了手機版改壞桌機後台。
+
+## Motion
+
+- Bootstrap 負責排版。CSS 負責靜態樣式。動態用 Motion（`motion/react` 或 `motion`）。
+- CSS 只留 150ms 以內的顏色、背景、邊框、陰影過渡。`prefers-reduced-motion: reduce` 時關閉或縮短動畫。
+- 不要和 Bootstrap Modal 的 fade 做兩層動畫。
+- GSAP 只用於既有 ScrollTrigger pin／scrub 與影片 scrub：`useScrollWorldGsap.js`、`useHomeImmersiveGsap.js`、`useAboutGsap.js`。新功能不要加 GSAP，除非符合這個例外並註明原因。
+- 共用 timing 用 `utils/motionPresets.js`，並尊重 `useReducedMotion`。

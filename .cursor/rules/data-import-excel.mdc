@@ -1,9 +1,6 @@
 ---
-description: EEARS Excel 匯入與 Import Center/Import Runs 資料一致性守則
-globs:
-  - "reservation-backend/**/*.{js,mjs,cjs}"
-  - "reservation-frontend/src/**/*Import*.*"
-  - "reservation-frontend/src/constants/importCenterCards.js"
+description: Excel 匯入、去重、quarantine 與 import-runs 完整性
+globs: reservation-backend/services/**/*Import*.js, reservation-backend/services/**/*import*.js, reservation-backend/controllers/**/*Import*.js, reservation-backend/controllers/**/*import*.js, reservation-backend/routes/**/*Import*.js, reservation-backend/routes/**/*import*.js, reservation-backend/utils/importBatchId.js, reservation-backend/models/**/*Import*.js, reservation-backend/models/**/*import*.js, reservation-backend/scripts/**/*import*.js, reservation-backend/tests/**/*Import*.js, reservation-backend/tests/**/*import*.js, reservation-frontend/src/**/*Import*, reservation-frontend/src/**/*import*
 alwaysApply: false
 ---
 
@@ -28,6 +25,7 @@ EEARS 的匯入（Excel）牽涉資料一致性、去重、稽核與刪除權限
 - Excel 欄位可能有中英別名；必須使用既有映射或驗證規則。
 - 回報錯誤要能被 admin 解讀（包含是哪一列/欄位、錯誤類型）。
 - 不要把「資料錯誤」當成 500；以既有錯誤碼/HTTP status 呈現（以實作為準）。
+- 既有 Sequelize transaction 與 rollback 要整批完成。驗證失敗或中途錯誤不得留下半套列。
 
 ## 4) 匯入紀錄（import-runs）與權限
 

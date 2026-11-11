@@ -16,6 +16,8 @@ license: MIT
   - 學習成效分析（GSE 分帶、接近 B2、CEFR 達標呈現）→ 見 `eears-learning-analytics`
 - 你需要決定「該補哪些測試」來降低 regression risk
 
+契約正文在 `.cursor/rules/core.mdc` 與 `.cursor/rules/learning-analytics.mdc`。這裡只決定補哪些測試。
+
 ## Current Test Landscape（以 repo 為準）
 
 - 後端：`reservation-backend/tests/**/*.test.js`
@@ -25,7 +27,8 @@ license: MIT
 - CI：
   - backend：`npm test -- --runInBand` + `npm run lint`
   - frontend：`npm test` + `npm run lint` + `npm run build`
-- 前端：Vitest（`reservation-frontend`，含 `App.test.js` smoke 與 utils／資料庫單元測試）；E2E（Playwright/Cypress）未建立
+- 前端單元：Vitest（`reservation-frontend` 的 `npm test`，含 `App.test.js` smoke 與 utils／資料庫單元測試）
+- 瀏覽器：Playwright 已建立。指令是 `npm run test:analytics-browser`，設定為 `playwright.analytics.config.mjs`，案例在 `browser-tests/`
 
 ## Hard Constraints（重要）
 

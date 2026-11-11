@@ -45,13 +45,7 @@ license: MIT
 
 ## Guardrails（先做不破壞底線）
 
-任何你要動的內容，在動手前都要對照以下底線：
-- 學生個人功能（預約、我的預約、我的紀錄、口說紀錄、課堂加分配置、培力報名）必須登入且綁學號；登入不能拿掉黑名單、問卷 Gate、截止時間
-- 預約/取消截止讀活動類型 **`cutoffHours`**（seed 預設 2；勿寫死「一律 2 小時」）
-- 問卷 Gate 必須在「類型啟用 + 產品規則 + fail-close + redirectUrl」語意下維持
-- 黑名單期間不可預約；解除邏輯不能被刪除或改成其他天數含意
-
-這些底線的詳細版本在：`.cursor/rules/eears-business-rules.mdc`
+不變條件只以 `.cursor/rules/core.mdc` 為準。盤點時點名會碰到哪些項目：登入綁學號、`cutoffHours`、問卷 409 與 `redirectUrl`、黑名單學期、候補停用、學生取消只認 session 學號。不要在這份 skill 重寫條文。接著改用下面的專門 skill 做步驟。
 
 ## 專門 Skills（依領域）
 

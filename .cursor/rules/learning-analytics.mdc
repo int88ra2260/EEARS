@@ -1,0 +1,14 @@
+---
+description: 學習成效分析的 CEFR／GSE 量尺與非因果限制
+globs: reservation-backend/services/learningAnalytics/**/*, reservation-backend/services/learningJourney/analytics/**/*, reservation-backend/routes/learningAnalyticsRouter.js, reservation-backend/controllers/learningAnalyticsController.js, reservation-frontend/src/pages/admin/LearningAnalytics*, reservation-frontend/src/components/learningAnalytics/**/*, reservation-frontend/src/services/learningAnalyticsService.js, reservation-frontend/src/utils/learningAnalytics*
+alwaysApply: false
+---
+
+# 學習成效分析
+
+步驟見 `.cursor/skills/eears-learning-analytics/SKILL.md`。這裡只留改到分析程式時不能丟的契約。
+
+- 對外呈現與達標用 CEFR。比較、成長與接近程度用 GSE。不要用 GSE 取代 CEFR 達標定義。
+- 接近 B2 是尚未達 B2，且 GSE 51–58。不要用 CEFR 字串 `B1+` 或「全部 B1」代替。
+- `causalClaimAllowed` 維持 `false`。文案只描述觀察關聯，不要把相關或準因果估計寫成因果證明。
+- 不要改 KPI 分母、GSE 對照或成長公式，除非該任務明確要求，並同時改對應測試。

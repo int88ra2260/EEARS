@@ -1,6 +1,6 @@
 ---
-description: 權限、角色與存取控制變更指南
-globs: reservation-backend/{auth,middlewares,services/accessControl}/**/*
+description: RBAC、scope、權限鍵與存取控制變更
+globs: reservation-backend/auth/**/*, reservation-backend/middlewares/**/*, reservation-backend/services/accessControl/**/*, reservation-backend/routes/**/*.js, reservation-backend/tests/security/**/*, reservation-frontend/src/constants/permissions.js, reservation-frontend/src/constants/adminRouteAccess.js, reservation-frontend/src/constants/adminNavigation.js
 alwaysApply: false
 ---
 

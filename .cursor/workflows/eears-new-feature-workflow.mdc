@@ -5,6 +5,8 @@ alwaysApply: false
 
 # eears-new-feature-workflow（新功能開發）
 
+Cursor 的規則目錄是 `.cursor/rules/`，技能是 `.cursor/skills/*/SKILL.md`。這個檔不在這兩個載入路徑，不會自動觸發。不變條件見 `.cursor/rules/core.mdc`。開發順序見 `eears-system` 與對應領域 skill。這裡保留驗收回報模板。
+
 ## 1) 觸發時機
 
 - 新增學生端或管理端功能（API 或 UI）
@@ -48,7 +50,7 @@ alwaysApply: false
 
 ## 5) Code review 步驟（AI 最常漏的檢查）
 
-- 是否破壞 `2hr` 截止或取消的驗證碼契約？
+- 是否把截止寫死成 2 小時，而不是讀活動類型 `cutoffHours`？學生取消只認 session 學號，不要把 `cancellationCode` 核對加回去。
 - 是否改動問卷 Gate 的 contract（409 + redirectUrl + ET/EC code）？
 - 是否維持 blacklist 的擋控語意（黑名單期間不可預約）？
 - 是否碰到 deprecated 路徑/未掛載 legacy API（不要擴充 deprecated）？
@@ -61,7 +63,7 @@ alwaysApply: false
 - ...
 
 【影響契約】
-- 2hr 截止：未變更/已變更（說明）
+- cutoffHours 截止：未變更/已變更（說明）
 - 問卷 Gate：未變更/已變更（說明，含 code/redirectUrl）
 - 黑名單：未變更/已變更（說明）
 

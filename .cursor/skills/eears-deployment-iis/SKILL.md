@@ -18,9 +18,8 @@ license: MIT
   - API（`/api/...`）
   - SPA 靜態檔（`reservation-backend/build`）
   - fallback（未匹配 API 時回 `build/index.html`）
-- IIS 將流量 reverse proxy 到 Node：
-  - `public/web.config`
-  - `reservation-frontend/public/web.config`
+- IIS reverse proxy 的 repo 檔是 `reservation-frontend/public/web.config`。Vite 會複製到 `reservation-backend/build/web.config`。
+- `reservation-backend/docs/DEPLOYMENT_CHECKLIST.md` 仍寫 `public/web.config`。repo 根目錄沒有這份檔。部署以 `reservation-frontend/public/web.config` 為準。
 - **正式維運入口（Windows）**：`scripts/ops/`
   - 首次：`setup-pm2.bat`（`reservation-backend/ecosystem.config.cjs`）
   - 上線：`deploy.bat`

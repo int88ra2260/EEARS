@@ -1,5 +1,7 @@
 # React View Transitions Skill
 
+EEARS packaging: this checkout keeps the compiled guide at `compiled-guide.md`. If an update restores `AGENTS.md`, run `.agents/normalize-vercel-skill-packaging.ps1`.
+
 An agent skill for implementing smooth, native-feeling animations using React's View Transition API.
 
 ## What This Skill Covers
@@ -18,7 +20,7 @@ An agent skill for implementing smooth, native-feeling animations using React's 
 ```
 react-view-transitions/
 ├── SKILL.md                      # Core skill (always loaded)
-├── AGENTS.md                     # Full compiled document (all references expanded)
+├── compiled-guide.md             # Full compiled document (all references expanded)
 └── references/
     ├── implementation.md         # Step-by-step implementation workflow
     ├── patterns.md               # Real-world patterns, events API, troubleshooting

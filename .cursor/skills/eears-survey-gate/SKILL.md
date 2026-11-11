@@ -31,6 +31,8 @@ Admin 維運（gaps / repairs）：
 
 ## Hard Contracts（不可違背）
 
+409 與 `redirectUrl` 的權威敘述在 `.cursor/rules/core.mdc`。下面是改 Gate 時要核對的實作條件。
+
 1. 只針對 ET / EC 的 product 規則擋
 
 - `checkSurvey` 會先呼叫 `resolveGateContext(event.eventType)`

@@ -1,6 +1,6 @@
 ---
-description: 後端 API、路由與服務層慣例
-globs: reservation-backend/**/*.js
+description: 後端 route、controller、service 的分層與回應慣例
+globs: reservation-backend/server.js, reservation-backend/routes/**/*.js, reservation-backend/controllers/**/*.js, reservation-backend/services/**/*.js, reservation-backend/middlewares/**/*.js, reservation-backend/utils/**/*.js
 alwaysApply: false
 ---
 
@@ -16,10 +16,11 @@ alwaysApply: false
 ## 新增 API 檢查清單
 
 1. 在 `routes/` 建立 router，於 `server.js` 掛載（注意 `/api` 前綴與既有路徑不衝突）
-2. 管理端路由加 `authMiddleware` + `requirePermission(P.XXX)`
-3. 業務邏輯放 service，不在 route handler 寫超過 30 行
+2. 管理端路由加 `authMiddleware` + `requirePermission(P.XXX)`。角色與 scope 的步驟在 `backend-auth.mdc`
+3. 新的業務邏輯放 service。不要為了壓低既有大型 router 的行數而拆檔
 4. 錯誤用 `createAPIError`（`utils/errorMessages.js`）；由 `errorHandler` 統一處理
 5. 高風險操作寫入 `auditLogService`
+6. 路由若新增或修改 multer、xlsx 或會輸出 PII 的錯誤，遵守 `security-owasp.mdc`：大小與類型限制、檔名正規化、禁止 path traversal，且不要記錄 token、`cancellationCode` 或學生 PII
 
 ## 權限與安全
 

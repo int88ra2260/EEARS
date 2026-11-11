@@ -5,6 +5,8 @@ alwaysApply: false
 
 # eears-database-schema-change-workflow（DB schema 變更）
 
+Cursor 的規則目錄是 `.cursor/rules/`，技能是 `.cursor/skills/*/SKILL.md`。這個檔不在這兩個載入路徑，不會自動觸發。Migration 規則見 `.cursor/rules/database-migrations.mdc`。這裡保留 schema 變更回報模板。
+
 ## 1) 觸發時機
 
 - 新增/調整表、欄位、FK/索引/唯一鍵
