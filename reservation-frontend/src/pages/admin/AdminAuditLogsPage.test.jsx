@@ -131,6 +131,24 @@ describe('操作紀錄頁', () => {
     });
   });
 
+  test('查找是這一頁唯一的 opt-in primary，日期捷徑不是', async () => {
+    renderPage();
+    await screen.findByText('王小明 · 老師 #9');
+
+    const search = screen.getByRole('button', { name: '查找' });
+    expect(search.className).toContain('admin-action--primary');
+    expect(search.className).toContain('btn-primary');
+    expect(document.querySelectorAll('.admin-action--primary')).toHaveLength(1);
+    for (const name of ['今天', '近 7 天', '近 30 天', '全部時間']) {
+      expect(screen.getByRole('button', { name }).className).not.toContain('admin-action--primary');
+    }
+
+    fireEvent.click(search);
+    await waitFor(() => {
+      expect(api.fetchAuditLogs.mock.calls.length).toBeGreaterThan(1);
+    });
+  });
+
   test('網址上的 requestId 會打開同一請求的時間序', async () => {
     renderPage('/admin/logs?requestId=req-abc');
 

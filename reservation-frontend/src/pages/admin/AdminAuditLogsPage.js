@@ -858,7 +858,7 @@ export default function AdminAuditLogsPage() {
             </div>
 
             <div className="audit-logs__actions">
-              <Button type="submit" size="sm" variant="primary">查找</Button>
+              <Button type="submit" size="sm" variant="primary" className="admin-action--primary">查找</Button>
               <Button type="button" size="sm" variant="outline-secondary" onClick={() => commitFilters(createLogFilters())}>
                 清除條件
               </Button>

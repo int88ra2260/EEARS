@@ -78,6 +78,28 @@
   border-color: #333333;
 }
 
+/* Opt-in primary. Beats .admin-layout-root .btn-primary and its hover/focus/active. */
+.admin-layout-root .btn.btn-primary.admin-action--primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-white);
+  transform: none;
+}
+
+.admin-layout-root .btn.btn-primary.admin-action--primary:hover,
+.admin-layout-root .btn.btn-primary.admin-action--primary:focus,
+.admin-layout-root .btn.btn-primary.admin-action--primary:active {
+  background-color: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  color: var(--color-text-white);
+  transform: none;
+}
+
+.admin-layout-root .btn.btn-primary.admin-action--primary:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 2px;
+}
+
 .admin-layout-root .btn-outline-primary {
   color: var(--admin-ink);
   border-color: var(--admin-border);
