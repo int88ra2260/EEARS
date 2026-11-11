@@ -236,11 +236,8 @@ const emailTemplates = {
 
 【重要通知】活動規定修改：114-1學期起不再提供活動補蓋章服務，請同學們務必準時參加活動。
 
-【取消預約驗證碼】
-如需取消此預約，請使用以下驗證碼：
-驗證碼：${data.cancellationCode || 'N/A'}
-
-請妥善保管此驗證碼，取消預約時需要輸入此驗證碼才能完成取消。
+【取消預約】
+如需取消，請登入學生帳號，到「我的預約」自行取消。請在該活動的取消期限內完成，期限依活動類型而定。
 
 【現場簽到碼】
 請於活動現場出示下列簽到碼：
@@ -268,11 +265,8 @@ Please bring your student ID card. Show it at check-in so the session can count 
 
 [Important Notice] Policy Update: Starting from Semester 114-1, make-up stamping services for activities will no longer be provided. Please ensure you attend activities on time.
 
-[Cancellation Code]
-If you need to cancel this reservation, please use the following verification code:
-Verification Code: ${data.cancellationCode || 'N/A'}
-
-Please keep this code safe. You will need to enter this code when canceling your reservation.
+[Cancellation]
+To cancel, sign in and open My Reservations. Cancel before that activity’s deadline. The deadline depends on the activity type.
 
 [On-site Check-in Code]
 Please show the following code at the venue:
@@ -403,10 +397,7 @@ Phone: (07) 525-2000 ext. 5808
 時間：${data.startTime} - ${data.endTime}
 地點：${locZh}
 
-【取消預約】須於活動開始前至少 2 小時完成；取消時需要您預約信上的驗證碼。
-
-【取消預約驗證碼】
-驗證碼：${data.cancellationCode || 'N/A'}
+【取消預約】請登入學生帳號，到「我的預約」自行取消。請在該活動的取消期限內完成，期限依活動類型而定。
 
 若有任何問題請聯繫:
 全英語卓越教學中心 (Center for EMI Teaching Excellence)
@@ -420,10 +411,7 @@ Date: ${data.date}
 Time: ${data.startTime} - ${data.endTime}
 Location: ${locEn}
 
-[Cancellation] You must cancel at least 2 hours before the event start time, using the verification code below.
-
-[Verification code for cancellation]
-Code: ${data.cancellationCode || 'N/A'}
+[Cancellation] Sign in and open My Reservations. Cancel before that activity’s deadline. The deadline depends on the activity type.
 
 Center for EMI Teaching Excellence
 Email: emicenter@mail.nsysu.edu.tw
@@ -1824,11 +1812,27 @@ Phone: (07) 525-2000 ext. 5808
 姓名：${data.studentName || ''}
 信箱：${data.studentEmail || ''}
 ${data.emailVerified ? '收信信箱已驗證。' : '收信信箱尚未驗證。'}
+${data.replyRequested === false ? '學生沒有要求一定要個別回覆。' : '學生希望得到回覆。'}
 
 內容：
 ${data.message || ''}
 
-請由中心信箱回覆學生。此內容不會公開給其他學生。
+請到後台「學生回報」回覆。學生看得到回覆，看不到內部備註。此內容不會公開給其他學生。
+`.trim(),
+  }),
+
+  studentFeedbackReply: (data) => ({
+    from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
+    to: data.studentEmail,
+    subject: `【EEARS】英語中心已回覆你的${data.kindLabel || '回報'}`,
+    text: `
+${data.studentName || ''}（${data.studentId || ''}）您好，
+
+英語中心已回覆你在「我的帳號」送來的${data.kindLabel || '回報'}（${data.categoryLabel || ''}）。
+請登入後到我的帳號查看回覆：
+${data.accountUrl || ''}
+
+這封信只是通知，回覆內容在系統裡。
 `.trim(),
   }),
 };

@@ -161,7 +161,7 @@ function enrichMailVars(data = {}) {
   if (!vars.email && data.studentEmail) vars.email = data.studentEmail;
   if (!vars.studentEmail && data.email) vars.studentEmail = data.email;
 
-  vars.cancellationCode = data.cancellationCode || 'N/A';
+  vars.cancellationCode = data.cancellationCode || '';
   vars.bookingCode = data.bookingCode
     || (data.reservationId != null
       // eslint-disable-next-line global-require

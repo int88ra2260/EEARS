@@ -1,6 +1,5 @@
 /**
- * 單筆預約結果：活動名稱、日期時間、取消按鈕或驗證碼表單
- * 與 ReservationSearchModal 內取消流程一致（2 小時前可取消、驗證碼確認）
+ * 單筆預約結果：活動名稱、日期時間、登入後取消
  */
 import React from 'react';
 import dayjs from 'dayjs';
@@ -17,10 +16,6 @@ export default function ReservationResultCard({
   cancelingReservationId,
   cancelLoading = false,
   cancelError = '',
-  cancellationCode,
-  onCancellationCodeChange,
-  onStartCancel,
-  onCancelCancel,
   onConfirmCancel,
 }) {
   const { t } = useLanguage();
@@ -31,13 +26,9 @@ export default function ReservationResultCard({
   const bookingId = formatBookingCode(record.bookingCode, record.reservationId || record.id);
   const createdAtRaw = record.createdAt || record.timestamp || null;
   const createdAtLabel = createdAtRaw ? dayjs(createdAtRaw).format('YYYY/MM/DD HH:mm') : '（未提供）';
-  const statusHelper = isThisCanceling
-    ? '請輸入 Email 中的驗證碼完成取消。'
-    : canCancel
-      ? '可取消：尚在取消期限內。'
-      : '不可取消：已超過取消期限或活動即將開始/已開始。';
-
-  const cancelCodeEmail = record.studentEmail || '你的 Email';
+  const statusHelper = canCancel
+    ? '可取消：尚在取消期限內。登入後即可取消，不必輸入驗證碼。'
+    : '不可取消：已超過取消期限或活動即將開始/已開始。';
 
   return (
     <div className="reservation-result-card">
@@ -71,56 +62,21 @@ export default function ReservationResultCard({
       </div>
       <div className="reservation-result-card-actions">
         {canCancel ? (
-          isThisCanceling ? (
-            <div className="reservation-result-card-cancel-form">
-              <label className="form-label small">{t('page.reservationVerifyCode')}</label>
-              <input
-                type="text"
-                className="form-control form-control-sm"
-                placeholder={t('page.reservationVerifyPlaceholder')}
-                value={cancellationCode}
-                onChange={(e) => onCancellationCodeChange(e.target.value)}
-                maxLength={6}
-                disabled={cancelLoading}
-              />
-              <small className="text-muted d-block mt-1">{t('page.reservationVerifyHint')}</small>
-              <small className="text-muted d-block mt-2">
-                驗證碼來源：你的預約確認信（寄送至 <strong>{cancelCodeEmail}</strong>）。
-                此驗證碼用於確認「取消預約」操作；請務必使用最新一封 Email 中的驗證碼。
-              </small>
-              {cancelError ? (
-                <div className="alert alert-danger py-2 mt-3" role="alert">
-                  {cancelError}
-                </div>
-              ) : null}
-              <div className="mt-2 text-muted small">
-                沒收到驗證碼？
-                （重寄功能待後端支援）你可以先返回確認預約資訊，或前往 <a href="/about#contact">聯絡我們</a>，
-                也可直接寄信至 <a href="mailto:emicenter@mail.nsysu.edu.tw">emicenter@mail.nsysu.edu.tw</a>。
-              </div>
-              <div className="mt-2 d-flex gap-2">
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm"
-                  onClick={() => onConfirmCancel(record.id)}
-                  disabled={cancelLoading}
-                >
-                  {cancelLoading ? '處理中...' : t('page.reservationConfirmCancel')}
-                </button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={onCancelCancel}>
-                  {t('page.reservationCancelBack')}
-                </button>
-              </div>
-            </div>
-          ) : (
+          <div>
             <button
               type="button"
               className="btn btn-danger btn-sm"
-              onClick={() => onStartCancel(record.id)}
+              onClick={() => onConfirmCancel(record.id)}
+              disabled={cancelLoading && isThisCanceling}
             >
-              {t('page.reservationCancelBtn')}
+              {cancelLoading && isThisCanceling ? '處理中...' : t('page.reservationCancelBtn')}
             </button>
-          )
+            {isThisCanceling && cancelError ? (
+              <div className="alert alert-danger py-2 mt-2" role="alert">
+                {cancelError}
+              </div>
+            ) : null}
+          </div>
         ) : (
           <div>
             <button type="button" className="btn btn-secondary btn-sm" disabled>

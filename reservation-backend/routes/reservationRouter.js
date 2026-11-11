@@ -77,11 +77,6 @@ function sendScopeDenied(res, err) {
   });
 }
 
-// 生成取消預約驗證碼（6位數字）
-function generateCancellationCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
 function formatBookingCode(reservationId) {
   const idNum = Number(reservationId);
   if (!Number.isFinite(idNum)) return `R-${String(reservationId || '').trim()}`;
@@ -456,10 +451,7 @@ router.post('/reservations', studentAuthMiddleware, bindStudentIdentity(), check
       return res.status(400).json({ error: "您已報名此活動" });
     }
 
-    // 生成取消預約驗證碼
-    const cancellationCode = generateCancellationCode();
-
-    // 建立預約 (reservation)
+    // 建立預約 (reservation)。取消改由登入 session 的學號判斷，不再發取消驗證碼。
     const reservation = await Reservation.create({
       eventId: event.id,
       studentId: trimmedStudentId,
@@ -467,7 +459,6 @@ router.post('/reservations', studentAuthMiddleware, bindStudentIdentity(), check
       studentEmail: trimmedStudentEmail,
       userId: user.id,    // 關聯到 User
       timestamp: new Date(),
-      cancellationCode: cancellationCode  // 儲存驗證碼
     }, { transaction });
 
     // 提交事務
@@ -502,7 +493,6 @@ router.post('/reservations', studentAuthMiddleware, bindStudentIdentity(), check
       startTime: event.startTime,
       endTime: event.endTime,
       location: event.location,
-      cancellationCode: cancellationCode, // 包含驗證碼
       reservationId: reservation.id,
       bookingCode: formatBookingCode(reservation.id),
     };
@@ -575,11 +565,19 @@ router.post(
     try {
       const result = await reservationService.cancelReservationPublic({
         reservationId: req.params.id,
-        studentId: req.body.studentId,
-        studentName: req.body.studentName || req.body.name,
-        email: req.body.email || req.body.studentEmail,
-        verificationCode: req.body.verificationCode || req.body.cancellationCode,
+        studentId: req.studentAccount.studentId,
       });
+
+      if (!result.cancelled && result.reason === 'time_window_closed') {
+        const hours = Number.isFinite(Number(result.cutoffHours)) ? Number(result.cutoffHours) : null;
+        return res.status(400).json({
+          success: false,
+          code: 'CANCELLATION_WINDOW_CLOSED',
+          message: hours == null
+            ? '已超過取消期限，無法取消。'
+            : `已超過取消期限（活動開始前 ${hours} 小時），無法取消。`,
+        });
+      }
 
       publicLookupAudit(req, {
         action: 'reservation_public_cancel',

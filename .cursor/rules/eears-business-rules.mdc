@@ -30,7 +30,7 @@ alwaysApply: true
 - 登入後的操作者就是 session 綁定的 `studentId`。不可再讓未登入者提交別人的學號、姓名、email 來預約、取消或讀取上述個人資料。
 - 學生主鍵仍是學號。預約、黑名單、問卷、培力報名都繼續以學號關聯，不改成只認密碼或只認 email。
 - 短期使用 EEARS 自建帳號密碼。未來接中山校園單一入口 `https://sso.nsysu.edu.tw/`（OIDC、SAML 或 CAS，以圖資處開放的協議為準），用外部身分連結既有學號。不代收選課密碼，也不代登 `https://selcrs.nsysu.edu.tw/EngTest/`。
-- 學生登入上線前，既有公開表單仍以 `studentId`、`name`、`email` 與取消驗證碼運作；上線時才改為 session。在那之前不得提前拿掉取消驗證碼。
+- 學生取消預約只認登入 session 綁定的學號，且須在該活動類型的 `cutoffHours` 之前。不再寄送或核對取消驗證碼。未登入不能取消。
 
 登入不能拿來跳過既有檢查（黑名單、問卷 gating、名額、重複預約、截止時間提示）。
 
@@ -90,7 +90,7 @@ alwaysApply: true
 ## AI 變更前檢查清單（建議在動手前逐項過）
 
 1. 這次修改會不會影響「學生登入後能否預約/取消」，或讓未登入者讀寫學生個人資料？
-2. 這次修改會不會影響 `cutoffHours` 截止或取消驗證碼語意？
+2. 這次修改會不會影響 `cutoffHours` 截止，或讓未登入者取消別人的預約？
 3. 這次修改會不會把 `7 天`／某類型 openRule 誤當成統一限制？
 4. 這次修改是否觸及：
    - `checkSurvey` / `surveyGateService` / `event_types.surveyGateEnabled`

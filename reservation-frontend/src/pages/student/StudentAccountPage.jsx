@@ -304,7 +304,7 @@ export default function StudentAccountPage() {
 
       {needsActivation ? (
         <p className="student-account__section text-muted small mb-3" role="status">
-          帳號還沒啟動。單一入口帶入的信箱不一定是你平常會看的信箱。請確認或改成你會收的信箱，再到信箱收驗證碼。啟動前不能預約，也不能查看個人紀錄。
+          帳號還沒啟動。單一入口帶入的信箱不一定是你平常會看的信箱。請確認或改成你會收的信箱，再到信箱收驗證碼。啟動前不能預約、查看個人紀錄，也不能送出問題或建議。
         </p>
       ) : null}
 
@@ -454,7 +454,7 @@ export default function StudentAccountPage() {
       </section>
       ) : null}
 
-      <StudentFeedbackPanel student={student} />
+      <StudentFeedbackPanel student={student} activated={!needsActivation} />
     </div>
   );
 }

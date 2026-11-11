@@ -4,14 +4,10 @@ const dayjs = require('dayjs');
 const { Reservation, Event } = require('../models');
 const { getCancellationDeadline } = require('../utils/reservationTime');
 const eventTypeService = require('./eventTypeService');
-const { personNamesMatch } = require('../utils/personName');
 
 async function cancelReservationPublic({
   reservationId,
   studentId,
-  studentName,
-  email,
-  verificationCode,
 }) {
   const reservation = await Reservation.findByPk(reservationId, { include: [Event] });
   if (!reservation || !reservation.Event) {
@@ -19,9 +15,7 @@ async function cancelReservationPublic({
   }
 
   const idMatch = String(reservation.studentId || '').trim() === String(studentId || '').trim();
-  const nameMatch = personNamesMatch(reservation.studentName, studentName);
-  const emailMatch = String(reservation.studentEmail || '').trim().toLowerCase() === String(email || '').trim().toLowerCase();
-  if (!idMatch || !nameMatch || !emailMatch) {
+  if (!idMatch) {
     return { cancelled: false, reservation, reason: 'identity_mismatch' };
   }
 
@@ -30,11 +24,6 @@ async function cancelReservationPublic({
   const { deadline: cancellationDeadline } = getCancellationDeadline(reservation.Event, typeConfig);
   if (now.isAfter(cancellationDeadline)) {
     return { cancelled: false, reservation, reason: 'time_window_closed', cutoffHours: typeConfig.cutoffHours };
-  }
-
-  const code = String(verificationCode || '').trim();
-  if (!reservation.cancellationCode || !code || reservation.cancellationCode !== code) {
-    return { cancelled: false, reservation, reason: 'invalid_code' };
   }
 
   await reservation.destroy();

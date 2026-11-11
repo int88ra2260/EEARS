@@ -6,7 +6,7 @@ const GATES = [
   {
     match: (path) => path.startsWith('/my-reservations'),
     title: '我的預約',
-    detail: '查詢和取消預約要先登入。登入後使用你的學號，不用再填姓名和信箱。取消時仍要輸入預約信裡的驗證碼。',
+    detail: '查詢和取消預約要先登入。登入後使用你的學號，不用再填姓名、信箱或取消驗證碼。',
   },
   {
     match: (path) => path.startsWith('/student/progress'),

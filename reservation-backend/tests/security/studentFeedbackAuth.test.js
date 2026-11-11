@@ -11,24 +11,36 @@ jest.mock('../../services/studentFeedbackService', () => ({
     emailStatus: 'sent',
     message: '已送到中心。',
   })),
-  listStudentFeedback: jest.fn(async () => []),
+  listStudentFeedback: jest.fn(async () => ({ items: [], page: 1, pageSize: 20, total: 0 })),
+  listMyStudentFeedback: jest.fn(async () => ({ items: [], page: 1, pageSize: 20, total: 0 })),
+  getMyStudentFeedback: jest.fn(),
+  addStudentFollowUp: jest.fn(),
+  getStudentFeedback: jest.fn(),
+  addStaffReply: jest.fn(async () => ({ notice: '已回覆' })),
+  addStaffNote: jest.fn(),
+  updateStudentFeedbackCase: jest.fn(),
+  listFeedbackAssignees: jest.fn(async () => []),
 }));
 
-jest.mock('../../middlewares/studentAuth', () => ({
-  studentAuthMiddleware: (req, res, next) => {
-    const studentId = req.headers['x-test-student'];
-    if (!studentId) {
-      return res.status(401).json({ success: false, code: 'STUDENT_AUTH_REQUIRED', message: '請先登入學生帳號' });
-    }
-    req.studentAccount = {
-      studentId,
-      name: '測試生',
-      email: 'student@example.com',
-      emailVerifiedAt: null,
-    };
-    return next();
-  },
-}));
+jest.mock('../../middlewares/studentAuth', () => {
+  const actual = jest.requireActual('../../middlewares/studentAuth');
+  return {
+    ...actual,
+    studentAuthMiddleware: (req, res, next) => {
+      const studentId = req.headers['x-test-student'];
+      if (!studentId) {
+        return res.status(401).json({ success: false, code: 'STUDENT_AUTH_REQUIRED', message: '請先登入學生帳號' });
+      }
+      req.studentAccount = {
+        studentId,
+        name: '測試生',
+        email: 'student@example.com',
+        emailVerifiedAt: req.headers['x-test-email-verified'] === 'yes' ? new Date('2026-11-01T00:00:00.000Z') : null,
+      };
+      return next();
+    },
+  };
+});
 
 jest.mock('../../middlewares/auth', () => {
   const actual = jest.requireActual('../../middlewares/auth');
@@ -71,24 +83,38 @@ describe('student feedback auth', () => {
     expect(submitStudentFeedback).not.toHaveBeenCalled();
   });
 
+  it('requires a verified mailbox before a student can report', async () => {
+    const res = await request(app)
+      .post('/api/student/feedback')
+      .set('x-test-student', 'B111')
+      .send({ kind: 'problem', category: 'account', message: '收不到驗證碼，請幫忙。' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('EMAIL_ACTIVATION_REQUIRED');
+    expect(res.body.redirectUrl).toBe('/student/account');
+    expect(submitStudentFeedback).not.toHaveBeenCalled();
+  });
+
   it('submits with the session student and ignores a body student id', async () => {
     const res = await request(app)
       .post('/api/student/feedback')
       .set('x-test-student', 'B111')
+      .set('x-test-email-verified', 'yes')
       .send({
         studentId: 'B999',
         name: '別人',
         email: 'other@example.com',
         kind: 'wish',
         category: 'other',
-        message: '希望可以線上參加。',
-      });
+      message: '希望可以線上參加。',
+      replyRequested: false,
+    });
     expect(res.status).toBe(201);
     expect(submitStudentFeedback).toHaveBeenCalledWith({
       account: expect.objectContaining({ studentId: 'B111', name: '測試生' }),
       kind: 'wish',
       category: 'other',
       message: '希望可以線上參加。',
+      replyRequested: false,
     });
   });
 
@@ -112,5 +138,26 @@ describe('student feedback auth', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.items).toEqual([]);
+  });
+
+  it('lets only staff who can manage the inbox reply', async () => {
+    const { addStaffReply } = require('../../services/studentFeedbackService');
+    const teacher = await request(app)
+      .post('/api/admin/student-feedback/3/replies')
+      .set('x-test-role', 'teacher')
+      .set('x-test-teacher-level', 'regular')
+      .send({ message: '請再試一次。' });
+    expect(teacher.status).toBe(403);
+
+    const staff = await request(app)
+      .post('/api/admin/student-feedback/3/replies')
+      .set('x-test-role', 'office_staff')
+      .set('x-test-staff-level', 'event_lead')
+      .send({ message: '請再試一次。' });
+    expect(staff.status).toBe(201);
+    expect(addStaffReply).toHaveBeenCalledWith(expect.objectContaining({
+      id: '3',
+      message: '請再試一次。',
+    }));
   });
 });

@@ -101,9 +101,6 @@ describe('reservation / cancellation 2-hour cutoff', () => {
     const result = await cancelReservationPublic({
       reservationId: 1,
       studentId: 'B123456789',
-      studentName: 'Tester',
-      email: 'a@b.com',
-      verificationCode: 'ABC123',
     });
     expect(result.cancelled).toBe(true);
     expect(destroy).toHaveBeenCalled();
@@ -122,9 +119,6 @@ describe('reservation / cancellation 2-hour cutoff', () => {
     const result = await cancelReservationPublic({
       reservationId: 1,
       studentId: 'B123456789',
-      studentName: 'Tester',
-      email: 'a@b.com',
-      verificationCode: 'ABC123',
     });
     expect(result.cancelled).toBe(false);
     expect(result.reason).toBe('time_window_closed');
@@ -143,12 +137,29 @@ describe('reservation / cancellation 2-hour cutoff', () => {
     const result = await cancelReservationPublic({
       reservationId: 1,
       studentId: 'B123456789',
-      studentName: 'Tester',
-      email: 'a@b.com',
-      verificationCode: 'ABC123',
     });
     expect(result.cancelled).toBe(false);
     expect(result.reason).toBe('time_window_closed');
+  });
+
+  it('cannot cancel another student reservation without a code', async () => {
+    jest.setSystemTime(new Date('2026-05-08T08:30:00'));
+    const destroy = jest.fn().mockResolvedValue(undefined);
+    Reservation.findByPk.mockResolvedValue({
+      studentId: 'B123456789',
+      studentName: 'Tester',
+      studentEmail: 'a@b.com',
+      cancellationCode: 'ABC123',
+      Event: { date: '2026-05-08', startTime: '12:00:00' },
+      destroy,
+    });
+    const result = await cancelReservationPublic({
+      reservationId: 1,
+      studentId: 'B000000001',
+    });
+    expect(result.cancelled).toBe(false);
+    expect(result.reason).toBe('identity_mismatch');
+    expect(destroy).not.toHaveBeenCalled();
   });
 
   it('admin can cancel without a verification code', async () => {

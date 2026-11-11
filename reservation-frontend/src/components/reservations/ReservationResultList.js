@@ -17,10 +17,6 @@ export default function ReservationResultList({
   cancelLoading,
   cancelError,
   searchError,
-  cancellationCode,
-  onCancellationCodeChange,
-  onStartCancel,
-  onCancelCancel,
   onConfirmCancel,
   hasSearched,
   loading,
@@ -163,10 +159,6 @@ export default function ReservationResultList({
             cancelingReservationId={cancelingReservationId}
             cancelLoading={cancelLoading}
             cancelError={cancelError}
-            cancellationCode={cancellationCode}
-            onCancellationCodeChange={onCancellationCodeChange}
-            onStartCancel={onStartCancel}
-            onCancelCancel={onCancelCancel}
             onConfirmCancel={onConfirmCancel}
           />
         ))}

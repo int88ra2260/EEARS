@@ -68,8 +68,9 @@ const P = {
   // 公告（後台）
   CAN_MANAGE_ANNOUNCEMENTS: 'can_manage_announcements',
 
-  // 學生問題回報／許願（只給中心看）
+  // 學生問題回報／許願（只給中心看；回覆與結案另要管理權限）
   CAN_VIEW_STUDENT_FEEDBACK: 'can_view_student_feedback',
+  CAN_MANAGE_STUDENT_FEEDBACK: 'can_manage_student_feedback',
 
   // 學生端內容（文案、資源頁、修課說明等）
   CAN_MANAGE_SITE_CONTENT: 'can_manage_site_content',

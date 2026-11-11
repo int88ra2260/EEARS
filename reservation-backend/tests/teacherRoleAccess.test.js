@@ -33,6 +33,8 @@ describe('teacher role access matrix', () => {
       expect(p.permissionSet.has(P.CAN_CHECKIN_STUDENTS)).toBe(false);
       expect(p.permissionSet.has(P.CAN_RECORD_VIOLATIONS)).toBe(false);
       expect(p.permissionSet.has(P.CAN_MANAGE_VIOLATIONS)).toBe(false);
+      expect(p.permissionSet.has(P.CAN_VIEW_STUDENT_FEEDBACK)).toBe(false);
+      expect(p.permissionSet.has(P.CAN_MANAGE_STUDENT_FEEDBACK)).toBe(false);
       expect(p.finalScopes).toEqual([SCOPE.CLASS]);
     });
 
@@ -46,6 +48,8 @@ describe('teacher role access matrix', () => {
       expect(p.permissionSet.has(P.CAN_VIEW_ENGLISH_TESTS)).toBe(true);
       expect(p.permissionSet.has(P.CAN_VIEW_ENGLISH_TEST_TRACKING)).toBe(true);
       expect(p.permissionSet.has(P.CAN_MANAGE_ACCOUNTS)).toBe(true);
+      expect(p.permissionSet.has(P.CAN_VIEW_STUDENT_FEEDBACK)).toBe(true);
+      expect(p.permissionSet.has(P.CAN_MANAGE_STUDENT_FEEDBACK)).toBe(true);
       expect(p.finalScopes).toEqual([SCOPE.ALL]);
     });
 

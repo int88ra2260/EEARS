@@ -37,22 +37,14 @@ export async function searchReservations(params) {
 }
 
 /**
- * 取消預約（公開 cancel-public：需學號／姓名／Email 與取消驗證碼）
+ * 取消自己的預約。身分以登入 session 為準，不必再帶取消驗證碼。
  * @param {number|string} reservationId
- * @param {string} cancellationCode
- * @param {{ studentId: string, studentName: string, studentEmail: string }} identity
  */
-export async function cancelReservation(reservationId, cancellationCode, identity) {
-  const { studentId = '', studentName = '', studentEmail = '' } = identity || {};
+export async function cancelReservation(reservationId) {
   const res = await fetchClient(`${API_RESERVATION}/${reservationId}/cancel-public`, withStudentAuth({
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      studentId,
-      studentName,
-      studentEmail,
-      cancellationCode: cancellationCode.trim(),
-    }),
+    body: JSON.stringify({}),
   }));
   const data = await res.json().catch(() => ({}));
   const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
@@ -65,8 +57,7 @@ export async function cancelReservation(reservationId, cancellationCode, identit
     throw err;
   }
   if (!data.found) {
-    const msg =
-      '取消未完成。請確認學號、姓名、Email、取消驗證碼均正確，且須於活動開始前 2 小時完成取消。';
+    const msg = '取消未完成。請確認這是你的預約，且仍在該活動的取消期限內。';
     const err = new Error(msg);
     err.requestId = requestId;
     err.status = res.status;

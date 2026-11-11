@@ -144,6 +144,9 @@ describe('emailTemplateService', () => {
       bookingCode: 'R-000360',
     });
     expect(mail.text).toContain('請務必攜帶學生證');
+    expect(mail.text).toContain('我的預約');
+    expect(mail.text).not.toContain('取消預約驗證碼');
+    expect(mail.text).not.toContain('ABC');
     expect(String(mail.html || '')).not.toContain('cid:eears-checkin-qr');
     expect(mail.attachments || []).not.toEqual(
       expect.arrayContaining([

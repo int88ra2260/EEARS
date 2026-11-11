@@ -24,11 +24,7 @@ export default function MyReservationsPage() {
     loading,
     searchError,
     cancelingReservationId,
-    cancellationCode,
-    setCancellationCode,
     search,
-    startCancel,
-    cancelCancel,
     performCancel,
     cancelError,
     cancelLoading,
@@ -62,10 +58,6 @@ export default function MyReservationsPage() {
         cancelLoading={cancelLoading}
         cancelError={cancelError}
         searchError={searchError}
-        cancellationCode={cancellationCode}
-        onCancellationCodeChange={setCancellationCode}
-        onStartCancel={startCancel}
-        onCancelCancel={cancelCancel}
         onConfirmCancel={performCancel}
         loading={loading}
       />

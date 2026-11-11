@@ -188,6 +188,37 @@
   gap: 0.75rem 1.25rem;
 }
 
+.student-feedback__thread {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.student-feedback__case {
+  border: 1px solid #d5deea;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.student-feedback__case-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  width: 100%;
+  margin-bottom: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+  text-align: left;
+}
+
+.student-feedback__entry {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e6edf5;
+}
+
 @media (max-width: 640px) {
   .student-account__hero {
     flex-direction: column;

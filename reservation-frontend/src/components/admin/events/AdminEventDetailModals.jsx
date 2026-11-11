@@ -21,7 +21,7 @@ function AdminEventDetailModals({
         </Modal.Header>
         <Modal.Body>
           <Alert variant="warning" className="small mb-3">
-            此操作不需要學生信箱裡的取消驗證碼，也不受活動開始前截止時間限制。送出後會刪除此預約紀錄，且無法復原。
+            此操作由管理者直接取消，不受學生端的取消期限限制。送出後會刪除此預約紀錄，且無法復原。
           </Alert>
           <div className="mb-2">
             <div className="small text-muted">學號／姓名</div>

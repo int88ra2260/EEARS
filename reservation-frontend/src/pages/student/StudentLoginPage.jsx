@@ -125,7 +125,7 @@ export default function StudentLoginPage() {
             <li>帳號啟動後可以預約，以及查看我的紀錄、口說紀錄、課堂加分配置與培力報名。</li>
             <li>登入後先到「我的帳號」確認收信信箱。單一入口的信箱不一定是你平常會看的，可以改成別的信箱，再到信箱收驗證碼。啟動前不能預約或查看個人紀錄。</li>
             <li>忘記密碼、還在用預設密碼，或密碼已到期：先到單一入口處理，再回到這裡登入。</li>
-            <li>取消預約時，仍要輸入預約信裡的驗證碼。</li>
+            <li>取消預約請登入後到「我的預約」，在截止時間前自行取消。</li>
           </ul>
         ) : null}
         {noticeText ? <p className="text-success small">{noticeText}</p> : null}
