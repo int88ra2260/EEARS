@@ -2,11 +2,25 @@
 
 本文件供 AI agent 與開發者快速理解專案結構與工作方式。詳細規則見 `.cursor/rules/`。
 
+## 指令來源優先級
+
+衝突時依序採用。下層不複製上層全文。專案規則不能覆蓋 Cursor 的系統層或使用者層指令。
+
+| 層級 | 位置 | 放什麼 |
+|------|------|--------|
+| Core Rules | `eears-business-rules.mdc`、`project-overview.mdc`、`development-workflow.mdc` | 不變條件 |
+| Scoped Rules | `.cursor/rules/` 中 `alwaysApply: false` 且有 globs 的規則 | 該路徑的技術限制 |
+| Skills | `.cursor/skills/*/SKILL.md` | 相關任務才讀的執行步驟 |
+| Architecture Docs | `docs/` 中標成現行的契約與設計說明 | 技術依據 |
+| Historical Reports | `docs/analytics-redesign/`、`docs/design-system/ui-ux-phase-1-2-audit-and-proposal.md` | 當時證據，不是現行狀態 |
+
+`.agents/skills/` 是外部技能。EEARS 不採用其中的 Next.js、Vercel 部署或 React Canary 要求。
+
 ## 專案簡介
 
 EEARS（English Enhancement and Activity Reservation System）是成大英語中心活動預約與教學管理平台，包含：
 
-- 活動預約、候補名單、簽到與違規管理
+- 活動預約、簽到與違規管理。加入候補已停用：`POST /api/events/:eventId/waitlist` 回 410 與 `WAITLIST_DISABLED`
 - 問卷系統（含 gate、修復、分析）
 - 培力英檢（BESTEP）匯入與班級概況
 - 英檢報名審核
@@ -78,7 +92,8 @@ EEARS/
 ### 測試
 
 - 後端：`tests/**/*.test.js`；權限測試放 `tests/security/`
-- 前端：CRA Jest；目前覆蓋率偏低，新功能建議補測試
+- 前端單元測試是 Vitest（`reservation-frontend` 的 `npm test`）
+- 瀏覽器測試已存在：`playwright.analytics.config.mjs` 與 `browser-tests/`。新功能仍建議補對應測試
 - CI 要求兩端 test + lint；前端額外 build
 
 ## 常見任務指引

@@ -24,7 +24,7 @@ alwaysApply: true
 
 | 模組 | 後端路由 | 前端路徑 |
 |------|----------|----------|
-| 活動/預約/候補 | `eventRouter`, `reservationRouter` | `pages/EventsPage`, `hooks/useEventBooking` |
+| 活動/預約（加入候補已停用） | `eventRouter`, `reservationRouter` | `pages/EventsPage`, `hooks/useEventBooking` |
 | 問卷 | `surveyRouter`, `adminSurvey*Router` | `pages/admin/AdminSurvey*` |
 | 英檢報名 | `englishTestRegistrationRouter` | `components/EnglishTestManagement` |
 | 學習歷程 v3 | `learningJourneyV3Router` | `pages/admin/LearningJourney*` |

@@ -25,7 +25,8 @@ license: MIT
 - CI：
   - backend：`npm test -- --runInBand` + `npm run lint`
   - frontend：`npm test` + `npm run lint` + `npm run build`
-- 前端：Vitest（`reservation-frontend`，含 `App.test.js` smoke 與 utils／資料庫單元測試）；E2E（Playwright/Cypress）未建立
+- 前端單元：Vitest（`reservation-frontend` 的 `npm test`，含 `App.test.js` smoke 與 utils／資料庫單元測試）
+- 瀏覽器：Playwright 已建立。指令是 `npm run test:analytics-browser`，設定為 `playwright.analytics.config.mjs`，案例在 `browser-tests/`
 
 ## Hard Constraints（重要）
 

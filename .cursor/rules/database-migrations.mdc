@@ -9,7 +9,7 @@ alwaysApply: false
 ## 命名規範
 
 - **新 migration**：`YYYYMMDDHHMMSS-kebab-description.js`
-- 範例：`20260508120000-create-event-waitlist-entries.js`
+- 範例：`20260508120000-add-example-column.js`
 - 避免新增舊式 `add-*.js` 或裸 `.sql` 檔
 
 ## Migration 模板

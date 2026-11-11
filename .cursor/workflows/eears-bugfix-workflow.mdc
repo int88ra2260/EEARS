@@ -8,7 +8,7 @@ alwaysApply: false
 ## 1) 觸發時機
 
 - 任何學生端/管理端出現：
-  - 預約/取消錯誤（尤其 2hr、redirectUrl、blacklist 擋控）
+  - 預約/取消錯誤（尤其 `cutoffHours`、redirectUrl、blacklist 擋控）
   - 問卷 Gate 誤擋或誤放行
   - 匯入失敗或狀態錯亂
   - 權限相關 403/401 異常
@@ -20,7 +20,7 @@ alwaysApply: false
    - 對應 endpoint（路由）
    - 觀察回應 code / HTTP status / redirectUrl
 2. 對照 contract
-   - 2hr 截止：是否仍是活動開始前 2 小時？
+   - `cutoffHours`：截止是否仍讀活動類型，而不是寫死 2 小時？
    - 問卷 Gate：是否回 409 + redirectUrl（ET/EC code 對應）？
    - blacklist：是否 blacklisted 期間被擋？
 3. 查 log/requestId（如果有）
@@ -45,7 +45,7 @@ alwaysApply: false
 
 - 是否引入新的 PII/token log？
 - 是否改動錯誤碼或 redirectUrl 造成前端誤導？
-- 是否破壞 2hr / 取消驗證碼行為？
+- 是否把截止寫死成 2 小時？已提交程式仍比對取消驗證碼；該比對刪除之後，不要把驗證碼加回去。
 - 是否確保沒有把 fail-close 改成 next() 放行？
 
 ## 6) 最終回報格式
@@ -58,7 +58,7 @@ alwaysApply: false
 - ...
 
 【契約影響】
-- 2hr / Gate / blacklist：未變更/已變更（原因）
+- cutoffHours / Gate / blacklist：未變更/已變更（原因）
 - 相關 code/redirectUrl：...
 
 【測試與驗證】
