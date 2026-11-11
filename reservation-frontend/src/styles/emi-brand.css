@@ -5,41 +5,36 @@
 
 .public-site,
 .home-page {
-  --color-primary: #2a5d9f;
-  --color-primary-dark: #1c3d6e;
-  --color-primary-light: #eaf1fc;
-  --color-text-primary: #2f3437;
-  --color-text-secondary: #5a6169;
-  --color-border-light: #e8eef5;
+  /* 公開殼的 secondary 表面是 #f7f9fc，等於 --color-bg-primary。
+     :root 的 --color-bg-secondary 是 #eef2f7，不能改成別名。 */
   --color-bg-secondary: #f7f9fc;
-  --color-bg-paper: #ffffff;
 
-  --pub-canvas: #f7f9fc;
-  --pub-surface: #ffffff;
+  --pub-canvas: var(--color-bg-primary);
+  --pub-surface: var(--color-bg-paper);
   --pub-surface-muted: #eef2f7;
-  --pub-border: #d8e0ea;
-  --pub-text: #2f3437;
+  --pub-border: var(--color-border);
+  --pub-text: var(--color-text-primary);
   --pub-text-body: #3d4450;
-  --pub-text-muted: #6a7176;
-  --pub-primary: #2a5d9f;
-  --pub-primary-dark: #1c3d6e;
-  --pub-primary-light: #eaf1fc;
-  --pub-info-bg: #eaf1fc;
+  --pub-text-muted: var(--color-text-muted);
+  --pub-primary: var(--color-primary);
+  --pub-primary-dark: var(--color-primary-dark);
+  --pub-primary-light: var(--color-primary-light);
+  --pub-info-bg: var(--color-info-light);
   --pub-info-text: #1c3d6e;
   --pub-shadow: 0 2px 12px rgba(28, 61, 110, 0.06);
 
-  --home-canvas: #f7f9fc;
+  --home-canvas: var(--color-bg-primary);
   --home-bone: #eef2f7;
-  --home-wash: #eaf1fc;
-  --home-border: #d8e0ea;
-  --home-primary: #2a5d9f;
-  --home-primary-dark: #1c3d6e;
-  --home-primary-soft: #eaf1fc;
-  --home-ink: #2f3437;
+  --home-wash: var(--color-primary-light);
+  --home-border: var(--color-border);
+  --home-primary: var(--color-primary);
+  --home-primary-dark: var(--color-primary-dark);
+  --home-primary-soft: var(--color-primary-light);
+  --home-ink: var(--color-text-primary);
   --home-ink-soft: #3d4450;
-  --home-muted: #6a7176;
-  --home-pastel-blue: #eaf1fc;
-  --home-pastel-blue-text: #1c3d6e;
+  --home-muted: var(--color-text-muted);
+  --home-pastel-blue: var(--color-primary-light);
+  --home-pastel-blue-text: var(--color-primary-dark);
 }
 
 .public-site .form-control:focus,

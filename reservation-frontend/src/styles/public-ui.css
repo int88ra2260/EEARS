@@ -1,24 +1,26 @@
 /* EEARS 學生端／公開頁 — Institutional Academic Blue（與 emi-brand / design-system 對齊） */
 
 .public-site {
-  --pub-canvas: #f7f9fc;
+  --pub-canvas: var(--color-bg-primary);
+  /* 深畫布與淡表面是 #eef2f7。公開殼會把 --color-bg-secondary 覆寫成 #f7f9fc，不能指過去。 */
   --pub-canvas-deep: #eef2f7;
-  --pub-surface: #ffffff;
+  --pub-surface: var(--color-bg-paper);
   --pub-surface-muted: #eef2f7;
-  --pub-border: #d8e0ea;
-  --pub-text: #2f3437;
+  --pub-border: var(--color-border);
+  --pub-text: var(--color-text-primary);
   --pub-text-body: #3d4450;
-  --pub-text-muted: #6a7176;
-  --pub-primary: #2a5d9f;
-  --pub-primary-dark: #1c3d6e;
-  --pub-primary-light: #eaf1fc;
-  --pub-success-bg: #e3f2ea;
-  --pub-success-text: #2f6f4e;
-  --pub-warning-bg: #fff4ce;
-  --pub-warning-text: #9a6700;
-  --pub-danger-bg: #fdeceb;
-  --pub-danger-text: #b42318;
-  --pub-info-bg: #eaf1fc;
+  --pub-text-muted: var(--color-text-muted);
+  --pub-primary: var(--color-primary);
+  --pub-primary-dark: var(--color-primary-dark);
+  --pub-primary-light: var(--color-primary-light);
+  --pub-success-bg: var(--color-success-light);
+  --pub-success-text: var(--color-success);
+  --pub-warning-bg: var(--color-warning-light);
+  --pub-warning-text: var(--color-warning);
+  --pub-danger-bg: var(--color-danger-light);
+  --pub-danger-text: var(--color-danger);
+  --pub-info-bg: var(--color-info-light);
+  /* 與 --color-primary-dark 同色，角色是資訊文字，不併入品牌深色。 */
   --pub-info-text: #1c3d6e;
   --pub-radius: 8px;
   --pub-radius-lg: 12px;

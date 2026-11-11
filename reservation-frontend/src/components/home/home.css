@@ -1,30 +1,30 @@
 /* EEARS 首頁 — Institutional Academic Blue（字型由 index.html 集中載入） */
 
 .home-page {
-  --home-canvas: #f7f9fc;
+  --home-canvas: var(--color-bg-primary);
   --home-bone: #eef2f7;
-  --home-wash: #eaf1fc;
-  --home-surface: #ffffff;
-  --home-border: #d8e0ea;
-  --home-ink: #2f3437;
+  --home-wash: var(--color-primary-light);
+  --home-surface: var(--color-bg-paper);
+  --home-border: var(--color-border);
+  --home-ink: var(--color-text-primary);
   --home-ink-soft: #3d4450;
-  --home-muted: #6a7176;
-  --home-primary: #2a5d9f;
-  --home-primary-dark: #1c3d6e;
-  --home-primary-soft: #eaf1fc;
+  --home-muted: var(--color-text-muted);
+  --home-primary: var(--color-primary);
+  --home-primary-dark: var(--color-primary-dark);
+  --home-primary-soft: var(--color-primary-light);
   --home-serif: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', system-ui, sans-serif;
   --home-sans: 'IBM Plex Sans', 'Noto Sans TC', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
   --home-mono: 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
-  --home-pastel-blue: #eaf1fc;
-  --home-pastel-blue-text: #1c3d6e;
-  --home-pastel-green: #e3f2ea;
-  --home-pastel-green-text: #2f6f4e;
-  --home-pastel-yellow: #fff4ce;
-  --home-pastel-yellow-text: #9a6700;
-  --home-pastel-red: #fdeceb;
-  --home-pastel-red-text: #b42318;
+  --home-pastel-blue: var(--color-primary-light);
+  --home-pastel-blue-text: var(--color-primary-dark);
+  --home-pastel-green: var(--color-success-light);
+  --home-pastel-green-text: var(--color-success);
+  --home-pastel-yellow: var(--color-warning-light);
+  --home-pastel-yellow-text: var(--color-warning);
+  --home-pastel-red: var(--color-danger-light);
+  --home-pastel-red-text: var(--color-danger);
   --home-pastel-neutral: #eef2f7;
-  --home-pastel-neutral-text: #5a6169;
+  --home-pastel-neutral-text: var(--color-text-secondary);
   --home-shell: min(1120px, calc(100% - 2rem));
   --home-ease: cubic-bezier(0.16, 1, 0.3, 1);
   background: var(--home-canvas);
