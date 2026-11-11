@@ -1,7 +1,5 @@
 import React, { useMemo } from 'react';
-import { Button } from 'react-bootstrap';
-import StatusBadge from '../../components/ui/StatusBadge';
-import { bootstrapBgToStatusVariant } from '../../utils/statusBadgeUtils';
+import { Badge, Button } from 'react-bootstrap';
 import { Link, useOutletContext } from 'react-router-dom';
 import ImportTaskCard from '../../components/admin/import/ImportTaskCard';
 import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
@@ -47,15 +45,14 @@ function StatusLegend() {
       {STATUS_LEGEND_ORDER.map((tier) => {
         const meta = IMPORT_STATUS_BADGE[tier];
         return (
-          <StatusBadge
+          <Badge
             key={tier}
-            variant={bootstrapBgToStatusVariant(meta.bg)}
-            size="sm"
-            className={`import-center-legend__badge ${meta.textClass || ''}`.trim()}
+            bg={meta.bg}
+            className={`import-center-card__status ${meta.textClass || ''}`.trim()}
             role="listitem"
           >
             {IMPORT_STATUS_LABEL[tier]}
-          </StatusBadge>
+          </Badge>
         );
       })}
     </div>
