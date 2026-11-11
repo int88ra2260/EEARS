@@ -247,6 +247,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
 
   content: ['內容', '公告', '週報', '學生端'],
   announcements: ['草稿', '發布', '跑馬燈', 'ticker', '公告'],
+  'student-feedback': ['問題回報', '建議', '許願', '遇到問題', '待處理'],
   'weekly-reports': ['週報', 'Weekly Studio', 'blocks', '本週'],
   'student-content': [
     '首頁',
