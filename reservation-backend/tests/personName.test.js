@@ -28,8 +28,10 @@ describe('personName', () => {
     expect(normalizePersonName('王小華')).toBe('王小華');
   });
 
-  it('replaces the campus private-use character for 祺', () => {
+  it('replaces campus private-use characters that have a known standard form', () => {
     expect(compactPersonName('曾\uE273鈞')).toBe('曾祺鈞');
+    expect(compactPersonName('李承\uE28D')).toBe('李承祐');
+    expect(compactPersonName('林\uE03C丞')).toBe('林𦭳丞');
     expect(personNamesMatch('曾\uE273鈞', '曾祺鈞')).toBe(true);
     expect(compactPersonName('曾\uE123鈞')).toBe('曾\uE123鈞');
   });

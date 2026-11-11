@@ -6,11 +6,13 @@
  * 與學生自行填寫的「杜威」應視為同一人。
  * 英文姓名保留單字之間的空白，只摺疊連續空白。
  *
- * 中山單一入口與部分名冊把「祺」回傳成私人使用區 U+E273。
- * 這個字在一般字型會變成亂碼，標準漢字是 U+797A。
+ * 中山名冊與單一入口會把部分漢字放在私人使用區，一般字型會顯示成亂碼。
+ * 只收系統內已有其他紀錄能對上的字：U+E273→祺、U+E28D→祐、U+E03C→𦭳。
  */
 const CAMPUS_PRIVATE_USE_TO_HAN = Object.freeze({
+  '\uE03C': '𦭳',
   '\uE273': '祺',
+  '\uE28D': '祐',
 });
 
 function replaceCampusPrivateUseCharacters(value) {
