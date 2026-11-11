@@ -10,10 +10,13 @@
 # 1. powershell -NoProfile -File .agents/normalize-vercel-skill-packaging.ps1
 # 2. powershell -NoProfile -File .agents/normalize-vercel-skill-packaging.ps1 -Check
 # 3. In a new top-level agent chat, confirm the compiled files are absent
-#    from always-applied rules, the EEARS core rules are still present,
-#    the three skills are still listed, and the new filenames can be read.
+#    from always-applied rules, the three skills are still listed, and the
+#    new filenames can be read.
 #
-# -Check is read-only. skills-lock.json is not modified.
+# -Check validates these three skill trees only. It does not compare
+# AGENTS.md, .cursor/rules, or .cursor/skills with HEAD. Rules validation
+# belongs to git diff review. The idempotency probe copies the skill trees
+# to a temp directory and does not write the checkout.
 
 param([switch]$Check)
 
@@ -26,6 +29,10 @@ function Read-Text([string]$Path) {
 }
 
 function Write-Text([string]$Path, [string]$Text) {
+    if (Test-Path -LiteralPath $Path) {
+        $current = [System.IO.File]::ReadAllText($Path)
+        if ($current -eq $Text) { return }
+    }
     $utf8 = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($Path, $Text, $utf8)
 }
@@ -68,15 +75,16 @@ $jobs = @(
     }
 )
 
-function Get-SkillDir([string]$Name) {
-    $dir = Join-Path $skillsRoot $Name
+function Get-SkillDir([string]$Name, [string]$Root) {
+    $dir = Join-Path $Root $Name
     if (-not (Test-Path -LiteralPath $dir)) { throw "Missing skill directory $dir" }
     return $dir
 }
 
 function Invoke-Normalize {
+    param([string]$TargetSkillsRoot = $skillsRoot)
     foreach ($job in $jobs) {
-        $dir = Get-SkillDir $job.Name
+        $dir = Get-SkillDir $job.Name $TargetSkillsRoot
         $source = Join-Path $dir "AGENTS.md"
         $dest = Join-Path $dir $job.Dest
         if (Test-Path -LiteralPath $source) {
@@ -104,6 +112,22 @@ function Invoke-Normalize {
             Write-Text $readmePath $readme
         }
     }
+}
+
+function Get-TreeHash([string]$Root) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $files = Get-ChildItem -LiteralPath $Root -Recurse -File | Sort-Object FullName
+        $builder = New-Object System.Text.StringBuilder
+        foreach ($file in $files) {
+            $rel = $file.FullName.Substring($Root.Length).TrimStart('\', '/')
+            $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
+            $hash = [System.BitConverter]::ToString($sha.ComputeHash($bytes)).Replace("-", "")
+            [void]$builder.AppendLine("$rel $hash")
+        }
+        return $builder.ToString()
+    }
+    finally { $sha.Dispose() }
 }
 
 function Insert-AfterFirstLine([string]$Text, [string]$FirstLine, [string]$Insertion) {
@@ -165,14 +189,24 @@ function Invoke-Check {
     if ((Get-Item -LiteralPath $bestGuide).Length -lt 100000) { $errors.Add("best-practices compiled guide is unexpectedly small") }
     if ((Get-Item -LiteralPath $viewGuide).Length -lt 20000) { $errors.Add("view-transitions compiled guide is unexpectedly small") }
 
-    Push-Location $repo
+    $probe = Join-Path ([System.IO.Path]::GetTempPath()) ("eears-packaging-idem-" + [guid]::NewGuid().ToString("n"))
+    $probeSkills = Join-Path $probe "skills"
+    New-Item -ItemType Directory -Path $probeSkills | Out-Null
     try {
-        $protected = git diff --name-only HEAD -- AGENTS.md .cursor/rules .cursor/skills
-        foreach ($path in $protected) {
-            if ($path) { $errors.Add("protected path changed: $path") }
+        foreach ($job in $jobs) {
+            Copy-Item -LiteralPath (Join-Path $skillsRoot $job.Name) -Destination (Join-Path $probeSkills $job.Name) -Recurse
         }
+        $before = Get-TreeHash $probeSkills
+        Invoke-Normalize -TargetSkillsRoot $probeSkills
+        $once = Get-TreeHash $probeSkills
+        Invoke-Normalize -TargetSkillsRoot $probeSkills
+        $twice = Get-TreeHash $probeSkills
+        if ($before -ne $once) { $errors.Add("normalize changed an already-normalized skill tree") }
+        if ($once -ne $twice) { $errors.Add("normalize is not idempotent") }
     }
-    finally { Pop-Location }
+    finally {
+        if (Test-Path -LiteralPath $probe) { Remove-Item -LiteralPath $probe -Recurse -Force }
+    }
 
     if ($errors.Count -gt 0) {
         $errors | ForEach-Object { Write-Host $_ }

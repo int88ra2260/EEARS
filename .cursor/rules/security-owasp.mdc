@@ -1,10 +1,6 @@
 ---
-description: EEARS 資安/PII/上傳/Rate limit 風險守則（OWASP 對應）
-globs:
-  - "reservation-backend/**/*.js"
-  - "reservation-backend/config/**/*.js"
-  - "reservation-backend/middlewares/**/*.js"
-  - "reservation-backend/utils/**/*.js"
+description: HTTP 硬化、rate limit、PII 遮罩與上傳安全的操作限制
+globs: reservation-backend/config/**/*.js, reservation-backend/server.js, reservation-backend/middlewares/**/*.js, reservation-backend/utils/piiMask.js, reservation-backend/utils/logSanitizer.js, reservation-backend/utils/surveyResponseApiMask.js, reservation-backend/utils/englishTestRegistrationApiMask.js, reservation-backend/services/**/safeNormalizeFilename.js, reservation-backend/routes/speakingDiagnosticRouter.js, reservation-backend/routes/speakingCheckRouter.js, reservation-backend/routes/reservationRouter.js, reservation-backend/routes/learningJourneyV3Router.js, reservation-backend/routes/learningJourneyRouter.js, reservation-backend/routes/englishTestRegistrationRouter.js, reservation-backend/routes/englishLearningPassportRouter.js, reservation-backend/routes/adminClasses.js, reservation-backend/controllers/englishTestTrackingController.js, reservation-backend/controllers/bestepImportController.js
 alwaysApply: false
 ---
 
@@ -29,9 +25,10 @@ alwaysApply: false
 
 ## 3) JWT / 權限資料一致性
 
-- 不得降低 JWT secret 長度要求（`envValidation` 要求生產 ≥ 32 字元）。
-- 不得把 token 或使用者敏感資訊寫入 log。
-- 前端處理 401 `ACCESS_PROFILE_STALE` 的路徑應保持既有慣例（避免造成權限漂移）。
+JWT 長度、token 與 PII 不入 log，已在 `core.mdc`。這裡補充操作限制：
+
+- 不得降低 `envValidation` 的生產 JWT secret 長度要求。
+- 前端處理 401 `ACCESS_PROFILE_STALE` 的路徑應保持既有慣例。
 
 ## 4) PII / 日誌（logging）
 

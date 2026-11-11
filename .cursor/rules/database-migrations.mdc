@@ -1,6 +1,6 @@
 ---
-description: Sequelize migration 與模型慣例
-globs: reservation-backend/{migrations,models}/**/*
+description: Sequelize migration 與 model 慣例
+globs: reservation-backend/migrations/**/*, reservation-backend/models/**/*
 alwaysApply: false
 ---
 
@@ -41,5 +41,6 @@ npx sequelize-cli db:migrate:undo   # 僅開發環境
 
 ## 禁止事項
 
-- 生產環境勿用 `sequelize.sync()`（僅 `ENABLE_DB_SYNC=true` 時啟用）
+- 生產環境勿用 `sequelize.sync()`（僅 `ENABLE_DB_SYNC=true` 時啟用）。這條也在 `core.mdc`
 - 勿在 migration 內做大量資料轉換；大量 backfill 用 `scripts/` 獨立腳本
+- 匯入表的去重、quarantine 與 import-runs 權限在 `data-import-excel.mdc`。只改 migration 時也要守住，不要把轉換寫進 migration
