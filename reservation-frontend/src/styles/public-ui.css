@@ -203,7 +203,7 @@ a.announcement-ticker__label:hover {
   padding: 0.12rem 0.42rem;
   border-radius: 999px;
   background: var(--pub-warning-bg, #fff4ce);
-  color: var(--pub-warning-text, #9a6700);
+  color: var(--pub-warning-text, #856404);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.04em;
