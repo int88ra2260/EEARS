@@ -1,7 +1,13 @@
 'use strict';
 
-const { Op } = require('sequelize');
-const { StudentFeedback, StudentFeedbackMessage, Teacher } = require('../models');
+const { Op, fn, col, literal } = require('sequelize');
+const {
+  sequelize,
+  StudentFeedback,
+  StudentFeedbackMessage,
+  StudentFeedbackEvent,
+  Teacher,
+} = require('../models');
 const { sendEmailWithLog } = require('./emailLogService');
 
 const CENTER_EMAIL = process.env.EMI_CENTER_EMAIL || 'emicenter@mail.nsysu.edu.tw';
@@ -24,7 +30,16 @@ const CATEGORY_LABELS = Object.freeze({
   survey: '問卷',
   account: '帳號或信箱',
   english_test: '培力報名',
+  learning_journey: '學習歷程',
+  display: '介面顯示',
   other: '其他',
+});
+
+const PRIORITY_LABELS = Object.freeze({
+  P0: 'P0（最優先）',
+  P1: 'P1（高）',
+  P2: 'P2（中）',
+  P3: 'P3（低）',
 });
 
 const STATUS_LABELS = Object.freeze({
@@ -58,31 +73,161 @@ function statusLabel(status) {
   return STATUS_LABELS[status] || STATUS_LABELS.open;
 }
 
+function priorityLabel(priority) {
+  if (priority == null || priority === '') return '未設定';
+  return PRIORITY_LABELS[priority] || String(priority);
+}
+
+function samePriority(left, right) {
+  const normalize = (value) => (value == null || value === '' ? null : String(value));
+  return normalize(left) === normalize(right);
+}
+
 function invalid(message) {
   return new StudentFeedbackError(400, 'STUDENT_FEEDBACK_INVALID', message);
 }
 
-function formatTaipei(date) {
-  return new Intl.DateTimeFormat('zh-TW', {
-    timeZone: 'Asia/Taipei',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(date);
+function publicOrigin() {
+  const fallback = 'http://emieears-siwan.nsysu.edu.tw';
+  try {
+    const parsed = new URL(process.env.FRONTEND_URL || fallback);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return fallback;
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return fallback;
+  }
 }
 
 function accountPageUrl() {
-  const base = String(process.env.FRONTEND_URL || 'http://emieears-siwan.nsysu.edu.tw').replace(/\/$/, '');
-  return `${base}/student/account`;
+  return `${publicOrigin()}/student/account`;
+}
+
+function adminFeedbackUrl() {
+  return `${publicOrigin()}/admin/student-feedback`;
 }
 
 function plain(row) {
   if (!row) return null;
   if (typeof row.get === 'function') return row.get({ plain: true });
   return row;
+}
+
+function sameId(left, right) {
+  if (left == null && right == null) return true;
+  return Number(left) === Number(right);
+}
+
+function actorFieldsFrom(actor) {
+  if (actor && actor.studentId) {
+    return {
+      actorType: 'student',
+      actorTeacherId: null,
+      actorStudentId: String(actor.studentId).slice(0, 20),
+    };
+  }
+  const teacherId = actor ? Number(actor.id) : NaN;
+  return {
+    actorType: 'staff',
+    actorTeacherId: Number.isInteger(teacherId) && teacherId > 0 ? teacherId : null,
+    actorStudentId: null,
+  };
+}
+
+async function withTransaction(work) {
+  const transaction = await sequelize.transaction();
+  try {
+    const result = await work(transaction);
+    await transaction.commit();
+    return result;
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+}
+
+function eventValue(eventType, value) {
+  const source = value && typeof value === 'object' ? value : {};
+  if (eventType === 'STATUS_CHANGED') return { status: source.status || null };
+  if (eventType === 'ASSIGNEE_CHANGED') {
+    return { assignedTeacherId: source.assignedTeacherId == null ? null : Number(source.assignedTeacherId) };
+  }
+  if (eventType === 'PRIORITY_CHANGED') {
+    return { priority: source.priority == null || source.priority === '' ? null : String(source.priority) };
+  }
+  return {};
+}
+
+function presentEvent(item) {
+  return {
+    id: item.id,
+    feedbackId: item.feedbackId,
+    eventType: item.eventType,
+    actorType: item.actorType,
+    actorTeacherId: item.actorTeacherId || null,
+    actorStudentId: item.actorStudentId || null,
+    beforeValue: eventValue(item.eventType, item.beforeValue),
+    afterValue: eventValue(item.eventType, item.afterValue),
+    requestId: item.requestId || null,
+    createdAt: item.createdAt,
+  };
+}
+
+async function persistCaseChanges(row, item, changes, actor, requestId, transaction) {
+  const persisted = {};
+  const events = [];
+  const actorFields = actorFieldsFrom(actor);
+  const stamp = new Date();
+  const request = requestId ? String(requestId).slice(0, 64) : null;
+  if (Object.prototype.hasOwnProperty.call(changes, 'status') && changes.status !== item.status) {
+    persisted.status = changes.status;
+    persisted.closedAt = Object.prototype.hasOwnProperty.call(changes, 'closedAt') ? changes.closedAt : null;
+    events.push({
+      feedbackId: item.id,
+      eventType: 'STATUS_CHANGED',
+      visibility: 'staff',
+      ...actorFields,
+      beforeValue: { status: item.status || 'open' },
+      afterValue: { status: changes.status },
+      requestId: request,
+      createdAt: stamp,
+    });
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(changes, 'assignedTeacherId')
+    && !sameId(changes.assignedTeacherId, item.assignedTeacherId)
+  ) {
+    persisted.assignedTeacherId = changes.assignedTeacherId;
+    events.push({
+      feedbackId: item.id,
+      eventType: 'ASSIGNEE_CHANGED',
+      visibility: 'staff',
+      ...actorFields,
+      beforeValue: { assignedTeacherId: item.assignedTeacherId || null },
+      afterValue: { assignedTeacherId: changes.assignedTeacherId },
+      requestId: request,
+      createdAt: stamp,
+    });
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(changes, 'priority')
+    && !samePriority(changes.priority, item.priority)
+  ) {
+    persisted.priority = changes.priority;
+    events.push({
+      feedbackId: item.id,
+      eventType: 'PRIORITY_CHANGED',
+      visibility: 'staff',
+      ...actorFields,
+      beforeValue: { priority: item.priority || null },
+      afterValue: { priority: changes.priority },
+      requestId: request,
+      createdAt: stamp,
+    });
+  }
+  if (!events.length) return false;
+  await row.update(persisted, { transaction });
+  await StudentFeedbackEvent.bulkCreate(events, { transaction });
+  return true;
 }
 
 function normalizeMessage(value) {
@@ -229,7 +374,10 @@ function presentStaff(item, messages) {
     replyRequested: item.replyRequested !== false,
     assignedTeacherId: item.assignedTeacherId || null,
     assigneeName: item.assignee ? item.assignee.name : null,
+    priority: item.priority || null,
+    priorityLabel: priorityLabel(item.priority),
     closedAt: item.closedAt || null,
+    updatedAt: item.updatedAt || null,
     messages: (messages || []).map(presentStaffMessage),
   };
 }
@@ -284,15 +432,8 @@ async function submitStudentFeedback({ account, kind, category, message, replyRe
   try {
     await sendEmailWithLog('studentFeedbackNotice', {
       centerEmail: CENTER_EMAIL,
-      studentEmail: account.email || '',
-      studentId: account.studentId,
-      studentName: account.name || '',
-      kindLabel: kindLabel(kind),
-      categoryLabel: categoryLabel(category),
-      message: text,
-      emailVerified: true,
-      replyRequested: wantsReply,
-      submittedAt: formatTaipei(row.createdAt || new Date()),
+      caseId: row.id,
+      adminUrl: adminFeedbackUrl(),
     }, {
       requestId: `student-feedback:${row.id}`,
       relatedEntityType: 'student_feedback',
@@ -315,9 +456,11 @@ async function submitStudentFeedback({ account, kind, category, message, replyRe
   };
 }
 
-async function findMessageIds(term) {
+async function findMessageIds(term, { publicOnly = false } = {}) {
+  const where = { body: { [Op.like]: term } };
+  if (publicOnly) where.visibility = 'public';
   const rows = await StudentFeedbackMessage.findAll({
-    where: { body: { [Op.like]: term } },
+    where,
     attributes: ['feedbackId'],
   });
   return [...new Set(rows.map((row) => plain(row).feedbackId).filter(Boolean))];
@@ -336,6 +479,11 @@ function buildAdminWhere(filters, messageIds) {
   if (filters.category) {
     if (!CATEGORY_LABELS[filters.category]) throw invalid('項目不正確');
     where.category = filters.category;
+  }
+  if (filters.priority) {
+    if (filters.priority === 'unset') where.priority = null;
+    else if (!PRIORITY_LABELS[filters.priority]) throw invalid('優先級不正確');
+    else where.priority = filters.priority;
   }
   if (filters.assignedTeacherId === 'none') {
     where.assignedTeacherId = null;
@@ -364,16 +512,60 @@ function buildAdminWhere(filters, messageIds) {
   return where;
 }
 
+const SORT_FIELDS = Object.freeze({
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  id: 'id',
+  priority: 'priority',
+});
+const PRIORITY_NULLS_LAST = literal('CASE WHEN `StudentFeedback`.`priority` IS NULL THEN 1 ELSE 0 END');
+
+function parseSort(sortBy, sortOrder) {
+  const field = sortBy === undefined || sortBy === null || sortBy === '' ? 'createdAt' : String(sortBy);
+  const direction = sortOrder === undefined || sortOrder === null || sortOrder === ''
+    ? 'desc'
+    : String(sortOrder).toLowerCase();
+  if (!Object.prototype.hasOwnProperty.call(SORT_FIELDS, field)) throw invalid('排序欄位不正確');
+  if (direction !== 'asc' && direction !== 'desc') throw invalid('排序方向不正確');
+  const primary = [SORT_FIELDS[field], direction.toUpperCase()];
+  if (field === 'id') return [primary];
+  if (field === 'priority') return [[PRIORITY_NULLS_LAST, 'ASC'], primary, ['id', 'DESC']];
+  return [primary, ['id', 'DESC']];
+}
+
+async function summarizeStudentFeedback() {
+  const rows = await StudentFeedback.findAll({
+    attributes: ['status', [fn('COUNT', col('StudentFeedback.id')), 'n']],
+    group: ['status'],
+    raw: true,
+  });
+  const known = { open: 0, in_progress: 0, closed: 0 };
+  let total = 0;
+  (rows || []).forEach((row) => {
+    const count = Number(row.n) || 0;
+    total += count;
+    if (Object.prototype.hasOwnProperty.call(known, row.status)) known[row.status] = count;
+  });
+  return {
+    total,
+    open: known.open,
+    inProgress: known.in_progress,
+    closed: known.closed,
+    unresolved: known.open + known.in_progress,
+  };
+}
+
 async function listStudentFeedback(filters = {}) {
   const page = parsePage(filters.page);
   const pageSize = parsePageSize(filters.pageSize);
   const term = likeTerm(filters.q);
-  const messageIds = term ? await findMessageIds(term) : [];
+  const messageIds = term ? await findMessageIds(term, { publicOnly: filters.includeInternal !== true }) : [];
   const where = buildAdminWhere(filters, messageIds);
+  const order = parseSort(filters.sortBy, filters.sortOrder);
   const result = await StudentFeedback.findAndCountAll({
     where,
     include: [{ model: Teacher, as: 'assignee', attributes: ['id', 'name'], required: false }],
-    order: [['createdAt', 'DESC'], ['id', 'DESC']],
+    order,
     limit: pageSize,
     offset: (page - 1) * pageSize,
     distinct: true,
@@ -410,16 +602,50 @@ async function loadCase(id) {
   return row;
 }
 
-async function getStudentFeedback(id) {
-  const row = await loadCase(id);
-  const item = plain(row);
-  const messages = await loadMessages(item.id);
-  return presentStaff(item, messages);
+async function loadCaseLocked(id, transaction) {
+  const row = await StudentFeedback.findByPk(parseId(id), {
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+  if (!row) throw new StudentFeedbackError(404, 'STUDENT_FEEDBACK_NOT_FOUND', '找不到這筆回報');
+  return row;
 }
 
-async function hasPublicStaffReply(feedbackId) {
+async function getStudentFeedback(id, options = {}) {
+  const includeInternal = options.includeInternal === true;
+  const row = await loadCase(id);
+  const item = plain(row);
+  const messages = await loadMessages(item.id, { publicOnly: !includeInternal });
+  const visible = includeInternal
+    ? messages
+    : messages.filter((entry) => entry.visibility === 'public');
+  return presentStaff(item, visible);
+}
+
+async function listStudentFeedbackEvents(id, options = {}) {
+  const row = await loadCase(id);
+  const page = parsePage(options.page);
+  const pageSize = parsePageSize(options.pageSize);
+  const where = { feedbackId: plain(row).id };
+  if (options.includeInternal !== true) where.visibility = 'staff';
+  const result = await StudentFeedbackEvent.findAndCountAll({
+    where,
+    order: [['createdAt', 'ASC'], ['id', 'ASC']],
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  });
+  return {
+    items: (result.rows || []).map((entry) => presentEvent(plain(entry))),
+    page,
+    pageSize,
+    total: result.count || 0,
+  };
+}
+
+async function hasPublicStaffReply(feedbackId, transaction) {
   const count = await StudentFeedbackMessage.count({
     where: { feedbackId, authorType: 'staff', visibility: 'public' },
+    transaction,
   });
   return count > 0;
 }
@@ -447,23 +673,29 @@ async function listFeedbackAssignees() {
   });
 }
 
-async function addStaffReply({ id, teacher, message }) {
+async function addStaffReply({ id, teacher, message, requestId }) {
   const text = assertNote(message, '請寫下回覆內容');
-  const row = await loadCase(id);
-  const item = plain(row);
-  const created = await StudentFeedbackMessage.create({
-    feedbackId: item.id,
-    authorType: 'staff',
-    visibility: 'public',
-    body: text,
-    teacherId: teacher && teacher.id ? teacher.id : null,
-    emailStatus: 'pending',
+  const saved = await withTransaction(async (transaction) => {
+    const row = await loadCaseLocked(id, transaction);
+    const item = plain(row);
+    const created = await StudentFeedbackMessage.create({
+      feedbackId: item.id,
+      authorType: 'staff',
+      visibility: 'public',
+      body: text,
+      teacherId: teacher && teacher.id ? teacher.id : null,
+      emailStatus: 'pending',
+    }, { transaction });
+    const nextStatus = item.status === 'closed' || item.status === 'open' ? 'in_progress' : item.status;
+    if (nextStatus !== item.status) {
+      await persistCaseChanges(row, item, {
+        status: nextStatus || 'in_progress',
+        closedAt: null,
+      }, teacher, requestId, transaction);
+    }
+    return { created, item };
   });
-  const nextStatus = item.status === 'closed' || item.status === 'open' ? 'in_progress' : item.status;
-  await row.update({
-    status: nextStatus || 'in_progress',
-    closedAt: null,
-  });
+  const { created, item } = saved;
 
   let emailStatus = 'failed';
   try {
@@ -486,7 +718,7 @@ async function addStaffReply({ id, teacher, message }) {
   if (typeof created.update === 'function') await created.update({ emailStatus });
 
   return {
-    item: await getStudentFeedback(item.id),
+    item: await getStudentFeedback(item.id, { includeInternal: true }),
     emailStatus,
     notice: emailStatus === 'sent'
       ? '已回覆，並寄信通知學生。'
@@ -494,67 +726,100 @@ async function addStaffReply({ id, teacher, message }) {
   };
 }
 
-async function addStaffNote({ id, teacher, message }) {
+async function addStaffNote({ id, teacher, message, requestId }) {
   const text = assertNote(message, '請寫下備註');
-  const row = await loadCase(id);
-  const item = plain(row);
-  await StudentFeedbackMessage.create({
-    feedbackId: item.id,
-    authorType: 'staff',
-    visibility: 'internal',
-    body: text,
-    teacherId: teacher && teacher.id ? teacher.id : null,
+  const caseId = await withTransaction(async (transaction) => {
+    const row = await loadCaseLocked(id, transaction);
+    const item = plain(row);
+    await StudentFeedbackMessage.create({
+      feedbackId: item.id,
+      authorType: 'staff',
+      visibility: 'internal',
+      body: text,
+      teacherId: teacher && teacher.id ? teacher.id : null,
+    }, { transaction });
+    if (item.status === 'open') {
+      await persistCaseChanges(row, item, {
+        status: 'in_progress',
+        closedAt: null,
+      }, teacher, requestId, transaction);
+    }
+    return item.id;
   });
-  if (item.status === 'open') {
-    await row.update({ status: 'in_progress', closedAt: null });
-  }
-  return getStudentFeedback(item.id);
+  return getStudentFeedback(caseId, { includeInternal: true });
 }
 
-async function updateStudentFeedbackCase({ id, patch = {} }) {
+async function updateStudentFeedbackCase({ id, patch = {}, actor, requestId } = {}) {
   const hasStatus = Object.prototype.hasOwnProperty.call(patch, 'status') && patch.status != null && patch.status !== '';
   const hasAssignee = Object.prototype.hasOwnProperty.call(patch, 'assignedTeacherId');
-  if (!hasStatus && !hasAssignee) throw invalid('沒有要更新的內容');
+  const hasPriority = Object.prototype.hasOwnProperty.call(patch, 'priority');
+  if (!hasStatus && !hasAssignee && !hasPriority) throw invalid('沒有要更新的內容');
+  if (hasStatus && (!STATUS_LABELS[patch.status] || patch.status === 'open')) throw invalid('狀態不正確');
 
-  const row = await loadCase(id);
-  const item = plain(row);
-  const changes = {};
+  let nextPriority;
+  if (hasPriority) {
+    if (patch.priority == null || patch.priority === '' || patch.priority === 'unset') {
+      nextPriority = null;
+    } else if (!PRIORITY_LABELS[patch.priority]) {
+      throw invalid('優先級不正確');
+    } else {
+      nextPriority = patch.priority;
+    }
+  }
 
+  let nextAssignee;
   if (hasAssignee) {
     if (patch.assignedTeacherId == null || patch.assignedTeacherId === '') {
-      changes.assignedTeacherId = null;
+      nextAssignee = null;
     } else {
       const teacherId = Number(patch.assignedTeacherId);
       if (!Number.isInteger(teacherId) || teacherId <= 0) throw invalid('承辦人不正確');
       const assignee = await Teacher.findByPk(teacherId);
       const teacher = plain(assignee);
       if (!isAssignable(teacher)) throw invalid('這位同仁目前不能承接');
-      changes.assignedTeacherId = teacher.id;
-      if (item.status === 'open' && !hasStatus) changes.status = 'in_progress';
+      nextAssignee = teacher.id;
     }
   }
 
-  if (hasStatus) {
-    if (!STATUS_LABELS[patch.status] || patch.status === 'open') throw invalid('狀態不正確');
-    if (patch.status === 'closed') {
-      const wantsReply = item.replyRequested !== false;
-      if (wantsReply && !(await hasPublicStaffReply(item.id))) {
-        throw new StudentFeedbackError(
-          409,
-          'STUDENT_FEEDBACK_REPLY_REQUIRED',
-          '這位學生希望得到回覆。請先寫一則學生看得到的回覆，再結案。',
-        );
+  const caseId = await withTransaction(async (transaction) => {
+    const row = await loadCaseLocked(id, transaction);
+    const item = plain(row);
+    const changes = {};
+
+    if (hasAssignee && !sameId(nextAssignee, item.assignedTeacherId)) {
+      changes.assignedTeacherId = nextAssignee;
+      if (item.status === 'open' && !hasStatus) {
+        changes.status = 'in_progress';
+        changes.closedAt = null;
       }
-      changes.status = 'closed';
-      changes.closedAt = new Date();
-    } else {
-      changes.status = 'in_progress';
-      changes.closedAt = null;
     }
-  }
 
-  await row.update(changes);
-  return getStudentFeedback(item.id);
+    if (hasPriority) changes.priority = nextPriority;
+
+    if (hasStatus) {
+      if (patch.status === 'closed') {
+        const wantsReply = item.replyRequested !== false;
+        if (wantsReply && !(await hasPublicStaffReply(item.id, transaction))) {
+          throw new StudentFeedbackError(
+            409,
+            'STUDENT_FEEDBACK_REPLY_REQUIRED',
+            '這位學生希望得到回覆。請先寫一則學生看得到的回覆，再結案。',
+          );
+        }
+        if (item.status !== 'closed') {
+          changes.status = 'closed';
+          changes.closedAt = new Date();
+        }
+      } else if (item.status !== 'in_progress') {
+        changes.status = 'in_progress';
+        changes.closedAt = null;
+      }
+    }
+
+    await persistCaseChanges(row, item, changes, actor, requestId, transaction);
+    return item.id;
+  });
+  return getStudentFeedback(caseId, { includeInternal: true });
 }
 
 async function listMyStudentFeedback({ account, page, pageSize }) {
@@ -595,22 +860,32 @@ async function getMyStudentFeedback({ account, id }) {
   return presentStudent(plain(row), messages);
 }
 
-async function addStudentFollowUp({ account, id, message }) {
+async function addStudentFollowUp({ account, id, message, requestId }) {
+  assertActivated(account);
   const text = assertNote(message, '請寫下要補充的內容');
-  const row = await loadOwnCase(account, id);
   assertUnderLimit(await countRecentStudentWrites(account.studentId));
-  const item = plain(row);
-  await StudentFeedbackMessage.create({
-    feedbackId: item.id,
-    authorType: 'student',
-    visibility: 'public',
-    body: text,
-    studentId: account.studentId,
+  const caseId = await withTransaction(async (transaction) => {
+    const row = await loadCaseLocked(id, transaction);
+    const item = plain(row);
+    if (!item || item.studentId !== account.studentId) {
+      throw new StudentFeedbackError(404, 'STUDENT_FEEDBACK_NOT_FOUND', '找不到這筆回報');
+    }
+    await StudentFeedbackMessage.create({
+      feedbackId: item.id,
+      authorType: 'student',
+      visibility: 'public',
+      body: text,
+      studentId: account.studentId,
+    }, { transaction });
+    if (item.status === 'closed') {
+      await persistCaseChanges(row, item, {
+        status: 'in_progress',
+        closedAt: null,
+      }, account, requestId, transaction);
+    }
+    return item.id;
   });
-  if (item.status === 'closed') {
-    await row.update({ status: 'in_progress', closedAt: null });
-  }
-  return getMyStudentFeedback({ account, id: item.id });
+  return getMyStudentFeedback({ account, id: caseId });
 }
 
 module.exports = {
@@ -624,8 +899,10 @@ module.exports = {
   RECEIPT_SAVED,
   StudentFeedbackError,
   submitStudentFeedback,
+  summarizeStudentFeedback,
   listStudentFeedback,
   getStudentFeedback,
+  listStudentFeedbackEvents,
   addStaffReply,
   addStaffNote,
   updateStudentFeedbackCase,

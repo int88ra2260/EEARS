@@ -1,6 +1,9 @@
 'use strict';
 
 jest.mock('../models', () => ({
+  sequelize: {
+    transaction: jest.fn(),
+  },
   StudentFeedback: {
     create: jest.fn(),
     count: jest.fn(),
@@ -13,6 +16,10 @@ jest.mock('../models', () => ({
     count: jest.fn(),
     findAll: jest.fn(),
   },
+  StudentFeedbackEvent: {
+    bulkCreate: jest.fn(),
+    findAndCountAll: jest.fn(),
+  },
   Teacher: {
     findByPk: jest.fn(),
     findAll: jest.fn(),
@@ -23,7 +30,13 @@ jest.mock('../services/emailLogService', () => ({
   sendEmailWithLog: jest.fn(),
 }));
 
-const { StudentFeedback, StudentFeedbackMessage, Teacher } = require('../models');
+const {
+  sequelize,
+  StudentFeedback,
+  StudentFeedbackMessage,
+  StudentFeedbackEvent,
+  Teacher,
+} = require('../models');
 const { sendEmailWithLog } = require('../services/emailLogService');
 const { emailTemplates } = require('../config/email');
 const {
@@ -31,9 +44,13 @@ const {
   RECEIPT_SENT,
   RECEIPT_SAVED,
   submitStudentFeedback,
+  summarizeStudentFeedback,
   listStudentFeedback,
+  getStudentFeedback,
+  listStudentFeedbackEvents,
   updateStudentFeedbackCase,
   addStaffReply,
+  addStaffNote,
   getMyStudentFeedback,
   addStudentFollowUp,
 } = require('../services/studentFeedbackService');
@@ -55,11 +72,21 @@ function mockRow(id = 7) {
 }
 
 describe('studentFeedbackService', () => {
+  let transaction;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    transaction = {
+      LOCK: { UPDATE: 'UPDATE' },
+      commit: jest.fn(),
+      rollback: jest.fn(),
+    };
+    sequelize.transaction.mockImplementation(async () => transaction);
     StudentFeedback.count.mockResolvedValue(0);
     StudentFeedbackMessage.count.mockResolvedValue(0);
     StudentFeedbackMessage.findAll.mockResolvedValue([]);
+    StudentFeedbackEvent.bulkCreate.mockResolvedValue([]);
+    StudentFeedbackEvent.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
   });
 
   it('stores the logged-in student and emails the center', async () => {
@@ -72,6 +99,7 @@ describe('studentFeedbackService', () => {
       kind: 'problem',
       category: 'reservation',
       message: '  預約按鈕按下去沒有反應。  ',
+      priority: 'P0',
     });
 
     expect(StudentFeedback.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -85,16 +113,17 @@ describe('studentFeedbackService', () => {
       status: 'open',
       replyRequested: true,
     }));
+    expect(StudentFeedback.create.mock.calls[0][0]).not.toHaveProperty('priority');
     expect(sendEmailWithLog).toHaveBeenCalledWith(
       'studentFeedbackNotice',
-      expect.objectContaining({
+      {
         centerEmail: CENTER_EMAIL,
-        studentId: 'B123456789',
-        kindLabel: '問題回報',
-        categoryLabel: '預約或取消',
-      }),
+        caseId: 7,
+        adminUrl: expect.stringMatching(/^https?:\/\/[^/?#]+\/admin\/student-feedback$/),
+      },
       expect.objectContaining({ relatedEntityType: 'student_feedback', relatedEntityId: 7 }),
     );
+    expect(JSON.stringify(sendEmailWithLog.mock.calls[0][1])).not.toMatch(/B123456789|王小明|student@example\.com|預約按鈕/);
     expect(row.update).toHaveBeenCalledWith({ emailStatus: 'sent' });
     expect(result.message).toBe(RECEIPT_SENT);
     expect(result.message).toContain('07-5252000');
@@ -163,6 +192,7 @@ describe('studentFeedbackService', () => {
           status: 'open',
           replyRequested: true,
           createdAt: new Date('2026-11-08T06:00:00.000Z'),
+          updatedAt: new Date('2026-11-09T01:00:00.000Z'),
         }),
       }],
     });
@@ -172,6 +202,7 @@ describe('studentFeedbackService', () => {
       where: { kind: 'wish' },
       limit: 20,
       offset: 20,
+      order: [['createdAt', 'DESC'], ['id', 'DESC']],
     }));
     expect(result.total).toBe(1);
     expect(result.items[0]).toMatchObject({
@@ -180,25 +211,30 @@ describe('studentFeedbackService', () => {
       statusLabel: '待處理',
     });
     expect(result.items[0].messages).toBeUndefined();
+    expect(result.items[0].updatedAt).toEqual(new Date('2026-11-09T01:00:00.000Z'));
   });
 
-  it('addresses the notice to the center and mentions it is not a check-in mail', () => {
+  it('sends the center a case number and admin link without student details', () => {
     const mail = emailTemplates.studentFeedbackNotice({
       centerEmail: CENTER_EMAIL,
+      caseId: 7,
+      adminUrl: 'http://emieears-siwan.nsysu.edu.tw/admin/student-feedback',
       studentEmail: 'student@example.com',
       studentId: 'B123456789',
       studentName: '王小明',
-      kindLabel: '問題回報',
-      categoryLabel: '帳號或信箱',
       message: '收不到驗證碼。',
-      emailVerified: false,
-      submittedAt: '2026/11/08 14:00',
+      replyTo: 'student@example.com',
     });
     expect(mail.to).toBe(CENTER_EMAIL);
-    expect(mail.replyTo).toBe('student@example.com');
-    expect(mail.text).toContain('學生證');
-    expect(mail.text).toContain('不會公開給其他學生');
-    expect(mail.text).toContain('學生希望得到回覆');
+    expect(mail.replyTo).toBeUndefined();
+    expect(mail.subject).toBe('[EEARS] 新的學生回報 #7');
+    expect(mail.text).toContain('案件編號：#7');
+    expect(mail.text).toContain('http://emieears-siwan.nsysu.edu.tw/admin/student-feedback');
+    const leaked = ['B123456789', '王小明', 'student@example.com', '收不到驗證碼', 'token=', 'jwt'];
+    leaked.forEach((secret) => {
+      expect(mail.subject).not.toContain(secret);
+      expect(mail.text).not.toContain(secret);
+    });
   });
 
   it('refuses a report before the mailbox is verified', async () => {
@@ -269,7 +305,10 @@ describe('studentFeedbackService', () => {
     const row = storedCase({ replyRequested: false });
     StudentFeedback.findByPk.mockResolvedValue(row);
     const item = await updateStudentFeedbackCase({ id: 7, patch: { status: 'closed' } });
-    expect(row.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'closed' }));
+    expect(row.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'closed' }),
+      expect.objectContaining({ transaction }),
+    );
     expect(item.status).toBe('closed');
     expect(item.email).toBe('student@example.com');
   });
@@ -291,7 +330,7 @@ describe('studentFeedbackService', () => {
       visibility: 'public',
       authorType: 'staff',
       body: '請改用另一個瀏覽器再試一次。',
-    }));
+    }), expect.objectContaining({ transaction }));
     expect(sendEmailWithLog).toHaveBeenCalledWith(
       'studentFeedbackReply',
       expect.objectContaining({ studentEmail: 'student@example.com' }),
@@ -305,7 +344,11 @@ describe('studentFeedbackService', () => {
   });
 
   it('hides internal notes from the student view and reopens a closed case', async () => {
-    const row = storedCase({ status: 'closed', closedAt: new Date('2026-11-09T00:00:00.000Z') });
+    const row = storedCase({
+      status: 'closed',
+      closedAt: new Date('2026-11-09T00:00:00.000Z'),
+      priority: 'P1',
+    });
     StudentFeedback.findByPk.mockResolvedValue(row);
     StudentFeedbackMessage.findAll.mockResolvedValue([
       { id: 1, visibility: 'internal', authorType: 'staff', body: '先內部確認', createdAt: new Date() },
@@ -315,13 +358,26 @@ describe('studentFeedbackService', () => {
     expect(seen.messages.map((entry) => entry.body)).toEqual(['已幫你看過']);
     expect(seen.messages[0].authorLabel).toBe('英語中心');
     expect(seen.email).toBeUndefined();
+    expect(seen.priority).toBeUndefined();
 
     StudentFeedbackMessage.findAll.mockResolvedValue([
       { id: 2, visibility: 'public', authorType: 'staff', body: '已幫你看過', createdAt: new Date() },
       { id: 3, visibility: 'public', authorType: 'student', body: '還是一樣', createdAt: new Date() },
     ]);
     await addStudentFollowUp({ account, id: 7, message: '還是一樣' });
-    expect(row.update).toHaveBeenCalledWith({ status: 'in_progress', closedAt: null });
+    expect(row.update).toHaveBeenCalledWith(
+      { status: 'in_progress', closedAt: null },
+      expect.objectContaining({ transaction }),
+    );
+    expect(StudentFeedbackEvent.bulkCreate).toHaveBeenCalledWith([
+      expect.objectContaining({
+        eventType: 'STATUS_CHANGED',
+        actorType: 'student',
+        actorStudentId: 'B123456789',
+        beforeValue: { status: 'closed' },
+        afterValue: { status: 'in_progress' },
+      }),
+    ], expect.objectContaining({ transaction }));
   });
 
   it('rejects an assignee outside the center staff', async () => {
@@ -338,5 +394,299 @@ describe('studentFeedbackService', () => {
       id: 7,
       patch: { assignedTeacherId: 8 },
     })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('counts every status from one grouped query and ignores list filters', async () => {
+    StudentFeedback.findAll.mockResolvedValue([
+      { status: 'open', n: '24' },
+      { status: 'in_progress', n: 13 },
+      { status: 'closed', n: '91' },
+      { status: 'archived', n: '2' },
+    ]);
+
+    const summary = await summarizeStudentFeedback();
+
+    expect(summary).toEqual({
+      total: 130,
+      open: 24,
+      inProgress: 13,
+      closed: 91,
+      unresolved: 37,
+    });
+    const query = StudentFeedback.findAll.mock.calls[0][0];
+    expect(query.group).toEqual(['status']);
+    expect(query.raw).toBe(true);
+    expect(query.limit).toBeUndefined();
+    expect(query.where).toBeUndefined();
+  });
+
+  it('returns zeros when the table is empty', async () => {
+    StudentFeedback.findAll.mockResolvedValue([]);
+    await expect(summarizeStudentFeedback()).resolves.toEqual({
+      total: 0,
+      open: 0,
+      inProgress: 0,
+      closed: 0,
+      unresolved: 0,
+    });
+  });
+
+  it('lets a database failure surface without inventing counts', async () => {
+    const failure = new Error('db down');
+    failure.name = 'SequelizeDatabaseError';
+    StudentFeedback.findAll.mockRejectedValue(failure);
+    await expect(summarizeStudentFeedback()).rejects.toBe(failure);
+  });
+
+  it('sorts createdAt, updatedAt, and id in the database with a stable id tie-break', async () => {
+    StudentFeedback.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+
+    await listStudentFeedback({ sortBy: 'createdAt', sortOrder: 'asc', page: 1 });
+    await listStudentFeedback({ sortBy: 'updatedAt', sortOrder: 'desc', page: 3, pageSize: 20 });
+    await listStudentFeedback({ sortBy: 'id', sortOrder: 'asc' });
+
+    const orders = StudentFeedback.findAndCountAll.mock.calls.map((call) => call[0].order);
+    expect(orders[0]).toEqual([['createdAt', 'ASC'], ['id', 'DESC']]);
+    expect(orders[1]).toEqual([['updatedAt', 'DESC'], ['id', 'DESC']]);
+    expect(orders[2]).toEqual([['id', 'ASC']]);
+    expect(StudentFeedback.findAndCountAll.mock.calls[1][0]).toEqual(expect.objectContaining({
+      limit: 20,
+      offset: 40,
+    }));
+  });
+
+  it('rejects a sort field or direction outside the whitelist', async () => {
+    await expect(listStudentFeedback({ sortBy: 'email' })).rejects.toMatchObject({
+      status: 400,
+      code: 'STUDENT_FEEDBACK_INVALID',
+    });
+    await expect(listStudentFeedback({ sortBy: 'createdAt', sortOrder: 'DROP TABLE' })).rejects.toMatchObject({
+      status: 400,
+      code: 'STUDENT_FEEDBACK_INVALID',
+    });
+    expect(StudentFeedback.findAndCountAll).not.toHaveBeenCalled();
+  });
+
+  it('hides internal notes from a view-only detail and from message search', async () => {
+    const row = storedCase();
+    StudentFeedback.findByPk.mockResolvedValue(row);
+    StudentFeedbackMessage.findAll.mockResolvedValue([
+      { id: 1, visibility: 'internal', authorType: 'staff', body: '內部判斷', createdAt: new Date() },
+      { id: 2, visibility: 'public', authorType: 'staff', body: '公開回覆', createdAt: new Date() },
+    ]);
+
+    const hidden = await getStudentFeedback(7, { includeInternal: false });
+    expect(hidden.messages.map((entry) => entry.body)).toEqual(['公開回覆']);
+    expect(StudentFeedbackMessage.findAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: { feedbackId: 7, visibility: 'public' },
+    }));
+
+    StudentFeedbackMessage.findAll.mockResolvedValue([
+      { id: 1, visibility: 'internal', body: '內部判斷' },
+      { id: 2, visibility: 'public', body: '公開回覆' },
+    ]);
+    const shown = await getStudentFeedback(7, { includeInternal: true });
+    expect(shown.messages.map((entry) => entry.body)).toEqual(['內部判斷', '公開回覆']);
+
+    StudentFeedbackMessage.findAll.mockResolvedValue([]);
+    StudentFeedback.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+    await listStudentFeedback({ q: '內部判斷', includeInternal: false });
+    expect(StudentFeedbackMessage.findAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: { body: { [require('sequelize').Op.like]: '%內部判斷%' }, visibility: 'public' },
+    }));
+  });
+
+  it('records status and assignee changes with the actor and skips an unchanged value', async () => {
+    const row = storedCase({ status: 'open', replyRequested: false, assignedTeacherId: null });
+    StudentFeedback.findByPk.mockResolvedValue(row);
+    Teacher.findByPk.mockResolvedValue({
+      id: 4,
+      role: 'office_staff',
+      staffLevel: 'event_lead',
+      isActive: true,
+      isDemo: false,
+    });
+
+    await updateStudentFeedbackCase({
+      id: 7,
+      patch: { status: 'closed', assignedTeacherId: 4 },
+      actor: { id: 9 },
+      requestId: 'req-1',
+    });
+
+    const events = StudentFeedbackEvent.bulkCreate.mock.calls[0][0];
+    expect(events).toEqual([
+      expect.objectContaining({
+        eventType: 'STATUS_CHANGED',
+        actorTeacherId: 9,
+        beforeValue: { status: 'open' },
+        afterValue: { status: 'closed' },
+        requestId: 'req-1',
+      }),
+      expect.objectContaining({
+        eventType: 'ASSIGNEE_CHANGED',
+        actorType: 'staff',
+        actorTeacherId: 9,
+        beforeValue: { assignedTeacherId: null },
+        afterValue: { assignedTeacherId: 4 },
+        requestId: 'req-1',
+      }),
+    ]);
+    expect(events[0].createdAt).toBeInstanceOf(Date);
+    expect(StudentFeedback.findByPk).toHaveBeenCalledWith(7, expect.objectContaining({
+      transaction,
+      lock: 'UPDATE',
+    }));
+    expect(transaction.commit).toHaveBeenCalled();
+
+    StudentFeedbackEvent.bulkCreate.mockClear();
+    row.update.mockClear();
+    await updateStudentFeedbackCase({
+      id: 7,
+      patch: { status: 'closed', assignedTeacherId: 4 },
+      actor: { id: 9 },
+    });
+    expect(row.update).not.toHaveBeenCalled();
+    expect(StudentFeedbackEvent.bulkCreate).not.toHaveBeenCalled();
+  });
+
+  it('rolls back when saving the case or the event fails', async () => {
+    const row = storedCase({ replyRequested: false, status: 'open' });
+    StudentFeedback.findByPk.mockResolvedValue(row);
+    row.update.mockRejectedValueOnce(new Error('update failed'));
+    await expect(updateStudentFeedbackCase({
+      id: 7,
+      patch: { status: 'closed' },
+      actor: { id: 9 },
+    })).rejects.toThrow('update failed');
+    expect(StudentFeedbackEvent.bulkCreate).not.toHaveBeenCalled();
+    expect(transaction.rollback).toHaveBeenCalled();
+    expect(transaction.commit).not.toHaveBeenCalled();
+
+    transaction.rollback.mockClear();
+    row.update.mockResolvedValue(undefined);
+    StudentFeedbackEvent.bulkCreate.mockRejectedValueOnce(new Error('event failed'));
+    await expect(updateStudentFeedbackCase({
+      id: 7,
+      patch: { status: 'closed' },
+      actor: { id: 9 },
+    })).rejects.toThrow('event failed');
+    expect(transaction.rollback).toHaveBeenCalled();
+    expect(transaction.commit).not.toHaveBeenCalled();
+  });
+
+  it('writes an internal note without putting the note text on the status event', async () => {
+    const row = storedCase({ status: 'open' });
+    StudentFeedback.findByPk.mockResolvedValue(row);
+    await addStaffNote({ id: 7, teacher: { id: 3 }, message: '先內部確認原因' });
+    expect(StudentFeedbackMessage.create).toHaveBeenCalledWith(expect.objectContaining({
+      visibility: 'internal',
+      body: '先內部確認原因',
+    }), expect.objectContaining({ transaction }));
+    const event = StudentFeedbackEvent.bulkCreate.mock.calls[0][0][0];
+    expect(event).toEqual(expect.objectContaining({
+      eventType: 'STATUS_CHANGED',
+      beforeValue: { status: 'open' },
+      afterValue: { status: 'in_progress' },
+    }));
+    expect(JSON.stringify(event)).not.toContain('先內部確認原因');
+  });
+
+  it('lists staff events in a stable order and omits internal event rows for view-only', async () => {
+    StudentFeedback.findByPk.mockResolvedValue(storedCase());
+    StudentFeedbackEvent.findAndCountAll.mockResolvedValue({
+      count: 1,
+      rows: [{
+        id: 5,
+        feedbackId: 7,
+        eventType: 'STATUS_CHANGED',
+        visibility: 'staff',
+        actorType: 'staff',
+        actorTeacherId: 9,
+        beforeValue: { status: 'open', body: '不該出現' },
+        afterValue: { status: 'in_progress' },
+        createdAt: new Date('2026-11-09T01:00:00.000Z'),
+      }],
+    });
+
+    const result = await listStudentFeedbackEvents(7, { includeInternal: false, page: 1 });
+    expect(StudentFeedbackEvent.findAndCountAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: { feedbackId: 7, visibility: 'staff' },
+      order: [['createdAt', 'ASC'], ['id', 'ASC']],
+    }));
+    expect(result.items[0].beforeValue).toEqual({ status: 'open' });
+    expect(JSON.stringify(result.items[0])).not.toContain('不該出現');
+
+    StudentFeedback.findByPk.mockResolvedValueOnce(null);
+    await expect(listStudentFeedbackEvents(99)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('sets a priority, keeps an unchanged value quiet, and rejects an unknown priority', async () => {
+    const row = storedCase({ priority: null });
+    StudentFeedback.findByPk.mockResolvedValue(row);
+
+    const updated = await updateStudentFeedbackCase({
+      id: 7,
+      patch: { priority: 'P1' },
+      actor: { id: 9 },
+    });
+    expect(StudentFeedbackEvent.bulkCreate).toHaveBeenCalledWith([
+      expect.objectContaining({
+        eventType: 'PRIORITY_CHANGED',
+        actorTeacherId: 9,
+        beforeValue: { priority: null },
+        afterValue: { priority: 'P1' },
+      }),
+    ], expect.objectContaining({ transaction }));
+    expect(updated.priority).toBe('P1');
+    expect(updated.priorityLabel).toBe('P1（高）');
+    expect(transaction.commit).toHaveBeenCalled();
+
+    StudentFeedbackEvent.bulkCreate.mockClear();
+    await updateStudentFeedbackCase({ id: 7, patch: { priority: 'P1' }, actor: { id: 9 } });
+    expect(StudentFeedbackEvent.bulkCreate).not.toHaveBeenCalled();
+
+    await expect(updateStudentFeedbackCase({
+      id: 7,
+      patch: { priority: 'urgent' },
+    })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('rolls back when the priority event insert fails', async () => {
+    const row = storedCase({ priority: null, status: 'open' });
+    StudentFeedback.findByPk.mockResolvedValue(row);
+    row.update.mockResolvedValue(undefined);
+    StudentFeedbackEvent.bulkCreate.mockRejectedValueOnce(new Error('priority event failed'));
+    await expect(updateStudentFeedbackCase({
+      id: 7,
+      patch: { priority: 'P0' },
+      actor: { id: 9 },
+    })).rejects.toThrow('priority event failed');
+    expect(transaction.rollback).toHaveBeenCalled();
+    expect(transaction.commit).not.toHaveBeenCalled();
+  });
+
+  it('filters category and priority in the query and can list rows without a priority', async () => {
+    StudentFeedback.findAndCountAll.mockResolvedValue({
+      count: 1,
+      rows: [storedCase({ priority: null, category: 'learning_journey' })],
+    });
+    const listed = await listStudentFeedback({
+      category: 'learning_journey',
+      priority: 'unset',
+      sortBy: 'priority',
+      sortOrder: 'asc',
+    });
+    expect(StudentFeedback.findAndCountAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ category: 'learning_journey', priority: null }),
+      order: expect.arrayContaining([['priority', 'ASC']]),
+    }));
+    expect(listed.items[0].priority).toBeNull();
+    expect(listed.items[0].priorityLabel).toBe('未設定');
+    expect(listed.items[0].categoryLabel).toBe('學習歷程');
+
+    await expect(listStudentFeedback({ priority: 'P9' })).rejects.toMatchObject({ status: 400 });
+    await expect(listStudentFeedback({ category: 'secret' })).rejects.toMatchObject({ status: 400 });
+    await expect(listStudentFeedback({ sortBy: 'message' })).rejects.toMatchObject({ status: 400 });
   });
 });

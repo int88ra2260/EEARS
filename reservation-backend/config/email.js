@@ -1795,31 +1795,27 @@ Phone: (07) 525-2000 ext. 5808
 `,
   }),
 
-  studentFeedbackNotice: (data) => ({
-    from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
-    to: data.centerEmail || 'emicenter@mail.nsysu.edu.tw',
-    replyTo: data.studentEmail || undefined,
-    subject: `【EEARS】${data.kindLabel || '學生回報'}：${data.categoryLabel || ''} — ${data.studentId || ''} ${data.studentName || ''}`.trim(),
-    text: `
-英語中心同仁您好，
+  studentFeedbackNotice: (data) => {
+    const caseId = data && data.caseId != null ? String(data.caseId).replace(/[^\d]/g, '') : '';
+    const adminUrl = data && typeof data.adminUrl === 'string'
+      && /^https?:\/\/[^/?#\s]+\/admin\/student-feedback$/.test(data.adminUrl)
+      ? data.adminUrl
+      : '';
+    return {
+      from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
+      to: (data && data.centerEmail) || 'emicenter@mail.nsysu.edu.tw',
+      subject: `[EEARS] 新的學生回報 #${caseId}`,
+      text: `
+系統收到一筆新的學生回報。
 
-有一位學生從「我的帳號」送來${data.kindLabel || '回報'}。這封信是學生回報，與活動現場的學生證簽到無關。
+案件編號：#${caseId}
 
-類型：${data.kindLabel || ''}
-項目：${data.categoryLabel || ''}
-時間：${data.submittedAt || ''}
-學號：${data.studentId || ''}
-姓名：${data.studentName || ''}
-信箱：${data.studentEmail || ''}
-${data.emailVerified ? '收信信箱已驗證。' : '收信信箱尚未驗證。'}
-${data.replyRequested === false ? '學生沒有要求一定要個別回覆。' : '學生希望得到回覆。'}
+請登入 EEARS 管理後台查看詳細資訊。
 
-內容：
-${data.message || ''}
-
-請到後台「學生回報」回覆。學生看得到回覆，看不到內部備註。此內容不會公開給其他學生。
+後台連結：${adminUrl}
 `.trim(),
-  }),
+    };
+  },
 
   studentFeedbackReply: (data) => ({
     from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
