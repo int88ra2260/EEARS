@@ -61,6 +61,12 @@ export async function postMyStudentFeedbackMessage(id, message) {
   return { ok: res.ok, status: res.status, data };
 }
 
+export async function fetchAdminStudentFeedbackSummary(token) {
+  const res = await staffRequest(token, '/api/admin/student-feedback/summary');
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
 export async function fetchAdminStudentFeedback(token, query) {
   const params = new URLSearchParams();
   Object.entries(query || {}).forEach(([key, value]) => {
@@ -74,6 +80,19 @@ export async function fetchAdminStudentFeedback(token, query) {
 
 export async function fetchAdminStudentFeedbackDetail(token, id) {
   const res = await staffRequest(token, `/api/admin/student-feedback/${encodeURIComponent(id)}`);
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function fetchAdminStudentFeedbackEvents(token, id, query = {}) {
+  const params = new URLSearchParams();
+  if (query.page) params.set('page', String(query.page));
+  if (query.pageSize) params.set('pageSize', String(query.pageSize));
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  const res = await staffRequest(
+    token,
+    `/api/admin/student-feedback/${encodeURIComponent(id)}/events${suffix}`,
+  );
   const data = await parseJson(res);
   return { ok: res.ok, status: res.status, data };
 }

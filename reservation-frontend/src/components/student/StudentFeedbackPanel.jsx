@@ -7,6 +7,8 @@ const CATEGORIES = [
   { id: 'survey', label: '問卷' },
   { id: 'account', label: '帳號或信箱' },
   { id: 'english_test', label: '培力報名' },
+  { id: 'learning_journey', label: '學習歷程' },
+  { id: 'display', label: '介面顯示' },
   { id: 'other', label: '其他' },
 ];
 

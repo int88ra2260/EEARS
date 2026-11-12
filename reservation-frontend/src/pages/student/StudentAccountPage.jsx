@@ -102,6 +102,13 @@ function AppIcon({ name }) {
       </svg>
     );
   }
+  if (name === 'feedback') {
+    return (
+      <svg {...common}>
+        <path d="M5 6.5h14a2 2 0 0 1 2 2V15a2 2 0 0 1-2 2H9l-4 3.5V8.5a2 2 0 0 1 2-2z" />
+      </svg>
+    );
+  }
   return (
     <svg {...common}>
       <circle cx="8" cy="14" r="3.2" />
@@ -347,6 +354,17 @@ export default function StudentAccountPage() {
           </span>
           <span className="student-account__app-label">登入方式</span>
         </button>
+        <button
+          type="button"
+          className={`student-account__app${openPanel === 'feedback' ? ' is-open' : ''}`}
+          aria-expanded={openPanel === 'feedback'}
+          onClick={() => togglePanel('feedback')}
+        >
+          <span className="student-account__app-icon">
+            <AppIcon name="feedback" />
+          </span>
+          <span className="student-account__app-label">遇到問題</span>
+        </button>
       </nav>
 
       {needsActivation || openPanel === 'email' ? (
@@ -454,7 +472,9 @@ export default function StudentAccountPage() {
       </section>
       ) : null}
 
-      <StudentFeedbackPanel student={student} activated={!needsActivation} />
+      {openPanel === 'feedback' ? (
+        <StudentFeedbackPanel student={student} activated={!needsActivation} />
+      ) : null}
     </div>
   );
 }
