@@ -59,6 +59,10 @@ const StudentFeedback = sequelize.define('StudentFeedback', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  priority: {
+    type: DataTypes.STRING(8),
+    allowNull: true,
+  },
 }, {
   tableName: 'student_feedback',
   indexes: [
@@ -67,6 +71,7 @@ const StudentFeedback = sequelize.define('StudentFeedback', {
     { fields: ['kind', 'createdAt'], name: 'idx_student_feedback_kind_created' },
     { fields: ['status', 'createdAt'], name: 'idx_student_feedback_status_created' },
     { fields: ['assignedTeacherId'], name: 'idx_student_feedback_assignee' },
+    { fields: ['priority', 'id'], name: 'idx_student_feedback_priority' },
   ],
 });
 
