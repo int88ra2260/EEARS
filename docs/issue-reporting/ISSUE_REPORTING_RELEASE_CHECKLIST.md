@@ -82,6 +82,23 @@
 | Integration Ready | 沿用隔離 MySQL | 本機封裝不取代正式庫驗證。 |
 | Production Ready | 否 | 沒有 push、merge 或部署。 |
 
+## Phase 2B.9 Release Gate
+
+本機只準備正式唯讀交接。沒有連正式庫。隔離語法檢查不是正式證據。UNKNOWN 維持 UNKNOWN。
+
+| 項目 | 狀態 | 證據 |
+|------|------|------|
+| Engineering Ready | PASS（本機與 PR CI） | Draft PR #7 CI 已通過。這不是合併或部署許可 |
+| Database Ready | UNKNOWN | Production Verification Required。正式 `SequelizeMeta` 與 schema 仍未查 |
+| Security Ready | PARTIAL / UNKNOWN | 程式側內部備註與新案通知已有測試。view 個資未決定，正式 SMTP 未驗證 |
+| Merge Ready | NO | 合併 `main` 會在 CI 成功後部署，且不會自動 migrate |
+| Production Ready | NO | Database 與正式授權都未完成 |
+| Production Migration Status | UNKNOWN | 不得改成 PASS |
+
+交接檔：`sql/production_student_feedback_readonly_check.sql`、`ISSUE_REPORTING_PRODUCTION_SCHEMA_HANDOFF.md`、`ISSUE_REPORTING_SCHEMA_VERIFICATION_RESULT_TEMPLATE.md`。
+
+下面「上線前」的舊項目不是這次的執行許可。正式機在三邊檔名清單比對完成前，不要跑 `db:migrate`。
+
 ## 上線前
 
 - [ ] 正式庫已有 `student_feedback`。若沒有，先跑 `20261108150000-create-student-feedback.js`。

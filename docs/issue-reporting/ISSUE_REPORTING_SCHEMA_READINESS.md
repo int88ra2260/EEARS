@@ -158,6 +158,13 @@ Model：`StudentFeedback`、`StudentFeedbackMessage`、`StudentFeedbackEvent` �
 - 不要開 `ENABLE_DB_SYNC`。
 - 這份文件的隔離測試通過，不等於正式庫已準備好。
 
+## Phase 2B.9
+
+- 本機已準備正式唯讀 SQL 與操作手冊。見 `ISSUE_REPORTING_PRODUCTION_SCHEMA_HANDOFF.md`。
+- 沒有連正式庫，沒有讀正式 `.env`，沒有改 `SequelizeMeta`。
+- Production Migration Status 維持 UNKNOWN。
+- 開發筆電的路徑也是 `D:\EEARS`。正式結果必須來自電腦名稱不是 `LAPTOP-IVA4HK36` 的伺服器。
+
 ## Rollback Considerations
 
 - `20261112161000` 的 `down` 只刪 `student_feedback_events`，不刪案件與留言。
