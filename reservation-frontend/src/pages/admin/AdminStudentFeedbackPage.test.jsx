@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import AdminStudentFeedbackPage from './AdminStudentFeedbackPage';
@@ -16,6 +16,16 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock('../../services/studentFeedbackApi', () => api);
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 
 const row = {
   id: 128,
@@ -569,5 +579,208 @@ describe('學生回報後台', () => {
         page: 1,
       }));
     });
+  });
+
+  test('keeps the newer case when an older detail response arrives later', async () => {
+    const caseA = deferred();
+    const caseB = deferred();
+    const rowA = { ...row, id: 1, message: '案件A內容', status: 'open' };
+    const rowB = { ...row, id: 2, message: '案件B內容', status: 'in_progress' };
+    api.fetchAdminStudentFeedback.mockResolvedValue({
+      ok: true,
+      data: { items: [rowA, rowB], page: 1, pageSize: 20, total: 2 },
+    });
+    api.fetchAdminStudentFeedbackDetail.mockReset();
+    api.fetchAdminStudentFeedbackDetail
+      .mockImplementationOnce(() => caseA.promise)
+      .mockImplementationOnce(() => caseB.promise);
+    renderPage({ canManage: true });
+    fireEvent.click(await screen.findByText('案件A內容'));
+    fireEvent.click(screen.getByText('案件B內容'));
+    await act(async () => {
+      caseB.resolve({ ok: true, data: { item: rowB } });
+    });
+    expect(await screen.findByRole('heading', { level: 2, name: '問題回報 · 處理中' })).toBeInTheDocument();
+    await act(async () => {
+      caseA.resolve({ ok: true, data: { item: rowA } });
+    });
+    expect(screen.getByRole('heading', { level: 2, name: '問題回報 · 處理中' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: '問題回報 · 待處理' })).not.toBeInTheDocument();
+  });
+
+  test('does not mutate a case while its detail is still loading', async () => {
+    const caseA = deferred();
+    const caseB = deferred();
+    const rowA = { ...row, id: 11, message: '尚未載入A' };
+    const rowB = { ...row, id: 12, message: '尚未載入B' };
+    api.fetchAdminStudentFeedback.mockResolvedValue({
+      ok: true,
+      data: { items: [rowA, rowB], page: 1, pageSize: 20, total: 2 },
+    });
+    api.fetchAdminStudentFeedbackDetail.mockReset();
+    api.fetchAdminStudentFeedbackDetail
+      .mockImplementationOnce(() => caseA.promise)
+      .mockImplementationOnce(() => caseB.promise);
+    renderPage({ canManage: true });
+    fireEvent.click(await screen.findByText('尚未載入A'));
+    fireEvent.click(screen.getByText('尚未載入B'));
+    expect(screen.queryByRole('button', { name: '結案' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '指派' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '更新優先級' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '送出回覆' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '記下備註' })).not.toBeInTheDocument();
+    expect(api.patchAdminStudentFeedback).not.toHaveBeenCalled();
+    expect(api.postAdminStudentFeedbackReply).not.toHaveBeenCalled();
+    expect(api.postAdminStudentFeedbackNote).not.toHaveBeenCalled();
+    await act(async () => {
+      caseA.resolve({ ok: true, data: { item: rowA } });
+      caseB.resolve({ ok: true, data: { item: rowB } });
+    });
+    fireEvent.click(await screen.findByRole('button', { name: '結案' }));
+    expect(api.patchAdminStudentFeedback).toHaveBeenCalledTimes(1);
+    expect(api.patchAdminStudentFeedback).toHaveBeenCalledWith('staff-token', 12, { status: 'closed' });
+    expect(await screen.findByRole('alert')).toHaveTextContent('已結案');
+  });
+
+  test('does not apply a finished update after the selection has changed', async () => {
+    const update = deferred();
+    const caseB = deferred();
+    const rowA = { ...row, id: 21, message: '更新中A', status: 'open' };
+    const rowB = { ...row, id: 22, message: '已改選B', status: 'in_progress' };
+    api.fetchAdminStudentFeedback.mockResolvedValue({
+      ok: true,
+      data: { items: [rowA, rowB], page: 1, pageSize: 20, total: 2 },
+    });
+    api.fetchAdminStudentFeedbackDetail.mockReset();
+    api.fetchAdminStudentFeedbackDetail
+      .mockResolvedValueOnce({ ok: true, data: { item: rowA } })
+      .mockImplementationOnce(() => caseB.promise);
+    api.patchAdminStudentFeedback.mockImplementation(() => update.promise);
+    renderPage({ canManage: true });
+    fireEvent.click(await screen.findByText('更新中A'));
+    fireEvent.click(await screen.findByRole('button', { name: '結案' }));
+    fireEvent.click(screen.getByText('已改選B'));
+    await act(async () => {
+      update.resolve({
+        ok: true,
+        data: { notice: '已結案', item: { ...rowA, status: 'closed' } },
+      });
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await act(async () => {
+      caseB.resolve({ ok: true, data: { item: rowB } });
+    });
+    expect(await screen.findByRole('heading', { level: 2, name: '問題回報 · 處理中' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(api.patchAdminStudentFeedback).toHaveBeenCalledTimes(1);
+    expect(api.patchAdminStudentFeedback).toHaveBeenCalledWith('staff-token', 21, { status: 'closed' });
+  });
+
+  test('keeps the newer list when an older query finishes later', async () => {
+    const older = deferred();
+    const newer = deferred();
+    api.fetchAdminStudentFeedback.mockReset();
+    api.fetchAdminStudentFeedback
+      .mockImplementationOnce(() => older.promise)
+      .mockImplementationOnce(() => newer.promise);
+    renderPage();
+    fireEvent.change(screen.getByLabelText('狀態'), { target: { value: 'closed' } });
+    await act(async () => {
+      newer.resolve({
+        ok: true,
+        data: { items: [{ ...row, id: 32, message: '新條件案件' }], page: 1, pageSize: 20, total: 1 },
+      });
+    });
+    expect(await screen.findByText('新條件案件')).toBeInTheDocument();
+    await act(async () => {
+      older.resolve({
+        ok: true,
+        data: { items: [{ ...row, id: 31, message: '舊條件案件' }], page: 1, pageSize: 20, total: 1 },
+      });
+    });
+    expect(screen.getByText('新條件案件')).toBeInTheDocument();
+    expect(screen.queryByText('舊條件案件')).not.toBeInTheDocument();
+  });
+
+  test('ignores a stale list failure and a stale detail failure', async () => {
+    const olderList = deferred();
+    const newerList = deferred();
+    const olderDetail = deferred();
+    const newerDetail = deferred();
+    api.fetchAdminStudentFeedback.mockReset();
+    api.fetchAdminStudentFeedback
+      .mockImplementationOnce(() => olderList.promise)
+      .mockImplementationOnce(() => newerList.promise);
+    api.fetchAdminStudentFeedbackDetail.mockReset();
+    api.fetchAdminStudentFeedbackDetail
+      .mockImplementationOnce(() => olderDetail.promise)
+      .mockImplementationOnce(() => newerDetail.promise);
+    renderPage({ canManage: true });
+    fireEvent.change(screen.getByLabelText('狀態'), { target: { value: 'open' } });
+    await act(async () => {
+      newerList.resolve({
+        ok: true,
+        data: { items: [{ ...row, id: 41, message: '目前列表' }], page: 1, pageSize: 20, total: 1 },
+      });
+    });
+    fireEvent.click(await screen.findByText('目前列表'));
+    fireEvent.click(screen.getByText('目前列表'));
+    await act(async () => {
+      newerDetail.resolve({ ok: true, data: { item: { ...row, id: 41, message: '目前列表', status: 'open' } } });
+    });
+    expect(await screen.findByRole('heading', { level: 2, name: '問題回報 · 待處理' })).toBeInTheDocument();
+    await act(async () => {
+      olderList.reject(new Error('old list'));
+      olderDetail.reject(new Error('old detail'));
+    });
+    expect(screen.queryByText('與伺服器連線發生錯誤')).not.toBeInTheDocument();
+    expect(screen.getAllByText('目前列表').length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { level: 2, name: '問題回報 · 待處理' })).toBeInTheDocument();
+  });
+
+  test('restores the priority after a network error and ignores that failure on the next case', async () => {
+    const failure = deferred();
+    const caseB = deferred();
+    const rowA = { ...row, id: 51, message: '優先級A', priority: 'P1', priorityLabel: 'P1（高）' };
+    const rowB = { ...row, id: 52, message: '優先級B', priority: 'P2', priorityLabel: 'P2（中）' };
+    api.fetchAdminStudentFeedback.mockResolvedValue({
+      ok: true,
+      data: { items: [rowA, rowB], page: 1, pageSize: 20, total: 2 },
+    });
+    api.fetchAdminStudentFeedbackDetail.mockReset();
+    api.fetchAdminStudentFeedbackDetail
+      .mockResolvedValueOnce({ ok: true, data: { item: rowA } })
+      .mockImplementationOnce(() => caseB.promise);
+    api.patchAdminStudentFeedback.mockImplementationOnce(() => failure.promise);
+    renderPage({ canManage: true });
+    fireEvent.click(await screen.findByText('優先級A'));
+    const priority = await screen.findByLabelText('調整優先級');
+    expect(priority).toHaveValue('P1');
+    fireEvent.change(priority, { target: { value: 'P0' } });
+    fireEvent.click(screen.getByRole('button', { name: '更新優先級' }));
+    fireEvent.click(screen.getByText('優先級B'));
+    await act(async () => {
+      failure.reject(new Error('network'));
+    });
+    await act(async () => {
+      caseB.resolve({ ok: true, data: { item: rowB } });
+    });
+    expect(await screen.findByLabelText('調整優先級')).toHaveValue('P2');
+    expect(screen.queryByText('與伺服器連線發生錯誤')).not.toBeInTheDocument();
+    expect(screen.getByText('分類：預約 · 優先級：P2（中）')).toBeInTheDocument();
+  });
+
+  test('shows an unknown status as its raw value', async () => {
+    const unknown = { ...row, status: 'queued', statusLabel: '待處理', message: '未知狀態案件' };
+    api.fetchAdminStudentFeedback.mockResolvedValue({
+      ok: true,
+      data: { items: [unknown], page: 1, pageSize: 20, total: 1 },
+    });
+    api.fetchAdminStudentFeedbackDetail.mockResolvedValue({ ok: true, data: { item: unknown } });
+    renderPage();
+    expect(await screen.findByText('queued')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('未知狀態案件'));
+    expect(await screen.findByRole('heading', { level: 2, name: '問題回報 · queued' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: /待處理/ })).not.toBeInTheDocument();
   });
 });

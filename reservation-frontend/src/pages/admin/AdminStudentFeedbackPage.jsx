@@ -227,13 +227,19 @@ export default function AdminStudentFeedbackPage() {
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState('');
   const summaryRequest = useRef(0);
+  const listRequest = useRef(0);
+  const detailRequest = useRef(0);
+  const actionRequest = useRef(0);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const selectedIdRef = useRef(null);
+  selectedIdRef.current = selectedId;
   const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [assignees, setAssignees] = useState([]);
   const [assigneeId, setAssigneeId] = useState('');
   const [priorityId, setPriorityId] = useState('');
@@ -251,12 +257,15 @@ export default function AdminStudentFeedbackPage() {
   const eventsLoadedPage = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = listRequest.current + 1;
+    listRequest.current = requestId;
     setLoading(true);
     setError('');
     try {
       const { ok, data } = await fetchAdminStudentFeedback(token, {
         kind, status, category, priority: priorityFilter, q, assignedTeacherId: assigneeFilter, from, to, page, sortBy, sortOrder,
       });
+      if (requestId !== listRequest.current) return;
       if (!ok) {
         setError(data?.message || '無法載入學生回報');
         setItems([]);
@@ -266,10 +275,11 @@ export default function AdminStudentFeedbackPage() {
       setTotal(Number(data?.total) || 0);
       setPageSize(Number(data?.pageSize) || 20);
     } catch {
+      if (requestId !== listRequest.current) return;
       setError('與伺服器連線發生錯誤');
       setItems([]);
     } finally {
-      setLoading(false);
+      if (requestId === listRequest.current) setLoading(false);
     }
   }, [token, kind, status, category, priorityFilter, q, assigneeFilter, from, to, page, sortBy, sortOrder]);
 
@@ -302,19 +312,33 @@ export default function AdminStudentFeedbackPage() {
 
   const loadDetail = useCallback(async (id) => {
     if (!id) return;
+    const requestId = detailRequest.current + 1;
+    detailRequest.current = requestId;
+    setDetailLoading(true);
     setActionError('');
     try {
       const { ok, data } = await fetchAdminStudentFeedbackDetail(token, id);
+      if (requestId !== detailRequest.current || String(selectedIdRef.current) !== String(id)) return;
       if (!ok) {
         setActionError(data?.message || '無法載入這筆回報');
         setDetail(null);
         return;
       }
-      setDetail(data?.item || null);
-      setAssigneeId(data?.item?.assignedTeacherId ? String(data.item.assignedTeacherId) : '');
-      setPriorityId(data?.item?.priority || '');
+      const item = data?.item || null;
+      if (!item || String(item.id) !== String(id)) {
+        setActionError('這筆回報的資料與選取案件不一致。');
+        setDetail(null);
+        return;
+      }
+      setDetail(item);
+      setAssigneeId(item.assignedTeacherId ? String(item.assignedTeacherId) : '');
+      setPriorityId(item.priority || '');
     } catch {
+      if (requestId !== detailRequest.current || String(selectedIdRef.current) !== String(id)) return;
       setActionError('與伺服器連線發生錯誤');
+      setDetail(null);
+    } finally {
+      if (requestId === detailRequest.current) setDetailLoading(false);
     }
   }, [token]);
 
@@ -436,10 +460,16 @@ export default function AdminStudentFeedbackPage() {
   const pages = Math.max(1, Math.ceil(total / pageSize));
 
   const selectRow = (id) => {
+    actionRequest.current += 1;
+    setBusy(false);
     setSelectedId(id);
+    setDetail(null);
+    setDetailLoading(true);
     setReply('');
     setNote('');
     setNotice('');
+    setActionError('');
+    setAssigneeId('');
     setPriorityId('');
     setTimeline([]);
     setTimelineTotal(0);
@@ -448,30 +478,59 @@ export default function AdminStudentFeedbackPage() {
     loadTimeline(id, { reset: true });
   };
 
+  const detailIsCurrent = Boolean(
+    detail && selectedId != null && String(detail.id) === String(selectedId),
+  );
+  const canOperate = Boolean(canManage && detailIsCurrent && !detailLoading && !busy);
+
   const runAction = async (work) => {
+    const caseId = selectedIdRef.current;
+    if (
+      !canManage
+      || busy
+      || detailLoading
+      || !detail
+      || caseId == null
+      || String(detail.id) !== String(caseId)
+    ) {
+      setActionError('這筆回報還沒載入完成，請稍後再操作。');
+      return;
+    }
+    const confirmedPriority = detail.priority || '';
+    const actionId = actionRequest.current + 1;
+    actionRequest.current = actionId;
     setBusy(true);
     setActionError('');
     setNotice('');
+    const stillOnCase = () => (
+      actionId === actionRequest.current
+      && String(selectedIdRef.current) === String(caseId)
+    );
     try {
-      const { ok, data } = await work();
+      const { ok, data } = await work(caseId);
+      if (!stillOnCase()) return;
       if (!ok) {
         setActionError(data?.message || '沒有完成');
-        setPriorityId(detail?.priority || '');
+        setPriorityId(confirmedPriority);
         return;
       }
-      if (data?.item) {
+      if (data?.item && String(data.item.id) === String(caseId)) {
         setDetail(data.item);
         setAssigneeId(data.item.assignedTeacherId ? String(data.item.assignedTeacherId) : '');
         setPriorityId(data.item.priority || '');
+      } else {
+        setPriorityId(confirmedPriority);
       }
       setNotice(data?.notice || '已更新');
       load();
       loadSummary();
-      loadTimeline(data?.item?.id || selectedId, { followAll: true });
+      loadTimeline(caseId, { followAll: true });
     } catch {
+      if (!stillOnCase()) return;
       setActionError('與伺服器連線發生錯誤');
+      setPriorityId(confirmedPriority);
     } finally {
-      setBusy(false);
+      if (actionId === actionRequest.current) setBusy(false);
     }
   };
 
@@ -515,7 +574,7 @@ export default function AdminStudentFeedbackPage() {
           </>
         ) : null}
       </section>
-      <div className="d-flex gap-2 mb-3" role="group" aria-label="回報類型">
+      <div className="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="回報類型">
         {FILTERS.map((item) => (
           <Button
             key={item.id || 'all'}
@@ -610,7 +669,7 @@ export default function AdminStudentFeedbackPage() {
                 <td className="text-nowrap">{item.id == null ? '' : `#${item.id}`}</td>
                 <td className="text-nowrap">{formatWhen(item.createdAt)}</td>
                 <td className="text-nowrap">{formatWhen(item.updatedAt)}</td>
-                <td className="text-nowrap">{item.statusLabel}</td>
+                <td className="text-nowrap">{statusText(item.status)}</td>
                 <td className="text-nowrap">{item.kindLabel}</td>
                 <td className="text-nowrap">{item.categoryLabel}</td>
                 <td className="text-nowrap">{item.priorityLabel || '未設定'}</td>
@@ -634,10 +693,22 @@ export default function AdminStudentFeedbackPage() {
           <Button size="sm" variant="outline-secondary" disabled={page >= pages} onClick={() => setPage((value) => value + 1)}>下一頁</Button>
         </div>
       ) : null}
-      {detail ? (
-        <section className="border rounded p-3" aria-labelledby="student-feedback-detail-title">
+      {selectedId && (detailIsCurrent || detailLoading) ? (
+        <section
+          className="border rounded p-3"
+          aria-busy={detailLoading && !detailIsCurrent ? 'true' : 'false'}
+          {...(detailIsCurrent ? { 'aria-labelledby': 'student-feedback-detail-title' } : { 'aria-label': '案件詳情' })}
+        >
+          {detailLoading && !detailIsCurrent ? (
+            <div className="d-flex align-items-center gap-2 text-muted" role="status">
+              <Spinner size="sm" animation="border" />
+              載入這筆回報
+            </div>
+          ) : null}
+          {detailIsCurrent ? (
+          <>
           <h2 className="h5" id="student-feedback-detail-title">
-            {detail.kindLabel} · {detail.statusLabel}
+            {detail.kindLabel} · {statusText(detail.status)}
           </h2>
           <p className="small text-muted mb-2">
             {detail.studentName} {detail.studentId} · {detail.replyRequested ? '希望得到回覆' : '不要求個別回覆'}
@@ -673,7 +744,7 @@ export default function AdminStudentFeedbackPage() {
                 className="d-flex flex-wrap gap-2 align-items-end"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  runAction(() => patchAdminStudentFeedback(token, detail.id, {
+                  runAction((caseId) => patchAdminStudentFeedback(token, caseId, {
                     priority: priorityId || null,
                   }));
                 }}
@@ -689,13 +760,13 @@ export default function AdminStudentFeedbackPage() {
                     {PRIORITIES.map((item) => <option key={item.id || 'unset'} value={item.id}>{item.label}</option>)}
                   </Form.Select>
                 </Form.Group>
-                <Button type="submit" size="sm" disabled={busy}>更新優先級</Button>
+                <Button type="submit" size="sm" disabled={!canOperate}>更新優先級</Button>
               </Form>
               <Form
                 className="d-flex flex-wrap gap-2 align-items-end"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  runAction(() => patchAdminStudentFeedback(token, detail.id, {
+                  runAction((caseId) => patchAdminStudentFeedback(token, caseId, {
                     assignedTeacherId: assigneeId ? Number(assigneeId) : null,
                   }));
                 }}
@@ -709,14 +780,14 @@ export default function AdminStudentFeedbackPage() {
                     ))}
                   </Form.Select>
                 </Form.Group>
-                <Button type="submit" size="sm" disabled={busy}>指派</Button>
+                <Button type="submit" size="sm" disabled={!canOperate}>指派</Button>
                 {detail.status === 'closed' ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="outline-secondary"
-                    disabled={busy}
-                    onClick={() => runAction(() => patchAdminStudentFeedback(token, detail.id, { status: 'in_progress' }))}
+                    disabled={!canOperate}
+                    onClick={() => runAction((caseId) => patchAdminStudentFeedback(token, caseId, { status: 'in_progress' }))}
                   >
                     改回處理中
                   </Button>
@@ -725,8 +796,8 @@ export default function AdminStudentFeedbackPage() {
                     type="button"
                     size="sm"
                     variant="outline-secondary"
-                    disabled={busy}
-                    onClick={() => runAction(() => patchAdminStudentFeedback(token, detail.id, { status: 'closed' }))}
+                    disabled={!canOperate}
+                    onClick={() => runAction((caseId) => patchAdminStudentFeedback(token, caseId, { status: 'closed' }))}
                   >
                     結案
                   </Button>
@@ -735,9 +806,9 @@ export default function AdminStudentFeedbackPage() {
               <Form
                 onSubmit={(event) => {
                   event.preventDefault();
-                  runAction(async () => {
-                    const result = await postAdminStudentFeedbackReply(token, detail.id, reply);
-                    if (result.ok) setReply('');
+                  runAction(async (caseId) => {
+                    const result = await postAdminStudentFeedbackReply(token, caseId, reply);
+                    if (result.ok && String(selectedIdRef.current) === String(caseId)) setReply('');
                     return result;
                   });
                 }}
@@ -752,14 +823,14 @@ export default function AdminStudentFeedbackPage() {
                   onChange={(e) => setReply(e.target.value)}
                   required
                 />
-                <Button className="mt-2" type="submit" size="sm" disabled={busy}>送出回覆</Button>
+                <Button className="mt-2" type="submit" size="sm" disabled={!canOperate}>送出回覆</Button>
               </Form>
               <Form
                 onSubmit={(event) => {
                   event.preventDefault();
-                  runAction(async () => {
-                    const result = await postAdminStudentFeedbackNote(token, detail.id, note);
-                    if (result.ok) setNote('');
+                  runAction(async (caseId) => {
+                    const result = await postAdminStudentFeedbackNote(token, caseId, note);
+                    if (result.ok && String(selectedIdRef.current) === String(caseId)) setNote('');
                     return result;
                   });
                 }}
@@ -774,12 +845,14 @@ export default function AdminStudentFeedbackPage() {
                   onChange={(e) => setNote(e.target.value)}
                   required
                 />
-                <Button className="mt-2" type="submit" size="sm" variant="outline-primary" disabled={busy}>記下備註</Button>
+                <Button className="mt-2" type="submit" size="sm" variant="outline-primary" disabled={!canOperate}>記下備註</Button>
               </Form>
             </div>
           ) : (
             <p className="text-muted small mt-3 mb-0">你目前可以查看，不能回覆、指派或結案。</p>
           )}
+          </>
+          ) : null}
         </section>
       ) : null}
     </div>
