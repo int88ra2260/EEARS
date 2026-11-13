@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { Spinner } from 'react-bootstrap';
 import useToast from '../../components/ui/useToast';
+import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
+import { buildAccessProfile } from '../../utils/accessControl';
 import {
   fetchSystemSettingsBundle,
   SETTINGS_PATHS,
@@ -34,6 +36,7 @@ function ToggleRow({ title, desc, value, loading, onChange, disabled = false, di
 export default function SystemSettingsPage() {
   const { token, userRole } = useOutletContext();
   const toast = useToast();
+  const profile = buildAccessProfile(token, userRole);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -128,6 +131,18 @@ export default function SystemSettingsPage() {
         <Link to="/admin/survey-rules">問卷啟用規則</Link>
         {' '}
         統一設定。
+        {canAccessAdminRoute(profile, '/admin/settings/event-types') ? (
+          <>
+            {' '}
+            <Link to="/admin/settings/event-types">活動類型設定</Link>
+          </>
+        ) : null}
+        {canAccessAdminRoute(profile, '/admin/settings/email-templates') ? (
+          <>
+            {' '}
+            <Link to="/admin/settings/email-templates">郵件設定</Link>
+          </>
+        ) : null}
       </div>
 
       <div className="card shadow-sm mb-3">

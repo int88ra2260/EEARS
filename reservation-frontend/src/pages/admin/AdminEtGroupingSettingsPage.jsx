@@ -9,8 +9,9 @@ import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import Tab from 'react-bootstrap/Tab';
 import Table from 'react-bootstrap/Table';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { P } from '../../constants/permissions';
+import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
 import { hasPermission } from '../../utils/accessControl';
 import {
   fetchEtGroupingBands,
@@ -186,6 +187,14 @@ export default function AdminEtGroupingSettingsPage() {
       <Alert variant="light" className="border mb-3">
         設定 GSE 能力分組帶區間與學期 Leader 預設指派。變更分組帶後，需至各場活動重新產生能力分組才會生效。
       </Alert>
+      <div className="d-flex flex-wrap gap-3 mb-3">
+        {canAccessAdminRoute(accessProfile, '/admin/et-grouping/tasks') ? (
+          <Link to="/admin/et-grouping/tasks">ET 任務模板</Link>
+        ) : null}
+        {canAccessAdminRoute(accessProfile, '/admin/leaders-team') ? (
+          <Link to="/admin/leaders-team">LEADERS 介紹</Link>
+        ) : null}
+      </div>
 
       <Tab.Container activeKey={activeTab} onSelect={(key) => setActiveTab(key || 'bands')}>
         <Nav variant="tabs" className="mb-3">

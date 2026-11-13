@@ -64,6 +64,7 @@ EEARS/
 | `core.mdc` | 常駐不變條件 |
 | `eears-business-rules.mdc` | 舊路徑，指向 `core.mdc`，不常駐 |
 | `frontend.mdc` | `reservation-frontend/src` 的 js、jsx、css，以及 `vite.config.js` |
+| `admin-nav-placement.mdc` | 後台側欄大標題、次標題與新頁面放置 |
 | `backend-api.mdc` | server、routes、controllers、services、middlewares、utils |
 | `backend-auth.mdc` | auth、middlewares、accessControl、routes、security tests、前端權限常數 |
 | `security-owasp.mdc` | config、server、middlewares、遮罩，以及含上傳的 route／controller |

@@ -11,7 +11,7 @@ alwaysApply: false
 ## 目錄與路由
 
 - 新頁面放 `src/pages/` 或 `src/pages/admin/`（`.jsx`）。可重用元件放 `src/components/{domain}/`。API 放 `src/services/` 或既有 fetch client。
-- 路由在 `src/App.js`。新後台頁要同時檢查 `adminRouteAccess.js`、`adminNavigation.js` 與後端權限。不要改既有 path，除非任務明確要求。
+- 路由在 `src/App.js`。新後台頁要同時檢查 `adminRouteAccess.js`、`adminNavigation.js` 與後端權限。側欄放哪個大標題或次標題見 `admin-nav-placement.mdc`。不要改既有 path，除非任務明確要求。
 - API 使用相對路徑 `/api`。不要硬編 host，也不要改 Vite `build.outDir = build` 與 proxy。
 - 不使用 Redux。權限 UI 走 `useAccessControl()`，後台共用狀態走 `useAdminContext()`。前端隱藏不能取代後端權限檢查。
 

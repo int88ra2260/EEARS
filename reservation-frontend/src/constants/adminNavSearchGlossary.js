@@ -43,9 +43,11 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     'Leader',
     '帶班',
     'grouping',
+    '任務模板',
+    'LEADERS 介紹',
   ],
   'et-task-templates': ['任務勾選', '模板', 'task', '英語桌任務'],
-  'et-grouping-reports': ['場次彙總', '英語桌報表', 'ET 報表'],
+  'et-grouping-reports': ['場次彙總', '英語桌報表', 'ET 報表', '支薪', '學生趨勢'],
   'et-leader-payroll': ['支薪', '薪水', '時薪', '年資', 'Leader 薪資', 'payroll'],
   'et-student-trends': ['學期趨勢', '英語桌學生', 'ET 趨勢'],
   'et-leader-sessions': [
@@ -169,6 +171,8 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '統計',
     'survey',
     '匯出問卷',
+    '資料品質',
+    '答案對照',
   ],
   'survey-rules-new': [
     'gate',

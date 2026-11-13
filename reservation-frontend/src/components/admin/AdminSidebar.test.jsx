@@ -27,17 +27,10 @@ describe('AdminSidebar nested navigation', () => {
     expect(document.querySelectorAll('.admin-sidebar__glyph').length).toBeGreaterThan(6);
 
     fireEvent.click(screen.getByRole('button', { name: '學習歷程與成果' }));
-    const analytics = screen.getByRole('button', { name: '學習成效' });
-    expect(analytics).toHaveAttribute('aria-expanded', 'false');
-
-    fireEvent.click(analytics);
-    expect(analytics).toHaveAttribute('aria-expanded', 'true');
-    const compareGroup = screen.getByRole('button', { name: '比較與資料' });
-    expect(compareGroup).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(compareGroup);
-    expect(screen.getByRole('link', { name: '群體與技能比較' })).toHaveAttribute('href', '/admin/learning-analytics/cohorts');
-    expect(screen.queryByRole('link', { name: '系所比較' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '技能成長' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '學習成效概況' })).toHaveAttribute('href', '/admin/learning-analytics/overview');
+    expect(screen.getByRole('link', { name: '找學生' })).toHaveAttribute('href', '/admin/learning-analytics/explore');
+    expect(screen.queryByRole('button', { name: '學習成效' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '群體與技能比較' })).not.toBeInTheDocument();
   });
 
   test('highlights 找學生 for the old finder urls', () => {
@@ -64,9 +57,9 @@ describe('AdminSidebar nested navigation', () => {
 
     expect(screen.getByRole('button', { name: '活動與預約' })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('button', { name: '學習歷程與成果' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: '學習成效' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('button', { name: '學習成效' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '問卷與回饋' })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('link', { name: '群體與技能比較' })).toHaveClass('admin-sidebar__link--active');
+    expect(screen.queryByRole('link', { name: '群體與技能比較' })).not.toBeInTheDocument();
   });
 
   test('collapse all and expand all cover nested groups', () => {
@@ -78,7 +71,8 @@ describe('AdminSidebar nested navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: '全部展開' }));
     expect(screen.getByRole('button', { name: '活動與預約' })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('button', { name: 'ET 分組' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: '學習成效' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: '設定' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('link', { name: '學習成效概況' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '學習成效' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '設定' })).not.toBeInTheDocument();
   });
 });

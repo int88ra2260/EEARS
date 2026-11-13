@@ -91,22 +91,22 @@ describe('analytics hub routes', () => {
       .toBe('/admin/classes/:classId/bestep');
   });
 
-  test('keeps overview, risk and the hub as separate sidebar entries', () => {
-    const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, buildNavContextFromAccessProfile(admin));
-    const section = visible.find((item) => item.id === 'analytics');
-    const ids = section.children.map((child) => child.id);
-    expect(ids).toEqual(expect.arrayContaining([
-      'analytics-hub',
-      'analytics-overview',
-      'analytics-risk',
-      'analytics-reports',
-      'analytics-teacher-dash',
-    ]));
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(getAdminPageMeta('/admin/analytics', buildNavContextFromAccessProfile(admin)).pageTitle)
-      .toBe('成效分析中心');
-    expect(getAdminPageMeta('/admin/analytics/overview', buildNavContextFromAccessProfile(admin)).pageTitle)
-      .toBe('活動營運總覽');
+  test('keeps overview and reports under events, and hides the analytics section', () => {
+    const ctx = buildNavContextFromAccessProfile(admin);
+    const visible = filterVisibleNav(ADMIN_NAV_SECTIONS, ctx);
+    expect(visible.find((item) => item.id === 'analytics')).toBeUndefined();
+    const eventIds = visible.find((item) => item.id === 'events').children.map((child) => child.id);
+    const classIds = visible.find((item) => item.id === 'classes').children.map((child) => child.id);
+    expect(eventIds).toEqual(expect.arrayContaining(['analytics-overview', 'analytics-reports']));
+    expect(classIds).toContain('analytics-risk');
+    expect(classIds).not.toContain('analytics-teacher-dash');
+    expect(getAdminPageMeta('/admin/analytics', ctx).pageTitle).toBe('成效分析中心');
+    expect(getAdminPageMeta('/admin/analytics/overview', ctx)).toMatchObject({
+      pageTitle: '活動營運總覽',
+      sectionId: 'events',
+      groupLabel: '活動與預約',
+      childId: 'analytics-overview',
+    });
   });
 });
 

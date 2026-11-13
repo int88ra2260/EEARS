@@ -2,8 +2,9 @@
  * 後台導覽設定（Phase 2 IA）
  * 權限與舊版 AdminLayout nav-tabs 一致，不擴權。
  *
- * 側欄排序原則：日常營運 → 班級 → 英檢／學習歷程／問卷 → 資料匯入 → 分析報表 → 內容 → 帳號 → 系統
- * 長清單收成三級：主選單 → 子群組（可收合）→ 頁面。短清單維持二級。
+ * 側欄排序：活動 → 班級 → 英檢 → 學習歷程 → 問卷 → 匯入 → 內容 → 帳號 → 系統。
+ * 新頁面放哪個大標題或次標題，見 `.cursor/rules/admin-nav-placement.mdc`。
+ * 完整權限只留日常工作標籤。報表細頁、匯入與維運留在所屬頁面裡。
  *
  * @typedef {{ actualUserRole: string, isTeacher: boolean, hasAdminRights: boolean, canViewReport: boolean, canViewSurvey: boolean, accessProfile?: object }} AdminNavContext
  */
@@ -120,6 +121,11 @@ export function isNavItemVisible(visibility, c) {
       return c.canViewSurvey;
     case 'adminOnly':
       return c.hasAdminRights;
+    case 'leaderOnly':
+      return c?.actualUserRole === 'leader';
+    case 'teacherDashboard':
+      if (c.hasAdminRights) return false;
+      return !!c?.accessProfile?.permissionSet?.has?.(P.CAN_VIEW_ANALYTICS);
     case 'roleAdmin':
       return c?.actualUserRole === 'admin' || !!c?.accessProfile?.isAdmin;
     case 'importCenter':
@@ -296,6 +302,24 @@ export const ADMIN_NAV_SECTIONS = [
         breadcrumbLabel: '簽到參與統計',
       },
       {
+        id: 'analytics-overview',
+        label: '活動營運總覽',
+        path: '/admin/analytics/overview',
+        matchPrefixes: ['/admin/analytics/overview'],
+        visibility: 'adminOnly',
+        pageTitle: '活動營運總覽',
+        breadcrumbLabel: '活動營運總覽',
+      },
+      {
+        id: 'analytics-reports',
+        label: '營運報表下載',
+        path: '/admin/reports',
+        matchPrefixes: ['/admin/reports'],
+        visibility: 'perm:can_export_reports',
+        pageTitle: '營運報表下載',
+        breadcrumbLabel: '營運報表下載',
+      },
+      {
         id: 'events-compliance',
         label: '合規與違規',
         path: '/admin/violations',
@@ -325,6 +349,7 @@ export const ADMIN_NAV_SECTIONS = [
             visibility: 'perm:can_manage_et_grouping',
             pageTitle: 'ET 任務模板',
             breadcrumbLabel: 'ET 任務模板',
+            hiddenFromNav: true,
           },
           {
             id: 'et-grouping-reports',
@@ -343,6 +368,7 @@ export const ADMIN_NAV_SECTIONS = [
             visibility: 'perm:can_view_et_grouping',
             pageTitle: 'Leader 支薪報表',
             breadcrumbLabel: 'Leader 支薪報表',
+            hiddenFromNav: true,
           },
           {
             id: 'et-student-trends',
@@ -352,13 +378,14 @@ export const ADMIN_NAV_SECTIONS = [
             visibility: 'perm:can_view_et_grouping',
             pageTitle: 'ET 學生學期趨勢',
             breadcrumbLabel: 'ET 學生趨勢',
+            hiddenFromNav: true,
           },
           {
             id: 'et-leader-sessions',
             label: '我的帶班場次',
             path: '/admin/et-grouping/my-sessions',
             matchPrefixes: ['/admin/et-grouping/my-sessions'],
-            visibility: 'perm:can_mark_et_session_tasks',
+            visibility: 'leaderOnly',
             pageTitle: '我的帶班場次',
             breadcrumbLabel: '我的帶班場次',
           },
@@ -370,6 +397,7 @@ export const ADMIN_NAV_SECTIONS = [
             visibility: 'leadersPublicEditor',
             pageTitle: 'LEADERS 介紹',
             breadcrumbLabel: 'LEADERS 介紹',
+            hiddenFromNav: true,
           },
         ],
       },
@@ -399,6 +427,24 @@ export const ADMIN_NAV_SECTIONS = [
         pageTitle: '活動時數分配',
         breadcrumbLabel: '活動時數分配',
         searchTerms: ['課堂加分', '時數', '計點'],
+      },
+      {
+        id: 'analytics-risk',
+        label: '高關注名單',
+        path: '/admin/analytics/risk',
+        matchPrefixes: ['/admin/analytics/risk'],
+        visibility: 'adminOnly',
+        pageTitle: '高關注名單',
+        breadcrumbLabel: '高關注名單',
+      },
+      {
+        id: 'analytics-teacher-dash',
+        label: '我的教學儀表板',
+        path: '/admin/teachers/dashboard',
+        matchPrefixes: ['/admin/teachers/dashboard'],
+        visibility: 'teacherDashboard',
+        pageTitle: '我的教學儀表板',
+        breadcrumbLabel: '我的教學儀表板',
       },
     ],
   },
@@ -486,6 +532,7 @@ export const ADMIN_NAV_SECTIONS = [
         pageTitle: '英文寫作工坊（EWL）同步',
         breadcrumbLabel: 'EWL 同步',
         searchTerms: ['寫作工坊', 'EWL', '同步', 'ReservationInfo'],
+        hiddenFromNav: true,
       },
       {
         id: 'learning-journey-operations',
@@ -499,143 +546,125 @@ export const ADMIN_NAV_SECTIONS = [
         hiddenFromNav: true,
       },
       {
-        id: 'learning-analytics',
-        label: '學習成效',
-        children: [
-          {
-            id: 'la-report',
-            label: '上呈',
-            children: [
-              {
-                id: 'learning-analytics-overview',
-                label: '學習成效概況',
-                path: '/admin/learning-analytics/overview',
-                matchPrefixes: ['/admin/learning-analytics/overview'],
-                visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '學習成效概況',
-                breadcrumbLabel: '學習成效概況',
-              },
-              {
-                id: 'learning-analytics-kpi-report',
-                label: '學期 B2 KPI',
-                path: '/admin/learning-analytics/kpi-report',
-                matchPrefixes: ['/admin/learning-analytics/kpi-report'],
-                visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '學期 B2 KPI',
-                breadcrumbLabel: '學期 B2 KPI',
-              },
-            ],
-          },
-          {
-            id: 'la-people',
-            label: '找學生',
-            path: '/admin/learning-analytics/explore',
-            matchPrefixes: [
-              '/admin/learning-analytics/explore',
-              '/admin/learning-analytics/b1-plus',
-              '/admin/learning-analytics/tracking-cohorts',
-              '/admin/learning-analytics/students',
-            ],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '找學生',
-            breadcrumbLabel: '找學生',
-            searchTerms: ['學生探索', '接近 B2', '追蹤名單', '個人軌跡', '學號'],
-          },
-          {
-            id: 'learning-analytics-explore',
-            label: '學生探索',
-            path: '/admin/learning-analytics/explore',
-            matchPrefixes: ['/admin/learning-analytics/explore'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '學生探索',
-            breadcrumbLabel: '學生探索',
-            hiddenFromNav: true,
-          },
-          {
-            id: 'learning-analytics-b1-plus',
-            label: '接近 B2',
-            path: '/admin/learning-analytics/b1-plus',
-            matchPrefixes: ['/admin/learning-analytics/b1-plus'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '接近 B2',
-            breadcrumbLabel: '接近 B2',
-            hiddenFromNav: true,
-          },
-          {
-            id: 'learning-analytics-tracking',
-            label: '追蹤名單',
-            path: '/admin/learning-analytics/tracking-cohorts',
-            matchPrefixes: ['/admin/learning-analytics/tracking-cohorts'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '追蹤名單',
-            breadcrumbLabel: '追蹤名單',
-            hiddenFromNav: true,
-          },
-          {
-            id: 'learning-analytics-students',
-            label: '個人軌跡',
-            path: '/admin/learning-analytics/students',
-            matchPrefixes: ['/admin/learning-analytics/students'],
-            visibility: 'perm:can_view_learning_analytics',
-            pageTitle: '學生個人學習軌跡',
-            breadcrumbLabel: '個人軌跡',
-            hiddenFromNav: true,
-          },
-          {
-            id: 'la-resources',
-            label: '看資源',
-            children: [
-              {
-                id: 'learning-analytics-resources',
-                label: '資源與開課',
-                path: '/admin/learning-analytics/resources',
-                matchPrefixes: [
-                  '/admin/learning-analytics/resources',
-                  '/admin/learning-analytics/offerings',
-                ],
-                visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '資源與開課',
-                breadcrumbLabel: '資源與開課',
-              },
-            ],
-          },
-          {
-            id: 'la-compare',
-            label: '比較與資料',
-            children: [
-              {
-                id: 'learning-analytics-cohorts',
-                label: '群體與技能比較',
-                path: '/admin/learning-analytics/cohorts',
-                matchPrefixes: [
-                  '/admin/learning-analytics/cohorts',
-                  '/admin/learning-analytics/skills',
-                ],
-                visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '群體與技能比較',
-                breadcrumbLabel: '群體與技能比較',
-              },
-              {
-                id: 'learning-analytics-raw',
-                label: '資料匯出',
-                path: '/admin/learning-analytics/raw-data',
-                matchPrefixes: ['/admin/learning-analytics/raw-data'],
-                visibility: 'perm:can_view_learning_analytics',
-                pageTitle: '原始資料匯出',
-                breadcrumbLabel: '資料匯出',
-              },
-              {
-                id: 'learning-analytics-settings',
-                label: '分析設定',
-                path: '/admin/learning-analytics/settings',
-                matchPrefixes: ['/admin/learning-analytics/settings'],
-                visibility: 'perm:can_manage_learning_analytics_settings',
-                pageTitle: '分析設定與資料版本',
-                breadcrumbLabel: '分析設定',
-              },
-            ],
-          },
+        id: 'learning-analytics-overview',
+        label: '學習成效概況',
+        path: '/admin/learning-analytics/overview',
+        matchPrefixes: ['/admin/learning-analytics/overview'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '學習成效概況',
+        breadcrumbLabel: '學習成效概況',
+        searchTerms: ['學期 B2 KPI', '資源與開課', '群體與技能比較', '資料匯出', '分析設定'],
+      },
+      {
+        id: 'learning-analytics-kpi-report',
+        label: '學期 B2 KPI',
+        path: '/admin/learning-analytics/kpi-report',
+        matchPrefixes: ['/admin/learning-analytics/kpi-report'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '學期 B2 KPI',
+        breadcrumbLabel: '學期 B2 KPI',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'la-people',
+        label: '找學生',
+        path: '/admin/learning-analytics/explore',
+        matchPrefixes: [
+          '/admin/learning-analytics/explore',
+          '/admin/learning-analytics/b1-plus',
+          '/admin/learning-analytics/tracking-cohorts',
+          '/admin/learning-analytics/students',
         ],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '找學生',
+        breadcrumbLabel: '找學生',
+        searchTerms: ['學生探索', '接近 B2', '追蹤名單', '個人軌跡', '學號'],
+      },
+      {
+        id: 'learning-analytics-explore',
+        label: '學生探索',
+        path: '/admin/learning-analytics/explore',
+        matchPrefixes: ['/admin/learning-analytics/explore'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '學生探索',
+        breadcrumbLabel: '學生探索',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'learning-analytics-b1-plus',
+        label: '接近 B2',
+        path: '/admin/learning-analytics/b1-plus',
+        matchPrefixes: ['/admin/learning-analytics/b1-plus'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '接近 B2',
+        breadcrumbLabel: '接近 B2',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'learning-analytics-tracking',
+        label: '追蹤名單',
+        path: '/admin/learning-analytics/tracking-cohorts',
+        matchPrefixes: ['/admin/learning-analytics/tracking-cohorts'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '追蹤名單',
+        breadcrumbLabel: '追蹤名單',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'learning-analytics-students',
+        label: '個人軌跡',
+        path: '/admin/learning-analytics/students',
+        matchPrefixes: ['/admin/learning-analytics/students'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '學生個人學習軌跡',
+        breadcrumbLabel: '個人軌跡',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'learning-analytics-resources',
+        label: '資源與開課',
+        path: '/admin/learning-analytics/resources',
+        matchPrefixes: [
+          '/admin/learning-analytics/resources',
+          '/admin/learning-analytics/offerings',
+        ],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '資源與開課',
+        breadcrumbLabel: '資源與開課',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'learning-analytics-cohorts',
+        label: '群體與技能比較',
+        path: '/admin/learning-analytics/cohorts',
+        matchPrefixes: [
+          '/admin/learning-analytics/cohorts',
+          '/admin/learning-analytics/skills',
+        ],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '群體與技能比較',
+        breadcrumbLabel: '群體與技能比較',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'learning-analytics-raw',
+        label: '資料匯出',
+        path: '/admin/learning-analytics/raw-data',
+        matchPrefixes: ['/admin/learning-analytics/raw-data'],
+        visibility: 'perm:can_view_learning_analytics',
+        pageTitle: '原始資料匯出',
+        breadcrumbLabel: '資料匯出',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'learning-analytics-settings',
+        label: '分析設定',
+        path: '/admin/learning-analytics/settings',
+        matchPrefixes: ['/admin/learning-analytics/settings'],
+        visibility: 'perm:can_manage_learning_analytics_settings',
+        pageTitle: '分析設定與資料版本',
+        breadcrumbLabel: '分析設定',
+        hiddenFromNav: true,
       },
     ],
   },
@@ -644,7 +673,7 @@ export const ADMIN_NAV_SECTIONS = [
     label: '問卷與回饋',
     visibility: 'surveyGroup',
     expandable: true,
-    hint: '建議流程：問卷中心 → 啟用規則 → 作答／分析 → 資料品質維運',
+    hint: '建議流程：問卷中心 → 啟用規則 → 作答紀錄 → 統計分析',
     children: [
       {
         id: 'survey-center',
@@ -694,6 +723,7 @@ export const ADMIN_NAV_SECTIONS = [
             visibility: 'perm:can_view_survey_health',
             pageTitle: '問卷資料品質',
             breadcrumbLabel: '資料品質',
+            hiddenFromNav: true,
           },
           {
             id: 'survey-answer-mappings',
@@ -703,6 +733,7 @@ export const ADMIN_NAV_SECTIONS = [
             visibility: 'perm:can_manage_survey_answer_mapping',
             pageTitle: '問卷答案對照',
             breadcrumbLabel: '答案對照',
+            hiddenFromNav: true,
           },
         ],
       },
@@ -768,6 +799,7 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'analyticsHub',
         pageTitle: '成效分析中心',
         breadcrumbLabel: '成效分析中心',
+        hiddenFromNav: true,
       },
       {
         id: 'analytics-students',
@@ -779,42 +811,6 @@ export const ADMIN_NAV_SECTIONS = [
         pageTitle: '學生學習歷程查詢',
         breadcrumbLabel: '學生學習歷程查詢',
         hiddenFromNav: true,
-      },
-      {
-        id: 'analytics-overview',
-        label: '活動營運總覽',
-        path: '/admin/analytics/overview',
-        matchPrefixes: ['/admin/analytics/overview'],
-        visibility: 'adminOnly',
-        pageTitle: '活動營運總覽',
-        breadcrumbLabel: '活動營運總覽',
-      },
-      {
-        id: 'analytics-risk',
-        label: '高關注名單',
-        path: '/admin/analytics/risk',
-        matchPrefixes: ['/admin/analytics/risk'],
-        visibility: 'adminOnly',
-        pageTitle: '高關注名單',
-        breadcrumbLabel: '高關注名單',
-      },
-      {
-        id: 'analytics-reports',
-        label: '營運報表下載',
-        path: '/admin/reports',
-        matchPrefixes: ['/admin/reports'],
-        visibility: 'perm:can_export_reports',
-        pageTitle: '營運報表下載',
-        breadcrumbLabel: '營運報表下載',
-      },
-      {
-        id: 'analytics-teacher-dash',
-        label: '我的教學儀表板',
-        path: '/admin/teachers/dashboard',
-        matchPrefixes: ['/admin/teachers/dashboard'],
-        visibility: 'perm:can_view_analytics',
-        pageTitle: '我的教學儀表板',
-        breadcrumbLabel: '我的教學儀表板',
       },
     ],
   },
@@ -900,73 +896,67 @@ export const ADMIN_NAV_SECTIONS = [
         visibility: 'opsDashboard',
         pageTitle: '營運總覽',
         breadcrumbLabel: '營運總覽',
+        hiddenFromNav: true,
       },
       {
-        id: 'system-config',
-        label: '設定',
-        children: [
-          {
-            id: 'system-settings',
-            label: '系統設定',
-            path: '/admin/settings/system',
-            matchPrefixes: ['/admin/settings/system', '/admin/system/settings'],
-            visibility: 'perm:can_manage_settings',
-            pageTitle: '系統設定',
-            breadcrumbLabel: '系統設定',
-          },
-          {
-            id: 'event-types-settings',
-            label: '活動類型設定',
-            path: '/admin/settings/event-types',
-            matchPrefixes: ['/admin/settings/event-types'],
-            visibility: 'perm:can_manage_events',
-            pageTitle: '活動類型設定',
-            breadcrumbLabel: '活動類型設定',
-          },
-          {
-            id: 'system-email-templates',
-            label: '郵件設定',
-            path: '/admin/settings/email-templates',
-            matchPrefixes: ['/admin/settings/email-templates'],
-            visibility: 'perm:can_manage_settings',
-            pageTitle: '郵件設定中心',
-            breadcrumbLabel: '郵件設定',
-          },
-        ],
+        id: 'system-settings',
+        label: '系統設定',
+        path: '/admin/settings/system',
+        matchPrefixes: ['/admin/settings/system', '/admin/system/settings'],
+        visibility: 'perm:can_manage_settings',
+        pageTitle: '系統設定',
+        breadcrumbLabel: '系統設定',
+        searchTerms: ['活動類型', '郵件設定'],
       },
       {
-        id: 'system-audit',
-        label: '稽核與維運',
-        children: [
-          {
-            id: 'system-logs',
-            label: '操作紀錄',
-            path: '/admin/logs',
-            matchPrefixes: ['/admin/logs'],
-            visibility: 'perm:can_view_audit_logs',
-            pageTitle: '操作紀錄',
-            breadcrumbLabel: '操作紀錄',
-          },
-          {
-            id: 'system-diagnostics',
-            label: '系統診斷',
-            path: '/admin/diagnostics',
-            matchPrefixes: ['/admin/diagnostics'],
-            visibility: 'perm:can_view_internal_diagnostics',
-            pageTitle: '系統診斷',
-            breadcrumbLabel: '系統診斷',
-          },
-          {
-            id: 'system-ops-scripts',
-            label: '維運腳本',
-            path: '/admin/ops-scripts',
-            matchPrefixes: ['/admin/ops-scripts'],
-            visibility: 'roleAdmin',
-            pageTitle: '維運腳本',
-            breadcrumbLabel: '維運腳本',
-            searchTerms: ['備份', 'backup', '寫作工坊', 'EWL', '同步', '腳本', '維運'],
-          },
-        ],
+        id: 'event-types-settings',
+        label: '活動類型設定',
+        path: '/admin/settings/event-types',
+        matchPrefixes: ['/admin/settings/event-types'],
+        visibility: 'perm:can_manage_events',
+        pageTitle: '活動類型設定',
+        breadcrumbLabel: '活動類型設定',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'system-email-templates',
+        label: '郵件設定',
+        path: '/admin/settings/email-templates',
+        matchPrefixes: ['/admin/settings/email-templates'],
+        visibility: 'perm:can_manage_settings',
+        pageTitle: '郵件設定中心',
+        breadcrumbLabel: '郵件設定',
+        hiddenFromNav: true,
+      },
+      {
+        id: 'system-logs',
+        label: '操作紀錄',
+        path: '/admin/logs',
+        matchPrefixes: ['/admin/logs'],
+        visibility: 'perm:can_view_audit_logs',
+        pageTitle: '操作紀錄',
+        breadcrumbLabel: '操作紀錄',
+      },
+      {
+        id: 'system-diagnostics',
+        label: '維運',
+        path: '/admin/diagnostics',
+        matchPrefixes: ['/admin/diagnostics'],
+        visibility: 'perm:can_view_internal_diagnostics',
+        pageTitle: '維運',
+        breadcrumbLabel: '維運',
+        searchTerms: ['系統診斷', '維運腳本'],
+      },
+      {
+        id: 'system-ops-scripts',
+        label: '維運腳本',
+        path: '/admin/ops-scripts',
+        matchPrefixes: ['/admin/ops-scripts'],
+        visibility: 'roleAdmin',
+        pageTitle: '維運腳本',
+        breadcrumbLabel: '維運腳本',
+        searchTerms: ['備份', 'backup', '寫作工坊', 'EWL', '同步', '腳本', '維運'],
+        hiddenFromNav: true,
       },
       {
         id: 'system-trip-count',
@@ -1243,6 +1233,18 @@ export function getAdminPageMeta(pathname, ctx) {
         titlePathLength = ownPath;
         bestTitle = pair;
       }
+    }
+  }
+
+  const hiddenPairs = flattenLeaves(ADMIN_NAV_SECTIONS).filter(
+    (pair) => pair.leaf.hiddenFromNav && canUseNavMeta(pair.leaf, ctx)
+  );
+  for (const pair of hiddenPairs) {
+    const len = bestPrefixLength(pathname, pair.leaf.matchPrefixes || [pair.leaf.path]);
+    if (len > bestScore) {
+      bestScore = len;
+      best = pair;
+      bestTitle = pair;
     }
   }
 

@@ -1,0 +1,41 @@
+---
+description: 後台左側導覽的大標題、次標題與新頁面放置
+globs: reservation-frontend/src/constants/adminNavigation.js, reservation-frontend/src/constants/adminRouteAccess.js, reservation-frontend/src/App.js, reservation-frontend/src/components/admin/AdminSidebar.jsx
+alwaysApply: false
+---
+
+# 後台側欄放置
+
+設定只在 `adminNavigation.js` 的 `ADMIN_NAV_SECTIONS`。權限仍走 `backend-auth.mdc`。側欄隱藏不能代替後端檢查。
+
+完整權限側欄只放每週會打開的工作。細頁留在所屬頁面的連結，網址不改。
+
+## 層級
+
+- 大標題順序固定：活動與預約、班級與參與、英檢與培力、學習歷程與成果、問卷與回饋、資料匯入中心、內容與公告、帳號與權限、系統與稽核。
+- 不要再加「營運分析與報表」。成效分析中心不進側欄。
+- 次標題只留「ET 分組」。新頁先做同層連結；同一工作已有 3 個側欄頁面，才另開次標題。
+- 不要做第四層。
+
+## 放進哪個大標題
+
+| 頁面在做的事 | 側欄 |
+|--------------|------|
+| 活動列表、簽到統計、活動營運總覽、營運報表、違規 | 活動與預約 |
+| ET 分組設定、ET 場次報表 | ET 分組。任務模板與 LEADERS 介紹從分組設定進；支薪與學生趨勢從場次報表進 |
+| 我的帶班場次 | 只給 Leader |
+| 班級名單、活動時數、高關注名單 | 班級與參與。我的教學儀表板只給授課老師 |
+| 培力英檢報名與考試行政 | 英檢與培力 |
+| 護照、學習歷程、口說、學習成效概況、找學生 | 學習歷程與成果。KPI、資源、比較、匯出、設定用成效頁內導覽 |
+| 問卷中心、啟用規則、作答、統計 | 問卷與回饋。資料品質與答案對照從問卷中心進 |
+| 匯入入口、匯入紀錄、EWL 同步 | 資料匯入中心。EWL 用匯入卡片，不單列 |
+| 公告、學生回報、週報、學生端內容 | 內容與公告 |
+| 帳號、變更密碼 | 帳號與權限 |
+| 系統設定、操作紀錄、維運、旅遊分帳 | 系統與稽核。活動類型與郵件從系統設定進；維運腳本從維運進。營運總覽是後台首頁，不佔側欄 |
+
+## 新增時一併做
+
+- `adminRouteAccess.js` 與後端 `requirePermission` 用同一權限鍵。不為了讓標籤出現而放寬權限。
+- 舊網址與頁內才進的頁面設 `hiddenFromNav: true`，留在所屬大標題下。可見標籤只留一個。
+- `matchPrefixes` 用完整路徑。`/admin/analytics` 不要吃掉已有自己標籤的子頁。
+- 測試要鎖住管理員可見標籤，以及 `getAdminPageMeta` 的 `sectionId` 與 `groupLabel`。

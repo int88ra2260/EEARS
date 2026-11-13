@@ -107,6 +107,14 @@ export default function AdminEtGroupingReportsPage() {
         </Button>
         <Button
           as={Link}
+          to="/admin/et-grouping/payroll"
+          variant="outline-primary"
+          size="sm"
+        >
+          Leader 支薪報表
+        </Button>
+        <Button
+          as={Link}
           to="/admin/learning-analytics/offerings?dimension=activity"
           variant="outline-secondary"
           size="sm"

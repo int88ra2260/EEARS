@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { fetchClientThrow } from '../../utils/fetchClient';
 import './InternalDiagnosticsPage.css';
 
@@ -123,7 +124,11 @@ export default function InternalDiagnosticsPage() {
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <p className="text-muted small mb-0">每 30 秒更新。供授權帳號查看服務、佇列與最近錯誤。</p>
+        <p className="text-muted small mb-0">
+          每 30 秒更新。供授權帳號查看服務、佇列與最近錯誤。
+          {' '}
+          <Link to="/admin/ops-scripts">維運腳本</Link>
+        </p>
         <small className="text-muted">
           {data?.generatedAt ? `更新時間 ${formatWhen(data.generatedAt)}` : '載入中'}
         </small>

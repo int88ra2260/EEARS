@@ -142,30 +142,23 @@ describe('ADMIN_NAV_SECTIONS learning IA', () => {
         'english-learning-passport',
         'learning-journey',
         'learning-analytics-overview',
+        'la-people',
       ])
     );
-    const analyticsGroup = learningOutcomesSection?.children?.find((child) => child.id === 'learning-analytics');
-    expect(analyticsGroup?.label).toBe('學習成效');
-    expect(analyticsGroup?.children?.map((child) => child.id)).toEqual([
-      'la-report',
-      'la-people',
-      'learning-analytics-explore',
-      'learning-analytics-b1-plus',
-      'learning-analytics-tracking',
-      'learning-analytics-students',
-      'la-resources',
-      'la-compare',
-    ]);
-    expect(analyticsGroup.children.find((child) => child.id === 'la-people')).toMatchObject({
+    expect(learningOutcomesSection?.children?.find((child) => child.id === 'learning-analytics')).toBeUndefined();
+    expect(learningOutcomesSection?.children?.find((child) => child.id === 'la-people')).toMatchObject({
       label: '找學生',
       path: '/admin/learning-analytics/explore',
     });
-    expect(analyticsGroup.children.filter((child) => child.hiddenFromNav).map((child) => child.id)).toEqual([
-      'learning-analytics-explore',
-      'learning-analytics-b1-plus',
-      'learning-analytics-tracking',
-      'learning-analytics-students',
-    ]);
+    expect(learningOutcomesSection?.children?.filter((child) => child.hiddenFromNav).map((child) => child.id)).toEqual(
+      expect.arrayContaining([
+        'learning-analytics-kpi-report',
+        'learning-analytics-resources',
+        'learning-analytics-cohorts',
+        'learning-analytics-raw',
+        'learning-analytics-settings',
+      ])
+    );
     expect(ADMIN_NAV_SECTIONS.map((section) => section.id)).not.toContain('learning-analytics');
   });
 });
@@ -183,7 +176,7 @@ describe('資源與開課 sidebar entry', () => {
 
   it('keeps one entry and both old urls', () => {
     const labels = visibleLabels(filterVisibleNav(ADMIN_NAV_SECTIONS, ctx));
-    expect(labels.filter((label) => label === '資源與開課')).toEqual(['資源與開課']);
+    expect(labels.filter((label) => label === '資源與開課')).toEqual([]);
     expect(labels.filter((label) => ['資源覆蓋', '課／師／活動'].includes(label))).toEqual([]);
     expect(getAdminPageMeta('/admin/learning-analytics/resources', ctx)).toMatchObject({
       pageTitle: '資源與開課',
@@ -209,7 +202,7 @@ describe('群體與技能比較 sidebar entry', () => {
 
   it('keeps one entry and both old urls', () => {
     const labels = visibleLabels(filterVisibleNav(ADMIN_NAV_SECTIONS, ctx));
-    expect(labels.filter((label) => label === '群體與技能比較')).toEqual(['群體與技能比較']);
+    expect(labels.filter((label) => label === '群體與技能比較')).toEqual([]);
     expect(labels.filter((label) => ['系所比較', '技能成長'].includes(label))).toEqual([]);
     expect(getAdminPageMeta('/admin/learning-analytics/cohorts', ctx)).toMatchObject({
       pageTitle: '群體與技能比較',
@@ -321,6 +314,18 @@ describe('getAdminBreadcrumbs', () => {
     expect(trail[1]).toEqual({ label: '活動與預約', to: '/admin/operations' });
   });
 
+  it('places the activity operations overview under events', () => {
+    const adminCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
+    const events = filterVisibleNav(ADMIN_NAV_SECTIONS, adminCtx).find((section) => section.id === 'events');
+    const childIds = events?.children?.map((child) => child.id) || [];
+    expect(childIds.indexOf('analytics-overview')).toBeGreaterThan(childIds.indexOf('events-participation-checkins'));
+    expect(getAdminBreadcrumbs('/admin/analytics/overview', adminCtx).map((item) => item.label)).toEqual([
+      '後台',
+      '活動與預約',
+      '活動營運總覽',
+    ]);
+  });
+
   it('includes activity list link on event detail', () => {
     const adminCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'));
     const trail = getAdminBreadcrumbs('/admin/operations/42', adminCtx);
@@ -338,7 +343,6 @@ describe('getAdminBreadcrumbs', () => {
     expect(trail.map((item) => item.label)).toEqual([
       '後台',
       '學習歷程與成果',
-      '學習成效',
       '群體與技能比較',
     ]);
   });
@@ -357,6 +361,73 @@ describe('getAdminBreadcrumbs', () => {
     const leaderCtx = buildNavContextFromAccessProfile(buildAccessProfile('', 'leader'));
     const trail = getAdminBreadcrumbs('/admin/et-grouping/my-sessions', leaderCtx);
     expect(trail[0]).toEqual({ label: '後台', to: '/admin/et-grouping/my-sessions' });
+    const leaderLabels = [];
+    const walk = (nodes) => {
+      (nodes || []).forEach((node) => {
+        if (node.children?.length && !node.path) walk(node.children);
+        else leaderLabels.push(node.label);
+      });
+    };
+    walk(filterVisibleNav(ADMIN_NAV_SECTIONS, leaderCtx));
+    expect(leaderLabels).toContain('我的帶班場次');
+  });
+
+  it('keeps the agreed labels for a full-permission admin', () => {
+    const labels = [];
+    const walk = (nodes) => {
+      (nodes || []).forEach((node) => {
+        if (node.children?.length && !node.path) walk(node.children);
+        else labels.push(node.label);
+      });
+    };
+    walk(filterVisibleNav(ADMIN_NAV_SECTIONS, buildNavContextFromAccessProfile(buildAccessProfile('', 'admin'))));
+    expect(labels).toEqual([
+      '活動列表',
+      '簽到參與統計',
+      '活動營運總覽',
+      '營運報表下載',
+      '合規與違規',
+      'ET 分組設定',
+      'ET 場次報表',
+      '班級參與概況',
+      '活動時數分配',
+      '高關注名單',
+      '培力英檢管理',
+      '英語實踐歷程護照',
+      '英語學習歷程中心',
+      'ESAP 口說診斷',
+      '學習成效概況',
+      '找學生',
+      '問卷中心（建立／發布）',
+      '啟用規則',
+      '作答紀錄',
+      '統計分析',
+      '匯入入口',
+      '匯入紀錄',
+      '公告',
+      '學生回報',
+      '英語中心週報',
+      '學生端內容',
+      '帳號管理',
+      '變更密碼',
+      '系統設定',
+      '操作紀錄',
+      '維運',
+      '旅遊分帳',
+    ]);
+    expect(labels).not.toContain('我的教學儀表板');
+    const teacherLabels = [];
+    const walkTeacher = (nodes) => {
+      (nodes || []).forEach((node) => {
+        if (node.children?.length && !node.path) walkTeacher(node.children);
+        else teacherLabels.push(node.label);
+      });
+    };
+    walkTeacher(filterVisibleNav(
+      ADMIN_NAV_SECTIONS,
+      buildNavContextFromAccessProfile(buildAccessProfile('', 'teacher')),
+    ));
+    expect(teacherLabels).toContain('我的教學儀表板');
   });
 
   it('shows the public leaders editor to ET managers and content editors', () => {
@@ -386,8 +457,8 @@ describe('getAdminBreadcrumbs', () => {
     );
     const leader = buildAccessProfile('', 'leader');
 
-    expect(leafIds(etManager)).toContain('et-leader-public-profiles');
-    expect(leafIds(editor)).toContain('et-leader-public-profiles');
+    expect(leafIds(etManager)).not.toContain('et-leader-public-profiles');
+    expect(leafIds(editor)).not.toContain('et-leader-public-profiles');
     expect(leafIds(leader)).not.toContain('et-leader-public-profiles');
     expect(canAccessAdminRoute(etManager, '/admin/leaders-team')).toBe(true);
     expect(canAccessAdminRoute(editor, '/admin/leaders-team')).toBe(true);

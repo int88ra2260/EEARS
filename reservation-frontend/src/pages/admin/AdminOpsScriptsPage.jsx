@@ -210,7 +210,7 @@ export default function AdminOpsScriptsPage() {
           查看 GitHub 與這台機器的部署狀態，並由管理員執行資料庫備份、套用尚未執行的 migration，以及英文寫作工坊（EWL）資料同步。高風險操作請先確認環境與時段。
         </p>
         <nav className="lj-import-page__nav" aria-label="相關頁面">
-          <Link to="/admin/diagnostics">系統診斷</Link>
+          <Link to="/admin/diagnostics">維運</Link>
           <Link to="/admin/learning-journey/ewl-sync">EWL 同步（獨立頁）</Link>
           <Link to="/admin/learning-journey/operations">資料維運紀錄</Link>
           <Link to="/admin/logs">操作紀錄</Link>
