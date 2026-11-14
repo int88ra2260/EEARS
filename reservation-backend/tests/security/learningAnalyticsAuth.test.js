@@ -39,6 +39,7 @@ jest.mock('../../controllers/learningAnalyticsController', () => ({
   getOverview: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getStudentExplorer: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getB1PlusWatch: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  getB1PlusPostExamDetail: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getStudentExplorerExport: (_req, res) => res.status(200).send('xlsx'),
   listTrackingCohorts: (_req, res) => res.json({ success: true, data: { items: [] } }),
   createTrackingCohort: (_req, res) => res.status(201).json({ success: true, data: { id: 1 } }),
