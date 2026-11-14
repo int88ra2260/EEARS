@@ -44,6 +44,7 @@ router.get('/student-explorer', ...ljView, controller.getStudentExplorer);
 router.post('/student-explorer', ...ljView, controller.getStudentExplorer);
 router.get('/b1-plus', ...ljView, controller.getB1PlusWatch);
 router.post('/b1-plus', ...ljView, controller.getB1PlusWatch);
+router.get('/b1-plus/students/:studentId/post-exam-detail', ...ljView, controller.getB1PlusPostExamDetail);
 router.get('/student-explorer/export', ...ljExport, controller.getStudentExplorerExport);
 router.post('/student-explorer/export', ...ljExport, controller.getStudentExplorerExport);
 router.get('/tracking-cohorts', ...ljView, controller.listTrackingCohorts);

@@ -7,6 +7,8 @@ const {
   Student,
   EtStudentMaster,
   CourseEnrollment,
+  LjStudentEvent,
+  Course,
 } = require('../../models');
 const { resolveLatestSnapshotVersion } = require('../learningJourney/analytics/timelineReadService');
 const { getCurrentSemester } = require('../../utils/semesterConstants');
@@ -193,6 +195,9 @@ async function getB1PlusWatch(query = {}) {
       'isB2plus',
       'totalCourseHours',
       'totalActivityHours',
+      'lastExamDate',
+      'postExamCourseHours',
+      'postExamActivityHours',
     ],
     raw: true,
   });
@@ -262,6 +267,117 @@ async function getB1PlusWatch(query = {}) {
   };
 }
 
+/**
+ * 取得學生的考後投入詳情：活動和課程列表。
+ * @param {string} studentId
+ * @param {string} [snapshotVersion]
+ * @returns {{ activities: object[], courses: object[], lastExamDate: string|null }}
+ */
+async function getPostExamEngagementDetail(studentId, snapshotVersion) {
+  const version = snapshotVersion || (await resolveLatestSnapshotVersion());
+  const sid = String(studentId || '').trim().toUpperCase();
+  if (!sid || !version) {
+    return { activities: [], courses: [], lastExamDate: null };
+  }
+
+  // 取得學生的 lastExamDate
+  const student = await LjAnalyticStudent.findOne({
+    where: { snapshotVersion: version, studentId: sid },
+    attributes: ['lastExamDate'],
+    raw: true,
+  });
+  const lastExamDate = student?.lastExamDate || null;
+
+  if (!lastExamDate) {
+    return { activities: [], courses: [], lastExamDate: null };
+  }
+
+  // 查詢考後活動事件
+  const activityEvents = await LjStudentEvent.findAll({
+    where: {
+      studentId: sid,
+      eventType: 'activity_event',
+      eventDate: { [Op.gt]: lastExamDate },
+      status: 'valid',
+      excludeFlag: false,
+    },
+    attributes: ['eventDate', 'title', 'subtitle', 'hours', 'sourceSystem'],
+    order: [['eventDate', 'DESC']],
+    raw: true,
+  });
+
+  // 查詢考後課程事件
+  const courseEvents = await LjStudentEvent.findAll({
+    where: {
+      studentId: sid,
+      eventType: 'course_event',
+      eventDate: { [Op.gt]: lastExamDate },
+      status: 'valid',
+      excludeFlag: false,
+    },
+    attributes: ['eventDate', 'title', 'subtitle', 'hours', 'academicTerm', 'sourceSystem'],
+    order: [['eventDate', 'DESC']],
+    raw: true,
+  });
+
+  // 查詢考後選課記錄（補充課程資訊）
+  const enrollments = await CourseEnrollment.findAll({
+    where: {
+      studentId: sid,
+      enrollmentStatus: { [Op.ne]: 'withdrawn' },
+    },
+    attributes: ['courseId', 'semesterId', 'enrollmentStatus', 'passStatus'],
+    raw: true,
+  });
+
+  // 取得課程詳情
+  const courseIds = enrollments.map((e) => e.courseId);
+  const courseDetails = courseIds.length
+    ? await Course.findAll({
+        where: { id: { [Op.in]: courseIds } },
+        attributes: ['id', 'courseName', 'semesterId', 'credits', 'instructorName'],
+        raw: true,
+      })
+    : [];
+  const courseMap = new Map(courseDetails.map((c) => [c.id, c]));
+
+  // 合併選課與課程資訊
+  const enrolledCourses = enrollments
+    .map((e) => {
+      const course = courseMap.get(e.courseId);
+      return {
+        semesterId: e.semesterId,
+        courseName: course?.courseName || null,
+        credits: course?.credits || null,
+        instructorName: course?.instructorName || null,
+        enrollmentStatus: e.enrollmentStatus,
+        passStatus: e.passStatus,
+      };
+    })
+    .filter((c) => c.courseName);
+
+  return {
+    lastExamDate,
+    activities: activityEvents.map((e) => ({
+      date: e.eventDate,
+      title: e.title || null,
+      subtitle: e.subtitle || null,
+      hours: Number(e.hours) || 0,
+      source: e.sourceSystem || null,
+    })),
+    courses: courseEvents.map((e) => ({
+      date: e.eventDate,
+      title: e.title || null,
+      subtitle: e.subtitle || null,
+      hours: Number(e.hours) || 0,
+      term: e.academicTerm || null,
+      source: e.sourceSystem || null,
+    })),
+    enrolledCourses,
+  };
+}
+
 module.exports = {
   getB1PlusWatch,
+  getPostExamEngagementDetail,
 };

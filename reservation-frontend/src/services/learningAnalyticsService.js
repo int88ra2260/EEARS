@@ -208,6 +208,18 @@ export async function getLearningAnalyticsB1Plus(token, params = {}, options = {
   return fetchAnalytics(token, '/b1-plus', params, options);
 }
 
+export async function getB1PlusPostExamDetail(token, studentId, snapshotVersion = '', options = {}) {
+  const url = `/api/learning-analytics/b1-plus/students/${encodeURIComponent(studentId)}/post-exam-detail${snapshotVersion ? `?snapshot_version=${encodeURIComponent(snapshotVersion)}` : ''}`;
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    signal: options.signal,
+  });
+  return parseEnvelope(res);
+}
+
 export async function getLearningAnalyticsStudentExplorer(token, params = {}, options = {}) {
   return fetchAnalytics(token, '/student-explorer', params, options);
 }

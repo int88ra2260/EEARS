@@ -37,7 +37,7 @@ const { buildKpiReportWorkbook } = require('../services/learningAnalytics/kpiRep
 const { runKpiGapReport } = require('../services/learningAnalytics/kpiGapService');
 const { buildKpiGapWorkbook } = require('../services/learningAnalytics/kpiGapExportService');
 const { getStudentExplorer } = require('../services/learningAnalytics/learningAnalyticsStudentExplorerService');
-const { getB1PlusWatch } = require('../services/learningAnalytics/learningAnalyticsB1PlusService');
+const { getB1PlusWatch, getPostExamEngagementDetail } = require('../services/learningAnalytics/learningAnalyticsB1PlusService');
 const { buildStudentExplorerExportWorkbook } = require('../services/learningAnalytics/learningAnalyticsStudentExplorerExportService');
 const {
   createTrackingCohort,
@@ -106,6 +106,25 @@ async function getOverview(req, res) {
 async function getB1PlusWatchHandler(req, res) {
   try {
     const data = await getB1PlusWatch(readAnalyticsQuery(req));
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    return sendAnalyticsError(req, res, e);
+  }
+}
+
+async function getB1PlusPostExamDetailHandler(req, res) {
+  try {
+    const studentId = req.params.studentId || req.query.studentId;
+    const snapshotVersion = req.query.snapshot_version || req.query.snapshotVersion;
+    if (!studentId) {
+      return res.status(400).json({
+        success: false,
+        code: 'MISSING_STUDENT_ID',
+        message: '缺少學號參數',
+        requestId: req.requestId,
+      });
+    }
+    const data = await getPostExamEngagementDetail(studentId, snapshotVersion);
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return sendAnalyticsError(req, res, e);
@@ -701,6 +720,7 @@ module.exports = {
   getOverview,
   getStudentExplorer: getStudentExplorerHandler,
   getB1PlusWatch: getB1PlusWatchHandler,
+  getB1PlusPostExamDetail: getB1PlusPostExamDetailHandler,
   getStudentExplorerExport,
   listTrackingCohorts: listTrackingCohortsHandler,
   createTrackingCohort: createTrackingCohortHandler,

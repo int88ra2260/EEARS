@@ -22,6 +22,9 @@ function student(overrides = {}) {
     isB2plus: false,
     totalCourseHours: 0,
     totalActivityHours: 0,
+    lastExamDate: null,
+    postExamCourseHours: 0,
+    postExamActivityHours: 0,
     ...overrides,
   };
 }
@@ -212,5 +215,62 @@ describe('b1PlusWatch', () => {
       items.map((row) => ({ ...row, studentName: row.studentId === 'A' ? '王小明' : null })),
       '王',
     ).map((row) => row.studentId)).toEqual(['A']);
+  });
+
+  it('includes daysSinceExam and post-exam engagement fields', () => {
+    const today = new Date('2026-01-15');
+    const items = buildB1PlusWatch(
+      [
+        student({
+          studentId: 'A',
+          lastExamDate: '2025-09-01',
+          postExamCourseHours: 10,
+          postExamActivityHours: 5,
+        }),
+        student({
+          studentId: 'B',
+          lastExamDate: null,
+          postExamCourseHours: 0,
+          postExamActivityHours: 0,
+        }),
+      ],
+      [
+        exam({ studentId: 'A' }),
+        exam({ studentId: 'B' }),
+      ],
+      null,
+    );
+
+    const itemA = items.find((row) => row.studentId === 'A');
+    const itemB = items.find((row) => row.studentId === 'B');
+
+    expect(itemA.lastExamDate).toBe('2025-09-01');
+    expect(itemA.daysSinceExam).toBeGreaterThan(0);
+    expect(itemA.postExamCourseHours).toBe(10);
+    expect(itemA.postExamActivityHours).toBe(5);
+    expect(itemA.hasPostExamEngagement).toBe(true);
+
+    expect(itemB.lastExamDate).toBeNull();
+    expect(itemB.daysSinceExam).toBeNull();
+    expect(itemB.hasPostExamEngagement).toBe(false);
+  });
+
+  it('includes withPostExamEngagement in summary', () => {
+    const items = buildB1PlusWatch(
+      [
+        student({ studentId: 'A', postExamCourseHours: 10 }),
+        student({ studentId: 'B', postExamActivityHours: 5 }),
+        student({ studentId: 'C', postExamCourseHours: 0, postExamActivityHours: 0 }),
+      ],
+      [
+        exam({ studentId: 'A' }),
+        exam({ studentId: 'B' }),
+        exam({ studentId: 'C' }),
+      ],
+    );
+
+    const summary = summarizeB1PlusWatch(items);
+    expect(summary.withPostExamEngagement).toBe(2);
+    expect(summary.matched).toBe(3);
   });
 });

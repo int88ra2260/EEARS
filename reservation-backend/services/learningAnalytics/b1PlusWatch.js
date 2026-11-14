@@ -53,6 +53,20 @@ function hoursPositive(value) {
   return Number.isFinite(n) && n > 0;
 }
 
+/**
+ * 計算距離上次考試的天數。
+ * @param {string|null} lastExamDate - ISO 日期字串
+ * @param {Date} [referenceDate] - 參考日期，預設為今天
+ * @returns {number|null} 天數或 null
+ */
+function daysSinceLastExam(lastExamDate, referenceDate = new Date()) {
+  if (!lastExamDate) return null;
+  const examDate = new Date(lastExamDate);
+  if (Number.isNaN(examDate.getTime())) return null;
+  const diffMs = referenceDate.getTime() - examDate.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
 function examGse(exam) {
   if (!exam) return null;
   const result = inferGse({
@@ -235,6 +249,11 @@ function buildB1PlusWatch(students = [], exams = [], courseEngagement = null) {
     const engagement = engagementOf(id);
     const hasCourse = Boolean(engagement.hasCourse);
     const courseInProgress = Boolean(engagement.courseInProgress);
+    const lastExamDate = student.lastExamDate || null;
+    const daysSince = daysSinceLastExam(lastExamDate);
+    const postExamCourseHours = round1(student.postExamCourseHours) || 0;
+    const postExamActivityHours = round1(student.postExamActivityHours) || 0;
+    const hasPostExamEngagement = postExamCourseHours > 0 || postExamActivityHours > 0;
     items.push({
       studentId: id,
       department: student.department || null,
@@ -252,6 +271,11 @@ function buildB1PlusWatch(students = [], exams = [], courseEngagement = null) {
       courseHours,
       activityHours,
       situation: situationOf(hasCourse, activityHours),
+      lastExamDate,
+      daysSinceExam: daysSince,
+      postExamCourseHours,
+      postExamActivityHours,
+      hasPostExamEngagement,
     });
   }
 
@@ -279,6 +303,8 @@ function summarizeB1PlusWatch(items = []) {
     both: 0,
     gseMin: APPROACHING_GSE_MIN,
     gseMax: APPROACHING_GSE_MAX,
+    withLastExam: 0,
+    withPostExamEngagement: 0,
   };
   for (const item of items) {
     if (item.hasPretest) summary.withPretest += 1;
@@ -289,6 +315,8 @@ function summarizeB1PlusWatch(items = []) {
     else if (item.situation === SITUATIONS.course_only) summary.courseOnly += 1;
     else if (item.situation === SITUATIONS.activity_only) summary.activityOnly += 1;
     else if (item.situation === SITUATIONS.both) summary.both += 1;
+    if (item.lastExamDate) summary.withLastExam += 1;
+    if (item.hasPostExamEngagement) summary.withPostExamEngagement += 1;
   }
   return summary;
 }

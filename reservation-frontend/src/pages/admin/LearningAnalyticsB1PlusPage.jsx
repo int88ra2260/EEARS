@@ -6,6 +6,7 @@ import StudentExplorerDetailDrawer from '../../components/learningAnalytics/Stud
 import {
   getLearningAnalyticsB1Plus,
   getLearningAnalyticsMeta,
+  getB1PlusPostExamDetail,
 } from '../../services/learningAnalyticsService';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
 import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
@@ -78,6 +79,26 @@ function pretestCell(row, skill) {
   return band || String(gse);
 }
 
+function formatDaysSince(days) {
+  if (days == null) return '—';
+  if (days < 0) return '—';
+  if (days === 0) return '今天';
+  if (days < 30) return `${days} 天`;
+  if (days < 365) {
+    const months = Math.floor(days / 30);
+    return `約 ${months} 個月`;
+  }
+  const years = Math.floor(days / 365);
+  const remainingMonths = Math.floor((days % 365) / 30);
+  if (remainingMonths === 0) return `約 ${years} 年`;
+  return `約 ${years} 年 ${remainingMonths} 個月`;
+}
+
+function formatPostExamHours(hours) {
+  if (hours == null || hours === 0) return '—';
+  return `${hours} hr`;
+}
+
 function snapshotLabel(snapshot) {
   if (!snapshot) return '';
   return snapshot.label || snapshot.version || snapshot.snapshotVersion || '';
@@ -93,6 +114,9 @@ export default function LearningAnalyticsB1PlusPage() {
   const [data, setData] = useState(null);
   const [meta, setMeta] = useState(null);
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [expandedStudentId, setExpandedStudentId] = useState('');
+  const [postExamDetail, setPostExamDetail] = useState(null);
+  const [postExamDetailLoading, setPostExamDetailLoading] = useState(false);
   const location = useLocation();
   const listReturn = `${location.pathname}${location.search}`;
   const workingSetScope = useMemo(
@@ -205,6 +229,24 @@ export default function LearningAnalyticsB1PlusPage() {
     setDraft(next);
     setApplied(next);
     setOffset(0);
+  };
+
+  const togglePostExamDetail = async (studentId) => {
+    if (expandedStudentId === studentId) {
+      setExpandedStudentId('');
+      setPostExamDetail(null);
+      return;
+    }
+    setExpandedStudentId(studentId);
+    setPostExamDetailLoading(true);
+    try {
+      const detail = await getB1PlusPostExamDetail(token, studentId, applied.snapshot_version);
+      setPostExamDetail(detail);
+    } catch (e) {
+      setPostExamDetail(null);
+    } finally {
+      setPostExamDetailLoading(false);
+    }
   };
 
   const noCohort = !loading && !error && data && matched === 0;
@@ -357,21 +399,28 @@ export default function LearningAnalyticsB1PlusPage() {
       {!loading && !error && summary ? (
         <>
           <div className="row g-3 mt-1">
-            <div className="col-md-3 col-sm-6">
+            <div className="col-lg-2 col-md-4 col-sm-6">
               <MetricCard
                 label="接近 B2 人數"
                 value={formatCount(summary.matched)}
                 hint={`GSE ${summary.gseMin ?? 51}–${summary.gseMax ?? 58}`}
               />
             </div>
-            <div className="col-md-3 col-sm-6">
+            <div className="col-lg-2 col-md-4 col-sm-6">
+              <MetricCard
+                label="考後有投入"
+                value={formatRate(summary.withPostExamEngagement, summary.matched)}
+                hint="最後一次考試後有修課或活動的人數。這些學生可能進步空間較大。"
+              />
+            </div>
+            <div className="col-lg-2 col-md-4 col-sm-6">
               <MetricCard
                 label="有前測"
                 value={formatRate(summary.withPretest, summary.matched)}
                 hint="第一梯有效英檢"
               />
             </div>
-            <div className="col-md-3 col-sm-6">
+            <div className="col-lg-2 col-md-4 col-sm-6">
               <MetricCard
                 label="有修課"
                 value={formatRate(summary.withCourse, summary.matched)}
@@ -382,7 +431,7 @@ export default function LearningAnalyticsB1PlusPage() {
                 }
               />
             </div>
-            <div className="col-md-3 col-sm-6">
+            <div className="col-lg-2 col-md-4 col-sm-6">
               <MetricCard
                 label="有活動"
                 value={formatRate(summary.withActivity, summary.matched)}
@@ -430,6 +479,18 @@ export default function LearningAnalyticsB1PlusPage() {
                               hint="四技能裡最高的 GSE。這頁的人落在 51–58。"
                             />
                           </th>
+                          <th>
+                            <ColumnHead
+                              name="距上次考試"
+                              hint="距離最後一次英檢的時間。若未來有考試想在記憶猶新時參加，時間越短越值得追蹤。"
+                            />
+                          </th>
+                          <th className="la-num">
+                            <ColumnHead
+                              name="考後投入"
+                              hint="最後一次考試後修課＋活動的累積時數。有投入的學生可能進步空間更大。"
+                            />
+                          </th>
                           {SKILL_COLUMNS.map(([, label]) => (
                             <th key={label}>
                               <ColumnHead name={label} hint="這一科前測的帶級與 GSE。學測不算前測。" />
@@ -438,54 +499,139 @@ export default function LearningAnalyticsB1PlusPage() {
                           <th><ColumnHead {...HEAD.courseStatus} /></th>
                           <th className="la-num"><ColumnHead {...HEAD.activityHours} /></th>
                           <th><ColumnHead {...HEAD.situation} /></th>
+                          <th></th>
                         </tr>
                       </thead>
                       <tbody>
                         {(data.items || []).map((row) => (
-                          <tr key={row.studentId}>
-                            <td>
-                              <button
-                                type="button"
-                                className="btn btn-link p-0 font-monospace align-baseline"
-                                onClick={() => {
-                                  pushRecentStudent({ studentId: row.studentId, name: row.studentName });
-                                  setSelectedStudentId(row.studentId);
-                                }}
-                              >
-                                {row.studentId}
-                              </button>
-                              {row.studentName ? <div className="small text-muted">{row.studentName}</div> : null}
-                              <div>
-                                <Link
-                                  className="small"
-                                  to={studentTrajectoryPath(row.studentId, listReturn)}
-                                  onClick={rememberFindListScroll}
+                          <React.Fragment key={row.studentId}>
+                            <tr className={row.hasPostExamEngagement ? 'table-info' : ''}>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="btn btn-link p-0 font-monospace align-baseline"
+                                  onClick={() => {
+                                    pushRecentStudent({ studentId: row.studentId, name: row.studentName });
+                                    setSelectedStudentId(row.studentId);
+                                  }}
                                 >
-                                  完整軌跡
-                                </Link>
-                              </div>
-                            </td>
-                            <td>{row.department || '—'}</td>
-                            <td>{row.cohort || '—'}</td>
-                            <td className="la-num">
-                              {row.bestGse != null ? row.bestGse : '—'}
-                              {row.currentLevel ? (
-                                <div className="small text-muted">{row.currentLevel}</div>
-                              ) : null}
-                            </td>
-                            {SKILL_COLUMNS.map(([key]) => (
-                              <td key={key}>{pretestCell(row, key)}</td>
-                            ))}
-                            <td>
-                              {row.courseInProgress
-                                ? '修課中'
-                                : row.hasCourse
-                                  ? '有紀錄'
-                                  : '—'}
-                            </td>
-                            <td className="la-num">{formatHours(row.activityHours)}</td>
-                            <td>{SITUATION_LABELS[row.situation] || '—'}</td>
-                          </tr>
+                                  {row.studentId}
+                                </button>
+                                {row.studentName ? <div className="small text-muted">{row.studentName}</div> : null}
+                                <div>
+                                  <Link
+                                    className="small"
+                                    to={studentTrajectoryPath(row.studentId, listReturn)}
+                                    onClick={rememberFindListScroll}
+                                  >
+                                    完整軌跡
+                                  </Link>
+                                </div>
+                              </td>
+                              <td>{row.department || '—'}</td>
+                              <td>{row.cohort || '—'}</td>
+                              <td className="la-num">
+                                {row.bestGse != null ? row.bestGse : '—'}
+                                {row.currentLevel ? (
+                                  <div className="small text-muted">{row.currentLevel}</div>
+                                ) : null}
+                              </td>
+                              <td>
+                                {formatDaysSince(row.daysSinceExam)}
+                                {row.lastExamDate ? (
+                                  <div className="small text-muted">{row.lastExamDate}</div>
+                                ) : null}
+                              </td>
+                              <td className="la-num">
+                                {row.hasPostExamEngagement ? (
+                                  <>
+                                    <span className="badge bg-success me-1">有投入</span>
+                                    {formatPostExamHours(row.postExamCourseHours + row.postExamActivityHours)}
+                                  </>
+                                ) : '—'}
+                              </td>
+                              {SKILL_COLUMNS.map(([key]) => (
+                                <td key={key}>{pretestCell(row, key)}</td>
+                              ))}
+                              <td>
+                                {row.courseInProgress
+                                  ? '修課中'
+                                  : row.hasCourse
+                                    ? '有紀錄'
+                                    : '—'}
+                              </td>
+                              <td className="la-num">{formatHours(row.activityHours)}</td>
+                              <td>{SITUATION_LABELS[row.situation] || '—'}</td>
+                              <td>
+                                {row.hasPostExamEngagement && (
+                                  <Button
+                                    size="sm"
+                                    variant={expandedStudentId === row.studentId ? 'secondary' : 'outline-secondary'}
+                                    onClick={() => togglePostExamDetail(row.studentId)}
+                                  >
+                                    {expandedStudentId === row.studentId ? '收起' : '詳情'}
+                                  </Button>
+                                )}
+                              </td>
+                            </tr>
+                            {expandedStudentId === row.studentId && (
+                              <tr className="la-b1plus-detail-row">
+                                <td colSpan={13} className="bg-light p-3">
+                                  {postExamDetailLoading ? (
+                                    <div className="text-muted">載入中...</div>
+                                  ) : postExamDetail ? (
+                                    <div className="row">
+                                      <div className="col-md-6">
+                                        <h6 className="mb-2">考後課程（{postExamDetail.courses?.length || 0} 筆）</h6>
+                                        {postExamDetail.courses?.length > 0 ? (
+                                          <ul className="list-unstyled small mb-0">
+                                            {postExamDetail.courses.map((c, i) => (
+                                              <li key={i} className="mb-1">
+                                                <strong>{c.date}</strong> {c.title || '—'}
+                                                {c.hours > 0 && <span className="text-muted ms-1">({c.hours} hr)</span>}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        ) : (
+                                          <p className="text-muted small mb-0">無考後課程紀錄</p>
+                                        )}
+                                        {postExamDetail.enrolledCourses?.length > 0 && (
+                                          <>
+                                            <h6 className="mt-3 mb-2">選課紀錄（{postExamDetail.enrolledCourses.length} 筆）</h6>
+                                            <ul className="list-unstyled small mb-0">
+                                              {postExamDetail.enrolledCourses.map((c, i) => (
+                                                <li key={i} className="mb-1">
+                                                  <strong>{c.semesterId}</strong> {c.courseName}
+                                                  {c.instructorName && <span className="text-muted ms-1">（{c.instructorName}）</span>}
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </>
+                                        )}
+                                      </div>
+                                      <div className="col-md-6">
+                                        <h6 className="mb-2">考後活動（{postExamDetail.activities?.length || 0} 筆）</h6>
+                                        {postExamDetail.activities?.length > 0 ? (
+                                          <ul className="list-unstyled small mb-0">
+                                            {postExamDetail.activities.map((a, i) => (
+                                              <li key={i} className="mb-1">
+                                                <strong>{a.date}</strong> {a.title || '—'}
+                                                {a.hours > 0 && <span className="text-muted ms-1">({a.hours} hr)</span>}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        ) : (
+                                          <p className="text-muted small mb-0">無考後活動紀錄</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="text-muted">無法取得詳情</div>
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
                         ))}
                       </tbody>
                     </table>
