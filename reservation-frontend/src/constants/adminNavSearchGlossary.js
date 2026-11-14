@@ -113,7 +113,6 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '數據分析',
   ],
   'learning-outcomes': ['學習成果', '學習歷程', '護照', '成效', 'LA', 'B2', 'CEFR'],
-  'learning-analytics': ['學習成效', 'LA', '成效分析'],
   'learning-journey': [
     'LJ',
     'LJ V3',
@@ -227,19 +226,16 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '刪除批次',
   ],
 
-  'la-report': ['學期達標', '正式報表', '聽讀成對'],
   'la-people': ['學生名單', '尚未達標', '同一批', '學生探索', '接近 B2', '追蹤名單', '個人軌跡', '學號'],
-  'la-resources': ['課師活動', '參與覆蓋'],
-  'la-compare': ['系所差異', 'GSE 比較', '原始匯出'],
-  'learning-analytics-overview': ['KPI', '總覽', '學習成效概況', '趨勢比較', '中心成效'],
-  'learning-analytics-kpi-report': ['B2 KPI', '一鍵報表', 'KPI 報表'],
-  'learning-analytics-cohorts': ['入學屆別', 'cohort', '群體', '四技能', 'GSE', '技能成長', '系所比較'],
-  'learning-analytics-resources': ['課程效益', '活動效益', '資源', '細項分析', 'offerings', '課程細項', '活動細項', '資源覆蓋', '課師活動'],
+  'learning-analytics-overview': ['KPI', '總覽', '學習成效', '學習成效概況', '成效分析', '趨勢比較', '中心成效'],
+  'learning-analytics-kpi-report': ['B2 KPI', '一鍵報表', 'KPI 報表', '學期達標', '正式報表', '聽讀成對'],
+  'learning-analytics-cohorts': ['入學屆別', 'cohort', '群體', '四技能', 'GSE', 'GSE 比較', '技能成長', '系所比較', '系所差異'],
+  'learning-analytics-resources': ['課程效益', '活動效益', '資源', '細項分析', 'offerings', '課程細項', '活動細項', '資源覆蓋', '參與覆蓋', '課師活動'],
   'learning-analytics-b1-plus': ['接近 B2', 'B1+', 'GSE', '前測', '修課', '活動參與'],
   'learning-analytics-explore': ['學生探索', '篩選名單', '起始分級', '前測', '後測', '活動時數', '修課'],
   'learning-analytics-tracking': ['追蹤名單', '固定名單', '前後對照', '同一批學生'],
   'learning-analytics-students': ['學習軌跡', '學生歷程', '個人分析'],
-  'learning-analytics-raw': ['raw data', '原始資料', '明細資料'],
+  'learning-analytics-raw': ['raw data', '原始資料', '原始匯出', '明細資料'],
   'learning-analytics-settings': ['LVA', '公式', '模組設定', '分析設定', '資料版本'],
 
   analytics: ['報表', '分析', 'KPI'],
@@ -279,8 +275,6 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   'account-reset': ['密碼', '重設密碼', 'mustResetPassword'],
 
   system: ['維運', '稽核'],
-  'system-config': ['設定', '活動類型', '郵件'],
-  'system-audit': ['稽核', '操作紀錄', '診斷', '維運腳本'],
   'system-dashboard': ['KPI', '今日待辦', '健康', '營運', 'dashboard'],
   'system-settings': [
     '開關',
@@ -295,6 +289,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '學習有伴',
     '報名按鈕',
     'feature flag',
+    '設定',
   ],
   'event-types-settings': [
     '活動類型',
@@ -324,7 +319,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
     '日誌',
   ],
   'system-diagnostics': ['診斷', 'ping', '健康檢查', 'API 診斷'],
-  'system-ops-scripts': ['備份', 'backup', '寫作工坊', 'EWL', '同步', '腳本', '維運'],
+  'system-ops-scripts': ['備份', 'backup', '寫作工坊', 'EWL', '同步', '腳本', '維運', '維運腳本'],
   'system-trip-count': ['分帳', '旅遊', 'TripCount', '結算', '轉帳'],
   'analytics-hub': ['成效分析中心', '分析入口', 'analytics hub'],
 };
