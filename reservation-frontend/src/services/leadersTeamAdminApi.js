@@ -23,6 +23,93 @@ async function parseJsonOrThrow(res) {
   return res.json();
 }
 
+// ============ 學期管理 ============
+
+export async function fetchAvailableSemesters(token) {
+  const res = await fetchClient('/api/admin/leader-public-profiles/semesters', {
+    headers: authHeaders(token),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function fetchLeadersBySemester(token, semesterId) {
+  const res = await fetchClient(`/api/admin/leader-public-profiles/semester/${encodeURIComponent(semesterId)}`, {
+    headers: authHeaders(token),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function reorderLeadersInSemester(token, semesterId, ids) {
+  const res = await fetchClient(`/api/admin/leader-public-profiles/semester/${encodeURIComponent(semesterId)}/reorder`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify({ ids }),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function copyLeadersFromSemester(token, targetSemesterId, sourceSemesterId) {
+  const res = await fetchClient(`/api/admin/leader-public-profiles/semester/${encodeURIComponent(targetSemesterId)}/copy`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ sourceSemesterId }),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function assignLeaderToSemester(token, semesterId, leaderId, options = {}) {
+  const res = await fetchClient(`/api/admin/leader-public-profiles/semester/${encodeURIComponent(semesterId)}/assign/${leaderId}`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(options),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function removeLeaderFromSemester(token, semesterId, leaderId) {
+  const res = await fetchClient(`/api/admin/leader-public-profiles/semester/${encodeURIComponent(semesterId)}/leader/${leaderId}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function updateSemesterAssignment(token, assignmentId, body) {
+  const res = await fetchClient(`/api/admin/leader-public-profiles/assignment/${assignmentId}`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  return parseJsonOrThrow(res);
+}
+
+// ============ 封存管理 ============
+
+export async function fetchArchivedLeaders(token) {
+  const res = await fetchClient('/api/admin/leader-public-profiles/archived', {
+    headers: authHeaders(token),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function archiveLeader(token, id) {
+  const res = await fetchClient(`/api/admin/leader-public-profiles/${id}/archive`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function unarchiveLeader(token, id) {
+  const res = await fetchClient(`/api/admin/leader-public-profiles/${id}/unarchive`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  return parseJsonOrThrow(res);
+}
+
+// ============ Leader CRUD ============
+
 export async function fetchLeaderPublicProfiles(token) {
   const res = await fetchClient('/api/admin/leader-public-profiles', {
     headers: authHeaders(token),

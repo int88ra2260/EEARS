@@ -1,21 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Form, Nav, Spinner, Tab } from 'react-bootstrap';
+import { Alert, Badge, Button, Form, Modal, Nav, Spinner, Tab } from 'react-bootstrap';
 import { useOutletContext } from 'react-router-dom';
 import MediaPicker from '../../components/media/MediaPicker';
 import { P } from '../../constants/permissions';
 import { SITE_CONTENT_KEY_SUGGESTIONS } from '../../constants/siteContentManifest';
 import {
+  archiveLeader,
+  assignLeaderToSemester,
+  copyLeadersFromSemester,
   createLeaderPublicProfile,
   createLeadersCarouselSlide,
   deleteLeaderPublicProfile,
   deleteLeadersCarouselSlide,
+  fetchArchivedLeaders,
+  fetchAvailableSemesters,
   fetchLeaderProfileImages,
-  fetchLeaderPublicProfiles,
+  fetchLeadersBySemester,
   fetchLeadersCarousel,
-  reorderLeaderPublicProfiles,
+  removeLeaderFromSemester,
   reorderLeadersCarousel,
+  reorderLeadersInSemester,
+  unarchiveLeader,
   updateLeaderPublicProfile,
   updateLeadersCarouselSlide,
+  updateSemesterAssignment,
   uploadLeaderProfileImage,
 } from '../../services/leadersTeamAdminApi';
 import {
@@ -54,7 +62,7 @@ function toLeaderForm(leader) {
     languages: leader.languages || '',
     focus: leader.focus || '',
     videoId: leader.videoId || '',
-    isPublished: leader.isPublished !== false,
+    isPublished: leader.semesterAssignment?.isPublished !== false,
   };
 }
 
@@ -78,24 +86,47 @@ function canEditLeaders(profile) {
 // ============ Leader 名單分頁 ============
 
 function LeaderListPanel({ token, assets, onUploadFile, uploading }) {
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemester, setSelectedSemester] = useState('');
   const [leaders, setLeaders] = useState([]);
+  const [archivedLeaders, setArchivedLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(EMPTY_LEADER_FORM);
+  const [showArchived, setShowArchived] = useState(false);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copySource, setCopySource] = useState('');
 
   const selected = useMemo(
     () => leaders.find((leader) => leader.id === selectedId) || null,
     [leaders, selectedId],
   );
 
-  const load = useCallback(async () => {
+  const loadSemesters = useCallback(async () => {
+    try {
+      const data = await fetchAvailableSemesters(token);
+      const sems = Array.isArray(data?.semesters) ? data.semesters : [];
+      setSemesters(sems);
+      const current = sems.find((s) => s.isCurrent);
+      if (current && !selectedSemester) {
+        setSelectedSemester(current.id);
+      } else if (sems.length && !selectedSemester) {
+        setSelectedSemester(sems[0].id);
+      }
+    } catch (err) {
+      setError(err.message || '載入學期失敗');
+    }
+  }, [token, selectedSemester]);
+
+  const loadLeaders = useCallback(async () => {
+    if (!selectedSemester) return;
     setLoading(true);
     setError('');
     try {
-      const data = await fetchLeaderPublicProfiles(token);
+      const data = await fetchLeadersBySemester(token, selectedSemester);
       const rows = Array.isArray(data?.leaders) ? data.leaders : [];
       setLeaders(rows);
       setSelectedId((current) => {
@@ -108,11 +139,30 @@ function LeaderListPanel({ token, assets, onUploadFile, uploading }) {
     } finally {
       setLoading(false);
     }
+  }, [token, selectedSemester]);
+
+  const loadArchived = useCallback(async () => {
+    try {
+      const data = await fetchArchivedLeaders(token);
+      setArchivedLeaders(Array.isArray(data?.leaders) ? data.leaders : []);
+    } catch {
+      // ignore
+    }
   }, [token]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadSemesters();
+  }, [loadSemesters]);
+
+  useEffect(() => {
+    if (selectedSemester) {
+      loadLeaders();
+    }
+  }, [selectedSemester, loadLeaders]);
+
+  useEffect(() => {
+    loadArchived();
+  }, [loadArchived]);
 
   useEffect(() => {
     if (selectedId === 'new') return;
@@ -143,18 +193,28 @@ function LeaderListPanel({ token, assets, onUploadFile, uploading }) {
       languages: form.languages,
       focus: form.focus,
       videoId: form.videoId,
-      isPublished: form.isPublished,
     };
     try {
       if (selectedId === 'new') {
-        const created = await createLeaderPublicProfile(token, { ...body, slug: form.slug });
+        const created = await createLeaderPublicProfile(token, {
+          ...body,
+          slug: form.slug,
+          isPublished: form.isPublished,
+          semesterId: selectedSemester,
+        });
         setNotice('已新增');
-        await load();
+        await loadLeaders();
         setSelectedId(created.id);
       } else {
         await updateLeaderPublicProfile(token, selectedId, body);
+        // 更新發布狀態
+        if (selected?.semesterAssignment?.id) {
+          await updateSemesterAssignment(token, selected.semesterAssignment.id, {
+            isPublished: form.isPublished,
+          });
+        }
         setNotice('已儲存');
-        await load();
+        await loadLeaders();
       }
     } catch (err) {
       setError(err.message || '儲存失敗');
@@ -163,17 +223,63 @@ function LeaderListPanel({ token, assets, onUploadFile, uploading }) {
     }
   };
 
-  const remove = async () => {
-    if (!selected || !window.confirm(`從介紹頁移除「${selected.displayName}」？這不會刪除 Leader 帳號。`)) return;
+  const handleArchive = async () => {
+    if (!selected || !window.confirm(`封存「${selected.displayName}」？封存後會從所有學期列表中移除。`)) return;
+    setSaving(true);
+    setError('');
+    try {
+      await archiveLeader(token, selected.id);
+      setNotice('已封存');
+      setSelectedId(null);
+      await Promise.all([loadLeaders(), loadArchived()]);
+    } catch (err) {
+      setError(err.message || '封存失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUnarchive = async (id) => {
+    setSaving(true);
+    setError('');
+    try {
+      await unarchiveLeader(token, id);
+      setNotice('已還原');
+      await Promise.all([loadLeaders(), loadArchived()]);
+    } catch (err) {
+      setError(err.message || '還原失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveFromSemester = async () => {
+    if (!selected || !window.confirm(`從 ${selectedSemester} 學期移除「${selected.displayName}」？（不會刪除 Leader 資料）`)) return;
+    setSaving(true);
+    setError('');
+    try {
+      await removeLeaderFromSemester(token, selectedSemester, selected.id);
+      setNotice('已從本學期移除');
+      setSelectedId(null);
+      await loadLeaders();
+    } catch (err) {
+      setError(err.message || '移除失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selected || !window.confirm(`永久刪除「${selected.displayName}」？這會刪除所有學期的資料，無法復原。`)) return;
     setSaving(true);
     setError('');
     try {
       await deleteLeaderPublicProfile(token, selected.id);
-      setNotice('已從介紹頁移除');
+      setNotice('已永久刪除');
       setSelectedId(null);
-      await load();
+      await Promise.all([loadLeaders(), loadArchived()]);
     } catch (err) {
-      setError(err.message || '移除失敗');
+      setError(err.message || '刪除失敗');
     } finally {
       setSaving(false);
     }
@@ -183,13 +289,14 @@ function LeaderListPanel({ token, assets, onUploadFile, uploading }) {
     const index = leaders.findIndex((leader) => leader.id === selectedId);
     const next = index + delta;
     if (index < 0 || next < 0 || next >= leaders.length) return;
-    const ids = leaders.map((leader) => leader.id);
+    const ids = leaders.map((leader) => leader.semesterAssignment?.id).filter(Boolean);
+    if (ids.length !== leaders.length) return;
     const [moved] = ids.splice(index, 1);
     ids.splice(next, 0, moved);
     setSaving(true);
     setError('');
     try {
-      const data = await reorderLeaderPublicProfiles(token, ids);
+      const data = await reorderLeadersInSemester(token, selectedSemester, ids);
       setLeaders(Array.isArray(data?.leaders) ? data.leaders : []);
     } catch (err) {
       setError(err.message || '排序失敗');
@@ -198,18 +305,118 @@ function LeaderListPanel({ token, assets, onUploadFile, uploading }) {
     }
   };
 
+  const handleCopyFromSemester = async () => {
+    if (!copySource) return;
+    setSaving(true);
+    setError('');
+    try {
+      const result = await copyLeadersFromSemester(token, selectedSemester, copySource);
+      setNotice(`已複製 ${result.copied} 位，略過 ${result.skipped} 位`);
+      setShowCopyModal(false);
+      await loadLeaders();
+    } catch (err) {
+      setError(err.message || '複製失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAssignArchived = async (leaderId) => {
+    setSaving(true);
+    setError('');
+    try {
+      await assignLeaderToSemester(token, selectedSemester, leaderId, { isPublished: true });
+      setNotice('已加入本學期');
+      await Promise.all([loadLeaders(), loadArchived()]);
+    } catch (err) {
+      setError(err.message || '加入失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const currentSemester = semesters.find((s) => s.isCurrent);
+
   return (
     <div>
+      {/* 學期選擇器 */}
+      <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <Form.Label className="mb-0 small fw-bold">學期：</Form.Label>
+        <Form.Select
+          value={selectedSemester}
+          onChange={(e) => setSelectedSemester(e.target.value)}
+          style={{ width: 'auto', minWidth: '120px' }}
+          size="sm"
+        >
+          {semesters.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}{s.isCurrent ? ' (當前)' : ''}
+            </option>
+          ))}
+        </Form.Select>
+        <Button
+          size="sm"
+          variant="outline-secondary"
+          onClick={() => {
+            setCopySource(semesters.find((s) => s.id !== selectedSemester)?.id || '');
+            setShowCopyModal(true);
+          }}
+        >
+          從其他學期複製
+        </Button>
+        <Button
+          size="sm"
+          variant={showArchived ? 'secondary' : 'outline-secondary'}
+          onClick={() => setShowArchived(!showArchived)}
+        >
+          封存區 {archivedLeaders.length > 0 ? `(${archivedLeaders.length})` : ''}
+        </Button>
+      </div>
+
       {error ? <Alert variant="danger">{error}</Alert> : null}
       {notice ? <Alert variant="success">{notice}</Alert> : null}
+
+      {/* 封存區 */}
+      {showArchived && archivedLeaders.length > 0 ? (
+        <div className="mb-4 p-3 bg-light rounded">
+          <h6 className="mb-2">封存的 Leaders</h6>
+          <div className="d-flex flex-wrap gap-2">
+            {archivedLeaders.map((leader) => (
+              <div key={leader.id} className="d-flex align-items-center gap-2 bg-white rounded px-2 py-1 border">
+                <span className="small">{leader.displayName}</span>
+                <Button
+                  size="sm"
+                  variant="outline-primary"
+                  onClick={() => handleUnarchive(leader.id)}
+                  disabled={saving}
+                >
+                  還原
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline-success"
+                  onClick={() => handleAssignArchived(leader.id)}
+                  disabled={saving}
+                  title="還原並加入當前學期"
+                >
+                  +本學期
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="row g-3">
         <div className="col-lg-4">
           <div className="d-flex justify-content-between align-items-center mb-2">
-            <strong>名單</strong>
+            <strong>{selectedSemester} 學期名單</strong>
             <Button size="sm" variant="dark" onClick={startCreate}>新增</Button>
           </div>
           {loading ? <Spinner size="sm" animation="border" /> : null}
+          {!loading && leaders.length === 0 ? (
+            <p className="text-muted small">本學期尚無 Leaders。可新增或從其他學期複製。</p>
+          ) : null}
           <div className="list-group">
             {leaders.map((leader, index) => (
               <button
@@ -222,7 +429,9 @@ function LeaderListPanel({ token, assets, onUploadFile, uploading }) {
                 }}
               >
                 <span>{leader.displayName}</span>
-                <span className="small">{leader.isPublished ? index + 1 : '隱藏'}</span>
+                <span className="small">
+                  {leader.semesterAssignment?.isPublished ? index + 1 : <Badge bg="secondary">隱藏</Badge>}
+                </span>
               </button>
             ))}
           </div>
@@ -262,7 +471,7 @@ function LeaderListPanel({ token, assets, onUploadFile, uploading }) {
                 className="mb-3"
                 type="checkbox"
                 id="leader-public-published"
-                label="顯示在介紹頁"
+                label={`在 ${selectedSemester} 學期顯示於前台`}
                 checked={form.isPublished}
                 onChange={(e) => setField('isPublished', e.target.checked)}
               />
@@ -321,8 +530,14 @@ function LeaderListPanel({ token, assets, onUploadFile, uploading }) {
                     <Button type="button" variant="outline-secondary" disabled={saving} onClick={() => move(1)}>
                       下移
                     </Button>
-                    <Button type="button" variant="outline-danger" disabled={saving} onClick={remove}>
-                      從介紹頁移除
+                    <Button type="button" variant="outline-warning" disabled={saving} onClick={handleRemoveFromSemester}>
+                      從本學期移除
+                    </Button>
+                    <Button type="button" variant="outline-secondary" disabled={saving} onClick={handleArchive}>
+                      封存
+                    </Button>
+                    <Button type="button" variant="outline-danger" disabled={saving} onClick={handleDelete}>
+                      永久刪除
                     </Button>
                   </>
                 ) : null}
@@ -331,6 +546,31 @@ function LeaderListPanel({ token, assets, onUploadFile, uploading }) {
           )}
         </div>
       </div>
+
+      {/* 複製學期 Modal */}
+      <Modal show={showCopyModal} onHide={() => setShowCopyModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>從其他學期複製</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>將其他學期的 Leaders 複製到 <strong>{selectedSemester}</strong>。已存在的會略過。</p>
+          <Form.Group>
+            <Form.Label>來源學期</Form.Label>
+            <Form.Select value={copySource} onChange={(e) => setCopySource(e.target.value)}>
+              <option value="">選擇學期</option>
+              {semesters.filter((s) => s.id !== selectedSemester).map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowCopyModal(false)}>取消</Button>
+          <Button variant="primary" onClick={handleCopyFromSemester} disabled={!copySource || saving}>
+            {saving ? '複製中…' : '複製'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
@@ -774,7 +1014,7 @@ export default function AdminLeadersTeamPage({ embedded = false }) {
           <div>
             <h1 className="h4 mb-1">LEADERS 介紹頁管理</h1>
             <p className="text-muted small mb-0">
-              管理 LEADERS 頁面的團隊名單、輪播圖片與文案。學號、信箱、帳號和時薪不會出現在這頁。
+              管理 LEADERS 頁面的學期名單、輪播圖片與文案。學號、信箱、帳號和時薪不會出現在這頁。
             </p>
           </div>
           <Button
@@ -790,14 +1030,14 @@ export default function AdminLeadersTeamPage({ embedded = false }) {
 
       {embedded ? (
         <p className="text-muted small mb-3">
-          管理 LEADERS 頁面的團隊名單、輪播圖片與文案。學號、信箱、帳號和時薪留在 Leader 帳號與支薪資料。
+          管理 LEADERS 頁面的學期名單、輪播圖片與文案。學號、信箱、帳號和時薪留在 Leader 帳號與支薪資料。
         </p>
       ) : null}
 
       <Tab.Container activeKey={activeTab} onSelect={(k) => setActiveTab(k)}>
         <Nav variant="tabs" className="mb-3">
           <Nav.Item>
-            <Nav.Link eventKey="leaders">Leader 名單</Nav.Link>
+            <Nav.Link eventKey="leaders">學期名單</Nav.Link>
           </Nav.Item>
           <Nav.Item>
             <Nav.Link eventKey="carousel">輪播圖片</Nav.Link>

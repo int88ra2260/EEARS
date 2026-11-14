@@ -62,6 +62,7 @@ const CourseGuideSection = require('./CourseGuideSection');
 const CourseGuideTopic = require('./CourseGuideTopic');
 const MediaAsset = require('./MediaAsset');
 const LeaderPublicProfile = require('./LeaderPublicProfile');
+const LeaderSemesterAssignment = require('./LeaderSemesterAssignment');
 const AuditLog = require('./AuditLog');
 const EmailLog = require('./EmailLog');
 const EmailTemplateOverride = require('./EmailTemplateOverride');
@@ -281,6 +282,10 @@ EtSessionTaskMark.belongsTo(Reservation, { foreignKey: 'reservationId', as: 'res
 EtSessionTaskMark.belongsTo(EtTaskTemplateItem, { foreignKey: 'taskItemId', as: 'taskItem' });
 EtSessionTaskMark.belongsTo(Teacher, { foreignKey: 'markedBy', as: 'marker' });
 
+// Leader 學期指派
+LeaderPublicProfile.hasMany(LeaderSemesterAssignment, { foreignKey: 'leaderId', as: 'semesterAssignments', onDelete: 'CASCADE' });
+LeaderSemesterAssignment.belongsTo(LeaderPublicProfile, { foreignKey: 'leaderId', as: 'leader' });
+
 // 一個使用者 (User) 可能有多個預約(若有此需求)
 User.hasMany(Reservation, { foreignKey: 'userId' });
 Reservation.belongsTo(User, { foreignKey: 'userId' });
@@ -473,6 +478,7 @@ module.exports = {
   CourseGuideTopic,
   MediaAsset,
   LeaderPublicProfile,
+  LeaderSemesterAssignment,
   AuditLog,
   EmailLog,
   EmailTemplateOverride,
