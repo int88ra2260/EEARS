@@ -2,6 +2,7 @@ const express = require('express');
 const { authMiddleware, requireAnyPermission } = require('../middlewares/auth');
 const { P } = require('../auth/permissions');
 const leaderPublicProfileService = require('../services/leaderPublicProfileService');
+const siteContentService = require('../services/siteContentService');
 const mediaLibraryService = require('../services/mediaLibraryService');
 const auditLogService = require('../services/auditLogService');
 const { mediaLibraryUpload } = require('../middlewares/mediaLibraryUpload');
@@ -111,6 +112,82 @@ router.delete('/:id', async (req, res, next) => {
       entityType: 'LeaderPublicProfile',
       entityId: removed.id,
       targetSummary: removed.displayName,
+      beforeData: removed,
+      req,
+    });
+    return res.json({ success: true });
+  } catch (err) {
+    return sendServiceError(res, err, next);
+  }
+});
+
+// ============ 輪播圖片管理 ============
+
+router.get('/carousel', async (req, res, next) => {
+  try {
+    const data = await siteContentService.listAdmin({ section: 'leaders_carousel' });
+    return res.json(data);
+  } catch (err) {
+    return sendServiceError(res, err, next);
+  }
+});
+
+router.post('/carousel', async (req, res, next) => {
+  try {
+    const slide = await siteContentService.createLeadersCarouselEntry(req.body, actorId(req));
+    auditLogService.logAuditAsync({
+      module: 'leaders_carousel',
+      action: 'create',
+      entityType: 'SiteContentEntry',
+      entityId: slide.id,
+      targetSummary: slide.label,
+      afterData: slide,
+      req,
+    });
+    return res.status(201).json(slide);
+  } catch (err) {
+    return sendServiceError(res, err, next);
+  }
+});
+
+router.put('/carousel/reorder', async (req, res, next) => {
+  try {
+    const data = await siteContentService.reorderLeadersCarousel(req.body?.ids, actorId(req));
+    return res.json(data);
+  } catch (err) {
+    return sendServiceError(res, err, next);
+  }
+});
+
+router.put('/carousel/:id', async (req, res, next) => {
+  try {
+    const slide = await siteContentService.updateLeadersCarouselEntry(req.params.id, req.body, actorId(req));
+    auditLogService.logAuditAsync({
+      module: 'leaders_carousel',
+      action: 'update',
+      entityType: 'SiteContentEntry',
+      entityId: slide.id,
+      targetSummary: slide.label,
+      afterData: slide,
+      req,
+    });
+    return res.json(slide);
+  } catch (err) {
+    return sendServiceError(res, err, next);
+  }
+});
+
+router.delete('/carousel/:id', async (req, res, next) => {
+  try {
+    const removed = await siteContentService.deleteEntry(req.params.id, {
+      entryType: siteContentService.ENTRY_LEADERS_CAROUSEL,
+    });
+    auditLogService.logAuditAsync({
+      module: 'leaders_carousel',
+      action: 'delete',
+      entityType: 'SiteContentEntry',
+      entityId: removed.id,
+      targetSummary: removed.contentKey || `slide-${removed.id}`,
       beforeData: removed,
       req,
     });

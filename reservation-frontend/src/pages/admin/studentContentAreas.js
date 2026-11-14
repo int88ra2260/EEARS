@@ -121,10 +121,10 @@ export const STUDENT_CONTENT_AREAS = [
   },
   {
     id: 'leaders-team',
-    label: '管理 LEADERS 介紹',
+    label: '管理 LEADERS 介紹頁',
     shortLabel: 'LEADERS 介紹',
-    description: 'English Table LEADERS 介紹頁的名單、順序、大頭照與公開介紹。',
-    howTo: '選擇一位後修改顯示名稱、是否公開、照片與介紹。照片從媒體庫挑選。學號、信箱和時薪不在這裡。',
+    description: 'LEADERS 介紹頁的團隊名單、輪播圖片與文案。',
+    howTo: '分頁可改 Leader 名單與排序、頂部輪播圖片、以及頁面標題與介紹文案。學號、信箱和時薪不在這裡。',
     previewPath: '/activities/english-table/leaders',
     previewLabel: 'LEADERS 介紹',
     kind: 'leaders-team',

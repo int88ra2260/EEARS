@@ -69,14 +69,35 @@ const SITE_CONTENT_SECTIONS = Object.freeze({
     label: '行政團隊',
     prefixes: [],
   },
+  leaders_team: {
+    label: 'LEADERS 介紹頁',
+    prefixes: ['leadersTeam.'],
+    exactKeys: [
+      'leadersTeam.pageTitle',
+      'leadersTeam.pageLead',
+      'leadersTeam.introTitle',
+      'leadersTeam.intro',
+      'leadersTeam.listTitle',
+    ],
+  },
+  leaders_carousel: {
+    label: 'LEADERS 輪播圖片',
+    prefixes: [],
+    structured: true,
+  },
 });
 
 const VALID_SECTIONS = Object.keys(SITE_CONTENT_SECTIONS);
 const STAFF_SECTIONS = Object.freeze(['staff_faculty', 'staff_admin']);
-const STRUCTURED_SECTIONS = Object.freeze(['faq', ...STAFF_SECTIONS]);
+const LEADERS_CAROUSEL_SECTION = 'leaders_carousel';
+const STRUCTURED_SECTIONS = Object.freeze(['faq', ...STAFF_SECTIONS, LEADERS_CAROUSEL_SECTION]);
 
 function isStaffSection(section) {
   return STAFF_SECTIONS.includes(section);
+}
+
+function isLeadersCarouselSection(section) {
+  return section === LEADERS_CAROUSEL_SECTION;
 }
 
 function staffGroupFromSection(section) {
@@ -112,8 +133,10 @@ module.exports = {
   SITE_CONTENT_SECTIONS,
   VALID_SECTIONS,
   STAFF_SECTIONS,
+  LEADERS_CAROUSEL_SECTION,
   STRUCTURED_SECTIONS,
   isStaffSection,
+  isLeadersCarouselSection,
   staffGroupFromSection,
   isValidSection,
   isAllowedTextKey,

@@ -17,6 +17,8 @@ export const SITE_CONTENT_SECTIONS = [
   { id: 'rules_modal', label: '活動規定／FAQ 彈窗（已下架）', deprecated: true },
   { id: 'staff_faculty', label: '師資名單' },
   { id: 'staff_admin', label: '行政團隊' },
+  { id: 'leaders_team', label: 'LEADERS 介紹頁' },
+  { id: 'leaders_carousel', label: 'LEADERS 輪播圖片', structured: true },
 ];
 
 export const VISIBLE_SITE_CONTENT_SECTIONS = SITE_CONTENT_SECTIONS.filter((s) => !s.deprecated);
@@ -121,6 +123,13 @@ export const SITE_CONTENT_KEY_SUGGESTIONS = {
     { key: 'privacyPage.intro', label: '隱私權前言' },
     { key: 'termsPage.lastUpdated', label: '使用條款最後更新' },
     { key: 'termsPage.intro', label: '使用條款前言' },
+  ],
+  leaders_team: [
+    { key: 'leadersTeam.pageTitle', label: '頁面標題' },
+    { key: 'leadersTeam.pageLead', label: '頁面導言' },
+    { key: 'leadersTeam.introTitle', label: '介紹區塊標題' },
+    { key: 'leadersTeam.intro', label: '介紹區塊內容' },
+    { key: 'leadersTeam.listTitle', label: '列表標題' },
   ],
 };
 

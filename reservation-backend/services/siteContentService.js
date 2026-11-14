@@ -4,7 +4,9 @@ const {
   SITE_CONTENT_SECTIONS,
   VALID_SECTIONS,
   STRUCTURED_SECTIONS,
+  LEADERS_CAROUSEL_SECTION,
   isStaffSection,
+  isLeadersCarouselSection,
   staffGroupFromSection,
   isValidSection,
   isAllowedTextKey,
@@ -16,6 +18,7 @@ const { buildActivityTypeContentSeedItems } = require('../utils/activityTypeCont
 const ENTRY_TEXT = 'text';
 const ENTRY_FAQ = 'faq';
 const ENTRY_STAFF = 'staff';
+const ENTRY_LEADERS_CAROUSEL = 'leaders_carousel';
 const ACTIVITY_TYPE_SECTION = 'activities';
 
 function trimOrNull(v) {
@@ -69,6 +72,21 @@ function serializeFaqEntry(row) {
     label: plain.label,
     question: { zh: plain.valueZh, en: plain.valueEn },
     answer: { zh: plain.bodyZh, en: plain.bodyEn },
+    sortOrder: plain.sortOrder,
+    isActive: plain.isActive,
+    updatedAt: plain.updatedAt,
+  };
+}
+
+function serializeLeadersCarouselEntry(row) {
+  const plain = row.get ? row.get({ plain: true }) : row;
+  return {
+    id: plain.id,
+    entryType: plain.entryType,
+    section: LEADERS_CAROUSEL_SECTION,
+    label: plain.label,
+    imageUrl: plain.valueZh || '',
+    alt: { zh: plain.bodyZh || '', en: plain.bodyEn || '' },
     sortOrder: plain.sortOrder,
     isActive: plain.isActive,
     updatedAt: plain.updatedAt,
@@ -161,6 +179,26 @@ function validateStaffPayload(body, section, { isCreate }) {
   return { errors, slug, label, valueZh, valueEn, bodyZh, bodyEn, email, extension };
 }
 
+function validateLeadersCarouselPayload(body, { isCreate }) {
+  const errors = [];
+  const imageUrl = trimOrNull(body.imageUrl);
+  const altZh = trimOrNull(body.altZh ?? body.alt?.zh);
+  const altEn = trimOrNull(body.altEn ?? body.alt?.en);
+  const label = trimOrNull(body.label) || altZh || '輪播圖片';
+
+  if (!imageUrl) {
+    errors.push('圖片網址必填');
+  }
+  if (!altZh && !altEn) {
+    errors.push('替代文字至少需填寫中文或英文');
+  }
+  if (!isCreate && body.sortOrder !== undefined && !Number.isFinite(Number(body.sortOrder))) {
+    errors.push('sortOrder 必須為數字');
+  }
+
+  return { errors, label, imageUrl, altZh, altEn };
+}
+
 async function getPublicBundle() {
   const rows = await SiteContentEntry.findAll({
     where: { isActive: true },
@@ -174,6 +212,7 @@ async function getPublicBundle() {
   const textOverrides = {};
   const faq = [];
   const staff = { faculty: [], admin: [] };
+  const leadersCarousel = [];
 
   rows.forEach((row) => {
     if (row.entryType === ENTRY_FAQ) {
@@ -189,6 +228,10 @@ async function getPublicBundle() {
       }
       return;
     }
+    if (row.entryType === ENTRY_LEADERS_CAROUSEL) {
+      leadersCarousel.push(serializeLeadersCarouselEntry(row));
+      return;
+    }
     if (row.entryType === ENTRY_TEXT && row.contentKey) {
       textOverrides[row.contentKey] = {
         zh: row.valueZh,
@@ -201,6 +244,7 @@ async function getPublicBundle() {
     textOverrides,
     faq,
     staff,
+    leadersCarousel,
     updatedAt: rows.length
       ? rows.reduce((max, r) => (r.updatedAt > max ? r.updatedAt : max), rows[0].updatedAt)
       : null,
@@ -240,6 +284,21 @@ async function listAdmin({ section }) {
       section,
       sectionLabel: SITE_CONTENT_SECTIONS[section].label,
       staff: rows.map(serializeStaffEntry),
+    };
+  }
+
+  if (isLeadersCarouselSection(section)) {
+    const rows = await SiteContentEntry.findAll({
+      where: { entryType: ENTRY_LEADERS_CAROUSEL },
+      order: [
+        ['sortOrder', 'ASC'],
+        ['id', 'ASC'],
+      ],
+    });
+    return {
+      section,
+      sectionLabel: SITE_CONTENT_SECTIONS[section].label,
+      slides: rows.map(serializeLeadersCarouselEntry),
     };
   }
 
@@ -725,10 +784,114 @@ async function seedStaffFromDefaults(section, items, userId, { overwrite = false
   return { seeded, updated: 0, skipped, total: items.length };
 }
 
+// ============ Leaders Carousel CRUD ============
+
+async function createLeadersCarouselEntry(body, userId) {
+  const { errors, label, imageUrl, altZh, altEn } = validateLeadersCarouselPayload(body, { isCreate: true });
+  if (errors.length) {
+    const err = new Error(errors.join('; '));
+    err.status = 400;
+    throw err;
+  }
+
+  const maxSort = await SiteContentEntry.max('sortOrder', {
+    where: { entryType: ENTRY_LEADERS_CAROUSEL },
+  });
+  const sortOrder = Number.isFinite(maxSort) ? maxSort + 1 : 0;
+
+  const created = await SiteContentEntry.create({
+    entryType: ENTRY_LEADERS_CAROUSEL,
+    section: LEADERS_CAROUSEL_SECTION,
+    contentKey: null,
+    label,
+    valueZh: imageUrl,
+    valueEn: null,
+    bodyZh: altZh,
+    bodyEn: altEn,
+    sortOrder,
+    isActive: body.isActive !== undefined ? !!body.isActive : true,
+    updatedBy: userId || null,
+  });
+
+  return serializeLeadersCarouselEntry(created);
+}
+
+async function updateLeadersCarouselEntry(id, body, userId) {
+  const row = await SiteContentEntry.findOne({
+    where: { id, entryType: ENTRY_LEADERS_CAROUSEL },
+  });
+  if (!row) {
+    const err = new Error('找不到輪播圖片');
+    err.status = 404;
+    throw err;
+  }
+
+  const { errors, label, imageUrl, altZh, altEn } = validateLeadersCarouselPayload(body, { isCreate: false });
+  if (errors.length) {
+    const err = new Error(errors.join('; '));
+    err.status = 400;
+    throw err;
+  }
+
+  const patch = {
+    label: body.label !== undefined ? label : row.label,
+    updatedBy: userId || null,
+  };
+  if (body.imageUrl !== undefined) patch.valueZh = imageUrl;
+  if (body.altZh !== undefined || body.alt?.zh !== undefined) patch.bodyZh = altZh;
+  if (body.altEn !== undefined || body.alt?.en !== undefined) patch.bodyEn = altEn;
+  if (body.isActive !== undefined) patch.isActive = !!body.isActive;
+  if (body.sortOrder !== undefined) patch.sortOrder = parseInt(body.sortOrder, 10) || 0;
+
+  await row.update(patch);
+  return serializeLeadersCarouselEntry(row);
+}
+
+async function reorderLeadersCarousel(ids, userId) {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    const err = new Error('ids 必填');
+    err.status = 400;
+    throw err;
+  }
+
+  const rows = await SiteContentEntry.findAll({
+    where: { entryType: ENTRY_LEADERS_CAROUSEL, id: { [Op.in]: ids.map((x) => parseInt(x, 10)) } },
+  });
+
+  if (rows.length !== ids.length) {
+    const err = new Error('部分輪播圖片不存在');
+    err.status = 400;
+    throw err;
+  }
+
+  await Promise.all(
+    ids.map((id, index) =>
+      SiteContentEntry.update(
+        { sortOrder: index, updatedBy: userId || null },
+        { where: { id: parseInt(id, 10), entryType: ENTRY_LEADERS_CAROUSEL } }
+      )
+    )
+  );
+
+  return listAdmin({ section: LEADERS_CAROUSEL_SECTION });
+}
+
+async function listLeadersCarouselPublic() {
+  const rows = await SiteContentEntry.findAll({
+    where: { entryType: ENTRY_LEADERS_CAROUSEL, isActive: true },
+    order: [
+      ['sortOrder', 'ASC'],
+      ['id', 'ASC'],
+    ],
+  });
+  return rows.map(serializeLeadersCarouselEntry);
+}
+
 module.exports = {
   ENTRY_TEXT,
   ENTRY_FAQ,
   ENTRY_STAFF,
+  ENTRY_LEADERS_CAROUSEL,
   getPublicBundle,
   listAdmin,
   listAdminSections,
@@ -737,6 +900,10 @@ module.exports = {
   updateFaqEntry,
   createStaffEntry,
   updateStaffEntry,
+  createLeadersCarouselEntry,
+  updateLeadersCarouselEntry,
+  reorderLeadersCarousel,
+  listLeadersCarouselPublic,
   deleteEntry,
   reorderFaq,
   reorderStaff,
@@ -747,4 +914,5 @@ module.exports = {
   serializeTextEntry,
   serializeFaqEntry,
   serializeStaffEntry,
+  serializeLeadersCarouselEntry,
 };

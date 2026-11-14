@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import PageHeader from '../components/layout/PageHeader';
@@ -11,7 +11,8 @@ import {
 import { fetchPublicLeaders } from '../services/leadersTeamPublicApi';
 import './LeadersTeamPage.css';
 
-const LEADER_SLIDES = [
+// 預設輪播圖片（API 未返回時使用）
+const DEFAULT_SLIDES = [
   { src: '/images/leaders/nice-to-meet-you.jpg', altKey: 'leadersTeam.slideNiceAlt' },
   { src: '/images/leaders/group-hall.jpg', altKey: 'leadersTeam.slideHallAlt' },
   { src: '/images/leaders/writing-awards.jpg', altKey: 'leadersTeam.slideAwardsAlt' },
@@ -24,11 +25,26 @@ function shouldAutoplay() {
   return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-function LeadersPhotoCarousel({ t }) {
+function LeadersPhotoCarousel({ t, lang, slides: apiSlides }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(shouldAutoplay);
-  const count = LEADER_SLIDES.length;
-  const slide = LEADER_SLIDES[index];
+
+  // 優先使用 API 返回的輪播圖片，否則用預設
+  const slides = useMemo(() => {
+    if (Array.isArray(apiSlides) && apiSlides.length > 0) {
+      return apiSlides.map((s) => ({
+        src: s.imageUrl,
+        alt: lang === 'en' ? (s.alt?.en || s.alt?.zh || '') : (s.alt?.zh || s.alt?.en || ''),
+      }));
+    }
+    return DEFAULT_SLIDES.map((s) => ({
+      src: s.src,
+      alt: t(s.altKey),
+    }));
+  }, [apiSlides, lang, t]);
+
+  const count = slides.length;
+  const slide = slides[index];
 
   useEffect(() => {
     if (!playing) return undefined;
@@ -49,7 +65,7 @@ function LeadersPhotoCarousel({ t }) {
       aria-label={t('leadersTeam.carouselLabel')}
     >
       <div className="leaders-carousel__frame">
-        <img src={slide.src} alt={t(slide.altKey)} />
+        <img src={slide.src} alt={slide.alt} />
         <div className="leaders-carousel__transport">
           <button
             type="button"
@@ -157,47 +173,68 @@ function LeaderCard({ leader, t }) {
 }
 
 export default function LeadersTeamPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [leaders, setLeaders] = useState(() => listLeaders());
   const [loadedFromApi, setLoadedFromApi] = useState(false);
+  const [carousel, setCarousel] = useState([]);
+  const [textOverrides, setTextOverrides] = useState({});
 
   useEffect(() => {
     let cancelled = false;
     fetchPublicLeaders()
       .then((data) => {
-        if (cancelled || !Array.isArray(data?.leaders)) return;
-        setLeaders(data.leaders);
-        setLoadedFromApi(true);
+        if (cancelled) return;
+        if (Array.isArray(data?.leaders)) {
+          setLeaders(data.leaders);
+          setLoadedFromApi(true);
+        }
+        if (Array.isArray(data?.carousel)) {
+          setCarousel(data.carousel);
+        }
+        if (data?.textOverrides && typeof data.textOverrides === 'object') {
+          setTextOverrides(data.textOverrides);
+        }
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // 取得文案：優先使用後台覆寫，否則用 i18n 預設
+  const getText = (key) => {
+    const override = textOverrides[key];
+    if (override) {
+      const text = lang === 'en' ? (override.en || override.zh) : (override.zh || override.en);
+      if (text) return text;
+    }
+    return t(key);
+  };
+
   const breadcrumbs = [
     { label: t('nav.home'), path: '/' },
     { label: t('nav.activities'), path: '/activities' },
     { label: t('activities.englishTable'), path: '/activities/english-table' },
-    { label: t('leadersTeam.pageTitle') },
+    { label: getText('leadersTeam.pageTitle') },
   ];
 
   return (
     <div className="leaders-team-page">
       <PageHeader
         breadcrumbs={breadcrumbs}
-        title={t('leadersTeam.pageTitle')}
-        lead={t('leadersTeam.pageLead')}
+        title={getText('leadersTeam.pageTitle')}
+        lead={getText('leadersTeam.pageLead')}
       />
 
       <section className="leaders-team-intro" aria-labelledby="leaders-team-intro-title">
-        <h2 id="leaders-team-intro-title">{t('leadersTeam.introTitle')}</h2>
-        <p>{t('leadersTeam.intro')}</p>
+        <h2 id="leaders-team-intro-title">{getText('leadersTeam.introTitle')}</h2>
+        <p>{getText('leadersTeam.intro')}</p>
       </section>
 
-      <LeadersPhotoCarousel t={t} />
+      <LeadersPhotoCarousel t={t} lang={lang} slides={carousel} />
 
       <section className="leaders-team-list" aria-labelledby="leaders-team-list-title">
-        <h2 id="leaders-team-list-title" className="visually-hidden">{t('leadersTeam.listTitle')}</h2>
+        <h2 id="leaders-team-list-title" className="visually-hidden">{getText('leadersTeam.listTitle')}</h2>
         {loadedFromApi && leaders.length === 0 ? (
           <p>{t('leadersTeam.empty')}</p>
         ) : (

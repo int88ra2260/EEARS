@@ -83,3 +83,47 @@ export async function reorderLeaderPublicProfiles(token, ids) {
   });
   return parseJsonOrThrow(res);
 }
+
+// ============ 輪播圖片管理 ============
+
+export async function fetchLeadersCarousel(token) {
+  const res = await fetchClient('/api/admin/leader-public-profiles/carousel', {
+    headers: authHeaders(token),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function createLeadersCarouselSlide(token, body) {
+  const res = await fetchClient('/api/admin/leader-public-profiles/carousel', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function updateLeadersCarouselSlide(token, id, body) {
+  const res = await fetchClient(`/api/admin/leader-public-profiles/carousel/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function deleteLeadersCarouselSlide(token, id) {
+  const res = await fetchClient(`/api/admin/leader-public-profiles/carousel/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function reorderLeadersCarousel(token, ids) {
+  const res = await fetchClient('/api/admin/leader-public-profiles/carousel/reorder', {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify({ ids }),
+  });
+  return parseJsonOrThrow(res);
+}
