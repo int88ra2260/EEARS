@@ -204,6 +204,10 @@ export async function getLearningAnalyticsOverview(token, params = {}, options =
   return fetchAnalytics(token, '/overview', params, options);
 }
 
+export async function getLearningAnalyticsOverviewStudents(token, params = {}, options = {}) {
+  return fetchAnalytics(token, '/overview/students', params, options);
+}
+
 export async function getLearningAnalyticsB1Plus(token, params = {}, options = {}) {
   return fetchAnalytics(token, '/b1-plus', params, options);
 }

@@ -12,6 +12,7 @@ const {
 const { resolveLatestSnapshotVersion } = require('../learningJourney/analytics/timelineReadService');
 const { EVENT_TYPES, EVENT_STATUS } = require('../../constants/learningJourneyEventConstants');
 const { WORKING_SET_CAP, studentIdAllowList } = require('./workingSetIds');
+const { applyCohortFilter } = require('./learningAnalyticsFilterUtils');
 
 const PAGE_LIMIT_DEFAULT = 40;
 const PAGE_LIMIT_MAX = 100;
@@ -178,7 +179,7 @@ function buildWhere(query, snapshotVersion, keywordIds) {
     and.push({ studentId: { [Op.in]: keywordIds.length ? keywordIds : ['__none__'] } });
   }
   if (query.department) where.department = String(query.department);
-  if (query.cohort) where.cohort = String(query.cohort);
+  applyCohortFilter(where, query.cohort);
   const minHours = parseOptionalNumber(query.min_activity_hours ?? query.minActivityHours);
   if (minHours != null) where.totalActivityHours = { [Op.gte]: minHours };
   const minCourseHours = parseOptionalNumber(query.min_course_hours ?? query.minCourseHours);

@@ -1,19 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { P } from '../../constants/permissions';
 import { buildAccessProfile, hasAnyPermission } from '../../utils/accessControl';
 import { getCurrentSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
-import B2KpiSection from '../../components/learningJourneyV3/B2KpiSection';
-import BreakdownTabs from '../../components/learningJourneyV3/BreakdownTabs';
-import BreakdownTable from '../../components/learningJourneyV3/BreakdownTable';
 import StudentTable from '../../components/learningJourneyV3/StudentTable';
-import LearningJourneyAnalyticsPanel from '../../components/learningJourneyV3/LearningJourneyAnalyticsPanel';
 import StudentFilters, { DEFAULT_STUDENT_FILTERS } from '../../components/learningJourneyV3/StudentFilters';
-import {
-  getLearningJourneyV3B2Report,
-  getLearningJourneyV3Breakdown,
-  getLearningJourneyV3Students,
-} from '../../services/learningJourneyV3Api';
+import { getLearningJourneyV3Students } from '../../services/learningJourneyV3Api';
 
 const DASHBOARD_SEMESTER_OPTIONS = SEMESTER_OPTIONS.filter((o) => o.value);
 const DEFAULT_SEMESTER = getCurrentSemester() || DASHBOARD_SEMESTER_OPTIONS[0]?.value || '114-2';
@@ -101,12 +93,7 @@ export default function LearningJourneyDashboardPage() {
   }, [setAdminPageMeta, teacherView]);
 
   const [semesterId, setSemesterId] = useState(() => querySemester || DEFAULT_SEMESTER);
-  const [activeBreakdown, setActiveBreakdown] = useState('grade');
   const initialSemesterSynced = useRef(false);
-
-  const [kpiLoading, setKpiLoading] = useState(false);
-  const [kpiError, setKpiError] = useState('');
-  const [b2Report, setB2Report] = useState(null);
 
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsError, setStudentsError] = useState('');
@@ -119,22 +106,9 @@ export default function LearningJourneyDashboardPage() {
     returned: 0
   });
   const [studentFilterOptions, setStudentFilterOptions] = useState({ departments: [], grades: [] });
-  const [breakdownLoading, setBreakdownLoading] = useState(false);
-  const [breakdownError, setBreakdownError] = useState('');
-  const [breakdownRows, setBreakdownRows] = useState([]);
   const studentQuery = useMemo(
     () => studentQueryFromSearch(searchText, semesterId),
     [searchText, semesterId]
-  );
-  const normalizedBreakdownRows = useMemo(
-    () =>
-      (breakdownRows || []).map((row) => ({
-        key: `${activeBreakdown}-${row.group}`,
-        label: row.group,
-        count: row.totalStudents,
-        skills: row.skills || {}
-      })),
-    [breakdownRows, activeBreakdown]
   );
 
   const updateStudentQuery = useCallback((patch = {}, { resetPage = false } = {}) => {
@@ -167,29 +141,6 @@ export default function LearningJourneyDashboardPage() {
       updateStudentQuery({ semester: DEFAULT_SEMESTER }, { resetPage: true });
     }
   }, [querySemester, updateStudentQuery]);
-
-  useEffect(() => {
-    const sem = String(semesterId || '').trim();
-    if (!sem || !token) return undefined;
-    const controller = new AbortController();
-    setKpiLoading(true);
-    setKpiError('');
-    getLearningJourneyV3B2Report(token, sem, { signal: controller.signal })
-      .then((data) => {
-        if (!controller.signal.aborted) setB2Report(data || null);
-      })
-      .catch((err) => {
-        if (err?.name === 'AbortError') return;
-        if (!controller.signal.aborted) {
-          setB2Report(null);
-          setKpiError(err.message || '讀取 B2 KPI 失敗');
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setKpiLoading(false);
-      });
-    return () => controller.abort();
-  }, [token, semesterId]);
 
   useEffect(() => {
     const params = new URLSearchParams(searchText);
@@ -285,29 +236,6 @@ export default function LearningJourneyDashboardPage() {
     updateStudentQuery
   ]);
 
-  useEffect(() => {
-    const sem = String(semesterId || '').trim();
-    if (!sem || !token) return undefined;
-    const controller = new AbortController();
-    setBreakdownLoading(true);
-    setBreakdownError('');
-    getLearningJourneyV3Breakdown(token, sem, activeBreakdown, { signal: controller.signal })
-      .then((data) => {
-        if (!controller.signal.aborted) setBreakdownRows(Array.isArray(data) ? data : []);
-      })
-      .catch((err) => {
-        if (err?.name === 'AbortError') return;
-        if (!controller.signal.aborted) {
-          setBreakdownRows([]);
-          setBreakdownError(err.message || '讀取分項統計失敗');
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setBreakdownLoading(false);
-      });
-    return () => controller.abort();
-  }, [token, semesterId, activeBreakdown]);
-
   if (!canViewLj) {
     return (
       <div className="container-fluid py-3">
@@ -320,51 +248,24 @@ export default function LearningJourneyDashboardPage() {
     <div className="container-fluid py-3">
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <p className="text-muted mb-0">
-          依學期查看單技能 CEFR B2 以上人數、分項統計與學生清單。資料範圍：學期名冊。
+          依學期查看名冊上的學生。英語能力、學習成長與課程資源的總覽在
+          {' '}
+          <Link to="/admin/learning-analytics/overview">學習成效概況</Link>
+          。
         </p>
-      </div>
-
-      <div className="card mb-3">
-        <div className="card-header fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
-          <span title="Common European Framework of Reference：B2 以上人數">B2 程度（四技能）</span>
-          <div className="d-flex align-items-center gap-2">
-            <label htmlFor="lj-dashboard-semester" className="small text-muted mb-0">學期</label>
-            <select
-              id="lj-dashboard-semester"
-              className="form-select form-select-sm"
-              style={{ width: '9rem' }}
-              value={semesterId}
-              onChange={(e) => updateDashboardSemester(e.target.value)}
-            >
-              {DASHBOARD_SEMESTER_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="card-body">
-          <B2KpiSection loading={kpiLoading} report={b2Report} error={kpiError} />
-        </div>
-      </div>
-
-      <div className="card mb-3">
-        <div className="card-header fw-semibold">學習成效分析</div>
-        <div className="card-body">
-          <LearningJourneyAnalyticsPanel token={token} semesterId={semesterId} />
-        </div>
-      </div>
-
-      <div className="card mb-3">
-        <div className="card-header fw-semibold">分項統計</div>
-        <div className="card-body">
-          <BreakdownTabs activeTab={activeBreakdown} onChange={setActiveBreakdown} />
-          <div className="mt-3">
-            <BreakdownTable
-              loading={breakdownLoading}
-              error={breakdownError}
-              rows={normalizedBreakdownRows}
-            />
-          </div>
+        <div className="d-flex align-items-center gap-2">
+          <label htmlFor="lj-dashboard-semester" className="small text-muted mb-0">學期</label>
+          <select
+            id="lj-dashboard-semester"
+            className="form-select form-select-sm"
+            style={{ width: '9rem' }}
+            value={semesterId}
+            onChange={(e) => updateDashboardSemester(e.target.value)}
+          >
+            {DASHBOARD_SEMESTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 

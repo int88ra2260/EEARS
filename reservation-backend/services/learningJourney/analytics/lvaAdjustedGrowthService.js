@@ -276,8 +276,13 @@ function summarizeAdjustedGrowthByMethod(rows, estimateType, modelVersion, formu
   const annotated = annotatePretestPeers(rows);
   const bySkill = {};
   for (const row of annotated) {
-    if (!bySkill[row.skill]) bySkill[row.skill] = [];
-    bySkill[row.skill].push(row.adjustedGseGrowth);
+    if (!bySkill[row.skill]) {
+      bySkill[row.skill] = { adjusted: [], actual: [], students: new Set() };
+    }
+    const bucket = bySkill[row.skill];
+    bucket.adjusted.push(row.adjustedGseGrowth);
+    if (Number.isFinite(Number(row.actualGseGrowth))) bucket.actual.push(Number(row.actualGseGrowth));
+    if (row.studentId) bucket.students.add(String(row.studentId).trim().toUpperCase());
   }
 
   const monthsAvailable = annotated.filter((row) => row.monthsBetweenTests != null).length;
@@ -291,11 +296,13 @@ function summarizeAdjustedGrowthByMethod(rows, estimateType, modelVersion, formu
     sampleSize: annotated.length,
     monthsBetweenTestsCoverage: annotated.length ? round(monthsAvailable / annotated.length, 4) : 0,
     bySkill: Object.entries(bySkill)
-      .map(([skill, values]) => ({
+      .map(([skill, bucket]) => ({
         skill,
-        sampleSize: values.length,
-        adjustedGseGrowthAverage: round(mean(values), 2),
-        confidenceInterval: ci95(values),
+        sampleSize: bucket.adjusted.length,
+        adjustedGseGrowthAverage: round(mean(bucket.adjusted), 2),
+        actualGseGrowthAverage: bucket.actual.length ? round(mean(bucket.actual), 2) : null,
+        pairedStudentCount: bucket.students.size,
+        confidenceInterval: ci95(bucket.adjusted),
         estimateType,
         causalClaimAllowed: false,
       }))

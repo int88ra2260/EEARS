@@ -62,7 +62,7 @@ export const FILTER_FIELD_HINTS = Object.freeze({
   academic_year: '匯出／預覽用：符合「入學年度（級）=該年」或「入學學期以該年開頭（如 114-1）」的學生。例：選 114 會含 114 級與入學學期 114-*。',
   snapshot_version: '分析摘要的資料版本。請優先選最新「全域分析」；課程匯入／手動部分重建人數可能偏少或重複。',
   student_id: '精確學號（不分大小寫）。填寫後只匯出／預覽該生。',
-  cohort: '選項來自分析資料中的入學年度（級），例如 113、114。',
+  cohort: '可複選。未勾選表示全部入學年度。選項來自分析資料中的入學年度（級）。',
   college: '選項來自分析資料中的學院，以及分析設定中手動新增的項目。',
   department: '選項來自分析資料中的系所，以及分析設定中手動新增的項目。',
   baseline_level: '只比對已另行記載的 CEFR。學測級分與起始分級不會換算成 CEFR。',
@@ -91,12 +91,10 @@ export const LA_FILTER_INTRO_RESOURCES = '這些條件篩的是分析快照裡�
 /** 原始資料匯出頁：篩選會真正縮小匯出範圍 */
 export const LA_FILTER_INTRO_RAW_EXPORT = '此頁篩選會套用到預覽與匯出。若只要某學年度學生，請用「學年度」或「入學年度（級）」；「入學學期」對應 enrollment_term（如 114-2）。資料版本請選「建議｜全域分析」。';
 
-/** 日常總覽頁：只篩分析快照。學期達標人數在 B2 KPI 報表。 */
+/** 日常總覽頁：只留資料版本與入學年度。系所由圖表點選帶入。 */
 export const OVERVIEW_FILTER_KEYS = [
   'snapshot_version',
   'cohort',
-  'college',
-  'department',
 ];
 
 /** 群體比較頁：以學生群體切片為主，不顯示研究模型參數 */
@@ -206,7 +204,6 @@ export const TRI_STATE_OPTIONS = [
 export function parseFiltersFromSearchParams(searchParams) {
   const parsed = { ...DEFAULT_LA_FILTERS };
   FILTER_PARAM_KEYS.forEach((key) => {
-    if (key === 'snapshot_version') return;
     const value = searchParams.get(key);
     if (value != null && value !== '') parsed[key] = value;
   });
@@ -253,4 +250,17 @@ export function countActiveFilters(filters = {}, { keys = null, includeSnapshot 
     const value = filters[key];
     return value !== undefined && value !== null && value !== '';
   }).length;
+}
+
+/** 子頁只帶走總覽的資料版本與入學年度。 */
+export function scopeSearchPath(path, search = '') {
+  const raw = String(search || '');
+  const current = new URLSearchParams(raw.startsWith('?') ? raw.slice(1) : raw);
+  const next = new URLSearchParams();
+  const snapshot = current.get('snapshot_version');
+  const cohort = current.get('cohort');
+  if (snapshot) next.set('snapshot_version', snapshot);
+  if (cohort) next.set('cohort', cohort);
+  const qs = next.toString();
+  return qs ? `${path}?${qs}` : path;
 }

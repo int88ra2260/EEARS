@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
 import { isFinderWorkspace } from '../../constants/adminNavigation';
+import { scopeSearchPath } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 import '../../components/learningAnalytics/learningAnalytics.css';
 
 /**
@@ -17,7 +18,7 @@ const NAV_GROUPS = [
       {
         to: '/admin/learning-analytics/overview',
         label: '學習成效概況',
-        hint: '分析快照的能力分布與資料夠不夠',
+        hint: '英語能力、學習成長與課程資源',
         end: false,
       },
       {
@@ -91,7 +92,7 @@ export default function LearningAnalyticsLayout() {
               {group.items.map((item) => (
                 <NavLink
                   key={item.to}
-                  to={item.to}
+                  to={scopeSearchPath(item.to, location.search)}
                   end={item.end}
                   title={item.hint}
                   className={({ isActive }) => (isActive ? 'active' : undefined)}

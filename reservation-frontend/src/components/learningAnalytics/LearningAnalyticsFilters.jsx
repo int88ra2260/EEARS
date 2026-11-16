@@ -119,6 +119,38 @@ function SelectField({
   );
 }
 
+function CohortMultiField({ value, options, onChange, disabled, hint, hintId }) {
+  const selected = new Set(String(value || '').split(',').map((item) => item.trim()).filter(Boolean));
+  const years = (options || []).filter((option) => option.value);
+  const toggle = (year) => {
+    const next = new Set(selected);
+    if (next.has(year)) next.delete(year);
+    else next.add(year);
+    onChange([...next].sort((a, b) => a.localeCompare(b, 'zh-Hant')).join(','));
+  };
+  return (
+    <FilterField label={FILTER_LABELS.cohort} hint={hint} hintId={hintId}>
+      {years.length ? (
+        <div className="d-flex flex-wrap gap-3">
+          {years.map((option) => (
+            <Form.Check
+              key={option.value}
+              type="checkbox"
+              id={`la-cohort-${option.value}`}
+              label={option.label}
+              checked={selected.has(String(option.value))}
+              disabled={disabled}
+              onChange={() => toggle(String(option.value))}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="small text-muted">尚無入學年度可選</div>
+      )}
+    </FilterField>
+  );
+}
+
 function resolveFilterHint(key, filterOptions, matchingCaliperDefault) {
   const fromMeta = filterOptions?.notes?.[key];
   if (fromMeta) return fromMeta;
@@ -290,15 +322,14 @@ export default function LearningAnalyticsFilters({
             </Col>
           ) : null}
           {show('cohort') ? (
-            <Col xs={6} sm={6} lg={2}>
-              <SelectField
-                label={FILTER_LABELS.cohort}
+            <Col xs={12} lg={6}>
+              <CohortMultiField
+                value={filters.cohort}
+                options={cohortOptions}
                 hint={hint('cohort')}
                 hintId="la-filter-hint-cohort"
-                value={filters.cohort}
-                onChange={(e) => patch({ cohort: e.target.value })}
-                options={cohortOptions}
                 disabled={loading}
+                onChange={(cohort) => patch({ cohort })}
               />
             </Col>
           ) : null}

@@ -5,6 +5,7 @@ import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Spinner from 'react-bootstrap/Spinner';
 import Table from 'react-bootstrap/Table';
+import { useSearchParams } from 'react-router-dom';
 
 import MetricCard from '../../components/learningAnalytics/MetricCard';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
@@ -94,6 +95,13 @@ const SKILL_LABELS = {
 
 export default function LearningAnalyticsKpiReportPage() {
   const token = localStorage.getItem('token') || '';
+  const [searchParams] = useSearchParams();
+  const entryCohorts = (searchParams.get('cohort') || '').trim();
+  const snapshotFromOverview = (searchParams.get('snapshot_version') || '').trim();
+  const overviewScope = useMemo(() => ({
+    ...(entryCohorts ? { cohort: entryCohorts } : {}),
+    ...(snapshotFromOverview ? { snapshot_version: snapshotFromOverview } : {}),
+  }), [entryCohorts, snapshotFromOverview]);
   const accessProfile = useMemo(() => buildAccessProfile(token), [token]);
   const canManage = hasPermission(accessProfile, P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS);
   const canExport = hasPermission(accessProfile, P.CAN_EXPORT_LEARNING_ANALYTICS);
@@ -308,6 +316,7 @@ export default function LearningAnalyticsKpiReportPage() {
         policyId: Number(requestPolicyId),
         semesterId: requestSemester,
         includeRows: true,
+        ...overviewScope,
       }));
       const decision = resolveKpiRunAcceptance({
         requestSeq: seq,
@@ -355,6 +364,7 @@ export default function LearningAnalyticsKpiReportPage() {
       const { blob, fileName } = await exportLearningAnalyticsKpiReport(token, workingSet.withWorkingSet({
         policyId,
         semesterId,
+        ...overviewScope,
       }));
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -380,6 +390,7 @@ export default function LearningAnalyticsKpiReportPage() {
       const { blob, fileName } = await exportLearningAnalyticsKpiGaps(token, workingSet.withWorkingSet({
         policyId,
         semesterId,
+        ...overviewScope,
       }));
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -467,6 +478,11 @@ export default function LearningAnalyticsKpiReportPage() {
                       ? `大${selectedPolicy.definition.population.gradeMin ?? '?'}至大${selectedPolicy.definition.population.gradeMax ?? '?'}`
                       : '不限'}
                     （依選定學期在學名冊）
+                  </div>
+                ) : null}
+                {entryCohorts ? (
+                  <div className="form-text">
+                    入學年度：{entryCohorts.split(',').filter(Boolean).join('、')}。執行時只保留這些入學年度與名冊的交集。
                   </div>
                 ) : null}
               </div>

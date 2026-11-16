@@ -1,6 +1,6 @@
 'use strict';
 
-const { getLearningAnalyticsOverview } = require('../services/learningAnalytics/learningAnalyticsOverviewService');
+const { getLearningAnalyticsOverview, listOverviewStudents } = require('../services/learningAnalytics/learningAnalyticsOverviewService');
 const { getLearningAnalyticsCohorts } = require('../services/learningAnalytics/learningAnalyticsCohortService');
 const { getLearningAnalyticsOfferings, getLearningAnalyticsOfferingDetail } = require('../services/learningAnalytics/learningAnalyticsOfferingService');
 const { buildOfferingsExportWorkbook } = require('../services/learningAnalytics/learningAnalyticsOfferingExportService');
@@ -59,6 +59,8 @@ function readKpiInput(source = {}) {
     academicYear: source.academicYear,
     dateFrom: source.dateFrom,
     dateTo: source.dateTo,
+    cohort: source.cohort || source.cohorts,
+    snapshot_version: source.snapshot_version || source.snapshotVersion,
     includeRows: source.includeRows !== false,
     studentIds: source.studentIds || source.student_ids,
   };
@@ -100,6 +102,15 @@ async function getOverview(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return sendAnalyticsError(req, res, e);
+  }
+}
+
+async function getOverviewStudents(req, res) {
+  try {
+    const data = await listOverviewStudents(readAnalyticsQuery(req));
+    return res.json({ success: true, data, requestId: req.requestId });
+  } catch (e) {
+    return sendAnalyticsError(req, res, e, e.status || 500);
   }
 }
 
@@ -718,6 +729,7 @@ module.exports = {
   putLvaConfig,
   postResetLvaConfig,
   getOverview,
+  getOverviewStudents,
   getStudentExplorer: getStudentExplorerHandler,
   getB1PlusWatch: getB1PlusWatchHandler,
   getB1PlusPostExamDetail: getB1PlusPostExamDetailHandler,

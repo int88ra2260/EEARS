@@ -16,6 +16,24 @@ function parseList(v) {
   return String(v).split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+function parseCohortList(value) {
+  const seen = new Set();
+  const list = [];
+  for (const item of parseList(value)) {
+    if (seen.has(item)) continue;
+    seen.add(item);
+    list.push(item);
+  }
+  return list;
+}
+
+function applyCohortFilter(where, value) {
+  const cohorts = parseCohortList(value);
+  if (cohorts.length === 1) where.cohort = cohorts[0];
+  else if (cohorts.length > 1) where.cohort = { [Op.in]: cohorts };
+  return cohorts;
+}
+
 function addReasonFilters(where, query, field = 'reasonCodesSummary') {
   const includeReasons = parseList(query.include_reason_code || query.reason_code_include);
   const excludeReasons = parseList(query.exclude_reason_code || query.reason_code_exclude);
@@ -79,7 +97,7 @@ function buildStudentWhere(query, snapshotVersion, options = {}) {
   const where = { snapshotVersion };
   const scopedStudentId = String(query.student_id || query.studentId || '').trim();
   if (scopedStudentId) where.studentId = scopedStudentId.toUpperCase();
-  if (query.cohort) where.cohort = String(query.cohort);
+  applyCohortFilter(where, query.cohort);
   if (query.college) where.college = String(query.college);
   if (query.department) where.department = String(query.department);
   if (query.admission_type) where.admissionType = String(query.admission_type);
@@ -224,6 +242,8 @@ function stripEmptyQueryParams(query = {}) {
 module.exports = {
   parseBool,
   parseList,
+  parseCohortList,
+  applyCohortFilter,
   buildStudentWhere,
   buildExamWhere,
   applyEnrollmentScopeToStudentWhere,

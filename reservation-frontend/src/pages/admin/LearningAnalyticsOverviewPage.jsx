@@ -8,31 +8,25 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
-import { getLearningAnalyticsOverview } from '../../services/learningAnalyticsService';
+import { getLearningAnalyticsOverview, getLearningAnalyticsOverviewStudents } from '../../services/learningAnalyticsService';
 import MetricCard from '../../components/learningAnalytics/MetricCard';
 import LearningAnalyticsFilters, { LearningAnalyticsActiveFilters } from '../../components/learningAnalytics/LearningAnalyticsFilters';
 import LearningAnalyticsDataHealth from '../../components/learningAnalytics/LearningAnalyticsDataHealth';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
-import OutcomesModeSwitch from '../../components/learningAnalytics/OutcomesModeSwitch';
-import MicroLearningEngagementPanel from '../../components/learningAnalytics/MicroLearningEngagementPanel';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
-import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
-import LaFold from '../../components/learningAnalytics/LaFold';
-import EvidenceQualityBadge from '../../components/learningAnalytics/EvidenceQualityBadge';
+import OverviewStudentListModal from '../../components/learningAnalytics/OverviewStudentListModal';
+import MicroLearningEngagementPanel from '../../components/learningAnalytics/MicroLearningEngagementPanel';
 import { useLearningAnalyticsBootstrap } from '../../hooks/useLearningAnalyticsBootstrap';
-import { OVERVIEW_FILTER_KEYS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
+import { OVERVIEW_FILTER_KEYS, scopeSearchPath } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 
-const EVIDENCE_QUALITY_USER_LABELS = {
-  high: '高（英檢與參與紀錄較完整）',
-  medium: '中',
-  medium_low: '中低',
-  low: '低（可參考但解讀宜保守）',
+const LEVEL_LABELS = {
+  BELOW_A1: '未達 A1',
+  UNKNOWN: '未記載',
 };
 
 function formatPct(rate) {
@@ -47,11 +41,19 @@ function formatNum(n) {
   return v.toLocaleString('zh-TW');
 }
 
-function formatCoverage(part, total) {
-  const p = Number(part);
-  const t = Number(total);
-  if (!Number.isFinite(p) || !Number.isFinite(t) || t <= 0) return '—';
-  return `${((p / t) * 100).toFixed(1)}%`;
+function formatSigned(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '—';
+  const text = v.toFixed(1);
+  return v > 0 ? `+${text}` : text;
+}
+
+function ratioHint(count, total) {
+  return `${formatNum(count)} / ${formatNum(total)}`;
+}
+
+function barPayload(entry) {
+  return entry?.payload || entry || {};
 }
 
 export default function LearningAnalyticsOverviewPage() {
@@ -73,6 +75,10 @@ export default function LearningAnalyticsOverviewPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
+  const [listRequest, setListRequest] = useState(null);
+  const [listLoading, setListLoading] = useState(false);
+  const [listError, setListError] = useState('');
+  const [listData, setListData] = useState(null);
 
   const load = useCallback(async () => {
     if (!ready) return;
@@ -93,41 +99,75 @@ export default function LearningAnalyticsOverviewPage() {
     load();
   }, [load]);
 
-  const headline = data?.headline || {};
-  const cefrChart = useMemo(() => {
-    const baseline = data?.cefrDistribution?.baseline || [];
-    const current = data?.cefrDistribution?.currentBest || [];
-    const levels = [...new Set([
-      ...baseline.map((r) => r.level),
-      ...current.map((r) => r.level),
-    ])].filter((l) => l !== 'UNKNOWN');
-    return levels.map((level) => ({
-      level,
-      baseline: baseline.find((r) => r.level === level)?.count || 0,
-      current: current.find((r) => r.level === level)?.count || 0,
-    }));
-  }, [data]);
+  useEffect(() => {
+    setListRequest(null);
+    setListData(null);
+    setListError('');
+  }, [appliedFilters]);
 
-  const resourceChart = useMemo(() => (
-    (data?.resourceParticipation || []).slice(0, 8).map((row) => ({
+  useEffect(() => {
+    if (!listRequest || !ready) return undefined;
+    const controller = new AbortController();
+    setListLoading(true);
+    setListError('');
+    getLearningAnalyticsOverviewStudents(token, withWorkingSet({
+      ...apiParams(),
+      slice: listRequest.slice,
+      skill: listRequest.skill,
+      department: listRequest.department,
+      level: listRequest.level,
+      limit: 40,
+      offset: listRequest.offset || 0,
+    }), { signal: controller.signal })
+      .then((payload) => {
+        if (!controller.signal.aborted) setListData(payload);
+      })
+      .catch((e) => {
+        if (e?.name === 'AbortError') return;
+        if (!controller.signal.aborted) {
+          setListData(null);
+          setListError(e.message || '名單載入失敗');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setListLoading(false);
+      });
+    return () => controller.abort();
+  }, [listRequest, ready, token, apiParams, withWorkingSet]);
+
+  const dashboard = data?.dashboard;
+  const ability = dashboard?.ability;
+  const growth = dashboard?.growth;
+  const resources = dashboard?.resources;
+  const scopeQuery = new URLSearchParams();
+  if (appliedFilters.snapshot_version) scopeQuery.set('snapshot_version', appliedFilters.snapshot_version);
+  if (appliedFilters.cohort) scopeQuery.set('cohort', appliedFilters.cohort);
+  const scopeSearch = scopeQuery.toString() ? `?${scopeQuery.toString()}` : '';
+  const kpiHref = scopeSearchPath('/admin/learning-analytics/kpi-report', scopeSearch);
+  const compareHref = scopeSearchPath('/admin/learning-analytics/cohorts', scopeSearch);
+  const skillsHref = scopeSearchPath('/admin/learning-analytics/skills', scopeSearch);
+  const resourcesHref = scopeSearchPath('/admin/learning-analytics/resources', scopeSearch);
+  const baselineChart = useMemo(
+    () => (growth?.baseline || []).map((row) => ({
+      ...row,
+      label: LEVEL_LABELS[row.level] || row.level,
+    })),
+    [growth]
+  );
+  const departmentChart = ability?.byDepartment || [];
+  const resourceChart = useMemo(
+    () => (resources?.participation || []).slice(0, 8).map((row) => ({
       name: row.label,
       hours: row.hours,
-    }))
-  ), [data]);
-
-  const resourceObservability = useMemo(() => {
-    const byResource = new Map((data?.resourceRanking || []).map((row) => [row.resourceType, row]));
-    return (data?.resourceParticipation || []).slice(0, 6).map((row) => {
-      const ranking = byResource.get(row.resourceType) || {};
-      return {
-        ...row,
-        growthSampleSize: ranking.growthSampleSize,
-        evidenceLevel: ranking.evidenceLevel,
-      };
-    });
-  }, [data]);
-
+    })),
+    [resources]
+  );
   const filterHasNoMatch = data?.hasData === false && meta?.hasAnalyticData;
+
+  const openList = (request) => {
+    setListData(null);
+    setListRequest({ ...request, offset: 0 });
+  };
 
   return (
     <div>
@@ -141,23 +181,12 @@ export default function LearningAnalyticsOverviewPage() {
         showWorkingSet
         workingSetHere="overview"
         workingSetScope={workingSetScope}
-        question="查看學生英語能力分布、資料覆蓋情況與可比較的學習紀錄。"
-        howToRead={(
-          <ol className="small mb-0 ps-3">
-            <li className="mb-1">這一頁的人數來自分析快照，不是學期名冊，也不是聽讀成對或說寫成對 KPI。</li>
-            <li className="mb-1">不同測驗、不同技能的 CEFR 只是分布對照，不是同一項正式能力指標。</li>
-            <li>資源參與不能解釋成能力成長的原因。</li>
-          </ol>
-        )}
+        question="同一頁看英語能力、學習起點與成長、課程資源。"
       >
-      <OutcomesModeSwitch />
-      <p className="la-scope-note">分析範圍：學習成效快照</p>
       {(semesterFromUrl || filters.semester) ? (
         <Alert variant="light" className="small py-2 mb-3 border">
-          您是從學習歷程儀表板進入？
-          {' '}
           <Link to={`/admin/learning-journey?semester=${encodeURIComponent(filters.semester || semesterFromUrl)}`}>
-            返回該學期營運總覽（{filters.semester || semesterFromUrl}）
+            返回該學期學習歷程名單（{filters.semester || semesterFromUrl}）
           </Link>
         </Alert>
       ) : null}
@@ -175,160 +204,238 @@ export default function LearningAnalyticsOverviewPage() {
         filterTitle="篩選條件"
         submitLabel="套用篩選"
         showAdvanced={false}
-        intro="這些條件篩的是分析快照。學期名冊的成對達標請到 B2 KPI 報表。"
+        intro="這兩項會一起套到本頁的摘要、圖表與點開的名單。"
       />
       <LearningAnalyticsActiveFilters filters={appliedFilters} visibleKeys={OVERVIEW_FILTER_KEYS} />
 
       {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
+      {loading ? (
+        <div className="text-center py-5">
+          <Spinner animation="border" role="status" />
+          <div className="text-muted mt-2 small">正在依資料版本與入學年度載入…</div>
+        </div>
+      ) : null}
 
-      <section className="mt-3">
-        <LearningAnalyticsPanelHeader
-          title="分析快照"
-          lead="長期能力分布與資料是否夠用來比較。聽讀成對、說寫成對的學期達標在 B2 KPI 報表。"
-        />
-
-        {loading ? (
-          <div className="text-center py-5">
-            <Spinner animation="border" role="status" />
-            <div className="text-muted mt-2 small">正在依您套用的條件載入圖表與指標…</div>
+      {!loading && data && !data.hasData ? (
+        <Alert variant={filterHasNoMatch ? 'info' : 'warning'} className="mt-3 mb-0">
+          <div className="fw-semibold mb-1">
+            {filterHasNoMatch ? '目前篩選條件下沒有符合的學生' : '尚無可顯示的分析資料'}
           </div>
-        ) : null}
+          <div>{data.emptyStateHint}</div>
+        </Alert>
+      ) : null}
 
-        {!loading && data && !data.hasData ? (
-          <Alert variant={filterHasNoMatch ? 'info' : 'warning'} className="mt-2 mb-0">
-            <div className="fw-semibold mb-1">
-              {filterHasNoMatch ? '目前篩選條件下沒有符合的學生' : '尚無可顯示的分析資料'}
-            </div>
-            <div>{data.emptyStateHint}</div>
-            {!filterHasNoMatch ? (
-              <div className="small mt-2">
-                請至後台「英語學習歷程 → 學習歷程維運」執行「背景重建（全部）」。
-                {' '}
-                <Link to="/admin/learning-journey/operations">前往維運頁面 →</Link>
-              </div>
-            ) : (
-              <div className="small mt-2 text-muted">
-                建議放寬或清除部分篩選（例如起始英語能力、參與量），再按「套用篩選」重試。
-              </div>
-            )}
-          </Alert>
-        ) : null}
-
-        {!loading && data?.hasData ? (
-          <>
-            <Alert variant="secondary" className="small py-2 mt-2">
-              圖上的 CEFR 是各來源等級的人數分布。缺資料的人留在缺漏，不算未達標。
-              聽讀成對與說寫成對請切到「學期 B2 KPI」。
-            </Alert>
-
-            <Row className="g-3 mt-1">
-              <Col md={4} sm={6}>
+      {!loading && data?.hasData && ability && growth ? (
+        <>
+          <section className="mt-4">
+            <LearningAnalyticsPanelHeader
+              title="英語能力摘要"
+              lead={`分母 ${formatNum(ability.total)} 人，是目前資料版本與入學年度的快照學生。`}
+            />
+            <Row className="g-3">
+              <Col md={4}>
                 <MetricCard
-                  label="納入快照學生"
-                  value={formatNum(headline.studentsInAnalysis)}
-                  tooltip="符合目前篩選條件、且已納入分析快照的學生人數；這是觀察母體，不等於學期名冊分母。"
+                  label="達 B2（含）以上"
+                  value={formatPct(ability.overall.rate)}
+                  hint={ratioHint(ability.overall.count, ability.overall.total)}
+                  tooltip="學生歷史最佳 CEFR 達 B2（含）以上。政策成對百分比在學期 B2 KPI。"
+                  onClick={() => openList({ slice: 'overall_b2', title: '達 B2（含）以上' })}
                 />
               </Col>
-              <Col md={4} sm={6}>
-                <MetricCard
-                  label="有效英檢覆蓋"
-                  value={formatCoverage(headline.studentsWithValidExam, headline.studentsInAnalysis)}
-                  hint={`${formatNum(headline.studentsWithValidExam)} 人有有效英檢`}
-                  tooltip="納入快照學生中，至少有一筆可用英檢資料的人數比例。覆蓋不足時，成長與達標解讀都要降權。"
-                />
-              </Col>
-              <Col md={4} sm={6}>
-                <MetricCard
-                  label="前後測覆蓋"
-                  value={formatCoverage(headline.studentsWithMultipleExams, headline.studentsInAnalysis)}
-                  hint={`${formatNum(headline.studentsWithMultipleExams)} 人可算成長`}
-                  tooltip="至少有兩次有效英檢紀錄，才能計算個人進步。這比平均成長更適合作為總覽主指標。"
-                />
-              </Col>
-            </Row>
-
-            <Row className="g-3 mt-2">
-              <Col lg={6}>
-                <div className="la-panel">
-                  <LearningAnalyticsPanelHeader
-                    title="英語等級分布"
-                    lead="比較學生「入學起點」與「目前最佳英檢成績」的 CEFR 等級人數分布。"
-                    tooltip="起點多依學測或最早英檢推估；目前最佳為歷次英檢中的最高技能等級。"
+              {(ability.skills || []).map((skill) => (
+                <Col md={4} lg={2} key={skill.skill}>
+                  <MetricCard
+                    label={`${skill.label} B2+`}
+                    value={formatNum(skill.count)}
+                    hint={formatPct(skill.rate)}
+                    tooltip={`${skill.label}至少有一次有效英檢達 B2（含）以上。學測不計。`}
+                    onClick={() => openList({
+                      slice: 'skill_b2',
+                      skill: skill.skill,
+                      title: `${skill.label}達 B2（含）以上`,
+                    })}
                   />
-                  <div style={{ width: '100%', height: 280 }}>
+                </Col>
+              ))}
+            </Row>
+            <p className="small text-muted mt-3 mb-2">
+              聽讀成對、說寫成對與採計學期在
+              {' '}
+              <Link to={kpiHref}>學期 B2 KPI</Link>
+              。系所的進一步比較在
+              {' '}
+              <Link to={compareHref}>群體與技能比較</Link>
+              。
+            </p>
+            {departmentChart.length ? (
+              <div className="la-panel">
+                <LearningAnalyticsPanelHeader
+                  title="各系所達 B2（含）以上"
+                  lead="長條是人數。點一列可看該系所名單。"
+                />
+                <div style={{ width: '100%', height: Math.min(480, Math.max(220, departmentChart.length * 28)) }}>
+                  <ResponsiveContainer>
+                    <BarChart data={departmentChart} layout="vertical" margin={{ left: 16, right: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <YAxis type="category" dataKey="department" width={120} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value, _name, item) => {
+                        const row = item?.payload || {};
+                        return [`${value} / ${row.total}（${formatPct(row.rate)}）`, '達 B2（含）以上'];
+                      }}
+                      />
+                      <Bar
+                        dataKey="count"
+                        name="達 B2（含）以上"
+                        fill="#2c5282"
+                        radius={[0, 4, 4, 0]}
+                        onClick={(entry) => {
+                          const row = barPayload(entry);
+                          if (!row.department) return;
+                          openList({
+                            slice: 'department_b2',
+                            department: row.department,
+                            title: `${row.department}達 B2（含）以上`,
+                          });
+                        }}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="mt-4">
+            <LearningAnalyticsPanelHeader
+              title="學習起點與成長"
+              lead="先看入學時的等級，再看前測與後測收了多少，最後才看可配對的 GSE 變化。"
+            />
+            <Row className="g-3">
+              <Col lg={6}>
+                <div className="la-panel h-100">
+                  <LearningAnalyticsPanelHeader title="英語起始分級" lead="點一個等級可看該等級的學生。" />
+                  <div style={{ width: '100%', height: 260 }}>
                     <ResponsiveContainer>
-                      <BarChart data={cefrChart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <BarChart data={baselineChart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="level" tick={{ fontSize: 11 }} />
+                        <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                         <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                         <Tooltip />
-                        <Legend />
-                        <Bar dataKey="baseline" name="起點" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="current" name="目前最佳" fill="#2c5282" radius={[4, 4, 0, 0]} />
+                        <Bar
+                          dataKey="count"
+                          name="人數"
+                          fill="#94a3b8"
+                          radius={[4, 4, 0, 0]}
+                          onClick={(entry) => {
+                            const row = barPayload(entry);
+                            if (!row.level) return;
+                            openList({
+                              slice: 'baseline',
+                              level: row.level,
+                              title: `起始分級 ${row.label || row.level}`,
+                            });
+                          }}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
               </Col>
               <Col lg={6}>
-                <div className="la-panel">
+                <div className="la-panel h-100">
                   <LearningAnalyticsPanelHeader
-                    title="成長資料可用性"
-                    lead="先看有多少資料能支撐成長解讀；平均成長請到群體與技能比較查看分布與明細。"
+                    title="前後測覆蓋與可比較人數"
+                    lead="覆蓋率是資料有沒有收到。下方各技能的人數才是能拿來比成長的配對。"
                   />
-                  <div className="table-responsive">
+                  <Row className="g-2">
+                    <Col xs={4}>
+                      <MetricCard
+                        label="前測"
+                        value={formatPct(growth.coverage?.pretest?.rate)}
+                        hint={ratioHint(growth.coverage?.pretest?.count, growth.coverage?.pretest?.total)}
+                        tooltip="第一梯有效英檢，含只有一次的檢定。學測不算前測。"
+                        onClick={() => openList({ slice: 'coverage_pre', title: '有前測' })}
+                      />
+                    </Col>
+                    <Col xs={4}>
+                      <MetricCard
+                        label="後測"
+                        value={formatPct(growth.coverage?.posttest?.rate)}
+                        hint={ratioHint(growth.coverage?.posttest?.count, growth.coverage?.posttest?.total)}
+                        onClick={() => openList({ slice: 'coverage_post', title: '有後測' })}
+                      />
+                    </Col>
+                    <Col xs={4}>
+                      <MetricCard
+                        label="兩者皆有"
+                        value={formatPct(growth.coverage?.both?.rate)}
+                        hint={ratioHint(growth.coverage?.both?.count, growth.coverage?.both?.total)}
+                        onClick={() => openList({ slice: 'coverage_both', title: '前測與後測皆有' })}
+                      />
+                    </Col>
+                  </Row>
+                  <div className="table-responsive mt-3">
                     <table className="table table-sm align-middle mb-0">
+                      <thead>
+                        <tr>
+                          <th>技能</th>
+                          <th className="text-end">平均 GSE 變化</th>
+                          <th className="text-end">配對</th>
+                        </tr>
+                      </thead>
                       <tbody>
-                        <tr>
-                          <th><ColumnHead {...HEAD.hasBaseline} /></th>
-                          <td className="text-end">{formatNum(headline.studentsWithBaseline)}</td>
-                          <td className="text-end text-muted">{formatCoverage(headline.studentsWithBaseline, headline.studentsInAnalysis)}</td>
-                        </tr>
-                        <tr>
-                          <th><ColumnHead {...HEAD.validExam} /></th>
-                          <td className="text-end">{formatNum(headline.studentsWithValidExam)}</td>
-                          <td className="text-end text-muted">{formatCoverage(headline.studentsWithValidExam, headline.studentsInAnalysis)}</td>
-                        </tr>
-                        <tr>
-                          <th><ColumnHead {...HEAD.singleExam} /></th>
-                          <td className="text-end">{formatNum(headline.studentsWithSingleExam)}</td>
-                          <td className="text-end text-muted">需補重測</td>
-                        </tr>
-                        <tr>
-                          <th><ColumnHead {...HEAD.canCompare} /></th>
-                          <td className="text-end">{formatNum(headline.studentsWithMultipleExams)}</td>
-                          <td className="text-end text-muted">{formatCoverage(headline.studentsWithMultipleExams, headline.studentsInAnalysis)}</td>
-                        </tr>
+                        {(growth.skills || []).map((row) => (
+                          <tr key={row.skill}>
+                            <td>{row.label}</td>
+                            <td className="text-end">
+                              {row.status === 'ok' ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-link btn-sm p-0"
+                                  onClick={() => openList({
+                                    slice: 'comparable',
+                                    skill: row.skill,
+                                    title: `${row.label}可比較學生`,
+                                  })}
+                                >
+                                  {formatSigned(row.average)}
+                                </button>
+                              ) : '資料不足'}
+                            </td>
+                            <td className="text-end text-muted">
+                              {row.status === 'ok'
+                                ? `${formatNum(row.sampleSize)} 人／${formatNum(row.episodeCount)} 筆`
+                                : `${formatNum(row.unavailable)} 人未配對或不符合比較條件`}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
                   <p className="small text-muted mt-2 mb-0">
-                    成長值只應在「可算前後測」樣本足夠時解讀。缺重測與無考試的名單在學期 B2 KPI。
+                    成績分布與各工具明細在
+                    {' '}
+                    <Link to={skillsHref}>技能成長</Link>
+                    。
                   </p>
                 </div>
               </Col>
             </Row>
+          </section>
 
-            <p className="small text-muted mt-3 mb-2">
-              資源時數與可觀察樣本的詳細分析在
-              {' '}
-              <Link to="/admin/learning-analytics/resources">資源與開課</Link>
-              。進入後可切換參與覆蓋與課程活動。參與紀錄不是能力成長的原因。
-            </p>
-            <details className="la-panel mb-3">
-              <summary className="fw-semibold">資源參與摘要</summary>
-              <div className="pt-3">
+          <section className="mt-4">
+            <LearningAnalyticsPanelHeader
+              title="課程資源"
+              lead="這裡看資源投入與參與。課程、教師與活動明細在資源與開課。"
+            />
             <Row className="g-3">
               <Col lg={7}>
                 <div className="la-panel">
-                  <LearningAnalyticsPanelHeader
-                    title="英語中心資源參與"
-                    lead="各類課程／活動的累積時數（前 8 名）。"
-                    tooltip="未修完或進行中的課程可能不計入。"
-                  />
-                  <div style={{ width: '100%', height: 300 }}>
+                  <LearningAnalyticsPanelHeader title="資源累積時數" lead="前 8 類。" />
+                  <div style={{ width: '100%', height: 280 }}>
                     <ResponsiveContainer>
-                      <BarChart data={resourceChart} layout="vertical" margin={{ left: 20 }}>
+                      <BarChart data={resourceChart} layout="vertical" margin={{ left: 16 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                         <XAxis type="number" tick={{ fontSize: 11 }} />
                         <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
@@ -340,94 +447,51 @@ export default function LearningAnalyticsOverviewPage() {
                 </div>
               </Col>
               <Col lg={5}>
-                <div className="la-panel">
-                  <LearningAnalyticsPanelHeader
-                    title="資源資料可觀察性"
-                    lead="先看哪些資源有足夠參與與前後測樣本；不要把此處解讀成成效排名。"
-                  />
+                <div className="la-panel h-100">
+                  <LearningAnalyticsPanelHeader title="可觀察樣本" lead="參與人數旁是能對上成長資料的樣本數。" />
                   <div className="table-responsive">
-                    <table className="table table-sm align-middle mb-0">
+                    <table className="table table-sm align-middle mb-2">
                       <thead>
                         <tr>
-                          <th>資源類型</th>
-                          <th className="text-end"><ColumnHead {...HEAD.accumulatedHours} /></th>
-                          <th className="text-end"><ColumnHead {...HEAD.growthStudents} /></th>
+                          <th>資源</th>
+                          <th className="text-end">參與</th>
+                          <th className="text-end">成長樣本</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {resourceObservability.map((row) => (
+                        {(resources?.ranking || []).slice(0, 6).map((row) => (
                           <tr key={row.resourceType}>
                             <td>{row.label}</td>
-                            <td className="text-end">{row.hours ?? '—'}</td>
+                            <td className="text-end">{row.participantCount ?? '—'}</td>
                             <td className="text-end">{row.growthSampleSize ?? '—'}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <p className="small text-muted mt-2 mb-0">
-                    若要看課程、教師或活動層級，請先確認「可算成長」樣本是否足夠，再到
-                    {' '}
-                    <Link to="/admin/learning-analytics/offerings">資源與開課的課程與活動</Link>
-                    。
-                  </p>
+                  <Link to={resourcesHref}>前往資源與開課</Link>
                 </div>
               </Col>
             </Row>
-              </div>
-            </details>
-
-            <Row className="g-3 mt-1">
-              <Col md={6}>
-                <div className="la-panel">
-                  <LearningAnalyticsPanelHeader
-                    title="資料完整度"
-                    lead="英檢與參與紀錄夠不夠。完整度低的學生仍會列入，解讀宜保守。"
-                  />
-                  <ul className="list-unstyled mb-0">
-                    {(data.evidenceQuality || []).map((row) => (
-                      <li key={row.level} className="d-flex justify-content-between align-items-center py-1 border-bottom">
-                        <EvidenceQualityBadge
-                          level={row.level}
-                          label={EVIDENCE_QUALITY_USER_LABELS[row.level] || row.label}
-                        />
-                        <span className="text-muted small">
-                          {formatNum(row.count)} 人（{formatPct(row.rate)}）
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Col>
-              <Col md={6}>
-                <div className="la-panel h-100">
-                  <div className="la-panel-title">閱讀時請記得</div>
-                  <p className="small text-muted mb-2">數字用來比較趨勢，不是「參加就一定進步」。</p>
-                  <LaFold label="更多提醒">
-                    <ul className="mb-0 ps-3">
-                      {(data.disclaimers || []).map((line) => (
-                        <li key={line}>{line}</li>
-                      ))}
-                      <li>數字與預期不符時，先確認是否已重建資料、篩選是否過窄。</li>
-                    </ul>
-                    {data.snapshotVersion ? (
-                      <div className="mt-2">資料版本：{data.snapshotVersion}</div>
-                    ) : null}
-                  </LaFold>
-                </div>
-              </Col>
-            </Row>
-
             <details className="la-panel mt-3">
               <summary className="fw-semibold">微學習參與</summary>
               <div className="pt-3">
                 <MicroLearningEngagementPanel token={token} ready={ready} />
               </div>
             </details>
-          </>
-        ) : null}
-      </section>
+          </section>
+        </>
+      ) : null}
       </LearningAnalyticsPageFrame>
+      <OverviewStudentListModal
+        show={Boolean(listRequest)}
+        title={listRequest?.title}
+        loading={listLoading}
+        error={listError}
+        data={listData}
+        onHide={() => setListRequest(null)}
+        onPage={(offset) => setListRequest((current) => (current ? { ...current, offset } : current))}
+      />
     </div>
   );
 }

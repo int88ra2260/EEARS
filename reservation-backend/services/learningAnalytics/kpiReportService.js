@@ -1,10 +1,12 @@
 'use strict';
 
 const { Op } = require('sequelize');
-const { EtEnrollmentSnapshot, EtExamAttempt, EtExamAttemptSkillScore } = require('../../models');
+const { EtEnrollmentSnapshot, EtExamAttempt, EtExamAttemptSkillScore, LjAnalyticStudent } = require('../../models');
 const { getKpiPolicyById, getKpiPolicyByKey } = require('./kpiPolicyService');
 const { evaluateKpiPolicy } = require('./kpiPolicyEngine');
 const { applyRosterWorkingSet } = require('./workingSetIds');
+const { parseCohortList } = require('./learningAnalyticsFilterUtils');
+const { resolveLatestSnapshotVersion } = require('../learningJourney/analytics/timelineReadService');
 const {
   normalizeGradeFilter,
   gradeMatchesFilter,
@@ -103,6 +105,33 @@ async function loadRosterStudents(semesterId, population = {}) {
   };
 }
 
+async function narrowRosterByEntryCohort(students, input = {}) {
+  const cohorts = parseCohortList(input.cohort || input.cohorts);
+  if (!cohorts.length) return { students, entryCohort: null };
+  const snapshotVersion = input.snapshot_version || input.snapshotVersion || await resolveLatestSnapshotVersion();
+  const rows = snapshotVersion
+    ? await LjAnalyticStudent.findAll({
+      where: {
+        snapshotVersion,
+        cohort: cohorts.length === 1 ? cohorts[0] : { [Op.in]: cohorts },
+      },
+      attributes: ['studentId'],
+      raw: true,
+    })
+    : [];
+  const allow = new Set(rows.map((row) => normalizeStudentId(row.studentId)).filter(Boolean));
+  const next = students.filter((student) => allow.has(normalizeStudentId(student.studentId)));
+  return {
+    students: next,
+    entryCohort: {
+      cohorts,
+      snapshotVersion: snapshotVersion || null,
+      before: students.length,
+      after: next.length,
+    },
+  };
+}
+
 async function loadRosterStudentIds(semesterId, population) {
   const loaded = await loadRosterStudents(semesterId, population);
   return { semesterId: loaded.semesterId, studentIds: loaded.studentIds };
@@ -140,8 +169,9 @@ async function runKpiReport(input = {}) {
   const population = policy.definition?.population || {};
   const loaded = await loadRosterStudents(input.semesterId, population);
   const restricted = applyRosterWorkingSet(loaded.students, input.studentIds || input.student_ids);
-  loaded.students = restricted.students;
-  loaded.studentIds = restricted.students.map((student) => student.studentId);
+  const narrowed = await narrowRosterByEntryCohort(restricted.students, input);
+  loaded.students = narrowed.students;
+  loaded.studentIds = narrowed.students.map((student) => student.studentId);
   const status = policy.definition?.evidence?.status || 'valid';
   const attemptMap = await loadAttemptsForStudents(loaded.studentIds, status);
 
@@ -189,10 +219,16 @@ async function runKpiReport(input = {}) {
       gradeFilter: loaded.gradeFilter,
       rosterStats: loaded.rosterStats,
       source: 'et_enrollment_snapshots.grade',
-      note: restricted.workingSet
-        ? `年級以選定學期在學名冊的 grade 為準（每年／每學期名冊各自計算）。${restricted.workingSet.note}`
-        : '年級以選定學期在學名冊的 grade 為準（每年／每學期名冊各自計算）。',
       workingSet: restricted.workingSet,
+      entryCohort: narrowed.entryCohort,
+      note: [
+        restricted.workingSet
+          ? `年級以選定學期在學名冊的 grade 為準（每年／每學期名冊各自計算）。${restricted.workingSet.note}`
+          : '年級以選定學期在學名冊的 grade 為準（每年／每學期名冊各自計算）。',
+        narrowed.entryCohort
+          ? `另外只保留入學年度 ${narrowed.entryCohort.cohorts.join('、')} 與這份名冊的交集。`
+          : '',
+      ].filter(Boolean).join(''),
     },
     evidenceWindow: evaluated.evidenceWindow,
     summary: {

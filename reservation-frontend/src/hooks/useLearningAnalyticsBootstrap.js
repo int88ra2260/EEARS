@@ -115,7 +115,7 @@ export function useLearningAnalyticsBootstrap({
   const writeUrl = useCallback((nextFilters) => {
     const next = new URLSearchParams();
     Object.entries(filtersToApiParams(nextFilters)).forEach(([key, value]) => {
-      if (key !== 'snapshot_version') next.set(key, String(value));
+      next.set(key, String(value));
     });
     for (const key of preserveSearchKeys) {
       const value = searchParams.get(key);

@@ -11,6 +11,7 @@ const {
   Course,
 } = require('../../models');
 const { resolveLatestSnapshotVersion } = require('../learningJourney/analytics/timelineReadService');
+const { parseCohortList } = require('./learningAnalyticsFilterUtils');
 const { getCurrentSemester } = require('../../utils/semesterConstants');
 const {
   buildB1PlusWatch,
@@ -213,10 +214,11 @@ async function getB1PlusWatch(query = {}) {
   let scoped = carriedSet
     ? watch.filter((row) => carriedSet.has(String(row.studentId || '').trim().toUpperCase()))
     : watch;
+  const cohorts = parseCohortList(applied.cohort);
   scoped = scoped.filter((row) => (
     (!applied.department || row.department === applied.department)
     && (!applied.college || row.college === applied.college)
-    && (!applied.cohort || row.cohort === applied.cohort)
+    && (!cohorts.length || cohorts.includes(String(row.cohort || '')))
   ));
   const summary = {
     ...summarizeB1PlusWatch(scoped),

@@ -1,13 +1,14 @@
 'use strict';
 
 const { Op } = require('sequelize');
-const { LjAnalyticStudent } = require('../../models');
+const { LjAnalyticStudent, LjAnalyticExam, Student, EtStudentMaster } = require('../../models');
 const { getAnalyticsSummary } = require('../learningJourney/analytics/analyticsSummaryService');
 const { getLvaAnalytics } = require('../learningJourney/analytics/lvaAnalyticsService');
 const { getSemesterB2Report } = require('../learningJourney/b2ReportService');
 const { resolveLatestSnapshotVersion } = require('../learningJourney/analytics/timelineReadService');
 const {
   buildStudentWhere,
+  buildExamWhere,
   applyEvidenceQualityFilter,
   stripEmptyQueryParams,
 } = require('./learningAnalyticsFilterUtils');
@@ -31,6 +32,27 @@ const RESOURCE_LABELS = Object.freeze({
 });
 
 const CEFR_ORDER = ['BELOW_A1', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const SKILL_KEYS = ['listening', 'reading', 'speaking', 'writing'];
+const SKILL_LABELS = {
+  listening: '聽力',
+  reading: '閱讀',
+  speaking: '口說',
+  writing: '寫作',
+};
+const PRE_TEST_PHASES = new Set(['pre_test', 'single']);
+const POST_TEST_PHASES = new Set(['post_test']);
+const LIST_SLICES = new Set([
+  'overall_b2',
+  'skill_b2',
+  'department_b2',
+  'baseline',
+  'coverage_pre',
+  'coverage_post',
+  'coverage_both',
+  'comparable',
+]);
+const LIST_LIMIT_DEFAULT = 40;
+const LIST_LIMIT_MAX = 100;
 
 function normalizeCefrKey(raw) {
   const value = String(raw || '').trim().toUpperCase().replace(/\s+/g, '_');
@@ -135,6 +157,228 @@ function mapEvidenceQuality(gseSummary) {
   }));
 }
 
+function studentKey(studentId) {
+  return String(studentId || '').trim().toUpperCase();
+}
+
+function departmentLabel(student) {
+  const value = String(student?.department || '').trim();
+  return value || '未提供';
+}
+
+function isCountableExam(exam) {
+  if (!exam || exam.excludeFlag) return false;
+  if (exam.registeredNoScoreFlag) return false;
+  if (String(exam.instrument || '').toUpperCase() === 'GSAT') return false;
+  return true;
+}
+
+function rateOf(count, total) {
+  const n = Number(count) || 0;
+  const d = Number(total) || 0;
+  return d ? Number((n / d).toFixed(4)) : 0;
+}
+
+function examsByStudent(exams) {
+  const map = new Map();
+  for (const exam of exams || []) {
+    const id = studentKey(exam.studentId);
+    if (!id) continue;
+    if (!map.has(id)) map.set(id, []);
+    map.get(id).push(exam);
+  }
+  return map;
+}
+
+function buildAbilitySummary(students, exams) {
+  const total = students.length;
+  const skillSets = Object.fromEntries(SKILL_KEYS.map((skill) => [skill, new Set()]));
+  for (const exam of exams || []) {
+    if (!isCountableExam(exam) || !exam.isB2plus) continue;
+    const skill = String(exam.skill || '');
+    if (!skillSets[skill]) continue;
+    skillSets[skill].add(studentKey(exam.studentId));
+  }
+  const overallCount = students.filter((student) => student.isB2plus).length;
+  return {
+    total,
+    overall: { count: overallCount, total, rate: rateOf(overallCount, total) },
+    skills: SKILL_KEYS.map((skill) => {
+      const count = skillSets[skill].size;
+      return {
+        skill,
+        label: SKILL_LABELS[skill],
+        count,
+        total,
+        rate: rateOf(count, total),
+      };
+    }),
+  };
+}
+
+function buildDepartmentB2(students) {
+  const groups = new Map();
+  for (const student of students) {
+    const label = departmentLabel(student);
+    if (!groups.has(label)) groups.set(label, { department: label, total: 0, count: 0 });
+    const row = groups.get(label);
+    row.total += 1;
+    if (student.isB2plus) row.count += 1;
+  }
+  return [...groups.values()]
+    .map((row) => ({ ...row, rate: rateOf(row.count, row.total) }))
+    .sort((a, b) => b.count - a.count || a.department.localeCompare(b.department, 'zh-Hant'));
+}
+
+function coverageBucket(students, idSet) {
+  const total = students.length;
+  const count = students.filter((student) => idSet.has(studentKey(student.studentId))).length;
+  return { count, total, rate: rateOf(count, total) };
+}
+
+function buildCoverage(students, exams) {
+  const pre = new Set();
+  const post = new Set();
+  for (const exam of exams || []) {
+    if (!isCountableExam(exam)) continue;
+    const id = studentKey(exam.studentId);
+    const phase = String(exam.testPhase || '');
+    if (PRE_TEST_PHASES.has(phase)) pre.add(id);
+    if (POST_TEST_PHASES.has(phase)) post.add(id);
+  }
+  const both = new Set([...pre].filter((id) => post.has(id)));
+  return {
+    pretest: coverageBucket(students, pre),
+    posttest: coverageBucket(students, post),
+    both: coverageBucket(students, both),
+  };
+}
+
+function buildGrowthView(totalStudents, bySkill) {
+  const rows = Array.isArray(bySkill) ? bySkill : [];
+  return SKILL_KEYS.map((skill) => {
+    const row = rows.find((item) => item.skill === skill) || {};
+    const sampleSize = Number(row.pairedStudentCount ?? row.sampleSize ?? 0);
+    const average = row.actualGseGrowthAverage;
+    const comparable = Number.isFinite(sampleSize) && sampleSize > 0 && average != null && Number.isFinite(Number(average));
+    const pairedStudents = comparable ? sampleSize : 0;
+    return {
+      skill,
+      label: SKILL_LABELS[skill],
+      average: comparable ? Number(average) : null,
+      sampleSize: pairedStudents,
+      episodeCount: Number(row.sampleSize || 0),
+      unavailable: Math.max(0, totalStudents - pairedStudents),
+      status: comparable ? 'ok' : 'insufficient',
+    };
+  });
+}
+
+function buildDashboard({ students, exams, baseline, growthBySkill, resourceParticipation, resourceRanking }) {
+  const ability = buildAbilitySummary(students, exams);
+  return {
+    ability: {
+      ...ability,
+      byDepartment: buildDepartmentB2(students),
+    },
+    growth: {
+      baseline: baseline || [],
+      coverage: buildCoverage(students, exams),
+      skills: buildGrowthView(students.length, growthBySkill),
+    },
+    resources: {
+      participation: resourceParticipation || [],
+      ranking: resourceRanking || [],
+    },
+  };
+}
+
+async function loadScopedAnalytics(query, snapshotVersion) {
+  const filters = stripEmptyQueryParams({ ...query, snapshot_version: snapshotVersion });
+  delete filters.skill;
+  let students = await LjAnalyticStudent.findAll({
+    where: buildStudentWhere(filters, snapshotVersion),
+    attributes: [
+      'studentId', 'department', 'college', 'cohort', 'isB2plus',
+      'baselineCefr', 'baselineEnglishScore', 'retestFlag', 'hasValidExam', 'totalResourceHours',
+    ],
+  });
+  students = applyEvidenceQualityFilter(students, filters);
+  const studentIds = students.map((student) => student.studentId);
+  const exams = studentIds.length
+    ? await LjAnalyticExam.findAll({
+      where: buildExamWhere(filters, snapshotVersion, studentIds),
+      attributes: [
+        'id', 'studentId', 'skill', 'isB2plus', 'testPhase', 'instrument',
+        'excludeFlag', 'registeredNoScoreFlag', 'cefrLevel', 'retestFlag',
+        'deltaRawScore', 'previousRawScore', 'rawScore', 'examDate',
+        'previousExamEventId', 'resourceHoursBeforeExam',
+      ],
+    })
+    : [];
+  return { filters, students, exams };
+}
+
+function hasPhase(exams, phases) {
+  return (exams || []).some((exam) => isCountableExam(exam) && phases.has(String(exam.testPhase || '')));
+}
+
+function matchesSlice(student, exams, slice, query) {
+  if (slice === 'overall_b2') return !!student.isB2plus;
+  if (slice === 'skill_b2') {
+    const skill = String(query.skill || '');
+    return exams.some((exam) => isCountableExam(exam) && exam.isB2plus && exam.skill === skill);
+  }
+  if (slice === 'department_b2') {
+    return departmentLabel(student) === String(query.department || '') && !!student.isB2plus;
+  }
+  if (slice === 'baseline') {
+    const level = String(query.level || '').trim().toUpperCase();
+    const band = resolveBaselineCefrBand(student);
+    if (level === 'UNKNOWN') return !band;
+    return band === level;
+  }
+  if (slice === 'coverage_pre') return hasPhase(exams, PRE_TEST_PHASES);
+  if (slice === 'coverage_post') return hasPhase(exams, POST_TEST_PHASES);
+  if (slice === 'coverage_both') return hasPhase(exams, PRE_TEST_PHASES) && hasPhase(exams, POST_TEST_PHASES);
+  return false;
+}
+
+async function comparableStudentIds(students, exams, skill) {
+  const { buildAdjustedGrowthEpisodeRows, buildExamById } = require('../learningJourney/analytics/lvaAdjustedGrowthService');
+  const studentById = new Map(students.map((student) => [student.studentId, student]));
+  const rows = buildAdjustedGrowthEpisodeRows(exams, studentById, buildExamById(exams));
+  return new Set(
+    rows
+      .filter((row) => row.skill === skill && Number.isFinite(Number(row.actualGseGrowth)))
+      .map((row) => studentKey(row.studentId))
+  );
+}
+
+async function loadNames(studentIds) {
+  if (!studentIds.length) return new Map();
+  const [roster, masters] = await Promise.all([
+    Student.findAll({
+      where: { studentId: { [Op.in]: studentIds } },
+      attributes: ['studentId', 'nameZh'],
+    }),
+    EtStudentMaster.findAll({
+      where: { studentId: { [Op.in]: studentIds } },
+      attributes: ['studentId', 'name'],
+    }),
+  ]);
+  const names = new Map();
+  for (const row of masters) {
+    const id = studentKey(row.studentId);
+    if (id && row.name) names.set(id, row.name);
+  }
+  for (const row of roster) {
+    const id = studentKey(row.studentId);
+    if (id && row.nameZh) names.set(id, row.nameZh);
+  }
+  return names;
+}
+
 /**
  * 主管 Demo 用中心成效總覽（整合 LJ 分析讀模型 + LVA 描述性指標）
  */
@@ -142,7 +386,7 @@ async function getLearningAnalyticsOverview(query = {}) {
   const snapshotVersion = query.snapshot_version || query.snapshotVersion || await resolveLatestSnapshotVersion();
   const filters = stripEmptyQueryParams({ ...query, snapshot_version: snapshotVersion });
 
-  const [summary, lva, cefrDistribution, b2Report, unfilteredSummary] = await Promise.all([
+  const [summary, lva, cefrDistribution, b2Report, unfilteredSummary, scoped] = await Promise.all([
     getAnalyticsSummary(filters),
     getLvaAnalytics(filters),
     computeCefrDistribution(filters, snapshotVersion),
@@ -150,6 +394,7 @@ async function getLearningAnalyticsOverview(query = {}) {
       ? getSemesterB2Report(String(filters.semester)).catch(() => null)
       : Promise.resolve(null),
     getAnalyticsSummary({ snapshot_version: snapshotVersion }),
+    loadScopedAnalytics(filters, snapshotVersion),
   ]);
 
   const totals = summary.totals || {};
@@ -209,6 +454,14 @@ async function getLearningAnalyticsOverview(query = {}) {
     resourceParticipation: mapResourceParticipation(lva.skillExposure),
     resourceRanking: mapResourceRanking(lva.resourceEffectiveness),
     evidenceQuality: mapEvidenceQuality(lva.gse),
+    dashboard: buildDashboard({
+      students: scoped.students,
+      exams: scoped.exams,
+      baseline: cefrDistribution.baseline,
+      growthBySkill: lva.adjustedGrowth?.bySkill || [],
+      resourceParticipation: mapResourceParticipation(lva.skillExposure),
+      resourceRanking: mapResourceRanking(lva.resourceEffectiveness),
+    }),
     exposureDistribution: summary.distributions?.exposure || {},
     cohortDistribution: summary.distributions?.cohort || {},
     dataTraceability: {
@@ -231,9 +484,74 @@ async function getLearningAnalyticsOverview(query = {}) {
   };
 }
 
+async function listOverviewStudents(query = {}) {
+  const slice = String(query.slice || '').trim();
+  if (!LIST_SLICES.has(slice)) {
+    const err = new Error('不支援的名單條件');
+    err.status = 400;
+    throw err;
+  }
+  if ((slice === 'skill_b2' || slice === 'comparable') && !SKILL_KEYS.includes(String(query.skill || ''))) {
+    const err = new Error('請指定技能');
+    err.status = 400;
+    throw err;
+  }
+  if (slice === 'department_b2' && !String(query.department || '').trim()) {
+    const err = new Error('請指定系所');
+    err.status = 400;
+    throw err;
+  }
+  if (slice === 'baseline' && !String(query.level || '').trim()) {
+    const err = new Error('請指定起始等級');
+    err.status = 400;
+    throw err;
+  }
+
+  const snapshotVersion = query.snapshot_version || query.snapshotVersion || await resolveLatestSnapshotVersion();
+  const { students, exams } = await loadScopedAnalytics(query, snapshotVersion);
+  const grouped = examsByStudent(exams);
+  let matched = students;
+  if (slice === 'comparable') {
+    const ids = await comparableStudentIds(students, exams, String(query.skill));
+    matched = students.filter((student) => ids.has(studentKey(student.studentId)));
+  } else {
+    matched = students.filter((student) => (
+      matchesSlice(student, grouped.get(studentKey(student.studentId)) || [], slice, query)
+    ));
+  }
+  matched.sort((a, b) => studentKey(a.studentId).localeCompare(studentKey(b.studentId)));
+
+  const limit = Math.min(LIST_LIMIT_MAX, Math.max(1, Number(query.limit) || LIST_LIMIT_DEFAULT));
+  const offset = Math.max(0, Number(query.offset) || 0);
+  const page = matched.slice(offset, offset + limit);
+  const names = await loadNames(page.map((student) => student.studentId));
+  return {
+    snapshotVersion,
+    slice,
+    skill: query.skill || null,
+    department: query.department || null,
+    level: query.level || null,
+    total: matched.length,
+    limit,
+    offset,
+    items: page.map((student) => ({
+      studentId: student.studentId,
+      studentName: names.get(studentKey(student.studentId)) || null,
+      department: departmentLabel(student),
+      college: student.college || null,
+      cohort: student.cohort || null,
+    })),
+  };
+}
+
 module.exports = {
   CONTRACT_VERSION,
   getLearningAnalyticsOverview,
+  listOverviewStudents,
+  buildAbilitySummary,
+  buildDepartmentB2,
+  buildCoverage,
+  buildGrowthView,
   labelResource,
   RESOURCE_LABELS,
 };

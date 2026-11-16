@@ -40,6 +40,8 @@ router.put('/settings/lva-config', ...ljSettings, controller.putLvaConfig);
 router.post('/settings/lva-config/reset', ...ljSettings, controller.postResetLvaConfig);
 router.get('/overview', ...ljView, controller.getOverview);
 router.post('/overview', ...ljView, controller.getOverview);
+router.get('/overview/students', ...ljView, controller.getOverviewStudents);
+router.post('/overview/students', ...ljView, controller.getOverviewStudents);
 router.get('/student-explorer', ...ljView, controller.getStudentExplorer);
 router.post('/student-explorer', ...ljView, controller.getStudentExplorer);
 router.get('/b1-plus', ...ljView, controller.getB1PlusWatch);

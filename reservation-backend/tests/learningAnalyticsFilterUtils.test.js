@@ -8,6 +8,11 @@ const {
 } = require('../services/learningAnalytics/learningAnalyticsFilterUtils');
 
 describe('learningAnalyticsFilterUtils raw-export enrollment scope', () => {
+  it('accepts multiple cohorts', () => {
+    const where = buildStudentWhere({ cohort: '113, 114' }, 'snap-1');
+    expect(where.cohort).toEqual({ [Op.in]: ['113', '114'] });
+  });
+
   it('ignores semester unless forRawExport', () => {
     const chartWhere = buildStudentWhere({ semester: '114-2', cohort: '113' }, 'snap-1');
     expect(chartWhere.enrollmentTerm).toBeUndefined();
