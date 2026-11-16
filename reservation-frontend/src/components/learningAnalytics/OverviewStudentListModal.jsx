@@ -12,6 +12,17 @@ function formatNum(n) {
   return value.toLocaleString('zh-TW');
 }
 
+function formatEvidence(evidence) {
+  if (!evidence) return '—';
+  const parts = [
+    evidence.skillLabel,
+    evidence.cefrLevel,
+    evidence.instrument,
+    evidence.examDate,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : '—';
+}
+
 export default function OverviewStudentListModal({
   show,
   title,
@@ -53,6 +64,7 @@ export default function OverviewStudentListModal({
                       <th>姓名</th>
                       <th>系所</th>
                       <th>入學年度</th>
+                      <th>列入依據</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -66,6 +78,7 @@ export default function OverviewStudentListModal({
                         <td>{row.studentName || '—'}</td>
                         <td>{row.department || '—'}</td>
                         <td>{row.cohort || '—'}</td>
+                        <td>{formatEvidence(row.evidence)}</td>
                       </tr>
                     ))}
                   </tbody>

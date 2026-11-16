@@ -13,6 +13,7 @@ const {
   stripEmptyQueryParams,
 } = require('./learningAnalyticsFilterUtils');
 const { resolveBaselineCefrBand } = require('./baselineAbilityUtils');
+const { getCefrRank } = require('../learningJourney/utils/cefr');
 
 const CONTRACT_VERSION = 'learning-analytics.overview.v1';
 
@@ -166,11 +167,62 @@ function departmentLabel(student) {
   return value || '未提供';
 }
 
+const B2_RANK = 4;
+
 function isCountableExam(exam) {
   if (!exam || exam.excludeFlag) return false;
   if (exam.registeredNoScoreFlag) return false;
+  const status = String(exam.status || '').toLowerCase();
+  if (status && status !== 'valid') return false;
   if (String(exam.instrument || '').toUpperCase() === 'GSAT') return false;
   return true;
+}
+
+function skillKey(exam) {
+  return String(exam?.skill || '').toLowerCase();
+}
+
+function bestRawScoreExam(exams, skill) {
+  const rows = (exams || []).filter((exam) => (
+    isCountableExam(exam)
+    && skillKey(exam) === skill
+    && exam.rawScore != null
+    && exam.rawScore !== ''
+  ));
+  rows.sort((a, b) => {
+    const scoreDiff = Number(b.rawScore) - Number(a.rawScore);
+    if (scoreDiff) return scoreDiff;
+    return String(b.examDate || '').localeCompare(String(a.examDate || ''));
+  });
+  return rows[0] || null;
+}
+
+function examIsB2(exam) {
+  return getCefrRank(exam?.cefrLevel) >= B2_RANK;
+}
+
+function bestSkillEvidence(exams) {
+  const chosen = SKILL_KEYS
+    .map((skill) => bestRawScoreExam(exams, skill))
+    .filter(Boolean);
+  chosen.sort((a, b) => {
+    const rankDiff = (getCefrRank(b.cefrLevel) || 0) - (getCefrRank(a.cefrLevel) || 0);
+    if (rankDiff) return rankDiff;
+    return String(b.examDate || '').localeCompare(String(a.examDate || ''));
+  });
+  return chosen[0] || null;
+}
+
+function describeEvidence(exam) {
+  if (!exam) return null;
+  return {
+    skill: skillKey(exam),
+    skillLabel: SKILL_LABELS[skillKey(exam)] || skillKey(exam),
+    cefrLevel: exam.cefrLevel || null,
+    instrument: exam.instrument || null,
+    examDate: exam.examDate || null,
+    rawScore: exam.rawScore != null ? Number(exam.rawScore) : null,
+  };
 }
 
 function rateOf(count, total) {
@@ -192,12 +244,15 @@ function examsByStudent(exams) {
 
 function buildAbilitySummary(students, exams) {
   const total = students.length;
+  const grouped = examsByStudent(exams);
   const skillSets = Object.fromEntries(SKILL_KEYS.map((skill) => [skill, new Set()]));
-  for (const exam of exams || []) {
-    if (!isCountableExam(exam) || !exam.isB2plus) continue;
-    const skill = String(exam.skill || '');
-    if (!skillSets[skill]) continue;
-    skillSets[skill].add(studentKey(exam.studentId));
+  for (const student of students) {
+    const id = studentKey(student.studentId);
+    const ownExams = grouped.get(id) || [];
+    for (const skill of SKILL_KEYS) {
+      const best = bestRawScoreExam(ownExams, skill);
+      if (examIsB2(best)) skillSets[skill].add(id);
+    }
   }
   const overallCount = students.filter((student) => student.isB2plus).length;
   return {
@@ -310,7 +365,7 @@ async function loadScopedAnalytics(query, snapshotVersion) {
       where: buildExamWhere(filters, snapshotVersion, studentIds),
       attributes: [
         'id', 'studentId', 'skill', 'isB2plus', 'testPhase', 'instrument',
-        'excludeFlag', 'registeredNoScoreFlag', 'cefrLevel', 'retestFlag',
+        'excludeFlag', 'registeredNoScoreFlag', 'cefrLevel', 'retestFlag', 'status',
         'deltaRawScore', 'previousRawScore', 'rawScore', 'examDate',
         'previousExamEventId', 'resourceHoursBeforeExam',
       ],
@@ -327,7 +382,7 @@ function matchesSlice(student, exams, slice, query) {
   if (slice === 'overall_b2') return !!student.isB2plus;
   if (slice === 'skill_b2') {
     const skill = String(query.skill || '');
-    return exams.some((exam) => isCountableExam(exam) && exam.isB2plus && exam.skill === skill);
+    return examIsB2(bestRawScoreExam(exams, skill));
   }
   if (slice === 'department_b2') {
     return departmentLabel(student) === String(query.department || '') && !!student.isB2plus;
@@ -534,13 +589,22 @@ async function listOverviewStudents(query = {}) {
     total: matched.length,
     limit,
     offset,
-    items: page.map((student) => ({
-      studentId: student.studentId,
-      studentName: names.get(studentKey(student.studentId)) || null,
-      department: departmentLabel(student),
-      college: student.college || null,
-      cohort: student.cohort || null,
-    })),
+    items: page.map((student) => {
+      const ownExams = grouped.get(studentKey(student.studentId)) || [];
+      const evidenceExam = slice === 'skill_b2'
+        ? bestRawScoreExam(ownExams, String(query.skill || ''))
+        : slice === 'overall_b2' || slice === 'department_b2'
+          ? bestSkillEvidence(ownExams)
+          : null;
+      return {
+        studentId: student.studentId,
+        studentName: names.get(studentKey(student.studentId)) || null,
+        department: departmentLabel(student),
+        college: student.college || null,
+        cohort: student.cohort || null,
+        evidence: describeEvidence(evidenceExam),
+      };
+    }),
   };
 }
 

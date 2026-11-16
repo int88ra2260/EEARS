@@ -17,18 +17,21 @@ describe('learningAnalyticsOverviewService', () => {
     expect(labelResource('UNKNOWN')).toBe('UNKNOWN');
   });
 
-  it('counts skill B2 by student and skips GSAT', () => {
+  it('counts a skill as B2 only from that skill\'s highest raw-score exam', () => {
     const students = [
       { studentId: 'A', isB2plus: true, department: '外文' },
       { studentId: 'B', isB2plus: false, department: '外文' },
+      { studentId: 'C', isB2plus: false, department: '外文' },
     ];
     const exams = [
-      { studentId: 'A', skill: 'listening', isB2plus: true, instrument: 'TOEIC' },
-      { studentId: 'A', skill: 'listening', isB2plus: true, instrument: 'IELTS' },
-      { studentId: 'B', skill: 'listening', isB2plus: true, instrument: 'GSAT' },
+      { studentId: 'A', skill: 'listening', rawScore: 400, cefrLevel: 'B2', instrument: 'TOEIC', examDate: '2025-01-01' },
+      { studentId: 'A', skill: 'listening', rawScore: 200, cefrLevel: 'A2', instrument: 'TOEIC', examDate: '2024-01-01' },
+      { studentId: 'B', skill: 'listening', rawScore: 900, cefrLevel: 'B1', instrument: 'TOEIC', examDate: '2025-01-01' },
+      { studentId: 'B', skill: 'listening', rawScore: 300, cefrLevel: 'B2', instrument: 'IELTS', examDate: '2024-01-01' },
+      { studentId: 'C', skill: 'listening', rawScore: 120, cefrLevel: 'B2', instrument: 'GSAT', examDate: '2025-01-01' },
     ];
     const ability = buildAbilitySummary(students, exams);
-    expect(ability.total).toBe(2);
+    expect(ability.total).toBe(3);
     expect(ability.overall.count).toBe(1);
     expect(ability.skills.find((row) => row.skill === 'listening').count).toBe(1);
     expect(ability.skills.find((row) => row.skill === 'reading').count).toBe(0);

@@ -233,22 +233,22 @@ export default function LearningAnalyticsOverviewPage() {
               lead={`分母 ${formatNum(ability.total)} 人，是目前資料版本與入學年度的快照學生。`}
             />
             <Row className="g-3">
-              <Col md={4}>
+              <Col xs={12} sm={6} xl className="d-flex">
                 <MetricCard
-                  label="達 B2（含）以上"
+                  label="任一技能達 B2（含）以上"
                   value={formatPct(ability.overall.rate)}
                   hint={ratioHint(ability.overall.count, ability.overall.total)}
-                  tooltip="學生歷史最佳 CEFR 達 B2（含）以上。政策成對百分比在學期 B2 KPI。"
-                  onClick={() => openList({ slice: 'overall_b2', title: '達 B2（含）以上' })}
+                  tooltip="聽、讀、說、寫各取原始分最高的那一次有效英檢。四項裡只要有一項的 CEFR 是 B2、C1 或 C2 就計入。這不是聽讀成對或說寫成對的政策達標率。"
+                  onClick={() => openList({ slice: 'overall_b2', title: '任一技能達 B2（含）以上' })}
                 />
               </Col>
               {(ability.skills || []).map((skill) => (
-                <Col md={4} lg={2} key={skill.skill}>
+                <Col xs={12} sm={6} xl key={skill.skill} className="d-flex">
                   <MetricCard
-                    label={`${skill.label} B2+`}
-                    value={formatNum(skill.count)}
-                    hint={formatPct(skill.rate)}
-                    tooltip={`${skill.label}至少有一次有效英檢達 B2（含）以上。學測不計。`}
+                    label={`${skill.label}達 B2（含）以上`}
+                    value={formatPct(skill.rate)}
+                    hint={ratioHint(skill.count, skill.total)}
+                    tooltip={`${skill.label}取原始分最高的那次有效英檢，該次 CEFR 達 B2（含）以上。分母與左邊相同。學測不計。較早一次達 B2、但原始分不是最高的那次，不算。`}
                     onClick={() => openList({
                       slice: 'skill_b2',
                       skill: skill.skill,
