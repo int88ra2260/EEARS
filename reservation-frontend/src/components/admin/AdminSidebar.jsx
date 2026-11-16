@@ -28,6 +28,7 @@ import {
 } from '../../constants/adminNavigation';
 import useLearningPartnerOpsAttention from '../../hooks/useLearningPartnerOpsAttention';
 import useLeaderMarkingAttention from '../../hooks/useLeaderMarkingAttention';
+import useStudentFeedbackAttention from '../../hooks/useStudentFeedbackAttention';
 import { LP_OPS_ATTENTION_PATH } from '../../utils/learningPartnerOpsAttention';
 import UnreadAttentionDot from '../learning-partner/UnreadAttentionDot';
 
@@ -88,6 +89,12 @@ export default function AdminSidebar({ pathname, navContext, token, mobileOpen, 
   );
   const { count: leaderMarkingCount } = useLeaderMarkingAttention(token, navContext?.accessProfile);
   const showLeaderMarking = leaderMarkingCount > 0;
+  const feedbackAttention = useStudentFeedbackAttention(token, navContext?.accessProfile);
+  const showFeedbackAttention = feedbackAttention.total > 0;
+  const feedbackAttentionLabel = [
+    feedbackAttention.newCount > 0 ? `${feedbackAttention.newCount} 筆新回報` : '',
+    feedbackAttention.assignedCount > 0 ? `${feedbackAttention.assignedCount} 筆派給你、尚未看完` : '',
+  ].filter(Boolean).join('，');
 
   const filteredVisible = useMemo(
     () => filterAdminNavByQuery(visible, navQuery),
@@ -154,6 +161,14 @@ export default function AdminSidebar({ pathname, navContext, token, mobileOpen, 
   }, [showLeaderMarking]);
 
   useEffect(() => {
+    if (!showFeedbackAttention) return;
+    setExpandedSections((prev) => {
+      if (prev.content) return prev;
+      return { ...prev, content: true };
+    });
+  }, [showFeedbackAttention]);
+
+  useEffect(() => {
     const q = navQuery.trim();
     if (!q) return;
     setExpandedSections((prev) => {
@@ -202,6 +217,7 @@ export default function AdminSidebar({ pathname, navContext, token, mobileOpen, 
     const childActive = isSidebarChildActive(active, section.id, leaf.id);
     const showDot = leaf.id === 'english-registration' && showLpOpsAttention;
     const showMarkingDot = leaf.id === 'et-leader-sessions' && showLeaderMarking;
+    const showFeedbackDot = leaf.id === 'student-feedback' && showFeedbackAttention;
     return (
       <li key={leaf.id}>
         <Link
@@ -214,6 +230,7 @@ export default function AdminSidebar({ pathname, navContext, token, mobileOpen, 
           {showMarkingDot ? (
             <UnreadAttentionDot label={`還有 ${leaderMarkingCount} 場任務沒在當下勾完`} />
           ) : null}
+          {showFeedbackDot ? <UnreadAttentionDot label={feedbackAttentionLabel} /> : null}
         </Link>
       </li>
     );
@@ -230,10 +247,11 @@ export default function AdminSidebar({ pathname, navContext, token, mobileOpen, 
     const sectionShowDot = depth === 0 && (
       (node.id === 'english' && showLpOpsAttention)
       || (node.id === 'events' && showLeaderMarking)
+      || (node.id === 'content' && showFeedbackAttention)
     );
     const sectionDotLabel = node.id === 'events'
       ? `還有 ${leaderMarkingCount} 場任務沒在當下勾完`
-      : '請查看學習有伴營運成效';
+      : (node.id === 'content' ? feedbackAttentionLabel : '請查看學習有伴營運成效');
     const labelClass = depth === 0
       ? 'admin-sidebar__section-label'
       : 'admin-sidebar__subgroup-label';

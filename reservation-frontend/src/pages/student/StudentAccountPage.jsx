@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import StudentAccountEmailVerification from '../../components/student/StudentAccountEmailVerification';
 import StudentFeedbackPanel from '../../components/student/StudentFeedbackPanel';
@@ -12,6 +12,7 @@ import {
 } from '../../services/settingsAdminApi';
 import { saveStudentSession } from '../../utils/studentSession';
 import { fetchMySemesterSurveys } from '../../services/surveyPublicApi';
+import { fetchMyStudentFeedbackAttention, STUDENT_FEEDBACK_SEEN_EVENT } from '../../services/studentFeedbackApi';
 import useCampusSso from '../../hooks/useCampusSso';
 import useStudentSession from '../../hooks/useStudentSession';
 import { safeStudentNext } from '../../utils/studentSession';
@@ -172,6 +173,39 @@ export default function StudentAccountPage() {
   const [englishTestMode, setEnglishTestMode] = useState('hidden');
   const [surveyDetail, setSurveyDetail] = useState('查詢本學期是否已填');
   const [openPanel, setOpenPanel] = useState(null);
+  const [feedbackAttention, setFeedbackAttention] = useState(0);
+
+  const refreshFeedbackAttention = useCallback(() => {
+    if (!student?.emailVerifiedAt) {
+      setFeedbackAttention(0);
+      return undefined;
+    }
+    let cancelled = false;
+    fetchMyStudentFeedbackAttention()
+      .then(({ ok, data }) => {
+        if (!cancelled && ok) setFeedbackAttention(Number(data?.count) || 0);
+      })
+      .catch(() => {
+        if (!cancelled) setFeedbackAttention(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [student?.emailVerifiedAt]);
+
+  useEffect(() => {
+    const cancel = refreshFeedbackAttention();
+    const onSeen = () => { refreshFeedbackAttention(); };
+    const timer = window.setInterval(onSeen, 30000);
+    window.addEventListener('focus', onSeen);
+    window.addEventListener(STUDENT_FEEDBACK_SEEN_EVENT, onSeen);
+    return () => {
+      if (typeof cancel === 'function') cancel();
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onSeen);
+      window.removeEventListener(STUDENT_FEEDBACK_SEEN_EVENT, onSeen);
+    };
+  }, [refreshFeedbackAttention]);
 
   useEffect(() => {
     let cancelled = false;
@@ -362,8 +396,10 @@ export default function StudentAccountPage() {
         >
           <span className="student-account__app-icon">
             <AppIcon name="feedback" />
+            {feedbackAttention > 0 ? <span className="student-account__app-dot" aria-hidden="true" /> : null}
           </span>
           <span className="student-account__app-label">遇到問題</span>
+          {feedbackAttention > 0 ? <span className="visually-hidden">有新回覆</span> : null}
         </button>
       </nav>
 

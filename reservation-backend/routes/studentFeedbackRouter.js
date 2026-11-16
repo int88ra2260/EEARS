@@ -7,6 +7,7 @@ const {
   listMyStudentFeedback,
   getMyStudentFeedback,
   addStudentFollowUp,
+  countStudentFeedbackAttention,
 } = require('../services/studentFeedbackService');
 
 const router = express.Router();
@@ -21,6 +22,15 @@ function sendError(err, res, next) {
 }
 
 router.use(studentAuthMiddleware, requireStudentEmailVerified);
+
+router.get('/attention', async (req, res, next) => {
+  try {
+    const result = await countStudentFeedbackAttention({ account: req.studentAccount });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    return sendError(err, res, next);
+  }
+});
 
 router.get('/', async (req, res, next) => {
   try {

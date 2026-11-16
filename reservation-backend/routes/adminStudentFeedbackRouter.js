@@ -12,6 +12,7 @@ const {
   addStaffNote,
   updateStudentFeedbackCase,
   listFeedbackAssignees,
+  countStaffFeedbackAttention,
 } = require('../services/studentFeedbackService');
 
 const router = express.Router();
@@ -38,6 +39,18 @@ router.get('/assignees', async (req, res, next) => {
   try {
     const items = await listFeedbackAssignees();
     return res.json({ success: true, items });
+  } catch (err) {
+    return sendError(err, res, next);
+  }
+});
+
+router.get('/attention', async (req, res, next) => {
+  try {
+    if (req.user && (req.user.isDemo === true || req.user.isDemo === 1 || req.user.isDemo === 'true')) {
+      return res.json({ success: true, newCount: 0, assignedCount: 0 });
+    }
+    const result = await countStaffFeedbackAttention(req.user && req.user.id);
+    return res.json({ success: true, ...result });
   } catch (err) {
     return sendError(err, res, next);
   }
@@ -92,6 +105,7 @@ router.get('/:id', async (req, res, next) => {
   try {
     const item = await getStudentFeedback(req.params.id, {
       includeInternal: canManageFeedback(req),
+      readerTeacherId: req.user && req.user.id,
     });
     return res.json({ success: true, item });
   } catch (err) {

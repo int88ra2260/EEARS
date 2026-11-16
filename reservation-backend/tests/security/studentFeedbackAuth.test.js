@@ -28,6 +28,8 @@ jest.mock('../../services/studentFeedbackService', () => ({
   addStaffNote: jest.fn(),
   updateStudentFeedbackCase: jest.fn(),
   listFeedbackAssignees: jest.fn(async () => []),
+  countStudentFeedbackAttention: jest.fn(async () => ({ count: 1 })),
+  countStaffFeedbackAttention: jest.fn(async () => ({ newCount: 2, assignedCount: 1 })),
 }));
 
 jest.mock('../../middlewares/studentAuth', () => {
@@ -275,7 +277,7 @@ describe('student feedback auth', () => {
 
     const view = await viewOnly(request(app).get('/api/admin/student-feedback/3'));
     expect(view.status).toBe(200);
-    expect(getStudentFeedback).toHaveBeenCalledWith('3', { includeInternal: false });
+    expect(getStudentFeedback).toHaveBeenCalledWith('3', { includeInternal: false, readerTeacherId: 1 });
 
     const events = await viewOnly(request(app).get('/api/admin/student-feedback/3/events'));
     expect(events.status).toBe(200);
@@ -291,7 +293,7 @@ describe('student feedback auth', () => {
       .set('x-test-role', 'office_staff')
       .set('x-test-staff-level', 'event_lead');
     expect(detail.status).toBe(200);
-    expect(getStudentFeedback).toHaveBeenCalledWith('3', { includeInternal: true });
+    expect(getStudentFeedback).toHaveBeenCalledWith('3', { includeInternal: true, readerTeacherId: 1 });
 
     const events = await request(app)
       .get('/api/admin/student-feedback/3/events')
@@ -327,5 +329,44 @@ describe('student feedback auth', () => {
       .send({ priority: 'P0' }));
     expect(priority.status).toBe(403);
     expect(updateStudentFeedbackCase).not.toHaveBeenCalled();
+  });
+
+  it('gives attention counts only to the signed-in student and to staff who can view feedback', async () => {
+    const { countStudentFeedbackAttention, countStaffFeedbackAttention } = require('../../services/studentFeedbackService');
+    const anonymousStudent = await request(app).get('/api/student/feedback/attention');
+    expect(anonymousStudent.status).toBe(401);
+
+    const inactive = await request(app)
+      .get('/api/student/feedback/attention')
+      .set('x-test-student', 'B123456789');
+    expect(inactive.status).toBe(403);
+    expect(countStudentFeedbackAttention).not.toHaveBeenCalled();
+
+    const student = await request(app)
+      .get('/api/student/feedback/attention')
+      .set('x-test-student', 'B123456789')
+      .set('x-test-email-verified', 'yes');
+    expect(student.status).toBe(200);
+    expect(student.body.count).toBe(1);
+    expect(countStudentFeedbackAttention).toHaveBeenCalledWith({
+      account: expect.objectContaining({ studentId: 'B123456789' }),
+    });
+
+    const anonymousStaff = await request(app).get('/api/admin/student-feedback/attention');
+    expect(anonymousStaff.status).toBe(401);
+
+    const teacher = await request(app)
+      .get('/api/admin/student-feedback/attention')
+      .set('x-test-role', 'teacher')
+      .set('x-test-teacher-level', 'regular');
+    expect(teacher.status).toBe(403);
+    expect(countStaffFeedbackAttention).not.toHaveBeenCalled();
+
+    const staff = await request(app)
+      .get('/api/admin/student-feedback/attention')
+      .set('x-test-role', 'admin');
+    expect(staff.status).toBe(200);
+    expect(staff.body).toMatchObject({ newCount: 2, assignedCount: 1 });
+    expect(countStaffFeedbackAttention).toHaveBeenCalledWith(1);
   });
 });

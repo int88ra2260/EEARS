@@ -14,6 +14,7 @@ import {
   postAdminStudentFeedbackReply,
 } from '../../services/studentFeedbackApi';
 import { hasPermission } from '../../utils/accessControl';
+import { notifyStudentFeedbackAttention } from '../../hooks/useStudentFeedbackAttention';
 
 const EVENT_PAGE_SIZE = 50;
 const EVENT_PAGE_CAP = 20;
@@ -333,6 +334,7 @@ export default function AdminStudentFeedbackPage() {
       setDetail(item);
       setAssigneeId(item.assignedTeacherId ? String(item.assignedTeacherId) : '');
       setPriorityId(item.priority || '');
+      notifyStudentFeedbackAttention();
     } catch {
       if (requestId !== detailRequest.current || String(selectedIdRef.current) !== String(id)) return;
       setActionError('與伺服器連線發生錯誤');
@@ -533,6 +535,7 @@ export default function AdminStudentFeedbackPage() {
         setPriorityId(confirmedPriority);
       }
       setNotice(data?.notice || '已更新');
+      notifyStudentFeedbackAttention();
       load();
       loadSummary();
       loadTimeline(caseId, { followAll: true });

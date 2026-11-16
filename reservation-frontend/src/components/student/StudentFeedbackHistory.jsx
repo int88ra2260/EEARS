@@ -3,6 +3,7 @@ import {
   fetchMyStudentFeedback,
   fetchMyStudentFeedbackDetail,
   postMyStudentFeedbackMessage,
+  STUDENT_FEEDBACK_SEEN_EVENT,
 } from '../../services/studentFeedbackApi';
 
 function formatWhen(value) {
@@ -72,6 +73,10 @@ export default function StudentFeedbackHistory() {
         return;
       }
       setDetail(data?.item || null);
+      setItems((current) => current.map((entry) => (
+        entry.id === id ? { ...entry, unread: false } : entry
+      )));
+      window.dispatchEvent(new Event(STUDENT_FEEDBACK_SEEN_EVENT));
     } catch {
       setError('與伺服器連線發生錯誤');
     }
@@ -114,6 +119,7 @@ export default function StudentFeedbackHistory() {
               <span>{formatWhen(item.createdAt)}</span>
               <span>{item.kindLabel}</span>
               <span>{item.statusLabel}</span>
+              {item.unread ? <span>有新回覆</span> : null}
             </button>
             <p className="small mb-0">{item.categoryLabel}{item.replyRequested ? '' : ' · 不要求個別回覆'}</p>
             {openId === item.id && detail ? (

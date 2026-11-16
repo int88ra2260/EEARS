@@ -23,6 +23,7 @@ const StudentAccountReview = require('./StudentAccountReview');
 const StudentFeedback = require('./StudentFeedback');
 const StudentFeedbackMessage = require('./StudentFeedbackMessage');
 const StudentFeedbackEvent = require('./StudentFeedbackEvent');
+const StudentFeedbackRead = require('./StudentFeedbackRead');
 const StudentAccountPasswordReset = require('./StudentAccountPasswordReset');
 const ClassTeacher = require('./ClassTeacher');
 const EnglishTestRegistration = require('./EnglishTestRegistration');
@@ -415,6 +416,8 @@ StudentFeedbackMessage.belongsTo(Teacher, { foreignKey: 'teacherId', as: 'author
 StudentFeedback.hasMany(StudentFeedbackEvent, { foreignKey: 'feedbackId', as: 'events' });
 StudentFeedbackEvent.belongsTo(StudentFeedback, { foreignKey: 'feedbackId' });
 StudentFeedbackEvent.belongsTo(Teacher, { foreignKey: 'actorTeacherId', as: 'actor' });
+StudentFeedback.hasMany(StudentFeedbackRead, { foreignKey: 'feedbackId', as: 'reads', onDelete: 'CASCADE' });
+StudentFeedbackRead.belongsTo(StudentFeedback, { foreignKey: 'feedbackId' });
 
 module.exports = {
   sequelize,
@@ -440,6 +443,7 @@ module.exports = {
   StudentFeedback,
   StudentFeedbackMessage,
   StudentFeedbackEvent,
+  StudentFeedbackRead,
   StudentAccountPasswordReset,
   ClassTeacher,
   EnglishTestRegistration,

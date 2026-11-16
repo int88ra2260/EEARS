@@ -6,6 +6,7 @@ const {
   StudentFeedback,
   StudentFeedbackMessage,
   StudentFeedbackEvent,
+  StudentFeedbackRead,
   Teacher,
 } = require('../models');
 const { sendEmailWithLog } = require('./emailLogService');
@@ -611,6 +612,111 @@ async function loadCaseLocked(id, transaction) {
   return row;
 }
 
+function readerKey(value) {
+  const key = String(value || '').trim();
+  return key ? key.slice(0, 20) : '';
+}
+
+async function markFeedbackRead({ feedbackId, readerType, readerKey: rawKey, seenAt }) {
+  const key = readerKey(rawKey);
+  if (!key || !feedbackId) return;
+  const when = seenAt instanceof Date && !Number.isNaN(seenAt.getTime()) ? seenAt : new Date();
+  const [row, created] = await StudentFeedbackRead.findOrCreate({
+    where: { feedbackId, readerType, readerKey: key },
+    defaults: { feedbackId, readerType, readerKey: key, lastReadAt: when },
+  });
+  if (!created && new Date(row.lastReadAt).getTime() < when.getTime()) {
+    await row.update({ lastReadAt: when });
+  }
+}
+
+async function queryCount(sql, replacements) {
+  const [rows] = await sequelize.query(sql, { replacements });
+  return Number(rows && rows[0] ? rows[0].n : 0) || 0;
+}
+
+async function countStudentFeedbackAttention(account) {
+  assertActivated(account);
+  const count = await queryCount(`
+    SELECT COUNT(DISTINCT f.id) AS n
+    FROM student_feedback f
+    INNER JOIN student_feedback_messages m
+      ON m.feedbackId = f.id
+     AND m.authorType = 'staff'
+     AND m.visibility = 'public'
+    LEFT JOIN student_feedback_reads r
+      ON r.feedbackId = f.id
+     AND r.readerType = 'student'
+     AND r.readerKey = :studentId
+    WHERE f.studentId = :studentId
+      AND (r.id IS NULL OR m.createdAt > r.lastReadAt)
+  `, { studentId: account.studentId });
+  return { count };
+}
+
+async function unreadStudentFeedbackIds(studentId, feedbackIds) {
+  if (!feedbackIds.length) return new Set();
+  const [rows] = await sequelize.query(`
+    SELECT DISTINCT f.id AS id
+    FROM student_feedback f
+    INNER JOIN student_feedback_messages m
+      ON m.feedbackId = f.id
+     AND m.authorType = 'staff'
+     AND m.visibility = 'public'
+    LEFT JOIN student_feedback_reads r
+      ON r.feedbackId = f.id
+     AND r.readerType = 'student'
+     AND r.readerKey = :studentId
+    WHERE f.studentId = :studentId
+      AND f.id IN (:ids)
+      AND (r.id IS NULL OR m.createdAt > r.lastReadAt)
+  `, { replacements: { studentId, ids: feedbackIds } });
+  return new Set((rows || []).map((row) => Number(row.id)));
+}
+
+async function countStaffFeedbackAttention(teacherId) {
+  const id = Number(teacherId);
+  if (!Number.isInteger(id) || id <= 0) return { newCount: 0, assignedCount: 0 };
+  const key = readerKey(id);
+  const newCount = await queryCount(`
+    SELECT COUNT(*) AS n
+    FROM student_feedback f
+    LEFT JOIN student_feedback_reads r
+      ON r.feedbackId = f.id
+     AND r.readerType = 'staff'
+     AND r.readerKey = :readerKey
+    WHERE f.status <> 'closed'
+      AND r.id IS NULL
+  `, { readerKey: key });
+  const assignedCount = await queryCount(`
+    SELECT COUNT(DISTINCT f.id) AS n
+    FROM student_feedback f
+    INNER JOIN student_feedback_reads r
+      ON r.feedbackId = f.id
+     AND r.readerType = 'staff'
+     AND r.readerKey = :readerKey
+    WHERE f.assignedTeacherId = :teacherId
+      AND f.status <> 'closed'
+      AND (
+        EXISTS (
+          SELECT 1 FROM student_feedback_messages m
+          WHERE m.feedbackId = f.id
+            AND m.authorType = 'student'
+            AND m.visibility = 'public'
+            AND m.createdAt > r.lastReadAt
+        )
+        OR EXISTS (
+          SELECT 1 FROM student_feedback_events e
+          WHERE e.feedbackId = f.id
+            AND e.eventType = 'ASSIGNEE_CHANGED'
+            AND e.createdAt > r.lastReadAt
+            AND CAST(JSON_UNQUOTE(JSON_EXTRACT(e.afterValue, '$.assignedTeacherId')) AS UNSIGNED) = :teacherId
+        )
+      )
+  `, { readerKey: key, teacherId: id });
+  return { newCount, assignedCount };
+}
+
 async function getStudentFeedback(id, options = {}) {
   const includeInternal = options.includeInternal === true;
   const row = await loadCase(id);
@@ -619,6 +725,14 @@ async function getStudentFeedback(id, options = {}) {
   const visible = includeInternal
     ? messages
     : messages.filter((entry) => entry.visibility === 'public');
+  if (options.readerTeacherId) {
+    await markFeedbackRead({
+      feedbackId: item.id,
+      readerType: 'staff',
+      readerKey: options.readerTeacherId,
+      seenAt: new Date(),
+    });
+  }
   return presentStaff(item, visible);
 }
 
@@ -716,6 +830,12 @@ async function addStaffReply({ id, teacher, message, requestId }) {
     emailStatus = 'failed';
   }
   if (typeof created.update === 'function') await created.update({ emailStatus });
+  await markFeedbackRead({
+    feedbackId: item.id,
+    readerType: 'staff',
+    readerKey: teacher && teacher.id,
+    seenAt: new Date(),
+  });
 
   return {
     item: await getStudentFeedback(item.id, { includeInternal: true }),
@@ -745,6 +865,12 @@ async function addStaffNote({ id, teacher, message, requestId }) {
       }, teacher, requestId, transaction);
     }
     return item.id;
+  });
+  await markFeedbackRead({
+    feedbackId: caseId,
+    readerType: 'staff',
+    readerKey: teacher && teacher.id,
+    seenAt: new Date(),
   });
   return getStudentFeedback(caseId, { includeInternal: true });
 }
@@ -819,6 +945,12 @@ async function updateStudentFeedbackCase({ id, patch = {}, actor, requestId } = 
     await persistCaseChanges(row, item, changes, actor, requestId, transaction);
     return item.id;
   });
+  await markFeedbackRead({
+    feedbackId: caseId,
+    readerType: 'staff',
+    readerKey: actor && actor.id,
+    seenAt: new Date(),
+  });
   return getStudentFeedback(caseId, { includeInternal: true });
 }
 
@@ -832,12 +964,17 @@ async function listMyStudentFeedback({ account, page, pageSize }) {
     limit: size,
     offset: (currentPage - 1) * size,
   });
+  const items = (result.rows || []).map((row) => {
+    const item = presentStudent(plain(row), []);
+    delete item.messages;
+    return item;
+  });
+  const unreadIds = await unreadStudentFeedbackIds(
+    account.studentId,
+    items.map((item) => item.id),
+  );
   return {
-    items: (result.rows || []).map((row) => {
-      const item = presentStudent(plain(row), []);
-      delete item.messages;
-      return item;
-    }),
+    items: items.map((item) => ({ ...item, unread: unreadIds.has(Number(item.id)) })),
     page: currentPage,
     pageSize: size,
     total: result.count || 0,
@@ -856,8 +993,22 @@ async function loadOwnCase(account, id) {
 
 async function getMyStudentFeedback({ account, id }) {
   const row = await loadOwnCase(account, id);
-  const messages = await loadMessages(plain(row).id, { publicOnly: true });
-  return presentStudent(plain(row), messages);
+  const item = plain(row);
+  const messages = await loadMessages(item.id, { publicOnly: true });
+  const staffReplies = messages.filter((entry) => entry.authorType === 'staff' && entry.visibility === 'public');
+  if (staffReplies.length) {
+    const seenAt = staffReplies.reduce((latest, entry) => {
+      const at = new Date(entry.createdAt);
+      return at > latest ? at : latest;
+    }, new Date(0));
+    await markFeedbackRead({
+      feedbackId: item.id,
+      readerType: 'student',
+      readerKey: account.studentId,
+      seenAt,
+    });
+  }
+  return presentStudent(item, messages);
 }
 
 async function addStudentFollowUp({ account, id, message, requestId }) {
@@ -910,4 +1061,6 @@ module.exports = {
   listMyStudentFeedback,
   getMyStudentFeedback,
   addStudentFollowUp,
+  countStudentFeedbackAttention,
+  countStaffFeedbackAttention,
 };

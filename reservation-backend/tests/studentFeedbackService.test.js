@@ -3,6 +3,10 @@
 jest.mock('../models', () => ({
   sequelize: {
     transaction: jest.fn(),
+    query: jest.fn(),
+  },
+  StudentFeedbackRead: {
+    findOrCreate: jest.fn(async () => [{ lastReadAt: new Date(0), update: jest.fn() }, true]),
   },
   StudentFeedback: {
     create: jest.fn(),
@@ -35,6 +39,7 @@ const {
   StudentFeedback,
   StudentFeedbackMessage,
   StudentFeedbackEvent,
+  StudentFeedbackRead,
   Teacher,
 } = require('../models');
 const { sendEmailWithLog } = require('../services/emailLogService');
@@ -53,6 +58,9 @@ const {
   addStaffNote,
   getMyStudentFeedback,
   addStudentFollowUp,
+  countStudentFeedbackAttention,
+  countStaffFeedbackAttention,
+  listMyStudentFeedback,
 } = require('../services/studentFeedbackService');
 
 const account = {
@@ -688,5 +696,58 @@ describe('studentFeedbackService', () => {
     await expect(listStudentFeedback({ priority: 'P9' })).rejects.toMatchObject({ status: 400 });
     await expect(listStudentFeedback({ category: 'secret' })).rejects.toMatchObject({ status: 400 });
     await expect(listStudentFeedback({ sortBy: 'message' })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('marks a student read at the newest public staff reply', async () => {
+    const older = new Date('2026-11-09T01:00:00.000Z');
+    const newer = new Date('2026-11-09T02:00:00.000Z');
+    StudentFeedback.findByPk.mockResolvedValue(storedCase());
+    StudentFeedbackMessage.findAll.mockResolvedValue([
+      { id: 1, visibility: 'internal', authorType: 'staff', body: '內部', createdAt: newer },
+      { id: 2, visibility: 'public', authorType: 'staff', body: '回覆', createdAt: older },
+    ]);
+    await getMyStudentFeedback({ account, id: 7 });
+    expect(StudentFeedbackRead.findOrCreate).toHaveBeenCalledWith(expect.objectContaining({
+      where: { feedbackId: 7, readerType: 'student', readerKey: account.studentId },
+      defaults: expect.objectContaining({ lastReadAt: older }),
+    }));
+  });
+
+  it('counts unseen public replies for that student only', async () => {
+    sequelize.query.mockResolvedValueOnce([[{ n: 1 }]]);
+    await expect(countStudentFeedbackAttention(account)).resolves.toEqual({ count: 1 });
+    const [sql, options] = sequelize.query.mock.calls.at(-1);
+    expect(sql).toContain("m.visibility = 'public'");
+    expect(sql).toContain("m.authorType = 'staff'");
+    expect(options.replacements.studentId).toBe(account.studentId);
+  });
+
+  it('flags listed cases that still have an unseen public reply', async () => {
+    StudentFeedback.findAndCountAll.mockResolvedValue({
+      count: 2,
+      rows: [
+        storedCase({ id: 1 }),
+        storedCase({ id: 2 }),
+      ],
+    });
+    sequelize.query.mockResolvedValueOnce([[{ id: 2 }]]);
+    const listed = await listMyStudentFeedback({ account, page: 1 });
+    expect(listed.items.map((item) => [item.id, item.unread])).toEqual([[1, false], [2, true]]);
+  });
+
+  it('counts unseen open cases and later assignment or follow-up separately', async () => {
+    sequelize.query
+      .mockResolvedValueOnce([[{ n: 3 }]])
+      .mockResolvedValueOnce([[{ n: 1 }]]);
+    await expect(countStaffFeedbackAttention(4)).resolves.toEqual({ newCount: 3, assignedCount: 1 });
+    const [newSql, newOptions] = sequelize.query.mock.calls.at(-2);
+    const [assignedSql, assignedOptions] = sequelize.query.mock.calls.at(-1);
+    expect(newSql).toContain("f.status <> 'closed'");
+    expect(newSql).toContain('r.id IS NULL');
+    expect(assignedSql).toContain('ASSIGNEE_CHANGED');
+    expect(assignedSql).toContain("m.authorType = 'student'");
+    expect(newOptions.replacements.readerKey).toBe('4');
+    expect(assignedOptions.replacements.teacherId).toBe(4);
+    await expect(countStaffFeedbackAttention(0)).resolves.toEqual({ newCount: 0, assignedCount: 0 });
   });
 });

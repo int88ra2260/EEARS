@@ -1,4 +1,6 @@
 import { fetchClient } from '../utils/fetchClient';
+
+export const STUDENT_FEEDBACK_SEEN_EVENT = 'eears-student-feedback-seen';
 import { withStudentAuth } from '../utils/studentSession';
 
 async function parseJson(res) {
@@ -40,6 +42,12 @@ export async function submitStudentFeedback(payload) {
   return { ok: res.ok, status: res.status, data };
 }
 
+export async function fetchMyStudentFeedbackAttention() {
+  const res = await studentRequest('/api/student/feedback/attention');
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
 export async function fetchMyStudentFeedback(page = 1) {
   const res = await studentRequest(`/api/student/feedback?page=${encodeURIComponent(page)}`);
   const data = await parseJson(res);
@@ -57,6 +65,12 @@ export async function postMyStudentFeedbackMessage(id, message) {
     method: 'POST',
     body: JSON.stringify({ message }),
   });
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function fetchAdminStudentFeedbackAttention(token) {
+  const res = await staffRequest(token, '/api/admin/student-feedback/attention');
   const data = await parseJson(res);
   return { ok: res.ok, status: res.status, data };
 }
