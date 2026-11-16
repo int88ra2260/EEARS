@@ -783,4 +783,20 @@ describe('學生回報後台', () => {
     expect(await screen.findByRole('heading', { level: 2, name: '問題回報 · queued' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 2, name: /待處理/ })).not.toBeInTheDocument();
   });
+
+  test('opens the selected case in a dialog and closes it', async () => {
+    renderPage({ canManage: true });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByText('預約按鈕沒有反應'));
+    const dialog = await screen.findByRole('dialog');
+    expect(await screen.findByRole('textbox', { name: '回覆學生' })).toBeInTheDocument();
+    expect(dialog).toHaveTextContent('內部備註');
+    expect(dialog).toHaveTextContent('處理歷程');
+    fireEvent.click(screen.getByRole('button', { name: '關閉' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole('textbox', { name: '回覆學生' })).not.toBeInTheDocument();
+    expect(screen.getByText('預約按鈕沒有反應')).toBeInTheDocument();
+  });
 });

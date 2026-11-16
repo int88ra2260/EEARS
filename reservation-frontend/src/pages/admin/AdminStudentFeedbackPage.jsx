@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Form, Spinner, Table } from 'react-bootstrap';
+import { Alert, Button, Form, Modal, Spinner, Table } from 'react-bootstrap';
 import { useOutletContext } from 'react-router-dom';
 import EmptyState from '../../components/ui/EmptyState';
 import { P } from '../../constants/permissions';
@@ -478,6 +478,17 @@ export default function AdminStudentFeedbackPage() {
     loadTimeline(id, { reset: true });
   };
 
+  const closeDetail = () => {
+    actionRequest.current += 1;
+    detailRequest.current += 1;
+    eventsRequest.current += 1;
+    setBusy(false);
+    setSelectedId(null);
+    setDetailLoading(false);
+    setTimelineLoading(false);
+    setTimelineLoadingMore(false);
+  };
+
   const detailIsCurrent = Boolean(
     detail && selectedId != null && String(detail.id) === String(selectedId),
   );
@@ -693,12 +704,20 @@ export default function AdminStudentFeedbackPage() {
           <Button size="sm" variant="outline-secondary" disabled={page >= pages} onClick={() => setPage((value) => value + 1)}>下一頁</Button>
         </div>
       ) : null}
-      {selectedId && (detailIsCurrent || detailLoading) ? (
-        <section
-          className="border rounded p-3"
-          aria-busy={detailLoading && !detailIsCurrent ? 'true' : 'false'}
-          {...(detailIsCurrent ? { 'aria-labelledby': 'student-feedback-detail-title' } : { 'aria-label': '案件詳情' })}
-        >
+      <Modal
+        show={Boolean(selectedId) && (detailIsCurrent || detailLoading)}
+        onHide={closeDetail}
+        size="lg"
+        centered
+        scrollable
+        aria-labelledby="student-feedback-detail-title"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title as="h2" id="student-feedback-detail-title">
+            {detailIsCurrent ? `${detail.kindLabel} · ${statusText(detail.status)}` : '案件詳情'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body aria-busy={detailLoading && !detailIsCurrent ? 'true' : 'false'}>
           {detailLoading && !detailIsCurrent ? (
             <div className="d-flex align-items-center gap-2 text-muted" role="status">
               <Spinner size="sm" animation="border" />
@@ -707,9 +726,6 @@ export default function AdminStudentFeedbackPage() {
           ) : null}
           {detailIsCurrent ? (
           <>
-          <h2 className="h5" id="student-feedback-detail-title">
-            {detail.kindLabel} · {statusText(detail.status)}
-          </h2>
           <p className="small text-muted mb-2">
             {detail.studentName} {detail.studentId} · {detail.replyRequested ? '希望得到回覆' : '不要求個別回覆'}
           </p>
@@ -853,8 +869,11 @@ export default function AdminStudentFeedbackPage() {
           )}
           </>
           ) : null}
-        </section>
-      ) : null}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={closeDetail}>關閉</Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
