@@ -119,7 +119,7 @@ async function buildDetail(trip) {
 async function listTrips(userId) {
   const rows = await TripCount.findAll({
     where: { ownerUserId: userId },
-    order: [['updatedAt', 'DESC'], ['id', 'DESC']],
+    order: [['updated_at', 'DESC'], ['id', 'DESC']],
   });
   return rows.map((trip) => ({
     id: trip.id,
