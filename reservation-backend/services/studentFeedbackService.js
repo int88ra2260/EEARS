@@ -621,18 +621,26 @@ async function markFeedbackRead({ feedbackId, readerType, readerKey: rawKey, see
   const key = readerKey(rawKey);
   if (!key || !feedbackId) return;
   const when = seenAt instanceof Date && !Number.isNaN(seenAt.getTime()) ? seenAt : new Date();
-  const [row, created] = await StudentFeedbackRead.findOrCreate({
-    where: { feedbackId, readerType, readerKey: key },
-    defaults: { feedbackId, readerType, readerKey: key, lastReadAt: when },
-  });
-  if (!created && new Date(row.lastReadAt).getTime() < when.getTime()) {
-    await row.update({ lastReadAt: when });
+  try {
+    const [row, created] = await StudentFeedbackRead.findOrCreate({
+      where: { feedbackId, readerType, readerKey: key },
+      defaults: { feedbackId, readerType, readerKey: key, lastReadAt: when },
+    });
+    if (!created && new Date(row.lastReadAt).getTime() < when.getTime()) {
+      await row.update({ lastReadAt: when });
+    }
+  } catch {
+    // 已讀表還沒建立時，仍要能打開案件。
   }
 }
 
 async function queryCount(sql, replacements) {
-  const [rows] = await sequelize.query(sql, { replacements });
-  return Number(rows && rows[0] ? rows[0].n : 0) || 0;
+  try {
+    const [rows] = await sequelize.query(sql, { replacements });
+    return Number(rows && rows[0] ? rows[0].n : 0) || 0;
+  } catch {
+    return 0;
+  }
 }
 
 async function countStudentFeedbackAttention(account) {
@@ -656,7 +664,9 @@ async function countStudentFeedbackAttention(account) {
 
 async function unreadStudentFeedbackIds(studentId, feedbackIds) {
   if (!feedbackIds.length) return new Set();
-  const [rows] = await sequelize.query(`
+  let rows;
+  try {
+    [rows] = await sequelize.query(`
     SELECT DISTINCT f.id AS id
     FROM student_feedback f
     INNER JOIN student_feedback_messages m
@@ -671,6 +681,9 @@ async function unreadStudentFeedbackIds(studentId, feedbackIds) {
       AND f.id IN (:ids)
       AND (r.id IS NULL OR m.createdAt > r.lastReadAt)
   `, { replacements: { studentId, ids: feedbackIds } });
+  } catch {
+    return new Set();
+  }
   return new Set((rows || []).map((row) => Number(row.id)));
 }
 

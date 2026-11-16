@@ -461,7 +461,13 @@ export default function AdminStudentFeedbackPage() {
 
   const pages = Math.max(1, Math.ceil(total / pageSize));
 
+  const ignoreCloseRef = useRef(false);
+
   const selectRow = (id) => {
+    ignoreCloseRef.current = true;
+    window.setTimeout(() => {
+      ignoreCloseRef.current = false;
+    }, 400);
     actionRequest.current += 1;
     setBusy(false);
     setSelectedId(id);
@@ -481,6 +487,7 @@ export default function AdminStudentFeedbackPage() {
   };
 
   const closeDetail = () => {
+    ignoreCloseRef.current = false;
     actionRequest.current += 1;
     detailRequest.current += 1;
     eventsRequest.current += 1;
@@ -708,8 +715,11 @@ export default function AdminStudentFeedbackPage() {
         </div>
       ) : null}
       <Modal
-        show={Boolean(selectedId) && (detailIsCurrent || detailLoading)}
-        onHide={closeDetail}
+        show={Boolean(selectedId)}
+        onHide={() => {
+          if (ignoreCloseRef.current) return;
+          closeDetail();
+        }}
         size="lg"
         centered
         scrollable
@@ -726,6 +736,9 @@ export default function AdminStudentFeedbackPage() {
               <Spinner size="sm" animation="border" />
               載入這筆回報
             </div>
+          ) : null}
+          {!detailLoading && !detailIsCurrent && actionError ? (
+            <Alert variant="danger" className="mb-0">{actionError}</Alert>
           ) : null}
           {detailIsCurrent ? (
           <>

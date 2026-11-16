@@ -698,6 +698,17 @@ describe('studentFeedbackService', () => {
     await expect(listStudentFeedback({ sortBy: 'message' })).rejects.toMatchObject({ status: 400 });
   });
 
+  it('returns the case when recording the staff read fails', async () => {
+    StudentFeedback.findByPk.mockResolvedValue(storedCase());
+    StudentFeedbackMessage.findAll.mockResolvedValue([
+      { id: 2, visibility: 'public', authorType: 'staff', body: '回覆', createdAt: new Date('2026-11-09T01:00:00.000Z') },
+    ]);
+    StudentFeedbackRead.findOrCreate.mockRejectedValueOnce(new Error('no such table'));
+    const seen = await getStudentFeedback(7, { includeInternal: true, readerTeacherId: 4 });
+    expect(seen.id).toBe(7);
+    expect(seen.messages.map((entry) => entry.body)).toEqual(['回覆']);
+  });
+
   it('marks a student read at the newest public staff reply', async () => {
     const older = new Date('2026-11-09T01:00:00.000Z');
     const newer = new Date('2026-11-09T02:00:00.000Z');

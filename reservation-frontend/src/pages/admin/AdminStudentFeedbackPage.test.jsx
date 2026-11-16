@@ -784,6 +784,17 @@ describe('學生回報後台', () => {
     expect(screen.queryByRole('heading', { level: 2, name: /待處理/ })).not.toBeInTheDocument();
   });
 
+  test('keeps the dialog open when the case fails to load', async () => {
+    api.fetchAdminStudentFeedbackDetail.mockResolvedValue({
+      ok: false,
+      data: { message: '資料庫查詢失敗' },
+    });
+    renderPage({ canManage: true });
+    fireEvent.click(await screen.findByText('預約按鈕沒有反應'));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('資料庫查詢失敗');
+    expect(screen.getByRole('button', { name: '關閉' })).toBeInTheDocument();
+  });
+
   test('opens the selected case in a dialog and closes it', async () => {
     renderPage({ canManage: true });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
