@@ -20,6 +20,34 @@ function allocateEqualShares(amountCents, memberIds) {
 }
 
 /**
+ * 依份數分攤。例如 A 1 份、情侶代付者 2 份。餘數 1 分錢依成員順序往前補。
+ * @param {number} amountCents
+ * @param {Array<{ memberId: number, weight: number }>} weightedMembers
+ * @returns {{ memberId: number, shareCents: number }[]}
+ */
+function allocateWeightedShares(amountCents, weightedMembers) {
+  const rows = (Array.isArray(weightedMembers) ? weightedMembers : [])
+    .map((row) => ({
+      memberId: Number(row.memberId),
+      weight: Number(row.weight),
+    }))
+    .filter((row) => Number.isInteger(row.memberId) && Number.isInteger(row.weight) && row.weight > 0);
+  const totalWeight = rows.reduce((sum, row) => sum + row.weight, 0);
+  if (!rows.length || !totalWeight || !Number.isInteger(amountCents) || amountCents <= 0) return [];
+
+  const result = rows.map((row) => ({
+    memberId: row.memberId,
+    shareCents: Math.floor((amountCents * row.weight) / totalWeight),
+  }));
+  let remainder = amountCents - result.reduce((sum, row) => sum + row.shareCents, 0);
+  for (let i = 0; remainder > 0 && i < result.length; i += 1) {
+    result[i].shareCents += 1;
+    remainder -= 1;
+  }
+  return result;
+}
+
+/**
  * 依成員名單順序抵銷後，產生最多「人數 − 1」筆轉帳。
  * 正餘額表示該成員應收回，負餘額表示還要付。
  * @param {Array<{ id: number, name: string, sortOrder?: number }>} members
@@ -93,5 +121,6 @@ function settleTrip(members, expenses) {
 
 module.exports = {
   allocateEqualShares,
+  allocateWeightedShares,
   settleTrip,
 };

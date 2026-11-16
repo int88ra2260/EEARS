@@ -25,6 +25,7 @@ const EMPTY_EXPENSE = {
   splitMode: 'equal',
   memberIds: [],
   customAmounts: {},
+  weights: {},
 };
 
 function balanceLabel(cents) {
@@ -66,6 +67,9 @@ export default function TripCountPage() {
       ...current,
       payerMemberId: current.payerMemberId || String(data.members[0]?.id || ''),
       memberIds: current.memberIds.length ? current.memberIds : data.members.map((member) => member.id),
+      weights: Object.keys(current.weights).length
+        ? current.weights
+        : Object.fromEntries(data.members.map((member) => [member.id, '1'])),
     }));
   }, [token]);
 
@@ -95,6 +99,13 @@ export default function TripCountPage() {
   const customSum = useMemo(() => {
     return Object.values(expense.customAmounts).reduce((sum, value) => sum + (parseTwdToCents(value) || 0), 0);
   }, [expense.customAmounts]);
+
+  const weightTotal = useMemo(() => {
+    return Object.values(expense.weights).reduce((sum, value) => {
+      const weight = Number(value);
+      return sum + (Number.isInteger(weight) && weight > 0 ? weight : 0);
+    }, 0);
+  }, [expense.weights]);
 
   const reload = async (id = tripId) => {
     await loadList();
@@ -175,6 +186,10 @@ export default function TripCountPage() {
       setExpenseError('請至少選一位分攤的人');
       return;
     }
+    if (expense.splitMode === 'weights' && weightTotal < 1) {
+      setExpenseError('請至少為一位成員設定份數（情侶可填 2）');
+      return;
+    }
     if (expense.splitMode === 'custom' && customSum !== amountCents) {
       setExpenseError('指定金額加總必須等於這一筆的金額');
       return;
@@ -187,6 +202,13 @@ export default function TripCountPage() {
     };
     if (expense.splitMode === 'equal') {
       payload.memberIds = expense.memberIds;
+    } else if (expense.splitMode === 'weights') {
+      payload.shares = detail.members.flatMap((member) => {
+        const weight = Number(expense.weights[member.id]);
+        return Number.isInteger(weight) && weight > 0
+          ? [{ memberId: member.id, weight }]
+          : [];
+      });
     } else {
       payload.shares = detail.members.flatMap((member) => {
         const shareCents = parseTwdToCents(expense.customAmounts[member.id]);
@@ -202,6 +224,7 @@ export default function TripCountPage() {
         ...EMPTY_EXPENSE,
         payerMemberId: expense.payerMemberId,
         memberIds: detail.members.map((member) => member.id),
+        weights: Object.fromEntries(detail.members.map((member) => [member.id, '1'])),
       });
       await reload();
     } catch (err) {
@@ -252,7 +275,7 @@ export default function TripCountPage() {
 
   const shareSummary = (row) => (
     <>
-      {row.splitMode === 'equal' ? '均分：' : '指定：'}
+      {row.splitMode === 'equal' ? '均分：' : row.splitMode === 'weights' ? '依份數：' : '指定：'}
       {row.shares.map((share) => `${share.name} ${formatTwd(share.shareCents)}`).join('、')}
     </>
   );
@@ -260,7 +283,7 @@ export default function TripCountPage() {
   return (
     <div className="trip-count-page">
       <p className="text-muted small">
-        記下誰先付錢、這筆由誰分攤。系統會把互相抵銷後的結果收成建議轉帳。只看得到自己建立的旅程，金額以新台幣計算。
+        每筆帳可各自選分攤的人：有的三個人、有的四個人都行。情侶可改用「依份數」，其中一人填 2 份。系統會把互相抵銷後的結果收成建議轉帳。只看得到自己建立的旅程，金額以新台幣計算。
       </p>
       <div aria-live="polite">
         {error ? <Alert variant="danger">{error}</Alert> : null}
@@ -455,29 +478,69 @@ export default function TripCountPage() {
                     name="expenseSplit"
                     value={expense.splitMode}
                     onChange={(event) => {
-                      setExpense((current) => ({ ...current, splitMode: event.target.value }));
+                      const splitMode = event.target.value;
+                      setExpense((current) => ({
+                        ...current,
+                        splitMode,
+                        weights: splitMode === 'weights' && !Object.keys(current.weights).length
+                          ? Object.fromEntries(detail.members.map((member) => [member.id, '1']))
+                          : current.weights,
+                      }));
                       if (expenseError) setExpenseError('');
                     }}
                   >
                     <option value="equal">均分</option>
+                    <option value="weights">依份數</option>
                     <option value="custom">指定金額</option>
                   </Form.Select>
                 </div>
               </div>
               {expense.splitMode === 'equal' ? (
-                <div className="d-flex flex-wrap gap-3 mt-3">
-                  {detail.members.map((member) => (
-                    <Form.Check
-                      key={member.id}
-                      type="checkbox"
-                      id={`share-${member.id}`}
-                      label={member.name}
-                      checked={expense.memberIds.includes(member.id)}
-                      onChange={() => toggleMember(member.id)}
-                    />
-                  ))}
+                <div className="mt-3">
+                  <div className="small text-muted mb-2">勾選這一筆要分攤的人；沒參加的就不要勾。</div>
+                  <div className="d-flex flex-wrap gap-3">
+                    {detail.members.map((member) => (
+                      <Form.Check
+                        key={member.id}
+                        type="checkbox"
+                        id={`share-${member.id}`}
+                        label={member.name}
+                        checked={expense.memberIds.includes(member.id)}
+                        onChange={() => toggleMember(member.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
-              ) : (
+              ) : null}
+              {expense.splitMode === 'weights' ? (
+                <div className="row g-2 mt-3">
+                  <div className="col-12 small text-muted">
+                    填份數即可；不參加的人留空或填 0。情侶一起時，可讓其中一人填 2、另一人留空。
+                  </div>
+                  {detail.members.map((member) => (
+                    <div key={member.id} className="col-6 col-lg-3">
+                      <Form.Label htmlFor={`weight-share-${member.id}`} className="small text-break">
+                        {member.name}（份）
+                      </Form.Label>
+                      <Form.Control
+                        id={`weight-share-${member.id}`}
+                        name={`weightShare-${member.id}`}
+                        inputMode="numeric"
+                        value={expense.weights[member.id] ?? ''}
+                        onChange={(event) => setExpense((current) => ({
+                          ...current,
+                          weights: { ...current.weights, [member.id]: event.target.value },
+                        }))}
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                  <div className="col-12 small text-muted">
+                    共 {weightTotal} 份，會依份數比例分攤這一筆。
+                  </div>
+                </div>
+              ) : null}
+              {expense.splitMode === 'custom' ? (
                 <div className="row g-2 mt-3">
                   {detail.members.map((member) => (
                     <div key={member.id} className="col-6 col-lg-3">
@@ -503,7 +566,7 @@ export default function TripCountPage() {
                     <Money cents={parseTwdToCents(expense.amount) || 0} />。兩邊要相同。
                   </div>
                 </div>
-              )}
+              ) : null}
               {expenseError ? <p className="trip-count-field-error mt-3" role="alert">{expenseError}</p> : null}
               <Button className="mt-3" type="submit" disabled={saving || detail.members.length === 0}>
                 {saving ? '儲存中…' : '加入帳目'}

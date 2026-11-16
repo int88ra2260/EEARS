@@ -1,12 +1,41 @@
 'use strict';
 
-const { allocateEqualShares, settleTrip } = require('../services/tripCountSettlement');
+const {
+  allocateEqualShares,
+  allocateWeightedShares,
+  settleTrip,
+} = require('../services/tripCountSettlement');
 
 describe('trip count settlement', () => {
   test('均分時餘數分給前面的成員', () => {
     expect(allocateEqualShares(101, [1, 2])).toEqual([
       { memberId: 1, shareCents: 51 },
       { memberId: 2, shareCents: 50 },
+    ]);
+  });
+
+  test('依份數分攤：情侶 2 份、其他人 1 份', () => {
+    // 300 元 = 30000 分；總 4 份 → 各 7500，情侶代付者 15000
+    expect(allocateWeightedShares(30000, [
+      { memberId: 1, weight: 1 },
+      { memberId: 2, weight: 2 },
+      { memberId: 3, weight: 1 },
+    ])).toEqual([
+      { memberId: 1, shareCents: 7500 },
+      { memberId: 2, shareCents: 15000 },
+      { memberId: 3, shareCents: 7500 },
+    ]);
+  });
+
+  test('依份數分攤時餘數分給前面的成員', () => {
+    expect(allocateWeightedShares(100, [
+      { memberId: 1, weight: 1 },
+      { memberId: 2, weight: 1 },
+      { memberId: 3, weight: 1 },
+    ])).toEqual([
+      { memberId: 1, shareCents: 34 },
+      { memberId: 2, shareCents: 33 },
+      { memberId: 3, shareCents: 33 },
     ]);
   });
 

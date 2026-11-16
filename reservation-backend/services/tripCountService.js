@@ -7,9 +7,10 @@ const {
   TripCountShare,
   sequelize,
 } = require('../models');
-const { allocateEqualShares, settleTrip } = require('./tripCountSettlement');
+const { allocateEqualShares, allocateWeightedShares, settleTrip } = require('./tripCountSettlement');
 
 const MAX_AMOUNT_CENTS = 100_000_000 * 100;
+const MAX_SHARE_WEIGHT = 99;
 
 function fail(status, code, error) {
   const err = new Error(error);
@@ -47,6 +48,15 @@ function resolvedShares(expense, shareRows, members) {
   });
   if (expense.splitMode === 'equal') {
     return allocateEqualShares(Number(expense.amountCents), rows.map((row) => Number(row.memberId)));
+  }
+  if (expense.splitMode === 'weights') {
+    return allocateWeightedShares(
+      Number(expense.amountCents),
+      rows.map((row) => ({
+        memberId: Number(row.memberId),
+        weight: Number(row.shareCents || 0),
+      })),
+    );
   }
   return rows.map((row) => ({
     memberId: Number(row.memberId),
@@ -202,8 +212,14 @@ function normalizeShareInput(members, input) {
   if (!memberIds.has(payerMemberId)) fail(400, 'PAYER_REQUIRED', '請選擇先付錢的人');
   const amountCents = asCents(input.amountCents);
   if (!amountCents) fail(400, 'AMOUNT_INVALID', '金額需大於 0，且最多到分');
-  const splitMode = input.splitMode === 'custom' ? 'custom' : input.splitMode === 'equal' ? 'equal' : null;
-  if (!splitMode) fail(400, 'SPLIT_MODE_INVALID', '請選擇均分或指定金額');
+  const splitMode = input.splitMode === 'custom'
+    ? 'custom'
+    : input.splitMode === 'weights'
+      ? 'weights'
+      : input.splitMode === 'equal'
+        ? 'equal'
+        : null;
+  if (!splitMode) fail(400, 'SPLIT_MODE_INVALID', '請選擇均分、依份數或指定金額');
 
   let shares;
   if (splitMode === 'equal') {
@@ -211,6 +227,27 @@ function normalizeShareInput(members, input) {
       .filter((id) => memberIds.has(id));
     if (!ids.length) fail(400, 'SHARE_REQUIRED', '請至少選一位分攤的人');
     shares = ids.map((memberId) => ({ memberId, shareCents: null }));
+  } else if (splitMode === 'weights') {
+    const rows = Array.isArray(input.shares) ? input.shares : [];
+    const seen = new Set();
+    shares = [];
+    for (const row of rows) {
+      const memberId = Number(row.memberId);
+      const weight = Number(row.weight);
+      if (
+        !memberIds.has(memberId)
+        || !Number.isInteger(weight)
+        || weight < 1
+        || weight > MAX_SHARE_WEIGHT
+        || seen.has(memberId)
+      ) {
+        fail(400, 'SHARE_WEIGHT_INVALID', '份數需為 1–99 的整數，且每位成員只能填一次');
+      }
+      seen.add(memberId);
+      // weights 模式把份數暫存於 share_cents，讀取時再依金額重算
+      shares.push({ memberId, shareCents: weight });
+    }
+    if (!shares.length) fail(400, 'SHARE_REQUIRED', '請至少為一位成員設定份數');
   } else {
     const rows = Array.isArray(input.shares) ? input.shares : [];
     const seen = new Set();
