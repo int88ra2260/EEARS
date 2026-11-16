@@ -315,8 +315,8 @@ button.audit-logs__kpi--alert:hover {
   border: 1px solid var(--admin-border, #e2d9ce);
   border-radius: 8px;
   background: var(--admin-surface, #ffffff);
-  overflow: auto;
-  max-height: min(70vh, 880px);
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .audit-logs__table-wrap--busy {
@@ -580,6 +580,7 @@ button.audit-logs__kpi--alert:hover {
 .audit-logs__json pre {
   max-height: 240px;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 0.65rem 0.75rem;
   background: var(--admin-surface, #ffffff);
   border: 1px solid var(--admin-border, #e2d9ce);

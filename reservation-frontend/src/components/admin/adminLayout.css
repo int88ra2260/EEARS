@@ -294,6 +294,67 @@
   padding-right: 0;
 }
 
+/* 操作紀錄：整頁不再另起一層捲動，內容停在後台視窗內 */
+html:has(.admin-layout-root--contained),
+html:has(.admin-layout-root--contained) body {
+  height: 100%;
+  overflow: hidden;
+}
+
+html:has(.admin-layout-root--contained) .app-wrapper {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+html:has(.admin-layout-root--contained) .app-main--admin {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-layout-root--contained {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+}
+
+.admin-layout-root--contained .admin-sidebar {
+  min-height: 0;
+  max-height: 100%;
+  overscroll-behavior: contain;
+}
+
+.admin-layout-root--contained .admin-main {
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.admin-layout-root--contained .admin-topbar,
+.admin-layout-root--contained .admin-page-header,
+.admin-layout-root--contained .admin-main > .alert {
+  flex-shrink: 0;
+}
+
+.admin-layout-root--contained .admin-layout__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-layout-root--contained .audit-logs {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
 .admin-sidebar-toggle {
   min-height: 38px;
   min-width: 64px;

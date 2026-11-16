@@ -167,7 +167,7 @@ function AdminLayout({ token, userRole, username, mustResetPassword, setMustRese
   }
 
   return (
-    <div className={`admin-layout-root${kioskMode ? ' admin-layout-root--kiosk' : ''}`}>
+    <div className={`admin-layout-root${kioskMode ? ' admin-layout-root--kiosk' : ''}${location.pathname === '/admin/logs' ? ' admin-layout-root--contained' : ''}`}>
       {!kioskMode && isMobileNav && mobileMenuOpen && (
         <div
           className="admin-sidebar-backdrop"
