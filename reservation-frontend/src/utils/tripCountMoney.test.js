@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { formatTwd, parseTwdToCents } from './tripCountMoney';
+import { centsToInput, formatTwd, parseTwdToCents } from './tripCountMoney';
 
 describe('trip count money', () => {
   test('接受到分的金額', () => {
@@ -13,4 +13,10 @@ describe('trip count money', () => {
     expect(formatTwd(132550)).toBe('1,325.50');
     expect(formatTwd(-31450)).toBe('-314.50');
   });
+
+  test('分轉回表單金額字串', () => {
+    expect(centsToInput(249700)).toBe('2497');
+    expect(centsToInput(110450)).toBe('1104.50');
+  });
 });
+

@@ -1,5 +1,6 @@
 'use strict';
 
+const { Op } = require('sequelize');
 const {
   TripCount,
   TripCountMember,
@@ -8,6 +9,7 @@ const {
   sequelize,
 } = require('../models');
 const { allocateEqualShares, allocateWeightedShares, settleTrip } = require('./tripCountSettlement');
+const { normalizeTripCountCategory } = require('../constants/tripCountCategories');
 
 const MAX_AMOUNT_CENTS = 100_000_000 * 100;
 const MAX_SHARE_WEIGHT = 99;
@@ -31,6 +33,26 @@ function asCents(value) {
   return cents;
 }
 
+function normalizeSpentOn(value) {
+  if (value == null || String(value).trim() === '') return null;
+  const next = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(next)) fail(400, 'SPENT_ON_INVALID', '日期格式需為 YYYY-MM-DD');
+  const date = new Date(`${next}T00:00:00+08:00`);
+  if (Number.isNaN(date.getTime())) fail(400, 'SPENT_ON_INVALID', '日期無效');
+  return next;
+}
+
+function normalizeCategory(value) {
+  const category = normalizeTripCountCategory(value);
+  if (category === undefined) fail(400, 'CATEGORY_INVALID', '分類無效');
+  return category;
+}
+
+async function touchTrip(trip, transaction) {
+  await trip.changed('updatedAt', true);
+  await trip.save({ transaction });
+}
+
 async function getOwnedTrip(tripId, userId) {
   const trip = await TripCount.findByPk(tripId);
   if (!trip || Number(trip.ownerUserId) !== Number(userId)) {
@@ -47,20 +69,24 @@ function resolvedShares(expense, shareRows, members) {
     return Number(a.memberId) - Number(b.memberId);
   });
   if (expense.splitMode === 'equal') {
-    return allocateEqualShares(Number(expense.amountCents), rows.map((row) => Number(row.memberId)));
+    return allocateEqualShares(Number(expense.amountCents), rows.map((row) => Number(row.memberId)))
+      .map((share) => ({ ...share, weight: null }));
   }
   if (expense.splitMode === 'weights') {
-    return allocateWeightedShares(
-      Number(expense.amountCents),
-      rows.map((row) => ({
-        memberId: Number(row.memberId),
-        weight: Number(row.shareCents || 0),
-      })),
-    );
+    const weighted = rows.map((row) => ({
+      memberId: Number(row.memberId),
+      // 相容尚未 migration 的舊資料：曾把份數存在 share_cents
+      weight: Number(row.weight != null ? row.weight : row.shareCents || 0),
+    }));
+    return allocateWeightedShares(Number(expense.amountCents), weighted).map((share, index) => ({
+      ...share,
+      weight: weighted[index].weight,
+    }));
   }
   return rows.map((row) => ({
     memberId: Number(row.memberId),
     shareCents: Number(row.shareCents || 0),
+    weight: null,
   }));
 }
 
@@ -71,7 +97,11 @@ async function buildDetail(trip) {
   });
   const expenses = await TripCountExpense.findAll({
     where: { tripId: trip.id },
-    order: [['id', 'ASC']],
+    order: [
+      [sequelize.literal('(spent_on IS NULL)'), 'ASC'],
+      ['spentOn', 'ASC'],
+      ['id', 'ASC'],
+    ],
   });
   const expenseIds = expenses.map((expense) => expense.id);
   const shareRows = expenseIds.length
@@ -93,11 +123,14 @@ async function buildDetail(trip) {
       payerMemberId: Number(expense.payerMemberId),
       payerName: memberName.get(Number(expense.payerMemberId)) || '',
       splitMode: expense.splitMode,
+      category: expense.category || null,
+      spentOn: expense.spentOn || null,
       note: expense.note || '',
       shares: shares.map((share) => ({
         memberId: share.memberId,
         name: memberName.get(share.memberId) || '',
         shareCents: share.shareCents,
+        weight: share.weight,
       })),
     };
   });
@@ -131,12 +164,53 @@ async function listTrips(userId) {
     where: { ownerUserId: userId },
     order: [['updated_at', 'DESC'], ['id', 'DESC']],
   });
-  return rows.map((trip) => ({
-    id: trip.id,
-    title: trip.title,
-    note: trip.note || '',
-    updatedAt: trip.updatedAt,
-  }));
+  if (!rows.length) return [];
+
+  const tripIds = rows.map((trip) => trip.id);
+  const [memberRows, expenseRows] = await Promise.all([
+    TripCountMember.findAll({
+      attributes: [
+        'tripId',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'memberCount'],
+      ],
+      where: { tripId: { [Op.in]: tripIds } },
+      group: ['tripId'],
+      raw: true,
+    }),
+    TripCountExpense.findAll({
+      attributes: [
+        'tripId',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'expenseCount'],
+        [sequelize.fn('SUM', sequelize.col('amount_cents')), 'totalCents'],
+      ],
+      where: { tripId: { [Op.in]: tripIds } },
+      group: ['tripId'],
+      raw: true,
+    }),
+  ]);
+
+  const memberCountByTrip = new Map(
+    memberRows.map((row) => [Number(row.tripId), Number(row.memberCount) || 0]),
+  );
+  const expenseStatsByTrip = new Map(
+    expenseRows.map((row) => [Number(row.tripId), {
+      expenseCount: Number(row.expenseCount) || 0,
+      totalCents: Number(row.totalCents) || 0,
+    }]),
+  );
+
+  return rows.map((trip) => {
+    const stats = expenseStatsByTrip.get(Number(trip.id)) || { expenseCount: 0, totalCents: 0 };
+    return {
+      id: trip.id,
+      title: trip.title,
+      note: trip.note || '',
+      updatedAt: trip.updatedAt,
+      memberCount: memberCountByTrip.get(Number(trip.id)) || 0,
+      expenseCount: stats.expenseCount,
+      totalCents: stats.totalCents,
+    };
+  });
 }
 
 async function createTrip(userId, input) {
@@ -180,8 +254,7 @@ async function addMember(userId, tripId, input) {
     name,
     sortOrder: last ? Number(last.sortOrder) + 1 : 0,
   });
-  await trip.changed('updatedAt', true);
-  await trip.save();
+  await touchTrip(trip);
   return buildDetail(trip);
 }
 
@@ -192,6 +265,7 @@ async function renameMember(userId, tripId, memberId, input) {
   const name = text(input.name, 40);
   if (!name) fail(400, 'MEMBER_NAME_REQUIRED', '請填成員名稱');
   await member.update({ name });
+  await touchTrip(trip);
   return buildDetail(trip);
 }
 
@@ -203,6 +277,7 @@ async function removeMember(userId, tripId, memberId) {
     + await TripCountShare.count({ where: { memberId: member.id } });
   if (used) fail(409, 'MEMBER_IN_USE', '這位成員已經出現在帳目裡，請先刪除相關帳目');
   await member.destroy();
+  await touchTrip(trip);
   return buildDetail(trip);
 }
 
@@ -226,7 +301,7 @@ function normalizeShareInput(members, input) {
     const ids = [...new Set((Array.isArray(input.memberIds) ? input.memberIds : []).map((id) => Number(id)))]
       .filter((id) => memberIds.has(id));
     if (!ids.length) fail(400, 'SHARE_REQUIRED', '請至少選一位分攤的人');
-    shares = ids.map((memberId) => ({ memberId, shareCents: null }));
+    shares = ids.map((memberId) => ({ memberId, shareCents: null, weight: null }));
   } else if (splitMode === 'weights') {
     const rows = Array.isArray(input.shares) ? input.shares : [];
     const seen = new Set();
@@ -244,8 +319,7 @@ function normalizeShareInput(members, input) {
         fail(400, 'SHARE_WEIGHT_INVALID', '份數需為 1–99 的整數，且每位成員只能填一次');
       }
       seen.add(memberId);
-      // weights 模式把份數暫存於 share_cents，讀取時再依金額重算
-      shares.push({ memberId, shareCents: weight });
+      shares.push({ memberId, shareCents: null, weight });
     }
     if (!shares.length) fail(400, 'SHARE_REQUIRED', '請至少為一位成員設定份數');
   } else {
@@ -260,7 +334,7 @@ function normalizeShareInput(members, input) {
         fail(400, 'SHARE_INVALID', '指定金額裡有不存在的成員或無效金額');
       }
       seen.add(memberId);
-      shares.push({ memberId, shareCents });
+      shares.push({ memberId, shareCents, weight: null });
       sum += shareCents;
     }
     if (!shares.length || sum !== amountCents) {
@@ -273,9 +347,21 @@ function normalizeShareInput(members, input) {
     amountCents,
     payerMemberId,
     splitMode,
+    category: normalizeCategory(input.category),
+    spentOn: normalizeSpentOn(input.spentOn),
     note: input.note == null || String(input.note).trim() === '' ? null : text(input.note, 200),
     shares,
   };
+}
+
+async function replaceExpenseShares(expenseId, shares, transaction) {
+  await TripCountShare.destroy({ where: { expenseId }, transaction });
+  await TripCountShare.bulkCreate(shares.map((share) => ({
+    expenseId,
+    memberId: share.memberId,
+    shareCents: share.shareCents,
+    weight: share.weight,
+  })), { transaction });
 }
 
 async function addExpense(userId, tripId, input) {
@@ -292,13 +378,37 @@ async function addExpense(userId, tripId, input) {
       amountCents: payload.amountCents,
       payerMemberId: payload.payerMemberId,
       splitMode: payload.splitMode,
+      category: payload.category,
+      spentOn: payload.spentOn,
       note: payload.note,
     }, { transaction });
-    await TripCountShare.bulkCreate(payload.shares.map((share) => ({
-      expenseId: expense.id,
-      memberId: share.memberId,
-      shareCents: share.shareCents,
-    })), { transaction });
+    await replaceExpenseShares(expense.id, payload.shares, transaction);
+    await touchTrip(trip, transaction);
+  });
+  return buildDetail(trip);
+}
+
+async function updateExpense(userId, tripId, expenseId, input) {
+  const trip = await getOwnedTrip(tripId, userId);
+  const expense = await TripCountExpense.findOne({ where: { id: expenseId, tripId: trip.id } });
+  if (!expense) fail(404, 'EXPENSE_NOT_FOUND', '找不到這筆帳');
+  const members = await TripCountMember.findAll({ where: { tripId: trip.id } });
+  const payload = normalizeShareInput(members, input);
+  if (!payload.title) fail(400, 'EXPENSE_TITLE_REQUIRED', '請填項目名稱');
+  if (input.note && String(input.note).trim() && !payload.note) fail(400, 'EXPENSE_NOTE_INVALID', '備註過長');
+
+  await sequelize.transaction(async (transaction) => {
+    await expense.update({
+      title: payload.title,
+      amountCents: payload.amountCents,
+      payerMemberId: payload.payerMemberId,
+      splitMode: payload.splitMode,
+      category: payload.category,
+      spentOn: payload.spentOn,
+      note: payload.note,
+    }, { transaction });
+    await replaceExpenseShares(expense.id, payload.shares, transaction);
+    await touchTrip(trip, transaction);
   });
   return buildDetail(trip);
 }
@@ -310,6 +420,7 @@ async function removeExpense(userId, tripId, expenseId) {
   await sequelize.transaction(async (transaction) => {
     await TripCountShare.destroy({ where: { expenseId: expense.id }, transaction });
     await expense.destroy({ transaction });
+    await touchTrip(trip, transaction);
   });
   return buildDetail(trip);
 }
@@ -323,6 +434,7 @@ module.exports = {
   renameMember,
   removeMember,
   addExpense,
+  updateExpense,
   removeExpense,
   buildDetail,
   getOwnedTrip,

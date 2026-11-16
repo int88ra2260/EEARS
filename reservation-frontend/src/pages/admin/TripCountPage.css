@@ -17,10 +17,127 @@
   background: var(--bs-body-bg);
 }
 
+.trip-count-page .trip-count-member-chip__rename,
 .trip-count-page .trip-count-member-chip__remove {
   min-width: 2.75rem;
   min-height: 2.25rem;
   padding-inline: 0.65rem;
+}
+
+.trip-count-page .trip-count-preview {
+  border: 1px dashed var(--bs-border-color);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+.trip-count-page .trip-count-split-panel {
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.65rem;
+  padding: 0.9rem 1rem;
+  background: var(--bs-body-bg);
+}
+
+.trip-count-page .trip-count-split-panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.trip-count-page .trip-count-split-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.65rem;
+}
+
+.trip-count-page .trip-count-split-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  min-height: 3.5rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.65rem;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.trip-count-page .trip-count-split-chip:hover {
+  border-color: #2a5d9f;
+}
+
+.trip-count-page .trip-count-split-chip:focus-visible {
+  outline: 2px solid #2a5d9f;
+  outline-offset: 2px;
+}
+
+.trip-count-page .trip-count-split-chip.is-selected {
+  border-color: #2a5d9f;
+  background: rgba(42, 93, 159, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(42, 93, 159, 0.25);
+}
+
+.trip-count-page .trip-count-split-chip__check {
+  flex: 0 0 auto;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-top: 0.1rem;
+  border: 1.5px solid var(--bs-border-color);
+  border-radius: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: #fff;
+  background: #fff;
+}
+
+.trip-count-page .trip-count-split-chip.is-selected .trip-count-split-chip__check {
+  border-color: #2a5d9f;
+  background: #2a5d9f;
+}
+
+.trip-count-page .trip-count-split-chip__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.trip-count-page .trip-count-split-chip__name {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.trip-count-page .trip-count-split-chip__meta {
+  font-size: 0.8rem;
+  color: var(--bs-secondary-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-count-page .trip-count-split-chip.is-selected .trip-count-split-chip__meta {
+  color: #2a5d9f;
+}
+
+.trip-count-page .trip-count-weight-card {
+  height: 100%;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.55rem;
+  padding: 0.7rem 0.75rem;
+  background: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-count-page .trip-count-split-chip {
+    transition: none;
+  }
 }
 
 .trip-count-page .trip-count-expense-card {

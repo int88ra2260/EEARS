@@ -6,6 +6,7 @@ const TripCountShare = sequelize.define('TripCountShare', {
   expenseId: { type: DataTypes.INTEGER, allowNull: false, field: 'expense_id' },
   memberId: { type: DataTypes.INTEGER, allowNull: false, field: 'member_id' },
   shareCents: { type: DataTypes.INTEGER, allowNull: true, field: 'share_cents' },
+  weight: { type: DataTypes.INTEGER, allowNull: true },
 }, {
   tableName: 'trip_count_shares',
   underscored: true,

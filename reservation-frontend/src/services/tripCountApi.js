@@ -32,6 +32,14 @@ export function getTripCount(token, tripId) {
   return fetchClientThrow(`${BASE}/${tripId}`, { headers: authHeaders(token) }).then(readJson);
 }
 
+export function updateTripCount(token, tripId, payload) {
+  return fetchClientThrow(`${BASE}/${tripId}`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  }).then(readJson);
+}
+
 export function deleteTripCount(token, tripId) {
   return fetchClientThrow(`${BASE}/${tripId}`, {
     method: 'DELETE',
@@ -47,6 +55,14 @@ export function addTripCountMember(token, tripId, name) {
   }).then(readJson);
 }
 
+export function renameTripCountMember(token, tripId, memberId, name) {
+  return fetchClientThrow(`${BASE}/${tripId}/members/${memberId}`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify({ name }),
+  }).then(readJson);
+}
+
 export function removeTripCountMember(token, tripId, memberId) {
   return fetchClientThrow(`${BASE}/${tripId}/members/${memberId}`, {
     method: 'DELETE',
@@ -57,6 +73,14 @@ export function removeTripCountMember(token, tripId, memberId) {
 export function addTripCountExpense(token, tripId, payload) {
   return fetchClientThrow(`${BASE}/${tripId}/expenses`, {
     method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  }).then(readJson);
+}
+
+export function updateTripCountExpense(token, tripId, expenseId, payload) {
+  return fetchClientThrow(`${BASE}/${tripId}/expenses/${expenseId}`, {
+    method: 'PATCH',
     headers: authHeaders(token),
     body: JSON.stringify(payload),
   }).then(readJson);

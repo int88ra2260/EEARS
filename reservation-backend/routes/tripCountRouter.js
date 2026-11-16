@@ -104,6 +104,20 @@ router.post('/:tripId/expenses', async (req, res) => {
   }
 });
 
+router.patch('/:tripId/expenses/:expenseId', async (req, res) => {
+  try {
+    const data = await tripCountService.updateExpense(
+      req.user.id,
+      req.params.tripId,
+      req.params.expenseId,
+      req.body || {},
+    );
+    return res.json({ success: true, data });
+  } catch (err) {
+    return handleError(res, err);
+  }
+});
+
 router.delete('/:tripId/expenses/:expenseId', async (req, res) => {
   try {
     const data = await tripCountService.removeExpense(req.user.id, req.params.tripId, req.params.expenseId);

@@ -15,3 +15,12 @@ export function formatTwd(cents) {
   const frac = String(abs % 100).padStart(2, '0');
   return `${sign}${whole.toLocaleString('zh-TW')}.${frac}`;
 }
+
+/** 把分轉成表單可填的金額字串（例如 110450 → "1104.50"） */
+export function centsToInput(cents) {
+  const abs = Math.abs(Math.trunc(Number(cents) || 0));
+  const whole = Math.floor(abs / 100);
+  const frac = abs % 100;
+  if (frac === 0) return String(whole);
+  return `${whole}.${String(frac).padStart(2, '0')}`;
+}
