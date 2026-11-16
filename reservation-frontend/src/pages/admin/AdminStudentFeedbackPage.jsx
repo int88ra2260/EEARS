@@ -15,6 +15,7 @@ import {
 } from '../../services/studentFeedbackApi';
 import { hasPermission } from '../../utils/accessControl';
 import { notifyStudentFeedbackAttention } from '../../hooks/useStudentFeedbackAttention';
+import UnreadAttentionDot from '../../components/learning-partner/UnreadAttentionDot';
 
 const EVENT_PAGE_SIZE = 50;
 const EVENT_PAGE_CAP = 20;
@@ -334,6 +335,9 @@ export default function AdminStudentFeedbackPage() {
       setDetail(item);
       setAssigneeId(item.assignedTeacherId ? String(item.assignedTeacherId) : '');
       setPriorityId(item.priority || '');
+      setItems((current) => current.map((entry) => (
+        String(entry.id) === String(id) ? { ...entry, attention: null } : entry
+      )));
       notifyStudentFeedbackAttention();
     } catch {
       if (requestId !== detailRequest.current || String(selectedIdRef.current) !== String(id)) return;
@@ -687,7 +691,15 @@ export default function AdminStudentFeedbackPage() {
                 style={{ cursor: 'pointer' }}
                 className={selectedId === item.id ? 'table-primary' : undefined}
               >
-                <td className="text-nowrap">{item.id == null ? '' : `#${item.id}`}</td>
+                <td className="text-nowrap">
+                  <span className="d-inline-flex align-items-center gap-1">
+                    {item.id == null ? '' : `#${item.id}`}
+                    {item.attention === 'unseen' ? <UnreadAttentionDot label="這筆還沒看過" /> : null}
+                    {item.attention === 'assigned' ? <UnreadAttentionDot label="這筆派給你，而且有新的內容" /> : null}
+                  </span>
+                  {item.attention === 'unseen' ? <div className="small text-danger">未看</div> : null}
+                  {item.attention === 'assigned' ? <div className="small text-danger">待你處理</div> : null}
+                </td>
                 <td className="text-nowrap">{formatWhen(item.createdAt)}</td>
                 <td className="text-nowrap">{formatWhen(item.updatedAt)}</td>
                 <td className="text-nowrap">{statusText(item.status)}</td>

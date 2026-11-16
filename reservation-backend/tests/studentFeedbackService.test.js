@@ -691,6 +691,7 @@ describe('studentFeedbackService', () => {
     }));
     expect(listed.items[0].priority).toBeNull();
     expect(listed.items[0].priorityLabel).toBe('未設定');
+    expect(listed.items[0].attention).toBeNull();
     expect(listed.items[0].categoryLabel).toBe('學習歷程');
 
     await expect(listStudentFeedback({ priority: 'P9' })).rejects.toMatchObject({ status: 400 });
@@ -707,6 +708,24 @@ describe('studentFeedbackService', () => {
     const seen = await getStudentFeedback(7, { includeInternal: true, readerTeacherId: 4 });
     expect(seen.id).toBe(7);
     expect(seen.messages.map((entry) => entry.body)).toEqual(['回覆']);
+  });
+
+  it('marks unseen and newly assigned cases on the list for this staff member', async () => {
+    StudentFeedback.findAndCountAll.mockResolvedValue({
+      count: 2,
+      rows: [storedCase({ id: 8 }), storedCase({ id: 7, status: 'in_progress' })],
+    });
+    sequelize.query.mockResolvedValueOnce([[
+      { id: 8, attention: 'unseen' },
+      { id: 7, attention: 'assigned' },
+    ]]);
+    const listed = await listStudentFeedback({ readerTeacherId: 4, page: 1 });
+    expect(listed.items.map((item) => [item.id, item.attention])).toEqual([[8, 'unseen'], [7, 'assigned']]);
+    const [sql, options] = sequelize.query.mock.calls.at(-1);
+    expect(sql).toContain("r.readerType = 'staff'");
+    expect(sql).toContain('ASSIGNEE_CHANGED');
+    expect(options.replacements.readerKey).toBe('4');
+    expect(options.replacements.ids).toEqual([8, 7]);
   });
 
   it('marks a student read at the newest public staff reply', async () => {

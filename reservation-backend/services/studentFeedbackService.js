@@ -556,6 +556,52 @@ async function summarizeStudentFeedback() {
   };
 }
 
+async function staffAttentionById(teacherId, feedbackIds) {
+  const marks = new Map();
+  const id = Number(teacherId);
+  if (!feedbackIds.length || !Number.isInteger(id) || id <= 0) return marks;
+  let rows;
+  try {
+    [rows] = await sequelize.query(`
+      SELECT f.id AS id,
+        CASE
+          WHEN r.id IS NULL AND f.status <> 'closed' THEN 'unseen'
+          WHEN f.assignedTeacherId = :teacherId
+           AND f.status <> 'closed'
+           AND (
+             EXISTS (
+               SELECT 1 FROM student_feedback_messages m
+               WHERE m.feedbackId = f.id
+                 AND m.authorType = 'student'
+                 AND m.visibility = 'public'
+                 AND m.createdAt > r.lastReadAt
+             )
+             OR EXISTS (
+               SELECT 1 FROM student_feedback_events e
+               WHERE e.feedbackId = f.id
+                 AND e.eventType = 'ASSIGNEE_CHANGED'
+                 AND e.createdAt > r.lastReadAt
+                 AND CAST(JSON_UNQUOTE(JSON_EXTRACT(e.afterValue, '$.assignedTeacherId')) AS UNSIGNED) = :teacherId
+             )
+           ) THEN 'assigned'
+          ELSE NULL
+        END AS attention
+      FROM student_feedback f
+      LEFT JOIN student_feedback_reads r
+        ON r.feedbackId = f.id
+       AND r.readerType = 'staff'
+       AND r.readerKey = :readerKey
+      WHERE f.id IN (:ids)
+    `, { replacements: { teacherId: id, readerKey: readerKey(id), ids: feedbackIds } });
+  } catch {
+    return marks;
+  }
+  (rows || []).forEach((row) => {
+    if (row.attention) marks.set(Number(row.id), row.attention);
+  });
+  return marks;
+}
+
 async function listStudentFeedback(filters = {}) {
   const page = parsePage(filters.page);
   const pageSize = parsePageSize(filters.pageSize);
@@ -572,10 +618,15 @@ async function listStudentFeedback(filters = {}) {
     distinct: true,
   });
   const rows = result.rows || [];
+  const attention = await staffAttentionById(
+    filters.readerTeacherId,
+    rows.map((row) => plain(row).id),
+  );
   return {
     items: rows.map((row) => {
       const item = presentStaff(plain(row), []);
       delete item.messages;
+      item.attention = attention.get(Number(item.id)) || null;
       return item;
     }),
     page,

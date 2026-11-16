@@ -784,6 +784,26 @@ describe('學生回報後台', () => {
     expect(screen.queryByRole('heading', { level: 2, name: /待處理/ })).not.toBeInTheDocument();
   });
 
+  test('shows which listed case still needs attention', async () => {
+    api.fetchAdminStudentFeedback.mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          { ...row, id: 8, message: '還沒看的回報', attention: 'unseen' },
+          { ...row, id: 7, message: '派給你的回報', attention: 'assigned' },
+        ],
+        page: 1,
+        pageSize: 20,
+        total: 2,
+      },
+    });
+    renderPage({ canManage: true });
+    expect(await screen.findByText('未看')).toBeInTheDocument();
+    expect(screen.getByText('待你處理')).toBeInTheDocument();
+    expect(screen.getByLabelText('這筆還沒看過')).toBeInTheDocument();
+    expect(screen.getByLabelText('這筆派給你，而且有新的內容')).toBeInTheDocument();
+  });
+
   test('keeps the dialog open when the case fails to load', async () => {
     api.fetchAdminStudentFeedbackDetail.mockResolvedValue({
       ok: false,

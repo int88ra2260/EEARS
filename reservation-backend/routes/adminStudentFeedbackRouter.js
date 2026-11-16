@@ -81,6 +81,9 @@ router.get('/', async (req, res, next) => {
       sortBy: req.query.sortBy,
       sortOrder: req.query.sortOrder,
       includeInternal: canManageFeedback(req),
+      readerTeacherId: req.user && (req.user.isDemo === true || req.user.isDemo === 1 || req.user.isDemo === 'true')
+        ? null
+        : (req.user && req.user.id),
     });
     return res.json({ success: true, ...result });
   } catch (err) {
