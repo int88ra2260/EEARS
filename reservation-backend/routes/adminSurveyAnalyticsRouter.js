@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
 const surveyCenterService = require('../services/surveyCenterService');
+const surveyAssociationService = require('../services/surveyAssociationService');
 const surveyHealthService = require('../services/surveyHealthService');
 const {
   buildSurveyResponseScopeWhere,
@@ -80,6 +81,15 @@ router.get('/comparison', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_AN
       surveyHealthService.dataQualityForWhere(buildWhere(req.scopedSurveyQuery)),
     ]);
     res.json({ ...data, dataQuality });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/item-relations', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_ANALYTICS), attachSurveyAnalyticsScope, async (req, res, next) => {
+  try {
+    const data = await surveyAssociationService.itemRelations(req.scopedSurveyQuery, req.user);
+    res.json(data);
   } catch (e) {
     next(e);
   }

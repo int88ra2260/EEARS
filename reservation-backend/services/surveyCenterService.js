@@ -10,6 +10,8 @@ const {
 } = require('../utils/surveyResponseApiMask');
 const { mergeWhereWithScope } = require('./accessControl/surveyScopeGuard');
 const { isValidSemester } = require('../utils/semester');
+const { loadAssociationRecords, loadFlatAnswers, loadVersionContext } = require('./surveyAnswerReadService');
+const { decorateDistributionQuestions } = require('../utils/surveyAssociationMath');
 
 const ACTIVITY_TYPE_ALIASES = {
   ET: 'English Table',
@@ -302,19 +304,42 @@ async function getResponseDetail(id) {
   });
 }
 
+async function likertMeanForVersion(where, versionId) {
+  const context = await loadVersionContext(versionId);
+  const likert = (context?.questions || []).filter((question) => question.type === 'likert');
+  if (!likert.length) return null;
+  const { records } = await loadAssociationRecords({ where, questions: context.questions });
+  const values = [];
+  records.forEach((record) => {
+    likert.forEach((question) => {
+      const score = record.answers?.[question.id]?.score;
+      if (score != null) values.push(score);
+    });
+  });
+  if (!values.length) return null;
+  return values.reduce((sum, score) => sum + score, 0) / values.length;
+}
+
 async function analyticsOverview(query = {}) {
   const where = buildAnalyticsWhere(query);
   const total = await SurveyModuleResponse.count({ where });
   const submitted = await SurveyModuleResponse.count({ where: { ...where, submissionStatus: 'submitted' } });
   const activityCoverage = await SurveyModuleResponse.count({ where, distinct: true, col: 'eventId' });
   const surveyCoverage = await SurveyModuleResponse.count({ where, distinct: true, col: 'surveyId' });
-  const likertRows = await SurveyResponseAnswer.findAll({
-    attributes: [[fn('AVG', col('scoreValue')), 'avgScore']],
-    include: [{ model: SurveyModuleResponse, required: true, attributes: [], where }],
-    where: { scoreValue: { [Op.ne]: null } },
-    raw: true,
-  });
-  const avgScore = Number(likertRows[0]?.avgScore || 0);
+  let avgScore = null;
+  const versionId = Number(query.versionId);
+  if (Number.isInteger(versionId) && versionId > 0) {
+    avgScore = await likertMeanForVersion(where, versionId);
+  }
+  if (avgScore == null) {
+    const likertRows = await SurveyResponseAnswer.findAll({
+      attributes: [[fn('AVG', col('scoreValue')), 'avgScore']],
+      include: [{ model: SurveyModuleResponse, required: true, attributes: [], where }],
+      where: { scoreValue: { [Op.ne]: null } },
+      raw: true,
+    });
+    avgScore = Number(likertRows[0]?.avgScore || 0);
+  }
   return {
     totalResponses: total,
     completionRate: total ? Number(((submitted / total) * 100).toFixed(2)) : 0,
@@ -341,10 +366,20 @@ function buildAnalyticsWhere(query = {}) {
 
 async function analyticsDistribution(query = {}) {
   const where = buildAnalyticsWhere(query);
-  const responseRows = await SurveyModuleResponse.findAll({ where, attributes: ['id'] });
-  const ids = responseRows.map((r) => r.id);
-  if (!ids.length) return { questions: [] };
-  const answers = await SurveyResponseAnswer.findAll({ where: { responseId: { [Op.in]: ids } }, raw: true });
+  const versionId = Number(query.versionId);
+  const versionContext = Number.isInteger(versionId) && versionId > 0
+    ? await loadVersionContext(versionId)
+    : null;
+  let answers = [];
+  if (versionContext?.questions?.length) {
+    answers = await loadFlatAnswers(where, versionContext.questions);
+  } else {
+    const responseRows = await SurveyModuleResponse.findAll({ where, attributes: ['id'] });
+    const ids = responseRows.map((r) => r.id);
+    if (!ids.length) return { questions: [] };
+    answers = await SurveyResponseAnswer.findAll({ where: { responseId: { [Op.in]: ids } }, raw: true });
+  }
+  if (!answers.length) return { questions: [] };
   const grouped = new Map();
   answers.forEach((a) => {
     if (!grouped.has(a.questionKey)) grouped.set(a.questionKey, []);
@@ -376,7 +411,7 @@ async function analyticsDistribution(query = {}) {
       questions.push({ questionKey: key, questionType: type, distribution: dist });
     }
   });
-  return { questions };
+  return { questions: decorateDistributionQuestions(questions, versionContext?.questions || []) };
 }
 
 async function analyticsTrends(query = {}) {
@@ -925,6 +960,7 @@ module.exports = {
   applyResponseListFilters,
   listSurveyResponses,
   getResponseDetail,
+  buildAnalyticsWhere,
   analyticsOverview,
   analyticsDistribution,
   analyticsTrends,

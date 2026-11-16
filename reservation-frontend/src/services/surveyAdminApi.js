@@ -156,6 +156,12 @@ export async function exportSurveyAnalyticsXlsx(token, queryParams) {
   return throwBlobIfNotOk(res, '匯出失敗');
 }
 
+export async function fetchSurveyItemRelations(token, queryParams) {
+  const qs = queryParams instanceof URLSearchParams ? queryParams.toString() : new URLSearchParams(queryParams).toString();
+  const res = await fetchClient(`/api/admin/surveys/analytics/item-relations?${qs}`, { headers: authHeaders(token) });
+  return throwIfNotOk(res, '載入題目關聯失敗');
+}
+
 // --- 填答紀錄 ---
 export async function fetchSurveyResponses(token, queryParams) {
   const qs = queryParams instanceof URLSearchParams ? queryParams.toString() : new URLSearchParams(queryParams).toString();

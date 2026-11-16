@@ -28,7 +28,9 @@ import {
   exportSurveyAnalyticsXlsx,
   fetchSurveyAnalyticsBundle,
   fetchSurveyCenterOptions,
+  fetchSurveyItemRelations,
 } from '../../services/surveyAdminApi';
+import SurveyAssociationPanel from '../../components/admin/survey/SurveyAssociationPanel';
 
 const SENTIMENT_COLORS = {
   positive: '#198754',
@@ -77,6 +79,11 @@ export default function AdminSurveyAnalyticsPage() {
   const [openText, setOpenText] = useState({ total: 0, rows: [], topTokens: [] });
   const [sentiment, setSentiment] = useState(EMPTY_SENTIMENT);
   const [dataQuality, setDataQuality] = useState(null);
+  const [relations, setRelations] = useState(null);
+  const [relationsLoading, setRelationsLoading] = useState(false);
+  const [relationsError, setRelationsError] = useState('');
+  const [relationGroupBy, setRelationGroupBy] = useState('');
+  const [relationsNonce, setRelationsNonce] = useState(0);
 
   useEffect(() => {
     setFilters((f) => ({ ...f, surveyId: surveyId || '' }));
@@ -148,6 +155,42 @@ export default function AdminSurveyAnalyticsPage() {
     loadAll();
   }, [canView, loadAll, token]);
 
+  useEffect(() => {
+    setRelationGroupBy('');
+  }, [filters.versionId]);
+
+  useEffect(() => {
+    if (!token || !canView) return undefined;
+    let cancelled = false;
+    async function run() {
+      if (!filters.versionId) {
+        setRelations(null);
+        setRelationsError('');
+        setRelationsLoading(false);
+        return;
+      }
+      try {
+        setRelationsLoading(true);
+        setRelationsError('');
+        const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null)));
+        if (relationGroupBy) q.set('groupBy', relationGroupBy);
+        const data = await fetchSurveyItemRelations(token, q);
+        if (cancelled) return;
+        setRelations(data);
+      } catch (err) {
+        if (cancelled) return;
+        setRelations(null);
+        setRelationsError(err.message || '載入題目關聯失敗');
+      } finally {
+        if (!cancelled) setRelationsLoading(false);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [canView, filters, relationGroupBy, relationsNonce, token]);
+
   if (!canView) {
     return (
       <div className="container py-4">
@@ -161,13 +204,13 @@ export default function AdminSurveyAnalyticsPage() {
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
           <h2 className="h4 text-primary mb-1">問卷分析</h2>
-          <div className="text-muted small">KPI / 分布 / 趨勢 / 比較 / 開放題摘要 / 情緒分析</div>
+          <div className="text-muted small">同一版本的分組平均與題目相關、分布、趨勢、開放題</div>
         </div>
         <div className="d-flex gap-2">
           {canExport ? (
             <Button variant="outline-secondary" onClick={exportXlsx}>匯出 Excel</Button>
           ) : null}
-          <Button variant="outline-primary" onClick={loadAll}>重新整理</Button>
+          <Button variant="outline-primary" onClick={() => { loadAll(); setRelationsNonce((n) => n + 1); }}>重新整理</Button>
         </div>
       </div>
 
@@ -189,18 +232,31 @@ export default function AdminSurveyAnalyticsPage() {
         <>
           {dataQuality && (dataQuality.missingSemesterCount > 0 || dataQuality.missingVersionCount > 0 || dataQuality.unmatchedAnswersCount > 0 || dataQuality.fallbackNormalizedCount > 0) ? (
             <Alert variant="warning">
-              資料品質提示：missingSemester={dataQuality.missingSemesterCount}，missingVersion={dataQuality.missingVersionCount}，
-              unmatchedAnswers={dataQuality.unmatchedAnswersCount}，fallbackNormalized={dataQuality.fallbackNormalizedCount}。
+              資料品質：缺少學期 {dataQuality.missingSemesterCount} 筆、缺少版本 {dataQuality.missingVersionCount} 筆、答案對不上題目 {dataQuality.unmatchedAnswersCount} 筆、使用備用正規化 {dataQuality.fallbackNormalizedCount} 筆。
             </Alert>
           ) : null}
           <div className="row g-2 mb-3">
             <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">回覆總數</div><div className="h5 mb-0">{overview.totalResponses}</div></Card.Body></Card></div>
             <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">完成率</div><div className="h5 mb-0">{overview.completionRate}%</div></Card.Body></Card></div>
-            <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">平均滿意度</div><div className="h5 mb-0">{overview.averageSatisfaction}</div></Card.Body></Card></div>
+            <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted" title="所有量表題分數的平均，不是單一一題的滿意度。">量表題平均分</div><div className="h5 mb-0">{overview.averageSatisfaction}</div></Card.Body></Card></div>
             <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">活動覆蓋</div><div className="h5 mb-0">{overview.activityCoverage}</div></Card.Body></Card></div>
             <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">問卷覆蓋</div><div className="h5 mb-0">{overview.surveyCoverage}</div></Card.Body></Card></div>
             <div className="col-md-2"><Card className="border-0 shadow-sm"><Card.Body className="py-2"><div className="small text-muted">開放題情緒</div><div className="h5 mb-0">{sentiment.total ? `${sentiment.percentages.positive}% 正向` : '—'}</div></Card.Body></Card></div>
           </div>
+
+          <Card className="border-0 shadow-sm mb-3">
+            <Card.Header className="bg-white fw-semibold">題目關聯</Card.Header>
+            <Card.Body>
+              <SurveyAssociationPanel
+                versionId={filters.versionId}
+                relations={relations}
+                loading={relationsLoading}
+                error={relationsError}
+                groupBy={relationGroupBy}
+                onGroupByChange={setRelationGroupBy}
+              />
+            </Card.Body>
+          </Card>
 
           <div className="row g-3">
             <div className="col-lg-6">
@@ -330,12 +386,32 @@ export default function AdminSurveyAnalyticsPage() {
           <Card className="border-0 shadow-sm mt-3">
             <Card.Header className="bg-white fw-semibold">Distribution（單選/多選/量表）</Card.Header>
             <Card.Body>
-              {distribution.length === 0 ? <div className="text-muted small">無可用分布資料</div> : distribution.map((q) => (
-                <div key={q.questionKey} className="mb-3 pb-3 border-bottom">
-                  <div className="fw-semibold">{q.questionKey} <span className="text-muted small">({q.questionType})</span> {q.averageScore != null ? <span className="badge bg-light text-dark">avg: {q.averageScore}</span> : null}</div>
-                  <div className="small text-muted">{Object.entries(q.distribution || {}).map(([k, c]) => `${k}: ${c}`).join(' | ') || '-'}</div>
-                </div>
-              ))}
+              {distribution.length === 0 ? <div className="text-muted small">無可用分布資料</div> : distribution.map((q) => {
+                const order = q.optionOrder?.length ? q.optionOrder : Object.keys(q.distribution || {});
+                const entries = order.map((key) => [key, Number(q.distribution?.[key] || 0)]);
+                const total = entries.reduce((sum, [, count]) => sum + count, 0);
+                return (
+                  <div key={q.questionKey} className="mb-3 pb-3 border-bottom">
+                    <div className="fw-semibold" title={q.questionKey}>
+                      {q.label || q.questionKey} <span className="text-muted small">({q.questionType})</span>
+                      {q.averageScore != null ? <span className="badge bg-light text-dark ms-2">avg: {q.averageScore}</span> : null}
+                    </div>
+                    {q.questionType === 'checkbox' ? <div className="text-muted small">可複選，百分比以勾選次數為分母。</div> : null}
+                    {entries.length === 0 ? <div className="small text-muted">-</div> : entries.map(([key, count]) => {
+                      const pct = total ? Math.round((count / total) * 1000) / 10 : 0;
+                      return (
+                        <div key={key} className="d-flex align-items-center gap-2 mt-1">
+                          <div className="small text-truncate" style={{ width: 180 }} title={key}>{key}</div>
+                          <div className="flex-grow-1 bg-light rounded" style={{ height: 8 }}>
+                            <div style={{ width: `${pct}%`, height: 8, background: '#2a5d9f', borderRadius: 4 }} />
+                          </div>
+                          <div className="small text-nowrap">{count}（{pct}%）</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </Card.Body>
           </Card>
 
