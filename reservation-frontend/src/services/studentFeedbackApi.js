@@ -1,7 +1,7 @@
 import { fetchClient } from '../utils/fetchClient';
+import { withStudentAuth } from '../utils/studentSession';
 
 export const STUDENT_FEEDBACK_SEEN_EVENT = 'eears-student-feedback-seen';
-import { withStudentAuth } from '../utils/studentSession';
 
 async function parseJson(res) {
   return res.json().catch(() => ({}));

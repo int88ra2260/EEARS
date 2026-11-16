@@ -37,6 +37,7 @@ jest.mock('../../middlewares/auth', () => {
 jest.mock('../../controllers/learningAnalyticsController', () => ({
   getMeta: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getOverview: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  getOverviewStudents: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getStudentExplorer: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getB1PlusWatch: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getB1PlusPostExamDetail: (_req, res) => res.json({ success: true, data: { ok: true } }),
@@ -114,6 +115,23 @@ describe('learning analytics API auth boundary', () => {
       .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+  });
+
+  it('overview student list uses the same view permission', async () => {
+    const app = createApp();
+    const denied = await request(app)
+      .get('/api/admin/learning-analytics/overview/students')
+      .set('x-user-role', 'teacher')
+      .set('x-allow-permissions', '');
+    expect(denied.status).toBe(403);
+    expect(denied.body.permission).toBe(P.CAN_VIEW_LEARNING_ANALYTICS);
+
+    const allowed = await request(app)
+      .get('/api/admin/learning-analytics/overview/students')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(allowed.status).toBe(200);
+    expect(allowed.body.success).toBe(true);
   });
 
   it('export requires export permission', async () => {
