@@ -60,4 +60,18 @@ describe('ReservationResultCard check-in QR', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
   });
+
+  test('已結束的活動不提供簽到 QR', () => {
+    render(
+      <ReservationResultCard
+        record={{ ...record, date: '2025-05-22', startTime: '12:10', endTime: '12:40' }}
+        cancelingReservationId={null}
+        onConfirmCancel={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('已結束')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '出示簽到 QR' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'page.reservationCannotCancel' })).not.toBeInTheDocument();
+  });
 });

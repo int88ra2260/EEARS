@@ -20,6 +20,86 @@
   margin-bottom: 1rem;
 }
 
+.reservation-semester-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.15rem;
+}
+
+.reservation-semester-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #d5dde8;
+  background: #fff;
+  color: #1c3d6e;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.reservation-semester-tab.is-active {
+  background: #2a5d9f;
+  border-color: #2a5d9f;
+  color: #fff;
+}
+
+.reservation-semester-tab__current {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.reservation-semester-tab__count {
+  min-width: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgba(42, 93, 159, 0.12);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.reservation-semester-tab.is-active .reservation-semester-tab__count {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.reservation-ended-section {
+  margin-bottom: 0.5rem;
+}
+
+.reservation-ended-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-left: 4px solid #495057;
+  border-radius: 8px;
+  background: #e9ecef;
+  color: #212529;
+  text-align: left;
+}
+
+.reservation-ended-toggle__label {
+  font-weight: 700;
+}
+
+.reservation-ended-toggle__count {
+  font-size: 0.85rem;
+}
+
+.reservation-ended-toggle__action {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #495057;
+}
+
 .reservation-result-list--empty {
   background: #f8f9fa;
   border: 1px dashed #dee2e6;

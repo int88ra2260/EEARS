@@ -35,6 +35,25 @@
   margin-left: 0.75rem;
 }
 
+.reservation-result-card--ended {
+  align-items: center;
+  padding: 0.65rem 0.85rem;
+  background: #f1f3f5;
+  border-color: #ced4da;
+  border-left: 4px solid #495057;
+  box-shadow: none;
+}
+
+.reservation-result-card--ended .reservation-result-card-event {
+  color: #343a40;
+}
+
+.reservation-result-card--ended .status-badge--ended {
+  background: #343a40;
+  color: #fff;
+  border-color: #343a40;
+}
+
 .reservation-result-card-actions {
   flex-shrink: 0;
   display: flex;

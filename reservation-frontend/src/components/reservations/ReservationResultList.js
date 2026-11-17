@@ -1,15 +1,14 @@
 /**
- * 預約查詢結果列表：多筆 ReservationResultCard + 空狀態 + 分頁
+ * 預約查詢結果列表：依學期分組，尚未結束的場次在前，已結束的場次可收合
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import ReservationResultCard from './ReservationResultCard';
 import SkeletonCard from '../ui/SkeletonCard';
 import EmptyState from '../ui/EmptyState';
+import { buildReservationSemesterViews } from '../../utils/reservationRecordGroups';
 import './ReservationResultList.css';
-
-const PAGE_SIZE = 6;
 
 export default function ReservationResultList({
   records,
@@ -24,25 +23,17 @@ export default function ReservationResultList({
   onRetry,
 }) {
   const { t } = useLanguage();
-  const [page, setPage] = useState(1);
-
-  const totalPages = Math.max(1, Math.ceil((records?.length || 0) / PAGE_SIZE));
-
-  useEffect(() => {
-    setPage(1);
-  }, [records]);
-
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
-
-  const pageRecords = useMemo(() => {
-    if (!records?.length) return [];
-    const start = (page - 1) * PAGE_SIZE;
-    return records.slice(start, start + PAGE_SIZE);
-  }, [records, page]);
+  const [semesterId, setSemesterId] = useState(null);
+  const [endedPreference, setEndedPreference] = useState(null);
+  const views = useMemo(() => buildReservationSemesterViews(records), [records]);
+  const active = views.find((view) => view.id === semesterId)
+    || views.find((view) => view.isCurrent)
+    || views[0]
+    || null;
+  const endedOpen = active
+    && endedPreference?.id === active.id
+    ? endedPreference.open
+    : Boolean(active && active.upcoming.length === 0 && active.ended.length > 0);
 
   if (loading && hasSearched) {
     return (
@@ -137,8 +128,9 @@ export default function ReservationResultList({
     );
   }
 
-  const rangeStart = (page - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(page * PAGE_SIZE, records.length);
+  if (!active) return null;
+
+  const semesterLabel = active.isCurrent ? `${active.label}（本學期）` : active.label;
 
   return (
     <section className="reservation-result-list" aria-labelledby="reservation-result-title">
@@ -147,55 +139,81 @@ export default function ReservationResultList({
           {t('page.reservationResultTitle')}
         </h2>
         <p className="reservation-result-list-meta text-muted small mb-0">
-          共 {records.length} 筆，依活動時間由新到舊排列
-          {records.length > PAGE_SIZE ? ` · 第 ${rangeStart}–${rangeEnd} 筆` : ''}
+          全部 {records.length} 筆。目前看 {semesterLabel}：{active.upcoming.length} 場尚未結束
+          {active.ended.length ? `，${active.ended.length} 場已結束` : ''}。
         </p>
       </div>
-      <div className="reservation-result-list-cards">
-        {pageRecords.map((record) => (
-          <ReservationResultCard
-            key={record.id}
-            record={record}
-            cancelingReservationId={cancelingReservationId}
-            cancelLoading={cancelLoading}
-            cancelError={cancelError}
-            onConfirmCancel={onConfirmCancel}
-          />
-        ))}
+      <div className="reservation-semester-tabs" role="tablist" aria-label="依學期查看預約">
+        {views.map((view) => {
+          const selected = view.id === active.id;
+          return (
+            <button
+              key={view.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              className={`reservation-semester-tab${selected ? ' is-active' : ''}`}
+              onClick={() => setSemesterId(view.id)}
+            >
+              <span>{view.label}</span>
+              {view.isCurrent ? <span className="reservation-semester-tab__current">本學期</span> : null}
+              <span className="reservation-semester-tab__count">{view.records.length}</span>
+            </button>
+          );
+        })}
       </div>
-      {totalPages > 1 ? (
-        <nav className="reservation-result-list-pagination mt-3" aria-label="查詢結果分頁">
-          <ul className="pagination pagination-sm mb-0 justify-content-center">
-            <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
+      {active.records.length === 0 ? (
+        <EmptyState
+          icon="inbox"
+          title={`${active.label} 目前沒有預約`}
+          description="這個學期還沒有預約。其他學期的紀錄可以從上方切換查看。"
+        />
+      ) : (
+        <>
+          {active.upcoming.length > 0 ? (
+            <div className="reservation-result-list-cards">
+              {active.upcoming.map((record) => (
+                <ReservationResultCard
+                  key={record.id}
+                  record={record}
+                  cancelingReservationId={cancelingReservationId}
+                  cancelLoading={cancelLoading}
+                  cancelError={cancelError}
+                  onConfirmCancel={onConfirmCancel}
+                />
+              ))}
+            </div>
+          ) : null}
+          {active.ended.length > 0 ? (
+            <section className="reservation-ended-section" aria-label="已結束的預約">
               <button
                 type="button"
-                className="page-link"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                aria-label="上一頁"
+                className="reservation-ended-toggle"
+                aria-expanded={endedOpen}
+                onClick={() => setEndedPreference({ id: active.id, open: !endedOpen })}
               >
-                上一頁
+                <span className="reservation-ended-toggle__label">已結束</span>
+                <span className="reservation-ended-toggle__count">{active.ended.length} 場</span>
+                <span className="reservation-ended-toggle__action">{endedOpen ? '收合' : '展開'}</span>
               </button>
-            </li>
-            <li className="page-item active" aria-current="page">
-              <span className="page-link">
-                {page} / {totalPages}
-              </span>
-            </li>
-            <li className={`page-item ${page >= totalPages ? 'disabled' : ''}`}>
-              <button
-                type="button"
-                className="page-link"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                aria-label="下一頁"
-              >
-                下一頁
-              </button>
-            </li>
-          </ul>
-        </nav>
-      ) : null}
+              {endedOpen ? (
+                <div className="reservation-result-list-cards reservation-result-list-cards--ended">
+                  {active.ended.map((record) => (
+                    <ReservationResultCard
+                      key={record.id}
+                      record={record}
+                      cancelingReservationId={cancelingReservationId}
+                      cancelLoading={cancelLoading}
+                      cancelError={cancelError}
+                      onConfirmCancel={onConfirmCancel}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+        </>
+      )}
       <p className="reservation-result-list-next mt-3 mb-2">{t('page.reservationResultNextHint')}</p>
       <div className="d-flex flex-wrap gap-2">
         <Link className="btn btn-primary btn-sm" to="/events">

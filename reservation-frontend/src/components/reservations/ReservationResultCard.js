@@ -9,6 +9,7 @@ import { canCancelReservation } from '../../hooks/useReservationLookup';
 import { RESERVATION_CUTOFF_HOURS } from '../../constants/reservationRules';
 import StatusBadge from '../ui/StatusBadge';
 import { formatBookingCode } from '../../utils/bookingCode';
+import { reservationTiming } from '../../utils/reservationRecordGroups';
 import EnglishTableTopicPanel from '../events/EnglishTableTopicPanel';
 import CheckinQrCanvas from './CheckinQrCanvas';
 import './ReservationResultCard.css';
@@ -27,12 +28,34 @@ export default function ReservationResultCard({
   const twoHoursBefore = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
   const isThisCanceling = cancelingReservationId === record.id;
   const bookingId = formatBookingCode(record.bookingCode, record.reservationId || record.id);
-  const canShowQr = bookingId !== '（未提供）';
+  const timing = reservationTiming(record);
+  const ended = timing === 'ended';
+  const canShowQr = !ended && bookingId !== '（未提供）';
   const createdAtRaw = record.createdAt || record.timestamp || null;
   const createdAtLabel = createdAtRaw ? dayjs(createdAtRaw).format('YYYY/MM/DD HH:mm') : '（未提供）';
   const statusHelper = canCancel
     ? '可取消：尚在取消期限內。登入後即可取消，不必輸入驗證碼。'
-    : '不可取消：已超過取消期限或活動即將開始/已開始。';
+    : timing === 'in_progress'
+      ? '活動進行中，仍可出示簽到 QR。已過取消期限。'
+      : '已過取消期限，活動開始前仍可出示簽到 QR。';
+
+  if (ended) {
+    return (
+      <div className="reservation-result-card reservation-result-card--ended">
+        <div className="reservation-result-card-main">
+          <div className="reservation-result-card-badges">
+            <StatusBadge variant="neutral" className="status-badge--ended">已結束</StatusBadge>
+          </div>
+          <div className="reservation-result-card-event">{record.eventName}</div>
+          <div className="reservation-result-card-meta">
+            <span>{record.date}</span>
+            <span>{record.startTime} – {record.endTime}</span>
+            <span>預約編號：{bookingId}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="reservation-result-card">
@@ -42,8 +65,10 @@ export default function ReservationResultCard({
             <StatusBadge variant="warning">{t('page.reservationBadgeCanceling')}</StatusBadge>
           ) : canCancel ? (
             <StatusBadge variant="success">{t('page.reservationBadgeCancelable')}</StatusBadge>
+          ) : timing === 'in_progress' ? (
+            <StatusBadge variant="info">進行中</StatusBadge>
           ) : (
-            <StatusBadge variant="neutral">{t('page.reservationBadgeLocked')}</StatusBadge>
+            <StatusBadge variant="warning">即將開始</StatusBadge>
           )}
         </div>
         <div className="reservation-result-card-event">{record.eventName}</div>
@@ -92,14 +117,9 @@ export default function ReservationResultCard({
             ) : null}
           </div>
         ) : (
-          <div>
-            <button type="button" className="btn btn-secondary btn-sm" disabled>
-              {t('page.reservationCannotCancel')}
-            </button>
-            <small className="text-muted d-block mt-1">
-              {t('page.reservationCancelDeadline')}: {twoHoursBefore.format('MM/DD HH:mm')}
-            </small>
-          </div>
+          <small className="text-muted">
+            {t('page.reservationCancelDeadline')}: {twoHoursBefore.format('MM/DD HH:mm')}
+          </small>
         )}
       </div>
       {canShowQr ? (
