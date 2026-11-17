@@ -10,11 +10,11 @@ const {
   SurveyResponseAnswer,
   SurveyAnswerMapping,
   SurveyAdminAuditLog,
-  EnglishTableSurveyResponse,
-  EnglishClubSurveyResponse,
+  Semester,
   sequelize,
 } = require('../models');
 const { validateSurveyData, processSurveyData } = require('../utils/surveyFormValidation');
+const { buildStoredAnswerRows, activityTypeForSurveyKey } = require('../utils/surveyStoredAnswerRows');
 const { getCurrentSemester, isValidSemester } = require('../utils/semester');
 const { ruleTimeAllows, legacyModelForSurveyKey } = require('./surveyGateService');
 const { normalizeRetakePolicy } = require('./surveyRetakePolicy');
@@ -380,12 +380,8 @@ async function submitPublicResponse(surveyKey, body, req) {
   const semester = getCurrentSemester();
   processedData.semester = semester;
 
-  let SurveyModel = null;
-  if (surveyKey === 'english_table_feedback_114_1') {
-    SurveyModel = EnglishTableSurveyResponse;
-  } else if (surveyKey === 'english_club_feedback_114_1') {
-    SurveyModel = EnglishClubSurveyResponse;
-  } else if (!pkg.surveyDbId) {
+  const SurveyModel = legacyModelForSurveyKey(surveyKey);
+  if (!SurveyModel && !pkg.surveyDbId) {
     const err = new Error('不支援的問卷類型');
     err.statusCode = 400;
     throw err;
@@ -423,33 +419,45 @@ async function submitPublicResponse(surveyKey, body, req) {
       }
     }
     if (versionId) {
-      const activityType =
-        surveyKey === 'english_table_feedback_114_1'
-          ? 'English Table'
-          : surveyKey === 'english_club_feedback_114_1'
-            ? 'English Club'
-            : body.eventType || null;
+      const activityType = activityTypeForSurveyKey(surveyKey) || body.eventType || null;
       const answersSnapshot = { ...body };
-      const created = await SurveyModuleResponse.create({
-        surveyId: pkg.surveyDbId,
-        surveyVersionId: versionId,
-        studentId: body.studentId != null ? String(body.studentId).trim() : null,
-        studentName: body.studentName || body.name || null,
-        studentEmail: body.studentEmail || body.email || null,
-        eventId: body.eventId != null ? Number(body.eventId) : null,
-        eventType: body.eventType || activityType,
-        activityType,
-        semesterKey: semester,
-        semester,
-        submittedAt: new Date(),
-        status: 'completed',
-        submissionStatus: 'submitted',
-        source: 'public_submit',
-        answersJson: answersSnapshot,
-        metadataJson: {
-          ip: req?.ip,
-          userAgent: req?.get?.('user-agent'),
-        },
+      let semesterId = null;
+      try {
+        const semesterRow = await Semester.findOne({ where: { code: semester }, attributes: ['id'] });
+        semesterId = semesterRow?.id || null;
+      } catch (err) {
+        console.error('[submitPublicResponse] semester lookup failed:', err.message);
+      }
+      const created = await sequelize.transaction(async (transaction) => {
+        const row = await SurveyModuleResponse.create({
+          surveyId: pkg.surveyDbId,
+          surveyVersionId: versionId,
+          semesterId,
+          studentId: body.studentId != null ? String(body.studentId).trim() : null,
+          studentName: body.studentName || body.name || null,
+          studentEmail: body.studentEmail || body.email || null,
+          eventId: body.eventId != null ? Number(body.eventId) : null,
+          eventType: body.eventType || activityType,
+          activityType,
+          semesterKey: semester,
+          semester,
+          submittedAt: new Date(),
+          status: 'completed',
+          submissionStatus: 'submitted',
+          source: 'public_submit',
+          answersJson: answersSnapshot,
+          metadataJson: {
+            ip: req?.ip,
+            userAgent: req?.get?.('user-agent'),
+            sourceOfSemesterInference: semesterId ? 'by_semester_code' : 'unresolved',
+          },
+        }, { transaction });
+        const answerRows = buildStoredAnswerRows(answersSnapshot, surveyConfig.questions)
+          .map((answer) => ({ ...answer, responseId: row.id }));
+        if (answerRows.length) {
+          await SurveyResponseAnswer.bulkCreate(answerRows, { transaction });
+        }
+        return row;
       }).catch((err) => {
         console.error('[submitPublicResponse] survey_responses dual-write failed:', err.message);
         return null;

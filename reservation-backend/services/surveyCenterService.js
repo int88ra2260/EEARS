@@ -11,7 +11,12 @@ const {
 const { mergeWhereWithScope } = require('./accessControl/surveyScopeGuard');
 const { isValidSemester } = require('../utils/semester');
 const { loadAssociationRecords, loadFlatAnswers, loadVersionContext } = require('./surveyAnswerReadService');
-const { decorateDistributionQuestions } = require('../utils/surveyAssociationMath');
+const {
+  collectQLikertScores,
+  decorateDistributionQuestions,
+  flattenAnswerIndex,
+  indexAnswersByResponse,
+} = require('../utils/surveyAssociationMath');
 
 const ACTIVITY_TYPE_ALIASES = {
   ET: 'English Table',
@@ -189,7 +194,11 @@ async function applyResponseListFilters(query) {
   eqFields.forEach((f) => {
     if (query[f] != null && query[f] !== '') where[f] = query[f];
   });
+  await appendSharedResponseFilters(query, where, andParts);
+  return combineWhere(where, andParts);
+}
 
+async function appendSharedResponseFilters(query, where, andParts) {
   if (query.semesterId != null && query.semesterId !== '') {
     const sem = await Semester.findByPk(Number(query.semesterId));
     if (sem?.code) {
@@ -208,7 +217,9 @@ async function applyResponseListFilters(query) {
       [Op.or]: [{ activityType: resolved }, { activityType: raw }, { eventType: resolved }],
     });
   }
+}
 
+function combineWhere(where, andParts) {
   if (andParts.length) {
     return { [Op.and]: [...andParts, ...(Object.keys(where).length ? [where] : [])] };
   }
@@ -321,7 +332,7 @@ async function likertMeanForVersion(where, versionId) {
 }
 
 async function analyticsOverview(query = {}) {
-  const where = buildAnalyticsWhere(query);
+  const where = await buildAnalyticsWhere(query);
   const total = await SurveyModuleResponse.count({ where });
   const submitted = await SurveyModuleResponse.count({ where: { ...where, submissionStatus: 'submitted' } });
   const activityCoverage = await SurveyModuleResponse.count({ where, distinct: true, col: 'eventId' });
@@ -331,53 +342,100 @@ async function analyticsOverview(query = {}) {
   if (Number.isInteger(versionId) && versionId > 0) {
     avgScore = await likertMeanForVersion(where, versionId);
   }
-  if (avgScore == null) {
-    const likertRows = await SurveyResponseAnswer.findAll({
-      attributes: [[fn('AVG', col('scoreValue')), 'avgScore']],
-      include: [{ model: SurveyModuleResponse, required: true, attributes: [], where }],
-      where: { scoreValue: { [Op.ne]: null } },
-      raw: true,
-    });
-    avgScore = Number(likertRows[0]?.avgScore || 0);
+  if (avgScore == null || Number(avgScore) === 0) {
+    const fromStoredAnswers = await likertMeanFromStoredAnswers(where);
+    if (fromStoredAnswers != null) avgScore = fromStoredAnswers;
   }
   return {
     totalResponses: total,
     completionRate: total ? Number(((submitted / total) * 100).toFixed(2)) : 0,
-    averageSatisfaction: Number(avgScore.toFixed(2)),
+    averageSatisfaction: Number((avgScore || 0).toFixed(2)),
     activityCoverage,
     surveyCoverage,
   };
 }
 
-function buildAnalyticsWhere(query = {}) {
+async function buildAnalyticsWhere(query = {}) {
   const where = {};
-  if (query.semesterId) where.semesterId = query.semesterId;
+  const andParts = [];
   if (query.surveyId) where.surveyId = query.surveyId;
   if (query.versionId) where.surveyVersionId = query.versionId;
-  if (query.activityType) where.activityType = query.activityType;
   if (query.eventId) where.eventId = query.eventId;
+  await appendSharedResponseFilters(query, where, andParts);
   if (query.startDate || query.endDate) {
     where.submittedAt = {};
     if (query.startDate) where.submittedAt[Op.gte] = new Date(query.startDate);
     if (query.endDate) where.submittedAt[Op.lte] = new Date(query.endDate);
   }
-  return mergeWhereWithScope(where, query.__scopeWhere);
+  return mergeWhereWithScope(combineWhere(where, andParts), query.__scopeWhere);
+}
+
+async function likertMeanFromStoredAnswers(where) {
+  const rows = await SurveyModuleResponse.findAll({
+    where,
+    attributes: ['id', 'answersJson'],
+    raw: true,
+  });
+  if (!rows.length) return null;
+  const scores = rows.flatMap((row) => collectQLikertScores(row.answersJson));
+  if (!scores.length) return null;
+  return scores.reduce((sum, score) => sum + score, 0) / scores.length;
 }
 
 async function analyticsDistribution(query = {}) {
-  const where = buildAnalyticsWhere(query);
+  const where = await buildAnalyticsWhere(query);
   const versionId = Number(query.versionId);
   const versionContext = Number.isInteger(versionId) && versionId > 0
     ? await loadVersionContext(versionId)
     : null;
+  let schemaQuestions = versionContext?.questions || [];
   let answers = [];
   if (versionContext?.questions?.length) {
     answers = await loadFlatAnswers(where, versionContext.questions);
   } else {
-    const responseRows = await SurveyModuleResponse.findAll({ where, attributes: ['id'] });
+    const responseRows = await SurveyModuleResponse.findAll({
+      where,
+      attributes: ['id', 'answersJson'],
+      raw: true,
+    });
+    if (!responseRows.length) return { questions: [] };
     const ids = responseRows.map((r) => r.id);
-    if (!ids.length) return { questions: [] };
-    answers = await SurveyResponseAnswer.findAll({ where: { responseId: { [Op.in]: ids } }, raw: true });
+    const answerRows = ids.length
+      ? await SurveyResponseAnswer.findAll({ where: { responseId: { [Op.in]: ids } }, raw: true })
+      : [];
+    const questionIds = new Set();
+    answerRows.forEach((row) => {
+      if (row.questionKey && (/^q\d+$/i.test(String(row.questionKey)) || row.scoreValue != null)) {
+        questionIds.add(String(row.questionKey));
+      }
+    });
+    responseRows.forEach((row) => {
+      let json = row.answersJson;
+      if (typeof json === 'string') {
+        try { json = JSON.parse(json); } catch (_) { json = null; }
+      }
+      if (!json || typeof json !== 'object' || Array.isArray(json)) return;
+      Object.keys(json).forEach((key) => {
+        if (/^q\d+$/i.test(key)) questionIds.add(key);
+      });
+    });
+    schemaQuestions = [...questionIds].map((id) => ({
+      id,
+      type: 'likert',
+      label: id,
+      options: [],
+      scale: ['1', '2', '3', '4', '5'],
+    }));
+    if (schemaQuestions.length) {
+      const index = indexAnswersByResponse({
+        responses: responseRows,
+        answerRows,
+        schemaQuestions,
+      });
+      answers = flattenAnswerIndex(index, schemaQuestions);
+    } else {
+      answers = answerRows;
+    }
   }
   if (!answers.length) return { questions: [] };
   const grouped = new Map();
@@ -411,11 +469,11 @@ async function analyticsDistribution(query = {}) {
       questions.push({ questionKey: key, questionType: type, distribution: dist });
     }
   });
-  return { questions: decorateDistributionQuestions(questions, versionContext?.questions || []) };
+  return { questions: decorateDistributionQuestions(questions, schemaQuestions) };
 }
 
 async function analyticsTrends(query = {}) {
-  const where = buildAnalyticsWhere(query);
+  const where = await buildAnalyticsWhere(query);
   const rows = await SurveyModuleResponse.findAll({
     attributes: [[fn('DATE', col('submittedAt')), 'day'], [fn('COUNT', col('id')), 'count']],
     where,
@@ -427,8 +485,8 @@ async function analyticsTrends(query = {}) {
 }
 
 async function analyticsComparison(query = {}) {
-  const by = query.by === 'activityType' ? 'activityType' : 'semesterId';
-  const where = buildAnalyticsWhere(query);
+  const by = query.by === 'activityType' ? 'activityType' : 'semester';
+  const where = await buildAnalyticsWhere(query);
   const rows = await SurveyModuleResponse.findAll({
     attributes: [by, [fn('COUNT', col('id')), 'count']],
     where,
@@ -827,7 +885,7 @@ async function exportSurveyAnalyticsXlsx(query, res, actorId) {
   ]);
 
   const surveyHealthService = require('./surveyHealthService');
-  const where = buildAnalyticsWhere(query);
+  const where = await buildAnalyticsWhere(query);
   const dataQuality = await surveyHealthService.dataQualityForWhere(where).catch(() => null);
 
   const ows = wb.addWorksheet('overview');

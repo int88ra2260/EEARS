@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
-const { Event, Reservation, Semester, SurveyModuleResponse, SurveyVersion } = require('../models');
+const { Event, Reservation, Semester, SurveyModuleResponse, SurveyResponseAnswer, SurveyVersion } = require('../models');
 const { isValidSemester } = require('../utils/semester');
+const { buildStoredAnswerRows } = require('../utils/surveyStoredAnswerRows');
 
 const SEMESTER_CODE_IN_TEXT_RE = /\b(1\d{2}-\d)\b/;
 
@@ -20,6 +21,18 @@ async function resolveSemesterByCode(code) {
   if (!code || !isValidSemester(code)) return null;
   const row = await Semester.findOne({ where: { code: String(code).trim() } });
   return row?.id || null;
+}
+
+function parseSchemaJson(schemaJson) {
+  if (!schemaJson) return null;
+  if (typeof schemaJson === 'string') {
+    try {
+      return JSON.parse(schemaJson);
+    } catch (_) {
+      return null;
+    }
+  }
+  return schemaJson;
 }
 
 function inferSemesterCodeFromEvent(event) {
@@ -120,7 +133,18 @@ async function backfillResponseLinks({ dryRun = true } = {}) {
     versionBySubmittedAt: 0,
     unresolvedVersion: 0,
     unresolvedResponseIds: [],
+    responsesAnswerBackfilled: 0,
+    answerRowsBackfilled: 0,
   };
+
+  const answeredIds = new Set(
+    (await SurveyResponseAnswer.findAll({
+      attributes: ['responseId'],
+      group: ['responseId'],
+      raw: true,
+    })).map((row) => Number(row.responseId))
+  );
+  const pendingAnswerRows = [];
 
   for (const r of responses) {
     let nextSemesterId = r.semesterId || null;
@@ -181,9 +205,10 @@ async function backfillResponseLinks({ dryRun = true } = {}) {
 
     let nextVersionId = r.surveyVersionId || null;
     let versionSource = 'existing';
+    let versionRow = null;
     if (nextVersionId) {
-      const v = await SurveyVersion.findByPk(nextVersionId);
-      if (v) stats.validatedVersion += 1;
+      versionRow = await SurveyVersion.findByPk(nextVersionId);
+      if (versionRow) stats.validatedVersion += 1;
       else nextVersionId = null;
     }
     if (!nextVersionId) {
@@ -191,9 +216,24 @@ async function backfillResponseLinks({ dryRun = true } = {}) {
       if (inferred.versionId) {
         nextVersionId = inferred.versionId;
         versionSource = inferred.source;
+        versionRow = await SurveyVersion.findByPk(nextVersionId);
         stats.versionBySubmittedAt += 1;
       } else {
         stats.unresolvedVersion += 1;
+      }
+    }
+
+    if (!answeredIds.has(Number(r.id))) {
+      const schema = parseSchemaJson(versionRow?.schemaJson);
+      const questions = Array.isArray(schema?.questions)
+        ? schema.questions
+        : [];
+      const answerRows = buildStoredAnswerRows(r.answersJson, questions)
+        .map((answer) => ({ ...answer, responseId: r.id }));
+      if (answerRows.length) {
+        stats.responsesAnswerBackfilled += 1;
+        stats.answerRowsBackfilled += answerRows.length;
+        if (!dryRun) pendingAnswerRows.push(...answerRows);
       }
     }
 
@@ -207,6 +247,13 @@ async function backfillResponseLinks({ dryRun = true } = {}) {
           sourceOfVersionInference: versionSource,
         },
       });
+    }
+  }
+
+  if (!dryRun && pendingAnswerRows.length) {
+    const chunkSize = 500;
+    for (let i = 0; i < pendingAnswerRows.length; i += chunkSize) {
+      await SurveyResponseAnswer.bulkCreate(pendingAnswerRows.slice(i, i + chunkSize));
     }
   }
   return stats;

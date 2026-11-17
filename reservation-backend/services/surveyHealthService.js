@@ -99,10 +99,22 @@ async function getRuleHealth() {
   };
 }
 
+function andWhere(where, extra) {
+  const hasKeys = where && (
+    Object.keys(where).length > 0 || Object.getOwnPropertySymbols(where).length > 0
+  );
+  if (!hasKeys) return extra;
+  return { [Op.and]: [where, extra] };
+}
+
 async function dataQualityForWhere(where = {}) {
   const totalBaseResponses = await SurveyModuleResponse.count({ where });
-  const missingSemesterCount = await SurveyModuleResponse.count({ where: { ...where, semesterId: null } });
-  const missingVersionCount = await SurveyModuleResponse.count({ where: { ...where, surveyVersionId: null } });
+  const missingSemesterCount = await SurveyModuleResponse.count({
+    where: andWhere(where, { semesterId: null }),
+  });
+  const missingVersionCount = await SurveyModuleResponse.count({
+    where: andWhere(where, { surveyVersionId: null }),
+  });
   const sample = await SurveyModuleResponse.findAll({ where, limit: Math.min(totalBaseResponses, 100), order: [['updatedAt', 'DESC']] });
   let fallbackNormalizedCount = 0;
   let unmatchedAnswersCount = 0;

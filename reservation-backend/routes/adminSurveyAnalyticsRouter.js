@@ -6,18 +6,11 @@ const surveyAssociationService = require('../services/surveyAssociationService')
 const surveyHealthService = require('../services/surveyHealthService');
 const {
   buildSurveyResponseScopeWhere,
-  mergeWhereWithScope,
   sendSurveyScopeDenied,
 } = require('../services/accessControl/surveyScopeGuard');
 
-function buildWhere(query = {}) {
-  const where = {};
-  if (query.semesterId) where.semesterId = query.semesterId;
-  if (query.surveyId) where.surveyId = query.surveyId;
-  if (query.versionId) where.surveyVersionId = query.versionId;
-  if (query.activityType) where.activityType = query.activityType;
-  if (query.eventId) where.eventId = query.eventId;
-  return mergeWhereWithScope(where, query.__scopeWhere);
+async function scopedAnalyticsWhere(query) {
+  return surveyCenterService.buildAnalyticsWhere(query);
 }
 
 async function attachSurveyAnalyticsScope(req, res, next) {
@@ -42,7 +35,7 @@ router.get('/overview', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_ANAL
   try {
     const [data, dataQuality] = await Promise.all([
       surveyCenterService.analyticsOverview(req.scopedSurveyQuery),
-      surveyHealthService.dataQualityForWhere(buildWhere(req.scopedSurveyQuery)),
+      surveyHealthService.dataQualityForWhere(await scopedAnalyticsWhere(req.scopedSurveyQuery)),
     ]);
     res.json({ ...data, dataQuality });
   } catch (e) {
@@ -54,7 +47,7 @@ router.get('/distribution', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_
   try {
     const [data, dataQuality] = await Promise.all([
       surveyCenterService.analyticsDistribution(req.scopedSurveyQuery),
-      surveyHealthService.dataQualityForWhere(buildWhere(req.scopedSurveyQuery)),
+      surveyHealthService.dataQualityForWhere(await scopedAnalyticsWhere(req.scopedSurveyQuery)),
     ]);
     res.json({ ...data, dataQuality });
   } catch (e) {
@@ -66,7 +59,7 @@ router.get('/trends', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_ANALYT
   try {
     const [data, dataQuality] = await Promise.all([
       surveyCenterService.analyticsTrends(req.scopedSurveyQuery),
-      surveyHealthService.dataQualityForWhere(buildWhere(req.scopedSurveyQuery)),
+      surveyHealthService.dataQualityForWhere(await scopedAnalyticsWhere(req.scopedSurveyQuery)),
     ]);
     res.json({ ...data, dataQuality });
   } catch (e) {
@@ -78,7 +71,7 @@ router.get('/comparison', authMiddleware, requirePermission(P.CAN_VIEW_SURVEY_AN
   try {
     const [data, dataQuality] = await Promise.all([
       surveyCenterService.analyticsComparison(req.scopedSurveyQuery),
-      surveyHealthService.dataQualityForWhere(buildWhere(req.scopedSurveyQuery)),
+      surveyHealthService.dataQualityForWhere(await scopedAnalyticsWhere(req.scopedSurveyQuery)),
     ]);
     res.json({ ...data, dataQuality });
   } catch (e) {
@@ -99,7 +92,7 @@ router.get('/open-text-summary', authMiddleware, requirePermission(P.CAN_VIEW_SU
   try {
     const [data, dataQuality] = await Promise.all([
       surveyCenterService.analyticsOpenTextSummary(req.scopedSurveyQuery),
-      surveyHealthService.dataQualityForWhere(buildWhere(req.scopedSurveyQuery)),
+      surveyHealthService.dataQualityForWhere(await scopedAnalyticsWhere(req.scopedSurveyQuery)),
     ]);
     res.json({ ...data, dataQuality });
   } catch (e) {
@@ -111,7 +104,7 @@ router.get('/sentiment-summary', authMiddleware, requirePermission(P.CAN_VIEW_SU
   try {
     const [data, dataQuality] = await Promise.all([
       surveyCenterService.analyticsSentimentSummary(req.scopedSurveyQuery),
-      surveyHealthService.dataQualityForWhere(buildWhere(req.scopedSurveyQuery)),
+      surveyHealthService.dataQualityForWhere(await scopedAnalyticsWhere(req.scopedSurveyQuery)),
     ]);
     res.json({ ...data, dataQuality });
   } catch (e) {

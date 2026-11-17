@@ -34,7 +34,7 @@ async function itemRelations(query = {}, user = null) {
 
   await assertCanAccessSurveyById(user, context.version.surveyId);
 
-  const where = buildAnalyticsWhere({
+  const where = await buildAnalyticsWhere({
     ...query,
     surveyId: context.version.surveyId,
     versionId,

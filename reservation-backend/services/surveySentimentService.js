@@ -6,7 +6,6 @@
 const { Op } = require('sequelize');
 const { SurveyModuleResponse, SurveyResponseAnswer } = require('../models');
 const { LEXICON } = require('../utils/surveySentimentLexicon');
-const { mergeWhereWithScope } = require('./accessControl/surveyScopeGuard');
 
 const SKIP_KEYS = new Set([
   'studentId',
@@ -48,21 +47,6 @@ const PREFERRED_OPEN_KEYS = new Set([
   'opinion',
   'opinions',
 ]);
-
-function buildAnalyticsWhere(query = {}) {
-  const where = {};
-  if (query.semesterId) where.semesterId = query.semesterId;
-  if (query.surveyId) where.surveyId = query.surveyId;
-  if (query.versionId) where.surveyVersionId = query.versionId;
-  if (query.activityType) where.activityType = query.activityType;
-  if (query.eventId) where.eventId = query.eventId;
-  if (query.startDate || query.endDate) {
-    where.submittedAt = {};
-    if (query.startDate) where.submittedAt[Op.gte] = new Date(query.startDate);
-    if (query.endDate) where.submittedAt[Op.lte] = new Date(query.endDate);
-  }
-  return mergeWhereWithScope(where, query.__scopeWhere);
-}
 
 function looksLikeEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
@@ -276,7 +260,8 @@ function mergeOpenTextRows({ answerRows = [], responses = [], questionKeyFilter 
 }
 
 async function collectOpenTextForAnalytics(query = {}) {
-  const where = buildAnalyticsWhere(query);
+  const { buildAnalyticsWhere } = require('./surveyCenterService');
+  const where = await buildAnalyticsWhere(query);
   const responses = await SurveyModuleResponse.findAll({
     where,
     attributes: ['id', 'answersJson', 'submittedAt', 'createdAt'],

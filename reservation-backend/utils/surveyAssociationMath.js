@@ -66,6 +66,20 @@ function round2(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function collectQLikertScores(answersJson) {
+  const json = parseJsonObject(answersJson);
+  if (!json || Array.isArray(json)) return [];
+  const scores = [];
+  Object.entries(json).forEach(([key, value]) => {
+    if (isSurveyAnswerMetadataKey(key)) return;
+    const resolved = resolveSurveyQuestionKeyAlias(key);
+    if (!/^q\d+$/i.test(resolved)) return;
+    const score = parseLikertScore(value);
+    if (score != null) scores.push(score);
+  });
+  return scores;
+}
+
 function parseLikertScore(value) {
   if (value == null || value === '') return null;
   if (typeof value === 'object') return null;
@@ -526,6 +540,7 @@ module.exports = {
   UNFILLED,
   averageRanks,
   buildItemRelations,
+  collectQLikertScores,
   decorateDistributionQuestions,
   distributionOptionOrder,
   flattenAnswerIndex,

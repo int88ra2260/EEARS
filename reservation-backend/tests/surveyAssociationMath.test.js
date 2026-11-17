@@ -157,4 +157,15 @@ describe('surveyAssociationMath', () => {
     expect(decorated[0].label).toBe('說英文更有自信');
     expect(decorated[0].optionOrder).toEqual(['1', '2', '3', '4', '5']);
   });
+
+  it('reads likert scores from answersJson and skips respondent fields', () => {
+    const { collectQLikertScores } = require('../utils/surveyAssociationMath');
+    expect(collectQLikertScores({
+      q7: 4,
+      q18: 5,
+      email: 'secret@example.com',
+      grade: '一年級',
+      studentId: 'R151010035',
+    })).toEqual([4, 5]);
+  });
 });
