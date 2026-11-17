@@ -745,11 +745,17 @@ describe('studentFeedbackService', () => {
 
   it('counts unseen public replies for that student only', async () => {
     sequelize.query.mockResolvedValueOnce([[{ n: 1 }]]);
-    await expect(countStudentFeedbackAttention(account)).resolves.toEqual({ count: 1 });
+    await expect(countStudentFeedbackAttention({ account })).resolves.toEqual({ count: 1 });
     const [sql, options] = sequelize.query.mock.calls.at(-1);
     expect(sql).toContain("m.visibility = 'public'");
     expect(sql).toContain("m.authorType = 'staff'");
     expect(options.replacements.studentId).toBe(account.studentId);
+  });
+
+  it('does not treat a wrapped account as missing when counting attention', async () => {
+    await expect(countStudentFeedbackAttention({
+      account: { ...account, emailVerifiedAt: null },
+    })).rejects.toMatchObject({ status: 403, code: 'EMAIL_ACTIVATION_REQUIRED' });
   });
 
   it('flags listed cases that still have an unseen public reply', async () => {

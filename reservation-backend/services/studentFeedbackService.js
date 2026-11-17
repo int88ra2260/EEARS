@@ -694,7 +694,7 @@ async function queryCount(sql, replacements) {
   }
 }
 
-async function countStudentFeedbackAttention(account) {
+async function countStudentFeedbackAttention({ account }) {
   assertActivated(account);
   const count = await queryCount(`
     SELECT COUNT(DISTINCT f.id) AS n
