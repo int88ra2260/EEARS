@@ -629,8 +629,8 @@ export const ADMIN_NAV_SECTIONS = [
           '/admin/learning-analytics/offerings',
         ],
         visibility: 'perm:can_view_learning_analytics',
-        pageTitle: '資源與開課',
-        breadcrumbLabel: '資源與開課',
+        pageTitle: '資源與開課分析',
+        breadcrumbLabel: '資源與開課分析',
         hiddenFromNav: true,
       },
       {

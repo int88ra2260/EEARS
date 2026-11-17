@@ -16,7 +16,7 @@ export default function LearningResourceReading({ rows }) {
         <li>{reading.evidence}</li>
         <li>{reading.exposure}</li>
       </ul>
-      <p className="small text-muted mb-0">這份資源回應沒有排除原因明細。排除條件請到技能成長或原始資料查看既有欄位。</p>
+      <p className="small text-muted mb-0">這份資源回應沒有排除原因明細。排除條件請到群體與技能比較或資料匯出查看既有欄位。</p>
     </div>
   );
 }

@@ -13,7 +13,6 @@ import LearningAnalyticsNextSteps from '../../components/learningAnalytics/Learn
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
 import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import KpiPolicyEditorModal from '../../components/learningAnalytics/KpiPolicyEditorModal';
-import OutcomesModeSwitch from '../../components/learningAnalytics/OutcomesModeSwitch';
 import StudentTrajectoryLink from '../../components/learningAnalytics/StudentTrajectoryLink';
 import { SEMESTER_OPTIONS, getCurrentSemester } from '../../utils/semesterUtils';
 import {
@@ -423,7 +422,6 @@ export default function LearningAnalyticsKpiReportPage() {
         </ul>
       )}
     >
-      <OutcomesModeSwitch />
       <p className="la-scope-note">分析範圍：指定學期名冊與 KPI 政策</p>
 
       {error ? <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert> : null}

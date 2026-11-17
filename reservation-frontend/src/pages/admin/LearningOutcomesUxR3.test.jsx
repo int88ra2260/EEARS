@@ -2,7 +2,6 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, test } from 'vitest';
-import OutcomesModeSwitch from '../../components/learningAnalytics/OutcomesModeSwitch';
 import LearningJourneyAnalyticsPanel from '../../components/learningJourneyV3/LearningJourneyAnalyticsPanel';
 import { formatKpiGeneratedAt, isKpiQueryStale, resolveKpiRunAcceptance } from './LearningAnalyticsKpiReportPage';
 
@@ -62,22 +61,6 @@ describe('learning outcomes ux r3', () => {
     Object.values(report.skills).forEach((skill) => {
       expect(skill.count).toBeLessThanOrEqual(report.totalStudents);
     });
-  });
-
-  test('mode switch keeps the two existing urls', () => {
-    render(
-      <MemoryRouter initialEntries={['/admin/learning-analytics/overview']}>
-        <OutcomesModeSwitch />
-      </MemoryRouter>
-    );
-    expect(screen.getByRole('link', { name: '能力分布' })).toHaveAttribute(
-      'href',
-      '/admin/learning-analytics/overview'
-    );
-    expect(screen.getByRole('link', { name: '學期 B2 KPI' })).toHaveAttribute(
-      'href',
-      '/admin/learning-analytics/kpi-report'
-    );
   });
 
   test('roster page does not print snapshot attainment counts', () => {

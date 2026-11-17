@@ -145,7 +145,6 @@ export default function LearningAnalyticsOverviewPage() {
   const scopeSearch = scopeQuery.toString() ? `?${scopeQuery.toString()}` : '';
   const kpiHref = scopeSearchPath('/admin/learning-analytics/kpi-report', scopeSearch);
   const compareHref = scopeSearchPath('/admin/learning-analytics/cohorts', scopeSearch);
-  const skillsHref = scopeSearchPath('/admin/learning-analytics/skills', scopeSearch);
   const resourcesHref = scopeSearchPath('/admin/learning-analytics/resources', scopeSearch);
   const baselineChart = useMemo(
     () => (growth?.baseline || []).map((row) => ({
@@ -416,7 +415,7 @@ export default function LearningAnalyticsOverviewPage() {
                   <p className="small text-muted mt-2 mb-0">
                     成績分布與各工具明細在
                     {' '}
-                    <Link to={skillsHref}>技能成長</Link>
+                    <Link to={compareHref}>群體與技能比較</Link>
                     。
                   </p>
                 </div>
@@ -427,7 +426,7 @@ export default function LearningAnalyticsOverviewPage() {
           <section className="mt-4">
             <LearningAnalyticsPanelHeader
               title="課程資源"
-              lead="這裡看資源投入與參與。課程、教師與活動明細在資源與開課。"
+              lead="這裡看資源投入與參與。課程、教師與活動明細在資源與開課分析。"
             />
             <Row className="g-3">
               <Col lg={7}>
@@ -469,7 +468,7 @@ export default function LearningAnalyticsOverviewPage() {
                       </tbody>
                     </table>
                   </div>
-                  <Link to={resourcesHref}>前往資源與開課</Link>
+                  <Link to={resourcesHref}>資源與開課分析</Link>
                 </div>
               </Col>
             </Row>

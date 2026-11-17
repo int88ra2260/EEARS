@@ -179,11 +179,11 @@ describe('資源與開課 sidebar entry', () => {
     expect(labels.filter((label) => label === '資源與開課')).toEqual([]);
     expect(labels.filter((label) => ['資源覆蓋', '課／師／活動'].includes(label))).toEqual([]);
     expect(getAdminPageMeta('/admin/learning-analytics/resources', ctx)).toMatchObject({
-      pageTitle: '資源與開課',
+      pageTitle: '資源與開課分析',
       childId: 'learning-analytics-resources',
     });
     expect(getAdminPageMeta('/admin/learning-analytics/offerings', ctx)).toMatchObject({
-      pageTitle: '資源與開課',
+      pageTitle: '資源與開課分析',
       childId: 'learning-analytics-resources',
     });
   });

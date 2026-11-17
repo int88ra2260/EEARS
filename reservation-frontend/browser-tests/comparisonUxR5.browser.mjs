@@ -211,7 +211,8 @@ test('opens cohorts, switches modes, and keeps browser history', async ({ page }
   await page.goto('/admin/learning-analytics/cohorts?profile=admin');
   await expect(page.getByRole('heading', { level: 1, name: '群體與技能比較' })).toBeVisible();
   await expect(page.getByRole('link', { name: '群體比較' })).toHaveAttribute('aria-current', 'page');
-  await expect(page.locator('.la-subnav-rows')).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: '學習成效頁面' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '群體與技能比較' })).toHaveAttribute('aria-current', 'page');
   await expect(cohortGroup(page, '外文系')).toBeVisible();
   await expect(page.getByRole('cell', { name: '無可比較樣本', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('cell', { name: '0.0', exact: true }).first()).toBeVisible();
