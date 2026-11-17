@@ -37,6 +37,21 @@
 
 .reservation-result-card-actions {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.reservation-checkin-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.reservation-checkin-qr canvas {
+  width: min(260px, 72vw) !important;
+  height: min(260px, 72vw) !important;
 }
 
 .reservation-result-card-cancel-form {

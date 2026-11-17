@@ -1,12 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import QRCode from 'qrcode';
 import { getEventLocationDisplay } from '../../utils/eventLocation';
 import { calculateReservationTime } from '../../utils/reservationTime';
 import { formatBookingCode } from '../../utils/bookingCode';
 import { eventTypeFilterToQueryParam } from '../../utils/eventTypeQuery';
 import EnglishTableTopicPanel from '../events/EnglishTableTopicPanel';
+import CheckinQrCanvas from '../reservations/CheckinQrCanvas';
 
 export default function BookingSuccessView({
   event,
@@ -17,8 +17,6 @@ export default function BookingSuccessView({
   onClose,
 }) {
   const navigate = useNavigate();
-  const canvasRef = useRef(null);
-  const [qrError, setQrError] = useState('');
 
   const safeEvent = event || {};
   const eventName = safeEvent.name || '（未提供活動名稱）';
@@ -44,28 +42,6 @@ export default function BookingSuccessView({
   const emailLabel = studentEmail || '您填寫的 Email';
   const bookingIdLabel = formatBookingCode(bookingCode, reservationId);
   const successAtLabel = successAt ? new Date(successAt).toLocaleString('zh-TW') : new Date().toLocaleString('zh-TW');
-
-  useEffect(() => {
-    let cancelled = false;
-    async function drawQr() {
-      if (!bookingIdLabel || bookingIdLabel === '（未提供）' || !canvasRef.current) return;
-      try {
-        await QRCode.toCanvas(canvasRef.current, bookingIdLabel, {
-          width: 180,
-          margin: 2,
-          errorCorrectionLevel: 'M',
-          color: { dark: '#111111', light: '#ffffff' },
-        });
-        if (!cancelled) setQrError('');
-      } catch (err) {
-        if (!cancelled) setQrError('QR 產生失敗，請改以簽到碼出示');
-      }
-    }
-    drawQr();
-    return () => {
-      cancelled = true;
-    };
-  }, [bookingIdLabel]);
 
   const handleMyReservations = () => {
     if (typeof onClose === 'function') onClose();
@@ -127,10 +103,7 @@ export default function BookingSuccessView({
         <div className="alert alert-secondary py-2 mb-2 mb-md-0 text-center">
           <div><strong>預約編號／現場簽到碼</strong></div>
           <div className="mt-1">{bookingIdLabel}</div>
-          <div className="booking-success__qr mt-2">
-            <canvas ref={canvasRef} aria-label={`簽到 QR ${bookingIdLabel}`} />
-          </div>
-          {qrError ? <div className="small text-danger mt-1">{qrError}</div> : null}
+          <CheckinQrCanvas value={bookingIdLabel} size={180} className="booking-success__qr mt-2" />
           <div className="small text-muted mt-1">活動現場請出示此 QR 或簽到碼</div>
           <div className="small text-muted mt-1">建立時間：{successAtLabel}</div>
         </div>
@@ -146,7 +119,7 @@ export default function BookingSuccessView({
       <p className="small text-muted mb-0 mt-2">
         預約資訊將寄至 <strong>{emailLabel}</strong>。
         若無法參加，請在<strong>活動開始前至少 2 小時</strong>取消，否則可能記違規。
-        未收到信請先看垃圾信匣，或到「我的預約」查詢。
+        未收到信請先看垃圾信匣。關閉此視窗後，可到「我的預約」再次出示簽到 QR。
       </p>
 
       <div className="mt-2 d-flex flex-column flex-sm-row flex-wrap gap-2">

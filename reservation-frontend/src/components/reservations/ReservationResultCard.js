@@ -1,14 +1,16 @@
 /**
  * 單筆預約結果：活動名稱、日期時間、登入後取消
  */
-import React from 'react';
+import React, { useState } from 'react';
 import dayjs from 'dayjs';
+import { Button, Modal } from 'react-bootstrap';
 import { useLanguage } from '../../context/LanguageContext';
 import { canCancelReservation } from '../../hooks/useReservationLookup';
 import { RESERVATION_CUTOFF_HOURS } from '../../constants/reservationRules';
 import StatusBadge from '../ui/StatusBadge';
 import { formatBookingCode } from '../../utils/bookingCode';
 import EnglishTableTopicPanel from '../events/EnglishTableTopicPanel';
+import CheckinQrCanvas from './CheckinQrCanvas';
 import './ReservationResultCard.css';
 
 export default function ReservationResultCard({
@@ -19,11 +21,13 @@ export default function ReservationResultCard({
   onConfirmCancel,
 }) {
   const { t } = useLanguage();
+  const [qrOpen, setQrOpen] = useState(false);
   const canCancel = canCancelReservation(record);
   const eventStart = dayjs(`${record.date}T${record.startTime}`);
   const twoHoursBefore = eventStart.subtract(RESERVATION_CUTOFF_HOURS, 'hour');
   const isThisCanceling = cancelingReservationId === record.id;
   const bookingId = formatBookingCode(record.bookingCode, record.reservationId || record.id);
+  const canShowQr = bookingId !== '（未提供）';
   const createdAtRaw = record.createdAt || record.timestamp || null;
   const createdAtLabel = createdAtRaw ? dayjs(createdAtRaw).format('YYYY/MM/DD HH:mm') : '（未提供）';
   const statusHelper = canCancel
@@ -61,6 +65,16 @@ export default function ReservationResultCard({
         />
       </div>
       <div className="reservation-result-card-actions">
+        {canShowQr ? (
+          <Button
+            type="button"
+            variant="outline-primary"
+            size="sm"
+            onClick={() => setQrOpen(true)}
+          >
+            出示簽到 QR
+          </Button>
+        ) : null}
         {canCancel ? (
           <div>
             <button
@@ -88,6 +102,36 @@ export default function ReservationResultCard({
           </div>
         )}
       </div>
+      {canShowQr ? (
+        <Modal
+          show={qrOpen}
+          onHide={() => setQrOpen(false)}
+          centered
+          contentClassName="reservation-checkin-qr-modal"
+        >
+          <Modal.Header closeButton>
+            <Modal.Title>現場簽到 QR</Modal.Title>
+          </Modal.Header>
+          <Modal.Body className="text-center">
+            <div className="fw-semibold">{record.eventName}</div>
+            <div className="text-muted small mb-2">
+              {record.date}　{record.startTime} – {record.endTime}
+            </div>
+            <div className="mb-2">
+              簽到碼：<strong>{bookingId}</strong>
+            </div>
+            {qrOpen ? (
+              <CheckinQrCanvas value={bookingId} size={260} className="reservation-checkin-qr" />
+            ) : null}
+            <div className="small text-muted mt-2">活動現場請出示此 QR 或簽到碼。請先確認上方場次與要參加的活動相同。</div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setQrOpen(false)}>
+              關閉
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      ) : null}
     </div>
   );
 }
