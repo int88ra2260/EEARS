@@ -265,14 +265,33 @@ describe('studentFeedbackService', () => {
     sendEmailWithLog.mockResolvedValue({});
     await submitStudentFeedback({
       account,
-      kind: 'wish',
+      kind: 'problem',
       category: 'other',
       message: '希望活動可以選擇線上參加。',
       replyRequested: false,
     });
     expect(StudentFeedback.create).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'problem',
       replyRequested: false,
     }));
+  });
+
+  it('stores a wish without a reply request even when one is sent', async () => {
+    const row = mockRow(10);
+    StudentFeedback.create.mockResolvedValue(row);
+    sendEmailWithLog.mockResolvedValue({});
+    const result = await submitStudentFeedback({
+      account,
+      kind: 'wish',
+      category: 'other',
+      message: '希望活動可以選擇線上參加。',
+      replyRequested: true,
+    });
+    expect(StudentFeedback.create).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'wish',
+      replyRequested: false,
+    }));
+    expect(result.replyRequested).toBe(false);
   });
 
   function storedCase(overrides = {}) {

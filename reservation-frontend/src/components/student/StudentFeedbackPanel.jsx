@@ -30,7 +30,12 @@ export default function StudentFeedbackPanel({ student, activated }) {
     setError('');
     setReceipt('');
     try {
-      const { ok, data } = await submitStudentFeedback({ kind, category, message, replyRequested });
+      const { ok, data } = await submitStudentFeedback({
+        kind,
+        category,
+        message,
+        replyRequested: kind === 'problem' ? replyRequested : false,
+      });
       if (!ok) {
         setError(data?.message || '送出失敗，請稍後再試');
         return;
@@ -125,23 +130,25 @@ export default function StudentFeedbackPanel({ student, activated }) {
                 required
               />
             </div>
-            <div className="form-check mb-3">
-              <input
-                id="student-feedback-reply"
-                className="form-check-input"
-                type="checkbox"
-                checked={replyRequested}
-                onChange={(e) => setReplyRequested(e.target.checked)}
-              />
-              <label className="form-check-label" htmlFor="student-feedback-reply">
-                希望中心回覆
-              </label>
-              <p className="text-muted small mb-0">
-                {replyRequested
-                  ? '中心結案前會先寫一則你看得到的回覆。'
-                  : '中心仍會看到，但不一定個別回覆。'}
-              </p>
-            </div>
+            {kind === 'problem' ? (
+              <div className="form-check mb-3">
+                <input
+                  id="student-feedback-reply"
+                  className="form-check-input"
+                  type="checkbox"
+                  checked={replyRequested}
+                  onChange={(e) => setReplyRequested(e.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="student-feedback-reply">
+                  希望中心回覆
+                </label>
+                <p className="text-muted small mb-0">
+                  {replyRequested
+                    ? '中心結案前會先寫一則你看得到的回覆。'
+                    : '中心仍會看到，但不一定個別回覆。'}
+                </p>
+              </div>
+            ) : null}
             <button className="btn btn-primary" type="submit" disabled={submitting}>
               {submitting ? '送出中…' : '送到中心'}
             </button>

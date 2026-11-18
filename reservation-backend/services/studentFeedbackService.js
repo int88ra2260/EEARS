@@ -253,6 +253,11 @@ function parseReplyRequested(value) {
   throw invalid('請選擇是否需要中心回覆');
 }
 
+function resolveReplyRequested(kind, value) {
+  if (kind === 'wish') return false;
+  return parseReplyRequested(value);
+}
+
 function assertInput({ kind, category, message }) {
   if (!KIND_LABELS[kind]) throw invalid('請選擇問題回報或建議／許願');
   if (!CATEGORY_LABELS[category]) throw invalid('請選擇項目');
@@ -413,7 +418,7 @@ function presentStudent(item, messages) {
 async function submitStudentFeedback({ account, kind, category, message, replyRequested }) {
   assertActivated(account);
   const text = assertInput({ kind, category, message });
-  const wantsReply = parseReplyRequested(replyRequested);
+  const wantsReply = resolveReplyRequested(kind, replyRequested);
   assertUnderLimit(await countRecentStudentWrites(account.studentId));
 
   const row = await StudentFeedback.create({
