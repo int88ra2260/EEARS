@@ -8,8 +8,10 @@ const {
   StudentFeedbackEvent,
   StudentFeedbackRead,
   Teacher,
+  Settings,
 } = require('../models');
 const { sendEmailWithLog } = require('./emailLogService');
+const emailQueue = require('../utils/emailQueue');
 
 const CENTER_EMAIL = process.env.EMI_CENTER_EMAIL || 'emicenter@mail.nsysu.edu.tw';
 const CENTER_PHONE = '07-5252000 分機 5808／5876';
@@ -155,6 +157,9 @@ function eventValue(eventType, value) {
   if (eventType === 'PRIORITY_CHANGED') {
     return { priority: source.priority == null || source.priority === '' ? null : String(source.priority) };
   }
+  if (eventType === 'DUPLICATE_CHANGED') {
+    return { duplicateOfId: source.duplicateOfId == null ? null : Number(source.duplicateOfId) };
+  }
   return {};
 }
 
@@ -221,6 +226,22 @@ async function persistCaseChanges(row, item, changes, actor, requestId, transact
       ...actorFields,
       beforeValue: { priority: item.priority || null },
       afterValue: { priority: changes.priority },
+      requestId: request,
+      createdAt: stamp,
+    });
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(changes, 'duplicateOfId')
+    && !sameId(changes.duplicateOfId, item.duplicateOfId)
+  ) {
+    persisted.duplicateOfId = changes.duplicateOfId;
+    events.push({
+      feedbackId: item.id,
+      eventType: 'DUPLICATE_CHANGED',
+      visibility: 'staff',
+      ...actorFields,
+      beforeValue: { duplicateOfId: item.duplicateOfId || null },
+      afterValue: { duplicateOfId: changes.duplicateOfId },
       requestId: request,
       createdAt: stamp,
     });
@@ -382,6 +403,7 @@ function presentStaff(item, messages) {
     assigneeName: item.assignee ? item.assignee.name : null,
     priority: item.priority || null,
     priorityLabel: priorityLabel(item.priority),
+    duplicateOfId: item.duplicateOfId || null,
     closedAt: item.closedAt || null,
     updatedAt: item.updatedAt || null,
     messages: (messages || []).map(presentStaffMessage),
@@ -627,11 +649,14 @@ async function listStudentFeedback(filters = {}) {
     filters.readerTeacherId,
     rows.map((row) => plain(row).id),
   );
+  const slaHours = await readSlaHours();
+  const now = Date.now();
   return {
     items: rows.map((row) => {
       const item = presentStaff(plain(row), []);
       delete item.messages;
       item.attention = attention.get(Number(item.id)) || null;
+      item.overdue = isOverdue(item, slaHours, now);
       return item;
     }),
     page,
@@ -802,7 +827,9 @@ async function getStudentFeedback(id, options = {}) {
       seenAt: new Date(),
     });
   }
-  return presentStaff(item, visible);
+  const presented = presentStaff(item, visible);
+  presented.overdue = isOverdue(presented, await readSlaHours());
+  return presented;
 }
 
 async function listStudentFeedbackEvents(id, options = {}) {
@@ -948,7 +975,8 @@ async function updateStudentFeedbackCase({ id, patch = {}, actor, requestId } = 
   const hasStatus = Object.prototype.hasOwnProperty.call(patch, 'status') && patch.status != null && patch.status !== '';
   const hasAssignee = Object.prototype.hasOwnProperty.call(patch, 'assignedTeacherId');
   const hasPriority = Object.prototype.hasOwnProperty.call(patch, 'priority');
-  if (!hasStatus && !hasAssignee && !hasPriority) throw invalid('沒有要更新的內容');
+  const hasDuplicate = Object.prototype.hasOwnProperty.call(patch, 'duplicateOfId');
+  if (!hasStatus && !hasAssignee && !hasPriority && !hasDuplicate) throw invalid('沒有要更新的內容');
   if (hasStatus && (!STATUS_LABELS[patch.status] || patch.status === 'open')) throw invalid('狀態不正確');
 
   let nextPriority;
@@ -962,6 +990,7 @@ async function updateStudentFeedbackCase({ id, patch = {}, actor, requestId } = 
     }
   }
 
+  let assigneeNotice = null;
   let nextAssignee;
   if (hasAssignee) {
     if (patch.assignedTeacherId == null || patch.assignedTeacherId === '') {
@@ -973,15 +1002,35 @@ async function updateStudentFeedbackCase({ id, patch = {}, actor, requestId } = 
       const teacher = plain(assignee);
       if (!isAssignable(teacher)) throw invalid('這位同仁目前不能承接');
       nextAssignee = teacher.id;
+      assigneeNotice = teacher.email
+        ? { email: teacher.email, name: teacher.name || '' }
+        : null;
     }
   }
 
+  let nextDuplicate;
+  if (hasDuplicate) {
+    if (patch.duplicateOfId == null || patch.duplicateOfId === '') {
+      nextDuplicate = null;
+    } else {
+      const targetId = Number(patch.duplicateOfId);
+      if (!Number.isInteger(targetId) || targetId <= 0) throw invalid('重複案件編號不正確');
+      if (targetId === Number(id)) throw invalid('不能把案件標成自己的重複案件');
+      const target = await StudentFeedback.findByPk(targetId, { attributes: ['id', 'duplicateOfId'] });
+      if (!target) throw invalid('找不到要連結的案件');
+      if (Number(target.duplicateOfId) === Number(id)) throw invalid('這兩筆案件不能互相標成重複');
+      nextDuplicate = target.id;
+    }
+  }
+
+  let assigneeChanged = false;
   const caseId = await withTransaction(async (transaction) => {
     const row = await loadCaseLocked(id, transaction);
     const item = plain(row);
     const changes = {};
 
     if (hasAssignee && !sameId(nextAssignee, item.assignedTeacherId)) {
+      assigneeChanged = true;
       changes.assignedTeacherId = nextAssignee;
       if (item.status === 'open' && !hasStatus) {
         changes.status = 'in_progress';
@@ -990,6 +1039,7 @@ async function updateStudentFeedbackCase({ id, patch = {}, actor, requestId } = 
     }
 
     if (hasPriority) changes.priority = nextPriority;
+    if (hasDuplicate) changes.duplicateOfId = nextDuplicate;
 
     if (hasStatus) {
       if (patch.status === 'closed') {
@@ -1020,6 +1070,22 @@ async function updateStudentFeedbackCase({ id, patch = {}, actor, requestId } = 
     readerKey: actor && actor.id,
     seenAt: new Date(),
   });
+  if (assigneeChanged && assigneeNotice && assigneeNotice.email) {
+    try {
+      await emailQueue.enqueue('studentFeedbackAssigned', {
+        email: assigneeNotice.email,
+        recipientName: assigneeNotice.name,
+        caseId,
+        adminUrl: adminFeedbackUrl(),
+      }, {
+        requestId: requestId || `student-feedback-assign:${caseId}`,
+        relatedEntityType: 'student_feedback',
+        relatedEntityId: String(caseId),
+      });
+    } catch (error) {
+      console.error('[student-feedback] 指派信未完成');
+    }
+  }
   return getStudentFeedback(caseId, { includeInternal: true });
 }
 
@@ -1108,6 +1174,154 @@ async function addStudentFollowUp({ account, id, message, requestId }) {
   return getMyStudentFeedback({ account, id: caseId });
 }
 
+const SLA_SETTING_KEY = 'student_feedback_sla_hours';
+const EXPORT_LIMIT = 5000;
+
+async function readSlaHours() {
+  try {
+    const setting = await Settings.findOne({ where: { key: SLA_SETTING_KEY } });
+    if (!setting || setting.value == null || String(setting.value).trim() === '') return null;
+    const hours = Number(setting.value);
+    if (!Number.isFinite(hours) || hours <= 0) return null;
+    return hours;
+  } catch (error) {
+    return null;
+  }
+}
+
+function isOverdue(item, slaHours, now = Date.now()) {
+  if (slaHours == null || !item || item.status === 'closed' || !item.createdAt) return null;
+  const created = new Date(item.createdAt).getTime();
+  if (!Number.isFinite(created)) return null;
+  return now - created > slaHours * 60 * 60 * 1000;
+}
+
+function csvCell(value) {
+  const text = String(value == null ? '' : value).replace(/\r?\n/g, ' ');
+  const guarded = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${guarded.replace(/"/g, '""')}"`;
+}
+
+function buildFeedbackCsv(items) {
+  const header = ['編號', '建立時間', '結案時間', '狀態', '優先級', '類型', '項目', '學號', '姓名', '信箱', '重複案件', '內容'];
+  const lines = [header.map(csvCell).join(',')];
+  (items || []).forEach((item) => {
+    lines.push([
+      item.id,
+      item.createdAt ? new Date(item.createdAt).toISOString() : '',
+      item.closedAt ? new Date(item.closedAt).toISOString() : '',
+      item.statusLabel,
+      item.priorityLabel,
+      item.kindLabel,
+      item.categoryLabel,
+      item.studentId,
+      item.studentName,
+      item.email,
+      item.duplicateOfId || '',
+      item.message,
+    ].map(csvCell).join(','));
+  });
+  return `\uFEFF${lines.join('\n')}`;
+}
+
+function weekStart(date) {
+  const value = new Date(date);
+  const day = value.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  value.setHours(0, 0, 0, 0);
+  value.setDate(value.getDate() - diff);
+  return value;
+}
+
+function jsonObject(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return {};
+  }
+}
+
+async function exportStudentFeedbackCsv(filters = {}) {
+  const term = likeTerm(filters.q);
+  const messageIds = term ? await findMessageIds(term, { publicOnly: false }) : [];
+  const where = buildAdminWhere(filters, messageIds);
+  const total = await StudentFeedback.count({ where });
+  if (total > EXPORT_LIMIT) {
+    throw invalid('請縮小篩選後再匯出');
+  }
+  const rows = await StudentFeedback.findAll({
+    where,
+    include: [{ model: Teacher, as: 'assignee', attributes: ['id', 'name'], required: false }],
+    order: parseSort(filters.sortBy, filters.sortOrder),
+  });
+  const items = rows.map((row) => presentStaff(plain(row), []));
+  return { csv: buildFeedbackCsv(items), total: items.length };
+}
+
+async function summarizeStudentFeedbackWeeks({ weeks = 8 } = {}) {
+  const count = Math.min(Math.max(Number(weeks) || 8, 1), 12);
+  const start = weekStart(new Date());
+  start.setDate(start.getDate() - (count - 1) * 7);
+  const rows = await StudentFeedback.findAll({
+    where: {
+      [Op.or]: [
+        { createdAt: { [Op.gte]: start } },
+        { closedAt: { [Op.gte]: start } },
+      ],
+    },
+    attributes: ['createdAt', 'closedAt'],
+    raw: true,
+  });
+  const events = await StudentFeedbackEvent.findAll({
+    where: { eventType: 'STATUS_CHANGED', createdAt: { [Op.gte]: start } },
+    attributes: ['createdAt', 'beforeValue', 'afterValue'],
+    raw: true,
+  });
+  const buckets = [];
+  for (let index = 0; index < count; index += 1) {
+    const begin = new Date(start);
+    begin.setDate(start.getDate() + index * 7);
+    const end = new Date(begin);
+    end.setDate(begin.getDate() + 7);
+    buckets.push({
+      weekStart: begin.toISOString(),
+      created: 0,
+      closed: 0,
+      reopened: 0,
+      begin: begin.getTime(),
+      end: end.getTime(),
+    });
+  }
+  const place = (time) => buckets.find((bucket) => time >= bucket.begin && time < bucket.end);
+  rows.forEach((row) => {
+    const createdAt = row.createdAt ? new Date(row.createdAt).getTime() : NaN;
+    const created = Number.isFinite(createdAt) ? place(createdAt) : null;
+    if (created) created.created += 1;
+    const closedAt = row.closedAt ? new Date(row.closedAt).getTime() : NaN;
+    const closed = Number.isFinite(closedAt) ? place(closedAt) : null;
+    if (closed) closed.closed += 1;
+  });
+  events.forEach((event) => {
+    const before = jsonObject(event.beforeValue).status;
+    const after = jsonObject(event.afterValue).status;
+    if (before !== 'closed' || after !== 'in_progress') return;
+    const at = new Date(event.createdAt).getTime();
+    const bucket = Number.isFinite(at) ? place(at) : null;
+    if (bucket) bucket.reopened += 1;
+  });
+  return {
+    slaHours: await readSlaHours(),
+    weeks: buckets.map(({ weekStart: label, created, closed, reopened }) => ({
+      weekStart: label,
+      created,
+      closed,
+      reopened,
+    })),
+  };
+}
+
 module.exports = {
   CENTER_EMAIL,
   CENTER_PHONE,
@@ -1132,4 +1346,7 @@ module.exports = {
   addStudentFollowUp,
   countStudentFeedbackAttention,
   countStaffFeedbackAttention,
+  exportStudentFeedbackCsv,
+  summarizeStudentFeedbackWeeks,
+  buildFeedbackCsv,
 };

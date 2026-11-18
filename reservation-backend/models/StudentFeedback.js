@@ -63,6 +63,10 @@ const StudentFeedback = sequelize.define('StudentFeedback', {
     type: DataTypes.STRING(8),
     allowNull: true,
   },
+  duplicateOfId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
 }, {
   tableName: 'student_feedback',
   indexes: [

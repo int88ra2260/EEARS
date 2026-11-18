@@ -13,6 +13,8 @@ const {
   updateStudentFeedbackCase,
   listFeedbackAssignees,
   countStaffFeedbackAttention,
+  exportStudentFeedbackCsv,
+  summarizeStudentFeedbackWeeks,
 } = require('../services/studentFeedbackService');
 
 const router = express.Router();
@@ -60,6 +62,38 @@ router.get('/summary', async (req, res, next) => {
   try {
     const summary = await summarizeStudentFeedback();
     return res.json({ success: true, ...summary });
+  } catch (err) {
+    return sendError(err, res, next);
+  }
+});
+
+router.get('/weekly', async (req, res, next) => {
+  try {
+    const result = await summarizeStudentFeedbackWeeks({ weeks: req.query.weeks });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    return sendError(err, res, next);
+  }
+});
+
+router.get('/export', requirePermission(P.CAN_MANAGE_STUDENT_FEEDBACK), async (req, res, next) => {
+  try {
+    const { csv, total } = await exportStudentFeedbackCsv({
+      kind: req.query.kind || '',
+      status: req.query.status || '',
+      category: req.query.category || '',
+      priority: req.query.priority || '',
+      q: req.query.q || '',
+      assignedTeacherId: req.query.assignedTeacherId || '',
+      from: req.query.from || '',
+      to: req.query.to || '',
+      sortBy: req.query.sortBy,
+      sortOrder: req.query.sortOrder,
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="student-feedback.csv"');
+    res.setHeader('X-Export-Total', String(total));
+    return res.send(csv);
   } catch (err) {
     return sendError(err, res, next);
   }
@@ -153,6 +187,7 @@ router.patch('/:id', requirePermission(P.CAN_MANAGE_STUDENT_FEEDBACK), async (re
       patch.assignedTeacherId = body.assignedTeacherId;
     }
     if (Object.prototype.hasOwnProperty.call(body, 'priority')) patch.priority = body.priority;
+    if (Object.prototype.hasOwnProperty.call(body, 'duplicateOfId')) patch.duplicateOfId = body.duplicateOfId;
     const item = await updateStudentFeedbackCase({
       id: req.params.id,
       patch,

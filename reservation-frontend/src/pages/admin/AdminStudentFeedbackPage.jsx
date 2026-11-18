@@ -8,6 +8,8 @@ import {
   fetchAdminStudentFeedbackDetail,
   fetchAdminStudentFeedbackEvents,
   fetchAdminStudentFeedbackSummary,
+  fetchAdminStudentFeedbackWeekly,
+  downloadAdminStudentFeedbackCsv,
   fetchFeedbackAssignees,
   patchAdminStudentFeedback,
   postAdminStudentFeedbackNote,
@@ -23,6 +25,7 @@ const EVENT_TYPE_LABELS = {
   STATUS_CHANGED: '狀態變更',
   ASSIGNEE_CHANGED: '承辦變更',
   PRIORITY_CHANGED: '優先級變更',
+  DUPLICATE_CHANGED: '重複案件',
 };
 const PRIORITY_TEXT = {
   P0: 'P0（最優先）',
@@ -132,7 +135,18 @@ function eventValueText(event, side, catalog) {
   if (event && event.eventType === 'STATUS_CHANGED') return statusText(source.status);
   if (event && event.eventType === 'ASSIGNEE_CHANGED') return assigneeText(source.assignedTeacherId, catalog);
   if (event && event.eventType === 'PRIORITY_CHANGED') return priorityText(source.priority);
+  if (event && event.eventType === 'DUPLICATE_CHANGED') {
+    return source.duplicateOfId ? `#${source.duplicateOfId}` : '已清除';
+  }
   return '沒有可顯示的內容';
+}
+
+function weekLabel(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 function FeedbackTimeline({
@@ -245,6 +259,8 @@ export default function AdminStudentFeedbackPage() {
   const [assignees, setAssignees] = useState([]);
   const [assigneeId, setAssigneeId] = useState('');
   const [priorityId, setPriorityId] = useState('');
+  const [duplicateId, setDuplicateId] = useState('');
+  const [weeks, setWeeks] = useState([]);
   const [reply, setReply] = useState('');
   const [note, setNote] = useState('');
   const [notice, setNotice] = useState('');
@@ -335,6 +351,7 @@ export default function AdminStudentFeedbackPage() {
       setDetail(item);
       setAssigneeId(item.assignedTeacherId ? String(item.assignedTeacherId) : '');
       setPriorityId(item.priority || '');
+      setDuplicateId(item.duplicateOfId ? String(item.duplicateOfId) : '');
       setItems((current) => current.map((entry) => (
         String(entry.id) === String(id) ? { ...entry, attention: null } : entry
       )));
@@ -352,12 +369,26 @@ export default function AdminStudentFeedbackPage() {
     load();
   }, [load]);
 
+  const loadWeeks = useCallback(async () => {
+    try {
+      const { ok, data } = await fetchAdminStudentFeedbackWeekly(token);
+      if (!ok) return;
+      setWeeks(Array.isArray(data.weeks) ? data.weeks : []);
+    } catch {
+      setWeeks([]);
+    }
+  }, [token]);
+
   useEffect(() => {
     loadSummary();
     return () => {
       summaryRequest.current += 1;
     };
   }, [loadSummary]);
+
+  useEffect(() => {
+    loadWeeks();
+  }, [loadWeeks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -483,6 +514,7 @@ export default function AdminStudentFeedbackPage() {
     setActionError('');
     setAssigneeId('');
     setPriorityId('');
+    setDuplicateId('');
     setTimeline([]);
     setTimelineTotal(0);
     setTimelineError('');
@@ -521,6 +553,7 @@ export default function AdminStudentFeedbackPage() {
       return;
     }
     const confirmedPriority = detail.priority || '';
+    const confirmedDuplicate = detail.duplicateOfId ? String(detail.duplicateOfId) : '';
     const actionId = actionRequest.current + 1;
     actionRequest.current = actionId;
     setBusy(true);
@@ -536,24 +569,29 @@ export default function AdminStudentFeedbackPage() {
       if (!ok) {
         setActionError(data?.message || '沒有完成');
         setPriorityId(confirmedPriority);
+        setDuplicateId(confirmedDuplicate);
         return;
       }
       if (data?.item && String(data.item.id) === String(caseId)) {
         setDetail(data.item);
         setAssigneeId(data.item.assignedTeacherId ? String(data.item.assignedTeacherId) : '');
         setPriorityId(data.item.priority || '');
+        setDuplicateId(data.item.duplicateOfId ? String(data.item.duplicateOfId) : '');
       } else {
         setPriorityId(confirmedPriority);
+        setDuplicateId(confirmedDuplicate);
       }
       setNotice(data?.notice || '已更新');
       notifyStudentFeedbackAttention();
       load();
       loadSummary();
+      loadWeeks();
       loadTimeline(caseId, { followAll: true });
     } catch {
       if (!stillOnCase()) return;
       setActionError('與伺服器連線發生錯誤');
       setPriorityId(confirmedPriority);
+      setDuplicateId(confirmedDuplicate);
     } finally {
       if (actionId === actionRequest.current) setBusy(false);
     }
@@ -568,7 +606,21 @@ export default function AdminStudentFeedbackPage() {
             學生從「我的帳號」送來的問題與建議。回覆學生看得到；內部備註只給可處理的人員看。附件先不開放。
           </p>
         </div>
-        <Button variant="outline-primary" size="sm" onClick={() => { load(); loadSummary(); }} disabled={loading}>重新整理</Button>
+        <div className="d-flex gap-2">
+          {canManage ? (
+            <Button
+              variant="outline-primary"
+              size="sm"
+              type="button"
+              onClick={() => downloadAdminStudentFeedbackCsv(token, {
+                kind, status, category, priority: priorityFilter, q, assignedTeacherId: assigneeFilter, from, to, sortBy, sortOrder,
+              }).catch((err) => setError(err.message || '無法匯出'))}
+            >
+              匯出 CSV
+            </Button>
+          ) : null}
+          <Button variant="outline-primary" size="sm" onClick={() => { load(); loadSummary(); loadWeeks(); }} disabled={loading}>重新整理</Button>
+        </div>
       </div>
       <section className="mb-3" aria-label="案件統計">
         {summaryLoading && !summary ? (
@@ -596,6 +648,12 @@ export default function AdminStudentFeedbackPage() {
               ))}
             </div>
             <p className="small text-muted mb-0 mt-2">未結案 {summary.unresolved}（待處理與處理中）</p>
+            {weeks.length > 0 ? (
+              <p className="small text-muted mb-0 mt-1">
+                每週（週一起算）：
+                {weeks.map((week) => ` ${weekLabel(week.weekStart)} 新${week.created}／結${week.closed}／重開${week.reopened}`).join('；')}
+              </p>
+            ) : null}
           </>
         ) : null}
       </section>
@@ -702,7 +760,10 @@ export default function AdminStudentFeedbackPage() {
                 </td>
                 <td className="text-nowrap">{formatWhen(item.createdAt)}</td>
                 <td className="text-nowrap">{formatWhen(item.updatedAt)}</td>
-                <td className="text-nowrap">{statusText(item.status)}</td>
+                <td className="text-nowrap">
+                  {statusText(item.status)}
+                  {item.overdue ? <div className="small text-danger">超過處理時限</div> : null}
+                </td>
                 <td className="text-nowrap">{item.kindLabel}</td>
                 <td className="text-nowrap">{item.categoryLabel}</td>
                 <td className="text-nowrap">{item.priorityLabel || '未設定'}</td>
@@ -757,7 +818,11 @@ export default function AdminStudentFeedbackPage() {
           <p className="small text-muted mb-2">
             {detail.studentName} {detail.studentId} · {detail.replyRequested ? '希望得到回覆' : '不要求個別回覆'}
           </p>
-          <p className="small mb-2">分類：{detail.categoryLabel} · 優先級：{detail.priorityLabel || '未設定'}</p>
+          <p className="small mb-2">
+            分類：{detail.categoryLabel} · 優先級：{detail.priorityLabel || '未設定'}
+            {detail.duplicateOfId ? ` · 重複案件 #${detail.duplicateOfId}` : ''}
+            {detail.overdue ? ' · 超過處理時限' : ''}
+          </p>
           <p style={{ whiteSpace: 'pre-wrap' }}>{detail.message}</p>
           {(detail.messages || []).filter((entry) => canManage || entry.visibility === 'public').map((entry) => (
             <article key={entry.id} className="border-top pt-2 mt-2">
@@ -805,6 +870,32 @@ export default function AdminStudentFeedbackPage() {
                   </Form.Select>
                 </Form.Group>
                 <Button type="submit" size="sm" disabled={!canOperate}>更新優先級</Button>
+              </Form>
+              <Form
+                className="d-flex flex-wrap gap-2 align-items-end"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const raw = duplicateId.trim();
+                  if (raw && !/^\d+$/.test(raw)) {
+                    setActionError('重複案件編號不正確');
+                    return;
+                  }
+                  runAction((caseId) => patchAdminStudentFeedback(token, caseId, {
+                    duplicateOfId: raw ? Number(raw) : null,
+                  }));
+                }}
+              >
+                <Form.Group>
+                  <Form.Label htmlFor="student-feedback-duplicate">重複案件</Form.Label>
+                  <Form.Control
+                    id="student-feedback-duplicate"
+                    value={duplicateId}
+                    onChange={(e) => setDuplicateId(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="留白可清除"
+                  />
+                </Form.Group>
+                <Button type="submit" size="sm" disabled={!canOperate}>更新重複案件</Button>
               </Form>
               <Form
                 className="d-flex flex-wrap gap-2 align-items-end"

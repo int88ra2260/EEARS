@@ -61,6 +61,7 @@ const {
   countStudentFeedbackAttention,
   countStaffFeedbackAttention,
   listMyStudentFeedback,
+  buildFeedbackCsv,
 } = require('../services/studentFeedbackService');
 
 const account = {
@@ -804,5 +805,25 @@ describe('studentFeedbackService', () => {
     expect(newOptions.replacements.readerKey).toBe('4');
     expect(assignedOptions.replacements.teacherId).toBe(4);
     await expect(countStaffFeedbackAttention(0)).resolves.toEqual({ newCount: 0, assignedCount: 0 });
+  });
+
+  it('guards spreadsheet formulas in the feedback export', () => {
+    const csv = buildFeedbackCsv([{
+      id: 3,
+      createdAt: '2026-11-01T00:00:00.000Z',
+      closedAt: null,
+      statusLabel: '待處理',
+      priorityLabel: '未設定',
+      kindLabel: '問題回報',
+      categoryLabel: '其他',
+      studentId: 'B123',
+      studentName: '王小明',
+      email: 'student@example.com',
+      duplicateOfId: null,
+      message: '=cmd|" /C calc"!A0',
+    }]);
+    expect(csv.charCodeAt(0)).toBe(0xfeff);
+    expect(csv).toContain("\"'=cmd|\"\" /C calc\"\"!A0\"");
+    expect(csv).not.toContain(',=cmd|');
   });
 });

@@ -111,6 +111,36 @@ export async function fetchAdminStudentFeedbackEvents(token, id, query = {}) {
   return { ok: res.ok, status: res.status, data };
 }
 
+export async function fetchAdminStudentFeedbackWeekly(token) {
+  const res = await staffRequest(token, '/api/admin/student-feedback/weekly');
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function downloadAdminStudentFeedbackCsv(token, query) {
+  const params = new URLSearchParams();
+  Object.entries(query || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
+  });
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  const res = await staffRequest(token, `/api/admin/student-feedback/export${suffix}`);
+  if (!res.ok) {
+    const data = await parseJson(res);
+    const err = new Error(data?.message || '無法匯出');
+    err.status = res.status;
+    throw err;
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'student-feedback.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function fetchFeedbackAssignees(token) {
   const res = await staffRequest(token, '/api/admin/student-feedback/assignees');
   const data = await parseJson(res);
