@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import PageHeader from '../components/layout/PageHeader';
 import { createSpeakingAdaptiveSession, fetchNextSpeakingTask, fetchSpeakingTasks, submitSpeakingAttempt } from '../services/speakingDiagnosticApi';
 import { saveSpeakingPortfolioAttempt } from '../services/speakingPortfolioStore';
+import useStudentSession from '../hooks/useStudentSession';
 import { englishTableFollowUp, englishTablePhraseTips } from '../utils/englishTableFollowUp';
 import { getPhrasebookItemById } from '../data/learningContent/phrasebookItems';
 import { SPEAKING_TASKS } from '../data/speakingDiagnostic/readAloudTasks';
@@ -339,7 +340,7 @@ function activityPhaseCopy(phase) {
       title: 'English Table Speaking Review',
       lead: '活動後再答一次。系統會留下你說的第一句，給 Leader 當開場，不是分數。',
       label: '活動後複習',
-      context: '請填學號，Leader 才對得到你。現場討論的勾選仍在活動結束後另外做。',
+      context: '用登入學號留下這次回答。Leader 才對得到你。現場討論的勾選仍在活動結束後另外做。',
       statusDone: '已完成活動後複習',
     };
   }
@@ -348,7 +349,7 @@ function activityPhaseCopy(phase) {
       title: 'English Table Speaking Warm-up',
       lead: '先練當天題目。錄完會看到系統聽到的句子，並給你一句現場可以接的話。',
       label: '會前練習',
-      context: '請填學號。Leader 只會看到你這組的第一句，用來開場，不是分數。',
+      context: '用登入學號。Leader 只會看到你這組的第一句，用來開場，不是分數。',
       statusDone: '已完成會前練習',
     };
   }
@@ -370,9 +371,13 @@ export default function SpeakingDiagnosticPage() {
   const activityDate = queryParams.get('date') || '';
   const activityQuestionNumber = queryParams.get('question') || '';
   const pageCopy = activityPhaseCopy(activityPhase);
+  const session = useStudentSession();
+  const loggedInStudent = session?.student || null;
+  const loggedInStudentId = loggedInStudent?.studentId || '';
+  const mailboxReady = Boolean(loggedInStudent?.emailVerifiedAt);
   const [tasks, setTasks] = useState(SPEAKING_TASKS.map((task) => ({ ...task, taskKey: task.id })));
   const [selectedTaskKey, setSelectedTaskKey] = useState(requestedTaskKey || 'ra-a2-campus-library');
-  const [studentId, setStudentId] = useState('');
+  const [studentId, setStudentId] = useState(loggedInStudentId);
   const [transcript, setTranscript] = useState('');
   const [recording, setRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
@@ -384,7 +389,7 @@ export default function SpeakingDiagnosticPage() {
   const [adaptiveSession, setAdaptiveSession] = useState(null);
   const [adaptiveStarting, setAdaptiveStarting] = useState(false);
   const [speechRecognitionAvailable, setSpeechRecognitionAvailable] = useState(false);
-  const [speechStatus, setSpeechStatus] = useState('idle');
+  const [, setSpeechStatus] = useState('idle');
   const [, setInterimTranscript] = useState('');
   const [speechError, setSpeechError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -399,6 +404,10 @@ export default function SpeakingDiagnosticPage() {
   const transcriptRef = useRef('');
   const chunksRef = useRef([]);
   const startedAtRef = useRef(null);
+
+  useEffect(() => {
+    if (loggedInStudentId) setStudentId(loggedInStudentId);
+  }, [loggedInStudentId]);
 
   useEffect(() => {
     setSpeechRecognitionAvailable(Boolean(getSpeechRecognitionConstructor()));
@@ -570,7 +579,7 @@ export default function SpeakingDiagnosticPage() {
       const spokenWordEstimate = nextTranscriptWordCount || 0;
       const data = await submitSpeakingAttempt({
         taskKey: selectedTask.taskKey || selectedTask.id,
-        studentId,
+        studentId: loggedInStudentId || studentId,
         clientSessionId: getClientSessionId(),
         adaptiveSessionUid: adaptiveSession?.sessionUid,
         audioBlob: blob,
@@ -644,7 +653,19 @@ export default function SpeakingDiagnosticPage() {
     }
   }
 
+  const practiceLoginHref = `/student/login?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`;
+  const englishTableNeedsLogin = isEnglishTableTask && !loggedInStudentId;
+  const englishTableNeedsMailbox = isEnglishTableTask && Boolean(loggedInStudentId) && !mailboxReady;
+
   const startRecording = async () => {
+    if (englishTableNeedsLogin) {
+      setError('請先登入學生帳號。練習會用登入學號留下句子，Leader 才對得到你。');
+      return;
+    }
+    if (englishTableNeedsMailbox) {
+      setError('請先到我的帳號確認收信信箱，再開始練習。');
+      return;
+    }
     setError('');
     setSpeechError('');
     setSpeechStatus('idle');
@@ -752,7 +773,7 @@ export default function SpeakingDiagnosticPage() {
     try {
       const data = await createSpeakingAdaptiveSession({
         clientSessionId: getClientSessionId(),
-        studentId,
+        studentId: loggedInStudentId || studentId,
         initialLevel: selectedTask?.level || 'B1',
       });
       setAdaptiveSession(data);
@@ -771,7 +792,7 @@ export default function SpeakingDiagnosticPage() {
   const breadcrumbs = [
     { label: '首頁', path: '/' },
     { label: '學習資源', path: '/learning-resources' },
-    { label: '口說診斷' },
+    { label: sourceContext === 'english-table' ? pageCopy.label : '口說診斷' },
   ];
 
   return (
@@ -786,18 +807,40 @@ export default function SpeakingDiagnosticPage() {
         <section className="speaking-tool">
           <div className="speaking-tool__sidebar">
             <div className="speaking-side-section">
-              <label className="form-label fw-semibold" htmlFor="speaking-student-id">
-                {isEnglishTableTask ? '學號（請填，Leader 才對得到你）' : '學號（選填）'}
-              </label>
-              <input
-                id="speaking-student-id"
-                className="form-control"
-                value={studentId}
-                onChange={(event) => setStudentId(event.target.value)}
-                placeholder={isEnglishTableTask ? '例如 B141030028' : '例如 412345678'}
-                inputMode={isEnglishTableTask ? 'text' : 'numeric'}
-                autoCapitalize="characters"
-              />
+              {loggedInStudentId ? (
+                <>
+                  <div className="form-label fw-semibold">登入學號</div>
+                  <p className="mb-1" id="speaking-student-id">{loggedInStudentId}</p>
+                  <p className="text-muted small mb-0">
+                    {isEnglishTableTask
+                      ? '練習會記在這個學號。Leader 用它對到你的組，不用再手填。'
+                      : '這次紀錄會記在這個學號。'}
+                  </p>
+                  {englishTableNeedsMailbox ? (
+                    <Link className="btn btn-outline-primary btn-sm mt-2" to={`/student/account?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`}>
+                      先確認收信信箱
+                    </Link>
+                  ) : null}
+                </>
+              ) : isEnglishTableTask ? (
+                <>
+                  <div className="form-label fw-semibold">請先登入</div>
+                  <p className="text-muted small">登入後才開始。系統用帳號學號留下句子，該組 Leader 才看得到。</p>
+                  <Link className="btn btn-primary btn-sm" to={practiceLoginHref}>登入後練習</Link>
+                </>
+              ) : (
+                <>
+                  <label className="form-label fw-semibold" htmlFor="speaking-student-id">學號（選填）</label>
+                  <input
+                    id="speaking-student-id"
+                    className="form-control"
+                    value={studentId}
+                    onChange={(event) => setStudentId(event.target.value)}
+                    placeholder="例如 412345678"
+                    inputMode="numeric"
+                  />
+                </>
+              )}
             </div>
 
             {showAdaptiveControls ? (
@@ -824,6 +867,7 @@ export default function SpeakingDiagnosticPage() {
               </div>
             ) : null}
 
+            {sourceContext === 'english-table' ? null : (
             <details className="speaking-task-picker">
               <summary>自行選題練習</summary>
               {TASK_LEVELS.map((level) => {
@@ -870,6 +914,7 @@ export default function SpeakingDiagnosticPage() {
                 );
               })}
             </details>
+            )}
           </div>
 
           <div className="speaking-tool__main">
@@ -891,7 +936,7 @@ export default function SpeakingDiagnosticPage() {
                   className={`speaking-mic-button${recording ? ' speaking-mic-button--recording' : ''}`}
                   type="button"
                   onClick={recording ? stopRecording : startRecording}
-                  disabled={submitting}
+                  disabled={submitting || englishTableNeedsLogin || englishTableNeedsMailbox}
                   aria-label={recording ? '停止錄音' : '開始錄音'}
                 >
                   {recording ? <Stop size={38} weight="fill" /> : <Microphone size={46} />}
@@ -954,7 +999,9 @@ export default function SpeakingDiagnosticPage() {
               <div className="speaking-stage-footer">
                 <span><Waveform size={18} /> {recording ? '錄音中' : submitting ? '分析中' : result ? '已完成' : audioBlob ? '已錄音' : '尚未錄音'}</span>
                 <span>{durationMs ? formatMs(durationMs) : '0.0 秒'} / {selectedTask?.estimatedSeconds || 15} 秒</span>
-                <span><ChartBar size={18} /> {result ? formatPercent(overallPercent) : submitting ? '分析中' : '等待作答'}</span>
+                {isEnglishTableTask ? null : (
+                  <span><ChartBar size={18} /> {result ? formatPercent(overallPercent) : submitting ? '分析中' : '等待作答'}</span>
+                )}
               </div>
             </div>
 

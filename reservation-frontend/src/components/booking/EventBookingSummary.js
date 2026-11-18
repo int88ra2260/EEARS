@@ -9,10 +9,12 @@ import { getEventLocationDisplay } from '../../utils/eventLocation';
 import { useLanguage } from '../../context/LanguageContext';
 import EventDeadlineHint from '../events/EventDeadlineHint';
 import EnglishTableTopicPanel from '../events/EnglishTableTopicPanel';
+import EnglishTablePracticeGuide from '../events/EnglishTablePracticeGuide';
 import StatusBadge from '../ui/StatusBadge';
 import {
   DEFAULT_EVENT_TYPE_CODE,
 } from '../../constants/eventTypeCatalog';
+import { isEnglishTableEventType } from '../../utils/eventCapacityFields';
 import {
   getCachedPublicEventTypes,
   resolveEventTypeDisplayName,
@@ -117,6 +119,9 @@ export default function EventBookingSummary({
         </div>
       </div>
 
+      {isEnglishTableEventType(event.eventType) ? (
+        <EnglishTablePracticeGuide variant="before-booking" />
+      ) : null}
       <EnglishTableTopicPanel
         date={event.date}
         eventType={event.eventType}

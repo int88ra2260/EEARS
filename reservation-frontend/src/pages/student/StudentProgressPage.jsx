@@ -101,7 +101,7 @@ function SpeakingPracticeSection({ practice }) {
           ))}
         </ul>
       ) : (
-        <p className="text-muted small mb-0">這幾場 English Table 還沒有留下練習句子。打開預約裡的「會前練習」，先說一次。</p>
+        <p className="text-muted small mb-0">還沒有留下練習句子。可以從預約裡的「會前練習」，或 English Table 主題頁先說一次。登入後的句子會留在這裡。</p>
       )}
     </section>
   );

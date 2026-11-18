@@ -6,6 +6,8 @@ import { calculateReservationTime } from '../../utils/reservationTime';
 import { formatBookingCode } from '../../utils/bookingCode';
 import { eventTypeFilterToQueryParam } from '../../utils/eventTypeQuery';
 import EnglishTableTopicPanel from '../events/EnglishTableTopicPanel';
+import EnglishTablePracticeGuide from '../events/EnglishTablePracticeGuide';
+import { isEnglishTableEventType } from '../../utils/eventCapacityFields';
 import CheckinQrCanvas from '../reservations/CheckinQrCanvas';
 
 export default function BookingSuccessView({
@@ -109,6 +111,9 @@ export default function BookingSuccessView({
         </div>
       </div>
 
+      {isEnglishTableEventType(safeEvent.eventType) ? (
+        <EnglishTablePracticeGuide variant="after-booking" />
+      ) : null}
       <EnglishTableTopicPanel
         date={safeEvent.date}
         eventType={safeEvent.eventType}

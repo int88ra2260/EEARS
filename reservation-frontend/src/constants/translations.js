@@ -513,7 +513,7 @@ export const translations = {
     },
     etTopics: {
       pageTitle: '本學期主題與題目',
-      pageLead: '115-1 English Table 各週主題都列在這裡。預約還沒開放也可以先看題目、先準備。',
+      pageLead: '115-1 English Table 各週主題都列在這裡。每題可先做會前練習：登入後錄音，會看到自己的句子和一句現場可以接的話，並留給該組 Leader 開場，不是分數。活動後用同一題再錄，可和會前比較。',
       thisWeek: '本週',
       today: '今天',
       backToEnglishTable: '返回 English Table',
@@ -1703,7 +1703,7 @@ export const translations = {
     },
     etTopics: {
       pageTitle: 'Semester topics',
-      pageLead: 'Every 115-1 English Table topic is listed here. You can read the questions before booking opens.',
+      pageLead: 'Every 115-1 English Table topic is listed here. Sign in and record a warm-up: you will see the sentence we heard and one line to continue. Your group leader uses that line to open, and it is not a score. Record the same question after the session to compare.',
       thisWeek: 'This week',
       today: 'Today',
       backToEnglishTable: 'Back to English Table',

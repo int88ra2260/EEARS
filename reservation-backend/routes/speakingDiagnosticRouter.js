@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { authMiddleware, requirePermission, P } = require('../middlewares/auth');
+const { optionalStudentAuth } = require('../middlewares/studentAuth');
 const { createMulterUploadErrorHandler } = require('../middlewares/multerUploadError');
 const {
   listSpeakingTasks,
@@ -122,9 +123,14 @@ router.post(
   '/speaking-diagnostic/attempts',
   upload.single('audio'),
   createMulterUploadErrorHandler({ logLabel: 'Speaking diagnostic upload failed' }),
+  optionalStudentAuth,
   async (req, res, next) => {
     try {
-      const data = await submitSpeakingAttempt({ body: req.body || {}, file: req.file });
+      const data = await submitSpeakingAttempt({
+        body: req.body || {},
+        file: req.file,
+        studentAccount: req.studentAccount || null,
+      });
       return res.status(201).json({ success: true, data, requestId: req.requestId });
     } catch (err) {
       if (err.status) {

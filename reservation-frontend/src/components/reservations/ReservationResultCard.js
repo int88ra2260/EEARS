@@ -11,6 +11,8 @@ import StatusBadge from '../ui/StatusBadge';
 import { formatBookingCode } from '../../utils/bookingCode';
 import { reservationTiming } from '../../utils/reservationRecordGroups';
 import EnglishTableTopicPanel from '../events/EnglishTableTopicPanel';
+import EnglishTablePracticeGuide from '../events/EnglishTablePracticeGuide';
+import { isEnglishTableEventType } from '../../utils/eventCapacityFields';
 import CheckinQrCanvas from './CheckinQrCanvas';
 import './ReservationResultCard.css';
 
@@ -80,6 +82,9 @@ export default function ReservationResultCard({
           <span>地點：{record.location || '地點待公告'}</span>
         </div>
         <div className="text-muted small mt-1">{statusHelper}</div>
+        {isEnglishTableEventType(record.eventType) ? (
+          <EnglishTablePracticeGuide variant="reservation" />
+        ) : null}
         <EnglishTableTopicPanel
           date={record.date}
           eventType={record.eventType}

@@ -205,16 +205,12 @@ async function getStudentProgressRead(rawCtx) {
   const activities = buildActivitySection(reservations);
   const hasEnglishTable = reservations.some((row) => row.eventType === EVENT_TYPES.ENGLISH_TABLE);
   let speakingPractice = null;
-  if (hasEnglishTable) {
-    try {
-      speakingPractice = await listEnglishTablePracticeItems({
-        studentId: ctx.studentId,
-        reservations,
-      });
-    } catch (err) {
-      console.error('Student progress speaking practice failed:', err.message);
-      speakingPractice = null;
-    }
+  try {
+    const practice = await listEnglishTablePracticeItems({ studentId: ctx.studentId });
+    if (hasEnglishTable || practice.items.length) speakingPractice = practice;
+  } catch (err) {
+    console.error('Student progress speaking practice failed:', err.message);
+    speakingPractice = null;
   }
 
   const hasAnyRecord = reservations.length > 0
@@ -222,7 +218,8 @@ async function getStudentProgressRead(rawCtx) {
     || courses.length > 0
     || englishTestRegistrations.length > 0
     || bestepScores.length > 0
-    || bestepAttendance.length > 0;
+    || bestepAttendance.length > 0
+    || (speakingPractice?.items?.length > 0);
 
   return {
     found: hasAnyRecord,

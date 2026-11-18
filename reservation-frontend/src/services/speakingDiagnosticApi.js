@@ -1,4 +1,5 @@
 import { fetchClient } from '../utils/fetchClient';
+import { withStudentAuth } from '../utils/studentSession';
 
 const TASKS_URL = '/api/speaking-diagnostic/tasks';
 const ATTEMPTS_URL = '/api/speaking-diagnostic/attempts';
@@ -75,10 +76,10 @@ export async function submitSpeakingAttempt(payload) {
   if (payload.clientFeatures) form.set('clientFeatures', JSON.stringify(payload.clientFeatures));
   form.set('audio', payload.audioBlob, payload.audioFileName || 'speaking-attempt.webm');
 
-  const res = await fetchClient(ATTEMPTS_URL, {
+  const res = await fetchClient(ATTEMPTS_URL, withStudentAuth({
     method: 'POST',
     body: form,
-  });
+  }));
   return parseEnvelope(res, '送出口說錄音失敗');
 }
 

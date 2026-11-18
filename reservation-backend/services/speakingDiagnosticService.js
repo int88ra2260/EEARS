@@ -8,6 +8,7 @@ const { transcribeSpeakingAudio } = require('../scripts/speakingWhisperWorkerHos
 const { SPEAKING_TASKS } = require('../constants/speakingDiagnosticTaskBank');
 const { describePracticeGain } = require('./etGrouping/etPracticeProgress');
 const { buildEnglishTablePracticeNote } = require('./etGrouping/englishTablePracticeNote');
+const { resolveSpeakingStudentId } = require('./speakingAttemptIdentity');
 
 const ANALYSIS_VERSION = 'v0';
 const CLIENT_SESSION_RE = /^[a-zA-Z0-9_-]{4,64}$/;
@@ -1617,7 +1618,7 @@ function resolveAttemptTranscript(browserTranscript, whisperText, whisperSource)
   return { transcript: null, transcriptSource: null };
 }
 
-async function submitSpeakingAttempt({ body, file }) {
+async function submitSpeakingAttempt({ body, file, studentAccount = null }) {
   await ensureSeedTasks();
   if (!file) {
     const err = new Error('請上傳錄音檔');
@@ -1644,6 +1645,16 @@ async function submitSpeakingAttempt({ body, file }) {
   }
 
   const durationMs = clampNumber(body.durationMs, { min: 0, max: 10 * 60 * 1000 });
+  const clientFeatures = parseClientFeatures(body.clientFeatures);
+  const attemptContext = normalizeAttemptContext(clientFeatures, task);
+  const linkedToEnglishTable = attemptContext.source === 'english-table'
+    || attemptContext.linkedActivity === 'English Table'
+    || task.linkedActivity === 'English Table';
+  const studentId = normalizeStudentId(resolveSpeakingStudentId({
+    bodyStudentId: body.studentId,
+    studentAccount,
+    linkedToEnglishTable,
+  }));
   const browserTranscript = String(body.transcript || '').trim().slice(0, 8000) || null;
   const adaptiveSessionUid = String(body.adaptiveSessionUid || '').trim() || null;
   if (adaptiveSessionUid) {
@@ -1661,7 +1672,6 @@ async function submitSpeakingAttempt({ body, file }) {
       throw err;
     }
   }
-  const clientFeatures = parseClientFeatures(body.clientFeatures);
   const attemptUid = uuidv4();
   const whisperPromise = browserTranscript
     ? Promise.resolve(null)
@@ -1701,7 +1711,7 @@ async function submitSpeakingAttempt({ body, file }) {
   const row = await SpeakingAttempt.create({
     attemptUid,
     taskId: task.id,
-    studentId: normalizeStudentId(body.studentId),
+    studentId,
     clientSessionId,
     adaptiveSessionUid,
     submittedAt: new Date(),
@@ -1757,7 +1767,7 @@ async function englishTablePracticeComparison({ studentId, transcript, features 
   const linked = context.linkedActivity === 'English Table' || context.source === 'english-table';
   if (!linked) return null;
   if (!studentId) {
-    return { gained: null, message: '填了學號，活動後再練一次，才能和會前那次比較。' };
+    return { gained: null, message: '請先登入再練活動後這一次，才能和會前比較。' };
   }
   const rows = await SpeakingAttempt.findAll({
     where: { studentId },
