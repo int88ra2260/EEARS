@@ -56,6 +56,16 @@ function barPayload(entry) {
   return entry?.payload || entry || {};
 }
 
+function CohortCountButton({ count, rate, onClick }) {
+  const label = `${formatNum(count)}（${formatPct(rate)}）`;
+  if (!count) return label;
+  return (
+    <button type="button" className="btn btn-link btn-sm p-0" onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+
 export default function LearningAnalyticsOverviewPage() {
   const {
     meta,
@@ -116,6 +126,7 @@ export default function LearningAnalyticsOverviewPage() {
       skill: listRequest.skill,
       department: listRequest.department,
       level: listRequest.level,
+      grade: listRequest.grade,
       limit: 40,
       offset: listRequest.offset || 0,
     }), { signal: controller.signal })
@@ -154,6 +165,7 @@ export default function LearningAnalyticsOverviewPage() {
     [growth]
   );
   const departmentChart = ability?.byDepartment || [];
+  const cohortLevels = ability?.byCohortLevel || [];
   const resourceChart = useMemo(
     () => (resources?.participation || []).slice(0, 8).map((row) => ({
       name: row.label,
@@ -300,6 +312,68 @@ export default function LearningAnalyticsOverviewPage() {
                       />
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+              </div>
+            ) : null}
+            {cohortLevels.length ? (
+              <div className="la-panel mt-3">
+                <LearningAnalyticsPanelHeader
+                  title="各入學年度的 B1、B1+ 與尚無英檢"
+                  lead="B1 是目前最佳能力 GSE 43–50，B1+ 是 GSE 51–58。百分比的分母是該入學年度的快照學生。尚無英檢是沒有有效英檢成績。學測不算。點人數可看名單。"
+                />
+                <div className="table-responsive">
+                  <table className="table table-sm align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>入學年度</th>
+                        <th className="text-end">人數</th>
+                        <th className="text-end">B1</th>
+                        <th className="text-end">B1+</th>
+                        <th className="text-end">尚無英檢</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cohortLevels.map((row) => (
+                        <tr key={row.cohort}>
+                          <td>{row.cohort}</td>
+                          <td className="text-end">{formatNum(row.total)}</td>
+                          <td className="text-end">
+                            <CohortCountButton
+                              count={row.b1}
+                              rate={row.b1Rate}
+                              onClick={() => openList({
+                                slice: 'cohort_b1',
+                                grade: row.cohort,
+                                title: `${row.cohort} B1`,
+                              })}
+                            />
+                          </td>
+                          <td className="text-end">
+                            <CohortCountButton
+                              count={row.b1Plus}
+                              rate={row.b1PlusRate}
+                              onClick={() => openList({
+                                slice: 'cohort_b1_plus',
+                                grade: row.cohort,
+                                title: `${row.cohort} B1+`,
+                              })}
+                            />
+                          </td>
+                          <td className="text-end">
+                            <CohortCountButton
+                              count={row.noExam}
+                              rate={row.noExamRate}
+                              onClick={() => openList({
+                                slice: 'cohort_no_exam',
+                                grade: row.cohort,
+                                title: `${row.cohort} 尚無英檢`,
+                              })}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             ) : null}

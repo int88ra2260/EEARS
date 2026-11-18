@@ -14,6 +14,8 @@ const {
 } = require('./learningAnalyticsFilterUtils');
 const { resolveBaselineCefrBand } = require('./baselineAbilityUtils');
 const { getCefrRank } = require('../learningJourney/utils/cefr');
+const { gseBandForScore } = require('./gseScoreMappingService');
+const { examGse } = require('./b1PlusWatch');
 
 const CONTRACT_VERSION = 'learning-analytics.overview.v1';
 
@@ -51,7 +53,12 @@ const LIST_SLICES = new Set([
   'coverage_post',
   'coverage_both',
   'comparable',
+  'cohort_b1',
+  'cohort_b1_plus',
+  'cohort_no_exam',
 ]);
+const COHORT_LEVEL_SLICES = new Set(['cohort_b1', 'cohort_b1_plus', 'cohort_no_exam']);
+const MISSING_COHORT = '未提供';
 const LIST_LIMIT_DEFAULT = 40;
 const LIST_LIMIT_MAX = 100;
 
@@ -329,12 +336,79 @@ function buildGrowthView(totalStudents, bySkill) {
   });
 }
 
+function flagged(value) {
+  return value === true || value === 1 || value === '1';
+}
+
+function cohortLabel(student) {
+  const value = String(student?.cohort ?? '').trim();
+  return value || MISSING_COHORT;
+}
+
+function bestMappedGse(exams) {
+  let best = null;
+  for (const exam of exams || []) {
+    if (!exam || flagged(exam.excludeFlag) || flagged(exam.registeredNoScoreFlag)) continue;
+    if (String(exam.instrument || '').toUpperCase() === 'GSAT') continue;
+    const skill = String(exam.skill || '').toLowerCase();
+    if (!SKILL_KEYS.includes(skill)) continue;
+    const gse = examGse(exam);
+    if (!Number.isFinite(gse)) continue;
+    if (best == null || gse > best) best = gse;
+  }
+  return best;
+}
+
+function cohortLevelOf(student, exams) {
+  if (!student?.hasValidExam) return 'no_exam';
+  const band = gseBandForScore(bestMappedGse(exams));
+  if (band?.subLevel === 'B1') return 'b1';
+  if (band?.subLevel === 'B1_PLUS') return 'b1_plus';
+  return 'other';
+}
+
+function compareCohortRows(a, b) {
+  const aMissing = a.cohort === MISSING_COHORT;
+  const bMissing = b.cohort === MISSING_COHORT;
+  if (aMissing !== bMissing) return aMissing ? 1 : -1;
+  const aNum = Number(a.cohort);
+  const bNum = Number(b.cohort);
+  if (Number.isFinite(aNum) && Number.isFinite(bNum) && aNum !== bNum) return bNum - aNum;
+  return String(a.cohort).localeCompare(String(b.cohort), 'zh-Hant');
+}
+
+function buildCohortLevelTable(students, exams) {
+  const grouped = examsByStudent(exams);
+  const rows = new Map();
+  for (const student of students || []) {
+    const cohort = cohortLabel(student);
+    if (!rows.has(cohort)) {
+      rows.set(cohort, { cohort, total: 0, b1: 0, b1Plus: 0, noExam: 0 });
+    }
+    const row = rows.get(cohort);
+    row.total += 1;
+    const level = cohortLevelOf(student, grouped.get(studentKey(student.studentId)) || []);
+    if (level === 'b1') row.b1 += 1;
+    else if (level === 'b1_plus') row.b1Plus += 1;
+    else if (level === 'no_exam') row.noExam += 1;
+  }
+  return [...rows.values()]
+    .map((row) => ({
+      ...row,
+      b1Rate: rateOf(row.b1, row.total),
+      b1PlusRate: rateOf(row.b1Plus, row.total),
+      noExamRate: rateOf(row.noExam, row.total),
+    }))
+    .sort(compareCohortRows);
+}
+
 function buildDashboard({ students, exams, baseline, growthBySkill, resourceParticipation, resourceRanking }) {
   const ability = buildAbilitySummary(students, exams);
   return {
     ability: {
       ...ability,
       byDepartment: buildDepartmentB2(students),
+      byCohortLevel: buildCohortLevelTable(students, exams),
     },
     growth: {
       baseline: baseline || [],
@@ -396,6 +470,13 @@ function matchesSlice(student, exams, slice, query) {
   if (slice === 'coverage_pre') return hasPhase(exams, PRE_TEST_PHASES);
   if (slice === 'coverage_post') return hasPhase(exams, POST_TEST_PHASES);
   if (slice === 'coverage_both') return hasPhase(exams, PRE_TEST_PHASES) && hasPhase(exams, POST_TEST_PHASES);
+  if (COHORT_LEVEL_SLICES.has(slice)) {
+    if (cohortLabel(student) !== String(query.grade || '').trim()) return false;
+    const level = cohortLevelOf(student, exams);
+    if (slice === 'cohort_b1') return level === 'b1';
+    if (slice === 'cohort_b1_plus') return level === 'b1_plus';
+    return level === 'no_exam';
+  }
   return false;
 }
 
@@ -561,6 +642,11 @@ async function listOverviewStudents(query = {}) {
     err.status = 400;
     throw err;
   }
+  if (COHORT_LEVEL_SLICES.has(slice) && !String(query.grade || '').trim()) {
+    const err = new Error('請指定入學年度');
+    err.status = 400;
+    throw err;
+  }
 
   const snapshotVersion = query.snapshot_version || query.snapshotVersion || await resolveLatestSnapshotVersion();
   const { students, exams } = await loadScopedAnalytics(query, snapshotVersion);
@@ -586,6 +672,7 @@ async function listOverviewStudents(query = {}) {
     skill: query.skill || null,
     department: query.department || null,
     level: query.level || null,
+    grade: query.grade || null,
     total: matched.length,
     limit,
     offset,
@@ -616,6 +703,7 @@ module.exports = {
   buildDepartmentB2,
   buildCoverage,
   buildGrowthView,
+  buildCohortLevelTable,
   labelResource,
   RESOURCE_LABELS,
 };

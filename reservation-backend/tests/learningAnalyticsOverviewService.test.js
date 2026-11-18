@@ -8,6 +8,7 @@ const {
   buildDepartmentB2,
   buildCoverage,
   buildGrowthView,
+  buildCohortLevelTable,
 } = require('../services/learningAnalytics/learningAnalyticsOverviewService');
 
 describe('learningAnalyticsOverviewService', () => {
@@ -76,5 +77,45 @@ describe('learningAnalyticsOverviewService', () => {
     ]);
     expect(rows.find((row) => row.department === '外文').count).toBe(1);
     expect(rows.find((row) => row.department === '未提供').total).toBe(1);
+  });
+
+  it('counts B1, B1+ and students without a valid exam by admission year', () => {
+    const students = [
+      { studentId: 'A', cohort: '113', hasValidExam: true },
+      { studentId: 'B', cohort: '113', hasValidExam: true },
+      { studentId: 'C', cohort: '113', hasValidExam: false },
+      { studentId: 'D', cohort: '114', hasValidExam: true },
+      { studentId: 'E', cohort: '', hasValidExam: false },
+    ];
+    const exams = [
+      { studentId: 'A', skill: 'listening', rawScore: 80, instrument: 'BESTEP', examDate: '2025-06-01' },
+      { studentId: 'B', skill: 'listening', rawScore: 90, instrument: 'BESTEP', examDate: '2025-06-01' },
+      { studentId: 'B', skill: 'reading', rawScore: 100, instrument: 'BESTEP', examDate: '2025-06-01' },
+      { studentId: 'D', skill: 'listening', rawScore: 90, instrument: 'BESTEP', examDate: '2025-06-01' },
+      { studentId: 'D', skill: 'listening', rawScore: 120, instrument: 'GSAT', examDate: '2024-01-01' },
+    ];
+    const rows = buildCohortLevelTable(students, exams);
+    expect(rows.map((row) => row.cohort)).toEqual(['114', '113', '未提供']);
+    expect(rows.find((row) => row.cohort === '113')).toMatchObject({
+      total: 3,
+      b1: 1,
+      b1Plus: 0,
+      noExam: 1,
+    });
+    expect(rows.find((row) => row.cohort === '114')).toMatchObject({
+      total: 1,
+      b1: 0,
+      b1Plus: 1,
+      noExam: 0,
+      b1PlusRate: 1,
+    });
+    expect(rows.find((row) => row.cohort === '未提供')).toMatchObject({
+      total: 1,
+      noExam: 1,
+      noExamRate: 1,
+    });
+    const year113 = rows.find((row) => row.cohort === '113');
+    expect(year113.b1Rate).toBeCloseTo(1 / 3, 4);
+    expect(year113.noExamRate).toBeCloseTo(1 / 3, 4);
   });
 });
