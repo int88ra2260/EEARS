@@ -4,7 +4,7 @@ const { SpeakingAttempt, SpeakingTask } = require('../models');
 const { EVENT_TYPES } = require('../constants/eventTypes');
 const { buildEnglishTablePracticeNote } = require('./etGrouping/englishTablePracticeNote');
 
-const PRACTICE_DISCLAIMER = '這裡只列出你用同一組學號、姓名與 Email 預約過的 English Table。留下的是練習句子和建議說法，沒有錄音，也不是成績。';
+const PRACTICE_DISCLAIMER = '這裡留下你登入後在 English Table 題目說過的句子和建議說法。沒有錄音，也不是成績。沒有預約的練習也會留在這裡。';
 const ATTEMPT_SCAN_LIMIT = 200;
 const PUBLIC_ITEM_LIMIT = 40;
 
@@ -136,14 +136,26 @@ async function loadMatchingAttempts(studentId, allowedDates) {
     .filter((item) => item && allowedDates.has(item.activityDate));
 }
 
-async function listEnglishTablePracticeItems({ studentId, reservations }) {
-  const allowedDates = englishTableDates(reservations);
-  if (!allowedDates.size) {
-    return { items: [], disclaimer: PRACTICE_DISCLAIMER };
-  }
-  const matched = await loadMatchingAttempts(studentId, allowedDates);
+async function listEnglishTablePracticeItems({ studentId }) {
+  const id = practiceStudentId(studentId);
+  if (!id) return { items: [], disclaimer: PRACTICE_DISCLAIMER };
+  const rows = await SpeakingAttempt.findAll({
+    where: { studentId: id },
+    attributes: ['attemptUid', 'transcript', 'submittedAt', 'features'],
+    include: [{
+      model: SpeakingTask,
+      as: 'task',
+      attributes: ['prompt'],
+      required: false,
+    }],
+    order: [['submittedAt', 'DESC']],
+    limit: ATTEMPT_SCAN_LIMIT,
+  });
+  const items = rows
+    .map((row) => toPublicAttempt(row.toJSON ? row.toJSON() : row))
+    .filter(Boolean);
   return {
-    items: sortForReading(keepLatestPair(matched)),
+    items: sortForReading(keepLatestPair(items)),
     disclaimer: PRACTICE_DISCLAIMER,
   };
 }
