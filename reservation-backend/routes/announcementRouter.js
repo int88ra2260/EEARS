@@ -8,12 +8,7 @@ const router = express.Router();
 
 router.use(publicAnnouncementLimiter);
 
-router.get('/preview/:token', (req, res) => {
-  res.status(501).json({
-    error: 'preview_token_not_implemented',
-    message: '公開預覽 token 尚未啟用（請使用後台編輯預覽）',
-  });
-});
+router.get('/preview/:token', announcementController.preview);
 
 router.get('/', announcementController.list);
 router.get('/:idOrSlug', announcementController.getById);

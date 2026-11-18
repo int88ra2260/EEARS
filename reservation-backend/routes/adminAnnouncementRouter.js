@@ -18,6 +18,7 @@ router.post('/bulk-action', adminAnnouncementController.bulkAction);
 router.get('/:id/revisions', adminAnnouncementController.getRevisions);
 router.post('/:id/restore-revision/:revisionId', adminAnnouncementController.postRestoreRevision);
 
+router.post('/:id/preview-token', adminAnnouncementController.postPreviewToken);
 router.post('/:id/publish', adminAnnouncementController.postPublish);
 router.post('/:id/unpublish', adminAnnouncementController.postUnpublish);
 router.post('/:id/archive', adminAnnouncementController.postArchive);

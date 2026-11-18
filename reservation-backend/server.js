@@ -334,6 +334,12 @@ sequelize.authenticate()
         } catch (error) {
           logger.error('定時任務執行錯誤', error);
         }
+        try {
+          const announcementService = require('./services/announcementService');
+          await announcementService.promoteDueScheduledAnnouncements();
+        } catch (error) {
+          logger.error('公告排程發布未完成', error);
+        }
       }, cronInterval);
       
       logger.simple.info('⏰ 學習有伴過期檢查定時任務已啟動（每 15 分鐘執行一次）');

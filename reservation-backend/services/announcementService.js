@@ -24,6 +24,8 @@ const {
   sanitizeAnnouncementHtml,
   isAnnouncementHtmlContent,
 } = require('../utils/sanitizeAnnouncementHtml');
+const { audienceWhere, canViewAudience } = require('./announcementAudience');
+const { dispatchAnnouncementOutreach } = require('./announcementOutreachService');
 
 const TITLE_MAX = 200;
 const SUMMARY_MAX = 2000;
@@ -233,10 +235,16 @@ async function promoteDueScheduledAnnouncements(now = new Date()) {
       publishedAt: pubAt,
       scheduledPublishAt: null,
     });
+    const published = await row.reload();
+    try {
+      await dispatchAnnouncementOutreach(published, { requestId: `ann-schedule:${published.id}` });
+    } catch (error) {
+      console.error('[announcement] 排程發布通知未完成');
+    }
   }
 }
 
-function publicListWhere(now, { category, tag, q, keyword }) {
+function publicListWhere(now, { category, tag, q, keyword, viewer = 'public' }) {
   const search = (q != null && q !== '' ? q : keyword) || '';
   const andParts = [
     { deletedAt: null },
@@ -263,6 +271,7 @@ function publicListWhere(now, { category, tag, q, keyword }) {
     andParts.push({ tags: { [Op.ne]: null } });
     andParts.push(where(fn('JSON_CONTAINS', col('tags'), fn('JSON_QUOTE', t)), 1));
   }
+  andParts.push(audienceWhere(viewer, Op));
   return { [Op.and]: andParts };
 }
 
@@ -333,15 +342,15 @@ async function listPublicAnnouncements({
   category,
   tag,
   pinnedFirst = true,
+  viewer = 'public',
 } = {}) {
-  // TODO: 依 audienceType（students/teachers/admins）過濾公開列表，需與登入身分或公開路由策略對齊
   await promoteDueScheduledAnnouncements();
   const now = new Date();
   const lim = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const offset = (pg - 1) * lim;
 
-  const whereClause = publicListWhere(now, { category, tag, q, keyword });
+  const whereClause = publicListWhere(now, { category, tag, q, keyword, viewer });
 
   const pinFirst = pinnedFirst !== false && String(pinnedFirst).toLowerCase() !== 'false';
   const { rows, count } = await Announcement.findAndCountAll({
@@ -377,7 +386,7 @@ async function listPublished(opts) {
   return listPublicAnnouncements(opts);
 }
 
-async function getPublicAnnouncementByParam(param, { incrementView = false } = {}) {
+async function getPublicAnnouncementByParam(param, { incrementView = false, viewer = 'public' } = {}) {
   await promoteDueScheduledAnnouncements();
   const now = new Date();
   const raw = String(param || '').trim();
@@ -405,6 +414,7 @@ async function getPublicAnnouncementByParam(param, { incrementView = false } = {
   if (!row) return null;
   const plain = row.get({ plain: true });
   if (!isPubliclyVisiblePlain(plain, now)) return null;
+  if (!canViewAudience(plain.audienceType, viewer)) return null;
 
   if (incrementView) {
     await Announcement.increment('viewCount', { where: { id: row.id } });
@@ -423,8 +433,20 @@ async function getPublishedBySlug(slug) {
   return getPublicAnnouncementByParam(String(slug), { incrementView: false });
 }
 
-async function getPublishedByParam(param) {
-  return getPublicAnnouncementByParam(param, { incrementView: true });
+async function getPublishedByParam(param, { viewer = 'public' } = {}) {
+  return getPublicAnnouncementByParam(param, { incrementView: true, viewer });
+}
+
+async function getAnnouncementPreview(id) {
+  const row = await Announcement.findOne({
+    where: { id, deletedAt: null },
+  });
+  if (!row) return null;
+  const plain = row.get({ plain: true });
+  const serialized = serializeAnnouncementForPublic(plain, { detail: true, requestedSegment: String(id) });
+  serialized.preview = true;
+  serialized.status = plain.status;
+  return serialized;
 }
 
 const ADMIN_SORT_FIELDS = {
@@ -768,8 +790,16 @@ async function publishAnnouncement(id, userId, { publishedAt: pubInput } = {}) {
     unpublishedAt: null,
     updatedBy: userId || null,
     lastEditedBy: userId || null,
+    notificationStatus: null,
+    emailStatus: null,
   });
-  return row.reload();
+  const published = await row.reload();
+  try {
+    await dispatchAnnouncementOutreach(published, { requestId: `ann-publish:${published.id}` });
+  } catch (error) {
+    console.error('[announcement] 發布通知未完成');
+  }
+  return published.reload();
 }
 
 async function unpublishAnnouncement(id, userId) {
@@ -969,6 +999,7 @@ module.exports = {
   getPublishedById,
   getPublishedBySlug,
   getPublishedByParam,
+  getAnnouncementPreview,
   listAdmin,
   getByIdAdmin,
   getByIdAdminUnscoped,
@@ -991,6 +1022,7 @@ module.exports = {
   normalizeAnnouncementStatus,
   serializeAnnouncementForPublic,
   serializeAnnouncementForAdmin,
+  promoteDueScheduledAnnouncements,
   validateAnnouncementPayload,
   ensureUniqueSlug,
   baseSlugFromTitle,

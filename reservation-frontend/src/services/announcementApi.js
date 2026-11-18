@@ -4,6 +4,17 @@
  */
 
 import { fetchClient } from '../utils/fetchClient';
+import { getStudentToken } from '../utils/studentSession';
+
+function publicAnnouncementHeaders() {
+  let token = '';
+  try {
+    token = getStudentToken() || localStorage.getItem('token') || '';
+  } catch (error) {
+    token = '';
+  }
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 async function readBodyPreview(res) {
   const text = await res.text();
@@ -35,7 +46,7 @@ export async function fetchPublicAnnouncements(params = {}) {
   if (params.tag) q.set('tag', params.tag);
   if (params.pinnedFirst === false || params.pinnedFirst === 'false') q.set('pinnedFirst', 'false');
   const url = `/api/announcements${q.toString() ? `?${q}` : ''}`;
-  const res = await fetchClient(url);
+  const res = await fetchClient(url, { headers: publicAnnouncementHeaders() });
 
   if (!res.ok) {
     const requestId = res.headers.get('x-request-id') || res.headers.get('X-Request-Id') || null;
@@ -67,7 +78,9 @@ export async function fetchPublicAnnouncements(params = {}) {
  * @param {string|number} idOrSlug
  */
 export async function fetchPublicAnnouncement(idOrSlug) {
-  const res = await fetchClient(`/api/announcements/${encodeURIComponent(idOrSlug)}`);
+  const res = await fetchClient(`/api/announcements/${encodeURIComponent(idOrSlug)}`, {
+    headers: publicAnnouncementHeaders(),
+  });
 
   if (res.status === 404) {
     const err = new Error('Not found');
@@ -99,6 +112,22 @@ export async function fetchPublicAnnouncement(idOrSlug) {
     throw err;
   }
 
+  return parseJsonResponse(res);
+}
+
+export async function fetchAnnouncementPreview(token) {
+  const res = await fetchClient(`/api/announcements/preview/${encodeURIComponent(token)}`);
+  if (res.status === 404) {
+    const err = new Error('Not found');
+    err.status = res.status;
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  if (!res.ok) {
+    const err = new Error(`HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return parseJsonResponse(res);
 }
 

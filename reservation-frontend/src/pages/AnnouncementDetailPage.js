@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import PageHeader from '../components/layout/PageHeader';
 import { formatMessage } from '../utils/formatMessage';
-import { fetchPublicAnnouncement, normalizeAnnouncementItem } from '../services/announcementApi';
+import { fetchAnnouncementPreview, fetchPublicAnnouncement, normalizeAnnouncementItem } from '../services/announcementApi';
 import './AnnouncementDetailPage.css';
 import { ANNOUNCEMENT_CATEGORY_LABELS } from '../constants/announcementLabels';
 import { formatDateTimeYMDHM, formatDateYMD } from '../utils/announcementFormatters';
@@ -115,7 +115,7 @@ function AnnouncementBody({ content, summary, coverImage }) {
 }
 
 export default function AnnouncementDetailPage() {
-  const { idOrSlug } = useParams();
+  const { idOrSlug, token: previewToken } = useParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [item, setItem] = useState(null);
@@ -131,7 +131,10 @@ export default function AnnouncementDetailPage() {
     setNotFound(false);
     setItem(null);
 
-    fetchPublicAnnouncement(idOrSlug)
+    const loader = previewToken
+      ? fetchAnnouncementPreview(previewToken)
+      : fetchPublicAnnouncement(idOrSlug);
+    loader
       .then((data) => {
         if (!cancelled) {
           setItem(normalizeAnnouncementItem(data));
@@ -152,14 +155,14 @@ export default function AnnouncementDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [idOrSlug, t]);
+  }, [idOrSlug, previewToken, t]);
 
   useEffect(() => {
-    if (!item) return;
+    if (!item || previewToken) return;
     if (item.canonicalSlug && String(idOrSlug) !== String(item.canonicalSlug)) {
       navigate(`/announcements/${encodeURIComponent(item.canonicalSlug)}`, { replace: true });
     }
-  }, [item, idOrSlug, navigate]);
+  }, [item, idOrSlug, navigate, previewToken]);
 
   useEffect(() => {
     if (!item) return;
@@ -277,6 +280,11 @@ export default function AnnouncementDetailPage() {
           {copyDone ? t('announcementsPage.copyLinkDone') : t('announcementsPage.copyLink')}
         </button>
       </div>
+      {item.preview ? (
+        <p className="alert alert-warning" role="status">
+          這是預覽連結，未發布或限定對象的公告不會出現在公開列表。
+        </p>
+      ) : null}
       <article className="announcement-detail-article">
         <div className="announcement-detail-meta">
           <span className="announcement-detail-meta__item">

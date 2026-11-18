@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
-import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import SharedMediaLibraryModal from '../../components/media/SharedMediaLibraryModal';
 import '../../components/media/SharedMediaLibraryModal.css';
 import AnnouncementRichTextEditor from '../../components/admin/announcements/AnnouncementRichTextEditor';
 import {
   createAdminAnnouncement,
+  createAnnouncementPreviewToken,
   fetchAdminAnnouncement,
   updateAdminAnnouncement,
 } from '../../services/announcementAdminApi';
@@ -300,14 +301,22 @@ export default function AnnouncementEditorPage() {
         </div>
         <div className="ann-editor-topbar__actions">
           {!isNew ? (
-            <Link
-              className="btn btn-sm btn-outline-primary"
-              to={`/announcements/${encodeURIComponent(form.slug || id)}`}
-              target="_blank"
-              rel="noreferrer"
+            <Button
+              variant="outline-primary"
+              size="sm"
+              type="button"
+              onClick={async () => {
+                try {
+                  const data = await createAnnouncementPreviewToken(token, id);
+                  const path = data.path || `/announcements/preview/${encodeURIComponent(data.token)}`;
+                  window.open(path, '_blank', 'noopener,noreferrer');
+                } catch (err) {
+                  setError(err.message || '無法產生預覽連結');
+                }
+              }}
             >
-              前台預覽
-            </Link>
+              預覽連結
+            </Button>
           ) : null}
           <Button variant="primary" type="button" disabled={saving} onClick={handleSave}>
             {saving ? '儲存中…' : '儲存'}
@@ -491,7 +500,10 @@ export default function AnnouncementEditorPage() {
           </section>
 
           <section className="ann-editor-panel">
-            <h2 className="ann-editor-panel__title">進階（預留）</h2>
+            <h2 className="ann-editor-panel__title">發布對象與通知</h2>
+            <p className="text-muted small">
+              未登入只看得到「全部」。學生、教師、管理者登入後才看得到對應公告。站內通知寫入已有預約帳號的學生收件匣；Email 寄給受眾內已驗證信箱。
+            </p>
             <Form.Group className="mb-2">
               <Form.Label>受眾</Form.Label>
               <Form.Select
@@ -507,14 +519,14 @@ export default function AnnouncementEditorPage() {
             <Form.Check
               className="mb-1"
               type="checkbox"
-              label="shouldSendNotification"
+              label="發布時送站內通知"
               checked={form.shouldSendNotification}
               onChange={(e) => setForm((f) => ({ ...f, shouldSendNotification: e.target.checked }))}
             />
             <Form.Check
               className="mb-0"
               type="checkbox"
-              label="shouldSendEmail"
+              label="發布時寄送 Email"
               checked={form.shouldSendEmail}
               onChange={(e) => setForm((f) => ({ ...f, shouldSendEmail: e.target.checked }))}
             />

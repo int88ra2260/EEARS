@@ -2,6 +2,10 @@
 const announcementService = require('../services/announcementService');
 const auditLogService = require('../services/auditLogService');
 const notificationService = require('../services/notificationService');
+const {
+  createAnnouncementPreviewToken,
+  verifyAnnouncementPreviewToken,
+} = require('../services/announcementPreviewService');
 
 function actorId(req) {
   return req.user && req.user.id ? req.user.id : null;
@@ -425,6 +429,36 @@ async function patchPin(req, res, next) {
   }
 }
 
+async function postPreviewToken(req, res, next) {
+  try {
+    const existing = await announcementService.getByIdAdmin(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: '找不到公告' });
+    }
+    const token = createAnnouncementPreviewToken(existing.id, req.body && req.body.ttlSec);
+    const verified = verifyAnnouncementPreviewToken(token);
+    auditLogService.logAuditAsync({
+      module: 'announcements',
+      action: 'preview_token',
+      entityType: 'Announcement',
+      entityId: existing.id,
+      targetSummary: existing.title,
+      req,
+      requestId: req.requestId || null,
+    });
+    return res.json({
+      expiresAt: verified ? new Date(verified.exp * 1000).toISOString() : null,
+      path: `/announcements/preview/${token}`,
+      token,
+    });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: '無法產生預覽連結' });
+    }
+    next(err);
+  }
+}
+
 module.exports = {
   list,
   getById,
@@ -440,4 +474,5 @@ module.exports = {
   postRestoreRevision,
   patchPublish,
   patchPin,
+  postPreviewToken,
 };

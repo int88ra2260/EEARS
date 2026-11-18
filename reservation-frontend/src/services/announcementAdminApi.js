@@ -153,6 +153,16 @@ export async function postRestoreAnnouncementRevision(token, announcementId, rev
   return parseJsonResponse(res);
 }
 
+export async function createAnnouncementPreviewToken(token, id) {
+  const res = await fetchClient(`/api/admin/announcements/${encodeURIComponent(id)}/preview-token`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) await handleErr(res);
+  return parseJsonResponse(res);
+}
+
 export async function patchPin(token, id, isPinned) {
   const res = await fetchClient(`/api/admin/announcements/${encodeURIComponent(id)}/pin`, {
     method: 'PATCH',

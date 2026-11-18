@@ -483,6 +483,7 @@ function AppContent() {
             <Route path="/activities/:slug" element={<ActivityDetailPage />} />
             <Route path="/my-reservations" element={<RequireStudentAuth><MyReservationsPage /></RequireStudentAuth>} />
             <Route path="/announcements" element={<AnnouncementsPage />} />
+            <Route path="/announcements/preview/:token" element={<AnnouncementDetailPage />} />
             <Route path="/announcements/:idOrSlug" element={<AnnouncementDetailPage />} />
             <Route path="/notifications" element={<NotificationPage />} />
             <Route path="/learning-resources" element={<LearningResourcesPage />} />
