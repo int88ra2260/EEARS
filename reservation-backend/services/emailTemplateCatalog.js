@@ -8,6 +8,48 @@
  */
 const EMAIL_TEMPLATE_CATALOG = [
   {
+    key: 'studentFeedbackAssigned',
+    category: 'student_feedback',
+    categoryLabel: '學生回報',
+    name: '案件指派',
+    description: '承辦變更時通知被指派的人員。不含學生內文。',
+    channel: 'reservation',
+    variables: [
+      { name: 'email', description: '承辦信箱', required: true },
+      { name: 'recipientName', description: '承辦稱呼' },
+      { name: 'caseId', description: '案件編號', required: true },
+      { name: 'adminUrl', description: '後台處理網址', required: true },
+    ],
+    sampleData: {
+      email: 'staff@example.com',
+      recipientName: '承辦',
+      caseId: '12',
+      adminUrl: 'http://emieears-siwan.nsysu.edu.tw/admin/student-feedback',
+    },
+  },
+  {
+    key: 'announcementPublished',
+    category: 'announcement',
+    categoryLabel: '公告',
+    name: '公告發布',
+    description: '公告發布且勾選寄信時，寄給受眾內已驗證信箱。',
+    channel: 'reservation',
+    variables: [
+      { name: 'email', description: '收件信箱', required: true },
+      { name: 'recipientName', description: '收件人稱呼' },
+      { name: 'title', description: '公告標題', required: true },
+      { name: 'summary', description: '公告摘要' },
+      { name: 'url', description: '公告網址', required: true },
+    ],
+    sampleData: {
+      email: 'reader@example.com',
+      recipientName: '讀者',
+      title: '英語中心公告',
+      summary: '摘要',
+      url: 'http://emieears-siwan.nsysu.edu.tw/announcements/sample',
+    },
+  },
+  {
     key: 'reservationSuccess',
     category: 'reservation',
     categoryLabel: '活動預約',
@@ -541,8 +583,8 @@ const EMAIL_TEMPLATE_CATALOG = [
     key: 'learningPartnerExpired',
     category: 'learning_partner',
     categoryLabel: '學習有伴',
-    name: '團體逾期（預留）',
-    description: '模板已定義；目前可能尚未自動觸發寄信。',
+    name: '團體逾期',
+    description: '超過同意期限仍未全員同意時，由過期排程寄出。',
     channel: 'bestep',
     variables: [
       { name: 'name' },

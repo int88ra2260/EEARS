@@ -215,6 +215,37 @@ const getEventLocationForEmail = (data = {}) => {
 
 // 郵件模板
 const emailTemplates = {
+  studentFeedbackAssigned: (data) => ({
+    from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
+    to: data.email,
+    subject: `【英語中心】學生回報 #${data.caseId || ''} 已指派給你`,
+    text: `
+${data.recipientName ? `${data.recipientName} 您好，` : '您好，'}
+
+有一筆學生回報已指派給你。
+案件編號：${data.caseId || ''}
+處理頁面：${data.adminUrl || ''}
+
+全英語卓越教學中心 敬上
+`,
+  }),
+  announcementPublished: (data) => ({
+    from: process.env.GMAIL_USER || 'siwansalon@gmail.com',
+    to: data.email,
+    subject: `【英語中心】${data.title || '公告'}`,
+    text: `
+${data.recipientName ? `${data.recipientName} 您好，` : '您好，'}
+
+英語中心發布了一則公告。
+
+${data.title || ''}
+${data.summary || ''}
+
+查看公告：${data.url || ''}
+
+全英語卓越教學中心 敬上
+`,
+  }),
   // 預約成功通知
   reservationSuccess: (data) => {
     const activityInfo = getActivitySpecificContent(data.eventType, data.startTime);

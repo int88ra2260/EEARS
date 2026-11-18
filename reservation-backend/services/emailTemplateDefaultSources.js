@@ -5,6 +5,31 @@
  * 實際未覆寫時仍走 config/email.js；有覆寫時由 emailTemplateService 插值寄出。
  */
 const EMAIL_TEMPLATE_DEFAULT_SOURCES = {
+  studentFeedbackAssigned: {
+    subject: '【英語中心】學生回報 #{{caseId}} 已指派給你',
+    body: `{{recipientName}} 您好，
+
+有一筆學生回報已指派給你。
+案件編號：{{caseId}}
+處理頁面：{{adminUrl}}
+
+全英語卓越教學中心 敬上
+`,
+  },
+  announcementPublished: {
+    subject: '【英語中心】{{title}}',
+    body: `{{recipientName}} 您好，
+
+英語中心發布了一則公告。
+
+{{title}}
+{{summary}}
+
+查看公告：{{url}}
+
+全英語卓越教學中心 敬上
+`,
+  },
   reservationSuccess: {
     subject: '{{subjectPrefix}} 活動預約成功通知',
     body: `親愛的 {{studentName}} ({{studentId}}) 您好，
