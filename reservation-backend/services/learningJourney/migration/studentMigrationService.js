@@ -1,7 +1,75 @@
 const { Op } = require('sequelize');
 const { runStage, recordQuarantine } = require('./migrationCommonService');
-const { BestepExamScore, Student } = require('../../../models');
+const {
+  BestepExamScore,
+  Student,
+  EtEnrollmentSnapshot,
+  EnglishTestStudentIdCardRosterEntry,
+  CourseEnrollment
+} = require('../../../models');
 const { normalizeStudentId } = require('../utils/studentNormalization');
+
+function cleanDisplayName(value, studentId) {
+  const name = String(value || '').trim();
+  if (!name || name === studentId) return '';
+  return name.slice(0, 120);
+}
+
+function pickDisplayName(studentId, sources = {}) {
+  return cleanDisplayName(sources.rosterName, studentId)
+    || cleanDisplayName(sources.snapshotName, studentId)
+    || cleanDisplayName(sources.courseName, studentId)
+    || studentId;
+}
+
+async function loadDisplayNames(studentIds) {
+  const names = new Map();
+  if (!studentIds.length) return names;
+
+  const rosterRows = await EnglishTestStudentIdCardRosterEntry.findAll({
+    where: { studentId: { [Op.in]: studentIds } },
+    attributes: ['studentId', 'nameZh'],
+    raw: true
+  });
+  for (const row of rosterRows) {
+    const name = cleanDisplayName(row.nameZh, row.studentId);
+    if (name) names.set(row.studentId, { rosterName: name });
+  }
+
+  const snapshots = await EtEnrollmentSnapshot.findAll({
+    where: { studentId: { [Op.in]: studentIds } },
+    attributes: ['studentId', 'studentName', 'semesterId'],
+    order: [['semesterId', 'DESC']],
+    raw: true
+  });
+  for (const row of snapshots) {
+    const name = cleanDisplayName(row.studentName, row.studentId);
+    if (!name) continue;
+    const current = names.get(row.studentId) || {};
+    if (!current.snapshotName) {
+      current.snapshotName = name;
+      names.set(row.studentId, current);
+    }
+  }
+
+  const courses = await CourseEnrollment.findAll({
+    where: { studentId: { [Op.in]: studentIds } },
+    attributes: ['studentId', 'studentName', 'updatedAt'],
+    order: [['updatedAt', 'DESC']],
+    raw: true
+  });
+  for (const row of courses) {
+    const name = cleanDisplayName(row.studentName, row.studentId);
+    if (!name) continue;
+    const current = names.get(row.studentId) || {};
+    if (!current.courseName) {
+      current.courseName = name;
+      names.set(row.studentId, current);
+    }
+  }
+
+  return names;
+}
 
 async function migrateStudents(batchContext) {
   return runStage('students', batchContext, async (ctx) => {
@@ -55,21 +123,31 @@ async function migrateStudents(batchContext) {
     const studentIds = Array.from(distinctStudentIds);
     const existingStudents = await Student.findAll({
       where: { studentId: { [Op.in]: studentIds } },
-      attributes: ['studentId'],
+      attributes: ['id', 'studentId', 'nameZh'],
       raw: true
     });
-    const existingIdSet = new Set(existingStudents.map((s) => s.studentId));
+    const existingById = new Map(existingStudents.map((row) => [row.studentId, row]));
 
+    const displayNames = await loadDisplayNames(studentIds);
     const studentsToInsert = [];
     for (const studentId of studentIds) {
-      if (existingIdSet.has(studentId)) {
+      const existing = existingById.get(studentId);
+      if (existing) {
         stats.duplicate += 1;
+        const placeholder = !existing.nameZh || existing.nameZh === studentId;
+        const nameZh = pickDisplayName(studentId, displayNames.get(studentId));
+        if (placeholder && nameZh !== studentId) {
+          await Student.update(
+            { nameZh },
+            { where: { id: existing.id, nameZh: existing.nameZh || studentId } }
+          );
+          stats.updated += 1;
+        }
         continue;
       }
       studentsToInsert.push({
         studentId,
-        // TODO(todo3): backfill display name from authoritative roster source.
-        nameZh: studentId,
+        nameZh: pickDisplayName(studentId, displayNames.get(studentId)),
         status: 'active'
       });
     }
@@ -93,5 +171,6 @@ async function migrateStudents(batchContext) {
 }
 
 module.exports = {
-  migrateStudents
+  migrateStudents,
+  pickDisplayName
 };

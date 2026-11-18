@@ -3,7 +3,9 @@ const {
   ExamRegistration,
   ExamAttempt,
   ExamAttemptSkillScore,
-  ActivityParticipation
+  ActivityParticipation,
+  CourseEnrollment,
+  Course
 } = require('../../models');
 const { Op } = require('sequelize');
 const { normalizeStudentId } = require('./utils/studentNormalization');
@@ -13,6 +15,21 @@ function normalizeInclude(include = []) {
     return ['registrations', 'attempts', 'activities', 'courses'];
   }
   return include;
+}
+
+function courseRowToTimelineEvent(row) {
+  const json = typeof row?.toJSON === 'function' ? row.toJSON() : row;
+  const course = json.course || {};
+  return {
+    type: 'course',
+    eventId: `course_${json.id}`,
+    semesterId: json.semesterId || course.semesterId || null,
+    courseCode: course.courseCode || null,
+    courseName: course.courseName || null,
+    enrollmentStatus: json.enrollmentStatus || null,
+    passStatus: json.passStatus || null,
+    at: json.createdAt || null
+  };
 }
 
 function groupEventsBySemester(events = []) {
@@ -95,6 +112,23 @@ async function getStudentTimeline(studentId, { fromSemester, toSemester, include
     }
   }
 
+  if (requestedInclude.includes('courses')) {
+    const enrollments = await CourseEnrollment.findAll({
+      where: {
+        [Op.or]: [
+          { studentPk: student.id },
+          { studentId: student.studentId }
+        ],
+        ...semesterClause
+      },
+      include: [{ model: Course, as: 'course', required: false }],
+      order: [['semesterId', 'ASC'], ['id', 'ASC']]
+    });
+    for (const row of enrollments) {
+      timelineEvents.push(courseRowToTimelineEvent(row));
+    }
+  }
+
   if (requestedInclude.includes('activities')) {
     const activities = await ActivityParticipation.findAll({
       where: { studentPk: student.id, ...semesterClause },
@@ -122,12 +156,13 @@ async function getStudentTimeline(studentId, { fromSemester, toSemester, include
       registrationCount: timelineEvents.filter((e) => e.type === 'registration').length,
       attemptCount: timelineEvents.filter((e) => e.type === 'attempt').length,
       activityCount: timelineEvents.filter((e) => e.type === 'activity').length,
-      courseCount: 0
+      courseCount: timelineEvents.filter((e) => e.type === 'course').length
     },
-    warnings: requestedInclude.includes('courses') ? ['Courses timeline is not implemented yet'] : []
+    warnings: []
   };
 }
 
 module.exports = {
-  getStudentTimeline
+  getStudentTimeline,
+  courseRowToTimelineEvent
 };

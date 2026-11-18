@@ -44,7 +44,15 @@ async function rebuildStudentSemesterProfile(studentPk, semesterId) {
   return profile;
 }
 
-async function rebuildAllAffectedProfilesFromAttempt(attemptId) {
+let rebuildChain = Promise.resolve();
+
+function enqueueProfileRebuild(task) {
+  const run = rebuildChain.then(() => task());
+  rebuildChain = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+async function rebuildAffectedProfilesNow(attemptId) {
   const attempt = await ExamAttempt.findByPk(attemptId);
   if (!attempt) return [];
 
@@ -55,17 +63,21 @@ async function rebuildAllAffectedProfilesFromAttempt(attemptId) {
 
   const results = [];
   for (const target of rebuildTargets) {
-    // service-based synchronous rebuild (current phase)
-    // TODO: switch to async job dispatcher in next phase.
     const rebuilt = await rebuildStudentSemesterProfile(target.studentPk, target.semesterId);
-    if (rebuilt) {
-      results.push(rebuilt);
-    }
+    if (rebuilt) results.push(rebuilt);
   }
   return results;
 }
 
-async function rebuildSemesterProfilesBySemester(semesterId) {
+function rebuildAllAffectedProfilesFromAttempt(attemptId) {
+  const job = enqueueProfileRebuild(() => rebuildAffectedProfilesNow(attemptId));
+  job.catch(() => {
+    console.error('[lj-profile-rebuild] 背景重建未完成');
+  });
+  return { queued: true, attemptId: Number(attemptId) || null };
+}
+
+async function rebuildSemesterProfilesNow(semesterId) {
   const attempts = await ExamAttempt.findAll({
     where: { semesterId },
     attributes: ['studentPk', 'studentId', 'semesterId'],
@@ -89,8 +101,13 @@ async function rebuildSemesterProfilesBySemester(semesterId) {
   };
 }
 
+function rebuildSemesterProfilesBySemester(semesterId) {
+  return enqueueProfileRebuild(() => rebuildSemesterProfilesNow(semesterId));
+}
+
 module.exports = {
   rebuildStudentSemesterProfile,
   rebuildSemesterProfilesBySemester,
-  rebuildAllAffectedProfilesFromAttempt
+  rebuildAllAffectedProfilesFromAttempt,
+  enqueueProfileRebuild
 };
