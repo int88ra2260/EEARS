@@ -2,7 +2,12 @@ jest.mock('../services/registrationSettingsService', () => ({
   isGroupRegistrationEnabled: jest.fn(),
 }));
 
+jest.mock('../services/learningPartnerExpireService', () => ({
+  expirePendingLearningPartnerTeams: jest.fn(),
+}));
+
 const { isGroupRegistrationEnabled } = require('../services/registrationSettingsService');
+const { expirePendingLearningPartnerTeams } = require('../services/learningPartnerExpireService');
 const { expireLearningPartnerTeams } = require('../scripts/learningPartnerExpireCron');
 
 describe('learningPartnerExpireCron', () => {
@@ -26,18 +31,18 @@ describe('learningPartnerExpireCron', () => {
       skipped: true,
       reason: 'group_registration_disabled',
     });
+    expect(expirePendingLearningPartnerTeams).not.toHaveBeenCalled();
     expect(logSpy).not.toHaveBeenCalled();
     logSpy.mockRestore();
   });
 
-  it('runs stub when group registration is enabled', async () => {
+  it('expires overdue teams when group registration is enabled', async () => {
     isGroupRegistrationEnabled.mockResolvedValue(true);
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    expirePendingLearningPartnerTeams.mockResolvedValue({ expired: 2, notified: 4 });
 
     const result = await expireLearningPartnerTeams();
 
-    expect(result).toEqual({ expired: 0, notified: 0 });
-    expect(logSpy).toHaveBeenCalled();
-    logSpy.mockRestore();
+    expect(expirePendingLearningPartnerTeams).toHaveBeenCalled();
+    expect(result).toEqual({ expired: 2, notified: 4 });
   });
 });
