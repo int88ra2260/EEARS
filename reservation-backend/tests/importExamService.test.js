@@ -492,7 +492,7 @@ describe('importExamService', () => {
     expect(listen[0].cefr).toBe('B1');
   });
 
-  test('25. CEFR 欄位為 - 時視為空白，BESTEP 可由分數自動推算', async () => {
+  test('25. BESTEP 請改走培力匯入，歷程英檢匯入會進 quarantine', async () => {
     const buf = bufferFromMatrix([
       dataRow({
         studentId: 'BP25',
@@ -505,16 +505,33 @@ describe('importExamService', () => {
       })
     ]);
     const res = await importExam(buf);
-    expect(res.inserted).toBe(1);
-    expect(res.autoMappedCefrCount).toBe(4);
-    expect(EtExamAttemptSkillScore.create).toHaveBeenCalledTimes(4);
-    const created = EtExamAttemptSkillScore.create.mock.calls.map((c) => [c[0].skill, c[0].cefr]).sort();
-    expect(created).toEqual([
-      ['listening', 'B2'],
-      ['reading', 'C1'],
-      ['speaking', 'B2'],
-      ['writing', 'C1']
+    expect(res.inserted).toBe(0);
+    expect(res.quarantine).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          reason: 'bestep_use_dedicated_import',
+          studentId: 'BP25',
+        }),
+      ]),
+    );
+  });
+
+  test('25b. CEFR 欄位為 - 時視為空白，可由分數自動推算', async () => {
+    const buf = bufferFromMatrix([
+      dataRow({
+        studentId: 'TC25B',
+        examType: '多益',
+        examDate: '2025-12-01',
+        listening: [490, '-'],
+        reading: [400, '-'],
+        speaking: ['', ''],
+        writing: ['', '']
+      })
     ]);
+    const res = await importExam(buf);
+    expect(res.inserted).toBe(1);
+    expect(res.autoMappedCefrCount).toBe(2);
+    expect(EtExamAttemptSkillScore.create).toHaveBeenCalledTimes(2);
   });
 
   test('26. CEFR 空白且分數超出範圍時不硬推算', async () => {

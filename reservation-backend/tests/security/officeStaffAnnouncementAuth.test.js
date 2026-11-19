@@ -12,6 +12,7 @@ jest.mock('../../controllers/adminAnnouncementController', () => ({
   bulkAction: (req, res) => res.json({ ok: true }),
   getRevisions: (req, res) => res.json({ ok: true }),
   postRestoreRevision: (req, res) => res.json({ ok: true }),
+  postPreviewToken: (req, res) => res.json({ ok: true }),
   postPublish: (req, res) => res.json({ ok: true }),
   postUnpublish: (req, res) => res.json({ ok: true }),
   postArchive: (req, res) => res.json({ ok: true }),
