@@ -9,11 +9,12 @@ const {
   buildCoverage,
   buildGrowthView,
   buildCohortLevelTable,
+  resolveEnrollmentCohortFromRoster,
 } = require('../services/learningAnalytics/learningAnalyticsOverviewService');
 
 describe('learningAnalyticsOverviewService', () => {
   it('exports contract version and resource labels', () => {
-    expect(CONTRACT_VERSION).toBe('learning-analytics.overview.v1');
+    expect(CONTRACT_VERSION).toBe('learning-analytics.overview.v2');
     expect(labelResource('ENGLISH_TABLE')).toBe(RESOURCE_LABELS.ENGLISH_TABLE);
     expect(labelResource('UNKNOWN')).toBe('UNKNOWN');
   });
@@ -117,5 +118,26 @@ describe('learningAnalyticsOverviewService', () => {
     const year113 = rows.find((row) => row.cohort === '113');
     expect(year113.b1Rate).toBeCloseTo(1 / 3, 4);
     expect(year113.noExamRate).toBeCloseTo(1 / 3, 4);
+  });
+
+  it('resolves enrollment cohort from roster year, grade+semester, or student id', () => {
+    expect(resolveEnrollmentCohortFromRoster({
+      enrollmentYear: 112,
+      studentId: 'D1130001',
+      grade: 2,
+      semesterId: '114-1',
+    })).toBe('112');
+    expect(resolveEnrollmentCohortFromRoster({
+      enrollmentYear: null,
+      studentId: 'D1130001',
+      grade: 2,
+      semesterId: '114-1',
+    })).toBe('113');
+    expect(resolveEnrollmentCohortFromRoster({
+      enrollmentYear: null,
+      studentId: 'D1120001',
+      grade: null,
+      semesterId: '114-1',
+    })).toBe('112');
   });
 });

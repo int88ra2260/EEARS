@@ -444,9 +444,9 @@ export default function LearningJourneyV3ImportSection({
         <div className="lj-import-block__head">
           <div className="lj-import-block__title-group">
             <span className="lj-import-block__kind lj-import-block__kind--enrollment">名冊</span>
-            <h2 className="lj-import-block__title">學習歷程名冊匯入</h2>
+            <h2 className="lj-import-block__title">學期在學名冊</h2>
             <p className="lj-import-block__desc">
-              學期人口。上傳追蹤名冊並指定學期。不是單班名單，也不是培力報名用的在學名單。
+              某學期 KPI／成效分母。上傳並指定學期。不是單班名單，也不是培力「報名核對名單」。
             </p>
           </div>
           <SemesterField
@@ -489,9 +489,9 @@ export default function LearningJourneyV3ImportSection({
         <div className="lj-import-block__head">
           <div className="lj-import-block__title-group">
             <span className="lj-import-block__kind lj-import-block__kind--exam">考試</span>
-            <h2 className="lj-import-block__title">英檢成績匯入</h2>
+            <h2 className="lj-import-block__title">校外英檢成績</h2>
             <p className="lj-import-block__desc">
-              校外英檢成績。培力成績請在培力匯入頁上傳，系統會自動同步，這裡不要再傳一次。
+              多益、雅思等校外英檢。培力請走培力匯入頁；此處若填 BESTEP 會拒收。系統不會從這裡寫入培力。
             </p>
           </div>
           <SemesterField
@@ -544,9 +544,9 @@ export default function LearningJourneyV3ImportSection({
         <div className="lj-import-block__head">
           <div className="lj-import-block__title-group">
             <span className="lj-import-block__kind lj-import-block__kind--course">修課</span>
-            <h2 className="lj-import-block__title">教務處修課名單匯入</h2>
+            <h2 className="lj-import-block__title">教務處修課名單</h2>
             <p className="lj-import-block__desc">
-              上傳每學期教務處修課名單（EAP / ESP / GE 多工作表），寫入學習歷程修課紀錄。勾選同步班級後，通常不必再匯班級名冊。這不是學期人口。
+              主路徑：上傳 EAP／ESP／GE 修課名單，寫入歷程並預設同步班級。這不是學期在學名冊；能批次建班時不必再用班級例外補丁。
             </p>
           </div>
           <SemesterField

@@ -15,6 +15,11 @@ export default function ClassOverviewToolbar({
       <div className="text-muted">
         <i className="fas fa-calendar-alt me-2" aria-hidden="true" />
         學期：{semester}
+        {canManageClasses ? (
+          <span className="d-block small mt-1">
+            日常請用「教務處修課名單」同步班級；這裡僅作單班例外補丁。
+          </span>
+        ) : null}
       </div>
       <div>
         {canManageClasses && (
@@ -23,9 +28,9 @@ export default function ClassOverviewToolbar({
               <i className="fas fa-file-download me-2" />
               下載範例
             </Button>
-            <Button variant="outline-primary" onClick={onOpenUpload} className="me-2">
+            <Button variant="outline-warning" onClick={onOpenUpload} className="me-2">
               <i className="fas fa-upload me-2" />
-              匯入名單
+              例外：匯入單班
             </Button>
           </>
         )}

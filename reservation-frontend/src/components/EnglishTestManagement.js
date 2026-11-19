@@ -300,7 +300,7 @@ export default function EnglishTestManagement() {
             role="tab"
             aria-selected={mainTab === 'roster'}
           >
-            在學名單比對
+            報名核對名單
           </button>
         )}
       </div>
@@ -322,7 +322,7 @@ export default function EnglishTestManagement() {
       )}
 
       {!canManageEnglishTests && mainTab === 'roster' && (
-        <div className="alert alert-warning">您沒有管理在學名單比對的權限。</div>
+        <div className="alert alert-warning">您沒有管理報名核對名單的權限。</div>
       )}
 
       {canManageLearningPartner && mainTab === 'group' && (

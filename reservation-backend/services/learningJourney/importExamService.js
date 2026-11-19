@@ -382,6 +382,15 @@ async function importExam(file, options = {}) {
         warnings.push(`第 ${line} 列：G 英文檢定類別「${examTypeRaw}」不在允許值，已略過`);
         continue;
       }
+      if (examType === 'BESTEP') {
+        quarantine.push({
+          reason: 'bestep_use_dedicated_import',
+          studentId,
+          line,
+          message: '培力英檢請改走「培力英檢（BESTEP）匯入」，此處僅收校外英檢',
+        });
+        continue;
+      }
       if (!dbSupportedExamTypes.has(examType)) {
         warnings.push(`第 ${line} 列：G 英文檢定類別「${examType}」目前資料庫未支援，請先執行 migration，已略過`);
         continue;

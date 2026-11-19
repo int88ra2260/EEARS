@@ -87,6 +87,12 @@ export default function ClassOverview() {
   return (
     <div className="container-fluid">
       {canManageClasses ? <ImportCenterNotice variant="import" /> : null}
+      {canManageClasses ? (
+        <Alert variant="warning" className="small py-2">
+          班級名單的主路徑是學習歷程匯入頁的「教務處修課名單」（預設同步班級）。
+          本頁匯入僅供無法批次建班時的例外補丁，不是學期在學名冊。
+        </Alert>
+      ) : null}
       <AnalyticsHubReturn accessProfile={accessProfile} />
 
       <ClassOverviewToolbar

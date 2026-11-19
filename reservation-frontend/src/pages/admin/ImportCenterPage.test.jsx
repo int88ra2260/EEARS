@@ -64,6 +64,8 @@ describe('匯入中心狀態圖例', () => {
     expect(screen.getByRole('button', { name: '查看匯入紀錄' })).toHaveAttribute('href', '/admin/import-center/runs');
     expect(screen.getAllByRole('button', { name: '前往匯入' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: '前往匯出' })).toBeInTheDocument();
-    expect(screen.getByText('學習歷程名冊匯入')).toBeInTheDocument();
+    expect(screen.getByText('學期在學名冊')).toBeInTheDocument();
+    expect(screen.getByText('報名核對名單')).toBeInTheDocument();
+    expect(screen.getByText('班級名冊（例外補丁）')).toBeInTheDocument();
   });
 });

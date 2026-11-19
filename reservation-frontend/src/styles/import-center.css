@@ -204,6 +204,10 @@
   grid-column: span 2;
 }
 
+.import-center-bento--exception {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
 .import-center-bento--ops {
   grid-template-columns: repeat(2, 1fr);
 }

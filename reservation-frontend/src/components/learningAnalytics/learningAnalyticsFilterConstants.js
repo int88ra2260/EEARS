@@ -58,7 +58,7 @@ export const FILTER_LABELS = Object.freeze({
 
 /** 篩選欄位說明（以標籤旁驚嘆號提示顯示） */
 export const FILTER_FIELD_HINTS = Object.freeze({
-  semester: '圖表頁：多數圖表不受學期影響，學期主要影響認證等名冊區塊。原始資料匯出頁：會依「入學學期 enrollment_term」過濾學生。',
+  semester: '成效概況：決定「學期在學名冊」母體（各入學年度尚無英檢／B1／B1+ 與 KPI 認證）。其他圖表仍多依分析快照。原始資料匯出頁：會依「入學學期 enrollment_term」過濾學生。',
   academic_year: '匯出／預覽用：符合「入學年度（級）=該年」或「入學學期以該年開頭（如 114-1）」的學生。例：選 114 會含 114 級與入學學期 114-*。',
   snapshot_version: '分析摘要的資料版本。請優先選最新「全域分析」；課程匯入／手動部分重建人數可能偏少或重複。',
   student_id: '精確學號（不分大小寫）。填寫後只匯出／預覽該生。',
@@ -91,9 +91,10 @@ export const LA_FILTER_INTRO_RESOURCES = '這些條件篩的是分析快照裡�
 /** 原始資料匯出頁：篩選會真正縮小匯出範圍 */
 export const LA_FILTER_INTRO_RAW_EXPORT = '此頁篩選會套用到預覽與匯出。若只要某學年度學生，請用「學年度」或「入學年度（級）」；「入學學期」對應 enrollment_term（如 114-2）。資料版本請選「建議｜全域分析」。';
 
-/** 日常總覽頁：只留資料版本與入學年度。系所由圖表點選帶入。 */
+/** 日常總覽頁：資料版本、學期（在學名冊母體）、入學年度。系所由圖表點選帶入。 */
 export const OVERVIEW_FILTER_KEYS = [
   'snapshot_version',
+  'semester',
   'cohort',
 ];
 

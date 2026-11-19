@@ -81,7 +81,7 @@ export default function LearningAnalyticsOverviewPage() {
     workingSetScope,
     token,
     semesterFromUrl,
-  } = useLearningAnalyticsBootstrap({ scopeKeys: OVERVIEW_FILTER_KEYS });
+  } = useLearningAnalyticsBootstrap({ scopeKeys: OVERVIEW_FILTER_KEYS, defaultSemester: 'current' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -166,6 +166,7 @@ export default function LearningAnalyticsOverviewPage() {
   );
   const departmentChart = ability?.byDepartment || [];
   const cohortLevels = ability?.byCohortLevel || [];
+  const cohortLevelMeta = ability?.byCohortLevelMeta || null;
   const resourceChart = useMemo(
     () => (resources?.participation || []).slice(0, 8).map((row) => ({
       name: row.label,
@@ -315,12 +316,21 @@ export default function LearningAnalyticsOverviewPage() {
                 </div>
               </div>
             ) : null}
-            {cohortLevels.length ? (
-              <div className="la-panel mt-3">
-                <LearningAnalyticsPanelHeader
-                  title="各入學年度的 B1、B1+ 與尚無英檢"
-                  lead="B1 是目前最佳能力 GSE 43–50，B1+ 是 GSE 51–58。百分比的分母是該入學年度的快照學生。尚無英檢是沒有有效英檢成績。學測不算。點人數可看名單。"
-                />
+            <div className="la-panel mt-3">
+              <LearningAnalyticsPanelHeader
+                title="各入學年度的 B1、B1+ 與尚無英檢"
+                lead={
+                  cohortLevelMeta?.note
+                  || '分母為選定學期的學期在學名冊（不是分析快照）。B1＝GSE 43–50，B1+＝GSE 51–58。尚無英檢＝名冊內沒有有效英檢；學測不算。點人數可看名單。'
+                }
+              />
+              {cohortLevelMeta?.semesterId ? (
+                <p className="small text-muted mb-2">
+                  在學名冊學期 {cohortLevelMeta.semesterId}
+                  {cohortLevelMeta.rosterTotal != null ? ` · 名冊 ${formatNum(cohortLevelMeta.rosterTotal)} 人` : ''}
+                </p>
+              ) : null}
+              {cohortLevels.length ? (
                 <div className="table-responsive">
                   <table className="table table-sm align-middle mb-0">
                     <thead>
@@ -375,8 +385,12 @@ export default function LearningAnalyticsOverviewPage() {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            ) : null}
+              ) : (
+                <Alert variant="light" className="small border mb-0">
+                  {cohortLevelMeta?.note || '尚無可顯示的入學年度分布。請確認已選學期並匯入學期在學名冊。'}
+                </Alert>
+              )}
+            </div>
           </section>
 
           <section className="mt-4">

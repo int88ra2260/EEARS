@@ -25,19 +25,18 @@ const STATUS_LEGEND_ORDER = [
 
 const GUIDE_POINTS = [
   {
-    label: '先對照資料',
-    text: '每張卡片都標示「匯入什麼」：要準備哪種 Excel／來源，以及是否需選學期。',
+    label: '先選任務',
+    text: '上方「先選任務」對應 KPI、修課班級、報名核對、培力成績；再點常用路徑卡片。',
   },
   {
-    label: '再確認影響',
-    text: '「會影響什麼」說明寫入後哪些報表、名單或統計會變；避免選錯入口。',
+    label: '對照母體',
+    text: '學期在學名冊＝分母；報名核對名單＝培力身分；班級＝例外補丁。名稱不要混用。',
   },
   {
     label: '再到原頁上傳',
     text: '本頁只做導覽；實際上傳、預覽與寫入仍在各功能頁完成。',
   },
 ];
-
 function StatusLegend() {
   return (
     <div className="import-center-legend" role="list" aria-label="狀態說明">
@@ -80,7 +79,8 @@ export default function ImportCenterPage() {
           <StatusLegend />
         </div>
         <p className="import-center-page__lede">
-          先確認要匯入哪種資料、會影響哪些報表，再進入對應頁上傳。本頁不直接收檔。
+          先選任務、確認母體與成績路徑，再進入對應頁上傳。本頁不直接收檔。
+          名冊只有三種：學期在學名冊、報名核對名單、班級修課名冊（例外）。
         </p>
       </header>
 
@@ -99,9 +99,9 @@ export default function ImportCenterPage() {
         aria-label="常見任務導引"
       >
         <div className="import-center-task-guide__head">
-          <span className="import-center-task-guide__eyebrow">常見任務</span>
+          <span className="import-center-task-guide__eyebrow">先選任務</span>
           <p className="import-center-task-guide__intro">
-            不確定該點哪張卡片時，可先對照目標再選入口。
+            不確定該點哪張卡片時，先對照目標與步驟，再選常用路徑。
           </p>
         </div>
         <ul className="import-center-task-guide__list">

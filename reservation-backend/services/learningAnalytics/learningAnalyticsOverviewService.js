@@ -1,7 +1,13 @@
 'use strict';
 
 const { Op } = require('sequelize');
-const { LjAnalyticStudent, LjAnalyticExam, Student, EtStudentMaster } = require('../../models');
+const {
+  LjAnalyticStudent,
+  LjAnalyticExam,
+  Student,
+  EtStudentMaster,
+  EtEnrollmentSnapshot,
+} = require('../../models');
 const { getAnalyticsSummary } = require('../learningJourney/analytics/analyticsSummaryService');
 const { getLvaAnalytics } = require('../learningJourney/analytics/lvaAnalyticsService');
 const { getSemesterB2Report } = require('../learningJourney/b2ReportService');
@@ -11,13 +17,17 @@ const {
   buildExamWhere,
   applyEvidenceQualityFilter,
   stripEmptyQueryParams,
+  parseCohortList,
 } = require('./learningAnalyticsFilterUtils');
+const { studentIdAllowList } = require('./workingSetIds');
 const { resolveBaselineCefrBand } = require('./baselineAbilityUtils');
 const { getCefrRank } = require('../learningJourney/utils/cefr');
 const { gseBandForScore } = require('./gseScoreMappingService');
 const { examGse } = require('./b1PlusWatch');
+const { getCurrentSemester } = require('../../utils/semesterConstants');
+const { parseSemesterId } = require('../learningJourney/utils/semIndexCalculator');
 
-const CONTRACT_VERSION = 'learning-analytics.overview.v1';
+const CONTRACT_VERSION = 'learning-analytics.overview.v2';
 
 const RESOURCE_LABELS = Object.freeze({
   GE: '通識英文',
@@ -61,6 +71,47 @@ const COHORT_LEVEL_SLICES = new Set(['cohort_b1', 'cohort_b1_plus', 'cohort_no_e
 const MISSING_COHORT = '未提供';
 const LIST_LIMIT_DEFAULT = 40;
 const LIST_LIMIT_MAX = 100;
+
+function resolveOverviewSemesterId(query = {}) {
+  const raw = String(query.semester || query.semesterId || '').trim();
+  if (raw) return raw;
+  return String(getCurrentSemester() || '').trim();
+}
+
+function parseGradeNumber(raw) {
+  if (raw == null || raw === '') return null;
+  const digit = String(raw).match(/(\d+)/);
+  if (digit) {
+    const n = Number(digit[1]);
+    return Number.isFinite(n) ? n : null;
+  }
+  const map = { 一: 1, 二: 2, 三: 3, 四: 4 };
+  for (const [ch, n] of Object.entries(map)) {
+    if (String(raw).includes(ch)) return n;
+  }
+  return null;
+}
+
+function resolveEnrollmentCohortFromRoster({ enrollmentYear, studentId, grade, semesterId }) {
+  if (enrollmentYear != null && enrollmentYear !== '') {
+    const n = Number(String(enrollmentYear).match(/\d+/)?.[0]);
+    if (Number.isFinite(n) && n > 100) return String(n);
+  }
+  const parsed = parseSemesterId(semesterId);
+  const gradeNum = parseGradeNumber(grade);
+  if (parsed && gradeNum >= 1) {
+    return String(parsed.year - (gradeNum - 1));
+  }
+  const m = String(studentId || '').match(/^[A-Za-z](\d{3})/);
+  if (m) return m[1];
+  return MISSING_COHORT;
+}
+
+function cohortFilterAllows(cohort, query) {
+  const allowed = parseCohortList(query?.cohort);
+  if (!allowed.length) return true;
+  return allowed.includes(String(cohort));
+}
 
 function normalizeCefrKey(raw) {
   const value = String(raw || '').trim().toUpperCase().replace(/\s+/g, '_');
@@ -402,13 +453,23 @@ function buildCohortLevelTable(students, exams) {
     .sort(compareCohortRows);
 }
 
-function buildDashboard({ students, exams, baseline, growthBySkill, resourceParticipation, resourceRanking }) {
+function buildDashboard({
+  students,
+  exams,
+  baseline,
+  growthBySkill,
+  resourceParticipation,
+  resourceRanking,
+  byCohortLevel,
+  byCohortLevelMeta,
+}) {
   const ability = buildAbilitySummary(students, exams);
   return {
     ability: {
       ...ability,
       byDepartment: buildDepartmentB2(students),
-      byCohortLevel: buildCohortLevelTable(students, exams),
+      byCohortLevel: byCohortLevel || [],
+      byCohortLevelMeta: byCohortLevelMeta || null,
     },
     growth: {
       baseline: baseline || [],
@@ -418,6 +479,112 @@ function buildDashboard({ students, exams, baseline, growthBySkill, resourcePart
     resources: {
       participation: resourceParticipation || [],
       ranking: resourceRanking || [],
+    },
+  };
+}
+
+/**
+ * 各入學年度 B1／B1+／尚無英檢：分母為學期在學名冊（EtEnrollmentSnapshot），
+ * 不是分析快照子集。學測不算英檢。
+ */
+async function buildEnrollmentRosterCohortLevelTable(query, snapshotVersion) {
+  const semesterId = resolveOverviewSemesterId(query);
+  if (!semesterId) {
+    return {
+      rows: [],
+      meta: {
+        semesterId: null,
+        population: 'enrollment_roster',
+        rosterTotal: 0,
+        note: '請選擇學期，才能以學期在學名冊計算各入學年度的 B1、B1+ 與尚無英檢。',
+      },
+    };
+  }
+
+  const snaps = await EtEnrollmentSnapshot.findAll({
+    where: { semesterId, isActive: true },
+    attributes: ['studentId', 'grade'],
+  });
+
+  const seen = new Set();
+  let roster = [];
+  for (const snap of snaps) {
+    const id = studentKey(snap.studentId);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    roster.push({ studentId: id, grade: snap.grade });
+  }
+
+  const allow = studentIdAllowList(query.student_ids || query.studentIds);
+  if (allow) {
+    const allowSet = new Set(allow);
+    roster = roster.filter((row) => allowSet.has(row.studentId));
+  }
+
+  if (!roster.length) {
+    return {
+      rows: [],
+      meta: {
+        semesterId,
+        population: 'enrollment_roster',
+        rosterTotal: 0,
+        note: '此學期尚無有效的學期在學名冊。請先於學習歷程匯入「學期在學名冊」。',
+      },
+    };
+  }
+
+  const ids = roster.map((row) => row.studentId);
+  const [masters, analyticStudents, exams] = await Promise.all([
+    Student.findAll({
+      where: { studentId: { [Op.in]: ids } },
+      attributes: ['studentId', 'enrollmentYear'],
+    }),
+    LjAnalyticStudent.findAll({
+      where: { snapshotVersion, studentId: { [Op.in]: ids } },
+      attributes: ['studentId', 'hasValidExam'],
+    }),
+    LjAnalyticExam.findAll({
+      where: {
+        snapshotVersion,
+        studentId: { [Op.in]: ids },
+      },
+      attributes: [
+        'studentId', 'skill', 'instrument', 'excludeFlag', 'registeredNoScoreFlag',
+        'rawScore', 'examDate', 'status', 'cefrLevel',
+      ],
+    }),
+  ]);
+
+  const yearById = new Map(
+    masters.map((row) => [studentKey(row.studentId), row.enrollmentYear]),
+  );
+  const analyticById = new Map(
+    analyticStudents.map((row) => [studentKey(row.studentId), row]),
+  );
+  const students = [];
+  for (const row of roster) {
+    const cohort = resolveEnrollmentCohortFromRoster({
+      enrollmentYear: yearById.get(row.studentId),
+      studentId: row.studentId,
+      grade: row.grade,
+      semesterId,
+    });
+    if (!cohortFilterAllows(cohort, query)) continue;
+    const analytic = analyticById.get(row.studentId);
+    students.push({
+      studentId: row.studentId,
+      cohort,
+      hasValidExam: analytic ? !!analytic.hasValidExam : false,
+    });
+  }
+
+  return {
+    rows: buildCohortLevelTable(students, exams),
+    meta: {
+      semesterId,
+      population: 'enrollment_roster',
+      rosterTotal: students.length,
+      note: '分母為該學期在學名冊。B1／B1+ 依目前最佳能力 GSE；尚無英檢＝名冊內沒有有效英檢（學測不算）。',
     },
   };
 }
@@ -522,15 +689,21 @@ async function getLearningAnalyticsOverview(query = {}) {
   const snapshotVersion = query.snapshot_version || query.snapshotVersion || await resolveLatestSnapshotVersion();
   const filters = stripEmptyQueryParams({ ...query, snapshot_version: snapshotVersion });
 
-  const [summary, lva, cefrDistribution, b2Report, unfilteredSummary, scoped] = await Promise.all([
-    getAnalyticsSummary(filters),
-    getLvaAnalytics(filters),
-    computeCefrDistribution(filters, snapshotVersion),
-    filters.semester
-      ? getSemesterB2Report(String(filters.semester)).catch(() => null)
+  const overviewSemesterId = resolveOverviewSemesterId(filters);
+  const filtersWithSemester = overviewSemesterId
+    ? { ...filters, semester: overviewSemesterId }
+    : filters;
+
+  const [summary, lva, cefrDistribution, b2Report, unfilteredSummary, scoped, rosterCohort] = await Promise.all([
+    getAnalyticsSummary(filtersWithSemester),
+    getLvaAnalytics(filtersWithSemester),
+    computeCefrDistribution(filtersWithSemester, snapshotVersion),
+    overviewSemesterId
+      ? getSemesterB2Report(String(overviewSemesterId)).catch(() => null)
       : Promise.resolve(null),
     getAnalyticsSummary({ snapshot_version: snapshotVersion }),
-    loadScopedAnalytics(filters, snapshotVersion),
+    loadScopedAnalytics(filtersWithSemester, snapshotVersion),
+    buildEnrollmentRosterCohortLevelTable(filtersWithSemester, snapshotVersion),
   ]);
 
   const totals = summary.totals || {};
@@ -557,17 +730,16 @@ async function getLearningAnalyticsOverview(query = {}) {
         semesterId: b2Report.semesterId,
         totalStudents: b2Report.totalStudents,
         skills: b2Report.skills,
-        note: '認證通過率依學期名冊與歷史最佳技能 CEFR 達 B2+ 計算。',
+        note: '認證通過率依學期在學名冊與歷史最佳技能 CEFR 達 B2+ 計算。',
       }
     : {
-        semesterId: filters.semester || null,
+        semesterId: overviewSemesterId || null,
         totalStudents: null,
         skills: null,
-        note: filters.semester
-          ? '本學期名冊資料不足，無法計算 B2+ 認證率。'
-          : '可加上 semester 篩選以顯示學期認證通過率。',
+        note: overviewSemesterId
+          ? '本學期在學名冊資料不足，無法計算 B2+ 認證率。'
+          : '請選擇學期以顯示學期認證通過率。',
       };
-
   const hasData = headline.studentsInAnalysis > 0;
   const hasSnapshotData = (unfilteredSummary.totals?.students || 0) > 0;
   const hasActiveStudentFilters = Object.keys(filters).some((key) => (
@@ -582,7 +754,7 @@ async function getLearningAnalyticsOverview(query = {}) {
     contractVersion: CONTRACT_VERSION,
     module: 'EEARS-LVA',
     snapshotVersion,
-    filters,
+    filters: filtersWithSemester,
     headline,
     certification,
     cefrDistribution,
@@ -597,6 +769,8 @@ async function getLearningAnalyticsOverview(query = {}) {
       growthBySkill: lva.adjustedGrowth?.bySkill || [],
       resourceParticipation: mapResourceParticipation(lva.skillExposure),
       resourceRanking: mapResourceRanking(lva.resourceEffectiveness),
+      byCohortLevel: rosterCohort.rows,
+      byCohortLevelMeta: rosterCohort.meta,
     }),
     exposureDistribution: summary.distributions?.exposure || {},
     cohortDistribution: summary.distributions?.cohort || {},
@@ -649,19 +823,112 @@ async function listOverviewStudents(query = {}) {
   }
 
   const snapshotVersion = query.snapshot_version || query.snapshotVersion || await resolveLatestSnapshotVersion();
-  const { students, exams } = await loadScopedAnalytics(query, snapshotVersion);
-  const grouped = examsByStudent(exams);
-  let matched = students;
-  if (slice === 'comparable') {
-    const ids = await comparableStudentIds(students, exams, String(query.skill));
-    matched = students.filter((student) => ids.has(studentKey(student.studentId)));
+  const overviewSemesterId = resolveOverviewSemesterId(query);
+  const scopedQuery = overviewSemesterId ? { ...query, semester: overviewSemesterId } : query;
+
+  let matched;
+  let exams;
+  if (COHORT_LEVEL_SLICES.has(slice)) {
+    if (!overviewSemesterId) {
+      const err = new Error('請選擇學期（學期在學名冊）');
+      err.status = 400;
+      throw err;
+    }
+    const wantCohort = String(query.grade || '').trim();
+    const wantLevel = slice === 'cohort_b1'
+      ? 'b1'
+      : (slice === 'cohort_b1_plus' ? 'b1_plus' : 'no_exam');
+    const snaps = await EtEnrollmentSnapshot.findAll({
+      where: { semesterId: overviewSemesterId, isActive: true },
+      attributes: ['studentId', 'grade'],
+    });
+    const rosterIds = [];
+    const seen = new Set();
+    for (const snap of snaps) {
+      const id = studentKey(snap.studentId);
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      rosterIds.push(id);
+    }
+    const allow = studentIdAllowList(query.student_ids || query.studentIds);
+    const allowSet = allow ? new Set(allow) : null;
+    const masters = rosterIds.length
+      ? await Student.findAll({
+        where: { studentId: { [Op.in]: rosterIds } },
+        attributes: ['studentId', 'enrollmentYear'],
+      })
+      : [];
+    const yearById = new Map(masters.map((m) => [studentKey(m.studentId), m.enrollmentYear]));
+    const analyticStudents = rosterIds.length
+      ? await LjAnalyticStudent.findAll({
+        where: { snapshotVersion, studentId: { [Op.in]: rosterIds } },
+        attributes: [
+          'studentId', 'department', 'college', 'cohort', 'isB2plus',
+          'baselineCefr', 'baselineEnglishScore', 'retestFlag', 'hasValidExam', 'totalResourceHours',
+        ],
+      })
+      : [];
+    const analyticById = new Map(analyticStudents.map((s) => [studentKey(s.studentId), s]));
+    exams = rosterIds.length
+      ? await LjAnalyticExam.findAll({
+        where: buildExamWhere(scopedQuery, snapshotVersion, rosterIds),
+        attributes: [
+          'id', 'studentId', 'skill', 'isB2plus', 'testPhase', 'instrument',
+          'excludeFlag', 'registeredNoScoreFlag', 'cefrLevel', 'retestFlag', 'status',
+          'deltaRawScore', 'previousRawScore', 'rawScore', 'examDate',
+          'previousExamEventId', 'resourceHoursBeforeExam',
+        ],
+      })
+      : [];
+    const groupedRoster = examsByStudent(exams);
+    matched = [];
+    const snapById = new Map();
+    for (const snap of snaps) {
+      const id = studentKey(snap.studentId);
+      if (id && !snapById.has(id)) snapById.set(id, snap);
+    }
+    for (const id of rosterIds) {
+      if (allowSet && !allowSet.has(id)) continue;
+      const snap = snapById.get(id);
+      const cohort = resolveEnrollmentCohortFromRoster({
+        enrollmentYear: yearById.get(id),
+        studentId: id,
+        grade: snap?.grade,
+        semesterId: overviewSemesterId,
+      });
+      if (cohort !== wantCohort) continue;
+      if (!cohortFilterAllows(cohort, scopedQuery)) continue;
+      const analytic = analyticById.get(id) || {
+        studentId: id,
+        department: null,
+        college: null,
+        cohort,
+        isB2plus: false,
+        hasValidExam: false,
+      };
+      const level = cohortLevelOf(
+        { ...analytic, hasValidExam: analytic.hasValidExam === true },
+        groupedRoster.get(id) || [],
+      );
+      if (level !== wantLevel) continue;
+      matched.push({ ...analytic, studentId: id, cohort });
+    }
   } else {
-    matched = students.filter((student) => (
-      matchesSlice(student, grouped.get(studentKey(student.studentId)) || [], slice, query)
-    ));
+    const scoped = await loadScopedAnalytics(scopedQuery, snapshotVersion);
+    exams = scoped.exams;
+    const students = scoped.students;
+    const grouped = examsByStudent(exams);
+    if (slice === 'comparable') {
+      const ids = await comparableStudentIds(students, exams, String(query.skill));
+      matched = students.filter((student) => ids.has(studentKey(student.studentId)));
+    } else {
+      matched = students.filter((student) => (
+        matchesSlice(student, grouped.get(studentKey(student.studentId)) || [], slice, query)
+      ));
+    }
   }
   matched.sort((a, b) => studentKey(a.studentId).localeCompare(studentKey(b.studentId)));
-
+  const grouped = examsByStudent(exams);
   const limit = Math.min(LIST_LIMIT_MAX, Math.max(1, Number(query.limit) || LIST_LIMIT_DEFAULT));
   const offset = Math.max(0, Number(query.offset) || 0);
   const page = matched.slice(offset, offset + limit);
@@ -704,6 +971,7 @@ module.exports = {
   buildCoverage,
   buildGrowthView,
   buildCohortLevelTable,
+  resolveEnrollmentCohortFromRoster,
   labelResource,
   RESOURCE_LABELS,
 };

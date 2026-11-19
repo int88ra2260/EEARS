@@ -177,7 +177,7 @@ export default function EnglishTestStudentRosterTab({ token }) {
   const handleDeleteRoster = useCallback(async () => {
     if (!token) return;
     const ok = window.confirm(
-      '確定要刪除目前在學名單對照表？\n刪除後，學生端身分驗證將不再比對名單，直到重新上傳。'
+      '確定要刪除目前報名核對名單？\n刪除後，學生端身分驗證將不再比對名單，直到重新上傳。'
     );
     if (!ok) return;
 
@@ -200,12 +200,12 @@ export default function EnglishTestStudentRosterTab({ token }) {
   return (
     <div className="pt-3">
       <Card className="mb-3">
-        <Card.Header className="bg-secondary text-white py-2 small fw-semibold">在學名單比對設定</Card.Header>
+        <Card.Header className="bg-secondary text-white py-2 small fw-semibold">報名核對名單設定</Card.Header>
         <Card.Body>
           <Alert variant="info" className="py-2 small mb-3">
-            學生端於<strong>步驟二：身分驗證</strong>提交時，會依下方勾選的欄位與上傳的在學名單 Excel 比對；
+            學生端於<strong>步驟二：身分驗證</strong>提交時，會依下方勾選的欄位與上傳的報名核對名單 Excel 比對；
             勾選多項時，須在同一筆 Excel 列全部符合才會通過。不符者無法繼續報名。
-            請上傳僅含在學學生的名單；「學籍狀態」等其餘欄位不會自動篩選。
+            這不是 KPI 用的「學期在學名冊」；請上傳報名核對用名單，「學籍狀態」等其餘欄位不會自動篩選。
           </Alert>
 
           <div className="mb-3">
@@ -247,7 +247,7 @@ export default function EnglishTestStudentRosterTab({ token }) {
       </Card>
 
       <Card className="mb-3">
-        <Card.Header className="bg-secondary text-white py-2 small fw-semibold">上傳在學名單 Excel</Card.Header>
+        <Card.Header className="bg-secondary text-white py-2 small fw-semibold">上傳報名核對名單 Excel</Card.Header>
         <Card.Body>
           <div className="d-flex flex-wrap gap-2 mb-3">
             <Button variant="outline-primary" size="sm" onClick={handleDownloadSample} disabled={!token || uploading}>
@@ -261,8 +261,8 @@ export default function EnglishTestStudentRosterTab({ token }) {
           </div>
 
           <ImportUploadPanel
-            title="上傳最新在學名單 Excel"
-            description="上傳時會自動覆蓋先前的對照資料（只保留最新一份）。"
+            title="上傳最新報名核對名單 Excel"
+            description="上傳時會自動覆蓋先前的對照資料（只保留最新一份）。不是學期在學名冊。"
             acceptedFileTypes=".xlsx,.xls"
             selectedFile={selectedFile}
             onFileChange={setSelectedFile}
@@ -325,7 +325,7 @@ export default function EnglishTestStudentRosterTab({ token }) {
                       </div>
                     </>
                   ) : (
-                    <div className="mt-1">尚未上傳在學名單（目前沒有對照表，身分驗證不會比對）。</div>
+                    <div className="mt-1">尚未上傳報名核對名單（目前沒有對照表，身分驗證不會比對）。</div>
                   )}
                 </div>
                 {canLoadMore ? (
@@ -356,7 +356,7 @@ export default function EnglishTestStudentRosterTab({ token }) {
                     ) : (
                       <tr>
                         <td colSpan={3} className="text-center text-muted">
-                          暫無資料，請先上傳在學名單 Excel。
+                          暫無資料，請先上傳報名核對名單 Excel。
                         </td>
                       </tr>
                     )}
