@@ -178,7 +178,7 @@ describe('AnalyticsSection registration view', () => {
   test('keeps cross-semester attendance totals out and compares score rates by sitting', () => {
     render(<AnalyticsSection {...readyProps} />);
     expect(screen.queryByRole('tab', { name: '歷年比較' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '各次考試的四技能達 B2 以上' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '歷年四項成績技能達成率' })).toBeInTheDocument();
     expect(screen.getAllByText(/人數不加總/).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('tab', { name: '報名概況' }));
     expect(screen.getByText(/各次考試的達 B2 以上在決策概況/)).toBeInTheDocument();
@@ -361,7 +361,7 @@ describe('AnalyticsSection decision overview', () => {
     expect(screen.queryByText('紀錄為缺席')).not.toBeInTheDocument();
   });
 
-  test('switches to lines after more than six scored sittings', () => {
+  test('keeps the historical achievement chart as grouped bars', () => {
     const sittings = Array.from({ length: 7 }, (_, index) => ({
       semester: `11${index}-1`,
       importStatus: 'imported',
@@ -379,7 +379,27 @@ describe('AnalyticsSection decision overview', () => {
       />,
     );
 
-    expect(screen.getByTestId('sitting-b2-chart')).toHaveAttribute('data-chart', 'line');
-    expect(screen.getByText(/改用折線/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '歷年四項成績技能達成率' })).toBeInTheDocument();
+    expect(screen.getByTestId('sitting-b2-chart')).toHaveAttribute('data-chart', 'bar');
+    expect(screen.queryByText(/改用折線/)).not.toBeInTheDocument();
+  });
+
+  test('shows a google form registration count without replacing a system semester', () => {
+    render(
+      <AnalyticsSection
+        {...readyProps}
+        registrationCountSeries={[
+          { semester: '113-2', count: 80, source: 'google_form' },
+          { semester: '114-2', count: 120, source: 'system' },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: '報名概況' }));
+    fireEvent.click(screen.getByRole('button', { name: '各學期報名' }));
+    fireEvent.click(screen.getByRole('button', { name: '明細' }));
+
+    expect(screen.getByRole('row', { name: /113 學年第 2 學期（表單彙總）/ })).toHaveTextContent('80');
+    expect(screen.getByRole('row', { name: /114 學年第 2 學期/ })).toHaveTextContent('120');
+    expect(screen.getByText(/表單彙總的學期來自 Google 表單常數/)).toBeInTheDocument();
   });
 });

@@ -2,8 +2,6 @@ import React, { useMemo } from 'react';
 import {
   Bar,
   BarChart,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -55,8 +53,6 @@ const CEFR_SERIES = [
   { key: 'missing', label: '有成績但沒有等級', fill: '#c4a35a' },
   { key: 'unrecognized', label: '無法辨識的等級', fill: '#8a6a62' },
 ];
-
-const LINE_SWITCH_AFTER = 6;
 
 function finiteCount(value) {
   if (value == null || value === '') return null;
@@ -196,75 +192,54 @@ function StackedSkillChart({
   );
 }
 
-function SittingChart({ rows, mode }) {
-  const sharedAxes = (
-    <>
-      <ChartGrid vertical={false} />
-      <XAxis dataKey="name" tick={CHART_AXIS_LABEL} interval={0} axisLine={false} tickLine={false} height={36} />
-      <YAxis
-        domain={[0, 100]}
-        allowDecimals={false}
-        tick={CHART_AXIS_TICK}
-        axisLine={false}
-        tickLine={false}
-        width={48}
-        tickFormatter={(value) => `${value}%`}
-      />
-      <Tooltip
-        cursor={CHART_CURSOR_FILL}
-        content={(tipProps) => (
-          <ChartTooltip
-            {...tipProps}
-            preferFullName
-            formatValue={(value, name, item) => {
-              const count = item?.payload?.[`${item.dataKey}Count`];
-              const denominator = item?.payload?.[`${item.dataKey}Denom`];
-              if (value == null) return '沒有有成績的人';
-              return formatB2Ratio(count, denominator);
-            }}
-          />
-        )}
-      />
-    </>
-  );
-  const series = SCORE_SKILLS.map((skill) => (
-    mode === 'line' ? (
-      <Line
-        key={skill.key}
-        type="monotone"
-        dataKey={skill.key}
-        name={skill.label}
-        stroke={skill.fill}
-        strokeWidth={2}
-        dot={{ r: 3 }}
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    ) : (
-      <Bar
-        key={skill.key}
-        dataKey={skill.key}
-        name={skill.label}
-        fill={skill.fill}
-        radius={[6, 6, 0, 0]}
-        maxBarSize={22}
-        isAnimationActive={false}
-      />
-    )
-  ));
-  const Chart = mode === 'line' ? LineChart : BarChart;
+function SittingChart({ rows }) {
   return (
     <div
       className="et-analytics-plot"
       style={{ height: 300 }}
       data-testid="sitting-b2-chart"
-      data-chart={mode}
+      data-chart="bar"
     >
       <ResponsiveContainer width="100%" height="100%">
-        <Chart data={rows} margin={{ ...CHART_MARGIN.bar, bottom: 28 }}>
-          {sharedAxes}
-          {series}
-        </Chart>
+        <BarChart data={rows} margin={{ ...CHART_MARGIN.bar, bottom: 28 }}>
+          <ChartGrid vertical={false} />
+          <XAxis dataKey="name" tick={CHART_AXIS_LABEL} interval={0} axisLine={false} tickLine={false} height={36} />
+          <YAxis
+            domain={[0, 100]}
+            allowDecimals={false}
+            tick={CHART_AXIS_TICK}
+            axisLine={false}
+            tickLine={false}
+            width={48}
+            tickFormatter={(value) => `${value}%`}
+          />
+          <Tooltip
+            cursor={CHART_CURSOR_FILL}
+            content={(tipProps) => (
+              <ChartTooltip
+                {...tipProps}
+                preferFullName
+                formatValue={(value, name, item) => {
+                  const count = item?.payload?.[`${item.dataKey}Count`];
+                  const denominator = item?.payload?.[`${item.dataKey}Denom`];
+                  if (value == null) return '沒有有成績的人';
+                  return formatB2Ratio(count, denominator);
+                }}
+              />
+            )}
+          />
+          {SCORE_SKILLS.map((skill) => (
+            <Bar
+              key={skill.key}
+              dataKey={skill.key}
+              name={skill.label}
+              fill={skill.fill}
+              radius={[6, 6, 0, 0]}
+              maxBarSize={22}
+              isAnimationActive={false}
+            />
+          ))}
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
@@ -363,11 +338,14 @@ export default function AnalyticsDecisionCharts({
           row[`${skill.key}Denom`] = finiteCount(source?.denominator);
           if (percent != null) drawable = true;
         });
+        row.population = sitting.population === 'scores_only' ? 'scores_only' : 'registered';
+        if (row.population === 'scores_only') {
+          row.fullName = `${row.fullName}（成績匯入）`;
+        }
         return drawable ? row : null;
       })
       .filter(Boolean);
   }, [sittingB2Rates]);
-  const sittingMode = sittingRows.length > LINE_SWITCH_AFTER ? 'line' : 'bar';
 
   return (
     <div className="et-analytics-decision" role="tabpanel">
@@ -540,7 +518,7 @@ export default function AnalyticsDecisionCharts({
       <section className="et-analytics-panel" aria-labelledby="decision-sitting-title">
         <div className="et-analytics-panel-head">
           <div>
-            <h3 id="decision-sitting-title">各次考試的四技能達 B2 以上</h3>
+            <h3 id="decision-sitting-title">歷年四項成績技能達成率</h3>
             <p>
               {sittingB2Rates?.note || '各次考試各自計算。人數不加總。同一位學生可以出現在多次考試。'}
               {' '}這張圖不跟著「全部學期」停用，因為每一次都用自己的分母。
@@ -559,12 +537,11 @@ export default function AnalyticsDecisionCharts({
         {sittingB2Rates?.sumsPeople === false && (sittingB2Rates.sittings || []).length > 0 ? (
           <>
             <p className="et-analytics-unit">
-              單位：該次、該技能有成績人數中的百分比。沒有成績匯入，或該技能沒有有成績的人，不會畫成 0%。
-              {sittingMode === 'line' ? ' 考試次數較多，改用折線。' : ''}
+              單位：該次、該技能有成績人數中的百分比。長條圖的每一次各自計算，人數不加總。沒有成績匯入，或該技能沒有有成績的人，不會畫成 0%。
             </p>
             {sittingRows.length > 0 ? (
               <>
-                <SittingChart rows={sittingRows} mode={sittingMode} />
+                <SittingChart rows={sittingRows} />
                 <LegendList items={SCORE_SKILLS} />
               </>
             ) : (
@@ -584,7 +561,10 @@ export default function AnalyticsDecisionCharts({
                 <tbody>
                   {sittingB2Rates.sittings.map((sitting) => (
                     <tr key={sitting.semester}>
-                      <th scope="row">{semesterLabel(sitting.semester)}</th>
+                      <th scope="row">
+                        {semesterLabel(sitting.semester)}
+                        {sitting.population === 'scores_only' ? '（成績匯入）' : ''}
+                      </th>
                       {SCORE_SKILLS.map((skill) => (
                         <td key={skill.key}>
                           {sitting.importStatus === 'none'

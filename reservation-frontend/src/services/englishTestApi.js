@@ -160,6 +160,21 @@ export async function fetchInfoSourceStats(token) {
   return data;
 }
 
+function normalizeRegistrationCountSeries(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((row) => row && typeof row === 'object' && String(row.semester || '').trim())
+    .map((row) => {
+      const count = Number(row.count);
+      return {
+        semester: String(row.semester).trim(),
+        count: Number.isFinite(count) ? count : null,
+        source: row.source === 'google_form' ? 'google_form' : 'system',
+      };
+    })
+    .filter((row) => row.count != null);
+}
+
 function normalizeSittingB2Rates(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   if (value.sumsPeople !== false) return null;
@@ -172,6 +187,7 @@ function normalizeSittingB2Rates(value) {
       .map((row) => ({
         semester: String(row.semester).trim(),
         importStatus: row.importStatus === 'imported' ? 'imported' : 'none',
+        population: row.population === 'scores_only' ? 'scores_only' : 'registered',
         skills: row.skills && typeof row.skills === 'object' ? row.skills : {},
       })),
   };
@@ -198,6 +214,7 @@ export async function fetchEnglishTestAnalyticsStats(token, { semester } = {}) {
       data.semesterCounts && typeof data.semesterCounts === 'object' && !Array.isArray(data.semesterCounts)
         ? data.semesterCounts
         : {},
+    registrationCountSeries: normalizeRegistrationCountSeries(data.registrationCountSeries),
     registrationSummary: data.registrationSummary && typeof data.registrationSummary === 'object'
       ? data.registrationSummary
       : null,

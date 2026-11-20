@@ -12,6 +12,7 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
   const [semester, setSemester] = useState(() => getCurrentSemester() || '');
   const [availableSemesters, setAvailableSemesters] = useState([]);
   const [semesterCounts, setSemesterCounts] = useState({});
+  const [registrationCountSeries, setRegistrationCountSeries] = useState([]);
   const [activeSemester, setActiveSemester] = useState('');
   const [infoSourceStats, setInfoSourceStats] = useState(EMPTY_BUCKET);
   const [departmentStats, setDepartmentStats] = useState(EMPTY_BUCKET);
@@ -39,6 +40,7 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
       setGradeStats(json.grade || EMPTY_BUCKET);
       setAvailableSemesters(json.availableSemesters || []);
       setSemesterCounts(json.semesterCounts || {});
+      setRegistrationCountSeries(json.registrationCountSeries || []);
       setActiveSemester(json.activeSemester || '');
       setRegistrationSummary(json.registrationSummary || null);
       setAttendanceSummary(json.attendance || null);
@@ -64,6 +66,7 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
       setAttendanceSummary(null);
       setScoreSummary(null);
       setSittingB2Rates(null);
+      setRegistrationCountSeries([]);
       setAnalyticsError(e?.message || '載入統計失敗，請確認後端已重啟並包含數據分析 API');
     } finally {
       setAnalyticsLoading(false);
@@ -80,6 +83,7 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
     setSemester,
     availableSemesters,
     semesterCounts,
+    registrationCountSeries,
     activeSemester,
     infoSourceStats,
     departmentStats,

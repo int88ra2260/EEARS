@@ -58,7 +58,7 @@ export default function EnglishTestManagement() {
     handleToggleRegistration, handleToggleRegistrationGroup, handleToggleRegistrationEdit,
   } = m.settings;
 
-  const { infoSourceStats, departmentStats, gradeStats, registrationSummary, attendanceSummary, scoreSummary, sittingB2Rates, analyticsLoading, analyticsError, semester, setSemester, availableSemesters, semesterCounts, activeSemester } = m.analytics;
+  const { infoSourceStats, departmentStats, gradeStats, registrationSummary, attendanceSummary, scoreSummary, sittingB2Rates, analyticsLoading, analyticsError, semester, setSemester, availableSemesters, semesterCounts, registrationCountSeries, activeSemester } = m.analytics;
   const { handleExport, handleExportPhotos, exportingExcel, exportingPhotos } = m.exportOps;
   const {
     selectedRows, setSelectedRows, handleBulkApprove, handleBulkReject,
@@ -354,6 +354,7 @@ export default function EnglishTestManagement() {
           onSemesterChange={setSemester}
           availableSemesters={availableSemesters}
           semesterCounts={semesterCounts}
+          registrationCountSeries={registrationCountSeries}
           activeSemester={activeSemester}
           infoSource={infoSourceStats}
           department={departmentStats}

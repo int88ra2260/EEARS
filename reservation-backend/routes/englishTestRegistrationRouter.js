@@ -1505,6 +1505,7 @@ router.get('/english-test/registrations/stats/analytics', ...englishRegViewAuth,
 
     const filterSemester = semester === 'all' ? '' : semester;
     const { loadBestepAnalyticsExtension } = require('../services/bestepAnalyticsAggregateService');
+    const { buildRegistrationCountSeries } = require('../services/bestepLegacyRegistrationCounts');
     const [infoSource, department, grade, extension] = await Promise.all([
       queryRegistrationGroupStats('infoSource', { semester: filterSemester }),
       queryRegistrationGroupStats('department', { semester: filterSemester }),
@@ -1519,6 +1520,7 @@ router.get('/english-test/registrations/stats/analytics', ...englishRegViewAuth,
       activeSemester,
       availableSemesters,
       semesterCounts,
+      registrationCountSeries: buildRegistrationCountSeries(semesterCounts),
       registrationSummary: extension.registrationSummary,
       attendance: extension.attendance,
       scores: extension.scores,

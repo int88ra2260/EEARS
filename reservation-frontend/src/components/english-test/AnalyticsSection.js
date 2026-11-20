@@ -246,6 +246,7 @@ export default function AnalyticsSection({
   onSemesterChange,
   availableSemesters = [],
   semesterCounts = {},
+  registrationCountSeries = [],
   activeSemester = '',
   infoSource = { data: [], total: 0 },
   department = { data: [], total: 0 },
@@ -323,14 +324,25 @@ export default function AnalyticsSection({
       label: '各學期報名',
       title: '各學期報名筆數',
       field: '學期',
-      rows: Object.entries(semesterCounts || {}).map(([key, count]) => ({
-        label: formatEnglishTestSemesterLabel(key) || key,
-        count: finiteCount(count),
+      rows: (registrationCountSeries.length
+        ? registrationCountSeries
+        : Object.entries(semesterCounts || {}).map(([key, count]) => ({
+          semester: key,
+          count,
+          source: 'system',
+        }))
+      ).map((row) => ({
+        label: `${formatEnglishTestSemesterLabel(row.semester) || row.semester}${row.source === 'google_form' ? '（表單彙總）' : ''}`,
+        count: finiteCount(row.count),
       })),
-      total: sumCounts(semesterCounts),
+      total: registrationCountSeries.length
+        ? registrationCountSeries.reduce((sum, row) => sum + (finiteCount(row.count) || 0), 0)
+        : sumCounts(semesterCounts),
       horizontal: false,
       filePrefix: '各學期報名',
-      note: '每一點都是該學期的報名表列數，用來對照報名規模，不是技能表現，也不是到考人數。',
+      note: registrationCountSeries.some((row) => row.source === 'google_form')
+        ? '每一點都是該學期的報名筆數，用來對照報名規模，不是技能表現，也不是到考人數。標成表單彙總的學期來自 Google 表單常數，不是系統報名列。系統已有報名列的學期不會被常數蓋過。'
+        : '每一點都是該學期的報名表列數，用來對照報名規模，不是技能表現，也不是到考人數。115-1 之前的 Google 表單人數要另外以常數補上，目前尚未填入。',
     },
     examType: {
       label: '報考項目',
@@ -347,7 +359,7 @@ export default function AnalyticsSection({
       filePrefix: '報考項目',
       note: '不報考會留在報名分布裡，但不進入聽、讀、說、寫的應考母體。',
     },
-  }), [grade, department, infoSource, semesterCounts, registrationSummary]);
+  }), [grade, department, infoSource, semesterCounts, registrationCountSeries, registrationSummary]);
 
   const current = slices[slice] || slices.grade;
   const rows = (current.rows || []).map((row) => ({

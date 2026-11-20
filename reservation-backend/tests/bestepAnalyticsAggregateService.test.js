@@ -392,6 +392,60 @@ describe('buildSittingB2Rates', () => {
     expect(result.sittings[1].skills.listening.b2OrAboveCount).toBe(0);
     expect(JSON.stringify(result)).not.toMatch(/Ab1|aB1|OK1/);
   });
+
+  it('uses score rows when a sitting has no successful registration and keeps later sittings on registrations', () => {
+    const result = buildSittingB2Rates(
+      [registration({ studentId: 'NEW1', semester: '115-1', examType: 'LR' })],
+      [
+        score({
+          studentId: 'OLD1',
+          semester: '113-2',
+          listeningScore: 80,
+          listeningLevel: 'B2',
+          readingScore: 10,
+          readingLevel: 'A2',
+        }),
+        score({
+          studentId: 'NEW1',
+          semester: '115-1',
+          listeningScore: 70,
+          listeningLevel: 'B2',
+          readingScore: 70,
+          readingLevel: 'B2',
+        }),
+        score({ studentId: 'GHOST', semester: '115-1', listeningScore: 90, listeningLevel: 'C1' }),
+      ],
+    );
+    const historical = result.sittings.find((row) => row.semester === '113-2');
+    const current = result.sittings.find((row) => row.semester === '115-1');
+
+    expect(historical.population).toBe('scores_only');
+    expect(historical.skills.listening).toMatchObject({ b2OrAboveCount: 1, denominator: 1 });
+    expect(historical.skills.reading).toMatchObject({ b2OrAboveCount: 0, denominator: 1 });
+    expect(historical.skills.speaking.denominator).toBe(0);
+    expect(current.population).toBe('registered');
+    expect(current.skills.listening).toMatchObject({ b2OrAboveCount: 1, denominator: 1 });
+    expect(current.skills.speaking.denominator).toBe(0);
+    expect(JSON.stringify(result)).not.toMatch(/OLD1|NEW1|GHOST/);
+  });
+});
+
+describe('buildRegistrationCountSeries', () => {
+  const { buildRegistrationCountSeries } = require('../services/bestepLegacyRegistrationCounts');
+
+  it('fills a missing semester from a google form constant and does not cover a system count', () => {
+    const series = buildRegistrationCountSeries(
+      { '115-1': 12, '114-2': 0 },
+      { '113-2': 40, '114-2': 80, '115-1': 999 },
+    );
+
+    expect(series).toEqual([
+      { semester: '113-2', count: 40, source: 'google_form' },
+      { semester: '114-2', count: 80, source: 'google_form' },
+      { semester: '115-1', count: 12, source: 'system' },
+    ]);
+    expect(JSON.stringify(series)).not.toMatch(/studentId|學號/);
+  });
 });
 
 describe('english test analytics route contract', () => {
@@ -414,6 +468,7 @@ describe('english test analytics route contract', () => {
     expect(block).toContain('activeSemester');
     expect(block).toContain('loadBestepAnalyticsExtension');
     expect(block).toContain('sittingB2Rates');
+    expect(block).toContain('registrationCountSeries');
     expect(block).not.toMatch(/ExamAttempt|LearningJourney|bestep-overview/);
   });
 });

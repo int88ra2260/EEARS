@@ -16,7 +16,7 @@ const SCORE_SKILLS = [
 ];
 
 const PRESENT_LABEL = '匯入紀錄標示出席，來源尚待確認';
-const SITTING_B2_NOTE = '各次考試各自計算。達 B2 以上是 B2、C1、C2。分母是該次、該技能有成績的人數。人數不加總。同一位學生可以出現在多次考試。';
+const SITTING_B2_NOTE = '各次考試各自計算。達 B2 以上是 B2、C1、C2。分母是該次、該技能有成績的人數。人數不加總。同一位學生可以出現在多次考試。沒有系統報名的學期，改以該次成績匯入列計算。';
 const ATTENDANCE_LIMITS = {
   confirmedAttendance: false,
   presentMeaning: 'import_marked_unconfirmed',
@@ -467,11 +467,38 @@ function collectSemesters(registrations, scores) {
   return [...semesters].sort((a, b) => semesterSortKey(a).localeCompare(semesterSortKey(b), 'en'));
 }
 
+function registrationsForSitting(registrations, scores, semester) {
+  const hasRegistrationRow = (registrations || []).some((row) => trimText(row.semester) === semester);
+  if (hasRegistrationRow) {
+    return { rows: registrations, population: 'registered' };
+  }
+
+  const seen = new Set();
+  const synthetic = [];
+  (scores || []).forEach((row) => {
+    if (trimText(row.semester) !== semester) return;
+    const key = foldStudentKey(row.studentId);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    synthetic.push({
+      studentId: trimText(row.studentId).toUpperCase(),
+      semester,
+      status: 'success',
+      examType: 'LRSW',
+    });
+  });
+  if (synthetic.length === 0) {
+    return { rows: registrations, population: 'registered' };
+  }
+  return { rows: synthetic, population: 'scores_only' };
+}
+
 function buildSittingB2Rates(registrations = [], scores = []) {
   const sittings = collectSemesters(registrations, scores).map((semester) => {
+    const populationRows = registrationsForSitting(registrations, scores, semester);
     const extension = buildBestepAnalyticsExtension({
       semester,
-      registrations,
+      registrations: populationRows.rows,
       attendance: [],
       scores,
     });
@@ -489,6 +516,7 @@ function buildSittingB2Rates(registrations = [], scores = []) {
     return {
       semester,
       importStatus: imported ? 'imported' : 'none',
+      population: populationRows.population,
       skills,
     };
   });
