@@ -7,7 +7,9 @@ vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }) => <div>{children}</div>,
   BarChart: ({ children }) => <div>{children}</div>,
   CartesianGrid: () => null,
+  LineChart: ({ children }) => <div>{children}</div>,
   Bar: () => null,
+  Line: () => null,
   XAxis: () => null,
   YAxis: () => null,
   Tooltip: () => null,
@@ -94,6 +96,7 @@ describe('AnalyticsSection registration view', () => {
     expect(screen.getByText(/目前查看：114 學年第 2 學期。報名筆數不是到考人數。/)).toBeInTheDocument();
     expect(screen.getByText(/目前查看：/)).not.toHaveTextContent('（目前）');
     expect(screen.getByRole('option', { name: /114 學年第 2 學期（目前學期）/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: '報名概況' }));
     expect(screen.getByText(/單位：筆/)).toBeInTheDocument();
     expect(screen.getByText('120')).toBeInTheDocument();
     expect(screen.getByText('96')).toBeInTheDocument();
@@ -105,6 +108,7 @@ describe('AnalyticsSection registration view', () => {
 
   test('keeps a recorded zero distinct from a missing count in the table', () => {
     render(<AnalyticsSection {...readyProps} />);
+    fireEvent.click(screen.getByRole('tab', { name: '報名概況' }));
     fireEvent.click(screen.getByRole('button', { name: '明細' }));
 
     expect(screen.getByRole('row', { name: /一年級/ })).toHaveTextContent('40');
@@ -116,6 +120,7 @@ describe('AnalyticsSection registration view', () => {
 
   test('switches among supported registration views without adding a route', () => {
     render(<AnalyticsSection {...readyProps} />);
+    fireEvent.click(screen.getByRole('tab', { name: '報名概況' }));
     fireEvent.click(screen.getByRole('button', { name: '系所分布' }));
     fireEvent.click(screen.getByRole('button', { name: '明細' }));
     expect(screen.getByRole('row', { name: /合成學系/ })).toHaveTextContent('60');
@@ -170,10 +175,14 @@ describe('AnalyticsSection registration view', () => {
     expect(screen.getByText(/不能把不同考試的出席紀錄加總/)).toBeInTheDocument();
   });
 
-  test('keeps cross-semester score comparison out of the main topics', () => {
+  test('keeps cross-semester attendance totals out and compares score rates by sitting', () => {
     render(<AnalyticsSection {...readyProps} />);
     expect(screen.queryByRole('tab', { name: '歷年比較' })).not.toBeInTheDocument();
-    expect(screen.getByText(/跨學期的出席與成績比較尚未提供/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '各次考試的四技能達 B2 以上' })).toBeInTheDocument();
+    expect(screen.getAllByText(/人數不加總/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('tab', { name: '報名概況' }));
+    expect(screen.getByText(/各次考試的達 B2 以上在決策概況/)).toBeInTheDocument();
+    expect(screen.getByText(/出席不跨學期比較/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '各學期報名' })).toBeInTheDocument();
   });
 
@@ -232,6 +241,7 @@ describe('AnalyticsSection registration view', () => {
         infoSource={{ total: 0, data: [] }}
       />,
     );
+    fireEvent.click(screen.getByRole('tab', { name: '報名概況' }));
     expect(screen.getByRole('status')).toHaveTextContent('這個範圍沒有報名資料');
 
     rerender(<AnalyticsSection {...readyProps} error="合成統計失敗" />);
@@ -244,5 +254,132 @@ describe('AnalyticsSection registration view', () => {
     render(<AnalyticsSection {...readyProps} onSemesterChange={onSemesterChange} />);
     fireEvent.change(screen.getByLabelText('學期'), { target: { value: 'all' } });
     expect(onSemesterChange).toHaveBeenCalledWith('all');
+  });
+});
+
+const sittingB2Rates = {
+  sumsPeople: false,
+  note: '各次考試各自計算。人數不加總。同一位學生可以出現在多次考試。',
+  sittings: [
+    {
+      semester: '113-1',
+      importStatus: 'none',
+      skills: {
+        listening: { b2OrAboveCount: null, denominator: null },
+        reading: { b2OrAboveCount: null, denominator: null },
+        speaking: { b2OrAboveCount: null, denominator: null },
+        writing: { b2OrAboveCount: null, denominator: null },
+      },
+    },
+    {
+      semester: '113-2',
+      importStatus: 'imported',
+      skills: {
+        listening: { b2OrAboveCount: 1, b2LevelCount: 0, denominator: 1 },
+        reading: { b2OrAboveCount: 0, b2LevelCount: 0, denominator: 1 },
+        speaking: { b2OrAboveCount: 0, b2LevelCount: 0, denominator: 0 },
+        writing: { b2OrAboveCount: null, b2LevelCount: null, denominator: null },
+      },
+    },
+    {
+      semester: '114-2',
+      importStatus: 'imported',
+      skills: {
+        listening: { b2OrAboveCount: 1, b2LevelCount: 1, denominator: 2 },
+        reading: { b2OrAboveCount: 1, b2LevelCount: 1, denominator: 2 },
+        speaking: { b2OrAboveCount: 0, b2LevelCount: 0, denominator: 2 },
+        writing: { b2OrAboveCount: 2, b2LevelCount: 2, denominator: 2 },
+      },
+    },
+  ],
+};
+
+describe('AnalyticsSection decision overview', () => {
+  test('shows this sitting grade, import status, and B2 share on the default view', () => {
+    render(<AnalyticsSection {...readyProps} />);
+
+    expect(screen.getByRole('tab', { name: '決策概況' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: '這次考試的年級組成' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '這次考試的四技能匯入狀態' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '這次考試的四技能等級與達 B2 以上' })).toBeInTheDocument();
+    expect(screen.getByTestId('grade-composition-chart')).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /一年級/ })).toHaveTextContent('40.0%');
+    expect(screen.getByRole('row', { name: /四年級/ })).toHaveTextContent('0.0%');
+    expect(screen.getByText(/另外 20 筆空白/)).toBeInTheDocument();
+    expect(screen.getByTestId('attendance-overview-chart')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '沒有匯入紀錄' })).toBeInTheDocument();
+    expect(screen.getByText(/這不是到考率/)).toBeInTheDocument();
+    expect(screen.queryByText('到考率')).not.toBeInTheDocument();
+    expect(screen.getByTestId('score-overview-chart')).toBeInTheDocument();
+    expect(screen.getByText('24／50 人（48.0%）')).toBeInTheDocument();
+    expect(screen.getByText('19／40 人（47.5%）')).toBeInTheDocument();
+    expect(screen.getByText('9／20 人（45.0%）')).toBeInTheDocument();
+    expect(screen.getByText('8／18 人（44.4%）')).toBeInTheDocument();
+  });
+
+  test('compares sitting rates without adding people across exams', () => {
+    render(<AnalyticsSection {...readyProps} sittingB2Rates={sittingB2Rates} />);
+
+    const chart = screen.getByTestId('sitting-b2-chart');
+    expect(chart).toHaveAttribute('data-chart', 'bar');
+    expect(screen.getByRole('row', { name: /113 學年第 1 學期/ })).toHaveTextContent('沒有成績匯入');
+    expect(screen.getByRole('row', { name: /113 學年第 2 學期/ })).toHaveTextContent('1／1 人（100.0%）');
+    expect(screen.getByRole('row', { name: /113 學年第 2 學期/ })).toHaveTextContent('沒有有成績的人');
+    expect(screen.getByRole('row', { name: /114 學年第 2 學期/ })).toHaveTextContent('1／2 人（50.0%）');
+    expect(screen.queryByText(/2／3/)).not.toBeInTheDocument();
+    expect(screen.queryByText('66.7%')).not.toBeInTheDocument();
+  });
+
+  test('keeps the three sitting charts closed when every semester is selected', () => {
+    render(
+      <AnalyticsSection
+        {...readyProps}
+        semester="all"
+        attendance={{ importStatus: 'not_for_all_semesters' }}
+        scores={{ importStatus: 'not_for_all_semesters' }}
+        sittingB2Rates={sittingB2Rates}
+      />,
+    );
+
+    expect(screen.getByText(/請改選單一學期/)).toBeInTheDocument();
+    expect(screen.queryByTestId('grade-composition-chart')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('attendance-overview-chart')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('score-overview-chart')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sitting-b2-chart')).toBeInTheDocument();
+  });
+
+  test('does not draw an attendance stack when this sitting has no import', () => {
+    render(
+      <AnalyticsSection
+        {...readyProps}
+        attendance={{ importStatus: 'none', skills: { L: { eligible: 80, markedAbsent: null, missingRecord: null } } }}
+      />,
+    );
+
+    expect(screen.getByText(/缺少匯入列不是缺席/)).toBeInTheDocument();
+    expect(screen.queryByTestId('attendance-overview-chart')).not.toBeInTheDocument();
+    expect(screen.queryByText('紀錄為缺席')).not.toBeInTheDocument();
+  });
+
+  test('switches to lines after more than six scored sittings', () => {
+    const sittings = Array.from({ length: 7 }, (_, index) => ({
+      semester: `11${index}-1`,
+      importStatus: 'imported',
+      skills: {
+        listening: { b2OrAboveCount: 1, denominator: 2 },
+        reading: { b2OrAboveCount: 1, denominator: 2 },
+        speaking: { b2OrAboveCount: 0, denominator: 2 },
+        writing: { b2OrAboveCount: 2, denominator: 2 },
+      },
+    }));
+    render(
+      <AnalyticsSection
+        {...readyProps}
+        sittingB2Rates={{ sumsPeople: false, note: '人數不加總。', sittings }}
+      />,
+    );
+
+    expect(screen.getByTestId('sitting-b2-chart')).toHaveAttribute('data-chart', 'line');
+    expect(screen.getByText(/改用折線/)).toBeInTheDocument();
   });
 });

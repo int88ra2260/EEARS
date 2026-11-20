@@ -1522,6 +1522,7 @@ router.get('/english-test/registrations/stats/analytics', ...englishRegViewAuth,
       registrationSummary: extension.registrationSummary,
       attendance: extension.attendance,
       scores: extension.scores,
+      sittingB2Rates: extension.sittingB2Rates,
     });
   } catch (error) {
     logger.error('英檢數據分析統計錯誤', error);

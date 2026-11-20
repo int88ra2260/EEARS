@@ -16,6 +16,7 @@ const SCORE_SKILLS = [
 ];
 
 const PRESENT_LABEL = '匯入紀錄標示出席，來源尚待確認';
+const SITTING_B2_NOTE = '各次考試各自計算。達 B2 以上是 B2、C1、C2。分母是該次、該技能有成績的人數。人數不加總。同一位學生可以出現在多次考試。';
 const ATTENDANCE_LIMITS = {
   confirmedAttendance: false,
   presentMeaning: 'import_marked_unconfirmed',
@@ -450,6 +451,55 @@ function buildBestepAnalyticsExtension({
   };
 }
 
+function semesterSortKey(semester) {
+  const value = trimText(semester);
+  const match = value.match(/^(\d+)-(\d+)$/);
+  if (!match) return value;
+  return `${match[1].padStart(4, '0')}-${match[2].padStart(2, '0')}`;
+}
+
+function collectSemesters(registrations, scores) {
+  const semesters = new Set();
+  [...(registrations || []), ...(scores || [])].forEach((row) => {
+    const value = trimText(row && row.semester);
+    if (value && value !== 'null') semesters.add(value);
+  });
+  return [...semesters].sort((a, b) => semesterSortKey(a).localeCompare(semesterSortKey(b), 'en'));
+}
+
+function buildSittingB2Rates(registrations = [], scores = []) {
+  const sittings = collectSemesters(registrations, scores).map((semester) => {
+    const extension = buildBestepAnalyticsExtension({
+      semester,
+      registrations,
+      attendance: [],
+      scores,
+    });
+    const imported = extension.scores.importStatus === 'imported';
+    const skills = {};
+    SCORE_SKILLS.forEach((skill) => {
+      const row = extension.scores.skills[skill.key];
+      skills[skill.key] = {
+        label: skill.label,
+        b2OrAboveCount: imported ? row.b2OrAboveCount : null,
+        b2LevelCount: imported ? row.b2LevelCount : null,
+        denominator: imported ? row.denominator : null,
+      };
+    });
+    return {
+      semester,
+      importStatus: imported ? 'imported' : 'none',
+      skills,
+    };
+  });
+
+  return {
+    sumsPeople: false,
+    note: SITTING_B2_NOTE,
+    sittings,
+  };
+}
+
 async function loadBestepAnalyticsExtension(semester) {
   const {
     EnglishTestRegistration,
@@ -467,36 +517,35 @@ async function loadBestepAnalyticsExtension(semester) {
     ],
   };
 
-  if (!requested || requested === 'all') {
-    const registrations = await EnglishTestRegistration.findAll({
-      attributes: attributes.registration,
-      raw: true,
-    });
-    return buildBestepAnalyticsExtension({
-      semester: 'all',
-      registrations,
-      attendance: [],
-      scores: [],
-    });
-  }
-
-  const where = { semester: requested };
-  const [registrations, attendance, scores] = await Promise.all([
-    EnglishTestRegistration.findAll({ where, attributes: attributes.registration, raw: true }),
-    BestepAttendance.findAll({ where, attributes: attributes.attendance, raw: true }),
-    BestepExamScore.findAll({ where, attributes: attributes.score, raw: true }),
+  const scopeAll = !requested || requested === 'all';
+  const [registrations, scores, attendance] = await Promise.all([
+    EnglishTestRegistration.findAll({ attributes: attributes.registration, raw: true }),
+    BestepExamScore.findAll({ attributes: attributes.score, raw: true }),
+    scopeAll
+      ? Promise.resolve([])
+      : BestepAttendance.findAll({
+          where: { semester: requested },
+          attributes: attributes.attendance,
+          raw: true,
+        }),
   ]);
-  return buildBestepAnalyticsExtension({
-    semester: requested,
+  const extension = buildBestepAnalyticsExtension({
+    semester: scopeAll ? 'all' : requested,
     registrations,
     attendance,
-    scores,
+    scores: scopeAll ? [] : scores,
   });
+  return {
+    ...extension,
+    sittingB2Rates: buildSittingB2Rates(registrations, scores),
+  };
 }
 
 module.exports = {
   PRESENT_LABEL,
   CEFR_RESOLUTION_NOTE,
+  SITTING_B2_NOTE,
   buildBestepAnalyticsExtension,
+  buildSittingB2Rates,
   loadBestepAnalyticsExtension,
 };

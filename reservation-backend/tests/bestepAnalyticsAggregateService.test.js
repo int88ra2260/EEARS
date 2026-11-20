@@ -5,7 +5,9 @@ const fs = require('fs');
 const path = require('path');
 const {
   PRESENT_LABEL,
+  SITTING_B2_NOTE,
   buildBestepAnalyticsExtension,
+  buildSittingB2Rates,
 } = require('../services/bestepAnalyticsAggregateService');
 
 function registration(overrides) {
@@ -310,6 +312,88 @@ describe('buildBestepAnalyticsExtension', () => {
   });
 });
 
+describe('buildSittingB2Rates', () => {
+  it('keeps each sitting on its own denominator and counts C1 toward B2 or above', () => {
+    const result = buildSittingB2Rates(
+      [
+        registration({ studentId: 'S1', semester: '114-2' }),
+        registration({ studentId: 'S2', semester: '114-2' }),
+        registration({ studentId: 'S1', semester: '113-2' }),
+        registration({ studentId: 'S3', semester: '114-1' }),
+      ],
+      [
+        score({ studentId: 'S1', semester: '114-2', listeningScore: 80, listeningLevel: 'B2' }),
+        score({ studentId: 'S2', semester: '114-2', listeningScore: 10, listeningLevel: 'A1' }),
+        score({ studentId: 'S1', semester: '113-2', listeningScore: 90, listeningLevel: 'C1' }),
+        score({ studentId: 'S3', semester: '114-1', listeningScore: 40, listeningLevel: 'B1' }),
+      ],
+    );
+
+    expect(result.sumsPeople).toBe(false);
+    expect(result.note).toBe(SITTING_B2_NOTE);
+    expect(result.sittings.map((row) => row.semester)).toEqual(['113-2', '114-1', '114-2']);
+    expect(result.sittings[0].skills.listening).toEqual({
+      label: '聽力', b2OrAboveCount: 1, b2LevelCount: 0, denominator: 1,
+    });
+    expect(result.sittings[1].skills.listening).toEqual({
+      label: '聽力', b2OrAboveCount: 0, b2LevelCount: 0, denominator: 1,
+    });
+    expect(result.sittings[2].skills.listening).toEqual({
+      label: '聽力', b2OrAboveCount: 1, b2LevelCount: 1, denominator: 2,
+    });
+    expect(result.total).toBeUndefined();
+    expect(JSON.stringify(result)).not.toMatch(/S1|S2|S3/);
+  });
+
+  it('does not turn a semester without scores into a zero rate', () => {
+    const result = buildSittingB2Rates(
+      [registration({ studentId: 'S4', semester: '113-1' })],
+      [],
+    );
+    const listening = result.sittings[0].skills.listening;
+
+    expect(result.sittings).toHaveLength(1);
+    expect(result.sittings[0].importStatus).toBe('none');
+    expect(listening.b2OrAboveCount).toBeNull();
+    expect(listening.b2LevelCount).toBeNull();
+    expect(listening.denominator).toBeNull();
+  });
+
+  it('keeps a scored student without a level in that sitting denominator', () => {
+    const result = buildSittingB2Rates(
+      [registration({ studentId: 'S5', semester: '114-2' })],
+      [score({ studentId: 'S5', semester: '114-2', listeningScore: 10, listeningLevel: '' })],
+    );
+    const listening = result.sittings[0].skills.listening;
+
+    expect(result.sittings[0].importStatus).toBe('imported');
+    expect(listening.denominator).toBe(1);
+    expect(listening.b2OrAboveCount).toBe(0);
+    expect(listening.b2LevelCount).toBe(0);
+  });
+
+  it('does not let a case-folded collision in one sitting change another sitting', () => {
+    const result = buildSittingB2Rates(
+      [
+        registration({ studentId: 'Ab1', semester: '114-2' }),
+        registration({ studentId: 'aB1', semester: '114-2' }),
+        registration({ studentId: 'OK1', semester: '113-2' }),
+      ],
+      [
+        score({ studentId: 'Ab1', semester: '114-2', listeningScore: 80, listeningLevel: 'B2' }),
+        score({ studentId: 'OK1', semester: '113-2', listeningScore: 80, listeningLevel: 'B2' }),
+      ],
+    );
+
+    expect(result.sittings[0].semester).toBe('113-2');
+    expect(result.sittings[0].skills.listening.b2OrAboveCount).toBe(1);
+    expect(result.sittings[0].skills.listening.denominator).toBe(1);
+    expect(result.sittings[1].skills.listening.denominator).toBe(0);
+    expect(result.sittings[1].skills.listening.b2OrAboveCount).toBe(0);
+    expect(JSON.stringify(result)).not.toMatch(/Ab1|aB1|OK1/);
+  });
+});
+
 describe('english test analytics route contract', () => {
   const source = fs.readFileSync(
     path.join(__dirname, '../routes/englishTestRegistrationRouter.js'),
@@ -329,6 +413,7 @@ describe('english test analytics route contract', () => {
     expect(block).toContain('availableSemesters');
     expect(block).toContain('activeSemester');
     expect(block).toContain('loadBestepAnalyticsExtension');
+    expect(block).toContain('sittingB2Rates');
     expect(block).not.toMatch(/ExamAttempt|LearningJourney|bestep-overview/);
   });
 });

@@ -20,9 +20,11 @@ import {
   ChartGrid,
   ChartTooltip,
 } from '../charts';
+import AnalyticsDecisionCharts from './AnalyticsDecisionCharts';
 import './AnalyticsSection.css';
 
 const TOPICS = [
+  { id: 'overview', label: '決策概況' },
   { id: 'registration', label: '報名概況' },
   { id: 'attendance', label: '出席紀錄' },
   { id: 'skills', label: '四技能成績' },
@@ -251,8 +253,9 @@ export default function AnalyticsSection({
   registrationSummary = null,
   attendance = null,
   scores = null,
+  sittingB2Rates = null,
 }) {
-  const [topic, setTopic] = useState('registration');
+  const [topic, setTopic] = useState('overview');
   const [slice, setSlice] = useState('grade');
   const [view, setView] = useState('chart');
   const [attendanceSkill, setAttendanceSkill] = useState('L');
@@ -382,7 +385,7 @@ export default function AnalyticsSection({
         <div>
           <h2 id="et-analytics-title" className="et-analytics-title">培力英檢數據分析</h2>
           <p className="et-analytics-purpose">
-            分開看報名組成、出席匯入與四技能成績。三份母體各自計算，不能混在一起。
+            先看這一次考試的年級組成、四技能匯入狀態和等級，再並排各次考試的達 B2 以上。報名、出席匯入、成績是三份母體，人數不加總。
           </p>
         </div>
         <div className="et-analytics-filter">
@@ -424,6 +427,17 @@ export default function AnalyticsSection({
 
       {loading ? (
         <p className="et-analytics-status" role="status">載入統計資料中...</p>
+      ) : null}
+
+      {topic === 'overview' && !loading && !error ? (
+        <AnalyticsDecisionCharts
+          semester={selectValue}
+          registrationCount={registrationCount}
+          grade={grade}
+          attendance={attendance}
+          scores={scores}
+          sittingB2Rates={sittingB2Rates}
+        />
       ) : null}
 
       {topic === 'registration' && !loading && !error && !showWorkbench ? (
@@ -524,7 +538,7 @@ export default function AnalyticsSection({
                 <li>報名成功是狀態為成功的學生數，和全部報名筆數分開。不報考仍算報名成功，但不算四技能應考。</li>
                 <li>四技能應考學生數是 {formatPeople(examPopulationCount)}。學號空白，或同一張表裡大小寫不同卻折成同一個學號的列，不會併進這個母體。</li>
                 <li>人數 0 代表該選項真的是 0；沒有回傳的欄位會標成未提供，不會顯示成 0。</li>
-                <li>各學期報名只比較報名筆數。跨學期的出席與成績比較尚未提供，也不會把不同學期的成績加總。</li>
+                <li>各學期報名只比較報名筆數。各次考試的達 B2 以上在決策概況，每一次、每一項技能各自用有成績的人數當分母，人數不加總。出席不跨學期比較。</li>
               </ul>
             </details>
             <p className="et-analytics-observation">

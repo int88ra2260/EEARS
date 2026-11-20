@@ -160,6 +160,23 @@ export async function fetchInfoSourceStats(token) {
   return data;
 }
 
+function normalizeSittingB2Rates(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  if (value.sumsPeople !== false) return null;
+  const sittings = Array.isArray(value.sittings) ? value.sittings : [];
+  return {
+    sumsPeople: false,
+    note: typeof value.note === 'string' ? value.note : '',
+    sittings: sittings
+      .filter((row) => row && typeof row === 'object' && String(row.semester || '').trim())
+      .map((row) => ({
+        semester: String(row.semester).trim(),
+        importStatus: row.importStatus === 'imported' ? 'imported' : 'none',
+        skills: row.skills && typeof row.skills === 'object' ? row.skills : {},
+      })),
+  };
+}
+
 /** 數據分析：Q21 宣傳來源、系所、年級（可指定學期） */
 export async function fetchEnglishTestAnalyticsStats(token, { semester } = {}) {
   const qs = new URLSearchParams();
@@ -186,6 +203,7 @@ export async function fetchEnglishTestAnalyticsStats(token, { semester } = {}) {
       : null,
     attendance: data.attendance && typeof data.attendance === 'object' ? data.attendance : null,
     scores: data.scores && typeof data.scores === 'object' ? data.scores : null,
+    sittingB2Rates: normalizeSittingB2Rates(data.sittingB2Rates),
   };
 }
 
