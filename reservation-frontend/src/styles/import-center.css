@@ -220,6 +220,101 @@
   grid-column: 1 / -1;
 }
 
+.import-center-bento--hubs {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.import-hub-card__includes {
+  margin: 0 0 1rem;
+  padding: 0 0 0 1.1rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--admin-text, #2f3437);
+}
+
+.import-hub-card__includes li + li {
+  margin-top: 0.2rem;
+}
+
+/* ---- Roster note ---- */
+.import-center-roster-note {
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 8px;
+  background: var(--admin-surface-muted, #f7f6f3);
+}
+
+.import-center-roster-note__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--admin-text, #2f3437);
+}
+
+.import-center-roster-note__list {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--admin-text-muted, #787774);
+}
+
+.import-center-roster-note__list li + li {
+  margin-top: 0.25rem;
+}
+
+/* ---- Collapsed more ---- */
+.import-center-more {
+  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--admin-border, #eaeaea);
+  border-radius: 8px;
+  background: var(--admin-surface, #ffffff);
+}
+
+.import-center-more__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.85rem;
+  padding: 1rem 1.15rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.import-center-more__summary::-webkit-details-marker {
+  display: none;
+}
+
+.import-center-more__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--admin-text, #2f3437);
+}
+
+.import-center-more__hint {
+  font-size: 0.8125rem;
+  color: var(--admin-text-muted, #787774);
+}
+
+.import-center-more__body {
+  padding: 0 1.15rem 1.25rem;
+  border-top: 1px solid var(--admin-border, #eaeaea);
+}
+
+.import-center-more__legend {
+  padding: 0.85rem 0 0.25rem;
+}
+
+.import-center-more .import-center-section {
+  margin-bottom: 1.5rem;
+}
+
+.import-center-more .import-center-section:last-child {
+  margin-bottom: 0;
+}
+
 /* ---- Task cards ---- */
 .import-center-card {
   border: 1px solid var(--admin-border, #eaeaea) !important;
@@ -692,6 +787,7 @@
 
   .import-center-bento,
   .import-center-bento--frequent,
+  .import-center-bento--hubs,
   .import-center-bento--ops {
     grid-template-columns: 1fr;
   }

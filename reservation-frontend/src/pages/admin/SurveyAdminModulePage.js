@@ -13,7 +13,6 @@ import EmptyState from '../../components/ui/EmptyState';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Dropdown from 'react-bootstrap/Dropdown';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
-import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
 import { P } from '../../constants/permissions';
 import { labelSurveyStatus } from '../../constants/surveyAdminUx';
 import { surveyModuleStatusToVariant } from '../../utils/statusBadgeUtils';
@@ -40,7 +39,6 @@ export default function SurveyAdminModulePage({ embedded = false }) {
   const canResponses = hasPermission(accessProfile, P.CAN_VIEW_SURVEY_RESPONSES);
   const canAnalytics = hasPermission(accessProfile, P.CAN_VIEW_SURVEY_ANALYTICS);
   const canExportNew = hasPermission(accessProfile, P.CAN_EXPORT_SURVEY_RESPONSES);
-  const canAccessImportCenter = canAccessAdminRoute(accessProfile, '/admin/import-center');
 
   const {
     loading,
@@ -217,11 +215,6 @@ export default function SurveyAdminModulePage({ embedded = false }) {
                             {canExportNew ? (
                               <Dropdown.Item onClick={() => exportSurveyJson(r)}>
                                 下載問卷備份（JSON）
-                              </Dropdown.Item>
-                            ) : null}
-                            {canAccessImportCenter ? (
-                              <Dropdown.Item as={Link} to="/admin/import-center">
-                                資料匯入中心（匯出說明）
                               </Dropdown.Item>
                             ) : null}
                             {canManage ? (

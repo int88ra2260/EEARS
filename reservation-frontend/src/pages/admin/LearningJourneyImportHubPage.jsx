@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { P } from '../../constants/permissions';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
+import ImportCenterNotice from '../../components/admin/import/ImportCenterNotice';
 import LearningJourneyV3ImportSection from '../../components/learningJourneyV3/LearningJourneyV3ImportSection';
 import LearningJourneyImportHistoryPanel from '../../components/learningJourneyV3/LearningJourneyImportHistoryPanel';
 import useScrollReveal from '../../hooks/useScrollReveal';
@@ -43,6 +44,9 @@ export default function LearningJourneyImportHubPage() {
           <Link to="/admin/import-center">資料匯入中心</Link>
           <Link to="/admin/import-center/runs">匯入紀錄中心</Link>
         </nav>
+        <div className="mt-3">
+          <ImportCenterNotice variant="import" compact />
+        </div>
       </header>
 
       <div className="lj-import-guide lj-import-reveal" style={{ '--reveal-delay': '60ms' }}>

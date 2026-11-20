@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, test, vi } from 'vitest';
 import ImportCenterPage from './ImportCenterPage';
@@ -14,13 +15,6 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-const STATUS_CLASS = {
-  已啟用: ['bg-success'],
-  僅匯出: ['bg-primary'],
-  尚未啟用: ['bg-secondary'],
-  待確認: ['bg-warning', 'text-dark'],
-};
-
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -29,43 +23,46 @@ function renderPage() {
   );
 }
 
-function statusBadges(label) {
-  return screen.getAllByText(label).filter((el) => el.classList.contains('import-center-card__status'));
-}
-
-describe('匯入中心狀態圖例', () => {
-  test('圖例與卡片使用同一套粉彩 Badge，類型標籤維持獨立', () => {
+describe('匯入中心任務入口', () => {
+  test('首屏只顯示實際在用的四個任務 hub，廢棄入口不出現', async () => {
+    const user = userEvent.setup();
     renderPage();
-    const legend = screen.getByRole('list', { name: '狀態說明' });
 
-    for (const [label, classes] of Object.entries(STATUS_CLASS)) {
-      const legendBadge = within(legend).getByText(label);
-      expect(legendBadge.className).toContain('badge');
-      expect(legendBadge.className).toContain('import-center-card__status');
-      expect(legendBadge.className).not.toContain('status-badge');
-      expect(legendBadge.className).not.toContain('import-center-kind');
-      for (const className of classes) {
-        expect(legendBadge.className).toContain(className);
-      }
+    expect(screen.getByRole('heading', { name: '資料匯入中心' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '常用任務' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '前往學習歷程匯入' })).toHaveAttribute(
+      'href',
+      '/admin/learning-journey/import',
+    );
+    expect(screen.getByRole('button', { name: '前往培力成績匯入' })).toHaveAttribute(
+      'href',
+      '/admin/english-test/import',
+    );
+    expect(screen.getByRole('button', { name: '報名核對名單' })).toHaveAttribute(
+      'href',
+      '/admin/english-test?tab=roster',
+    );
+    expect(screen.getByRole('button', { name: '前往活動列表' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '前往 EWL 同步' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '查看匯入紀錄' })).toHaveAttribute(
+      'href',
+      '/admin/import-center/runs',
+    );
 
-      const matches = statusBadges(label);
-      expect(matches.length).toBeGreaterThan(1);
-      for (const el of matches) {
-        expect(el.className).toBe(legendBadge.className);
-      }
-    }
-
-    const kind = screen.getAllByText('匯入').find((el) => el.classList.contains('import-center-kind--import'));
-    expect(kind).toBeTruthy();
-    expect(kind.className).toContain('import-center-card__kind');
-    expect(kind.className).not.toContain('import-center-card__status');
-    expect(kind.className).not.toContain('bg-success');
-
-    expect(screen.getByRole('button', { name: '查看匯入紀錄' })).toHaveAttribute('href', '/admin/import-center/runs');
-    expect(screen.getAllByRole('button', { name: '前往匯入' }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: '前往匯出' })).toBeInTheDocument();
+    expect(screen.getByText('三種名冊不要混用')).toBeInTheDocument();
     expect(screen.getByText('學期在學名冊')).toBeInTheDocument();
-    expect(screen.getByText('報名核對名單')).toBeInTheDocument();
-    expect(screen.getByText('班級名冊（例外補丁）')).toBeInTheDocument();
+    expect(screen.queryByText('全校學生主檔匯入')).not.toBeInTheDocument();
+    expect(screen.queryByText('活動資料匯入')).not.toBeInTheDocument();
+    expect(screen.queryByText('問卷資料匯出')).not.toBeInTheDocument();
+
+    const more = screen.getByText('例外與維運').closest('details');
+    expect(more).toBeTruthy();
+    expect(more.open).toBe(false);
+
+    await user.click(within(more).getByText('例外與維運'));
+    expect(more.open).toBe(true);
+    expect(within(more).getByText('班級名冊（例外補丁）')).toBeInTheDocument();
+    expect(within(more).getByText('學習歷程同步與維運')).toBeInTheDocument();
+    expect(within(more).queryByRole('button', { name: '前往匯出' })).not.toBeInTheDocument();
   });
 });

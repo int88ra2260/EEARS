@@ -1,65 +1,20 @@
 import React, { useMemo } from 'react';
-import { Badge, Button } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import { Link, useOutletContext } from 'react-router-dom';
+import ImportHubCard from '../../components/admin/import/ImportHubCard';
 import ImportTaskCard from '../../components/admin/import/ImportTaskCard';
 import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
 import {
-  getImportCenterSections,
-  IMPORT_CENTER_TASK_GUIDES,
+  getImportCenterMoreSections,
+  IMPORT_CENTER_PRIMARY_HUBS,
+  IMPORT_CENTER_ROSTER_GUIDE,
 } from '../../constants/importCenterCards';
-import {
-  IMPORT_STATUS_BADGE,
-  IMPORT_STATUS_LABEL,
-  IMPORT_STATUS_TIER,
-} from '../../constants/importCenterStatus';
 import useScrollReveal from '../../hooks/useScrollReveal';
 import { buildAccessProfile } from '../../utils/accessControl';
 import '../../styles/import-center.css';
 
-const STATUS_LEGEND_ORDER = [
-  IMPORT_STATUS_TIER.ENABLED,
-  IMPORT_STATUS_TIER.EXPORT_ONLY,
-  IMPORT_STATUS_TIER.PENDING,
-  IMPORT_STATUS_TIER.DISABLED,
-];
-
-const GUIDE_POINTS = [
-  {
-    label: '先選任務',
-    text: '上方「先選任務」對應 KPI、修課班級、報名核對、培力成績；再點常用路徑卡片。',
-  },
-  {
-    label: '對照母體',
-    text: '學期在學名冊＝分母；報名核對名單＝培力身分；班級＝例外補丁。名稱不要混用。',
-  },
-  {
-    label: '再到原頁上傳',
-    text: '本頁只做導覽；實際上傳、預覽與寫入仍在各功能頁完成。',
-  },
-];
-function StatusLegend() {
-  return (
-    <div className="import-center-legend" role="list" aria-label="狀態說明">
-      <span className="import-center-legend__label">狀態</span>
-      {STATUS_LEGEND_ORDER.map((tier) => {
-        const meta = IMPORT_STATUS_BADGE[tier];
-        return (
-          <Badge
-            key={tier}
-            bg={meta.bg}
-            className={`import-center-card__status ${meta.textClass || ''}`.trim()}
-            role="listitem"
-          >
-            {IMPORT_STATUS_LABEL[tier]}
-          </Badge>
-        );
-      })}
-    </div>
-  );
-}
-
 /**
- * 資料匯入中心（P11 入口；P14-2 UI 分區）
+ * 資料匯入中心：只列實際仍在用的匯入／同步入口。
  */
 export default function ImportCenterPage() {
   const { token, userRole } = useOutletContext();
@@ -68,65 +23,34 @@ export default function ImportCenterPage() {
     [token, userRole],
   );
 
-  const sections = getImportCenterSections();
+  const hubs = IMPORT_CENTER_PRIMARY_HUBS;
+  const moreSections = getImportCenterMoreSections();
+  const canAnyHub = hubs.some((hub) => canAccessAdminRoute(accessProfile, hub.routeAccess));
+  const canAnyMore = moreSections.some((section) =>
+    section.cards.some((card) => canAccessAdminRoute(accessProfile, card.routeAccess)),
+  );
+
   useScrollReveal('.import-center-reveal');
 
   return (
     <main className="import-center-page">
       <header className="import-center-page__header import-center-reveal">
         <p className="import-center-page__kicker">管理後台 · 資料維運</p>
-        <div className="import-center-page__title-row">
-          <StatusLegend />
-        </div>
+        <h1 className="import-center-page__title">資料匯入中心</h1>
         <p className="import-center-page__lede">
-          先選任務、確認母體與成績路徑，再進入對應頁上傳。本頁不直接收檔。
-          名冊只有三種：學期在學名冊、報名核對名單、班級修課名冊（例外）。
+          依任務選入口，再到原頁上傳。本頁不直接收檔。
         </p>
       </header>
 
-      <div className="import-center-guide import-center-reveal" style={{ '--reveal-delay': '60ms' }}>
-        {GUIDE_POINTS.map((point) => (
-          <div key={point.label} className="import-center-guide__item">
-            <span className="import-center-guide__label">{point.label}</span>
-            <p className="import-center-guide__text">{point.text}</p>
-          </div>
-        ))}
-      </div>
-
-      <aside
-        className="import-center-task-guide import-center-reveal"
-        style={{ '--reveal-delay': '90ms' }}
-        aria-label="常見任務導引"
-      >
-        <div className="import-center-task-guide__head">
-          <span className="import-center-task-guide__eyebrow">先選任務</span>
-          <p className="import-center-task-guide__intro">
-            不確定該點哪張卡片時，先對照目標與步驟，再選常用路徑。
-          </p>
-        </div>
-        <ul className="import-center-task-guide__list">
-          {IMPORT_CENTER_TASK_GUIDES.map((task) => (
-            <li key={task.id} className="import-center-task-guide__item">
-              <p className="import-center-task-guide__goal">{task.goal}</p>
-              <ol className="import-center-task-guide__steps">
-                {task.steps.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
-            </li>
-          ))}
-        </ul>
-      </aside>
-
       <aside
         className="import-center-runs-banner import-center-reveal"
-        style={{ '--reveal-delay': '120ms' }}
+        style={{ '--reveal-delay': '60ms' }}
         aria-label="匯入紀錄快速入口"
       >
         <div className="import-center-runs-banner__copy">
           <span className="import-center-runs-banner__eyebrow">維運查詢</span>
           <p className="import-center-runs-banner__text">
-            匯入紀錄中心：跨模組查詢最近匯入、同步與稽核摘要；具權限者可刪除並回滾錯誤匯入批次。
+            匯入紀錄中心：跨模組查詢最近匯入與稽核摘要；具權限者可回滾錯誤批次。
           </p>
         </div>
         <Button
@@ -140,9 +64,20 @@ export default function ImportCenterPage() {
         </Button>
       </aside>
 
-      {sections.every((section) =>
-        section.cards.every((card) => !canAccessAdminRoute(accessProfile, card.routeAccess))
-      ) ? (
+      <aside
+        className="import-center-roster-note import-center-reveal"
+        style={{ '--reveal-delay': '80ms' }}
+        aria-label="名冊怎麼選"
+      >
+        <p className="import-center-roster-note__title">三種名冊不要混用</p>
+        <ol className="import-center-roster-note__list">
+          {IMPORT_CENTER_ROSTER_GUIDE.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      </aside>
+
+      {!canAnyHub && !canAnyMore ? (
         <div className="alert alert-info mt-3" role="status">
           <strong>目前無可操作的匯入項目。</strong>
           <p className="mb-0 mt-1 small">
@@ -151,36 +86,67 @@ export default function ImportCenterPage() {
         </div>
       ) : null}
 
-      {sections.map((section, sectionIndex) => (
-        <section
-          key={section.id}
-          className="import-center-section import-center-reveal"
-          style={{ '--reveal-delay': `${180 + sectionIndex * 80}ms` }}
-          aria-labelledby={`import-section-${section.id}`}
-        >
-          <div className="import-center-section__head">
-            <h2 id={`import-section-${section.id}`} className="import-center-section__title">
-              {section.title}
-            </h2>
-            <p className="import-center-section__desc">{section.description}</p>
-          </div>
-          <div
-            className={`import-center-bento import-center-bento--${section.id}`}
-            role="list"
-          >
-            {section.cards.map((card, cardIndex) => (
-              <div
-                key={card.id}
-                className="import-center-bento__cell import-center-reveal"
-                style={{ '--reveal-delay': `${240 + sectionIndex * 80 + cardIndex * 50}ms` }}
-                role="listitem"
+      <section
+        className="import-center-section import-center-reveal"
+        style={{ '--reveal-delay': '100ms' }}
+        aria-labelledby="import-section-primary"
+      >
+        <div className="import-center-section__head">
+          <h2 id="import-section-primary" className="import-center-section__title">
+            常用任務
+          </h2>
+          <p className="import-center-section__desc">
+            同頁可完成的匯入已合併成一個入口；培力成績與報名核對仍分開，避免名冊混淆。
+          </p>
+        </div>
+        <div className="import-center-bento import-center-bento--hubs" role="list">
+          {hubs.map((hub, index) => (
+            <div
+              key={hub.id}
+              className="import-center-bento__cell import-center-reveal"
+              style={{ '--reveal-delay': `${140 + index * 40}ms` }}
+              role="listitem"
+            >
+              <ImportHubCard hub={hub} accessProfile={accessProfile} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {moreSections.length ? (
+        <details className="import-center-more import-center-reveal" style={{ '--reveal-delay': '280ms' }}>
+          <summary className="import-center-more__summary">
+            <span className="import-center-more__title">例外與維運</span>
+            <span className="import-center-more__hint">班級例外補丁、學習歷程健康檢查</span>
+          </summary>
+          <div className="import-center-more__body">
+            {moreSections.map((section) => (
+              <section
+                key={section.id}
+                className="import-center-section"
+                aria-labelledby={`import-section-${section.id}`}
               >
-                <ImportTaskCard card={card} accessProfile={accessProfile} />
-              </div>
+                <div className="import-center-section__head">
+                  <h3 id={`import-section-${section.id}`} className="import-center-section__title">
+                    {section.title}
+                  </h3>
+                  <p className="import-center-section__desc">{section.description}</p>
+                </div>
+                <div
+                  className={`import-center-bento import-center-bento--${section.id}`}
+                  role="list"
+                >
+                  {section.cards.map((card) => (
+                    <div key={card.id} className="import-center-bento__cell" role="listitem">
+                      <ImportTaskCard card={card} accessProfile={accessProfile} />
+                    </div>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
-        </section>
-      ))}
+        </details>
+      ) : null}
     </main>
   );
 }

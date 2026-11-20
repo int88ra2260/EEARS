@@ -1,6 +1,7 @@
 // components/EnglishTestManagement.js
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
+import ImportCenterNotice from './admin/import/ImportCenterNotice';
 import { useEnglishTestManagement } from '../hooks/useEnglishTestManagement';
 import DetailModalWithTabs from './english-test/DetailModalWithTabs';
 import QuickReviewMode from './english-test/QuickReviewMode';
@@ -235,6 +236,18 @@ export default function EnglishTestManagement() {
 
   return (
     <div className="container-fluid px-2 px-md-3">
+      {canManageEnglishTests ? (
+        <div className="mb-3">
+          <ImportCenterNotice variant="import" compact />
+          <p className="small text-muted mb-0">
+            培力出席／成績請至{' '}
+            <Link to="/admin/english-test/import">培力資料匯入</Link>
+            ；名冊與校外英檢請至{' '}
+            <Link to="/admin/import-center">資料匯入中心</Link>
+            。
+          </p>
+        </div>
+      ) : null}
       <div
         className="nav nav-tabs nav-tabs--main mb-3 overflow-auto flex-nowrap gap-1"
         style={{ scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch' }}

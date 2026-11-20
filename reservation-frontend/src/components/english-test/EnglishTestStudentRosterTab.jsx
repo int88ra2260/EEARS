@@ -6,6 +6,7 @@ import Table from 'react-bootstrap/Table';
 import Spinner from 'react-bootstrap/Spinner';
 import Form from 'react-bootstrap/Form';
 
+import ImportCenterNotice from '../admin/import/ImportCenterNotice';
 import ImportUploadPanel from '../admin/import/ImportUploadPanel';
 import ImportResultSummary from '../admin/import/ImportResultSummary';
 import ImportErrorList from '../admin/import/ImportErrorList';
@@ -199,6 +200,7 @@ export default function EnglishTestStudentRosterTab({ token }) {
 
   return (
     <div className="pt-3">
+      <ImportCenterNotice variant="import" compact />
       <Card className="mb-3">
         <Card.Header className="bg-secondary text-white py-2 small fw-semibold">報名核對名單設定</Card.Header>
         <Card.Body>

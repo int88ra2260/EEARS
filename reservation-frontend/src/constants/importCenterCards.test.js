@@ -1,33 +1,49 @@
-import { IMPORT_CENTER_CARDS, IMPORT_CENTER_TASK_GUIDES, IMPORT_CENTER_SECTION } from './importCenterCards';
+import {
+  IMPORT_CENTER_CARDS,
+  IMPORT_CENTER_PRIMARY_HUBS,
+  IMPORT_CENTER_ROSTER_GUIDE,
+  IMPORT_CENTER_SECTION,
+  IMPORT_CENTER_TASK_GUIDES,
+  getImportCenterMoreSections,
+  getPlannedImportCenterCards,
+} from './importCenterCards';
 
 function card(id) {
   return IMPORT_CENTER_CARDS.find((item) => item.id === id);
 }
 
-describe('import center roster distinctions', () => {
-  it('keeps semester roster, class exception patch, and registration matching as separate cards', () => {
-    expect(card('lj-enrollment').title).toBe('學期在學名冊');
-    expect(card('lj-enrollment').notFor).toMatch(/報名核對名單/);
+describe('import center live catalog', () => {
+  it('keeps only live secondary cards and four primary hubs', () => {
+    expect(IMPORT_CENTER_PRIMARY_HUBS.map((hub) => hub.id)).toEqual([
+      'lj-data',
+      'bestep-hub',
+      'event-checkin',
+      'ewl',
+    ]);
+    expect(IMPORT_CENTER_CARDS.map((item) => item.id)).toEqual(['class-roster', 'lj-operations']);
+    expect(getPlannedImportCenterCards()).toEqual([]);
+
+    const moreIds = getImportCenterMoreSections().flatMap((section) => section.cards.map((c) => c.id));
+    expect(moreIds).toEqual(['class-roster', 'lj-operations']);
+  });
+
+  it('keeps class exception patch as the only roster exception card', () => {
     expect(card('class-roster').section).toBe(IMPORT_CENTER_SECTION.EXCEPTION);
     expect(card('class-roster').title).toMatch(/例外/);
-    expect(card('english-test-roster')).toMatchObject({
-      title: '報名核對名單',
-      statusTier: 'enabled',
-      importPath: '/admin/english-test?tab=roster',
-      routeAccess: '/admin/english-test',
-    });
-    expect(card('english-test-roster').notFor).toMatch(/學期在學名冊/);
+    expect(card('class-roster').notFor).toMatch(/學期在學名冊/);
+    expect(card('class-roster').importPath).toBe('/admin/classes');
   });
 
-  it('tells operators not to import BESTEP scores through the learning-journey exam card', () => {
-    expect(card('bestep').description).toMatch(/不必再匯/);
-    expect(card('lj-exam').title).toBe('校外英檢成績');
-    expect(card('lj-exam').notFor).toMatch(/BESTEP/);
-  });
+  it('documents the three roster types and bestep separation on hubs', () => {
+    const ljHub = IMPORT_CENTER_PRIMARY_HUBS.find((hub) => hub.id === 'lj-data');
+    const bestepHub = IMPORT_CENTER_PRIMARY_HUBS.find((hub) => hub.id === 'bestep-hub');
+    expect(ljHub.includes.join(' ')).toMatch(/學期在學名冊/);
+    expect(ljHub.includes.join(' ')).toMatch(/校外英檢/);
+    expect(bestepHub.description).toMatch(/不是學期在學名冊/);
+    expect(bestepHub.secondaryLinks?.[0]?.path).toBe('/admin/english-test?tab=roster');
 
-  it('includes a task guide for choosing a roster', () => {
-    const guide = IMPORT_CENTER_TASK_GUIDES.find((item) => item.id === 'which-roster');
-    expect(guide.steps.join(' ')).toMatch(/學期在學名冊/);
-    expect(guide.steps.join(' ')).toMatch(/報名核對名單/);
+    expect(IMPORT_CENTER_ROSTER_GUIDE.steps.join(' ')).toMatch(/學期在學名冊/);
+    expect(IMPORT_CENTER_ROSTER_GUIDE.steps.join(' ')).toMatch(/報名核對名單/);
+    expect(IMPORT_CENTER_TASK_GUIDES[0].steps.join(' ')).toMatch(/班級修課名冊/);
   });
 });

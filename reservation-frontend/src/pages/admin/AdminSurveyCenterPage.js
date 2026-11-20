@@ -1,6 +1,5 @@
 import React from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import ImportCenterNotice from '../../components/admin/import/ImportCenterNotice';
 import SurveyWorkflowGuide from '../../components/admin/survey/SurveyWorkflowGuide';
 import { canAccessAdminRoute } from '../../constants/adminRouteAccess';
 import { buildAccessProfile } from '../../utils/accessControl';
@@ -28,7 +27,6 @@ export default function AdminSurveyCenterPage() {
             ))}
           </div>
         ) : null}
-        <ImportCenterNotice variant="export" className="mb-2" />
       </div>
       <SurveyAdminModulePage embedded />
     </div>

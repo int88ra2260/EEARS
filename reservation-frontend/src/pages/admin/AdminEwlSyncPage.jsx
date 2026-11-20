@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { P } from '../../constants/permissions';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
+import ImportCenterNotice from '../../components/admin/import/ImportCenterNotice';
 import EwlSyncPanel from '../../components/learningJourneyV3/EwlSyncPanel';
 import useScrollReveal from '../../hooks/useScrollReveal';
 import '../../styles/learning-journey-import.css';
@@ -38,6 +39,9 @@ export default function AdminEwlSyncPage() {
           <Link to="/admin/learning-journey/operations">資料維運紀錄</Link>
           <Link to="/admin/import-center">資料匯入中心</Link>
         </nav>
+        <div className="mt-3">
+          <ImportCenterNotice variant="sync" compact />
+        </div>
       </header>
 
       <div className="lj-import-guide lj-import-reveal" style={{ '--reveal-delay': '60ms' }}>

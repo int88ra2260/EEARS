@@ -5,15 +5,14 @@ import Button from 'react-bootstrap/Button';
 import { canAccessAdminRoute } from '../../../constants/adminRouteAccess';
 
 const VARIANT_COPY = {
-  import: '資料匯入入口已整合至「資料匯入中心」，可在此查看各類匯入說明與捷徑。',
-  sync: '資料同步與維運入口已列入「資料匯入中心」，可集中查看相關操作說明與捷徑。',
-  export: '問卷資料匯出入口已列入「資料匯入中心」，可集中查看相關操作說明與捷徑。',
+  import: '各類資料匯入入口已整理在「資料匯入中心」，可對照任務後再回到此頁上傳。',
+  sync: '資料同步與維運入口已列入「資料匯入中心」，可集中查看相關說明與捷徑。',
 };
 
 /**
- * P11-4：引導至資料匯入中心，不取代既有匯入 UI。
+ * 引導至資料匯入中心，不取代既有匯入 UI。
  * 無匯入中心權限者（如 et_manager）不顯示。
- * @param {{ variant?: 'import' | 'sync' | 'export', className?: string, compact?: boolean }} props
+ * @param {{ variant?: 'import' | 'sync', className?: string, compact?: boolean }} props
  */
 export default function ImportCenterNotice({ variant = 'import', className = '', compact = false }) {
   const { accessProfile } = useOutletContext() || {};

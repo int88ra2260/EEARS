@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { P } from '../../constants/permissions';
-import { buildAccessProfile, hasAnyPermission } from '../../utils/accessControl';
+import { buildAccessProfile, hasAnyPermission, hasPermission } from '../../utils/accessControl';
 import { getCurrentSemester, SEMESTER_OPTIONS } from '../../utils/semesterUtils';
 import StudentTable from '../../components/learningJourneyV3/StudentTable';
 import StudentFilters, { DEFAULT_STUDENT_FILTERS } from '../../components/learningJourneyV3/StudentFilters';
@@ -82,6 +82,7 @@ export default function LearningJourneyDashboardPage() {
     P.CAN_VIEW_ENGLISH_TEST_TRACKING,
     P.CAN_MANAGE_ENGLISH_TEST_TRACKING
   ]);
+  const canManageLj = hasPermission(accessProfile, P.CAN_MANAGE_ENGLISH_TEST_TRACKING);
   const teacherView = accessProfile.isTeacher && !accessProfile.isExecutive;
 
   useEffect(() => {
@@ -252,6 +253,17 @@ export default function LearningJourneyDashboardPage() {
           {' '}
           <Link to="/admin/learning-analytics/overview">學習成效概況</Link>
           。
+          {canManageLj ? (
+            <>
+              {' '}名冊與成績匯入請至
+              {' '}
+              <Link to="/admin/learning-journey/import">學習歷程匯入</Link>
+              {' '}或
+              {' '}
+              <Link to="/admin/import-center">資料匯入中心</Link>
+              。
+            </>
+          ) : null}
         </p>
         <div className="d-flex align-items-center gap-2">
           <label htmlFor="lj-dashboard-semester" className="small text-muted mb-0">學期</label>
