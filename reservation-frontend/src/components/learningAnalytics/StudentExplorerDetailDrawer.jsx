@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner';
 import { getLearningAnalyticsStudentJourney } from '../../services/learningAnalyticsService';
 import { studentTrajectoryPath } from '../../utils/learningAnalyticsRecentStudents';
+import { formatMeasure, formatSignedMeasure } from './ExamPhaseScore';
 
 const LANE_LABELS = {
   baseline: '基準',
@@ -14,14 +15,48 @@ const LANE_LABELS = {
   other: '其他',
 };
 
+const SKILL_LABELS = {
+  listening: '聽力',
+  reading: '閱讀',
+  speaking: '口說',
+  writing: '寫作',
+};
+
+function RawScoreText({ cell }) {
+  if (!cell) return '—';
+  if (cell.invalidScore) return '無效分';
+  const score = recordedScore(cell.rawScore);
+  if (score == null) return '沒有原始分';
+  return formatMeasure(score);
+}
+
+function GseText({ cell }) {
+  if (!cell || cell.gse == null) {
+    if (cell && !cell.invalidScore && recordedScore(cell.rawScore) != null) return '無法換算';
+    return '—';
+  }
+  return formatMeasure(cell.gse);
+}
+
+function CefrText({ cell }) {
+  if (!cell) return '—';
+  return cell.cefr || '沒有 CEFR';
+}
+
+function rawDeltaText(row) {
+  if (row?.rawDelta != null) return formatSignedMeasure(row.rawDelta);
+  const preScore = recordedScore(row?.pre?.rawScore);
+  const postScore = recordedScore(row?.post?.rawScore);
+  if (row?.pre && row?.post && preScore != null && postScore != null && !row.pre.invalidScore && !row.post.invalidScore && !row.sameInstrument) {
+    return '不同測驗';
+  }
+  return '—';
+}
+
 export function recordedScore(value) {
   if (value == null || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
-}
-
-export function examEventsFromJourney(journey) {
-  return (journey?.timeline || []).filter((event) => event?.lane === 'exam');
 }
 
 function ScoreCell({ value, missingLabel }) {
@@ -108,9 +143,10 @@ export default function StudentExplorerDetailDrawer({
     };
   }, [onClose]);
 
-  const exams = useMemo(() => examEventsFromJourney(journey), [journey]);
   const timeline = journey?.timeline || [];
   const student = journey?.student;
+  const prePost = journey?.prePost;
+  const skillRows = prePost?.skills || [];
 
   return (
     <>
@@ -153,12 +189,12 @@ export default function StudentExplorerDetailDrawer({
         {!loading && !error && journey ? (
           <>
             <p className="small text-muted mb-2">
-              目前測驗紀錄尚未提供 GSE 換算結果，未提供的資料會清楚標示，不會顯示成 0。
+              沒有成績會顯示 —。0 與 1 分是無效分，不會換算成 GSE，也不會顯示成 0。
             </p>
             <details className="small text-muted mb-3">
               <summary>資料來源</summary>
               <p className="mb-0 mt-1">
-                資料版本 {journey.meta?.snapshotVersion || '—'}。這份學生軌跡沒有 GSE，畫面不另做換算。
+                資料版本 {journey.meta?.snapshotVersion || '—'}。GSE 用既有英檢對照，從原始分換算。
               </p>
             </details>
             <div className="btn-group btn-group-sm mb-3" role="tablist">
@@ -167,7 +203,7 @@ export default function StudentExplorerDetailDrawer({
                 className={`btn ${tab === 'exams' ? 'btn-primary' : 'btn-outline-primary'}`}
                 onClick={() => setTab('exams')}
               >
-                測驗紀錄
+                GSE 與前後測
               </button>
               <button
                 type="button"
@@ -181,29 +217,37 @@ export default function StudentExplorerDetailDrawer({
             {tab === 'exams' ? (
               <div>
                 <p className="small">
-                  這裡只列出測驗日期、技能、原始分與 CEFR。GSE 換算與前後測對照都尚未提供。
+                  前測是第一梯有效英檢（含只有一次），後測是第二梯。CEFR 是測驗紀錄上的等級。GSE 用來比較；同一份英檢才把原始分相減。這是觀察到的差異。
                 </p>
-                {!exams.length ? <p className="small text-muted">這份快照沒有英檢事件。</p> : null}
-                {exams.length ? (
+                {!skillRows.length ? <p className="small text-muted">這份快照沒有英檢前後測。</p> : null}
+                {skillRows.length ? (
                   <div className="table-responsive">
                     <table className="table table-sm mb-0">
                       <thead>
                         <tr>
-                          <th>日期</th>
                           <th>技能</th>
-                          <th>原始分</th>
-                          <th>CEFR</th>
-                          <th>GSE</th>
+                          <th>前測原始分</th>
+                          <th>前測 CEFR</th>
+                          <th>前測 GSE</th>
+                          <th>後測原始分</th>
+                          <th>後測 CEFR</th>
+                          <th>後測 GSE</th>
+                          <th>原始分差</th>
+                          <th>GSE 差</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {exams.map((event) => (
-                          <tr key={event.eventId}>
-                            <td>{event.eventDate || '—'}</td>
-                            <td>{event.skill || event.title || '—'}</td>
-                            <td><ScoreCell value={event.rawScore} missingLabel="沒有原始分" /></td>
-                            <td>{event.cefrLevel || '沒有 CEFR'}</td>
-                            <td>待補</td>
+                        {skillRows.map((row) => (
+                          <tr key={row.skill}>
+                            <td>{SKILL_LABELS[row.skill] || row.skill}</td>
+                            <td><RawScoreText cell={row.pre} /></td>
+                            <td><CefrText cell={row.pre} /></td>
+                            <td><GseText cell={row.pre} /></td>
+                            <td><RawScoreText cell={row.post} /></td>
+                            <td><CefrText cell={row.post} /></td>
+                            <td><GseText cell={row.post} /></td>
+                            <td>{rawDeltaText(row)}</td>
+                            <td>{row.gseDelta != null ? formatSignedMeasure(row.gseDelta) : '—'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -223,9 +267,17 @@ export default function StudentExplorerDetailDrawer({
                         <div>{event.eventDate || '日期未提供'} · {LANE_LABELS[event.lane] || event.lane}</div>
                         <div>{event.title || '—'}</div>
                         <div className="text-muted">
-                          {event.lane === 'exam'
-                            ? <ScoreCell value={event.rawScore} missingLabel="沒有原始分" />
-                            : (event.hours != null ? `${event.hours} 小時` : '沒有時數')}
+                          {event.lane === 'exam' ? (
+                            <>
+                              {event.invalidScore ? '無效分' : <ScoreCell value={event.rawScore} missingLabel="沒有原始分" />}
+                              {' · '}
+                              {event.cefrLevel || '沒有 CEFR'}
+                              {' · '}
+                              {event.gse != null
+                                ? `GSE ${formatMeasure(event.gse)}`
+                                : (event.invalidScore || recordedScore(event.rawScore) == null ? '沒有 GSE' : 'GSE 無法換算')}
+                            </>
+                          ) : (event.hours != null ? `${event.hours} 小時` : '沒有時數')}
                         </div>
                       </li>
                     ))}

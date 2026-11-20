@@ -103,6 +103,10 @@ describe('learningAnalyticsStudentExplorerService', () => {
       baselineEnglishScore: 12,
       baselineCefr: 'B1',
       totalActivityHours: 8.5,
+      hasPreTest: false,
+      hasPostTest: false,
+      preTest: { gse: null, skillCount: 0 },
+      postTest: { gse: null, skillCount: 0 },
     });
     expect(result.options.departments).toEqual(['化學系', '電機工程學系']);
     expect(result.options.cohorts).toEqual(['113', '114']);
@@ -128,6 +132,52 @@ describe('learningAnalyticsStudentExplorerService', () => {
     expect(matchPlacementLabel('英文分級：中級')).toBe('中級');
     expect(matchPlacementLabel('高級')).toBe('高級');
     expect(matchPlacementLabel('B1')).toBeNull();
+  });
+
+  it('adds pre-test and post-test GSE without treating GSAT as an exam', async () => {
+    LjAnalyticExam.findAll.mockResolvedValue([
+      {
+        studentId: 'D001',
+        testPhase: 'pre_test',
+        instrument: 'IELTS',
+        skill: 'listening',
+        rawScore: 6,
+        cefrLevel: 'B1',
+        examDate: '2026-03-01',
+        examRound: 1,
+      },
+      {
+        studentId: 'D001',
+        testPhase: 'post_test',
+        instrument: 'IELTS',
+        skill: 'listening',
+        rawScore: 7,
+        cefrLevel: 'B2',
+        examDate: '2026-06-01',
+        examRound: 2,
+      },
+      {
+        studentId: 'D001',
+        testPhase: 'pre_test',
+        instrument: 'GSAT',
+        skill: 'listening',
+        rawScore: 13,
+        cefrLevel: 'A2',
+        examDate: '2025-01-01',
+      },
+    ]);
+
+    const result = await getStudentExplorer({});
+    expect(result.items[0]).toMatchObject({
+      hasPreTest: true,
+      hasPostTest: true,
+      preTest: { gse: 54, cefr: 'B1' },
+      postTest: { gse: 66, cefr: 'B2' },
+    });
+    const listening = result.items[0].skills.find((row) => row.skill === 'listening');
+    expect(listening.pre.rawScore).toBe(6);
+    expect(listening.rawDelta).toBe(1);
+    expect(listening.gseDelta).toBe(12);
   });
 
   it('keeps GSAT out of pre-test and post-test student queries', () => {

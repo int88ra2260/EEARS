@@ -13,6 +13,8 @@ import {
 } from '../../services/learningAnalyticsService';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
 import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
+import ColumnHead from '../../components/learningAnalytics/ColumnHead';
+import ExamPhaseScore from '../../components/learningAnalytics/ExamPhaseScore';
 import StudentExplorerDetailDrawer from '../../components/learningAnalytics/StudentExplorerDetailDrawer';
 import { useLearningAnalyticsWorkingSet } from '../../utils/learningAnalyticsWorkingSet';
 import {
@@ -129,10 +131,6 @@ function buildChips(filters) {
   if (filters.courseType) chips.push({ key: 'courseType', label: `修課 ${filters.courseType}` });
   if (filters.minCourseHours) chips.push({ key: 'minCourseHours', label: `修課 ≥ ${filters.minCourseHours} 小時` });
   return chips;
-}
-
-function examRecordLabel(row) {
-  return `${row.hasPreTest ? '有前測' : '沒有前測'} · ${row.hasPostTest ? '有後測' : '沒有後測'}`;
 }
 
 function displayName(row) {
@@ -388,7 +386,7 @@ export default function LearningAnalyticsStudentExplorerPage() {
                   ))}
                 </Form.Select>
               </label>
-              <small className="la-explorer-note">前測是第一梯有效英檢（含只有一次）；後測是第二梯。學測不算前測。名單不換算 GSE。</small>
+              <small className="la-explorer-note">前測是第一梯有效英檢（含只有一次）；後測是第二梯。學測不算前測。名單上的 GSE 是該梯可換算技能的平均，換不出來不會顯示成 0。</small>
             </div>
           </details>
 
@@ -615,8 +613,24 @@ export default function LearningAnalyticsStudentExplorerPage() {
                   <thead>
                     <tr>
                       <th>學生</th>
-                      <th>系所／入學</th>
-                      <th title="前測是第一梯有效英檢，後測是第二梯。這裡只顯示有沒有紀錄，不換算 GSE。">英檢</th>
+                      <th>
+                        <ColumnHead
+                          name="系所／入學起點"
+                          hint="系所、入學年，以及入學英文分級。學測只用於分級，不是前測。"
+                        />
+                      </th>
+                      <th>
+                        <ColumnHead
+                          name="前測（GSE＋CEFR）"
+                          hint="第一梯有效英檢（含只有一次）。CEFR 是測驗紀錄上的等級；各科不同就標各科不同。GSE 是可換算技能的平均。沒有成績顯示 —。"
+                        />
+                      </th>
+                      <th>
+                        <ColumnHead
+                          name="後測（GSE＋CEFR）"
+                          hint="第二梯有效英檢。算法與前測相同。只有一次檢定時這裡是 —。"
+                        />
+                      </th>
                       <th className="text-end" title="累積活動時數。0 是有紀錄且為 0，— 是沒有時數。">活動</th>
                       <th className="text-end" title="修課時數。0 是有紀錄且為 0，— 是沒有時數。">修課</th>
                       <th>詳情</th>
@@ -644,7 +658,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
                               {row.placementLabel ? ` · ${row.placementLabel}` : ''}
                             </div>
                           </td>
-                          <td>{examRecordLabel(row)}</td>
+                          <td><ExamPhaseScore phase={row.preTest} skills={row.skills} side="pre" /></td>
+                          <td><ExamPhaseScore phase={row.postTest} skills={row.skills} side="post" /></td>
                           <td className="text-end">{formatHours(row.totalActivityHours)}</td>
                           <td className="text-end">{formatHours(row.totalCourseHours)}</td>
                           <td className="text-nowrap">
@@ -673,7 +688,8 @@ export default function LearningAnalyticsStudentExplorerPage() {
                         {row.cohort ? ` · 入學 ${row.cohort}` : ''}
                         {row.placementLabel ? ` · ${row.placementLabel}` : ''}
                       </p>
-                      <p className="la-student-card__meta">{examRecordLabel(row)}</p>
+                      <div className="la-student-card__meta">前測 <ExamPhaseScore phase={row.preTest} skills={row.skills} side="pre" /></div>
+                      <div className="la-student-card__meta">後測 <ExamPhaseScore phase={row.postTest} skills={row.skills} side="post" /></div>
                       <p className="la-student-card__meta">
                         活動 {formatHours(row.totalActivityHours)} · 修課 {formatHours(row.totalCourseHours)}
                       </p>

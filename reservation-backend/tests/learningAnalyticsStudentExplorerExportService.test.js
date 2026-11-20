@@ -33,15 +33,39 @@ describe('learningAnalyticsStudentExplorerExportService', () => {
           hasValidExam: true,
           totalActivityHours: 6,
           totalCourseHours: 36,
+          preTest: { skillCount: 1, gse: 54, cefr: 'B1', mixedCefr: false },
+          postTest: { skillCount: 0, gse: null, cefr: null, mixedCefr: false },
+          skills: [{
+            skill: 'listening',
+            rawDelta: null,
+            gseDelta: null,
+            pre: { rawScore: 6, cefr: 'B1', gse: 54, invalidScore: false },
+            post: null,
+          }],
         },
       ],
     });
 
     const sheet = workbook.getWorksheet('篩選名單');
     const headers = sheet.getRow(1).values.slice(1);
-    expect(headers).toEqual(['學號', '姓名', '系所', '入學年度', '起始分級', '英檢', '活動時數', '修課時數']);
+    expect(headers.slice(0, 12)).toEqual([
+      '學號', '姓名', '系所', '入學年度', '起始分級', '英檢',
+      '前測CEFR', '前測GSE', '後測CEFR', '後測GSE', '活動時數', '修課時數',
+    ]);
+    expect(headers).toContain('聽力前測原始分');
+    expect(headers).toContain('寫作GSE差');
     expect(headers).not.toContain('學測級分');
-    expect(sheet.getRow(2).values.slice(1)).toEqual(['B001', '王小明', '外文系', '114', '中高級', '前測', 6, 36]);
+    const row = Object.fromEntries(headers.map((header, index) => [header, sheet.getRow(2).getCell(index + 1).value]));
+    expect(row['學號']).toBe('B001');
+    expect(row['英檢']).toBe('前測');
+    expect(row['前測CEFR']).toBe('B1');
+    expect(row['前測GSE']).toBe(54);
+    expect(row['後測GSE'] || '').toBe('');
+    expect(row['聽力前測原始分']).toBe(6);
+    expect(row['聽力前測GSE']).toBe(54);
+    expect(row['閱讀前測原始分'] || '').toBe('');
+    expect(row['活動時數']).toBe(6);
+    expect(row['修課時數']).toBe(36);
 
     const meta = workbook.getWorksheet('匯出說明');
     const rows = [];

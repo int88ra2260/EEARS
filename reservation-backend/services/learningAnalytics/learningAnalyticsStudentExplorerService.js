@@ -10,6 +10,7 @@ const {
   sequelize,
 } = require('../../models');
 const { resolveLatestSnapshotVersion } = require('../learningJourney/analytics/timelineReadService');
+const { buildStudentPrePost } = require('./studentPrePostSnapshot');
 const { EVENT_TYPES, EVENT_STATUS } = require('../../constants/learningJourneyEventConstants');
 const { WORKING_SET_CAP, studentIdAllowList } = require('./workingSetIds');
 const { applyCohortFilter } = require('./learningAnalyticsFilterUtils');
@@ -302,6 +303,11 @@ async function loadPlacementLabels(studentIds) {
   return labels;
 }
 
+function emptyExamSnapshot() {
+  const built = buildStudentPrePost([]);
+  return { hasPreTest: false, hasPostTest: false, ...built };
+}
+
 async function loadExamPhases(snapshotVersion, studentIds) {
   const phases = new Map();
   if (!studentIds.length) return phases;
@@ -314,17 +320,35 @@ async function loadExamPhases(snapshotVersion, studentIds) {
       instrument: { [Op.ne]: 'GSAT' },
       testPhase: { [Op.in]: [...PRE_TEST_PHASES, ...POST_TEST_PHASES] },
     },
-    attributes: ['studentId', 'testPhase', 'instrument'],
+    attributes: [
+      'studentId',
+      'examDate',
+      'instrument',
+      'skill',
+      'rawScore',
+      'cefrLevel',
+      'testPhase',
+      'examRound',
+      'excludeFlag',
+      'registeredNoScoreFlag',
+    ],
     raw: true,
   });
+  const byStudent = new Map();
   for (const row of rows) {
     if (String(row.instrument || '').toUpperCase() === 'GSAT') continue;
     const id = String(row.studentId || '').trim().toUpperCase();
     if (!id) continue;
-    const current = phases.get(id) || { hasPreTest: false, hasPostTest: false };
-    if (PRE_TEST_PHASES.includes(row.testPhase)) current.hasPreTest = true;
-    if (POST_TEST_PHASES.includes(row.testPhase)) current.hasPostTest = true;
-    phases.set(id, current);
+    if (!byStudent.has(id)) byStudent.set(id, []);
+    byStudent.get(id).push(row);
+  }
+  for (const [id, list] of byStudent) {
+    const built = buildStudentPrePost(list);
+    phases.set(id, {
+      hasPreTest: list.some((row) => PRE_TEST_PHASES.includes(row.testPhase)),
+      hasPostTest: list.some((row) => POST_TEST_PHASES.includes(row.testPhase)),
+      ...built,
+    });
   }
   return phases;
 }
@@ -332,7 +356,7 @@ async function loadExamPhases(snapshotVersion, studentIds) {
 function mapItem(row, names, placements, phases) {
   const studentId = String(row.studentId || '');
   const key = studentId.toUpperCase();
-  const phase = phases.get(key) || { hasPreTest: false, hasPostTest: false };
+  const phase = phases.get(key) || emptyExamSnapshot();
   return {
     studentId,
     studentName: names.get(key) || null,
@@ -348,6 +372,9 @@ function mapItem(row, names, placements, phases) {
     hasValidExam: !!row.hasValidExam,
     hasPreTest: phase.hasPreTest,
     hasPostTest: phase.hasPostTest,
+    preTest: phase.pre,
+    postTest: phase.post,
+    skills: phase.skills,
     retestFlag: !!row.retestFlag,
     isB2plus: !!row.isB2plus,
   };

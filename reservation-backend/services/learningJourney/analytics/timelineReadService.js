@@ -20,6 +20,7 @@ const { buildSnapshotVersion, parseSnapshotVersion } = require('../utils/snapsho
 const { getCefrRank } = require('../utils/cefr');
 const { normSid } = require('./eventProjectorService');
 const { ensureStudentAnalyticsReady } = require('./studentAnalyticsSyncService');
+const { buildStudentPrePost, gseForRecordedExam } = require('../../learningAnalytics/studentPrePostSnapshot');
 
 function laneForEventType(eventType) {
   if (eventType === EVENT_TYPES.BASELINE) return 'baseline';
@@ -135,10 +136,22 @@ async function getStudentTimeline(studentId, opts = {}) {
     if (j.status === EVENT_STATUS.REGISTERED_NO_SCORE && j.rawScore != null) {
       qualityWarnings.push('registered_no_score 不應有分數');
     }
+    const lane = laneForEventType(j.eventType);
+    const recorded = lane === 'exam'
+      ? gseForRecordedExam({
+        instrument: j.instrument,
+        skill: j.skill,
+        rawScore: j.rawScore,
+        cefrLevel: j.cefrLevel,
+        examDate: j.eventDate,
+        excludeFlag: j.excludeFlag,
+        registeredNoScoreFlag: j.status === EVENT_STATUS.REGISTERED_NO_SCORE,
+      })
+      : { gse: null, invalidScore: false };
     return {
       eventId: String(j.id),
       eventType: j.eventType?.replace('_event', '') || j.eventType,
-      lane: laneForEventType(j.eventType),
+      lane,
       eventDate: j.eventDate,
       semIndex: j.semIndex,
       termLabel: resolveTimelineTermLabel(j, enrollmentTerm),
@@ -149,6 +162,8 @@ async function getStudentTimeline(studentId, opts = {}) {
       skill: j.skill,
       rawScore: j.rawScore,
       cefrLevel: j.cefrLevel,
+      gse: recorded.gse,
+      invalidScore: recorded.invalidScore,
       isB2Plus: getCefrRank(j.cefrLevel) != null && getCefrRank(j.cefrLevel) >= B2_RANK,
       hours: j.hours,
       exposureRelation,
@@ -190,6 +205,7 @@ async function getStudentTimeline(studentId, opts = {}) {
       },
     },
     timeline,
+    prePost: buildStudentPrePost(analyticExams),
     meta: {
       snapshotVersion,
       ruleVersion: meta.ruleVersion,
