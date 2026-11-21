@@ -132,7 +132,7 @@ const BASE_SHORTCUTS = [
   { to: '/student/progress', title: '我的紀錄', short: '我的紀錄', detail: '出席與學習紀錄', icon: 'chart' },
   { to: '/student/speaking-portfolio', title: '口說紀錄', short: '口說紀錄', detail: '口說練習與回饋', icon: 'mic' },
   { to: '/student/class-credit-allocation', title: '課堂加分', short: '課堂加分', detail: '課堂加分配置', icon: 'award' },
-  { to: '/student/english-learning-passport', title: '英語實踐歷程檔案', short: '歷程檔案', detail: '申請與通知使用這個帳號信箱', icon: 'book' },
+  { to: '/student/english-learning-passport', title: '英語實踐歷程檔案', short: '護照', detail: '申請與通知使用這個帳號信箱', icon: 'book' },
 ];
 
 const ENGLISH_TEST_SHORTCUTS = {

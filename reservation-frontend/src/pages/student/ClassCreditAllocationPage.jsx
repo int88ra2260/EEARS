@@ -309,8 +309,8 @@ export default function ClassCreditAllocationPage() {
               <Card className="h-100">
                 <Card.Body>
                   <div className="text-muted small">待分配時數</div>
-                  <div className="fs-4 fw-semibold">{formatHours(dashboard.earnedHours)} 時</div>
-                  <div className="small text-muted">{dashboard.earnedPoints} 點（已排除計入護照）</div>
+                  <div className="fs-4 fw-semibold">{dashboard.earnedPoints} 點</div>
+                  <div className="small text-muted">{formatHours(dashboard.earnedHours)} 時（已排除計入護照）</div>
                   {Number(dashboard.poolAdjustmentHours) ? (
                     <div className="small text-muted">
                       含後台{dashboard.poolAdjustmentHours > 0 ? '增加' : '扣除'} {formatHours(Math.abs(dashboard.poolAdjustmentHours))} 時
@@ -323,8 +323,10 @@ export default function ClassCreditAllocationPage() {
               <Card className="h-100">
                 <Card.Body>
                   <div className="text-muted small">已配置時數</div>
-                  <div className="fs-4 fw-semibold">{formatHours(dashboard.allocatedHours)} 時</div>
-                  <div className="small text-muted">剩餘 {formatHours(dashboard.remainingHours)} 時</div>
+                  <div className="fs-4 fw-semibold">{dashboard.allocatedPoints ?? 0} 點</div>
+                  <div className="small text-muted">
+                    {formatHours(dashboard.allocatedHours)} 時 · 剩餘 {dashboard.remainingPoints ?? 0} 點（{formatHours(dashboard.remainingHours)} 時）
+                  </div>
                 </Card.Body>
               </Card>
             </Col>
@@ -332,8 +334,8 @@ export default function ClassCreditAllocationPage() {
               <Card className="h-100">
                 <Card.Body>
                   <div className="text-muted small">全站累計（僅參考）</div>
-                  <div className="fs-4 fw-semibold">{formatHours(dashboard.siteTotalHours)} 時</div>
-                  <div className="small text-muted">{dashboard.sitePointScore} 點</div>
+                  <div className="fs-4 fw-semibold">{dashboard.sitePointScore} 點</div>
+                  <div className="small text-muted">{formatHours(dashboard.siteTotalHours)} 時</div>
                 </Card.Body>
               </Card>
             </Col>
