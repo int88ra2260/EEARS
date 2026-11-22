@@ -1,8 +1,6 @@
 'use strict';
 
-const WORKING_SET_CAP = 2000;
-
-function normalizeStudentIdList(value, cap = WORKING_SET_CAP) {
+function normalizeStudentIdList(value) {
   let raw = null;
   if (Array.isArray(value)) raw = value;
   else if (typeof value === 'string' && value.trim()) raw = value.split(/[,\s]+/);
@@ -15,13 +13,12 @@ function normalizeStudentIdList(value, cap = WORKING_SET_CAP) {
     if (!id || seen.has(id)) continue;
     seen.add(id);
     ids.push(id);
-    if (ids.length >= cap) break;
   }
   return ids.length ? ids : null;
 }
 
-function studentIdAllowList(value, cap = WORKING_SET_CAP) {
-  return normalizeStudentIdList(value, cap);
+function studentIdAllowList(value) {
+  return normalizeStudentIdList(value);
 }
 
 /**
@@ -51,7 +48,7 @@ function applyRosterWorkingSet(students, studentIds) {
 /**
  * 同一技能、GSE 實際成長大於 0 的學生。同一人多筆只留一次。
  */
-function collectImprovedStudentsBySkill(rows, cap = WORKING_SET_CAP) {
+function collectImprovedStudentsBySkill(rows) {
   const sets = new Map();
   for (const row of rows || []) {
     if (!(Number(row.actualGseGrowth) > 0)) continue;
@@ -66,15 +63,14 @@ function collectImprovedStudentsBySkill(rows, cap = WORKING_SET_CAP) {
     const all = [...set].sort();
     out[skill] = {
       total: all.length,
-      truncated: all.length > cap,
-      studentIds: all.slice(0, cap),
+      truncated: false,
+      studentIds: all,
     };
   }
   return out;
 }
 
 module.exports = {
-  WORKING_SET_CAP,
   normalizeStudentIdList,
   studentIdAllowList,
   applyRosterWorkingSet,

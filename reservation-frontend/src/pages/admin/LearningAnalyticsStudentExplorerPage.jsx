@@ -527,7 +527,7 @@ export default function LearningAnalyticsStudentExplorerPage() {
             ))}
           </div>
         </div>
-        {data?.handoff?.studentIds?.length && (chips.length > 0 || workingSetActive || data.handoff.total <= 2000) ? (
+        {data?.handoff?.studentIds?.length ? (
           <LearningAnalyticsNextSteps
             label={workingSetActive ? '目前這批人裡、符合搜尋條件的學生' : '目前搜尋結果'}
             studentIds={data.handoff.studentIds}

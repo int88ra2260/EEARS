@@ -21,10 +21,14 @@ const {
   filterByHasPretest,
   filterByWeakPretestSkill,
   filterByKeyword,
+  sortB1PlusItems,
+  shapeCourseList,
+  shapeActivityList,
+  shapeB1PlusStudentDetail,
   optionValues,
 } = require('./b1PlusWatch');
 const { getFilterOptions } = require('./learningAnalyticsFilterReferenceService');
-const { WORKING_SET_CAP, studentIdAllowList } = require('./workingSetIds');
+const { studentIdAllowList } = require('./workingSetIds');
 
 const PAGE_LIMIT_DEFAULT = 40;
 const PAGE_LIMIT_MAX = 100;
@@ -132,6 +136,55 @@ async function loadCourseEngagement(studentIds, currentSemester) {
   return buildCourseEngagementMap(rows, currentSemester);
 }
 
+/**
+ * 每位學生修過的課（課名、學期、是否修課中）。不含時數。
+ * @returns {Promise<Map<string, { semesterId: string, courseName: string, inProgress: boolean }[]>>}
+ */
+async function loadStudentCourses(studentIds, currentSemester) {
+  const ids = [...new Set((studentIds || []).map((id) => String(id || '').trim()).filter(Boolean))];
+  if (!ids.length) return new Map();
+  const enrollments = [];
+  for (let i = 0; i < ids.length; i += ENROLLMENT_ID_CHUNK) {
+    const slice = ids.slice(i, i + ENROLLMENT_ID_CHUNK);
+    const chunk = await CourseEnrollment.findAll({
+      where: {
+        studentId: { [Op.in]: slice },
+        enrollmentStatus: { [Op.ne]: 'withdrawn' },
+      },
+      attributes: ['studentId', 'courseId', 'semesterId'],
+      raw: true,
+    });
+    enrollments.push(...chunk);
+  }
+  const courseIds = [...new Set(enrollments.map((row) => row.courseId).filter((id) => id != null))];
+  const courseRows = [];
+  for (let i = 0; i < courseIds.length; i += ENROLLMENT_ID_CHUNK) {
+    const slice = courseIds.slice(i, i + ENROLLMENT_ID_CHUNK);
+    const chunk = await Course.findAll({
+      where: { id: { [Op.in]: slice } },
+      attributes: ['id', 'courseName'],
+      raw: true,
+    });
+    courseRows.push(...chunk);
+  }
+  const courseNames = new Map(courseRows.map((row) => [row.id, row.courseName]));
+  const grouped = new Map();
+  for (const row of enrollments) {
+    const id = String(row.studentId || '').trim().toUpperCase();
+    if (!id) continue;
+    if (!grouped.has(id)) grouped.set(id, []);
+    grouped.get(id).push({
+      semesterId: row.semesterId,
+      courseName: courseNames.get(row.courseId) || '',
+    });
+  }
+  const shaped = new Map();
+  for (const [id, rows] of grouped) {
+    shaped.set(id, shapeCourseList(rows, currentSemester));
+  }
+  return shaped;
+}
+
 function emptyOptions() {
   return { departments: [], colleges: [], cohorts: [] };
 }
@@ -151,6 +204,7 @@ async function resolveOptions(snapshotVersion) {
 }
 
 function appliedFrom(query) {
+  const dir = String(query.dir || query.sortDir || 'desc').trim().toLowerCase();
   return {
     snapshot_version: textFilter(query.snapshot_version || query.snapshotVersion) || '',
     department: textFilter(query.department) || '',
@@ -160,26 +214,23 @@ function appliedFrom(query) {
     has_pretest: textFilter(query.has_pretest || query.hasPretest) || 'any',
     weak_pretest_skill: textFilter(query.weak_pretest_skill || query.weakPretestSkill) || '',
     keyword: textFilter(query.keyword) || '',
+    sort: textFilter(query.sort || query.sortKey) || 'bestGse',
+    dir: dir === 'asc' ? 'asc' : 'desc',
   };
 }
 
-async function getB1PlusWatch(query = {}) {
+async function loadFilteredB1Plus(query = {}) {
   const requestedSnapshot = textFilter(query.snapshot_version || query.snapshotVersion);
   const snapshotVersion = requestedSnapshot || await resolveLatestSnapshotVersion();
-  const { limit, offset } = parsePage(query);
   const applied = appliedFrom({ ...query, snapshot_version: snapshotVersion || '' });
   const options = await resolveOptions(snapshotVersion);
-
   if (!snapshotVersion) {
     return {
       snapshotVersion: null,
-      definition: DEFINITION,
-      summary: summarizeB1PlusWatch([]),
+      applied,
       options,
-      appliedFilters: applied,
-      items: [],
-      handoff: { total: 0, truncated: false, studentIds: [] },
-      pagination: { limit, offset, total: 0, returned: 0 },
+      summary: { ...summarizeB1PlusWatch([]), currentSemester: getCurrentSemester() || null },
+      rows: [],
     };
   }
 
@@ -227,159 +278,126 @@ async function getB1PlusWatch(query = {}) {
   let filtered = filterByEngagement(scoped, applied.engagement);
   filtered = filterByHasPretest(filtered, applied.has_pretest);
   filtered = filterByWeakPretestSkill(filtered, applied.weak_pretest_skill);
-
-  // 關鍵字若要比對姓名，只對目前篩完的名單查名（人數通常遠小於全校）
-  let namesForFilter = null;
   if (applied.keyword) {
-    namesForFilter = await loadNames(filtered.map((row) => row.studentId));
+    const names = await loadNames(filtered.map((row) => row.studentId));
     filtered = filterByKeyword(
       filtered.map((row) => ({
         ...row,
-        studentName: namesForFilter.get(String(row.studentId).toUpperCase()) || null,
+        studentName: names.get(String(row.studentId).toUpperCase()) || null,
       })),
       applied.keyword,
     );
   }
-
-  const page = filtered.slice(offset, offset + limit);
-  const names = namesForFilter || await loadNames(page.map((row) => row.studentId));
-  const handoffIds = filtered.slice(0, WORKING_SET_CAP).map((row) => row.studentId);
-
   return {
     snapshotVersion,
-    definition: DEFINITION,
-    summary,
+    applied,
     options,
-    appliedFilters: applied,
-    items: page.map((row) => ({
-      ...row,
-      studentName: names.get(String(row.studentId).toUpperCase()) || row.studentName || null,
-    })),
+    summary,
+    rows: sortB1PlusItems(filtered, applied.sort, applied.dir),
+  };
+}
+
+async function getB1PlusWatch(query = {}) {
+  const { limit, offset } = parsePage(query);
+  const loaded = await loadFilteredB1Plus(query);
+  if (!loaded.snapshotVersion) {
+    return {
+      snapshotVersion: null,
+      definition: DEFINITION,
+      summary: summarizeB1PlusWatch([]),
+      options: loaded.options,
+      appliedFilters: loaded.applied,
+      items: [],
+      handoff: { total: 0, truncated: false, studentIds: [] },
+      pagination: { limit, offset, total: 0, returned: 0 },
+    };
+  }
+
+  const page = loaded.rows.slice(offset, offset + limit);
+  const needsNames = page.some((row) => !row.studentName);
+  const [names, courseLists] = await Promise.all([
+    needsNames ? loadNames(page.map((row) => row.studentId)) : Promise.resolve(new Map()),
+    loadStudentCourses(page.map((row) => row.studentId), loaded.summary.currentSemester || ''),
+  ]);
+  const handoffIds = loaded.rows.map((row) => row.studentId);
+
+  return {
+    snapshotVersion: loaded.snapshotVersion,
+    definition: DEFINITION,
+    summary: loaded.summary,
+    options: loaded.options,
+    appliedFilters: loaded.applied,
+    items: page.map((row) => {
+      const id = String(row.studentId).toUpperCase();
+      return {
+        ...row,
+        studentName: row.studentName || names.get(id) || null,
+        courses: courseLists.get(id) || [],
+      };
+    }),
     handoff: {
-      total: filtered.length,
-      truncated: filtered.length > handoffIds.length,
+      total: loaded.rows.length,
+      truncated: false,
       studentIds: handoffIds,
     },
     pagination: {
       limit,
       offset,
-      total: filtered.length,
+      total: loaded.rows.length,
       returned: page.length,
     },
   };
 }
 
 /**
- * 取得學生的考後投入詳情：活動和課程列表。
+ * 接近 B2 名單的單人概略：修過的課、活動逐筆時數、考後活動。
  * @param {string} studentId
  * @param {string} [snapshotVersion]
- * @returns {{ activities: object[], courses: object[], lastExamDate: string|null }}
  */
 async function getPostExamEngagementDetail(studentId, snapshotVersion) {
   const version = snapshotVersion || (await resolveLatestSnapshotVersion());
   const sid = String(studentId || '').trim().toUpperCase();
-  if (!sid || !version) {
-    return { activities: [], courses: [], lastExamDate: null };
+  const currentSemester = getCurrentSemester() || '';
+  if (!sid) {
+    return shapeB1PlusStudentDetail({ currentSemester });
   }
 
-  // 取得學生的 lastExamDate
-  const student = await LjAnalyticStudent.findOne({
-    where: { snapshotVersion: version, studentId: sid },
-    attributes: ['lastExamDate'],
-    raw: true,
-  });
-  const lastExamDate = student?.lastExamDate || null;
-
-  if (!lastExamDate) {
-    return { activities: [], courses: [], lastExamDate: null };
-  }
-
-  // 查詢考後活動事件
-  const activityEvents = await LjStudentEvent.findAll({
-    where: {
-      studentId: sid,
-      eventType: 'activity_event',
-      eventDate: { [Op.gt]: lastExamDate },
-      status: 'valid',
-      excludeFlag: false,
-    },
-    attributes: ['eventDate', 'title', 'subtitle', 'hours', 'sourceSystem'],
-    order: [['eventDate', 'DESC']],
-    raw: true,
-  });
-
-  // 查詢考後課程事件
-  const courseEvents = await LjStudentEvent.findAll({
-    where: {
-      studentId: sid,
-      eventType: 'course_event',
-      eventDate: { [Op.gt]: lastExamDate },
-      status: 'valid',
-      excludeFlag: false,
-    },
-    attributes: ['eventDate', 'title', 'subtitle', 'hours', 'academicTerm', 'sourceSystem'],
-    order: [['eventDate', 'DESC']],
-    raw: true,
-  });
-
-  // 查詢考後選課記錄（補充課程資訊）
-  const enrollments = await CourseEnrollment.findAll({
-    where: {
-      studentId: sid,
-      enrollmentStatus: { [Op.ne]: 'withdrawn' },
-    },
-    attributes: ['courseId', 'semesterId', 'enrollmentStatus', 'passStatus'],
-    raw: true,
-  });
-
-  // 取得課程詳情
-  const courseIds = enrollments.map((e) => e.courseId);
-  const courseDetails = courseIds.length
-    ? await Course.findAll({
-        where: { id: { [Op.in]: courseIds } },
-        attributes: ['id', 'courseName', 'semesterId', 'credits', 'instructorName'],
-        raw: true,
-      })
-    : [];
-  const courseMap = new Map(courseDetails.map((c) => [c.id, c]));
-
-  // 合併選課與課程資訊
-  const enrolledCourses = enrollments
-    .map((e) => {
-      const course = courseMap.get(e.courseId);
-      return {
-        semesterId: e.semesterId,
-        courseName: course?.courseName || null,
-        credits: course?.credits || null,
-        instructorName: course?.instructorName || null,
-        enrollmentStatus: e.enrollmentStatus,
-        passStatus: e.passStatus,
-      };
+  const student = version
+    ? await LjAnalyticStudent.findOne({
+      where: { snapshotVersion: version, studentId: sid },
+      attributes: ['lastExamDate', 'totalActivityHours'],
+      raw: true,
     })
-    .filter((c) => c.courseName);
+    : null;
 
-  return {
-    lastExamDate,
-    activities: activityEvents.map((e) => ({
-      date: e.eventDate,
-      title: e.title || null,
-      subtitle: e.subtitle || null,
-      hours: Number(e.hours) || 0,
-      source: e.sourceSystem || null,
-    })),
-    courses: courseEvents.map((e) => ({
-      date: e.eventDate,
-      title: e.title || null,
-      subtitle: e.subtitle || null,
-      hours: Number(e.hours) || 0,
-      term: e.academicTerm || null,
-      source: e.sourceSystem || null,
-    })),
-    enrolledCourses,
-  };
+  const [activityEvents, courseLists] = await Promise.all([
+    LjStudentEvent.findAll({
+      where: {
+        studentId: sid,
+        eventType: 'activity_event',
+        status: 'valid',
+        excludeFlag: false,
+      },
+      attributes: ['eventDate', 'title', 'subtitle', 'hours'],
+      raw: true,
+    }),
+    loadStudentCourses([sid], currentSemester),
+  ]);
+
+  return shapeB1PlusStudentDetail({
+    lastExamDate: student?.lastExamDate || null,
+    currentSemester,
+    activityHours: student ? student.totalActivityHours : null,
+    courses: courseLists.get(sid) || [],
+    activities: shapeActivityList(activityEvents),
+  });
 }
 
 module.exports = {
   getB1PlusWatch,
   getPostExamEngagementDetail,
+  loadFilteredB1Plus,
+  loadNames,
+  loadStudentCourses,
+  DEFINITION,
 };

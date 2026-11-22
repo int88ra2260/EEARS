@@ -7,7 +7,10 @@ import {
   getLearningAnalyticsB1Plus,
   getLearningAnalyticsMeta,
   getB1PlusPostExamDetail,
+  exportLearningAnalyticsB1Plus,
 } from '../../services/learningAnalyticsService';
+import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
+import { P } from '../../constants/permissions';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
 import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
@@ -104,11 +107,86 @@ function snapshotLabel(snapshot) {
   return snapshot.label || snapshot.version || snapshot.snapshotVersion || '';
 }
 
+const NUMERIC_SORTS = new Set([
+  'bestGse',
+  'daysSinceExam',
+  'postExamHours',
+  'listening',
+  'reading',
+  'speaking',
+  'writing',
+  'activityHours',
+]);
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function CourseLines({ courses, empty }) {
+  if (!courses?.length) return empty;
+  return (
+    <ul className="la-b1-course-list">
+      {courses.map((course) => (
+        <li key={`${course.semesterId || ''}-${course.courseName}`}>
+          {course.semesterId ? `${course.semesterId} ` : ''}
+          {course.courseName}
+          {course.inProgress ? <span className="text-muted">（修課中）</span> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ActivityLines({ activities }) {
+  if (!activities?.length) return <p className="text-muted small mb-0">沒有活動</p>;
+  return (
+    <ul className="la-b1-course-list">
+      {activities.map((activity, index) => (
+        <li key={`${activity.date}-${activity.title}-${index}`}>
+          {activity.date ? <strong>{activity.date}</strong> : null}
+          {' '}
+          {activity.title}
+          <span className="text-muted ms-1">（{formatHours(activity.hours)}）</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SortHead({ label, hint, sortKey, activeKey, dir, onSort, numeric = false }) {
+  const active = activeKey === sortKey;
+  return (
+    <th aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'} className={numeric ? 'la-num' : undefined}>
+      <button
+        type="button"
+        className={`la-kpi-sort${active ? ' is-active' : ''}`}
+        aria-label={`${label}，${active ? (dir === 'asc' ? '由小到大' : '由大到小') : '尚未排序'}，點一下變更排序`}
+        onClick={() => onSort(sortKey)}
+      >
+        <ColumnHead name={label} hint={hint} />
+        <span className="la-kpi-sort-mark" aria-hidden="true">
+          {active ? (dir === 'asc' ? '↑' : '↓') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 export default function LearningAnalyticsB1PlusPage() {
   const token = localStorage.getItem('token') || '';
   const [draft, setDraft] = useState({ ...EMPTY_FILTERS });
   const [applied, setApplied] = useState({ ...EMPTY_FILTERS });
   const [offset, setOffset] = useState(0);
+  const [sortKey, setSortKey] = useState('bestGse');
+  const [sortDir, setSortDir] = useState('desc');
+  const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -124,6 +202,8 @@ export default function LearningAnalyticsB1PlusPage() {
     [applied.snapshot_version]
   );
   const { applied: workingSetApplied, withWorkingSet } = useLearningAnalyticsWorkingSet(workingSetScope);
+  const accessProfile = useMemo(() => buildAccessProfile(token), [token]);
+  const canExport = hasPermission(accessProfile, P.CAN_EXPORT_LEARNING_ANALYTICS);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +236,13 @@ export default function LearningAnalyticsB1PlusPage() {
     let cancelled = false;
     setLoading(true);
     setError('');
-    getLearningAnalyticsB1Plus(token, withWorkingSet({ ...applied, limit: PAGE_SIZE, offset }))
+    getLearningAnalyticsB1Plus(token, withWorkingSet({
+      ...applied,
+      limit: PAGE_SIZE,
+      offset,
+      sort: sortKey,
+      dir: sortDir,
+    }))
       .then((payload) => {
         if (!cancelled) setData(payload);
       })
@@ -172,7 +258,7 @@ export default function LearningAnalyticsB1PlusPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, queryKey, offset, applied, withWorkingSet, meta]);
+  }, [token, queryKey, offset, applied, withWorkingSet, meta, sortKey, sortDir]);
 
   const summary = data?.summary;
   const total = data?.pagination?.total ?? 0;
@@ -219,6 +305,34 @@ export default function LearningAnalyticsB1PlusPage() {
     setDraft(next);
     setApplied(next);
     setOffset(0);
+  };
+
+  const onSort = (key) => {
+    setOffset(0);
+    if (sortKey === key) {
+      setSortDir((current) => (current === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDir(NUMERIC_SORTS.has(key) ? 'desc' : 'asc');
+  };
+
+  const handleExport = async () => {
+    if (!canExport || exporting || total === 0) return;
+    setExporting(true);
+    setError('');
+    try {
+      const { blob, fileName } = await exportLearningAnalyticsB1Plus(token, withWorkingSet({
+        ...applied,
+        sort: sortKey,
+        dir: sortDir,
+      }));
+      downloadBlob(blob, fileName);
+    } catch (err) {
+      setError(err.message || '匯出接近 B2 名單失敗。');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const resetFilters = () => {
@@ -271,7 +385,7 @@ export default function LearningAnalyticsB1PlusPage() {
           <li className="mb-1">達標仍看 B2。GSE 已到 59 以上的人不在這份名單。</li>
           <li className="mb-1">「接近 B2」是目前最佳能力的 GSE 落在 51–58。有原始分就換成 GSE，不依賴 CEFR 字串有沒有加號。</li>
           <li className="mb-1">前測是第一梯有效英檢，學測不算。某一科沒有前測會顯示「—」。</li>
-          <li>有修課＝有選課紀錄（退選不算）；當下學期有選課列視為修課中。活動仍看累積活動時數。兩邊都沒有的人，是還沒被校內英語資源接觸到的接近 B2 學生。</li>
+          <li>修課欄列出修過的課名與學期（退選不算），當下學期標為修課中。活動時數在詳情裡拆成每一場。兩邊都沒有的人，是還沒被校內英語資源接觸到的接近 B2 學生。</li>
         </ul>
       )}
     >
@@ -450,18 +564,37 @@ export default function LearningAnalyticsB1PlusPage() {
               snapshotVersion={applied.snapshot_version || ''}
               source="b1-plus"
               sourcePath="/admin/learning-analytics/b1-plus"
+              hide={['export']}
             />
           ) : null}
 
           {matched > 0 ? (
             <div className="la-panel mt-3">
-              <div className="la-panel-title mb-2">
-                學生名單（{formatCount(total)} 人
-                {applied.engagement !== 'any' || applied.has_pretest !== 'any' || applied.weak_pretest_skill || applied.keyword
-                  ? '，已依切法縮小'
-                  : ''}
-                ）
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <div className="la-panel-title mb-0">
+                  學生名單（{formatCount(total)} 人
+                  {applied.engagement !== 'any' || applied.has_pretest !== 'any' || applied.weak_pretest_skill || applied.keyword
+                    ? '，已依切法縮小'
+                    : ''}
+                  ）
+                </div>
+                {canExport ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline-primary"
+                    disabled={exporting || total === 0}
+                    onClick={handleExport}
+                  >
+                    {exporting ? '匯出中…' : '匯出這份名單'}
+                  </Button>
+                ) : (
+                  <span className="small text-muted">匯出這份名單需要學習成效分析匯出權限。</span>
+                )}
               </div>
+              <p className="small text-muted">
+                匯出的是目前篩選與排序後的接近 B2 名單，欄位與這張表相同，不是原始英檢明細。排序套用在整份名單，不只有這一頁。
+              </p>
               {total === 0 ? (
                 <p className="small text-muted mb-0">這組切法下沒有學生。改回「全部接近 B2」再看。</p>
               ) : (
@@ -470,35 +603,94 @@ export default function LearningAnalyticsB1PlusPage() {
                     <table className="table table-sm table-hover align-middle mb-0 la-table">
                       <thead>
                         <tr>
-                          <th>學生</th>
-                          <th>系所</th>
-                          <th><ColumnHead {...HEAD.admissionYear} /></th>
-                          <th className="la-num">
-                            <ColumnHead
-                              name="目前最佳 GSE"
-                              hint="四技能裡最高的 GSE。這頁的人落在 51–58。"
+                          <SortHead
+                            label="學生"
+                            hint="學號。點欄位可排序整份名單。"
+                            sortKey="studentId"
+                            activeKey={sortKey}
+                            dir={sortDir}
+                            onSort={onSort}
+                          />
+                          <SortHead
+                            label="系所"
+                            hint="分析快照上的系所。"
+                            sortKey="department"
+                            activeKey={sortKey}
+                            dir={sortDir}
+                            onSort={onSort}
+                          />
+                          <SortHead
+                            label={HEAD.admissionYear.name}
+                            hint={HEAD.admissionYear.hint}
+                            sortKey="cohort"
+                            activeKey={sortKey}
+                            dir={sortDir}
+                            onSort={onSort}
+                          />
+                          <SortHead
+                            label="目前最佳 GSE"
+                            hint="四技能裡最高的 GSE。這頁的人落在 51–58。"
+                            sortKey="bestGse"
+                            activeKey={sortKey}
+                            dir={sortDir}
+                            onSort={onSort}
+                            numeric
+                          />
+                          <SortHead
+                            label="距上次考試"
+                            hint="距離最後一次英檢的天數。沒有考試日的人排在最後。"
+                            sortKey="daysSinceExam"
+                            activeKey={sortKey}
+                            dir={sortDir}
+                            onSort={onSort}
+                            numeric
+                          />
+                          <SortHead
+                            label="考後投入"
+                            hint="最後一次考試後修課與活動加總的時數。"
+                            sortKey="postExamHours"
+                            activeKey={sortKey}
+                            dir={sortDir}
+                            onSort={onSort}
+                            numeric
+                          />
+                          {SKILL_COLUMNS.map(([key, label]) => (
+                            <SortHead
+                              key={key}
+                              label={label}
+                              hint="這一科前測的 GSE。學測不算前測。沒有前測的人排在最後。"
+                              sortKey={key}
+                              activeKey={sortKey}
+                              dir={sortDir}
+                              onSort={onSort}
+                              numeric
                             />
-                          </th>
-                          <th>
-                            <ColumnHead
-                              name="距上次考試"
-                              hint="距離最後一次英檢的時間。若未來有考試想在記憶猶新時參加，時間越短越值得追蹤。"
-                            />
-                          </th>
-                          <th className="la-num">
-                            <ColumnHead
-                              name="考後投入"
-                              hint="最後一次考試後修課＋活動的累積時數。有投入的學生可能進步空間更大。"
-                            />
-                          </th>
-                          {SKILL_COLUMNS.map(([, label]) => (
-                            <th key={label}>
-                              <ColumnHead name={label} hint="這一科前測的帶級與 GSE。學測不算前測。" />
-                            </th>
                           ))}
-                          <th><ColumnHead {...HEAD.courseStatus} /></th>
-                          <th className="la-num"><ColumnHead {...HEAD.activityHours} /></th>
-                          <th><ColumnHead {...HEAD.situation} /></th>
+                          <SortHead
+                            label={HEAD.courseStatus.name}
+                            hint="修過的課，列出課名與學期。當下學期標為修課中。退選不算。"
+                            sortKey="course"
+                            activeKey={sortKey}
+                            dir={sortDir}
+                            onSort={onSort}
+                          />
+                          <SortHead
+                            label={HEAD.activityHours.name}
+                            hint={HEAD.activityHours.hint}
+                            sortKey="activityHours"
+                            activeKey={sortKey}
+                            dir={sortDir}
+                            onSort={onSort}
+                            numeric
+                          />
+                          <SortHead
+                            label={HEAD.situation.name}
+                            hint={HEAD.situation.hint}
+                            sortKey="situation"
+                            activeKey={sortKey}
+                            dir={sortDir}
+                            onSort={onSort}
+                          />
                           <th></th>
                         </tr>
                       </thead>
@@ -554,24 +746,18 @@ export default function LearningAnalyticsB1PlusPage() {
                                 <td key={key}>{pretestCell(row, key)}</td>
                               ))}
                               <td>
-                                {row.courseInProgress
-                                  ? '修課中'
-                                  : row.hasCourse
-                                    ? '有紀錄'
-                                    : '—'}
+                                <CourseLines courses={row.courses} empty="—" />
                               </td>
                               <td className="la-num">{formatHours(row.activityHours)}</td>
                               <td>{SITUATION_LABELS[row.situation] || '—'}</td>
                               <td>
-                                {row.hasPostExamEngagement && (
-                                  <Button
-                                    size="sm"
-                                    variant={expandedStudentId === row.studentId ? 'secondary' : 'outline-secondary'}
-                                    onClick={() => togglePostExamDetail(row.studentId)}
-                                  >
-                                    {expandedStudentId === row.studentId ? '收起' : '詳情'}
-                                  </Button>
-                                )}
+                                <Button
+                                  size="sm"
+                                  variant={expandedStudentId === row.studentId ? 'secondary' : 'outline-secondary'}
+                                  onClick={() => togglePostExamDetail(row.studentId)}
+                                >
+                                  {expandedStudentId === row.studentId ? '收起' : '詳情'}
+                                </Button>
                               </td>
                             </tr>
                             {expandedStudentId === row.studentId && (
@@ -580,49 +766,37 @@ export default function LearningAnalyticsB1PlusPage() {
                                   {postExamDetailLoading ? (
                                     <div className="text-muted">載入中...</div>
                                   ) : postExamDetail ? (
-                                    <div className="row">
-                                      <div className="col-md-6">
-                                        <h6 className="mb-2">考後課程（{postExamDetail.courses?.length || 0} 筆）</h6>
-                                        {postExamDetail.courses?.length > 0 ? (
-                                          <ul className="list-unstyled small mb-0">
-                                            {postExamDetail.courses.map((c, i) => (
-                                              <li key={i} className="mb-1">
-                                                <strong>{c.date}</strong> {c.title || '—'}
-                                                {c.hours > 0 && <span className="text-muted ms-1">({c.hours} hr)</span>}
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        ) : (
-                                          <p className="text-muted small mb-0">無考後課程紀錄</p>
-                                        )}
-                                        {postExamDetail.enrolledCourses?.length > 0 && (
-                                          <>
-                                            <h6 className="mt-3 mb-2">選課紀錄（{postExamDetail.enrolledCourses.length} 筆）</h6>
-                                            <ul className="list-unstyled small mb-0">
-                                              {postExamDetail.enrolledCourses.map((c, i) => (
-                                                <li key={i} className="mb-1">
-                                                  <strong>{c.semesterId}</strong> {c.courseName}
-                                                  {c.instructorName && <span className="text-muted ms-1">（{c.instructorName}）</span>}
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </>
-                                        )}
+                                    <div className="row g-3">
+                                      <div className="col-md-4">
+                                        <h6 className="mb-2">修過的課</h6>
+                                        <CourseLines courses={postExamDetail.courses} empty={<p className="text-muted small mb-0">沒有修課</p>} />
                                       </div>
-                                      <div className="col-md-6">
-                                        <h6 className="mb-2">考後活動（{postExamDetail.activities?.length || 0} 筆）</h6>
+                                      <div className="col-md-4">
+                                        <h6 className="mb-2">活動時數</h6>
+                                        <ActivityLines activities={postExamDetail.activities} />
                                         {postExamDetail.activities?.length > 0 ? (
-                                          <ul className="list-unstyled small mb-0">
-                                            {postExamDetail.activities.map((a, i) => (
-                                              <li key={i} className="mb-1">
-                                                <strong>{a.date}</strong> {a.title || '—'}
-                                                {a.hours > 0 && <span className="text-muted ms-1">({a.hours} hr)</span>}
-                                              </li>
-                                            ))}
-                                          </ul>
+                                          <p className="small mb-0 mt-2">合計 {formatHours(postExamDetail.activityHoursListed)}</p>
+                                        ) : postExamDetail.activityHours > 0 ? (
+                                          <p className="small text-muted mb-0">累積 {formatHours(postExamDetail.activityHours)}，沒有逐筆活動。</p>
+                                        ) : null}
+                                      </div>
+                                      <div className="col-md-4">
+                                        <h6 className="mb-2">考後活動</h6>
+                                        {postExamDetail.lastExamDate ? (
+                                          <p className="small text-muted mb-2">最後一次考試 {postExamDetail.lastExamDate} 之後。</p>
                                         ) : (
-                                          <p className="text-muted small mb-0">無考後活動紀錄</p>
+                                          <p className="small text-muted mb-2">沒有最後考試日，無法標出考後活動。</p>
                                         )}
+                                        {postExamDetail.lastExamDate ? (
+                                          postExamDetail.postExamActivities?.length > 0 ? (
+                                            <>
+                                              <ActivityLines activities={postExamDetail.postExamActivities} />
+                                              <p className="small mb-0 mt-2">合計 {formatHours(postExamDetail.postExamActivityHours)}</p>
+                                            </>
+                                          ) : (
+                                            <p className="text-muted small mb-0">最後一次考試之後沒有活動</p>
+                                          )
+                                        ) : null}
                                       </div>
                                     </div>
                                   ) : (

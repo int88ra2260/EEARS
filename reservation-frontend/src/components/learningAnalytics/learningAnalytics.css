@@ -1213,6 +1213,18 @@ th.la-num .la-colhead {
   align-items: flex-end;
 }
 
+.la-b1-course-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.la-b1-course-list li + li {
+  margin-top: 0.15rem;
+}
+
 .la-b1-filters {
   display: flex;
   flex-direction: column;
@@ -1632,4 +1644,29 @@ th.text-center .la-colhead {
 .la-kpi-table td.text-end,
 .la-kpi-table th.text-end {
   text-align: right;
+}
+
+.la-kpi-sort {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+}
+
+.la-kpi-sort:hover .la-colhead-name,
+.la-kpi-sort.is-active .la-colhead-name {
+  color: var(--la-accent);
+}
+
+.la-kpi-sort-mark {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  color: var(--la-muted);
 }

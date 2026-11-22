@@ -212,6 +212,18 @@ export async function getLearningAnalyticsB1Plus(token, params = {}, options = {
   return fetchAnalytics(token, '/b1-plus', params, options);
 }
 
+export async function exportLearningAnalyticsB1Plus(token, params = {}, options = {}) {
+  const fallback = `EEARS_LA_b1plus_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
+  return fetchAnalyticsBlob(
+    token,
+    '/b1-plus/export',
+    params,
+    options,
+    fallback,
+    '您沒有匯出學習成效分析資料的權限。',
+  );
+}
+
 export async function getB1PlusPostExamDetail(token, studentId, snapshotVersion = '', options = {}) {
   const url = `/api/learning-analytics/b1-plus/students/${encodeURIComponent(studentId)}/post-exam-detail${snapshotVersion ? `?snapshot_version=${encodeURIComponent(snapshotVersion)}` : ''}`;
   const res = await fetch(url, {

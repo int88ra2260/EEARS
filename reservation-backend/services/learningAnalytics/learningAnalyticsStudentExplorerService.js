@@ -12,7 +12,7 @@ const {
 const { resolveLatestSnapshotVersion } = require('../learningJourney/analytics/timelineReadService');
 const { buildStudentPrePost } = require('./studentPrePostSnapshot');
 const { EVENT_TYPES, EVENT_STATUS } = require('../../constants/learningJourneyEventConstants');
-const { WORKING_SET_CAP, studentIdAllowList } = require('./workingSetIds');
+const { studentIdAllowList } = require('./workingSetIds');
 const { applyCohortFilter } = require('./learningAnalyticsFilterUtils');
 
 const PAGE_LIMIT_DEFAULT = 40;
@@ -421,7 +421,6 @@ async function getStudentExplorer(query = {}) {
       where,
       attributes: ['studentId'],
       order: [['studentId', 'ASC']],
-      limit: WORKING_SET_CAP,
       raw: true,
     }),
   ]);

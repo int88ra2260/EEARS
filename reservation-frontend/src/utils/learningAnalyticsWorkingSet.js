@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 const STORAGE_KEY = 'eears.la.workingSet.v1';
 const CHANGE_EVENT = 'eears-la-working-set';
-export const WORKING_SET_CAP = 2000;
 
 const EMPTY_CONTEXT = Object.freeze({
   snapshotVersion: '',
@@ -18,6 +18,7 @@ const EMPTY_SET = Object.freeze({
   total: 0,
   truncated: false,
   savedAt: '',
+  appliedPath: '',
   context: EMPTY_CONTEXT,
 });
 
@@ -29,7 +30,25 @@ function readContext(parsed) {
   };
 }
 
-export function normalizeStudentIds(ids, cap = WORKING_SET_CAP) {
+export function normalizeAnalyticsPath(path) {
+  const raw = String(path || '').split('?')[0].split('#')[0].trim();
+  if (raw.length > 1 && raw.endsWith('/')) return raw.slice(0, -1);
+  return raw;
+}
+
+/**
+ * 名單只活在這次點擊帶去的那一頁。
+ * 該頁的子路徑，以及從名單點進的單一學生頁，仍算同一頁，返回後名單還在。
+ */
+export function workingSetCoversPath(appliedPath, pathname) {
+  const applied = normalizeAnalyticsPath(appliedPath);
+  const current = normalizeAnalyticsPath(pathname);
+  if (!applied || !current) return false;
+  if (current === applied || current.startsWith(`${applied}/`)) return true;
+  return current.startsWith('/admin/learning-analytics/students/');
+}
+
+export function normalizeStudentIds(ids) {
   const out = [];
   const seen = new Set();
   const raw = Array.isArray(ids) ? ids : String(ids || '').split(/[,\s]+/);
@@ -38,7 +57,6 @@ export function normalizeStudentIds(ids, cap = WORKING_SET_CAP) {
     if (!id || seen.has(id)) continue;
     seen.add(id);
     out.push(id);
-    if (out.length >= cap) break;
   }
   return out;
 }
@@ -58,6 +76,7 @@ export function readWorkingSet() {
       total: Number(parsed.total) || studentIds.length,
       truncated: Boolean(parsed.truncated) || (Number(parsed.total) > studentIds.length),
       savedAt: String(parsed.savedAt || ''),
+      appliedPath: normalizeAnalyticsPath(parsed.appliedPath),
       context: readContext(parsed),
     };
   } catch {
@@ -77,6 +96,7 @@ export function saveWorkingSet(set) {
     total,
     truncated: Boolean(set?.truncated) || total > studentIds.length,
     savedAt: new Date().toISOString(),
+    appliedPath: normalizeAnalyticsPath(set?.appliedPath),
     context: readContext(set),
   };
   try {
@@ -108,6 +128,12 @@ export function isWorkingSetSuspended(set, scope) {
   return '';
 }
 
+export function passWorkingSetTo(path) {
+  const current = readWorkingSet();
+  if (!current.studentIds.length) return current;
+  return saveWorkingSet({ ...current, appliedPath: path });
+}
+
 export function rebindWorkingSet(scope = {}) {
   const current = readWorkingSet();
   if (!current.studentIds.length) return current;
@@ -131,6 +157,7 @@ export function clearWorkingSet() {
 }
 
 export function useLearningAnalyticsWorkingSet(scope) {
+  const location = useLocation();
   const [set, setSet] = useState(() => readWorkingSet());
   const snapshotVersion = scope && Object.prototype.hasOwnProperty.call(scope, 'snapshotVersion')
     ? String(scope.snapshotVersion || '')
@@ -162,6 +189,7 @@ export function useLearningAnalyticsWorkingSet(scope) {
   }, [snapshotVersion, semester]);
 
   const studentIds = set.studentIds;
+  const onDestination = workingSetCoversPath(set.appliedPath, location.pathname);
   const suspendedReason = isWorkingSetSuspended(set, (
     snapshotVersion === undefined && semester === undefined
       ? null
@@ -171,15 +199,16 @@ export function useLearningAnalyticsWorkingSet(scope) {
       }
   ));
   const withWorkingSet = useCallback((params = {}) => {
-    if (!studentIds.length || suspendedReason) return params;
+    if (!studentIds.length || suspendedReason || !onDestination) return params;
     return { ...params, studentIds };
-  }, [studentIds, suspendedReason]);
+  }, [studentIds, suspendedReason, onDestination]);
 
   return {
     ...set,
     active: studentIds.length > 0,
+    onDestination,
     suspendedReason,
-    applied: studentIds.length > 0 && !suspendedReason,
+    applied: studentIds.length > 0 && !suspendedReason && onDestination,
     clear,
     rebind,
     withWorkingSet,

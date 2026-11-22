@@ -47,6 +47,7 @@ export default function LearningAnalyticsNextSteps({
       note,
       source,
       sourcePath,
+      appliedPath: path,
       context: {
         snapshotVersion: snapshotVersion || '',
         semester: semester || '',
@@ -62,7 +63,7 @@ export default function LearningAnalyticsNextSteps({
         <p className="la-next-note mb-0">
           {label}，{countText}
           {note ? `。${note}` : '。'}
-          {truncated && shownTotal > ids.length ? ' 超過 2000 人時只帶前面的學號。' : ''}
+          {truncated && shownTotal > ids.length ? ` 這次只帶前面 ${formatCount(ids.length)} 人。` : ''}
         </p>
       </div>
       <div className="la-next-actions">

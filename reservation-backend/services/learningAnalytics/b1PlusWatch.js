@@ -359,6 +359,161 @@ function filterByKeyword(items, keyword) {
   });
 }
 
+const SORT_KEYS = new Set([
+  'studentId',
+  'department',
+  'cohort',
+  'bestGse',
+  'daysSinceExam',
+  'postExamHours',
+  'listening',
+  'reading',
+  'speaking',
+  'writing',
+  'course',
+  'activityHours',
+  'situation',
+]);
+
+const SITUATION_RANK = {
+  neither: 0,
+  course_only: 1,
+  activity_only: 2,
+  both: 3,
+};
+
+function sortValue(row, key) {
+  if (key === 'postExamHours') {
+    const hours = Number(row.postExamCourseHours) + Number(row.postExamActivityHours);
+    return Number.isFinite(hours) && hours > 0 ? hours : null;
+  }
+  if (SKILLS.includes(key)) {
+    const raw = row.pretestGse?.[key];
+    if (raw == null || raw === '') return null;
+    const gse = Number(raw);
+    return Number.isFinite(gse) ? gse : null;
+  }
+  if (key === 'course') {
+    if (row.courseInProgress) return 2;
+    if (row.hasCourse) return 1;
+    return 0;
+  }
+  if (key === 'situation') {
+    return Object.prototype.hasOwnProperty.call(SITUATION_RANK, row.situation)
+      ? SITUATION_RANK[row.situation]
+      : null;
+  }
+  if (key === 'bestGse' || key === 'daysSinceExam' || key === 'activityHours') {
+    const raw = row[key];
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+  const text = String(row[key] || '').trim();
+  return text || null;
+}
+
+function sortB1PlusItems(items, sortKey = 'bestGse', sortDir = 'desc') {
+  const key = SORT_KEYS.has(sortKey) ? sortKey : 'bestGse';
+  const dir = sortDir === 'asc' ? 1 : -1;
+  return [...(items || [])].sort((left, right) => {
+    const a = sortValue(left, key);
+    const b = sortValue(right, key);
+    if (a == null && b == null) return String(left.studentId).localeCompare(String(right.studentId));
+    if (a == null) return 1;
+    if (b == null) return -1;
+    const compared = typeof a === 'number' && typeof b === 'number'
+      ? a - b
+      : String(a).localeCompare(String(b), 'zh-Hant', { numeric: true, sensitivity: 'base' });
+    if (compared !== 0) return compared * dir;
+    return String(left.studentId).localeCompare(String(right.studentId));
+  });
+}
+
+function dateOnly(value) {
+  if (!value) return '';
+  const match = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : '';
+}
+
+/**
+ * 修過的課只留課名與學期。當下學期標修課中。退選應在查詢時已排除。
+ */
+function shapeCourseList(rows = [], currentSemester = '') {
+  const current = String(currentSemester || '').trim();
+  const seen = new Set();
+  const items = [];
+  for (const row of rows) {
+    const semesterId = String(row.semesterId || '').trim();
+    const courseName = String(row.courseName || '').trim() || '未命名課程';
+    const key = `${semesterId}\n${courseName}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push({
+      semesterId,
+      courseName,
+      inProgress: Boolean(current) && semesterId === current,
+    });
+  }
+  items.sort((left, right) => {
+    if (left.inProgress !== right.inProgress) return left.inProgress ? -1 : 1;
+    const semester = String(right.semesterId).localeCompare(String(left.semesterId), 'zh-Hant', { numeric: true });
+    if (semester !== 0) return semester;
+    return String(left.courseName).localeCompare(String(right.courseName), 'zh-Hant');
+  });
+  return items;
+}
+
+function shapeActivityList(events = []) {
+  return (events || [])
+    .map((event) => {
+      const hours = Number(event.hours);
+      const title = String(event.title || event.subtitle || '').trim() || '未命名活動';
+      return {
+        date: dateOnly(event.eventDate || event.date),
+        title,
+        hours: Number.isFinite(hours) ? round1(hours) : 0,
+      };
+    })
+    .sort((left, right) => {
+      const byDate = String(right.date).localeCompare(String(left.date));
+      if (byDate !== 0) return byDate;
+      return String(left.title).localeCompare(String(right.title), 'zh-Hant');
+    });
+}
+
+function sumHours(rows) {
+  const total = (rows || []).reduce((sum, row) => sum + (Number(row.hours) || 0), 0);
+  return round1(total);
+}
+
+/**
+ * 詳情：修過的課（無時數）、活動逐筆時數、最後一次考試之後的活動。
+ */
+function shapeB1PlusStudentDetail({
+  lastExamDate = null,
+  currentSemester = '',
+  activityHours = null,
+  courses = [],
+  activities = [],
+} = {}) {
+  const examDate = dateOnly(lastExamDate);
+  const postExamActivities = (activities || []).filter((row) => examDate && row.date && row.date > examDate);
+  const snapshotHours = activityHours == null || activityHours === ''
+    ? null
+    : round1(Number(activityHours) || 0);
+  return {
+    lastExamDate: examDate || null,
+    currentSemester: currentSemester || null,
+    courses: courses || [],
+    activities: activities || [],
+    activityHours: snapshotHours,
+    activityHoursListed: sumHours(activities),
+    postExamActivities,
+    postExamActivityHours: sumHours(postExamActivities),
+  };
+}
+
 function uniqueSorted(values) {
   return [...new Set(values.filter(Boolean).map((value) => String(value)))]
     .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
@@ -385,6 +540,10 @@ module.exports = {
   filterByHasPretest,
   filterByWeakPretestSkill,
   filterByKeyword,
+  sortB1PlusItems,
+  shapeCourseList,
+  shapeActivityList,
+  shapeB1PlusStudentDetail,
   uniqueSorted,
   optionValues,
 };

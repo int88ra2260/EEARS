@@ -11,9 +11,8 @@ import MetricCard from '../../components/learningAnalytics/MetricCard';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
 import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
 import LearningAnalyticsPanelHeader from '../../components/learningAnalytics/LearningAnalyticsPanelHeader';
-import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import KpiPolicyEditorModal from '../../components/learningAnalytics/KpiPolicyEditorModal';
-import StudentTrajectoryLink from '../../components/learningAnalytics/StudentTrajectoryLink';
+import KpiStudentDetailTable from '../../components/learningAnalytics/KpiStudentDetailTable';
 import { SEMESTER_OPTIONS, getCurrentSemester } from '../../utils/semesterUtils';
 import {
   archiveLearningAnalyticsKpiPolicy,
@@ -73,16 +72,6 @@ export function formatKpiGeneratedAt(value) {
     minute: '2-digit',
     hour12: false,
   }).format(date);
-}
-
-function formatProof(proof) {
-  if (!proof) return '—';
-  const bits = [
-    proof.instrument,
-    proof.examDate,
-    proof.combined != null ? `合計 ${proof.combined}` : null,
-  ].filter(Boolean);
-  return bits.join(' · ') || '—';
 }
 
 const SKILL_LABELS = {
@@ -741,7 +730,6 @@ export default function LearningAnalyticsKpiReportPage() {
               label="這份報表的學生"
               studentIds={reportStudentIds}
               total={reportStudentIds.length}
-              truncated={reportStudentIds.length > 2000}
               note="分母仍是這個學期的名冊。"
               semester={report.population?.semesterId || ''}
               source="kpi-report"
@@ -755,7 +743,6 @@ export default function LearningAnalyticsKpiReportPage() {
               label="未達標的學生"
               studentIds={unmetStudentIds}
               total={unmetStudentIds.length}
-              truncated={unmetStudentIds.length > 2000}
               note="至少有一個達標項目未通過。"
               semester={report.population?.semesterId || ''}
               source="kpi-unmet"
@@ -792,46 +779,11 @@ export default function LearningAnalyticsKpiReportPage() {
                 title="學生明細"
                 lead={`政策：${report.policy?.name} · 產生於 ${formatKpiGeneratedAt(report.generatedAt) || '—'} · 點學號可開個人軌跡`}
               />
-              <div className="table-responsive">
-                <Table hover size="sm" className="mb-0 align-middle">
-                  <thead>
-                    <tr>
-                      <th>學號</th>
-                      <th>年級</th>
-                      {(report.summary?.dimensions || []).map((dim) => (
-                        <React.Fragment key={dim.id}>
-                          <th>{dim.label}</th>
-                          <th><ColumnHead {...HEAD.proof} /></th>
-                        </React.Fragment>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(report.rows || []).slice(0, 200).map((row) => (
-                      <tr key={row.studentId}>
-                        <td>
-                          <StudentTrajectoryLink studentId={row.studentId} from="kpi">
-                            {row.studentId}
-                          </StudentTrajectoryLink>
-                        </td>
-                        <td>{row.grade || '—'}</td>
-                        {(report.summary?.dimensions || []).map((dim) => {
-                          const cell = row.dimensions?.[dim.id];
-                          return (
-                            <React.Fragment key={dim.id}>
-                              <td>{cell?.passed ? 'Y' : 'N'}</td>
-                              <td className="small text-muted">{formatProof(cell?.proof)}</td>
-                            </React.Fragment>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </div>
-              {(report.rows || []).length > 200 ? (
-                <div className="form-text mt-2">畫面僅預覽前 200 列；完整名單請匯出 Excel。</div>
-              ) : null}
+              <KpiStudentDetailTable
+                key={`${report.generatedAt || ''}|${report.policy?.id || ''}|${report.population?.semesterId || ''}`}
+                rows={report.rows || []}
+                dimensions={report.summary?.dimensions || []}
+              />
             </div>
           </div>
         </>

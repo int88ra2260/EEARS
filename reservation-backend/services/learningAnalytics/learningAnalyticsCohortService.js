@@ -1,6 +1,7 @@
 'use strict';
 
-const { LjAnalyticStudent, LjAnalyticExam } = require('../../models');
+const { EtEnrollmentSnapshot, LjAnalyticStudent, LjAnalyticExam } = require('../../models');
+const { getCurrentSemester } = require('../../utils/semesterConstants');
 const { resolveLatestSnapshotVersion } = require('../learningJourney/analytics/timelineReadService');
 const { computeAdjustedGrowthEpisodes } = require('../learningJourney/analytics/lvaAnalyticsService');
 const {
@@ -9,8 +10,9 @@ const {
   applyEvidenceQualityFilter,
 } = require('./learningAnalyticsFilterUtils');
 const {
-  resolveGroupKey,
+  accumulateCohortCoverage,
   aggregateGrowthByGroup,
+  buildGroupGradeBreakdowns,
   buildParticipationComparison,
 } = require('./learningAnalyticsCohortServiceHelpers');
 
@@ -23,6 +25,22 @@ const GROUP_FIELDS = {
 };
 
 const MAIN_SKILLS = ['listening', 'reading', 'speaking', 'writing'];
+
+async function loadGradeByStudentId(semesterId) {
+  if (!semesterId) return new Map();
+  const snaps = await EtEnrollmentSnapshot.findAll({
+    where: { semesterId, isActive: true },
+    attributes: ['studentId', 'grade'],
+    raw: true,
+  });
+  const grades = new Map();
+  for (const snap of snaps) {
+    const id = String(snap.studentId || '').trim().toUpperCase();
+    if (!id || grades.has(id)) continue;
+    grades.set(id, snap.grade);
+  }
+  return grades;
+}
 
 function mean(values) {
   const nums = values.map(Number).filter(Number.isFinite);
@@ -66,34 +84,19 @@ async function getLearningAnalyticsCohorts(query = {}) {
   const growthEpisodes = computeAdjustedGrowthEpisodes(exams, studentById);
   const growthByGroup = aggregateGrowthByGroup(growthEpisodes, studentById, groupBy);
 
-  const groups = new Map();
-  for (const student of students) {
-    const key = resolveGroupKey(student, groupBy);
-    if (!groups.has(key)) {
-      groups.set(key, {
-        groupKey: key,
-        students: 0,
-        b2plusCount: 0,
-        retestCount: 0,
-        multiExamCount: 0,
-        withBaseline: 0,
-        totalResourceHours: 0,
-      });
-    }
-    const row = groups.get(key);
-    row.students += 1;
-    if (student.isB2plus) row.b2plusCount += 1;
-    if (student.retestFlag) row.retestCount += 1;
-    if (Number(student.examCount) >= 2) row.multiExamCount += 1;
-    if (student.baselineEnglishScore != null) row.withBaseline += 1;
-    row.totalResourceHours += Number(student.totalResourceHours || 0);
-  }
+  const gradeComparison = groupBy === 'department' || groupBy === 'college';
+  const gradeSemester = gradeComparison ? String(getCurrentSemester() || '').trim() : '';
+  const gradeByStudentId = gradeComparison ? await loadGradeByStudentId(gradeSemester) : new Map();
+  const gradesByGroup = buildGroupGradeBreakdowns(students, groupBy, gradeByStudentId);
+  const groups = accumulateCohortCoverage(students, groupBy);
 
   const rows = Array.from(groups.values())
     .map((row) => {
       const growth = growthByGroup.get(row.groupKey) || {};
       return {
         ...row,
+        withExamCount: row.withExamCount,
+        withoutExamCount: row.students - row.withExamCount,
         b2plusRate: row.students ? Number((row.b2plusCount / row.students).toFixed(4)) : 0,
         retestRate: row.students ? Number((row.retestCount / row.students).toFixed(4)) : 0,
         avgResourceHours: row.students
@@ -103,6 +106,7 @@ async function getLearningAnalyticsCohorts(query = {}) {
         avgActualGseGrowth: growth.avgActualGseGrowth ?? null,
         avgAdjustedGseGrowth: growth.avgAdjustedGseGrowth ?? null,
         causalClaimAllowed: false,
+        ...(gradeComparison ? { grades: gradesByGroup.get(row.groupKey) || [] } : {}),
       };
     })
     .sort((a, b) => b.students - a.students);
@@ -123,6 +127,7 @@ async function getLearningAnalyticsCohorts(query = {}) {
     filters: query,
     totalStudents: students.length,
     totalGrowthEpisodes: growthEpisodes.length,
+    gradeSemester: gradeSemester || null,
     rows,
     participationComparison: buildParticipationComparison(growthEpisodes, students),
     skillGrowthSummary,

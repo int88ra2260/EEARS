@@ -1,6 +1,10 @@
 'use strict';
 
 const { resolveBaselineCefrBand } = require('./baselineAbilityUtils');
+const { parseGradeNumber } = require('./kpiPopulationUtils');
+
+const GRADE_LABELS = { 1: '大一', 2: '大二', 3: '大三', 4: '大四', 5: '大五', 6: '大六', 7: '大七' };
+const MISSING_GRADE = '缺年級';
 
 function round(value, digits = 2) {
   const n = Number(value);
@@ -25,6 +29,83 @@ function resolveGroupKey(student, groupBy) {
 function isParticipated(student) {
   const level = String(student.exposureLevel || '').toLowerCase();
   return level === 'medium' || level === 'high';
+}
+
+function emptyCoverageRow(groupKey) {
+  return {
+    groupKey,
+    students: 0,
+    b2plusCount: 0,
+    retestCount: 0,
+    multiExamCount: 0,
+    withExamCount: 0,
+    withBaseline: 0,
+    totalResourceHours: 0,
+  };
+}
+
+function accumulateCohortCoverage(students, groupBy) {
+  const groups = new Map();
+  for (const student of students || []) {
+    const key = resolveGroupKey(student, groupBy);
+    if (!groups.has(key)) groups.set(key, emptyCoverageRow(key));
+    const row = groups.get(key);
+    row.students += 1;
+    if (student.isB2plus) row.b2plusCount += 1;
+    if (student.retestFlag) row.retestCount += 1;
+    if (Number(student.examCount) >= 2) row.multiExamCount += 1;
+    if (student.hasValidExam) row.withExamCount += 1;
+    if (student.baselineEnglishScore != null) row.withBaseline += 1;
+    row.totalResourceHours += Number(student.totalResourceHours || 0);
+  }
+  return groups;
+}
+
+function normalizeStudentId(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function gradeBand(raw) {
+  const gradeNo = parseGradeNumber(raw);
+  if (gradeNo == null) return { grade: MISSING_GRADE, gradeNo: null };
+  return { grade: GRADE_LABELS[gradeNo] || `大${gradeNo}`, gradeNo };
+}
+
+function buildGroupGradeBreakdowns(students, groupBy, gradeByStudentId) {
+  if (groupBy !== 'department' && groupBy !== 'college') return new Map();
+  const byParent = new Map();
+  for (const student of students || []) {
+    const parent = resolveGroupKey(student, groupBy);
+    const band = gradeBand(gradeByStudentId?.get?.(normalizeStudentId(student.studentId)));
+    if (!byParent.has(parent)) byParent.set(parent, new Map());
+    const grades = byParent.get(parent);
+    if (!grades.has(band.grade)) {
+      grades.set(band.grade, { ...emptyCoverageRow(band.grade), gradeNo: band.gradeNo });
+    }
+    const row = grades.get(band.grade);
+    row.students += 1;
+    if (student.isB2plus) row.b2plusCount += 1;
+    if (student.hasValidExam) row.withExamCount += 1;
+  }
+  const result = new Map();
+  for (const [parent, grades] of byParent) {
+    result.set(parent, [...grades.values()]
+      .map((row) => ({
+        grade: row.groupKey,
+        gradeNo: row.gradeNo,
+        students: row.students,
+        withExamCount: row.withExamCount,
+        withoutExamCount: row.students - row.withExamCount,
+        b2plusCount: row.b2plusCount,
+      }))
+      .sort((left, right) => {
+        if (left.gradeNo == null && right.gradeNo == null) return 0;
+        if (left.gradeNo == null) return 1;
+        if (right.gradeNo == null) return -1;
+        return left.gradeNo - right.gradeNo;
+      }));
+  }
+  return result;
 }
 
 function aggregateGrowthByGroup(episodes, studentById, groupBy) {
@@ -88,6 +169,8 @@ module.exports = {
   mean,
   resolveGroupKey,
   isParticipated,
+  accumulateCohortCoverage,
+  buildGroupGradeBreakdowns,
   aggregateGrowthByGroup,
   buildParticipationComparison,
 };

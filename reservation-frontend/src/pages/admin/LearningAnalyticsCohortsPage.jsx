@@ -11,6 +11,7 @@ import ComparisonModeSwitch from '../../components/learningAnalytics/ComparisonM
 import { COHORT_COMPARISON_FILTER_KEYS, LA_FILTER_INTRO_COHORTS } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
 import { buildAccessProfile } from '../../utils/accessControl';
 import AnalyticsHubReturn from './AnalyticsHubReturn';
+import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import { formatObservedDelta, shouldApplyAnalyticsResult } from './learningParticipationReading';
 
 const GROUP_OPTIONS = [
@@ -40,19 +41,11 @@ function formatCount(value) {
   return n.toLocaleString('zh-TW');
 }
 
-function examCoverage(row) {
-  const students = Number(row.students);
-  const count = Number(row.multiExamCount);
-  if (!Number.isFinite(students) || students <= 0 || !Number.isFinite(count)) return '—';
-  return `${formatCount(count)} 人 · ${((count / students) * 100).toFixed(1)}%`;
-}
-
-function limitText(row) {
-  const episodes = Number(row.growthEpisodeCount);
-  if (!Number.isFinite(episodes)) return '—';
-  if (episodes <= 0) return '無可比較前後測';
-  if (episodes < 5) return '樣本偏少';
-  return '可觀察';
+function countShare(count, total) {
+  const n = Number(count);
+  const d = Number(total);
+  if (!Number.isFinite(n) || !Number.isFinite(d) || d <= 0) return '—';
+  return `${formatCount(n)} 人 · ${((n / d) * 100).toFixed(1)}%`;
 }
 
 function useNarrowScreen() {
@@ -96,6 +89,45 @@ function DetailFacts({ row }) {
       </div>
     </dl>
   );
+}
+
+function GradeBreakdown({ row, gradeSemester }) {
+  return (
+    <div className="py-2">
+      <p className="small text-muted mb-2">
+        {`年級依 ${gradeSemester || '目前學期'} 在學名冊。各列百分比的分母是該年級人數。缺年級是這份快照有、名冊上沒有年級的人。`}
+      </p>
+      <div className="table-responsive">
+        <table className="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>年級</th>
+              <th className="text-end"><ColumnHead {...HEAD.cohortStudents} /></th>
+              <th className="text-end"><ColumnHead {...HEAD.noValidExam} /></th>
+              <th className="text-end"><ColumnHead {...HEAD.anyValidExam} /></th>
+              <th className="text-end"><ColumnHead {...HEAD.snapshotB2Count} /></th>
+            </tr>
+          </thead>
+          <tbody>
+            {(row.grades || []).map((grade) => (
+              <tr key={grade.grade}>
+                <td>{grade.grade}</td>
+                <td className="text-end">{formatCount(grade.students)}</td>
+                <td className="text-end">{countShare(grade.withoutExamCount, grade.students)}</td>
+                <td className="text-end">{countShare(grade.withExamCount, grade.students)}</td>
+                <td className="text-end">{countShare(grade.b2plusCount, grade.students)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function RowDetail({ row, gradeSemester }) {
+  if (Array.isArray(row.grades)) return <GradeBreakdown row={row} gradeSemester={gradeSemester} />;
+  return <DetailFacts row={row} />;
 }
 
 export default function LearningAnalyticsCohortsPage() {
@@ -153,11 +185,15 @@ export default function LearningAnalyticsCohortsPage() {
 
   const rows = data?.rows || [];
   const snapshotLabel = data?.snapshotVersion || appliedFilters.snapshot_version || '尚未載入';
-  const summary = useMemo(() => ({
-    groups: rows.length,
-    students: data?.totalStudents,
-    episodes: data?.totalGrowthEpisodes,
-  }), [rows.length, data?.totalStudents, data?.totalGrowthEpisodes]);
+  const summary = useMemo(() => {
+    const students = Number(data?.totalStudents);
+    const b2 = rows.reduce((sum, row) => sum + (Number(row.b2plusCount) || 0), 0);
+    return {
+      groups: rows.length,
+      students: data?.totalStudents,
+      b2: Number.isFinite(students) && students > 0 ? countShare(b2, students) : formatCount(b2),
+    };
+  }, [rows, data?.totalStudents]);
 
   return (
     <div>
@@ -173,13 +209,14 @@ export default function LearningAnalyticsCohortsPage() {
         showWorkingSet
         workingSetHere="cohorts"
         workingSetScope={workingSetScope}
-        question="比較不同學生群體的英檢資料覆蓋與可觀察學習紀錄。"
+        question="比較不同學生群體有沒有有效英檢成績，以及快照裡的 B2 達標。"
         howToRead={(
           <ul className="small mb-0 ps-3">
             <li className="mb-1">先選快照、學院、系所或入學年度，再選現在要比較的維度。</li>
-            <li>至少兩次測驗是快照裡 examCount 至少 2 的人數。可比較筆數是前後測區間，不是學生人數。</li>
-            <li>快照 B2 是這份分析快照的標記，不是學期名冊的 B2 KPI。</li>
-            <li>可比較筆數是 0 時，平均變化顯示「無可比較樣本」，不顯示成 0.0，也不代表沒有進步。</li>
+            <li>沒有英檢成績與至少一次英檢成績，是這個群體裡有沒有有效英檢。兩欄人數加起來等於學生數。</li>
+            <li>B2 達標是分析快照的標記，分母是該群體全部學生，不是只有有英檢的人，也不是學期名冊的 B2 KPI。</li>
+            <li>系所或學院展開後，依目前學期在學名冊的年級拆開。各年級人數加上缺年級，回到該列的學生數。</li>
+            <li>下方參與量對照與各技能前後測仍看 GSE 變化。可比較筆數是 0 時顯示「無可比較樣本」，不顯示成 0.0。</li>
           </ul>
         )}
       >
@@ -223,15 +260,19 @@ export default function LearningAnalyticsCohortsPage() {
           <summary>指標定義</summary>
           <dl>
             <dt>學生數</dt>
-            <dd>這個分組在目前篩選後的快照學生人數。</dd>
-            <dt>至少兩次測驗</dt>
-            <dd>快照裡測驗次數至少 2 的人數與占該群體學生數的比例。這不是學期名冊的英檢覆蓋，也不是 B2 達標率。</dd>
+            <dd>這個分組在目前篩選後的快照學生人數。沒有英檢、至少一次英檢、B2 達標的百分比都用它當分母。</dd>
+            <dt>沒有英檢成績</dt>
+            <dd>沒有有效英檢成績的人數，以及占該群體學生數的百分比。</dd>
+            <dt>至少一次英檢成績</dt>
+            <dd>至少有一筆有效英檢成績的人數，以及占該群體學生數的百分比。與沒有英檢成績的人數加總等於學生數。</dd>
+            <dt>B2 達標</dt>
+            <dd>分析快照已標成達 B2 的人數，以及占該群體全部學生的百分比。不是學期名冊的 B2 KPI。</dd>
+            <dt>年級</dt>
+            <dd>系所或學院展開後使用。年級來自目前學期在學名冊，不是入學年度。名冊上沒有年級的人列在缺年級。</dd>
             <dt>可比較筆數</dt>
-            <dd>前後測區間筆數。同一人可以有多筆。筆數是 0 代表沒有可比較的前後測。</dd>
+            <dd>下方參與量對照與各技能表使用。前後測區間筆數，同一人可以有多筆。筆數是 0 代表沒有可比較的前後測。</dd>
             <dt>平均 GSE 變化</dt>
-            <dd>可比較筆數大於 0 時，這些區間的平均 GSE 變化。0.0 是觀察到的零。筆數是 0 時不顯示成 0.0。</dd>
-            <dt>快照 B2</dt>
-            <dd>分析快照的 isB2plus 比例。不能和學期名冊的系所 B2 人數當成同一母體。</dd>
+            <dd>下方比較表使用。可比較筆數大於 0 時，這些區間的平均 GSE 變化。0.0 是觀察到的零。筆數是 0 時不顯示成 0.0。</dd>
             <dt>校正後變化</dt>
             <dd>既有校正後 GSE 平均。這是描述，不能說成學院或系所因為中心資源而提升。</dd>
           </dl>
@@ -256,8 +297,8 @@ export default function LearningAnalyticsCohortsPage() {
                 <strong>{formatCount(summary.students)}</strong>
               </div>
               <div>
-                <span>可比較筆數</span>
-                <strong>{formatCount(summary.episodes)}</strong>
+                <span>B2 達標</span>
+                <strong>{summary.b2}</strong>
               </div>
             </div>
 
@@ -266,28 +307,27 @@ export default function LearningAnalyticsCohortsPage() {
                 {rows.map((row) => (
                   <article key={row.groupKey} className="la-offering-card la-compare-card">
                     <h3>{row.groupKey}</h3>
-                    <p className="small text-muted mb-0">{limitText(row)}</p>
                     <dl className="la-offering-metrics">
                       <div>
                         <dt>學生數</dt>
                         <dd>{formatCount(row.students)}</dd>
                       </div>
                       <div>
-                        <dt>至少兩次測驗</dt>
-                        <dd>{examCoverage(row)}</dd>
+                        <dt>沒有英檢成績</dt>
+                        <dd>{countShare(row.withoutExamCount, row.students)}</dd>
                       </div>
                       <div>
-                        <dt>可比較筆數</dt>
-                        <dd>{formatCount(row.growthEpisodeCount)}</dd>
+                        <dt>至少一次英檢成績</dt>
+                        <dd>{countShare(row.withExamCount, row.students)}</dd>
                       </div>
                       <div>
-                        <dt>平均 GSE 變化</dt>
-                        <dd>{formatObservedDelta(row.avgActualGseGrowth, row.growthEpisodeCount)}</dd>
+                        <dt>B2 達標</dt>
+                        <dd>{countShare(row.b2plusCount, row.students)}</dd>
                       </div>
                     </dl>
                     <details>
                       <summary>{`查看 ${row.groupKey} 詳細資訊`}</summary>
-                      <DetailFacts row={row} />
+                      <RowDetail row={row} gradeSemester={data?.gradeSemester} />
                     </details>
                   </article>
                 ))}
@@ -300,11 +340,10 @@ export default function LearningAnalyticsCohortsPage() {
                     <thead>
                       <tr>
                         <th>群體</th>
-                        <th className="text-end">學生數</th>
-                        <th className="text-end">至少兩次測驗</th>
-                        <th className="text-end">可比較筆數</th>
-                        <th className="text-end">平均 GSE 變化</th>
-                        <th>資料限制</th>
+                        <th className="text-end"><ColumnHead {...HEAD.cohortStudents} /></th>
+                        <th className="text-end"><ColumnHead {...HEAD.noValidExam} /></th>
+                        <th className="text-end"><ColumnHead {...HEAD.anyValidExam} /></th>
+                        <th className="text-end"><ColumnHead {...HEAD.snapshotB2Count} /></th>
                         <th />
                       </tr>
                     </thead>
@@ -316,10 +355,9 @@ export default function LearningAnalyticsCohortsPage() {
                             <tr>
                               <td className="la-offerings-name fw-semibold">{row.groupKey}</td>
                               <td className="text-end">{formatCount(row.students)}</td>
-                              <td className="text-end">{examCoverage(row)}</td>
-                              <td className="text-end">{formatCount(row.growthEpisodeCount)}</td>
-                              <td className="text-end">{formatObservedDelta(row.avgActualGseGrowth, row.growthEpisodeCount)}</td>
-                              <td>{limitText(row)}</td>
+                              <td className="text-end">{countShare(row.withoutExamCount, row.students)}</td>
+                              <td className="text-end">{countShare(row.withExamCount, row.students)}</td>
+                              <td className="text-end">{countShare(row.b2plusCount, row.students)}</td>
                               <td className="text-end">
                                 <button
                                   type="button"
@@ -333,8 +371,8 @@ export default function LearningAnalyticsCohortsPage() {
                             </tr>
                             {open ? (
                               <tr>
-                                <td colSpan={7}>
-                                  <DetailFacts row={row} />
+                                <td colSpan={6}>
+                                  <RowDetail row={row} gradeSemester={data?.gradeSemester} />
                                 </td>
                               </tr>
                             ) : null}

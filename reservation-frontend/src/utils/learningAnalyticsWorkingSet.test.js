@@ -5,6 +5,7 @@ import {
   readWorkingSet,
   rebindWorkingSet,
   saveWorkingSet,
+  workingSetCoversPath,
 } from './learningAnalyticsWorkingSet';
 
 describe('learning analytics working set', () => {
@@ -26,6 +27,21 @@ describe('learning analytics working set', () => {
 
     clearWorkingSet();
     expect(readWorkingSet().studentIds).toEqual([]);
+  });
+
+  test('keeps every student id when the group is larger than 2000', () => {
+    const ids = Array.from({ length: 2005 }, (_, i) => `s${i}`);
+    saveWorkingSet({
+      label: '大批學生',
+      studentIds: ids,
+      total: ids.length,
+    });
+    const saved = readWorkingSet();
+    expect(saved.studentIds).toHaveLength(2005);
+    expect(saved.truncated).toBe(false);
+    expect(saved.total).toBe(2005);
+    expect(saved.studentIds[0]).toBe('S0');
+    expect(saved.studentIds[2004]).toBe('S2004');
   });
 
   test('does not treat a different page dimension as a silent invalidation', () => {
@@ -61,5 +77,19 @@ describe('learning analytics working set', () => {
     expect(next.studentIds).toEqual(['S100']);
     expect(next.context).toEqual({ snapshotVersion: 'snap-a', semester: '115-1' });
     expect(isWorkingSetSuspended(next, { semester: '115-1' })).toBe('');
+  });
+
+  test('keeps the group only on the page the click opened', () => {
+    saveWorkingSet({
+      label: '課Ａ學生',
+      studentIds: ['S100'],
+      appliedPath: '/admin/learning-analytics/kpi-report',
+    });
+    const saved = readWorkingSet();
+    expect(saved.appliedPath).toBe('/admin/learning-analytics/kpi-report');
+    expect(workingSetCoversPath(saved.appliedPath, '/admin/learning-analytics/kpi-report')).toBe(true);
+    expect(workingSetCoversPath(saved.appliedPath, '/admin/learning-analytics/students/S100')).toBe(true);
+    expect(workingSetCoversPath(saved.appliedPath, '/admin/learning-analytics/overview')).toBe(false);
+    expect(workingSetCoversPath('', '/admin/learning-analytics/kpi-report')).toBe(false);
   });
 });

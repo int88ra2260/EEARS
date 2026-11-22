@@ -125,6 +125,22 @@ export const HEAD = {
     name: '有可用的英檢',
     hint: '至少有一筆可計入的正式英檢。',
   },
+  cohortStudents: {
+    name: '學生數',
+    hint: '這個分組在目前篩選後的快照人數。下面的百分比都用這個當分母。',
+  },
+  noValidExam: {
+    name: '沒有英檢成績',
+    hint: '沒有有效英檢成績的人數，以及占學生數的百分比。',
+  },
+  anyValidExam: {
+    name: '至少一次英檢成績',
+    hint: '至少有一筆有效英檢成績的人數，以及占學生數的百分比。',
+  },
+  snapshotB2Count: {
+    name: 'B2 達標',
+    hint: '分析快照已標成達 B2 的人數，以及占這個群體全部學生的百分比。不是學期名冊的 B2 KPI。',
+  },
   singleExam: {
     name: '只考過一次',
     hint: '還沒有後測，算不出進步。',

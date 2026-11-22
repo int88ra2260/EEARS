@@ -436,7 +436,7 @@ export default function LearningAnalyticsOverviewPage() {
                     lead="覆蓋率是資料有沒有收到。下方各技能的人數才是能拿來比成長的配對。"
                   />
                   <Row className="g-2">
-                    <Col xs={4}>
+                    <Col xs={6}>
                       <MetricCard
                         label="前測"
                         value={formatPct(growth.coverage?.pretest?.rate)}
@@ -445,20 +445,13 @@ export default function LearningAnalyticsOverviewPage() {
                         onClick={() => openList({ slice: 'coverage_pre', title: '有前測' })}
                       />
                     </Col>
-                    <Col xs={4}>
+                    <Col xs={6}>
                       <MetricCard
                         label="後測"
                         value={formatPct(growth.coverage?.posttest?.rate)}
                         hint={ratioHint(growth.coverage?.posttest?.count, growth.coverage?.posttest?.total)}
+                        tooltip="第二梯有效英檢。有後測即代表已有前測與後測。學測不算。"
                         onClick={() => openList({ slice: 'coverage_post', title: '有後測' })}
-                      />
-                    </Col>
-                    <Col xs={4}>
-                      <MetricCard
-                        label="兩者皆有"
-                        value={formatPct(growth.coverage?.both?.rate)}
-                        hint={ratioHint(growth.coverage?.both?.count, growth.coverage?.both?.total)}
-                        onClick={() => openList({ slice: 'coverage_both', title: '前測與後測皆有' })}
                       />
                     </Col>
                   </Row>

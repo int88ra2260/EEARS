@@ -2,7 +2,7 @@ import React from 'react';
 import Button from 'react-bootstrap/Button';
 import { Link } from 'react-router-dom';
 import { formatCount } from './learningAnalyticsFormat';
-import { useLearningAnalyticsWorkingSet } from '../../utils/learningAnalyticsWorkingSet';
+import { passWorkingSetTo, useLearningAnalyticsWorkingSet } from '../../utils/learningAnalyticsWorkingSet';
 
 const HOPS = [
   { id: 'kpi', label: 'B2 達標', path: '/admin/learning-analytics/kpi-report' },
@@ -17,7 +17,7 @@ const SUSPEND_COPY = {
 
 export default function LearningAnalyticsWorkingSetBanner({ here = '', scope = null }) {
   const workingSet = useLearningAnalyticsWorkingSet(scope || undefined);
-  if (!workingSet.active) return null;
+  if (!workingSet.active || !workingSet.onDestination) return null;
 
   const count = formatCount(workingSet.studentIds.length);
   const extra = workingSet.truncated && workingSet.total > workingSet.studentIds.length
@@ -42,7 +42,15 @@ export default function LearningAnalyticsWorkingSetBanner({ here = '', scope = n
             沿用這份固定名單
           </Button>
         ) : HOPS.filter((item) => item.id !== here).map((item) => (
-          <Link key={item.id} className="btn btn-sm btn-outline-primary" to={item.path}>
+          <Link
+            key={item.id}
+            className="btn btn-sm btn-outline-primary"
+            to={item.path}
+            onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+              passWorkingSetTo(item.path);
+            }}
+          >
             {item.label}
           </Link>
         ))}

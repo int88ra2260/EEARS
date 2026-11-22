@@ -38,6 +38,7 @@ const { runKpiGapReport } = require('../services/learningAnalytics/kpiGapService
 const { buildKpiGapWorkbook } = require('../services/learningAnalytics/kpiGapExportService');
 const { getStudentExplorer } = require('../services/learningAnalytics/learningAnalyticsStudentExplorerService');
 const { getB1PlusWatch, getPostExamEngagementDetail } = require('../services/learningAnalytics/learningAnalyticsB1PlusService');
+const { buildB1PlusExportWorkbook } = require('../services/learningAnalytics/learningAnalyticsB1PlusExportService');
 const { buildStudentExplorerExportWorkbook } = require('../services/learningAnalytics/learningAnalyticsStudentExplorerExportService');
 const {
   createTrackingCohort,
@@ -120,6 +121,32 @@ async function getB1PlusWatchHandler(req, res) {
     return res.json({ success: true, data, requestId: req.requestId });
   } catch (e) {
     return sendAnalyticsError(req, res, e);
+  }
+}
+
+async function getB1PlusExport(req, res) {
+  try {
+    const q = readAnalyticsQuery(req);
+    const exported = await buildB1PlusExportWorkbook(q);
+    const buffer = await exported.workbook.xlsx.writeBuffer();
+    logExportAudit(req, {
+      module: 'learning_analytics',
+      action: 'export_b1_plus_xlsx',
+      entityType: 'LearningAnalyticsB1Plus',
+      entityId: exported.snapshotVersion || '',
+      exportType: 'xlsx',
+      reportType: 'b1_plus',
+      rowCount: exported.rowCount,
+      filters: auditFiltersWithoutIds({
+        ...exported.applied,
+        workingSetCount: Array.isArray(q.studentIds) ? q.studentIds.length : 0,
+      }),
+    });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${exported.fileName}"`);
+    return res.send(Buffer.from(buffer));
+  } catch (e) {
+    return sendAnalyticsError(req, res, e, e.status || 500);
   }
 }
 
@@ -732,6 +759,7 @@ module.exports = {
   getOverviewStudents,
   getStudentExplorer: getStudentExplorerHandler,
   getB1PlusWatch: getB1PlusWatchHandler,
+  getB1PlusExport,
   getB1PlusPostExamDetail: getB1PlusPostExamDetailHandler,
   getStudentExplorerExport,
   listTrackingCohorts: listTrackingCohortsHandler,

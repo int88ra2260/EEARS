@@ -4,16 +4,18 @@ const {
   normalizeStudentIdList,
   applyRosterWorkingSet,
   collectImprovedStudentsBySkill,
-  WORKING_SET_CAP,
 } = require('../services/learningAnalytics/workingSetIds');
 
 describe('workingSetIds', () => {
-  it('normalizes, dedupes and caps student ids', () => {
+  it('normalizes and dedupes student ids without a count cap', () => {
     expect(normalizeStudentIdList(null)).toBeNull();
     expect(normalizeStudentIdList([])).toBeNull();
     expect(normalizeStudentIdList(' b112 , B112  a01 ')).toEqual(['B112', 'A01']);
-    const many = Array.from({ length: WORKING_SET_CAP + 5 }, (_, i) => `S${i}`);
-    expect(normalizeStudentIdList(many)).toHaveLength(WORKING_SET_CAP);
+    const many = Array.from({ length: 2005 }, (_, i) => `S${i}`);
+    const normalized = normalizeStudentIdList(many);
+    expect(normalized).toHaveLength(2005);
+    expect(normalized[0]).toBe('S0');
+    expect(normalized[2004]).toBe('S2004');
   });
 
   it('intersects a roster with the carried student list', () => {
@@ -48,5 +50,17 @@ describe('workingSetIds', () => {
       studentIds: ['S1'],
     });
     expect(packed.listening.studentIds).toEqual(['S3']);
+  });
+
+  it('keeps every improved student when one skill has more than 2000 people', () => {
+    const rows = Array.from({ length: 2005 }, (_, i) => ({
+      studentId: `s${i}`,
+      skill: 'speaking',
+      actualGseGrowth: 1,
+    }));
+    const packed = collectImprovedStudentsBySkill(rows);
+    expect(packed.speaking.total).toBe(2005);
+    expect(packed.speaking.truncated).toBe(false);
+    expect(packed.speaking.studentIds).toHaveLength(2005);
   });
 });

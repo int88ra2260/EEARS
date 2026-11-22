@@ -1,5 +1,6 @@
 'use strict';
 
+const { presentB1PlusExportRow } = require('../services/learningAnalytics/learningAnalyticsB1PlusExportService');
 const {
   buildB1PlusWatch,
   buildCourseEngagementMap,
@@ -8,9 +9,15 @@ const {
   filterByHasPretest,
   filterByWeakPretestSkill,
   filterByKeyword,
+  sortB1PlusItems,
+  shapeCourseList,
+  shapeActivityList,
+  shapeB1PlusStudentDetail,
+  examGse,
   exactCefrLabel,
   APPROACHING_GSE_MIN,
   APPROACHING_GSE_MAX,
+  B2_GSE_MIN,
 } = require('../services/learningAnalytics/b1PlusWatch');
 
 function student(overrides = {}) {
@@ -114,6 +121,39 @@ describe('b1PlusWatch', () => {
       courseInProgress: false,
       situation: 'neither',
     });
+  });
+
+  it('keeps GSE 51–58 and drops the score just below 51 or at B2', () => {
+    expect(B2_GSE_MIN).toBe(59);
+    const upper = examGse(exam({ rawScore: 99, cefrLevel: 'B1' }));
+    const b2 = examGse(exam({ rawScore: 100, cefrLevel: 'B2' }));
+    expect(upper).toBe(58);
+    expect(b2).toBe(59);
+    const items = buildB1PlusWatch(
+      [
+        student({ studentId: 'EDGE' }),
+        student({ studentId: 'B2' }),
+        student({ studentId: 'LABELONLY' }),
+      ],
+      [
+        exam({ studentId: 'EDGE', rawScore: 99, cefrLevel: 'B1' }),
+        exam({ studentId: 'B2', rawScore: 100, cefrLevel: 'B2' }),
+        exam({ studentId: 'LABELONLY', rawScore: null, cefrLevel: 'B1' }),
+      ],
+    );
+    expect(items.map((row) => row.studentId)).toEqual(['EDGE']);
+    expect(items[0].bestGse).toBe(58);
+  });
+
+  it('sorts the whole list and keeps missing values last', () => {
+    const items = [
+      { studentId: 'B', bestGse: 52, department: '電機系', pretestGse: { listening: null } },
+      { studentId: 'A', bestGse: 58, department: '外文系', pretestGse: { listening: 40 } },
+      { studentId: 'C', bestGse: 58, department: '外文系', pretestGse: { listening: 55 } },
+    ];
+    expect(sortB1PlusItems(items, 'bestGse', 'desc').map((row) => row.studentId)).toEqual(['A', 'C', 'B']);
+    expect(sortB1PlusItems(items, 'department', 'asc').map((row) => row.studentId)).toEqual(['A', 'C', 'B']);
+    expect(sortB1PlusItems(items, 'listening', 'asc').map((row) => row.studentId)).toEqual(['A', 'C', 'B']);
   });
 
   it('drops students already at B2 GSE, early B1 GSE, or GSAT-only rows', () => {
@@ -272,5 +312,69 @@ describe('b1PlusWatch', () => {
     const summary = summarizeB1PlusWatch(items);
     expect(summary.withPostExamEngagement).toBe(2);
     expect(summary.matched).toBe(3);
+  });
+
+  it('exports the columns shown on the approaching-B2 list', () => {
+    const row = presentB1PlusExportRow({
+      studentId: 'S1',
+      studentName: '王小明',
+      department: '外文系',
+      cohort: '114',
+      bestGse: 58,
+      currentLevel: 'B1+',
+      daysSinceExam: 12,
+      lastExamDate: '2025-09-01',
+      postExamCourseHours: 2,
+      postExamActivityHours: 1,
+      pretest: { listening: 'B1+' },
+      pretestGse: { listening: 58 },
+      courseInProgress: true,
+      hasCourse: true,
+      courses: [
+        { semesterId: '115-1', courseName: '英文寫作', inProgress: true },
+        { semesterId: '114-2', courseName: '英語聽講', inProgress: false },
+      ],
+      activityHours: 3,
+      situation: 'both',
+    });
+    expect(row).toMatchObject({
+      studentId: 'S1',
+      studentName: '王小明',
+      bestGse: 58,
+      postExamHours: 3,
+      listening: 'B1+（58）',
+      course: '115-1 英文寫作（修課中）\n114-2 英語聽講',
+      situation: '已有修課與活動，仍未達 B2',
+    });
+  });
+
+  it('lists courses by name and semester, and splits activities after the last exam', () => {
+    const courses = shapeCourseList([
+      { semesterId: '114-2', courseName: '英語聽講' },
+      { semesterId: '115-1', courseName: '英文寫作' },
+      { semesterId: '115-1', courseName: '英文寫作' },
+      { semesterId: '113-1', courseName: '' },
+    ], '115-1');
+    expect(courses.map((row) => `${row.semesterId} ${row.courseName}${row.inProgress ? '*' : ''}`)).toEqual([
+      '115-1 英文寫作*',
+      '114-2 英語聽講',
+      '113-1 未命名課程',
+    ]);
+
+    const activities = shapeActivityList([
+      { eventDate: '2024-11-01', title: '講座', hours: 1 },
+      { eventDate: '2024-12-01', title: '英語小聚', hours: 1.26 },
+    ]);
+    const detail = shapeB1PlusStudentDetail({
+      lastExamDate: '2024-11-23',
+      currentSemester: '115-1',
+      activityHours: 2,
+      courses,
+      activities,
+    });
+    expect(detail.postExamActivities.map((row) => row.title)).toEqual(['英語小聚']);
+    expect(detail.postExamActivityHours).toBe(1.3);
+    expect(detail.activityHoursListed).toBe(2.3);
+    expect(detail.courses[0].inProgress).toBe(true);
   });
 });

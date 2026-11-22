@@ -72,7 +72,7 @@ CEFR 只用在最後呈現或是看有沒有達標使用，GSE 是用作資料�
 
 ## Working set（跨頁名單）
 
-- 前端：`sessionStorage` key `eears.la.workingSet.v1`，上限 2000 人
+- 前端：`sessionStorage` key `eears.la.workingSet.v1`。跨頁名單帶完整學號，不因人數截斷。只套在這次點擊帶去的那一頁（含子路徑與單一學生頁）；重新整理保留。用頁內導覽或側欄離開後清除
 - 有 `studentIds` 時用 **POST** 同路徑帶 body；勿把長名單寫進 URL
 - `useLearningAnalyticsWorkingSet` 回傳物件每 render 是新的：effect 依賴解構後的 `withWorkingSet`，不要依賴整個 hook 物件
 - 截斷提示只在 `truncated && total > ids.length` 時顯示

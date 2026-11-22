@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import { clearWorkingSet, readWorkingSet, workingSetCoversPath } from '../../utils/learningAnalyticsWorkingSet';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
 import { scopeSearchPath } from '../../components/learningAnalytics/learningAnalyticsFilterConstants';
@@ -52,6 +53,11 @@ function isPageCurrent(pathname, item) {
 
 export default function LearningAnalyticsLayout() {
   const location = useLocation();
+  useEffect(() => {
+    const set = readWorkingSet();
+    if (!set.studentIds.length) return;
+    if (!workingSetCoversPath(set.appliedPath, location.pathname)) clearWorkingSet();
+  }, [location.pathname]);
   const canManageSettings = useMemo(() => {
     const token = localStorage.getItem('token');
     return hasPermission(buildAccessProfile(token), P.CAN_MANAGE_LEARNING_ANALYTICS_SETTINGS);
