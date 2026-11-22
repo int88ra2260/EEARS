@@ -40,6 +40,7 @@ jest.mock('../../controllers/learningAnalyticsController', () => ({
   getOverviewStudents: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getStudentExplorer: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getB1PlusWatch: (_req, res) => res.json({ success: true, data: { ok: true } }),
+  getB1PlusExport: (_req, res) => res.status(200).send('xlsx'),
   getB1PlusPostExamDetail: (_req, res) => res.json({ success: true, data: { ok: true } }),
   getStudentExplorerExport: (_req, res) => res.status(200).send('xlsx'),
   listTrackingCohorts: (_req, res) => res.json({ success: true, data: { items: [] } }),
@@ -275,6 +276,26 @@ describe('learning analytics API auth boundary', () => {
       .get('/api/admin/learning-analytics/student-explorer/export')
       .set('x-user-role', 'admin')
       .set('x-allow-permissions', P.CAN_EXPORT_LEARNING_ANALYTICS);
+    expect(res.status).toBe(200);
+  });
+
+  it('b1-plus export requires export permission', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .get('/api/admin/learning-analytics/b1-plus/export')
+      .set('x-user-role', 'teacher')
+      .set('x-allow-permissions', P.CAN_VIEW_LEARNING_ANALYTICS);
+    expect(res.status).toBe(403);
+    expect(res.body.permission).toBe(P.CAN_EXPORT_LEARNING_ANALYTICS);
+  });
+
+  it('authorized b1-plus export returns 200', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .post('/api/admin/learning-analytics/b1-plus/export')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_EXPORT_LEARNING_ANALYTICS)
+      .send({ studentIds: ['S100'] });
     expect(res.status).toBe(200);
   });
 
