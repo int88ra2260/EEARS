@@ -35,6 +35,8 @@ const EXPLORE_NAV = [
   { action: 'about', path: '/about', labelKey: 'nav.about' },
 ];
 
+const HEADER_COMPACT_SCROLL_Y = 24;
+
 export default function Header() {
   const location = useLocation();
   const preview = useSiteContentPreview();
@@ -42,6 +44,7 @@ export default function Header() {
   const studentSession = useStudentSession();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [compact, setCompact] = useState(false);
   /**
    * 允許狀態：
    * - 個人報名 + 檢視與修正皆開 → 顯示「考試報名」
@@ -110,6 +113,24 @@ export default function Header() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [menuOpen, isMobile]);
+
+  useEffect(() => {
+    let frame = 0;
+    const readScrollY = () => window.scrollY || document.documentElement.scrollTop || 0;
+    const syncCompact = () => {
+      setCompact(readScrollY() > HEADER_COMPACT_SCROLL_Y);
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(syncCompact);
+    };
+    syncCompact();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [location.pathname]);
 
   const langToggle = (
     <button
@@ -200,7 +221,7 @@ export default function Header() {
   };
 
   return (
-    <header className="site-header">
+    <header className={`site-header${compact ? ' site-header--compact' : ''}`}>
       <div className="header-container">
         {preview?.isPreview ? (
           <span className="header-logo" aria-label={t('nav.home')}>

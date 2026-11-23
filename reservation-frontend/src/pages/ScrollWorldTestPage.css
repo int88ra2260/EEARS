@@ -32,8 +32,12 @@ body.swt-lock-scroll {
   overscroll-behavior: none;
 }
 
-/* Header：更明顯（加深底、字加粗加大） */
+/* Header：更明顯（加深底、字加粗加大）；仍支援捲動壓縮 */
 .app-wrapper--scrollworld .site-header {
+  --header-logo-h: 56px;
+  --header-nav-size: 0.98rem;
+  --header-nav-pad-y: 0.52rem;
+  --header-nav-pad-x: 0.78rem;
   position: fixed;
   top: 0;
   left: 0;
@@ -47,12 +51,19 @@ body.swt-lock-scroll {
   -webkit-backdrop-filter: none;
 }
 
+.app-wrapper--scrollworld .site-header--compact {
+  --header-logo-h: 40px;
+  --header-nav-size: 0.88rem;
+  --header-nav-pad-y: 0.36rem;
+  --header-nav-pad-x: 0.55rem;
+}
+
 .app-wrapper--scrollworld .nav-link {
-  font-size: 0.98rem;
+  font-size: var(--header-nav-size);
   font-weight: 700;
   letter-spacing: 0.01em;
   color: #3d2e24;
-  padding: 0.52rem 0.78rem;
+  padding: var(--header-nav-pad-y) var(--header-nav-pad-x);
 }
 
 .app-wrapper--scrollworld .nav-link:hover {
@@ -71,10 +82,6 @@ body.swt-lock-scroll {
   font-weight: 700;
   background: rgba(255, 255, 255, 0.9);
   border-color: rgba(61, 46, 36, 0.16);
-}
-
-.app-wrapper--scrollworld .header-logo-img {
-  height: 56px;
 }
 
 .swt-page {
@@ -620,12 +627,15 @@ body.swt-overlay-open .home-footer {
     background: rgba(255, 251, 242, 0.88);
   }
 
-  .app-wrapper--scrollworld .header-container {
-    padding: 0.4rem 0.9rem;
+  .app-wrapper--scrollworld .site-header {
+    --header-pad-y: 0.4rem;
+    --header-pad-x: 0.9rem;
+    --header-logo-h: 44px;
   }
 
-  .app-wrapper--scrollworld .header-logo-img {
-    height: 44px;
+  .app-wrapper--scrollworld .site-header--compact {
+    --header-pad-y: 0.28rem;
+    --header-logo-h: 34px;
   }
 
   .swt-stage {

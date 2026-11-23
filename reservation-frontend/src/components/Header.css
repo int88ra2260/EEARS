@@ -1,5 +1,11 @@
-/* Header / 導覽列 — 與公開頁學術藍同一套 */
+/* Header / 導覽列 — 與公開頁學術藍同一套；頂端較高，捲動後壓縮 */
 .site-header {
+  --header-pad-y: 0.75rem;
+  --header-pad-x: 1.25rem;
+  --header-logo-h: 60px;
+  --header-nav-pad-y: 0.48rem;
+  --header-nav-pad-x: 0.55rem;
+  --header-nav-size: 0.9rem;
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -8,17 +14,28 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
+  transition: box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.site-header--compact {
+  --header-pad-y: 0.35rem;
+  --header-logo-h: 38px;
+  --header-nav-pad-y: 0.32rem;
+  --header-nav-pad-x: 0.45rem;
+  --header-nav-size: 0.84rem;
+  box-shadow: 0 6px 18px rgba(28, 61, 110, 0.08);
 }
 
 .header-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0.55rem 1.25rem;
+  padding: var(--header-pad-y) var(--header-pad-x);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.25rem;
   flex-wrap: wrap;
+  transition: padding 0.18s ease;
 }
 
 .header-logo {
@@ -27,12 +44,12 @@
 }
 
 .header-logo-img {
-  height: 52px;
+  height: var(--header-logo-h);
   object-fit: contain;
   cursor: pointer;
   background-color: transparent;
   mix-blend-mode: multiply;
-  transition: opacity 0.2s ease;
+  transition: height 0.18s ease, opacity 0.15s ease;
 }
 
 .header-logo:hover .header-logo-img {
@@ -114,18 +131,23 @@
   border: none;
   color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
-  font-size: 0.875rem;
-  padding: 0.42rem 0.5rem;
+  font-size: var(--header-nav-size);
+  padding: var(--header-nav-pad-y) var(--header-nav-pad-x);
   border-radius: 7px;
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+  transition:
+    font-size 0.18s ease,
+    padding 0.18s ease,
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
   white-space: nowrap;
   text-decoration: none;
 }
 
 .header-nav-group--primary .nav-link {
-  font-size: 0.9rem;
-  padding: 0.46rem 0.64rem;
+  font-size: calc(var(--header-nav-size) + 0.02rem);
+  padding: calc(var(--header-nav-pad-y) + 0.04rem) calc(var(--header-nav-pad-x) + 0.1rem);
   font-weight: 600;
 }
 
@@ -354,13 +376,39 @@
   cursor: pointer;
 }
 
+@media (max-width: 768px) {
+  .site-header {
+    --header-pad-y: 0.6rem;
+    --header-pad-x: 1rem;
+    --header-logo-h: 52px;
+  }
+
+  .site-header--compact {
+    --header-pad-y: 0.3rem;
+    --header-logo-h: 36px;
+  }
+}
+
 @media (max-width: 576px) {
-  .header-logo-img {
-    height: 50px;
+  .site-header {
+    --header-logo-h: 50px;
+  }
+
+  .site-header--compact {
+    --header-logo-h: 34px;
   }
 
   .btn-english-test-mobile {
     font-size: 0.8rem;
     padding: 0.35rem 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header,
+  .header-container,
+  .header-logo-img,
+  .nav-link {
+    transition: none;
   }
 }
