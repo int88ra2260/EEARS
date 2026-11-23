@@ -143,6 +143,7 @@ function mapStaffSeed(members) {
     roleEn: m.role.en,
     email: m.email || null,
     extension: m.extension || null,
+    profile: m.profile || null,
   }));
 }
 

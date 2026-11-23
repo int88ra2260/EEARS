@@ -53,6 +53,7 @@ const WeeklyReport = require('./WeeklyReport');
 const WeeklyMedia = require('./WeeklyMedia');
 const WeeklyInteractionEvent = require('./WeeklyInteractionEvent');
 const SiteContentEntry = require('./SiteContentEntry');
+const SiteVisitBucket = require('./SiteVisitBucket');
 const LearningResourceSite = require('./LearningResourceSite');
 const LearningResourceMiniGame = require('./LearningResourceMiniGame');
 const LearningResourceGuide = require('./LearningResourceGuide');
@@ -472,6 +473,7 @@ module.exports = {
   WeeklyMedia,
   WeeklyInteractionEvent,
   SiteContentEntry,
+  SiteVisitBucket,
   LearningResourceSite,
   LearningResourceMiniGame,
   LearningResourceGuide,

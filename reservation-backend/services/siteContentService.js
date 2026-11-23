@@ -57,6 +57,7 @@ function serializeStaffEntry(row) {
     role: { zh: plain.bodyZh, en: plain.bodyEn },
     email: plain.email || null,
     extension: plain.extension || null,
+    profile: parseStoredStaffProfile(plain.profileJson),
     sortOrder: plain.sortOrder,
     isActive: plain.isActive,
     updatedAt: plain.updatedAt,
@@ -150,6 +151,73 @@ function validateFaqPayload(body, { isCreate }) {
   return { errors, label, valueZh, valueEn, bodyZh, bodyEn };
 }
 
+const PROFILE_SECTION_MAX = 12;
+const PROFILE_LABEL_MAX = 80;
+const PROFILE_BODY_MAX = 20000;
+
+function parseStoredStaffProfile(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!parsed || !Array.isArray(parsed.sections)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeStaffProfile(input) {
+  if (input == null || input === '') return { profile: null };
+  let value = input;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return { error: 'profile 格式不正確' };
+    }
+  }
+  if (!value || typeof value !== 'object' || !Array.isArray(value.sections)) {
+    return { error: 'profile.sections 必須為陣列' };
+  }
+  if (value.sections.length > PROFILE_SECTION_MAX) {
+    return { error: '經歷區塊過多' };
+  }
+  const sections = [];
+  for (const raw of value.sections) {
+    if (!raw || typeof raw !== 'object') continue;
+    const labelZh = trimOrNull(raw.labelZh);
+    const labelEn = trimOrNull(raw.labelEn);
+    const bodyZh = trimOrNull(raw.bodyZh);
+    const bodyEn = trimOrNull(raw.bodyEn);
+    if (!labelZh && !labelEn && !bodyZh && !bodyEn) continue;
+    if ((bodyZh || bodyEn) && !labelZh && !labelEn) {
+      return { error: '經歷區塊需有標題' };
+    }
+    if ((labelZh && labelZh.length > PROFILE_LABEL_MAX) || (labelEn && labelEn.length > PROFILE_LABEL_MAX)) {
+      return { error: '經歷區塊標題過長' };
+    }
+    if ((bodyZh && bodyZh.length > PROFILE_BODY_MAX) || (bodyEn && bodyEn.length > PROFILE_BODY_MAX)) {
+      return { error: '經歷區塊內容過長' };
+    }
+    sections.push({
+      labelZh: labelZh || null,
+      labelEn: labelEn || null,
+      bodyZh: bodyZh || null,
+      bodyEn: bodyEn || null,
+    });
+  }
+  return { profile: { sections } };
+}
+
+function readStaffProfile(body) {
+  if (!Object.prototype.hasOwnProperty.call(body || {}, 'profile')) {
+    return { provided: false, profile: undefined };
+  }
+  const normalized = normalizeStaffProfile(body.profile);
+  if (normalized.error) return { provided: true, error: normalized.error, profile: null };
+  return { provided: true, profile: normalized.profile };
+}
+
 function validateStaffPayload(body, section, { isCreate }) {
   const errors = [];
   const slug = trimOrNull(body.slug);
@@ -160,6 +228,7 @@ function validateStaffPayload(body, section, { isCreate }) {
   const email = trimOrNull(body.email);
   const extension = trimOrNull(body.extension);
   const label = trimOrNull(body.label) || valueZh || slug || '成員';
+  const profileResult = readStaffProfile(body);
 
   if (!isStaffSection(section)) {
     errors.push('無效的師資 section');
@@ -175,8 +244,23 @@ function validateStaffPayload(body, section, { isCreate }) {
   if (!bodyZh && !bodyEn) {
     errors.push('職稱至少需填寫中文或英文');
   }
+  if (profileResult.error) {
+    errors.push(profileResult.error);
+  }
 
-  return { errors, slug, label, valueZh, valueEn, bodyZh, bodyEn, email, extension };
+  return {
+    errors,
+    slug,
+    label,
+    valueZh,
+    valueEn,
+    bodyZh,
+    bodyEn,
+    email,
+    extension,
+    profileProvided: profileResult.provided,
+    profile: profileResult.profile,
+  };
 }
 
 function validateLeadersCarouselPayload(body, { isCreate }) {
@@ -597,7 +681,9 @@ function staffContentKey(section, slug) {
 }
 
 async function createStaffEntry(section, body, userId) {
-  const { errors, slug, label, valueZh, valueEn, bodyZh, bodyEn, email, extension } = validateStaffPayload(
+  const {
+    errors, slug, label, valueZh, valueEn, bodyZh, bodyEn, email, extension, profile,
+  } = validateStaffPayload(
     body,
     section,
     { isCreate: true }
@@ -632,6 +718,7 @@ async function createStaffEntry(section, body, userId) {
     bodyEn,
     email,
     extension,
+    profileJson: profile ? JSON.stringify(profile) : null,
     sortOrder,
     isActive: body.isActive !== undefined ? !!body.isActive : true,
     updatedBy: userId || null,
@@ -650,7 +737,9 @@ async function updateStaffEntry(id, body, userId) {
     throw err;
   }
 
-  const { errors, label, valueZh, valueEn, bodyZh, bodyEn, email, extension } = validateStaffPayload(
+  const {
+    errors, label, valueZh, valueEn, bodyZh, bodyEn, email, extension, profileProvided, profile,
+  } = validateStaffPayload(
     body,
     row.section,
     { isCreate: false }
@@ -671,6 +760,7 @@ async function updateStaffEntry(id, body, userId) {
   if (body.bodyEn !== undefined || body.roleEn !== undefined) patch.bodyEn = bodyEn;
   if (body.email !== undefined) patch.email = email;
   if (body.extension !== undefined) patch.extension = extension;
+  if (profileProvided) patch.profileJson = profile ? JSON.stringify(profile) : null;
   if (body.isActive !== undefined) patch.isActive = !!body.isActive;
   if (body.sortOrder !== undefined) patch.sortOrder = parseInt(body.sortOrder, 10) || 0;
 
@@ -729,6 +819,11 @@ function mapStaffSeedRow(section, item, index, userId) {
     bodyEn: item.roleEn || item.role?.en || null,
     email: trimOrNull(item.email),
     extension: trimOrNull(item.extension),
+    profileJson: (() => {
+      if (!item.profile) return null;
+      const normalized = normalizeStaffProfile(item.profile);
+      return normalized.profile ? JSON.stringify(normalized.profile) : null;
+    })(),
     sortOrder: index,
     isActive: true,
     updatedBy: userId || null,

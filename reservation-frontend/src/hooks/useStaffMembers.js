@@ -1,15 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchSiteContent } from '../services/siteContentApi';
-import { EMI_ADMIN_STAFF, EMI_FACULTY } from '../data/emiCenterStaff';
+import { EMI_ADMIN_STAFF, EMI_FACULTY, lookupFacultyProfile } from '../data/emiCenterStaff';
 
 function toMemberShape(row) {
-  return {
+  const member = {
     id: row.slug || String(row.id),
     name: row.name || { zh: '', en: '' },
     role: row.role || { zh: '', en: '' },
     email: row.email || undefined,
     extension: row.extension || undefined,
+    profile: row.profile || null,
   };
+  if (member.profile) return member;
+  const seeded = lookupFacultyProfile({
+    id: member.id,
+    slug: row.slug,
+    nameZh: member.name.zh,
+  });
+  return seeded ? { ...member, profile: seeded } : member;
 }
 
 export default function useStaffMembers() {

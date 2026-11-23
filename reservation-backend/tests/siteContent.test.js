@@ -325,4 +325,40 @@ describe('site content API', () => {
 
     expect(res.status).toBe(400);
   });
+
+  it('stores faculty education and publication sections', async () => {
+    mockFindOne.mockResolvedValue(null);
+    mockMax.mockResolvedValue(0);
+    mockCreate.mockImplementation(async (payload) => ({
+      ...payload,
+      id: 11,
+      updatedAt: new Date('2026-11-23'),
+      get() {
+        return { ...payload, id: 11, updatedAt: new Date('2026-11-23') };
+      },
+    }));
+
+    const app = createApp();
+    const res = await request(app)
+      .post('/api/admin/site-content/staff/staff_faculty')
+      .set('x-user-role', 'admin')
+      .set('x-allow-permissions', P.CAN_MANAGE_SITE_CONTENT)
+      .send({
+        slug: 'huang-shuping',
+        nameZh: '黃舒屏',
+        roleZh: '執行長',
+        profile: {
+          sections: [{
+            labelZh: '學歷',
+            labelEn: 'Education',
+            bodyZh: '國立台灣大學語言學研究所 博士',
+            bodyEn: '',
+          }],
+        },
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.profile.sections[0].bodyZh).toBe('國立台灣大學語言學研究所 博士');
+    expect(mockCreate.mock.calls[0][0].profileJson).toContain('國立台灣大學語言學研究所 博士');
+  });
 });

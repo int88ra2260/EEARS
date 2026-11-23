@@ -1,6 +1,7 @@
 /**
  * EMI 中心師資與行政團隊（站內預設名單；後台 Site Content 可覆寫）
  */
+import { EMI_FACULTY_PROFILES } from './emiFacultyProfiles';
 
 export const EMI_CENTER_TEAM_URL = 'https://emicenter.siwan.nsysu.edu.tw/about/team';
 export const EMI_CENTER_ADMIN_URL = 'https://emicenter.siwan.nsysu.edu.tw/about/admin';
@@ -14,10 +15,11 @@ export const EMI_CENTER_ADMIN_URL = 'https://emicenter.siwan.nsysu.edu.tw/about/
  * @property {BilingualText} role
  * @property {string} [email]
  * @property {string} [extension] 分機號碼（不含總機）
+ * @property {{ sections: Array<{ labelZh: string, labelEn: string, bodyZh: string, bodyEn: string }> }} [profile]
  */
 
 /** @type {StaffMember[]} */
-export const EMI_FACULTY = [
+const EMI_FACULTY_BASE = [
   {
     id: 'huang-shuping',
     name: { zh: '黃舒屏', en: 'Shu-Ping Huang' },
@@ -117,6 +119,18 @@ export const EMI_FACULTY = [
     role: { zh: '英語協同教學人員', en: 'English Co-teaching Staff' },
   },
 ];
+
+export const EMI_FACULTY = EMI_FACULTY_BASE.map((member) => {
+  const profile = EMI_FACULTY_PROFILES[member.id];
+  return profile ? { ...member, profile } : member;
+});
+
+export function lookupFacultyProfile({ id, slug, nameZh } = {}) {
+  const key = id || slug;
+  if (key && EMI_FACULTY_PROFILES[key]) return EMI_FACULTY_PROFILES[key];
+  if (!nameZh) return null;
+  return EMI_FACULTY.find((member) => member.name.zh === nameZh)?.profile || null;
+}
 
 /** @type {StaffMember[]} */
 export const EMI_ADMIN_STAFF = [

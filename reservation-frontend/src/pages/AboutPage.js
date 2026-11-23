@@ -61,10 +61,26 @@ function formatPhone(extension, lang, phoneExtLabel) {
   return `${EMI_MAIN_PHONE} ${phoneExtLabel} ${extension}`;
 }
 
-function TeamMemberCard({ member, lang, phoneExtLabel }) {
+function profileBlocks(member, lang) {
+  const sections = member.profile?.sections;
+  if (!Array.isArray(sections)) return [];
+  return sections.flatMap((section) => {
+    const body = lang === 'en' && section.bodyEn
+      ? section.bodyEn
+      : (section.bodyZh || section.bodyEn || '');
+    const label = lang === 'en' && section.labelEn
+      ? section.labelEn
+      : (section.labelZh || section.labelEn || '');
+    if (!body || !label) return [];
+    return [{ label, body }];
+  });
+}
+
+function TeamMemberCard({ member, lang, phoneExtLabel, profileToggleLabel }) {
   const name = member.name[lang] || member.name.zh;
   const role = member.role[lang] || member.role.zh;
   const phone = formatPhone(member.extension, lang, phoneExtLabel);
+  const blocks = profileBlocks(member, lang);
 
   return (
     <li className="about-team-card">
@@ -78,6 +94,19 @@ function TeamMemberCard({ member, lang, phoneExtLabel }) {
         ) : null}
         {phone ? <span>{phone}</span> : null}
       </div>
+      {blocks.length ? (
+        <details className="about-team-card__profile">
+          <summary>{profileToggleLabel}</summary>
+          <div className="about-team-card__profile-body">
+            {blocks.map((block, index) => (
+              <section key={`${block.label}-${index}`}>
+                <h4>{block.label}</h4>
+                <p>{block.body}</p>
+              </section>
+            ))}
+          </div>
+        </details>
+      ) : null}
     </li>
   );
 }
@@ -434,6 +463,7 @@ export default function AboutPage() {
                     member={member}
                     lang={lang}
                     phoneExtLabel={t('aboutPage.phoneExt')}
+                    profileToggleLabel={t('aboutPage.facultyProfileToggle')}
                   />
                 ))}
               </ul>

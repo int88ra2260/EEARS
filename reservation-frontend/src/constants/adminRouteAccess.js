@@ -532,6 +532,11 @@ export const ADMIN_ROUTE_ACCESS = [
     allowAdminOrExecutive: true,
   },
   {
+    pattern: '/admin/analytics/visits',
+    label: '造訪目的',
+    allowAdminOrExecutive: true,
+  },
+  {
     pattern: '/admin/analytics/risk',
     label: '高關注名單',
     allowAdminOrExecutive: true,

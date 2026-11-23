@@ -72,7 +72,7 @@ export const STUDENT_CONTENT_AREAS = [
     label: '管理關於我們',
     shortLabel: '關於我們',
     description: '中心介紹、聯絡資訊，以及師資／行政團隊名單。',
-    howTo: '分頁可改介紹文案、聯絡資訊（地址／電話／Email／時段），以及師資／行政名單。',
+    howTo: '分頁可改介紹文案、聯絡資訊（地址／電話／Email／時段），以及師資／行政名單。師資名單可再編輯學歷、經歷與著作。',
     previewPath: '/about',
     previewLabel: '關於我們',
     kind: 'site-content',

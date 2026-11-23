@@ -624,6 +624,44 @@
   text-decoration: underline;
 }
 
+.about-team-card__profile {
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--about-line);
+}
+
+.about-team-card__profile summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--about-accent);
+}
+
+.about-team-card__profile-body {
+  display: grid;
+  gap: 0.85rem;
+  max-height: 22rem;
+  margin-top: 0.75rem;
+  padding-right: 0.2rem;
+  overflow: auto;
+}
+
+.about-team-card__profile h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--about-ink);
+}
+
+.about-team-card__profile p {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--about-ink-soft);
+}
+
 /* ---- Contact ---- */
 .about-contact {
   display: grid;

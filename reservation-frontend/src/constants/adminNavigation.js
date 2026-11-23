@@ -311,6 +311,16 @@ export const ADMIN_NAV_SECTIONS = [
         breadcrumbLabel: '活動營運總覽',
       },
       {
+        id: 'analytics-visits',
+        label: '造訪目的',
+        path: '/admin/analytics/visits',
+        matchPrefixes: ['/admin/analytics/visits'],
+        visibility: 'adminOnly',
+        pageTitle: '造訪目的',
+        breadcrumbLabel: '造訪目的',
+        hiddenFromNav: true,
+      },
+      {
         id: 'analytics-reports',
         label: '營運報表下載',
         path: '/admin/reports',

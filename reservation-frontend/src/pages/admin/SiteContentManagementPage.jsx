@@ -4,6 +4,7 @@ import { useOutletContext } from 'react-router-dom';
 
 import useToast from '../../components/ui/useToast';
 import { getTranslation, LANG_EN, LANG_ZH } from '../../constants/translations';
+import { lookupFacultyProfile } from '../../data/emiCenterStaff';
 import {
   FAQ_PAGE_TITLE_KEY,
   SITE_CONTENT_KEY_SUGGESTIONS,
@@ -66,6 +67,28 @@ function emptyFaqForm() {
   };
 }
 
+function emptyProfileSection() {
+  return { labelZh: '', labelEn: '', bodyZh: '', bodyEn: '' };
+}
+
+function profileSectionsFromInitial(initial) {
+  const stored = initial?.profile?.sections;
+  const source = Array.isArray(stored)
+    ? stored
+    : lookupFacultyProfile({
+      id: initial?.slug,
+      slug: initial?.slug,
+      nameZh: initial?.name?.zh || '',
+    })?.sections;
+  if (!Array.isArray(source)) return [];
+  return source.map((section) => ({
+    labelZh: section.labelZh || '',
+    labelEn: section.labelEn || '',
+    bodyZh: section.bodyZh || '',
+    bodyEn: section.bodyEn || '',
+  }));
+}
+
 function emptyStaffForm() {
   return {
     slug: '',
@@ -77,6 +100,7 @@ function emptyStaffForm() {
     email: '',
     extension: '',
     isActive: true,
+    profileSections: [],
   };
 }
 
@@ -435,7 +459,7 @@ function FaqEditorModal({ show, onHide, initial, onSubmit }) {
   );
 }
 
-function StaffEditorModal({ show, onHide, initial, saving, onSubmit }) {
+function StaffEditorModal({ show, onHide, initial, saving, onSubmit, enableProfile = false }) {
   const [form, setForm] = useState(emptyStaffForm());
 
   useEffect(() => {
@@ -452,20 +476,44 @@ function StaffEditorModal({ show, onHide, initial, saving, onSubmit }) {
             email: initial.email || '',
             extension: initial.extension || '',
             isActive: initial.isActive !== false,
+            profileSections: enableProfile ? profileSectionsFromInitial(initial) : [],
           }
         : emptyStaffForm()
     );
-  }, [show, initial]);
+  }, [show, initial, enableProfile]);
+
+  const updateProfileSection = (index, patch) => {
+    setForm((current) => ({
+      ...current,
+      profileSections: current.profileSections.map((section, sectionIndex) => (
+        sectionIndex === index ? { ...section, ...patch } : section
+      )),
+    }));
+  };
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" backdrop={saving ? 'static' : true} className="scm-modal">
+    <Modal show={show} onHide={onHide} size={enableProfile ? 'xl' : 'lg'} backdrop={saving ? 'static' : true} className="scm-modal">
       <Modal.Header closeButton={!saving}>
         <Modal.Title>{initial ? '編輯成員' : '新增成員'}</Modal.Title>
       </Modal.Header>
       <Form
         onSubmit={(e) => {
           e.preventDefault();
-          onSubmit(form);
+          const payload = { ...form };
+          delete payload.profileSections;
+          if (enableProfile) {
+            payload.profile = {
+              sections: form.profileSections
+                .map((section) => ({
+                  labelZh: section.labelZh.trim(),
+                  labelEn: section.labelEn.trim(),
+                  bodyZh: section.bodyZh.trim(),
+                  bodyEn: section.bodyEn.trim(),
+                }))
+                .filter((section) => section.labelZh || section.labelEn || section.bodyZh || section.bodyEn),
+            };
+          }
+          onSubmit(payload);
         }}
       >
         <Modal.Body>
@@ -543,6 +591,77 @@ function StaffEditorModal({ show, onHide, initial, saving, onSubmit }) {
             checked={form.isActive}
             onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
           />
+          {enableProfile ? (
+            <div className="mt-4">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h3 className="h6 mb-0">學歷、經歷與著作</h3>
+                <button
+                  type="button"
+                  className="scm-btn-ghost"
+                  onClick={() => setForm((current) => ({
+                    ...current,
+                    profileSections: [...current.profileSections, emptyProfileSection()],
+                  }))}
+                >
+                  新增區塊
+                </button>
+              </div>
+              <p className="text-muted small">中文內容會顯示在關於我們。英文留白時，英文介面仍顯示中文。</p>
+              {form.profileSections.map((section, index) => (
+                <div key={`profile-${index}`} className="border rounded p-3 mb-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <strong>區塊 {index + 1}</strong>
+                    <button
+                      type="button"
+                      className="scm-btn-ghost"
+                      onClick={() => setForm((current) => ({
+                        ...current,
+                        profileSections: current.profileSections.filter((_, sectionIndex) => sectionIndex !== index),
+                      }))}
+                    >
+                      移除
+                    </button>
+                  </div>
+                  <div className="row">
+                    <Form.Group className="col-md-6 mb-3">
+                      <Form.Label>標題（中文）</Form.Label>
+                      <Form.Control
+                        value={section.labelZh}
+                        onChange={(e) => updateProfileSection(index, { labelZh: e.target.value })}
+                        placeholder="學歷"
+                      />
+                    </Form.Group>
+                    <Form.Group className="col-md-6 mb-3">
+                      <Form.Label>Title (English)</Form.Label>
+                      <Form.Control
+                        value={section.labelEn}
+                        onChange={(e) => updateProfileSection(index, { labelEn: e.target.value })}
+                        placeholder="Education"
+                      />
+                    </Form.Group>
+                  </div>
+                  <Form.Group className="mb-3">
+                    <Form.Label>內容（中文）</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={5}
+                      value={section.bodyZh}
+                      onChange={(e) => updateProfileSection(index, { bodyZh: e.target.value })}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-0">
+                    <Form.Label>Content (English)</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={4}
+                      value={section.bodyEn}
+                      onChange={(e) => updateProfileSection(index, { bodyEn: e.target.value })}
+                    />
+                  </Form.Group>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </Modal.Body>
         <Modal.Footer>
           <button type="button" className="scm-btn-ghost" onClick={onHide} disabled={saving}>
@@ -1155,6 +1274,7 @@ export default function SiteContentManagementPage({ embedded = false, forcedSect
         show={staffModal.show}
         initial={staffModal.item}
         saving={saving}
+        enableProfile={activeSection === 'staff_faculty'}
         onHide={() => !saving && setStaffModal({ show: false, item: null })}
         onSubmit={handleSaveStaff}
       />

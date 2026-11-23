@@ -470,6 +470,8 @@ export default function AdminAnalyticsPage() {
           <h1>活動營運總覽</h1>
           <p className="ops-overview__lede">
             看中心提供多少名額、有多少預約、簽到與違規落差，以及哪些活動類型較忙。學習成果與 B2 達標請至「學習成效分析」。
+            {' '}
+            <Link to="/admin/analytics/visits">造訪目的與來站時段</Link>
           </p>
         </div>
       </header>

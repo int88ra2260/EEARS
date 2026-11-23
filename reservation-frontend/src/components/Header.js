@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useLanguage } from '../context/LanguageContext';
@@ -11,8 +11,51 @@ import {
   fetchEnglishTestRegistrationEnabledPublic,
   fetchEnglishTestRegistrationEditEnabledPublic,
 } from '../services/settingsAdminApi';
-import { backdropMotion, drawerPanelMotion } from '../utils/motionPresets';
+import { MOTION_EASE_OUT, backdropMotion, drawerPanelMotion } from '../utils/motionPresets';
 import './Header.css';
+
+/** 真正回到頂端才放大。門檻必須貼著 0，避免高度變化把捲動位置推進來又立刻放大。 */
+const HEADER_TOP_EXPAND_PX = 1;
+/**
+ * 要明顯離開頂端才縮小。
+ * 這個距離必須大於 header 變高／變矮的佈局差（logo、直向 padding、導覽換行）。
+ * 差大約 13–40px；若門檻只有十幾 px，捲動錨定會把 scrollTop 整段推回放大區，header 就會來回抽。
+ */
+const HEADER_TOP_COLLAPSE_PX = 96;
+/** 高度動畫期間先鎖住狀態，避免每一幀的捲動修正又把狀態打回去 */
+const HEADER_SIZE_LOCK_MS = 360;
+/** 這些頁鎖住視窗捲動，header 尺寸由該頁 CSS 決定 */
+const SCROLL_WORLD_PATHS = new Set([
+  '/scrollworldtest',
+  '/campus-journey-draft',
+  '/scroll-world-packs',
+]);
+
+function findScrollParent(node) {
+  let current = node?.parentElement || null;
+  while (current && current !== document.body && current !== document.documentElement) {
+    const { overflowY } = window.getComputedStyle(current);
+    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function readScrollTop(scrollParent) {
+  if (scrollParent) return scrollParent.scrollTop || 0;
+  return window.scrollY || document.documentElement.scrollTop || 0;
+}
+
+function isImmersiveHeaderSurface(pathname) {
+  if (SCROLL_WORLD_PATHS.has(pathname)) return true;
+  if (typeof document === 'undefined') return false;
+  return document.body.classList.contains('swt-overlay-open')
+    || document.body.classList.contains('swt-lock-scroll')
+    || document.documentElement.classList.contains('swt-lock-scroll')
+    || document.querySelector('.app-wrapper--scrollworld') != null;
+}
 
 /** 任務導覽：學生最常用的動作 */
 const TASK_NAV = [
@@ -35,8 +78,6 @@ const EXPLORE_NAV = [
   { action: 'about', path: '/about', labelKey: 'nav.about' },
 ];
 
-const HEADER_COMPACT_SCROLL_Y = 24;
-
 export default function Header() {
   const location = useLocation();
   const preview = useSiteContentPreview();
@@ -44,7 +85,6 @@ export default function Header() {
   const studentSession = useStudentSession();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [compact, setCompact] = useState(false);
   /**
    * 允許狀態：
    * - 個人報名 + 檢視與修正皆開 → 顯示「考試報名」
@@ -57,6 +97,111 @@ export default function Header() {
   const reduceMotion = useReducedMotion();
   const backdropPresence = backdropMotion(reduceMotion);
   const drawerPresence = drawerPanelMotion(reduceMotion);
+  const headerRef = useRef(null);
+  const [immersiveHeader, setImmersiveHeader] = useState(() => isImmersiveHeaderSurface(location.pathname));
+  const scrollResizeEnabled = !immersiveHeader;
+
+  useEffect(() => {
+    const sync = () => {
+      const next = isImmersiveHeaderSurface(location.pathname);
+      setImmersiveHeader((prev) => (prev === next ? prev : next));
+    };
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    const wrapper = document.querySelector('.app-wrapper');
+    if (wrapper) {
+      observer.observe(wrapper, { attributes: true, attributeFilter: ['class'] });
+    }
+    return () => observer.disconnect();
+  }, [location.pathname]);
+  const [atTop, setAtTop] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return readScrollTop(null) <= HEADER_TOP_EXPAND_PX;
+  });
+  const atTopRef = useRef(atTop);
+  const routeKey = `${location.pathname}?${location.search}`;
+  const [trackedRoute, setTrackedRoute] = useState(routeKey);
+
+  if (trackedRoute !== routeKey) {
+    setTrackedRoute(routeKey);
+    if (!location.hash) {
+      atTopRef.current = true;
+      setAtTop(true);
+    }
+  }
+
+  useEffect(() => {
+    if (!scrollResizeEnabled) return undefined;
+
+    const scrollParent = findScrollParent(headerRef.current);
+    const target = scrollParent || window;
+    const suppressNodes = [document.documentElement, document.body];
+    let releaseTimer = 0;
+    let lockUntil = 0;
+    let anchorHeld = false;
+    const previousStyles = suppressNodes.map((node) => ({
+      node,
+      anchor: node.style.overflowAnchor,
+      behavior: node.style.scrollBehavior,
+    }));
+
+    const releaseSuppression = () => {
+      if (!anchorHeld) return;
+      previousStyles.forEach(({ node, anchor, behavior }) => {
+        node.style.overflowAnchor = anchor;
+        node.style.scrollBehavior = behavior;
+      });
+      anchorHeld = false;
+    };
+
+    const read = () => {
+      if (performance.now() < lockUntil) return;
+      const top = readScrollTop(scrollParent);
+      const prev = atTopRef.current;
+      const next = top <= HEADER_TOP_EXPAND_PX
+        ? true
+        : top > HEADER_TOP_COLLAPSE_PX
+          ? false
+          : prev;
+      if (next === prev) return;
+
+      const lockMs = reduceMotion ? 50 : HEADER_SIZE_LOCK_MS;
+      lockUntil = performance.now() + lockMs;
+      if (!anchorHeld) {
+        suppressNodes.forEach((node) => {
+          node.style.overflowAnchor = 'none';
+          node.style.scrollBehavior = 'auto';
+        });
+        anchorHeld = true;
+      }
+      window.clearTimeout(releaseTimer);
+      releaseTimer = window.setTimeout(() => {
+        releaseSuppression();
+        lockUntil = 0;
+        read();
+      }, lockMs);
+
+      atTopRef.current = next;
+      setAtTop(next);
+    };
+
+    const raf = requestAnimationFrame(read);
+    target.addEventListener('scroll', read, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(releaseTimer);
+      target.removeEventListener('scroll', read);
+      releaseSuppression();
+    };
+  }, [scrollResizeEnabled, routeKey, reduceMotion]);
+
+  const logoHeight = isMobile ? (atTop ? 64 : 50) : (atTop ? 72 : 52);
+  const headerPadY = isMobile ? (atTop ? '0.75rem' : '0.55rem') : (atTop ? '0.95rem' : '0.55rem');
+  const sizeTransition = reduceMotion
+    ? { duration: 0 }
+    : { duration: 0.28, ease: MOTION_EASE_OUT };
 
   const pathname = preview?.isPreview ? preview.previewPath : location.pathname;
   const isPublicSurface = preview?.isPreview
@@ -113,24 +258,6 @@ export default function Header() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [menuOpen, isMobile]);
-
-  useEffect(() => {
-    let frame = 0;
-    const readScrollY = () => window.scrollY || document.documentElement.scrollTop || 0;
-    const syncCompact = () => {
-      setCompact(readScrollY() > HEADER_COMPACT_SCROLL_Y);
-    };
-    const onScroll = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(syncCompact);
-    };
-    syncCompact();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', onScroll);
-    };
-  }, [location.pathname]);
 
   const langToggle = (
     <button
@@ -198,6 +325,19 @@ export default function Header() {
     setMenuOpen(false);
   };
 
+  const logoImg = scrollResizeEnabled ? (
+    <motion.img
+      src="/EMILEGO.png"
+      alt="EMI Center Logo"
+      className="header-logo-img"
+      initial={false}
+      animate={{ height: logoHeight }}
+      transition={sizeTransition}
+    />
+  ) : (
+    <img src="/EMILEGO.png" alt="EMI Center Logo" className="header-logo-img" />
+  );
+
   const studentAuthLink = (mobile) => {
     if (preview?.isPreview) return null;
     const className = mobile ? 'nav-link-mobile' : 'nav-link';
@@ -220,82 +360,98 @@ export default function Header() {
     );
   };
 
-  return (
-    <header className={`site-header${compact ? ' site-header--compact' : ''}`}>
-      <div className="header-container">
-        {preview?.isPreview ? (
-          <span className="header-logo" aria-label={t('nav.home')}>
-            <img src="/EMILEGO.png" alt="EMI Center Logo" className="header-logo-img" />
-          </span>
-        ) : (
-          <Link to="/" className="header-logo" aria-label={t('nav.home')}>
-            <img src="/EMILEGO.png" alt="EMI Center Logo" className="header-logo-img" />
-          </Link>
-        )}
+  const headerClassName = `site-header${scrollResizeEnabled && atTop ? ' site-header--at-top' : ''}`;
+  const headerBody = (
+    <>
+      {preview?.isPreview ? (
+        <span className="header-logo" aria-label={t('nav.home')}>
+          {logoImg}
+        </span>
+      ) : (
+        <Link to="/" className="header-logo" aria-label={t('nav.home')}>
+          {logoImg}
+        </Link>
+      )}
 
-        {isMobile ? (
-          <>
-            <div className="header-actions-mobile">
-              {langToggle}
-              <button
+      {isMobile ? (
+        <>
+          <div className="header-actions-mobile">
+            {langToggle}
+            <button
+              type="button"
+              className="hamburger"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-expanded={menuOpen}
+              aria-label={menuOpen ? t('a11y.closeMenu') : t('a11y.openMenu')}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          </div>
+          <AnimatePresence>
+            {menuOpen ? (
+              <motion.button
+                key="header-drawer-backdrop"
                 type="button"
-                className="hamburger"
-                onClick={() => setMenuOpen(!menuOpen)}
-                aria-expanded={menuOpen}
-                aria-label={menuOpen ? t('a11y.closeMenu') : t('a11y.openMenu')}
+                className="header-drawer-backdrop"
+                aria-label={t('a11y.closeMenu')}
+                onClick={() => setMenuOpen(false)}
+                {...backdropPresence}
+              />
+            ) : null}
+            {menuOpen ? (
+              <motion.nav
+                key="header-nav-mobile"
+                className="header-nav-mobile"
+                aria-label={t('a11y.mainNavigation')}
+                {...drawerPresence}
               >
-                <span />
-                <span />
-                <span />
-              </button>
-            </div>
-            <AnimatePresence>
-              {menuOpen ? (
-                <motion.button
-                  key="header-drawer-backdrop"
-                  type="button"
-                  className="header-drawer-backdrop"
-                  aria-label={t('a11y.closeMenu')}
-                  onClick={() => setMenuOpen(false)}
-                  {...backdropPresence}
-                />
-              ) : null}
-              {menuOpen ? (
-                <motion.nav
-                  key="header-nav-mobile"
-                  className="header-nav-mobile"
-                  aria-label={t('a11y.mainNavigation')}
-                  {...drawerPresence}
-                >
-                  <div className="nav-group-mobile nav-group-mobile--task" role="group" aria-label={t('nav.groupTask')}>
-                    {renderLinks(TASK_NAV, true)}
-                  </div>
-                  <hr className="nav-divider-mobile" />
-                  <div className="nav-group-mobile nav-group-mobile--explore" role="group" aria-label={t('nav.groupExplore')}>
-                    {renderLinks(EXPLORE_NAV, true)}
-                    {englishTestLink(true)}
-                    {studentAuthLink(true)}
-                  </div>
-                </motion.nav>
-              ) : null}
-            </AnimatePresence>
-          </>
-        ) : (
-          <nav className="header-nav" aria-label={t('a11y.mainNavigation')}>
-            <div className="header-nav-group header-nav-group--primary">
-              {renderLinks(TASK_NAV, false)}
-            </div>
-            <div className="header-nav-group header-nav-group--explore">
-              {renderLinks(EXPLORE_NAV, false)}
-              {englishTestLink(false)}
-            </div>
-            <div className="header-nav-group header-nav-group--services">
-              {studentAuthLink(false)}
-              {langToggle}
-            </div>
-          </nav>
-        )}
-      </div>
+                <div className="nav-group-mobile nav-group-mobile--task" role="group" aria-label={t('nav.groupTask')}>
+                  {renderLinks(TASK_NAV, true)}
+                </div>
+                <hr className="nav-divider-mobile" />
+                <div className="nav-group-mobile nav-group-mobile--explore" role="group" aria-label={t('nav.groupExplore')}>
+                  {renderLinks(EXPLORE_NAV, true)}
+                  {englishTestLink(true)}
+                  {studentAuthLink(true)}
+                </div>
+              </motion.nav>
+            ) : null}
+          </AnimatePresence>
+        </>
+      ) : (
+        <nav className="header-nav" aria-label={t('a11y.mainNavigation')}>
+          <div className="header-nav-group header-nav-group--primary">
+            {renderLinks(TASK_NAV, false)}
+          </div>
+          <div className="header-nav-group header-nav-group--explore">
+            {renderLinks(EXPLORE_NAV, false)}
+            {englishTestLink(false)}
+          </div>
+          <div className="header-nav-group header-nav-group--services">
+            {studentAuthLink(false)}
+            {langToggle}
+          </div>
+        </nav>
+      )}
+    </>
+  );
+
+  return (
+    <header ref={headerRef} className={headerClassName}>
+      {scrollResizeEnabled ? (
+        <motion.div
+          className="header-container"
+          initial={false}
+          animate={{ paddingTop: headerPadY, paddingBottom: headerPadY }}
+          transition={sizeTransition}
+        >
+          {headerBody}
+        </motion.div>
+      ) : (
+        <div className="header-container">{headerBody}</div>
+      )}
     </header>
   );
 }

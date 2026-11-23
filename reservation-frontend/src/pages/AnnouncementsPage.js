@@ -5,7 +5,6 @@ import { useLanguage } from '../context/LanguageContext';
 import useAnnouncements from '../hooks/useAnnouncements';
 import PageHeader from '../components/layout/PageHeader';
 import { announcementDetailPath, truncateAnnouncementPreview } from '../services/announcementApi';
-import StatusBadge from '../components/ui/StatusBadge';
 import './AnnouncementsPage.css';
 import EmptyState from '../components/ui/EmptyState';
 import SkeletonCard from '../components/ui/SkeletonCard';
@@ -83,20 +82,6 @@ export default function AnnouncementsPage() {
             title={t('homePage.announcementsTitle')}
             lead={t('announcementsPage.heroLead')}
           />
-          <div className="announcements-hero-hints" aria-label="公告提示">
-            <div className="announcements-hero-hint-item">
-              <StatusBadge variant="warning" size="md">{t('announcementsPage.hintPinned')}</StatusBadge>
-              <span className="text-muted">{t('announcementsPage.hintPinnedDesc')}</span>
-            </div>
-            <div className="announcements-hero-hint-item">
-              <StatusBadge variant="neutral" size="md">{t('announcementsPage.hintCategory')}</StatusBadge>
-              <span className="text-muted">{t('announcementsPage.hintCategoryDesc')}</span>
-            </div>
-            <div className="announcements-hero-hint-item">
-              <StatusBadge variant="info" size="md">{t('announcementsPage.hintPublished')}</StatusBadge>
-              <span className="text-muted">{t('announcementsPage.hintPublishedDesc')}</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -172,61 +157,59 @@ export default function AnnouncementsPage() {
           {items.map((item) => {
             const displayCategory = item.category || 'general';
             const coverAlt = item.coverImageAlt || item.title || t('nav.announcements');
+            const dateLabel = formatDateYMD(item.date || item.publishedAt);
+            const dateMatch = /^(\d{4})\/(\d{2})\/(\d{2})$/.exec(dateLabel);
             return (
               <li key={item.id}>
                 <Link to={announcementDetailPath(item)} className="announcement-card-link">
-                  <article className="announcement-card">
-                    <div className="d-flex flex-column flex-md-row gap-3 h-100">
-                      <div className="announcement-list-cover flex-shrink-0">
-                        {item.coverImage ? (
-                          <img
-                            src={item.coverImage}
-                            alt={coverAlt}
-                            className="rounded border announcement-card-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div className="announcement-card-cover announcement-card-cover--placeholder" aria-hidden="true">
-                            <span className="announcement-card-cover__label">{t('nav.announcements')}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex-grow-1 d-flex flex-column">
-                        <p className="announcement-meta">
-                          <span>{formatDateYMD(item.date || item.publishedAt)}</span>
-                          <span className="visually-hidden">發布日期</span>
-                          {displayCategory ? (
-                            <StatusBadge variant="neutral" size="sm" className="ms-1">
-                              {categoryLabels[displayCategory] || displayCategory}
-                            </StatusBadge>
-                          ) : null}
-                          {item.isPinned ? (
-                            <StatusBadge variant="warning" size="sm" className="ms-1">
-                              {t('announcementsPage.badgePinned')}
-                            </StatusBadge>
-                          ) : null}
-                        </p>
-
-                        <h2 className="announcement-title" title={item.title}>
-                          {item.title}
-                        </h2>
-
-                        {item.summary ? (
-                          <p className="announcement-summary" title={item.summary}>
-                            {truncateAnnouncementPreview(item.summary, 120)}
-                          </p>
-                        ) : null}
-
-                        <div className="announcement-readmore-row mt-auto">
-                          <span className="announcement-readmore btn btn-sm btn-outline-primary">
-                            {t('homePage.readMore')}
+                  <article className={`announcement-card${item.coverImage ? ' announcement-card--has-cover' : ''}`}>
+                    <time className="announcement-card__date" dateTime={item.date || item.publishedAt || undefined}>
+                      {dateMatch ? (
+                        <>
+                          <span className="announcement-card__day">{dateMatch[2]}/{dateMatch[3]}</span>
+                          <span className="announcement-card__year">{dateMatch[1]}</span>
+                        </>
+                      ) : (
+                        <span className="announcement-card__day">{dateLabel}</span>
+                      )}
+                    </time>
+                    <div className="announcement-card__body">
+                      <p className="announcement-meta">
+                        <span className="visually-hidden">發布日期 {dateLabel}</span>
+                        {displayCategory ? (
+                          <span className="announcement-kicker">
+                            {categoryLabels[displayCategory] || displayCategory}
                           </span>
-                        </div>
-                      </div>
+                        ) : null}
+                        {item.isPinned ? (
+                          <span className="announcement-kicker announcement-kicker--pinned">
+                            {t('announcementsPage.badgePinned')}
+                          </span>
+                        ) : null}
+                      </p>
+                      <h2 className="announcement-title" title={item.title}>
+                        {item.title}
+                      </h2>
+                      {item.summary ? (
+                        <p className="announcement-summary" title={item.summary}>
+                          {truncateAnnouncementPreview(item.summary, 140)}
+                        </p>
+                      ) : null}
+                      <span className="announcement-readmore">
+                        {t('homePage.readMore')}
+                        <span aria-hidden="true"> →</span>
+                      </span>
                     </div>
+                    {item.coverImage ? (
+                      <img
+                        src={item.coverImage}
+                        alt={coverAlt}
+                        className="announcement-card-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : null}
                   </article>
                 </Link>
               </li>

@@ -1,6 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import HomeHero from '../components/home/HomeHero';
-import HomePracticeNow from '../components/home/HomePracticeNow';
 import AnnouncementPreview from '../components/home/AnnouncementPreview';
 import FAQSection from '../components/home/FAQSection';
 import ContactSection from '../components/home/ContactSection';
@@ -97,7 +96,6 @@ export default function HomePage() {
         aria-hidden={showOverlay ? true : undefined}
       >
         <HomeHero />
-        <HomePracticeNow />
         <AnnouncementPreview />
         <FAQSection />
         <ContactSection />

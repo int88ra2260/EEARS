@@ -18,6 +18,13 @@ function sortAnnouncements(items) {
   });
 }
 
+function splitAnnouncementDate(dateStr) {
+  const formatted = formatDateYMD(dateStr);
+  const match = /^(\d{4})\/(\d{2})\/(\d{2})$/.exec(formatted);
+  if (!match) return { formatted, year: '', month: '', day: '' };
+  return { formatted, year: match[1], month: match[2], day: match[3] };
+}
+
 export default function AnnouncementPreview() {
   const { items, loading, error } = useAnnouncements(4);
   const sortedItems = useMemo(() => sortAnnouncements(items), [items]);
@@ -46,15 +53,14 @@ export default function AnnouncementPreview() {
         </header>
 
         {loading && (
-          <div className="home-announce-grid home-announce-grid--bento" aria-busy="true" aria-live="polite">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className={`home-announce-card home-announce-card--skeleton${i === 1 ? ' home-announce-card--featured' : ''}`}
-              >
+          <div className="home-announce-board" aria-busy="true" aria-live="polite">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="home-announce-card home-announce-card--skeleton">
                 <div className="home-skeleton home-skeleton--meta" />
-                <div className="home-skeleton home-skeleton--title" />
-                <div className="home-skeleton home-skeleton--body" />
+                <div>
+                  <div className="home-skeleton home-skeleton--title" />
+                  <div className="home-skeleton home-skeleton--body" />
+                </div>
               </div>
             ))}
           </div>
@@ -75,53 +81,66 @@ export default function AnnouncementPreview() {
         )}
 
         {!loading && !error && sortedItems.length > 0 && (
-          <div className="home-announce-grid home-announce-grid--bento">
-            {sortedItems.map((item, index) => (
-              <Link
-                key={item.id}
-                to={announcementDetailPath(item)}
-                className={[
-                  'home-announce-card-link',
-                  index === 0 ? 'home-announce-card-link--featured' : '',
-                ].filter(Boolean).join(' ')}
-              >
-                <article className="home-announce-card">
-                  {item.coverImage ? (
-                    <img
-                      src={item.coverImage}
-                      alt={item.coverImageAlt || ''}
-                      className="home-announce-card__cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  ) : null}
-                  <div className="home-announce-card__content">
-                    <div className="home-announce-card__meta">
-                      <time dateTime={item.date}>{formatDateYMD(item.date)}</time>
-                      {item.category ? (
-                        <span className="home-tag home-tag--neutral">
-                          {ANNOUNCEMENT_CATEGORY_LABELS[item.category] || item.category}
-                        </span>
+          <div className="home-announce-board">
+            {sortedItems.map((item, index) => {
+              const date = splitAnnouncementDate(item.date);
+              const lead = index === 0;
+              return (
+                <Link
+                  key={item.id}
+                  to={announcementDetailPath(item)}
+                  className={[
+                    'home-announce-card-link',
+                    lead ? 'home-announce-card-link--lead' : '',
+                  ].filter(Boolean).join(' ')}
+                >
+                  <article className={`home-announce-card${item.coverImage ? ' home-announce-card--has-cover' : ''}`}>
+                    <time className="home-announce-card__date" dateTime={item.date || undefined}>
+                      {date.day ? (
+                        <>
+                          <span className="home-announce-card__day">{date.month}/{date.day}</span>
+                          <span className="home-announce-card__year">{date.year}</span>
+                        </>
+                      ) : (
+                        <span className="home-announce-card__day">{date.formatted}</span>
+                      )}
+                    </time>
+                    <div className="home-announce-card__content">
+                      <div className="home-announce-card__meta">
+                        {item.category ? (
+                          <span className="home-tag home-tag--neutral">
+                            {ANNOUNCEMENT_CATEGORY_LABELS[item.category] || item.category}
+                          </span>
+                        ) : null}
+                        {item.isPinned ? (
+                          <span className="home-tag home-tag--yellow">
+                            <ContentText k="homePage.pinnedBadge" />
+                          </span>
+                        ) : null}
+                      </div>
+                      <h3>{item.title}</h3>
+                      {item.summary ? (
+                        <p>{truncateAnnouncementPreview(item.summary, lead ? 160 : 96)}</p>
                       ) : null}
-                      {item.isPinned ? (
-                        <span className="home-tag home-tag--yellow">
-                          <ContentText k="homePage.pinnedBadge" />
-                        </span>
-                      ) : null}
+                      <span className="home-text-link">
+                        <ContentText k="homePage.readMore" />
+                        <span aria-hidden="true"> →</span>
+                      </span>
                     </div>
-                    <h3>{item.title}</h3>
-                    {item.summary ? (
-                      <p>{truncateAnnouncementPreview(item.summary, index === 0 ? 120 : 88)}</p>
+                    {item.coverImage ? (
+                      <img
+                        src={item.coverImage}
+                        alt={item.coverImageAlt || ''}
+                        className="home-announce-card__cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
                     ) : null}
-                    <span className="home-text-link">
-                      <ContentText k="homePage.readMore" />
-                      <span aria-hidden="true"> →</span>
-                    </span>
-                  </div>
-                </article>
-              </Link>
-            ))}
+                  </article>
+                </Link>
+              );
+            })}
           </div>
         )}
 

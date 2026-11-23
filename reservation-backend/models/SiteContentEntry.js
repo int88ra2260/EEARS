@@ -66,6 +66,10 @@ const SiteContentEntry = sequelize.define(
       type: DataTypes.STRING(64),
       allowNull: true,
     },
+    profileJson: {
+      type: DataTypes.TEXT('long'),
+      allowNull: true,
+    },
   },
   {
     tableName: 'SiteContentEntries',

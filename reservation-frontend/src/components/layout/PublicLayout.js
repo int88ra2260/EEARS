@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from '../Header';
+import VisitInsightTracker from '../VisitInsightTracker';
 import AnnouncementTicker from './AnnouncementTicker';
 import HomeFooter from '../home/HomeFooter';
 import '../../styles/public-ui.css';
@@ -41,6 +42,7 @@ export default function PublicLayout({ children, homeBanner = null }) {
 
   return (
     <>
+      <VisitInsightTracker />
       <Header />
       <AnnouncementTicker />
       {homeBanner}
