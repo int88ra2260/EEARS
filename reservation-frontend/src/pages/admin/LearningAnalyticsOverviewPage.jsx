@@ -242,7 +242,11 @@ export default function LearningAnalyticsOverviewPage() {
           <section className="mt-4">
             <LearningAnalyticsPanelHeader
               title="英語能力摘要"
-              lead={`分母 ${formatNum(ability.total)} 人，是目前資料版本與入學年度的快照學生。`}
+              lead={
+                ability.populationMeta?.semesterId
+                  ? `分母 ${formatNum(ability.total)} 人，是 ${ability.populationMeta.semesterId} 學期在學名冊。英檢能力對齊選定分析快照；學測不算。`
+                  : `分母 ${formatNum(ability.total)} 人，是選定學期的學期在學名冊。英檢能力對齊選定分析快照；學測不算。`
+              }
             />
             <Row className="g-3">
               <Col xs={12} sm={6} xl className="d-flex">

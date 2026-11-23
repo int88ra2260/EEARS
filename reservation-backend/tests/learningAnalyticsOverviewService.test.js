@@ -14,7 +14,7 @@ const {
 
 describe('learningAnalyticsOverviewService', () => {
   it('exports contract version and resource labels', () => {
-    expect(CONTRACT_VERSION).toBe('learning-analytics.overview.v2');
+    expect(CONTRACT_VERSION).toBe('learning-analytics.overview.v3');
     expect(labelResource('ENGLISH_TABLE')).toBe(RESOURCE_LABELS.ENGLISH_TABLE);
     expect(labelResource('UNKNOWN')).toBe('UNKNOWN');
   });

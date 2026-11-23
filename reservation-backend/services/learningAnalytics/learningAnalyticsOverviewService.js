@@ -27,7 +27,7 @@ const { examGse } = require('./b1PlusWatch');
 const { getCurrentSemester } = require('../../utils/semesterConstants');
 const { parseSemesterId } = require('../learningJourney/utils/semIndexCalculator');
 
-const CONTRACT_VERSION = 'learning-analytics.overview.v2';
+const CONTRACT_VERSION = 'learning-analytics.overview.v3';
 
 const RESOURCE_LABELS = Object.freeze({
   GE: '通識英文',
@@ -68,6 +68,7 @@ const LIST_SLICES = new Set([
   'cohort_no_exam',
 ]);
 const COHORT_LEVEL_SLICES = new Set(['cohort_b1', 'cohort_b1_plus', 'cohort_no_exam']);
+const ABILITY_ROSTER_SLICES = new Set(['overall_b2', 'skill_b2', 'department_b2']);
 const MISSING_COHORT = '未提供';
 const LIST_LIMIT_DEFAULT = 40;
 const LIST_LIMIT_MAX = 100;
@@ -456,6 +457,9 @@ function buildCohortLevelTable(students, exams) {
 function buildDashboard({
   students,
   exams,
+  abilityStudents,
+  abilityExams,
+  abilityMeta,
   baseline,
   growthBySkill,
   resourceParticipation,
@@ -463,11 +467,15 @@ function buildDashboard({
   byCohortLevel,
   byCohortLevelMeta,
 }) {
-  const ability = buildAbilitySummary(students, exams);
+  const abilitySource = abilityStudents || students;
+  const abilityExamSource = abilityExams || exams;
+  const ability = buildAbilitySummary(abilitySource, abilityExamSource);
   return {
     ability: {
       ...ability,
-      byDepartment: buildDepartmentB2(students),
+      population: abilityMeta?.population || 'analytics_snapshot',
+      populationMeta: abilityMeta || null,
+      byDepartment: buildDepartmentB2(abilitySource),
       byCohortLevel: byCohortLevel || [],
       byCohortLevelMeta: byCohortLevelMeta || null,
     },
@@ -484,26 +492,29 @@ function buildDashboard({
 }
 
 /**
- * 各入學年度 B1／B1+／尚無英檢：分母為學期在學名冊（EtEnrollmentSnapshot），
- * 不是分析快照子集。學測不算英檢。
+ * 學期在學名冊母體：英語能力摘要、系所 B2、各入學年度 B1／B1+／尚無英檢共用。
+ * 英檢能力仍對齊選定分析快照；學測不算英檢。
  */
-async function buildEnrollmentRosterCohortLevelTable(query, snapshotVersion) {
+async function loadEnrollmentRosterScopedStudents(query, snapshotVersion) {
   const semesterId = resolveOverviewSemesterId(query);
+  const empty = (note) => ({
+    students: [],
+    exams: [],
+    meta: {
+      semesterId: semesterId || null,
+      population: 'enrollment_roster',
+      rosterTotal: 0,
+      note,
+    },
+  });
+
   if (!semesterId) {
-    return {
-      rows: [],
-      meta: {
-        semesterId: null,
-        population: 'enrollment_roster',
-        rosterTotal: 0,
-        note: '請選擇學期，才能以學期在學名冊計算各入學年度的 B1、B1+ 與尚無英檢。',
-      },
-    };
+    return empty('請選擇學期，才能以學期在學名冊計算英語能力摘要與各入學年度分布。');
   }
 
   const snaps = await EtEnrollmentSnapshot.findAll({
     where: { semesterId, isActive: true },
-    attributes: ['studentId', 'grade'],
+    attributes: ['studentId', 'grade', 'department', 'college'],
   });
 
   const seen = new Set();
@@ -512,7 +523,12 @@ async function buildEnrollmentRosterCohortLevelTable(query, snapshotVersion) {
     const id = studentKey(snap.studentId);
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    roster.push({ studentId: id, grade: snap.grade });
+    roster.push({
+      studentId: id,
+      grade: snap.grade,
+      department: snap.department || null,
+      college: snap.college || null,
+    });
   }
 
   const allow = studentIdAllowList(query.student_ids || query.studentIds);
@@ -522,15 +538,7 @@ async function buildEnrollmentRosterCohortLevelTable(query, snapshotVersion) {
   }
 
   if (!roster.length) {
-    return {
-      rows: [],
-      meta: {
-        semesterId,
-        population: 'enrollment_roster',
-        rosterTotal: 0,
-        note: '此學期尚無有效的學期在學名冊。請先於學習歷程匯入「學期在學名冊」。',
-      },
-    };
+    return empty('此學期尚無有效的學期在學名冊。請先於學習歷程匯入「學期在學名冊」。');
   }
 
   const ids = roster.map((row) => row.studentId);
@@ -541,16 +549,18 @@ async function buildEnrollmentRosterCohortLevelTable(query, snapshotVersion) {
     }),
     LjAnalyticStudent.findAll({
       where: { snapshotVersion, studentId: { [Op.in]: ids } },
-      attributes: ['studentId', 'hasValidExam'],
+      attributes: [
+        'studentId', 'department', 'college', 'cohort', 'isB2plus',
+        'hasValidExam', 'baselineCefr', 'baselineEnglishScore', 'retestFlag', 'totalResourceHours',
+      ],
     }),
     LjAnalyticExam.findAll({
-      where: {
-        snapshotVersion,
-        studentId: { [Op.in]: ids },
-      },
+      where: buildExamWhere(query, snapshotVersion, ids),
       attributes: [
-        'studentId', 'skill', 'instrument', 'excludeFlag', 'registeredNoScoreFlag',
-        'rawScore', 'examDate', 'status', 'cefrLevel',
+        'id', 'studentId', 'skill', 'isB2plus', 'testPhase', 'instrument',
+        'excludeFlag', 'registeredNoScoreFlag', 'cefrLevel', 'retestFlag', 'status',
+        'deltaRawScore', 'previousRawScore', 'rawScore', 'examDate',
+        'previousExamEventId', 'resourceHoursBeforeExam',
       ],
     }),
   ]);
@@ -574,16 +584,58 @@ async function buildEnrollmentRosterCohortLevelTable(query, snapshotVersion) {
     students.push({
       studentId: row.studentId,
       cohort,
+      department: row.department || analytic?.department || null,
+      college: row.college || analytic?.college || null,
+      isB2plus: analytic ? !!analytic.isB2plus : false,
       hasValidExam: analytic ? !!analytic.hasValidExam : false,
+      baselineCefr: analytic?.baselineCefr ?? null,
+      baselineEnglishScore: analytic?.baselineEnglishScore ?? null,
+      retestFlag: analytic ? !!analytic.retestFlag : false,
+      totalResourceHours: analytic?.totalResourceHours ?? null,
     });
   }
 
   return {
-    rows: buildCohortLevelTable(students, exams),
+    students,
+    exams,
     meta: {
       semesterId,
       population: 'enrollment_roster',
       rosterTotal: students.length,
+      note: '分母為該學期在學名冊。英檢能力對齊選定分析快照；學測不算。',
+    },
+  };
+}
+
+/**
+ * 各入學年度 B1／B1+／尚無英檢：分母為學期在學名冊（EtEnrollmentSnapshot）。
+ */
+async function buildEnrollmentRosterCohortLevelTable(query, snapshotVersion) {
+  const { students, exams, meta } = await loadEnrollmentRosterScopedStudents(query, snapshotVersion);
+  if (!meta.semesterId) {
+    return {
+      rows: [],
+      meta: {
+        ...meta,
+        note: '請選擇學期，才能以學期在學名冊計算各入學年度的 B1、B1+ 與尚無英檢。',
+      },
+    };
+  }
+  if (!students.length) {
+    return {
+      rows: [],
+      meta: {
+        ...meta,
+        note: meta.rosterTotal === 0 && meta.note
+          ? meta.note
+          : '此學期尚無有效的學期在學名冊。請先於學習歷程匯入「學期在學名冊」。',
+      },
+    };
+  }
+  return {
+    rows: buildCohortLevelTable(students, exams),
+    meta: {
+      ...meta,
       note: '分母為該學期在學名冊。B1／B1+ 依目前最佳能力 GSE；尚無英檢＝名冊內沒有有效英檢（學測不算）。',
     },
   };
@@ -694,7 +746,7 @@ async function getLearningAnalyticsOverview(query = {}) {
     ? { ...filters, semester: overviewSemesterId }
     : filters;
 
-  const [summary, lva, cefrDistribution, b2Report, unfilteredSummary, scoped, rosterCohort] = await Promise.all([
+  const [summary, lva, cefrDistribution, b2Report, unfilteredSummary, scoped, rosterScoped] = await Promise.all([
     getAnalyticsSummary(filtersWithSemester),
     getLvaAnalytics(filtersWithSemester),
     computeCefrDistribution(filtersWithSemester, snapshotVersion),
@@ -703,8 +755,23 @@ async function getLearningAnalyticsOverview(query = {}) {
       : Promise.resolve(null),
     getAnalyticsSummary({ snapshot_version: snapshotVersion }),
     loadScopedAnalytics(filtersWithSemester, snapshotVersion),
-    buildEnrollmentRosterCohortLevelTable(filtersWithSemester, snapshotVersion),
+    loadEnrollmentRosterScopedStudents(filtersWithSemester, snapshotVersion),
   ]);
+
+  const rosterCohort = {
+    rows: rosterScoped.students.length
+      ? buildCohortLevelTable(rosterScoped.students, rosterScoped.exams)
+      : [],
+    meta: {
+      ...rosterScoped.meta,
+      note: !rosterScoped.meta?.semesterId
+        ? '請選擇學期，才能以學期在學名冊計算各入學年度的 B1、B1+ 與尚無英檢。'
+        : (rosterScoped.students.length
+          ? '分母為該學期在學名冊。B1／B1+ 依目前最佳能力 GSE；尚無英檢＝名冊內沒有有效英檢（學測不算）。'
+          : (rosterScoped.meta?.note
+            || '此學期尚無有效的學期在學名冊。請先於學習歷程匯入「學期在學名冊」。')),
+    },
+  };
 
   const totals = summary.totals || {};
   const adjustedSkills = lva.adjustedGrowth?.bySkill || [];
@@ -765,6 +832,13 @@ async function getLearningAnalyticsOverview(query = {}) {
     dashboard: buildDashboard({
       students: scoped.students,
       exams: scoped.exams,
+      abilityStudents: rosterScoped.students,
+      abilityExams: rosterScoped.exams,
+      abilityMeta: {
+        ...rosterScoped.meta,
+        note: rosterScoped.meta?.note
+          || '分母為選定學期的學期在學名冊。英檢能力對齊選定分析快照；學測不算。',
+      },
       baseline: cefrDistribution.baseline,
       growthBySkill: lva.adjustedGrowth?.bySkill || [],
       resourceParticipation: mapResourceParticipation(lva.skillExposure),
@@ -828,90 +902,28 @@ async function listOverviewStudents(query = {}) {
 
   let matched;
   let exams;
-  if (COHORT_LEVEL_SLICES.has(slice)) {
+  if (COHORT_LEVEL_SLICES.has(slice) || ABILITY_ROSTER_SLICES.has(slice)) {
     if (!overviewSemesterId) {
       const err = new Error('請選擇學期（學期在學名冊）');
       err.status = 400;
       throw err;
     }
-    const wantCohort = String(query.grade || '').trim();
-    const wantLevel = slice === 'cohort_b1'
-      ? 'b1'
-      : (slice === 'cohort_b1_plus' ? 'b1_plus' : 'no_exam');
-    const snaps = await EtEnrollmentSnapshot.findAll({
-      where: { semesterId: overviewSemesterId, isActive: true },
-      attributes: ['studentId', 'grade'],
-    });
-    const rosterIds = [];
-    const seen = new Set();
-    for (const snap of snaps) {
-      const id = studentKey(snap.studentId);
-      if (!id || seen.has(id)) continue;
-      seen.add(id);
-      rosterIds.push(id);
-    }
-    const allow = studentIdAllowList(query.student_ids || query.studentIds);
-    const allowSet = allow ? new Set(allow) : null;
-    const masters = rosterIds.length
-      ? await Student.findAll({
-        where: { studentId: { [Op.in]: rosterIds } },
-        attributes: ['studentId', 'enrollmentYear'],
-      })
-      : [];
-    const yearById = new Map(masters.map((m) => [studentKey(m.studentId), m.enrollmentYear]));
-    const analyticStudents = rosterIds.length
-      ? await LjAnalyticStudent.findAll({
-        where: { snapshotVersion, studentId: { [Op.in]: rosterIds } },
-        attributes: [
-          'studentId', 'department', 'college', 'cohort', 'isB2plus',
-          'baselineCefr', 'baselineEnglishScore', 'retestFlag', 'hasValidExam', 'totalResourceHours',
-        ],
-      })
-      : [];
-    const analyticById = new Map(analyticStudents.map((s) => [studentKey(s.studentId), s]));
-    exams = rosterIds.length
-      ? await LjAnalyticExam.findAll({
-        where: buildExamWhere(scopedQuery, snapshotVersion, rosterIds),
-        attributes: [
-          'id', 'studentId', 'skill', 'isB2plus', 'testPhase', 'instrument',
-          'excludeFlag', 'registeredNoScoreFlag', 'cefrLevel', 'retestFlag', 'status',
-          'deltaRawScore', 'previousRawScore', 'rawScore', 'examDate',
-          'previousExamEventId', 'resourceHoursBeforeExam',
-        ],
-      })
-      : [];
+    const rosterScoped = await loadEnrollmentRosterScopedStudents(scopedQuery, snapshotVersion);
+    exams = rosterScoped.exams;
     const groupedRoster = examsByStudent(exams);
-    matched = [];
-    const snapById = new Map();
-    for (const snap of snaps) {
-      const id = studentKey(snap.studentId);
-      if (id && !snapById.has(id)) snapById.set(id, snap);
-    }
-    for (const id of rosterIds) {
-      if (allowSet && !allowSet.has(id)) continue;
-      const snap = snapById.get(id);
-      const cohort = resolveEnrollmentCohortFromRoster({
-        enrollmentYear: yearById.get(id),
-        studentId: id,
-        grade: snap?.grade,
-        semesterId: overviewSemesterId,
+    if (COHORT_LEVEL_SLICES.has(slice)) {
+      const wantCohort = String(query.grade || '').trim();
+      const wantLevel = slice === 'cohort_b1'
+        ? 'b1'
+        : (slice === 'cohort_b1_plus' ? 'b1_plus' : 'no_exam');
+      matched = rosterScoped.students.filter((student) => {
+        if (cohortLabel(student) !== wantCohort) return false;
+        return cohortLevelOf(student, groupedRoster.get(studentKey(student.studentId)) || []) === wantLevel;
       });
-      if (cohort !== wantCohort) continue;
-      if (!cohortFilterAllows(cohort, scopedQuery)) continue;
-      const analytic = analyticById.get(id) || {
-        studentId: id,
-        department: null,
-        college: null,
-        cohort,
-        isB2plus: false,
-        hasValidExam: false,
-      };
-      const level = cohortLevelOf(
-        { ...analytic, hasValidExam: analytic.hasValidExam === true },
-        groupedRoster.get(id) || [],
-      );
-      if (level !== wantLevel) continue;
-      matched.push({ ...analytic, studentId: id, cohort });
+    } else {
+      matched = rosterScoped.students.filter((student) => (
+        matchesSlice(student, groupedRoster.get(studentKey(student.studentId)) || [], slice, query)
+      ));
     }
   } else {
     const scoped = await loadScopedAnalytics(scopedQuery, snapshotVersion);

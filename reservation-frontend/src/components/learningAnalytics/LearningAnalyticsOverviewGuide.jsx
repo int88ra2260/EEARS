@@ -7,7 +7,7 @@ export default function LearningAnalyticsOverviewGuide() {
     <LaFold label="如何使用本頁" className="mb-3">
       <ol className="small mb-0 ps-3">
         <li className="mb-1">
-            本頁多數圖表看分析快照；「各入學年度尚無英檢／B1／B1+」改以選定學期的學期在學名冊為分母。
+            「英語能力摘要」、各系所 B2，以及「各入學年度尚無英檢／B1／B1+」都以選定學期的學期在學名冊為分母；學習起點與成長等仍看分析快照。
           </li>
           <li className="mb-1">
             聽讀成對、說寫成對達標，請到
