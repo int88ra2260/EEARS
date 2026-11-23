@@ -199,6 +199,7 @@ export default function Header() {
 
   const logoHeight = isMobile ? (atTop ? 64 : 50) : (atTop ? 72 : 52);
   const headerPadY = isMobile ? (atTop ? '0.75rem' : '0.55rem') : (atTop ? '0.95rem' : '0.55rem');
+  const navTypeScale = atTop ? 1.16 : 1;
   const sizeTransition = reduceMotion
     ? { duration: 0 }
     : { duration: 0.28, ease: MOTION_EASE_OUT };
@@ -444,7 +445,11 @@ export default function Header() {
         <motion.div
           className="header-container"
           initial={false}
-          animate={{ paddingTop: headerPadY, paddingBottom: headerPadY }}
+          animate={{
+            paddingTop: headerPadY,
+            paddingBottom: headerPadY,
+            '--header-type-scale': navTypeScale,
+          }}
           transition={sizeTransition}
         >
           {headerBody}
