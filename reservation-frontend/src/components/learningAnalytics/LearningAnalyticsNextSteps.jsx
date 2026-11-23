@@ -23,6 +23,7 @@ export default function LearningAnalyticsNextSteps({
   hide = [],
   title = '',
   canExport = true,
+  destinations = null,
 }) {
   const navigate = useNavigate();
   const ids = useMemo(() => normalizeStudentIds(studentIds), [studentIds]);
@@ -32,7 +33,7 @@ export default function LearningAnalyticsNextSteps({
   const countText = truncated && shownTotal > ids.length
     ? `${formatCount(ids.length)} / ${formatCount(shownTotal)} 人`
     : `${formatCount(ids.length)} 人`;
-  const actions = DESTINATIONS.filter((item) => {
+  const actions = (destinations?.length ? destinations : DESTINATIONS).filter((item) => {
     if (hide.includes(item.id)) return false;
     if (item.id === 'export' && canExport === false) return false;
     return true;
@@ -48,6 +49,7 @@ export default function LearningAnalyticsNextSteps({
       source,
       sourcePath,
       appliedPath: path,
+      bindToDestination: true,
       context: {
         snapshotVersion: snapshotVersion || '',
         semester: semester || '',

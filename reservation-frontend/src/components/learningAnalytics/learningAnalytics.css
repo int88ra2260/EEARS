@@ -1636,9 +1636,27 @@ th.text-center .la-colhead {
   padding: 0.55rem 0.75rem;
 }
 
+.la-kpi-grade-checks {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.la-kpi-grade-checks legend {
+  float: none;
+  width: auto;
+  padding: 0;
+}
+
 .la-kpi-table td,
 .la-kpi-table th {
   white-space: nowrap;
+}
+
+.la-kpi-check {
+  width: 2.25rem;
+  text-align: center;
 }
 
 .la-kpi-table td.text-end,

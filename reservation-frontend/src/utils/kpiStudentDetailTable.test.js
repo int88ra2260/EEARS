@@ -3,7 +3,9 @@ import {
   filterKpiDetailRows,
   kpiDetailFilterOptions,
   pageKpiDetailRows,
+  selectKpiDetailRows,
   sortKpiDetailRows,
+  summarizeKpiDetailRows,
 } from './kpiStudentDetailTable';
 
 const dimensions = [
@@ -44,6 +46,9 @@ describe('kpi student detail table', () => {
       .toEqual(['A010']);
     expect(filterKpiDetailRows(rows, { grade: '2' }, dimensions).map((item) => item.studentId))
       .toEqual(['A010']);
+    expect(filterKpiDetailRows(rows, { grades: ['2', '3'] }, dimensions).map((item) => item.studentId))
+      .toEqual(['B003', 'A010']);
+    expect(filterKpiDetailRows(rows, { grades: [] }, dimensions)).toHaveLength(4);
     expect(filterKpiDetailRows(rows, { department: '外文系' }, dimensions).map((item) => item.studentId))
       .toEqual(['B003', 'A010']);
     expect(filterKpiDetailRows(rows, { attainment: 'passed' }, dimensions).map((item) => item.studentId))
@@ -65,6 +70,28 @@ describe('kpi student detail table', () => {
       .toEqual(['A010', 'B003', 'A002', 'C001']);
     expect(sortKpiDetailRows(rows, 'dim:lr', 'desc').map((item) => item.studentId))
       .toEqual(['A002', 'B003', 'A010', 'C001']);
+  });
+
+  test('uses every filtered row until some rows are checked', () => {
+    const filtered = filterKpiDetailRows(rows, { grades: ['2', '3'] }, dimensions);
+    expect(selectKpiDetailRows(filtered, []).map((item) => item.studentId))
+      .toEqual(['B003', 'A010']);
+    expect(selectKpiDetailRows(filtered, ['A010']).map((item) => item.studentId))
+      .toEqual(['A010']);
+    expect(selectKpiDetailRows(filtered, ['A002'])).toEqual([]);
+  });
+
+  test('recounts attainment from the counted rows', () => {
+    const summary = summarizeKpiDetailRows(
+      selectKpiDetailRows(rows, ['A002', 'B003']),
+      dimensions,
+    );
+    expect(summary.total).toBe(2);
+    expect(summary.dimensions).toEqual([
+      { id: 'lr', label: '聽讀成對', passedCount: 2, rate: 1 },
+      { id: 'sw', label: '說寫成對', passedCount: 1, rate: 0.5 },
+    ]);
+    expect(summarizeKpiDetailRows([], dimensions).dimensions[0].rate).toBeNull();
   });
 
   test('pages the full list and clamps an out-of-range page', () => {

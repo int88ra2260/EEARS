@@ -32,12 +32,12 @@ function renderTable() {
 describe('KpiStudentDetailTable', () => {
   test('pages past the old 200-row preview and walks to the last student', () => {
     renderTable();
-    expect(screen.getByText('符合 51 / 51 人，第 1–50 人')).toBeInTheDocument();
+    expect(screen.getByText('符合 51 / 51 人，第 1–50 人，卡片計算 51 人')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'A001' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'A051' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '下一頁' }));
-    expect(screen.getByText('符合 51 / 51 人，第 51–51 人')).toBeInTheDocument();
+    expect(screen.getByText('符合 51 / 51 人，第 51–51 人，卡片計算 51 人')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'A051' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'A001' })).not.toBeInTheDocument();
   });
@@ -45,12 +45,12 @@ describe('KpiStudentDetailTable', () => {
   test('filters by student id and attainment, then sorts the result', () => {
     renderTable();
     fireEvent.change(screen.getByLabelText('學號'), { target: { value: 'a051' } });
-    expect(screen.getByText('符合 1 / 51 人，第 1–1 人')).toBeInTheDocument();
+    expect(screen.getByText('符合 1 / 51 人，第 1–1 人，卡片計算 1 人')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'A051' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '清除' }));
+    fireEvent.click(screen.getByRole('button', { name: '清除篩選' }));
     fireEvent.change(screen.getByLabelText('達標'), { target: { value: 'passed' } });
-    expect(screen.getByText('符合 1 / 51 人，第 1–1 人')).toBeInTheDocument();
+    expect(screen.getByText('符合 1 / 51 人，第 1–1 人，卡片計算 1 人')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'A001' })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('達標'), { target: { value: 'all' } });
@@ -59,5 +59,17 @@ describe('KpiStudentDetailTable', () => {
     const ids = within(body).getAllByRole('link').map((link) => link.textContent);
     expect(ids[0]).toBe('A051');
     expect(ids[1]).toBe('A050');
+  });
+
+  test('lets several grades be chosen, then a checked row narrows the counted people', () => {
+    renderTable();
+    fireEvent.click(screen.getByRole('checkbox', { name: '2' }));
+    expect(screen.getByText('符合 25 / 51 人，第 1–25 人，卡片計算 25 人')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '選取 A002' }));
+    expect(screen.getByText('符合 25 / 51 人，第 1–25 人，已勾選 1 人，卡片計算 1 人')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '勾選所有符合篩選的學生' }));
+    expect(screen.getByText('符合 25 / 51 人，第 1–25 人，已勾選 25 人，卡片計算 25 人')).toBeInTheDocument();
   });
 });

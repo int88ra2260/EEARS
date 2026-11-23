@@ -9,6 +9,9 @@ import {
   listLearningAnalyticsTrackingCohorts,
 } from '../../services/learningAnalyticsService';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
+import LearningAnalyticsNextSteps from '../../components/learningAnalytics/LearningAnalyticsNextSteps';
+import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
+import { P } from '../../constants/permissions';
 import ColumnHead, { HEAD } from '../../components/learningAnalytics/ColumnHead';
 import StudentExplorerDetailDrawer from '../../components/learningAnalytics/StudentExplorerDetailDrawer';
 import {
@@ -18,6 +21,14 @@ import {
 } from '../../utils/learningAnalyticsRecentStudents';
 
 const PAGE_SIZE = 40;
+
+const TRACKING_DESTINATIONS = [
+  { id: 'kpi', label: '看這批人的 B2 達標', path: '/admin/learning-analytics/kpi-report', variant: 'primary' },
+  { id: 'cohorts', label: '看這批人的群體比較', path: '/admin/learning-analytics/cohorts', variant: 'outline-primary' },
+  { id: 'b1-plus', label: '看這批人的接近 B2', path: '/admin/learning-analytics/b1-plus', variant: 'outline-primary' },
+  { id: 'explore', label: '在學生探索打開', path: '/admin/learning-analytics/explore', variant: 'outline-secondary' },
+  { id: 'export', label: '前往原始資料匯出', path: '/admin/learning-analytics/raw-data', variant: 'outline-secondary' },
+];
 
 function formatHours(value) {
   if (value == null || value === '') return '—';
@@ -58,6 +69,7 @@ function filterSummary(filters = {}) {
 
 export default function LearningAnalyticsTrackingCohortsPage() {
   const token = localStorage.getItem('token') || '';
+  const canExport = hasPermission(buildAccessProfile(token), P.CAN_EXPORT_LEARNING_ANALYTICS);
   const { id } = useParams();
   const navigate = useNavigate();
   const [offset, setOffset] = useState(0);
@@ -128,7 +140,7 @@ export default function LearningAnalyticsTrackingCohortsPage() {
       <section className="la-panel">
         {error ? <Alert variant="danger">{error}</Alert> : null}
         {loading ? <div className="text-muted"><Spinner size="sm" className="me-2" />載入中…</div> : null}
-        {!loading && list.length === 0 ? <p className="text-muted mb-0">還沒有追蹤名單。請先到學生探索篩選，再按「儲存追蹤名單」。</p> : null}
+        {!loading && list.length === 0 ? <p className="text-muted mb-0">還沒有追蹤名單。可在學生探索或學期 B2 KPI 篩好學生後，按「儲存追蹤名單」。</p> : null}
         {list.length ? (
           <div className="table-responsive">
             <table className="table table-sm table-hover align-middle mb-0 la-table">
@@ -212,6 +224,21 @@ export default function LearningAnalyticsTrackingCohortsPage() {
             <span>平均修課時數差</span>
           </div>
         </div>
+      ) : null}
+      {detail?.handoff?.studentIds?.length ? (
+        <LearningAnalyticsNextSteps
+          title="帶這批人去看"
+          label={cohort?.name || '追蹤名單'}
+          studentIds={detail.handoff.studentIds}
+          total={detail.handoff.total}
+          truncated={detail.handoff.truncated}
+          note="帶的是儲存時的學號。前後對照仍留在這頁。"
+          snapshotVersion={detail.currentSnapshotVersion || cohort?.snapshotVersion || ''}
+          source="tracking-cohort"
+          sourcePath={`/admin/learning-analytics/tracking-cohorts/${id}`}
+          destinations={TRACKING_DESTINATIONS}
+          canExport={canExport}
+        />
       ) : null}
       {detail?.items?.length ? (
         <div className="table-responsive">

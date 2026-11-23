@@ -47,6 +47,7 @@ CEFR 只用在最後呈現或是看有沒有達標使用，GSE 是用作資料�
 - 仍以 CEFR／政策引擎判定是否達 B2
 - 路徑：`/admin/learning-analytics/kpi-report`
 - GSE 不取代 KPI 分母與達標定義
+- 學生明細的年級複選與逐列勾選，只重算這一頁上方的達標卡片，以及「這份報表的學生／未達標的學生」。沒有勾選時用篩選結果；有勾選時只用勾到的人。政策分母、匯出 Excel、缺口名單維持整份名冊。可把目前這批學號存成追蹤名單
 
 ### 接近 B2 的「有修課」
 
@@ -72,10 +73,11 @@ CEFR 只用在最後呈現或是看有沒有達標使用，GSE 是用作資料�
 
 ## Working set（跨頁名單）
 
-- 前端：`sessionStorage` key `eears.la.workingSet.v1`。跨頁名單帶完整學號，不因人數截斷。只套在這次點擊帶去的那一頁（含子路徑與單一學生頁）；重新整理保留。用頁內導覽或側欄離開後清除
+- 前端：`sessionStorage` key `eears.la.workingSet.v1`。跨頁名單帶完整學號，不因人數截斷。只套在這次點擊帶去的那一頁（含子路徑與單一學生頁）；到達後直接套用，不因目的頁學期或資料版本預設不同而先暫停。重新整理保留。用頁內導覽或側欄離開後清除
 - 有 `studentIds` 時用 **POST** 同路徑帶 body；勿把長名單寫進 URL
 - `useLearningAnalyticsWorkingSet` 回傳物件每 render 是新的：effect 依賴解構後的 `withWorkingSet`，不要依賴整個 hook 物件
 - 截斷提示只在 `truncated && total > ids.length` 時顯示
+- 追蹤名單的前後對照留在該頁。詳情把存下的全部學號，用同一套點擊帶去 KPI、群體比較、接近 B2、學生探索、原始資料匯出
 
 ## UI 契約（成效分析）
 

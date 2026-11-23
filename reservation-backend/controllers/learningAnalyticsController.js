@@ -240,6 +240,8 @@ async function createTrackingCohortHandler(req, res) {
     const data = await createTrackingCohort({
       name: req.body?.name,
       query: req.body?.filters || {},
+      studentIds: req.body?.studentIds,
+      roster: req.body?.roster,
       user: req.user || {},
     });
     return res.status(201).json({ success: true, data, requestId: req.requestId });

@@ -68,17 +68,61 @@ export function kpiDetailFilterOptions(rows) {
   };
 }
 
+function selectedGradeLabels(filters = {}) {
+  if (Array.isArray(filters.grades)) {
+    return [...new Set(filters.grades.map(text).filter(Boolean))];
+  }
+  const grade = text(filters.grade);
+  return grade ? [grade] : [];
+}
+
 export function filterKpiDetailRows(rows, filters = {}, dimensions = []) {
   const keyword = text(filters.keyword).toUpperCase();
-  const grade = text(filters.grade);
+  const grades = selectedGradeLabels(filters);
   const department = text(filters.department);
   const attainment = filters.attainment || 'all';
   return (rows || []).filter((row) => {
     if (keyword && !text(row?.studentId).toUpperCase().includes(keyword)) return false;
-    if (grade && text(row?.grade) !== grade) return false;
+    if (grades.length && !grades.includes(text(row?.grade))) return false;
     if (department && text(row?.department) !== department) return false;
     return matchesAttainment(row, attainment, dimensions);
   });
+}
+
+export function selectKpiDetailRows(rows, selectedIds) {
+  const selected = selectedIds instanceof Set
+    ? selectedIds
+    : new Set(selectedIds || []);
+  if (selected.size === 0) return rows || [];
+  return (rows || []).filter((row) => selected.has(row?.studentId));
+}
+
+const SKILL_KEYS = ['listening', 'reading', 'speaking', 'writing'];
+
+function rateOf(count, total) {
+  return total ? Number((count / total).toFixed(4)) : null;
+}
+
+export function summarizeKpiDetailRows(rows, dimensions = [], options = {}) {
+  const list = rows || [];
+  const total = list.length;
+  const skillRows = Boolean(options.includeSkills) || list.some((row) => row?.skillBreakdown);
+  return {
+    total,
+    dimensions: (dimensions || []).map((dim) => {
+      const passedCount = list.filter((row) => dimensionPassed(row, dim.id)).length;
+      return {
+        id: dim.id,
+        label: dim.label,
+        passedCount,
+        rate: rateOf(passedCount, total),
+      };
+    }),
+    skillBreakdown: skillRows ? Object.fromEntries(SKILL_KEYS.map((skill) => {
+      const count = list.filter((row) => row?.skillBreakdown?.[skill]?.passed).length;
+      return [skill, { count, rate: rateOf(count, total) }];
+    })) : null,
+  };
 }
 
 function sortValue(row, sortKey) {

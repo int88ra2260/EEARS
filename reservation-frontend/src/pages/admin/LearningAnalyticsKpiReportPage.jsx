@@ -3,9 +3,10 @@ import Alert from 'react-bootstrap/Alert';
 import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
+import Modal from 'react-bootstrap/Modal';
 import Spinner from 'react-bootstrap/Spinner';
 import Table from 'react-bootstrap/Table';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import MetricCard from '../../components/learningAnalytics/MetricCard';
 import LearningAnalyticsPageFrame from '../../components/learningAnalytics/LearningAnalyticsPageFrame';
@@ -24,7 +25,9 @@ import {
   runLearningAnalyticsKpiReport,
   unarchiveLearningAnalyticsKpiPolicy,
   updateLearningAnalyticsKpiPolicy,
+  createLearningAnalyticsTrackingCohort,
 } from '../../services/learningAnalyticsService';
+import { summarizeKpiDetailRows } from '../../utils/kpiStudentDetailTable';
 import { buildAccessProfile, hasPermission } from '../../utils/accessControl';
 import { P } from '../../constants/permissions';
 import useConfirm from '../../components/ui/useConfirm';
@@ -74,6 +77,8 @@ export function formatKpiGeneratedAt(value) {
   }).format(date);
 }
 
+const TRACKING_MEMBER_LIMIT = 5000;
+
 const SKILL_LABELS = {
   listening: '聽力',
   reading: '閱讀',
@@ -107,6 +112,12 @@ export default function LearningAnalyticsKpiReportPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [report, setReport] = useState(null);
+  const [counted, setCounted] = useState({ key: '', rows: null });
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [cohortName, setCohortName] = useState('');
+  const [savingCohort, setSavingCohort] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [savedCohort, setSavedCohort] = useState(null);
   const [executedKey, setExecutedKey] = useState('');
   const [manageOpen, setManageOpen] = useState(false);
   const [customSemester, setCustomSemester] = useState(false);
@@ -154,17 +165,63 @@ export default function LearningAnalyticsKpiReportPage() {
     setNotice('學期或政策已變更，請重新執行報表。');
   }, [reportStale]);
 
+  const reportIdentity = report
+    ? `${report.generatedAt || ''}|${report.policy?.id || ''}|${report.population?.semesterId || ''}`
+    : '';
+  const handleCountedRows = useCallback((rows) => {
+    setCounted({ key: reportIdentity, rows });
+  }, [reportIdentity]);
+  const activeRows = counted.key === reportIdentity && Array.isArray(counted.rows)
+    ? counted.rows
+    : (report?.rows || []);
+  const viewSummary = useMemo(
+    () => summarizeKpiDetailRows(activeRows, report?.summary?.dimensions || [], {
+      includeSkills: Boolean(report?.summary?.skillBreakdown),
+    }),
+    [activeRows, report],
+  );
+  const viewNarrowed = Boolean(report) && viewSummary.total !== (report.rows || []).length;
   const reportStudentIds = useMemo(
-    () => (report?.rows || []).map((row) => row.studentId),
-    [report]
+    () => activeRows.map((row) => row.studentId),
+    [activeRows]
   );
   const unmetStudentIds = useMemo(
-    () => (report?.rows || []).filter((row) => {
+    () => activeRows.filter((row) => {
       const dims = Object.values(row.dimensions || {});
       return dims.length > 0 && dims.some((cell) => !cell?.passed);
     }).map((row) => row.studentId),
-    [report]
+    [activeRows]
   );
+
+  const openSaveCohort = () => {
+    if (activeRows.length === 0) return;
+    setSaveError('');
+    setSavedCohort(null);
+    setSaveOpen(true);
+  };
+
+  const handleSaveCohort = async (event) => {
+    event.preventDefault();
+    if (savingCohort || activeRows.length === 0) return;
+    setSavingCohort(true);
+    setSaveError('');
+    try {
+      const created = await createLearningAnalyticsTrackingCohort(token, {
+        name: cohortName,
+        studentIds: activeRows.map((row) => row.studentId),
+        roster: activeRows.map((row) => ({
+          studentId: row.studentId,
+          department: row.department || null,
+        })),
+      });
+      setSavedCohort(created);
+      setCohortName('');
+    } catch (err) {
+      setSaveError(err.message || '儲存追蹤名單失敗。');
+    } finally {
+      setSavingCohort(false);
+    }
+  };
 
   const activePolicies = useMemo(
     () => policies.filter((p) => !p.isArchived),
@@ -407,7 +464,8 @@ export default function LearningAnalyticsKpiReportPage() {
         <ul className="small mb-0 ps-3">
           <li className="mb-1">先選 KPI 政策與名冊學期，再按執行報表。改了條件後，上一份數字會清掉。</li>
           <li className="mb-1">分母是選定學期的在學名冊。達標是成對技能，不是單一技能是否達 B2，也不是分析快照人數。</li>
-          <li>匯出 Excel 是成對達標結果；匯出缺口名單是未達標、缺重測或無考試的人。</li>
+          <li className="mb-1">學生明細可複選年級，也可逐列勾選。沒有勾選時，上方達標比例用篩選結果；有勾選時只用勾到的人。這次報表的名冊分母不變。</li>
+          <li>匯出 Excel 是成對達標結果；匯出缺口名單是未達標、缺重測或無考試的人。這兩份匯出仍是整份名冊，不跟明細勾選走。</li>
         </ul>
       )}
     >
@@ -674,10 +732,12 @@ export default function LearningAnalyticsKpiReportPage() {
             <div className="col-md-3">
               <MetricCard
                 label="納入人數（分母）"
-                value={report.population?.totalStudents ?? '—'}
-                hint={report.population?.workingSet
-                  ? `帶來 ${report.population.workingSet.requested} 人，名冊命中 ${report.population.workingSet.matchedRoster}`
-                  : `名冊學期 ${report.population?.semesterId || ''}`}
+                value={viewSummary.total}
+                hint={viewNarrowed
+                  ? `目前明細 ${viewSummary.total} 人，名冊 ${report.population?.totalStudents ?? '—'} 人`
+                  : (report.population?.workingSet
+                    ? `帶來 ${report.population.workingSet.requested} 人，名冊命中 ${report.population.workingSet.matchedRoster}`
+                    : `名冊學期 ${report.population?.semesterId || ''}`)}
               />
             </div>
             <div className="col-md-3">
@@ -689,12 +749,12 @@ export default function LearningAnalyticsKpiReportPage() {
                   : report.population?.note}
               />
             </div>
-            {(report.summary?.dimensions || []).map((dim) => (
+            {viewSummary.dimensions.map((dim) => (
               <div className="col-md-3" key={dim.id}>
                 <MetricCard
                   label={dim.label}
                   value={formatPct(dim.rate)}
-                  hint={`${dim.passedCount} / ${report.population?.totalStudents ?? 0} 人`}
+                  hint={`${dim.passedCount} / ${viewSummary.total} 人`}
                 />
               </div>
             ))}
@@ -715,6 +775,13 @@ export default function LearningAnalyticsKpiReportPage() {
               。
             </Alert>
           ) : null}
+          {viewNarrowed ? (
+            <Alert variant="light" className="border small mb-3">
+              上方達標比例依目前篩選與勾選計算，共 {viewSummary.total} 人。
+              這次報表的名冊分母仍是 {report.population?.totalStudents ?? '—'} 人。
+              匯出 Excel 與缺口名單仍是整份名冊。
+            </Alert>
+          ) : null}
           {report.population?.workingSet ? (
             <Alert variant="light" className="border small mb-3">
               {report.population.workingSet.note}
@@ -730,7 +797,7 @@ export default function LearningAnalyticsKpiReportPage() {
               label="這份報表的學生"
               studentIds={reportStudentIds}
               total={reportStudentIds.length}
-              note="分母仍是這個學期的名冊。"
+              note={viewNarrowed ? '依目前篩選與勾選。' : '分母仍是這個學期的名冊。'}
               semester={report.population?.semesterId || ''}
               source="kpi-report"
               sourcePath="/admin/learning-analytics/kpi-report"
@@ -743,7 +810,9 @@ export default function LearningAnalyticsKpiReportPage() {
               label="未達標的學生"
               studentIds={unmetStudentIds}
               total={unmetStudentIds.length}
-              note="至少有一個達標項目未通過。"
+              note={viewNarrowed
+                ? '目前這批人裡，至少有一個達標項目未通過。'
+                : '至少有一個達標項目未通過。'}
               semester={report.population?.semesterId || ''}
               source="kpi-unmet"
               sourcePath="/admin/learning-analytics/kpi-report"
@@ -759,7 +828,7 @@ export default function LearningAnalyticsKpiReportPage() {
                   lead="歷史最佳單項 CEFR≥B2。成對缺一技能時此處仍可能顯示該技能達標。"
                 />
                 <div className="row g-3">
-                  {Object.entries(report.summary.skillBreakdown).map(([skill, cell]) => (
+                  {Object.entries(viewSummary.skillBreakdown || {}).map(([skill, cell]) => (
                     <div className="col-md-3" key={skill}>
                       <MetricCard
                         label={`${SKILL_LABELS[skill] || skill} 達 B2+`}
@@ -780,14 +849,63 @@ export default function LearningAnalyticsKpiReportPage() {
                 lead={`政策：${report.policy?.name} · 產生於 ${formatKpiGeneratedAt(report.generatedAt) || '—'} · 點學號可開個人軌跡`}
               />
               <KpiStudentDetailTable
-                key={`${report.generatedAt || ''}|${report.policy?.id || ''}|${report.population?.semesterId || ''}`}
+                key={reportIdentity}
                 rows={report.rows || []}
                 dimensions={report.summary?.dimensions || []}
+                onCountedRowsChange={handleCountedRows}
+                onSave={openSaveCohort}
               />
             </div>
           </div>
         </>
       ) : null}
+
+      <Modal show={saveOpen} onHide={() => setSaveOpen(false)} centered>
+        <Form onSubmit={handleSaveCohort}>
+          <Modal.Header closeButton>
+            <Modal.Title as="h2" className="h5 mb-0">儲存追蹤名單</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p className="small text-muted">
+              會固定目前卡片正在計算的學號，以及當時的英檢、活動時數與修課時數。之後打開同一份名單，用最新數據和這次的數字比較。
+            </p>
+            {activeRows.length > TRACKING_MEMBER_LIMIT ? (
+              <Alert variant="warning" className="py-2">
+                目前 {activeRows.length.toLocaleString('zh-Hant')} 人，這份名單只會保留依學號排序的前 {TRACKING_MEMBER_LIMIT.toLocaleString('zh-Hant')} 人。
+              </Alert>
+            ) : (
+              <p className="small mb-2">將儲存 {activeRows.length.toLocaleString('zh-Hant')} 人。</p>
+            )}
+            <Form.Group>
+              <Form.Label htmlFor="kpi-tracking-name">名單名稱</Form.Label>
+              <Form.Control
+                id="kpi-tracking-name"
+                value={cohortName}
+                maxLength={80}
+                autoFocus
+                placeholder="例如：114-2 大二至大四"
+                onChange={(event) => setCohortName(event.target.value)}
+              />
+            </Form.Group>
+            {saveError ? <Alert variant="danger" className="py-2 mt-3 mb-0">{saveError}</Alert> : null}
+            {savedCohort ? (
+              <Alert variant="success" className="py-2 mt-3 mb-0">
+                已儲存「{savedCohort.name}」
+                {savedCohort.truncated ? `，保留前 ${savedCohort.memberCount.toLocaleString('zh-Hant')} 人` : ''}
+                。
+                {' '}
+                <Link to={`/admin/learning-analytics/tracking-cohorts/${savedCohort.id}`}>打開這份名單</Link>
+              </Alert>
+            ) : null}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button type="button" variant="outline-secondary" onClick={() => setSaveOpen(false)}>關閉</Button>
+            <Button type="submit" variant="primary" disabled={savingCohort || !cohortName.trim() || Boolean(savedCohort)}>
+              {savingCohort ? '儲存中…' : '儲存'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
 
       <KpiPolicyEditorModal
         show={editorOpen}

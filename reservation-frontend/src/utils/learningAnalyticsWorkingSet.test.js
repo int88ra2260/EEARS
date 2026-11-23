@@ -4,6 +4,8 @@ import {
   isWorkingSetSuspended,
   readWorkingSet,
   rebindWorkingSet,
+  adoptWorkingSetOnDestination,
+  resolveWorkingSetSuspension,
   saveWorkingSet,
   workingSetCoversPath,
 } from './learningAnalyticsWorkingSet';
@@ -91,5 +93,27 @@ describe('learning analytics working set', () => {
     expect(workingSetCoversPath(saved.appliedPath, '/admin/learning-analytics/students/S100')).toBe(true);
     expect(workingSetCoversPath(saved.appliedPath, '/admin/learning-analytics/overview')).toBe(false);
     expect(workingSetCoversPath('', '/admin/learning-analytics/kpi-report')).toBe(false);
+  });
+
+  test('applies the clicked list on arrival even when the destination semester differs', () => {
+    const set = saveWorkingSet({
+      label: '這份報表的學生',
+      studentIds: ['S100'],
+      appliedPath: '/admin/learning-analytics/raw-data',
+      bindToDestination: true,
+      context: { snapshotVersion: '', semester: '114-2' },
+    });
+    expect(resolveWorkingSetSuspension(
+      set,
+      { snapshotVersion: '', semester: '' },
+      { onDestination: true },
+    )).toBe('');
+
+    const adopted = adoptWorkingSetOnDestination({ snapshotVersion: 'snap-a', semester: '' });
+    expect(adopted.bindToDestination).toBe(false);
+    expect(adopted.context).toEqual({ snapshotVersion: 'snap-a', semester: '' });
+    expect(adopted.studentIds).toEqual(['S100']);
+    expect(isWorkingSetSuspended(adopted, { snapshotVersion: 'snap-a', semester: '' })).toBe('');
+    expect(isWorkingSetSuspended(adopted, { snapshotVersion: 'snap-b', semester: '' })).toBe('snapshot');
   });
 });

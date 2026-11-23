@@ -4,7 +4,9 @@ const { LjTrackingCohort, LjTrackingCohortMember, sequelize } = require('../../m
 const {
   listStudentExplorerForExport,
   loadCurrentMetricsForStudents,
+  EXPORT_ROW_LIMIT,
 } = require('./learningAnalyticsStudentExplorerService');
+const { normalizeStudentIdList } = require('./workingSetIds');
 const { examRecordLabel } = require('./learningAnalyticsStudentExplorerExportService');
 
 const PAGE_SIZE_DEFAULT = 40;
@@ -94,6 +96,23 @@ function parsePage(query = {}) {
   return { limit, offset };
 }
 
+function handoffFromMembers(members, cohort = {}) {
+  const studentIds = [];
+  const seen = new Set();
+  for (const member of members || []) {
+    const id = String(member.studentId || '').trim().toUpperCase();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    studentIds.push(id);
+  }
+  const sourceTotal = Number(cohort.sourceTotal) || studentIds.length;
+  return {
+    studentIds,
+    total: Math.max(sourceTotal, studentIds.length),
+    truncated: Boolean(cohort.truncated) || sourceTotal > studentIds.length,
+  };
+}
+
 function presentCohort(row) {
   return {
     id: Number(row.id),
@@ -108,10 +127,113 @@ function presentCohort(row) {
   };
 }
 
-async function createTrackingCohort({ name, query = {}, user = {} } = {}) {
+function membersFromStudentIds(studentIds, metricsById = new Map(), roster = [], limit = EXPORT_ROW_LIMIT) {
+  const ordered = [...(normalizeStudentIdList(studentIds) || [])]
+    .sort((left, right) => left.localeCompare(right, 'en', { numeric: true }));
+  const rosterById = new Map();
+  for (const item of roster || []) {
+    const id = String(item?.studentId || '').trim().toUpperCase();
+    if (!id || rosterById.has(id)) continue;
+    rosterById.set(id, item);
+  }
+  const cap = Math.max(1, Number(limit) || EXPORT_ROW_LIMIT);
+  const kept = ordered.slice(0, cap);
+  const members = kept.map((id) => {
+    const current = metricsById.get(id);
+    const hint = rosterById.get(id);
+    if (current) {
+      return {
+        studentId: current.studentId || id,
+        studentName: current.studentName || null,
+        department: current.department || hint?.department || null,
+        enrollmentCohort: current.cohort || null,
+        placementLabel: current.placementLabel || null,
+        examLabel: examRecordLabel(current),
+        activityHours: current.totalActivityHours,
+        courseHours: current.totalCourseHours,
+      };
+    }
+    return {
+      studentId: id,
+      studentName: null,
+      department: hint?.department || null,
+      enrollmentCohort: null,
+      placementLabel: null,
+      examLabel: '無',
+      activityHours: null,
+      courseHours: null,
+    };
+  });
+  return {
+    members,
+    sourceTotal: ordered.length,
+    truncated: ordered.length > kept.length,
+    maxRows: cap,
+  };
+}
+
+async function persistTrackingCohort({
+  name,
+  filters,
+  snapshotVersion,
+  members,
+  sourceTotal,
+  truncated,
+  user = {},
+}) {
+  const cohort = await sequelize.transaction(async (transaction) => {
+    const created = await LjTrackingCohort.create({
+      name,
+      filtersJson: filters || {},
+      snapshotVersion: snapshotVersion || null,
+      memberCount: members.length,
+      sourceTotal,
+      truncated: !!truncated,
+      createdBy: user.id || null,
+      createdByName: user.name || user.user || null,
+    }, { transaction });
+
+    for (let index = 0; index < members.length; index += MEMBER_INSERT_CHUNK) {
+      await LjTrackingCohortMember.bulkCreate(
+        members.slice(index, index + MEMBER_INSERT_CHUNK).map((member) => ({
+          ...member,
+          cohortId: created.id,
+        })),
+        { transaction },
+      );
+    }
+    return created;
+  });
+
+  return cohort;
+}
+
+async function createTrackingCohort({ name, query = {}, studentIds, roster = [], user = {} } = {}) {
   const trimmed = String(name || '').trim();
   if (!trimmed) throw httpError('請填追蹤名單名稱。', 400);
   if (trimmed.length > 80) throw httpError('名單名稱最多 80 字。', 400);
+
+  if (Array.isArray(studentIds)) {
+    const listed = membersFromStudentIds(studentIds, new Map(), roster);
+    if (!listed.members.length) throw httpError('這個條件下沒有學生可儲存。', 400);
+    const keptIds = listed.members.map((member) => member.studentId);
+    const { snapshotVersion, byId } = await loadCurrentMetricsForStudents(keptIds);
+    const withMetrics = membersFromStudentIds(studentIds, byId, roster);
+    const cohort = await persistTrackingCohort({
+      name: trimmed,
+      filters: { source: 'explicit-student-ids' },
+      snapshotVersion,
+      members: withMetrics.members,
+      sourceTotal: withMetrics.sourceTotal,
+      truncated: withMetrics.truncated,
+      user,
+    });
+    return {
+      ...presentCohort(cohort),
+      truncated: withMetrics.truncated,
+      maxRows: withMetrics.maxRows,
+    };
+  }
 
   const listed = await listStudentExplorerForExport(query);
   if (!listed.items.length) throw httpError('這個條件下沒有學生可儲存。', 400);
@@ -127,28 +249,14 @@ async function createTrackingCohort({ name, query = {}, user = {} } = {}) {
     courseHours: item.totalCourseHours,
   }));
 
-  const cohort = await sequelize.transaction(async (transaction) => {
-    const created = await LjTrackingCohort.create({
-      name: trimmed,
-      filtersJson: listed.appliedFilters || {},
-      snapshotVersion: listed.snapshotVersion || null,
-      memberCount: members.length,
-      sourceTotal: listed.total,
-      truncated: !!listed.truncated,
-      createdBy: user.id || null,
-      createdByName: user.name || user.user || null,
-    }, { transaction });
-
-    for (let index = 0; index < members.length; index += MEMBER_INSERT_CHUNK) {
-      await LjTrackingCohortMember.bulkCreate(
-        members.slice(index, index + MEMBER_INSERT_CHUNK).map((member) => ({
-          ...member,
-          cohortId: created.id,
-        })),
-        { transaction },
-      );
-    }
-    return created;
+  const cohort = await persistTrackingCohort({
+    name: trimmed,
+    filters: listed.appliedFilters || {},
+    snapshotVersion: listed.snapshotVersion,
+    members,
+    sourceTotal: listed.total,
+    truncated: listed.truncated,
+    user,
   });
 
   return {
@@ -179,6 +287,7 @@ async function getTrackingCohort(id, query = {}) {
     cohort: presentCohort(cohort),
     currentSnapshotVersion: snapshotVersion,
     summary: summarizeComparisons(compared),
+    handoff: handoffFromMembers(members, cohort),
     items: compared.slice(offset, offset + limit),
     pagination: {
       limit,
@@ -199,6 +308,8 @@ async function deleteTrackingCohort(id) {
 module.exports = {
   compareMember,
   summarizeComparisons,
+  handoffFromMembers,
+  membersFromStudentIds,
   createTrackingCohort,
   listTrackingCohorts,
   getTrackingCohort,

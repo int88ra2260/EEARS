@@ -3,6 +3,8 @@
 const {
   compareMember,
   summarizeComparisons,
+  handoffFromMembers,
+  membersFromStudentIds,
 } = require('../services/learningAnalytics/learningAnalyticsTrackingCohortService');
 
 describe('learningAnalyticsTrackingCohortService', () => {
@@ -75,6 +77,53 @@ describe('learningAnalyticsTrackingCohortService', () => {
       courseHoursUp: 0,
       averageActivityDelta: 1.5,
       averageCourseDelta: 0,
+    });
+  });
+
+  it('keeps an explicit student list, including people missing from the snapshot', () => {
+    const saved = membersFromStudentIds(
+      ['b002', 'B002', 'a001'],
+      new Map([
+        ['A001', {
+          studentId: 'A001',
+          studentName: '林小安',
+          department: '外文系',
+          cohort: '113',
+          placementLabel: '中級',
+          hasPreTest: true,
+          hasValidExam: true,
+          totalActivityHours: 4,
+          totalCourseHours: 12,
+        }],
+      ]),
+      [{ studentId: 'b002', department: '電機系' }],
+      1,
+    );
+
+    expect(saved.sourceTotal).toBe(2);
+    expect(saved.truncated).toBe(true);
+    expect(saved.members).toEqual([{
+      studentId: 'A001',
+      studentName: '林小安',
+      department: '外文系',
+      enrollmentCohort: '113',
+      placementLabel: '中級',
+      examLabel: '前測',
+      activityHours: 4,
+      courseHours: 12,
+    }]);
+    expect(membersFromStudentIds(['b002'], new Map(), [{ studentId: 'B002', department: '電機系' }]).members[0])
+      .toMatchObject({ studentId: 'B002', department: '電機系', examLabel: '無' });
+  });
+
+  it('hands off every saved student id, including when the list was truncated at save time', () => {
+    expect(handoffFromMembers(
+      [{ studentId: 'b001' }, { studentId: 'B001' }, { studentId: 'b002' }],
+      { sourceTotal: 4, truncated: true },
+    )).toEqual({
+      studentIds: ['B001', 'B002'],
+      total: 4,
+      truncated: true,
     });
   });
 });

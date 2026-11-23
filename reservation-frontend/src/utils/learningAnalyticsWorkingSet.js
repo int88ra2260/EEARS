@@ -19,6 +19,7 @@ const EMPTY_SET = Object.freeze({
   truncated: false,
   savedAt: '',
   appliedPath: '',
+  bindToDestination: false,
   context: EMPTY_CONTEXT,
 });
 
@@ -77,6 +78,7 @@ export function readWorkingSet() {
       truncated: Boolean(parsed.truncated) || (Number(parsed.total) > studentIds.length),
       savedAt: String(parsed.savedAt || ''),
       appliedPath: normalizeAnalyticsPath(parsed.appliedPath),
+      bindToDestination: Boolean(parsed.bindToDestination),
       context: readContext(parsed),
     };
   } catch {
@@ -97,6 +99,7 @@ export function saveWorkingSet(set) {
     truncated: Boolean(set?.truncated) || total > studentIds.length,
     savedAt: new Date().toISOString(),
     appliedPath: normalizeAnalyticsPath(set?.appliedPath),
+    bindToDestination: Boolean(set?.bindToDestination),
     context: readContext(set),
   };
   try {
@@ -131,7 +134,30 @@ export function isWorkingSetSuspended(set, scope) {
 export function passWorkingSetTo(path) {
   const current = readWorkingSet();
   if (!current.studentIds.length) return current;
-  return saveWorkingSet({ ...current, appliedPath: path });
+  return saveWorkingSet({ ...current, appliedPath: path, bindToDestination: true });
+}
+
+/**
+ * 這次點擊剛到達目的頁時，先直接套用名單。
+ * 目的頁的學期或資料版本和來源不同（匯出頁學期常是空白），不能因此要再按一次。
+ * 對齊目的頁目前的範圍後，使用者再改範圍才會暫停。
+ */
+export function resolveWorkingSetSuspension(set, scope, { onDestination = false } = {}) {
+  if (set?.bindToDestination && onDestination) return '';
+  return isWorkingSetSuspended(set, scope);
+}
+
+export function adoptWorkingSetOnDestination(scope = {}) {
+  const current = readWorkingSet();
+  if (!current.studentIds.length || !current.bindToDestination) return current;
+  const context = { ...current.context };
+  if (Object.prototype.hasOwnProperty.call(scope, 'snapshotVersion')) {
+    context.snapshotVersion = String(scope.snapshotVersion || '');
+  }
+  if (Object.prototype.hasOwnProperty.call(scope, 'semester')) {
+    context.semester = String(scope.semester || '');
+  }
+  return saveWorkingSet({ ...current, context, bindToDestination: false });
 }
 
 export function rebindWorkingSet(scope = {}) {
@@ -190,14 +216,18 @@ export function useLearningAnalyticsWorkingSet(scope) {
 
   const studentIds = set.studentIds;
   const onDestination = workingSetCoversPath(set.appliedPath, location.pathname);
-  const suspendedReason = isWorkingSetSuspended(set, (
-    snapshotVersion === undefined && semester === undefined
-      ? null
-      : {
-        ...(snapshotVersion !== undefined ? { snapshotVersion } : {}),
-        ...(semester !== undefined ? { semester } : {}),
-      }
-  ));
+  const destinationScope = snapshotVersion === undefined && semester === undefined
+    ? null
+    : {
+      ...(snapshotVersion !== undefined ? { snapshotVersion } : {}),
+      ...(semester !== undefined ? { semester } : {}),
+    };
+  const suspendedReason = resolveWorkingSetSuspension(set, destinationScope, { onDestination });
+
+  useEffect(() => {
+    if (!onDestination || !set.bindToDestination) return;
+    setSet(adoptWorkingSetOnDestination(destinationScope || {}));
+  }, [onDestination, set.bindToDestination, snapshotVersion, semester]); // eslint-disable-line react-hooks/exhaustive-deps -- destinationScope is derived from these primitives
   const withWorkingSet = useCallback((params = {}) => {
     if (!studentIds.length || suspendedReason || !onDestination) return params;
     return { ...params, studentIds };
