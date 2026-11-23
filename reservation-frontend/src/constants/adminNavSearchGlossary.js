@@ -241,6 +241,7 @@ export const ADMIN_NAV_SEARCH_GLOSSARY = {
   analytics: ['報表', '分析', 'KPI'],
   'analytics-students': ['學號搜尋', '舊查詢', '學生查詢'],
   'analytics-overview': ['活動營運', '預約率', '名額利用率', '簽到', '違規'],
+  'analytics-visits': ['公開頁造訪', '來站時段', '登入順序', '瀏覽人次', 'visit insights'],
   'analytics-risk': ['高關注名單', '高風險', '行政追蹤', '輔導名單'],
   'analytics-reports': ['下載', 'Excel', '匯出報表', '營運報表'],
   'analytics-teacher-dash': ['教學儀表板', '我的教學', '老師儀表板'],
