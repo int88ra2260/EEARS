@@ -54,6 +54,7 @@ const CourseGuidePage = lazy(() => import('./pages/CourseGuidePage'));
 const HomeImmersiveTestPage = lazy(() => import('./pages/HomeImmersiveTestPage'));
 const CampusJourneyDraftPage = lazy(() => import('./pages/CampusJourneyDraftPage'));
 const ScrollWorldPacksPreviewPage = lazy(() => import('./pages/ScrollWorldPacksPreviewPage'));
+const MapPracticePage = lazy(() => import('./pages/playground/MapPracticePage'));
 const LearningResourcesPage = lazy(() => import('./pages/LearningResourcesPage'));
 const RegulationsFormsPage = lazy(() => import('./pages/RegulationsFormsPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
@@ -494,6 +495,7 @@ function AppContent() {
             <Route path="/scrollworldtest" element={<Navigate to="/" replace />} />
             <Route path="/campus-journey-draft" element={<CampusJourneyDraftPage />} />
             <Route path="/scroll-world-packs" element={<ScrollWorldPacksPreviewPage />} />
+            <Route path="/playground/3d-map" element={<MapPracticePage />} />
             <Route path="/course-guide" element={<CourseGuidePage />} />
             <Route path="/contact" element={<Navigate to="/about#contact" replace />} />
             <Route path="/privacy" element={<PrivacyPage />} />

@@ -25,6 +25,7 @@ export default function PublicLayout({ children, homeBanner = null }) {
   const isLeadersTeam = location.pathname === '/activities/english-table/leaders';
   const pagePath = location.pathname.replace(/\/+$/, '') || '/';
   const isWideCatalog = pagePath === '/events' || pagePath === '/activities' || pagePath === '/learning-resources';
+  const isMapPractice = pagePath === '/playground/3d-map';
   const isFullBleed = isHome || isHomeTest || isAbout;
 
   if (!isPublic) {
@@ -56,7 +57,7 @@ export default function PublicLayout({ children, homeBanner = null }) {
                 : ' public-site--home'
               : ' public-site--about'
             : ' container mt-3 mb-4'
-        }${isLeadersTeam ? ' public-site--leaders' : ''}${isWideCatalog ? ' public-site--wide' : ''}`}
+        }${isLeadersTeam ? ' public-site--leaders' : ''}${isWideCatalog || isMapPractice ? ' public-site--wide' : ''}`}
         style={{ flex: '1 1 auto' }}
         tabIndex={-1}
       >
