@@ -17,11 +17,13 @@ export function intentForLocation(pathname, search = '') {
 export function createInsightState(loggedIn) {
   return {
     hourSent: false,
+    deviceSent: false,
     intent: null,
     sawReserveLoggedOut: false,
     loggedInThisVisit: false,
     arrivedLoggedIn: !!loggedIn,
     orderSent: false,
+    scrollWorld: null,
   };
 }
 
@@ -45,12 +47,17 @@ export function saveInsightState(state) {
   }
 }
 
-export function reduceInsight(state, { pathname, search, loggedIn }) {
+export function reduceInsight(state, input) {
+  const { pathname, search, loggedIn } = input;
   const events = [];
   const next = { ...state };
   if (!next.hourSent) {
     events.push({ type: 'visit_hour' });
     next.hourSent = true;
+  }
+  if (!next.deviceSent && typeof input.isDesktop === 'boolean') {
+    events.push({ type: 'device', key: input.isDesktop ? 'desktop' : 'phone' });
+    next.deviceSent = true;
   }
   const intent = intentForLocation(pathname, search);
   if (intent && !next.intent) {
@@ -72,6 +79,32 @@ export function reduceInsight(state, { pathname, search, loggedIn }) {
     }
   }
   return { state: next, events };
+}
+
+export function markScrollWorldShown(state) {
+  if (!state || state.scrollWorld) return { state, events: [] };
+  return {
+    state: { ...state, scrollWorld: 'shown' },
+    events: [{ type: 'scroll_world', key: 'shown' }],
+  };
+}
+
+export function markScrollWorldScrolled(state) {
+  if (!state || state.scrollWorld === 'scrolled' || state.scrollWorld === 'closed') {
+    return { state, events: [] };
+  }
+  const events = [];
+  if (!state.scrollWorld) events.push({ type: 'scroll_world', key: 'shown' });
+  events.push({ type: 'scroll_world', key: 'scrolled' });
+  return { state: { ...state, scrollWorld: 'scrolled' }, events };
+}
+
+export function finishScrollWorld(state, key) {
+  if (!state || state.scrollWorld !== 'shown') return { state, events: [] };
+  return {
+    state: { ...state, scrollWorld: 'closed' },
+    events: [{ type: 'scroll_world', key }],
+  };
 }
 
 export function closingInsightEvents(state, loggedIn) {

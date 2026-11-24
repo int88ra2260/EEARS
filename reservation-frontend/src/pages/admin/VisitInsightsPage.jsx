@@ -64,7 +64,7 @@ export default function VisitInsightsPage() {
       </p>
       <h1 className="h3">造訪目的</h1>
       <p className="text-muted">
-        每一趟公開頁造訪只記一次。目的是這趟最先進入的預約、公告或課堂加分頁面。時段是台北時間。不記學號、姓名或信箱。上線前的造訪不會出現在這裡。
+        每一趟公開頁造訪只記一次。目的是這趟最先進入的預約、公告或課堂加分頁面。時段是台北時間。不記學號、姓名或信箱。上線前的造訪不會出現在這裡。裝置與 scroll-world 從這次上線後才開始記。
       </p>
       <div className="d-flex gap-2 mb-3">
         {[7, 30].map((value) => (
@@ -83,6 +83,48 @@ export default function VisitInsightsPage() {
       {error && <Alert variant="danger">{error}</Alert>}
       {data && !loading && (
         <>
+          <h2 className="h5 mt-3">用什麼裝置</h2>
+          <p className="text-muted small">
+            寬度至少 861px 算電腦，這也是首頁會出現 scroll-world 的寬度。較窄的視窗算手機。同一趟只記一次。
+          </p>
+          <Table bordered responsive>
+            <tbody>
+              <tr>
+                <td>電腦</td>
+                <td>{data.devices?.desktop || 0}</td>
+              </tr>
+              <tr>
+                <td>手機</td>
+                <td>{data.devices?.phone || 0}</td>
+              </tr>
+            </tbody>
+          </Table>
+
+          <h2 className="h5">scroll-world 有沒有被使用</h2>
+          <p className="text-muted small">
+            只算電腦首頁真的打開沉浸層的人。捲動、方向鍵、點主題或點裡面的連結算有使用。自動進場動畫不算。手機不會出現這層。
+          </p>
+          <Table bordered responsive>
+            <tbody>
+              <tr>
+                <td>有看到</td>
+                <td>{data.scrollWorld?.shown || 0}</td>
+              </tr>
+              <tr>
+                <td>有操作</td>
+                <td>{data.scrollWorld?.scrolled || 0}</td>
+              </tr>
+              <tr>
+                <td>按關閉，而且幾乎沒操作</td>
+                <td>{data.scrollWorld?.closed_idle || 0}</td>
+              </tr>
+              <tr>
+                <td>沒按關閉就離開，而且幾乎沒操作</td>
+                <td>{data.scrollWorld?.left_idle || 0}</td>
+              </tr>
+            </tbody>
+          </Table>
+
           <h2 className="h5 mt-3">這趟來做什麼</h2>
           <Table bordered responsive>
             <thead>

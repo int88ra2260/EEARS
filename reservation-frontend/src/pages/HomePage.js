@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import HomeHero from '../components/home/HomeHero';
 import AnnouncementPreview from '../components/home/AnnouncementPreview';
 import FAQSection from '../components/home/FAQSection';
@@ -34,6 +34,7 @@ export default function HomePage() {
   const [isDesktop, setIsDesktop] = useState(readIsDesktop);
   const [dismissed, setDismissed] = useState(readDismissed);
   const [homePackId] = useState(() => takeNextHomeScrollWorldPackId());
+  const closedByButtonRef = useRef(false);
   const showOverlay = isDesktop && !dismissed;
 
   useEffect(() => {
@@ -70,15 +71,20 @@ export default function HomePage() {
     document.body.classList.add('swt-overlay-open');
     wrapper?.classList.add('app-wrapper--scrollworld');
     main?.classList.add('public-site--home', 'public-site--scrollworld');
+    window.dispatchEvent(new CustomEvent('eears-sw-overlay-opened'));
 
     return () => {
       document.body.classList.remove('swt-overlay-open');
       wrapper?.classList.remove('app-wrapper--scrollworld');
       main?.classList.remove('public-site--scrollworld');
+      if (!closedByButtonRef.current) {
+        window.dispatchEvent(new CustomEvent('eears-sw-overlay-left'));
+      }
     };
   }, [showOverlay]);
 
   const dismissOverlay = useCallback(() => {
+    closedByButtonRef.current = true;
     try {
       sessionStorage.setItem(HOME_SW_DISMISSED_KEY, '1');
     } catch (_) {

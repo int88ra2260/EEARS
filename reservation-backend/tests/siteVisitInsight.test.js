@@ -59,6 +59,28 @@ describe('site visit insights', () => {
     expect(hourCall[0].bucketKey).toMatch(/^\d{1,2}$/);
   });
 
+  it('counts device and scroll-world without storing identity', async () => {
+    const res = await request(createApp())
+      .post('/api/stats/visit-insights')
+      .send({
+        events: [
+          { type: 'device', key: 'desktop' },
+          { type: 'scroll_world', key: 'shown' },
+          { type: 'scroll_world', key: 'closed_idle' },
+        ],
+      });
+
+    expect(res.status).toBe(204);
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+      bucketType: 'device',
+      bucketKey: 'desktop',
+    }));
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+      bucketType: 'scroll_world',
+      bucketKey: 'closed_idle',
+    }));
+  });
+
   it('rejects a burst of events', async () => {
     const res = await request(createApp())
       .post('/api/stats/visit-insights')

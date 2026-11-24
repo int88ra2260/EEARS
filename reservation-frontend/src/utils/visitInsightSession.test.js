@@ -1,7 +1,10 @@
 import {
   closingInsightEvents,
   createInsightState,
+  finishScrollWorld,
   intentForLocation,
+  markScrollWorldScrolled,
+  markScrollWorldShown,
   reduceInsight,
 } from './visitInsightSession';
 
@@ -53,6 +56,37 @@ describe('visit insight session', () => {
 
   it('reads class credit from the login next path', () => {
     expect(intentForLocation('/student/login', '?next=%2Fstudent%2Fclass-credit-allocation')).toBe('class_credit');
+  });
+
+  it('records the device once for the visit', () => {
+    const opened = reduceInsight(createInsightState(false), {
+      pathname: '/',
+      search: '',
+      loggedIn: false,
+      isDesktop: false,
+    });
+    expect(opened.events).toContainEqual({ type: 'device', key: 'phone' });
+    const again = reduceInsight(opened.state, {
+      pathname: '/announcements',
+      search: '',
+      loggedIn: false,
+      isDesktop: true,
+    });
+    expect(again.events.some((event) => event.type === 'device')).toBe(false);
+  });
+
+  it('counts scroll-world use separately from closing without using it', () => {
+    const shown = markScrollWorldShown(createInsightState(false));
+    expect(shown.events).toEqual([{ type: 'scroll_world', key: 'shown' }]);
+    expect(markScrollWorldShown(shown.state).events).toEqual([]);
+
+    const used = markScrollWorldScrolled(shown.state);
+    expect(used.events).toEqual([{ type: 'scroll_world', key: 'scrolled' }]);
+    expect(finishScrollWorld(used.state, 'closed_idle').events).toEqual([]);
+
+    const closed = finishScrollWorld(shown.state, 'closed_idle');
+    expect(closed.events).toEqual([{ type: 'scroll_world', key: 'closed_idle' }]);
+    expect(finishScrollWorld(createInsightState(false), 'left_idle').events).toEqual([]);
   });
 
   it('counts a reserve visit that leaves without login', () => {

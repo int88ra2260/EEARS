@@ -12,6 +12,8 @@ const LOGIN_ORDER_KEYS = new Set([
   'reserve_without_login',
   'login_without_reserve',
 ]);
+const DEVICE_KEYS = new Set(['desktop', 'phone']);
+const SCROLL_WORLD_KEYS = new Set(['shown', 'scrolled', 'closed_idle', 'left_idle']);
 
 function taipeiNow(date = new Date()) {
   const fmt = new Intl.DateTimeFormat('en-US', {
@@ -68,6 +70,14 @@ function normalizeEvents(body) {
     }
     if (type === 'login_order' && LOGIN_ORDER_KEYS.has(item.key)) {
       events.push({ bucketType: 'login_order', bucketKey: item.key });
+      continue;
+    }
+    if (type === 'device' && DEVICE_KEYS.has(item.key)) {
+      events.push({ bucketType: 'device', bucketKey: item.key });
+      continue;
+    }
+    if (type === 'scroll_world' && SCROLL_WORLD_KEYS.has(item.key)) {
+      events.push({ bucketType: 'scroll_world', bucketKey: item.key });
     }
   }
   return { statDate, events };
@@ -111,6 +121,8 @@ function emptySummary(since, days) {
     },
     hours: Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0 })),
     weekdays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, count: 0 })),
+    devices: { desktop: 0, phone: 0 },
+    scrollWorld: { shown: 0, scrolled: 0, closed_idle: 0, left_idle: 0 },
   };
 }
 
@@ -130,6 +142,12 @@ async function summarizeVisitInsights({ days = 30 } = {}) {
     }
     if (plain.bucketType === 'login_order' && Object.prototype.hasOwnProperty.call(summary.loginOrders, plain.bucketKey)) {
       summary.loginOrders[plain.bucketKey] += count;
+    }
+    if (plain.bucketType === 'device' && Object.prototype.hasOwnProperty.call(summary.devices, plain.bucketKey)) {
+      summary.devices[plain.bucketKey] += count;
+    }
+    if (plain.bucketType === 'scroll_world' && Object.prototype.hasOwnProperty.call(summary.scrollWorld, plain.bucketKey)) {
+      summary.scrollWorld[plain.bucketKey] += count;
     }
     if (plain.bucketType === 'visit_hour') {
       const hour = Number(plain.bucketKey);

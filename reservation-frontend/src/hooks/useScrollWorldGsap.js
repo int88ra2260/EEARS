@@ -746,11 +746,18 @@ export default function useScrollWorldGsap({ sections, connectors, videoRefs }) 
         scrubRaf = requestAnimationFrame(flushScrub);
       };
 
+      let userMoved = false;
+      const noteUserMoved = () => {
+        if (userMoved) return;
+        userMoved = true;
+        window.dispatchEvent(new CustomEvent('eears-sw-engaged'));
+      };
+
       const onWheel = (e) => {
         e.preventDefault();
-        if (animating) return;
-
         const dy = e.deltaY;
+        if (Math.abs(dy) >= 2) noteUserMoved();
+        if (animating) return;
         if (Math.abs(dy) < 2) return;
         dismissHint();
 
@@ -802,6 +809,9 @@ export default function useScrollWorldGsap({ sections, connectors, videoRefs }) 
       };
 
       const onKeyDown = (e) => {
+        if (['ArrowDown', 'PageDown', 'ArrowUp', 'PageUp', ' ', 'Spacebar'].includes(e.key)) {
+          noteUserMoved();
+        }
         if (animating) return;
         const zone = zones[sectionIndex];
         const step = freeSpan * 0.22;
@@ -828,6 +838,7 @@ export default function useScrollWorldGsap({ sections, connectors, videoRefs }) 
       };
 
       const onHintActivate = () => {
+        noteUserMoved();
         if (animating) return;
         const zone = zones[sectionIndex];
         const mid = (zone.start + zone.end) / 2;
@@ -840,13 +851,21 @@ export default function useScrollWorldGsap({ sections, connectors, videoRefs }) 
       };
 
       const onJumpClick = (e) => {
+        noteUserMoved();
         if (animating) return;
         const raw = e.currentTarget?.dataset?.swtJump;
         const targetIndex = Number.parseInt(raw ?? '', 10);
         if (!Number.isNaN(targetIndex)) jumpToSection(targetIndex);
       };
 
+      const onUseClick = (event) => {
+        const el = event.target?.closest?.('a, button');
+        if (!el || !root.contains(el) || el.classList.contains('swt-close')) return;
+        noteUserMoved();
+      };
+
       root.addEventListener('wheel', onWheel, { passive: false });
+      root.addEventListener('click', onUseClick);
       root.addEventListener('touchstart', onTouchStart, { passive: true });
       root.addEventListener('touchmove', onTouchMove, { passive: true });
       root.addEventListener('touchend', onTouchEnd, { passive: true });
@@ -885,6 +904,7 @@ export default function useScrollWorldGsap({ sections, connectors, videoRefs }) 
         gsap.killTweensOf(progressState);
         if (scrubRaf) cancelAnimationFrame(scrubRaf);
         root.removeEventListener('wheel', onWheel);
+        root.removeEventListener('click', onUseClick);
         root.removeEventListener('touchstart', onTouchStart);
         root.removeEventListener('touchmove', onTouchMove);
         root.removeEventListener('touchend', onTouchEnd);
