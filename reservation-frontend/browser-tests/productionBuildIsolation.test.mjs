@@ -111,9 +111,10 @@ describe('production build isolation from analytics browser harness', () => {
     expect(builtIndex).not.toContain('app-main');
     expect(builtIndex).toMatch(/assets\/index-.*\.js/);
 
+    // 正式產物含 sourcemap；本機已有 build/ 時，整包讀取會超過 Vitest 預設 5 秒。
     const files = walkFiles(buildDir).filter((file) => /\.(html|js|css|map)$/i.test(file));
     expect(collectHits(files, HARNESS_NEEDLES)).toEqual([]);
-  });
+  }, 120000);
 
   test('shipped web.config is IIS reverse-proxy to Node, not Vite test SPA fallback', () => {
     const publicConfig = fs.readFileSync(path.join(root, 'public', 'web.config'), 'utf8');
