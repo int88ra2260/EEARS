@@ -8,6 +8,9 @@ import useConfirm from './ui/useConfirm';
 import useToast from './ui/useToast';
 import { P } from '../constants/permissions';
 import { hasAnyPermission } from '../utils/accessControl';
+import { fetchSemesterReservations } from '../services/blacklistAdminApi';
+import { createEventViolation } from '../services/eventAdminService';
+import ViolationReservationPickerModal from './admin/violations/ViolationReservationPickerModal';
 
 // 學期日期範圍判斷函數
 function getSemesterInfo(date) {
@@ -73,7 +76,17 @@ function ViolationManagement() {
   // ===== 違規登記 =====
   const [violationStudentId, setViolationStudentId] = useState('');
   const [violationName, setViolationName] = useState('');
-  const [violationReason, setViolationReason] = useState('');
+  const [lookupError, setLookupError] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerSubmitting, setPickerSubmitting] = useState(false);
+  const [pickerError, setPickerError] = useState('');
+  const [pickerSemester, setPickerSemester] = useState('');
+  const [pickerStudent, setPickerStudent] = useState(null);
+  const [pickerReservations, setPickerReservations] = useState([]);
+  const [selectedReservationId, setSelectedReservationId] = useState('');
+  const [violationType, setViolationType] = useState('預約未到');
+  const [violationDescription, setViolationDescription] = useState('');
 
   // 角色權限檢查
   const actualUserRole = userRole || 'worker';
@@ -83,6 +96,7 @@ function ViolationManagement() {
     P.CAN_VIEW_BLACKLIST,
   ]);
   const canManageBlacklist = accessProfile?.permissionSet?.has(P.CAN_MANAGE_BLACKLIST);
+  const canRecordEventViolation = accessProfile?.permissionSet?.has(P.CAN_MANAGE_VIOLATIONS);
 
   // 取得黑名單紀錄
   const fetchBlacklistRecords = async (semester = 'all') => {
@@ -129,44 +143,79 @@ function ViolationManagement() {
     fetchBlacklistRecords(semester);
   };
 
-  // 登記違規
-  const handleRecordViolation = async () => {
-    if (!violationStudentId.trim() || !violationName.trim() || !violationReason.trim()) {
-      toast.warning('請填寫所有必填欄位');
+  const resetPicker = () => {
+    setPickerOpen(false);
+    setPickerError('');
+    setPickerSemester('');
+    setPickerStudent(null);
+    setPickerReservations([]);
+    setSelectedReservationId('');
+    setViolationType('預約未到');
+    setViolationDescription('');
+  };
+
+  const handleLookupReservations = async () => {
+    if (!canRecordEventViolation) {
+      setLookupError('您沒有登記違規的權限');
+      return;
+    }
+    const studentId = violationStudentId.trim();
+    const name = violationName.trim();
+    if (!studentId || !name) {
+      setLookupError('請填寫學號與姓名');
       return;
     }
 
-    const result = await safeAPICall(async () => {
-      const response = await fetch('/api/blacklist/recordViolation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'X-User-Role': actualUserRole
-        },
-        body: JSON.stringify({
-          studentId: violationStudentId.trim(),
-          name: violationName.trim(),
-          reason: violationReason.trim()
-        })
+    setLookupError('');
+    setPickerLoading(true);
+    setPickerError('');
+    try {
+      const data = await fetchSemesterReservations(token, actualUserRole, { studentId, name });
+      const rows = Array.isArray(data.reservations) ? data.reservations : [];
+      setPickerStudent(data.student || { studentId, name });
+      setPickerSemester(data.semester || '');
+      setPickerReservations(rows);
+      setSelectedReservationId('');
+      setViolationType('預約未到');
+      setViolationDescription('');
+      setPickerOpen(true);
+    } catch (error) {
+      setLookupError(error.message || '查詢預約失敗');
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
+  const handleRecordSelectedViolation = async () => {
+    const selected = pickerReservations.find(
+      (row) => String(row.reservationId) === String(selectedReservationId),
+    );
+    if (!selected?.selectable || !selected.eventId) {
+      setPickerError('請選擇一筆尚未登記違規的預約');
+      return;
+    }
+    if (violationType === '其他' && !violationDescription.trim()) {
+      setPickerError('類型為「其他」時請填寫說明');
+      return;
+    }
+
+    setPickerSubmitting(true);
+    setPickerError('');
+    try {
+      await createEventViolation(token, selected.eventId, {
+        studentId: violationStudentId.trim(),
+        violationType,
+        description: violationDescription.trim(),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw { response: { status: response.status, data: errorData } };
-      }
-
-      return response.json();
-    });
-
-    if (result.success) {
+      toast.success('已將這筆預約登記為違規。當學期次數會在活動結束檢查時記入黑名單。');
+      resetPicker();
       setViolationStudentId('');
       setViolationName('');
-      setViolationReason('');
       fetchBlacklistRecords(selectedViolationSemester);
-      toast.success('違規登記成功');
-    } else {
-      toast.error(result.error || '違規登記失敗');
+    } catch (error) {
+      setPickerError(error.message || '登記違規失敗');
+    } finally {
+      setPickerSubmitting(false);
     }
   };
 
@@ -367,41 +416,57 @@ function ViolationManagement() {
         </div>
       </div>
 
-      {/* 違規登記表單 */}
-      <div className="row g-2 mb-3">
-        <div className="col-md-3">
-          <input 
-            className="form-control" 
-            placeholder="學號" 
-            value={violationStudentId} 
-            onChange={e => setViolationStudentId(e.target.value)} 
-          />
+      {canRecordEventViolation ? (
+        <div className="mb-3">
+          <div className="row g-2">
+            <div className="col-md-3">
+              <label className="form-label visually-hidden" htmlFor="violation-student-id">學號</label>
+              <input
+                id="violation-student-id"
+                className="form-control"
+                placeholder="學號"
+                value={violationStudentId}
+                onChange={(e) => {
+                  setViolationStudentId(e.target.value);
+                  setLookupError('');
+                }}
+              />
+            </div>
+            <div className="col-md-3">
+              <label className="form-label visually-hidden" htmlFor="violation-student-name">姓名</label>
+              <input
+                id="violation-student-name"
+                className="form-control"
+                placeholder="姓名"
+                value={violationName}
+                onChange={(e) => {
+                  setViolationName(e.target.value);
+                  setLookupError('');
+                }}
+              />
+            </div>
+            <div className="col-md-3">
+              <button
+                type="button"
+                className="btn btn-danger w-100"
+                onClick={handleLookupReservations}
+                disabled={pickerLoading}
+              >
+                {pickerLoading ? '查詢中...' : '查詢預約並登記'}
+              </button>
+            </div>
+          </div>
+          {lookupError ? (
+            <div className="alert alert-danger mt-2 mb-0" role="alert">{lookupError}</div>
+          ) : (
+            <p className="small text-muted mt-2 mb-0">
+              先核對學號與姓名，再從當學期預約中選擇要登記的一筆。
+            </p>
+          )}
         </div>
-        <div className="col-md-2">
-          <input 
-            className="form-control" 
-            placeholder="姓名" 
-            value={violationName} 
-            onChange={e => setViolationName(e.target.value)} 
-          />
-        </div>
-        <div className="col-md-4">
-          <input 
-            className="form-control" 
-            placeholder="違規原因" 
-            value={violationReason} 
-            onChange={e => setViolationReason(e.target.value)} 
-          />
-        </div>
-        <div className="col-md-3">
-          <button 
-            className="btn btn-danger w-100" 
-            onClick={handleRecordViolation}
-          >
-            登記違規
-          </button>
-        </div>
-      </div>
+      ) : (
+        <p className="small text-muted mb-3">你沒有登記違規的權限，此頁只能查看紀錄。</p>
+      )}
 
       {/* 黑名單紀錄表格 */}
       {blacklistLoading ? (
@@ -410,7 +475,9 @@ function ViolationManagement() {
         <div className="alert alert-light border" role="status">
           <div className="fw-semibold mb-1">尚無違規紀錄</div>
           <p className="small text-muted mb-3">
-            活動結束後可從活動明細的「違規與未到處理」分頁登記未到學生，或於上方表單直接輸入學號登記。
+            {canRecordEventViolation
+              ? '活動結束後可從活動明細的「違規與未到處理」分頁登記，或在上方輸入學號與姓名，從當學期預約中選擇一筆。當學期黑名單次數會在活動結束檢查時計入。'
+              : '活動結束後可從活動明細的「違規與未到處理」分頁查看登記結果。'}
           </p>
           <Link to="/admin/operations" className="btn btn-outline-primary btn-sm">
             前往活動列表
@@ -468,6 +535,23 @@ function ViolationManagement() {
           </table>
         </div>
       )}
+
+      <ViolationReservationPickerModal
+        show={pickerOpen}
+        student={pickerStudent}
+        semester={pickerSemester}
+        reservations={pickerReservations}
+        selectedReservationId={selectedReservationId}
+        violationType={violationType}
+        description={violationDescription}
+        loading={pickerSubmitting}
+        error={pickerError}
+        onSelectReservation={setSelectedReservationId}
+        onViolationTypeChange={setViolationType}
+        onDescriptionChange={setViolationDescription}
+        onClose={resetPicker}
+        onSubmit={handleRecordSelectedViolation}
+      />
     </>
   );
 }

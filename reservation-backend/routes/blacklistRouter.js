@@ -12,9 +12,10 @@ const {
   enqueueViolationDeletedEmail,
   clearStudentVisibleViolation,
 } = require('../services/blacklistEnforcementService');
-const { assertCanAccessEvent } = require('../services/accessControl/eventScopeGuard');
+const { assertCanAccessEvent, buildEventScopeWhere } = require('../services/accessControl/eventScopeGuard');
+const { Op } = require('sequelize');
 const { getSemesterInfo } = require('../utils/eventSemesterFromDate');
-const { getCurrentSemester } = require('../utils/semester');
+const { getCurrentSemester, semesterIdFromDate } = require('../utils/semester');
 
 const VIOLATION_WRITE_PERMISSIONS = [
   P.CAN_MANAGE_VIOLATIONS,
@@ -90,6 +91,27 @@ async function requireViolationEventScope(req, res) {
   }
 
   return event;
+}
+
+function eventDateSemesterId(date) {
+  const normalized = String(date || '').trim().replace(/\//g, '-');
+  return semesterIdFromDate(normalized);
+}
+
+function toSemesterReservationRow(record) {
+  const event = record.Event;
+  const checkinStatus = record.checkinStatus || '未簽到';
+  return {
+    reservationId: record.id,
+    eventId: event.id,
+    eventName: event.name,
+    eventType: event.eventType,
+    eventDate: event.date,
+    startTime: event.startTime,
+    endTime: event.endTime,
+    checkinStatus,
+    selectable: checkinStatus !== '已登記違規',
+  };
 }
 
 
@@ -406,6 +428,90 @@ router.get('/', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: '伺服器錯誤' });
+  }
+});
+
+// 依學號與姓名查出當學期、且呼叫者看得到的預約，供違規頁選擇登記對象。
+// GET /api/blacklist/semester-reservations?studentId=&name=
+router.get('/semester-reservations', authMiddleware, async (req, res) => {
+  try {
+    if (!hasPermission(req.user, P.CAN_MANAGE_VIOLATIONS)) {
+      return sendForbidden(res, 'PERMISSION_DENIED', '您沒有執行此操作的權限。');
+    }
+
+    const studentId = String(req.query.studentId || '').trim();
+    const name = String(req.query.name || '').trim();
+    if (!studentId || !name) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'MISSING_IDENTIFIER',
+        message: '請填寫學號與姓名',
+      });
+    }
+
+    const user = await User.findOne({
+      where: { studentId },
+      attributes: ['id', 'studentId', 'name'],
+    });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        errorCode: 'USER_NOT_FOUND',
+        message: '找不到對應的學生',
+      });
+    }
+    if (String(user.name || '').trim() !== name) {
+      return res.status(409).json({
+        success: false,
+        errorCode: 'NAME_MISMATCH',
+        message: '姓名與學號不符',
+      });
+    }
+
+    const eventScopeWhere = buildEventScopeWhere(req.user);
+    if (eventScopeWhere === null) {
+      return sendForbidden(res, 'MISSING_EVENT_CONTEXT', '此操作需要指定活動或預約來源。');
+    }
+
+    const semester = getCurrentSemester();
+    const include = {
+      model: Event,
+      attributes: ['id', 'name', 'date', 'startTime', 'endTime', 'eventType'],
+      required: true,
+    };
+    if (eventScopeWhere && Object.keys(eventScopeWhere).length > 0) {
+      include.where = eventScopeWhere;
+    }
+
+    const reservations = await Reservation.findAll({
+      where: {
+        [Op.or]: [
+          { userId: user.id },
+          { studentId: user.studentId },
+        ],
+      },
+      attributes: ['id', 'checkinStatus', 'eventId', 'studentId'],
+      include: [include],
+    });
+
+    const rows = reservations
+      .filter((record) => record.Event && eventDateSemesterId(record.Event.date) === semester)
+      .map(toSemesterReservationRow)
+      .sort((a, b) => {
+        const dateCmp = String(b.eventDate).localeCompare(String(a.eventDate));
+        if (dateCmp !== 0) return dateCmp;
+        return String(b.startTime || '').localeCompare(String(a.startTime || ''));
+      });
+
+    return res.json({
+      success: true,
+      semester,
+      student: { studentId: user.studentId, name: user.name },
+      reservations: rows,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: '伺服器錯誤' });
   }
 });
 

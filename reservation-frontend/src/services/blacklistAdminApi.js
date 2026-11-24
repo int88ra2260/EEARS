@@ -44,6 +44,17 @@ export async function fetchBlacklistRecords(token, userRole, { semester = 'all' 
   return normalizeBlacklistRecords(data);
 }
 
+export async function fetchSemesterReservations(token, userRole, { studentId, name }) {
+  const params = new URLSearchParams({
+    studentId: String(studentId || '').trim(),
+    name: String(name || '').trim(),
+  });
+  const res = await fetchClient(`/api/blacklist/semester-reservations?${params.toString()}`, {
+    headers: adminAuthHeaders(token, userRole),
+  });
+  return throwIfNotOk(res, '查詢預約失敗');
+}
+
 export async function recordViolation(token, userRole, { studentId, name, reason }) {
   const res = await fetchClient('/api/blacklist/recordViolation', {
     method: 'POST',

@@ -84,7 +84,9 @@ const mockTx = { commit: jest.fn(), rollback: jest.fn() };
 
 const mockEventFindByPk = jest.fn();
 const mockReservationFindByPk = jest.fn();
+const mockReservationFindAll = jest.fn();
 const mockUserFindOne = jest.fn();
+const mockBuildEventScopeWhere = jest.fn(() => ({}));
 const mockBlackListRecordCreate = jest.fn();
 const mockBlackListRecordFindOne = jest.fn();
 const mockBlackListRecordCount = jest.fn();
@@ -96,7 +98,10 @@ jest.mock('../models', () => ({
     findOne: (...args) => mockBlackListRecordFindOne(...args),
     count: (...args) => mockBlackListRecordCount(...args),
   },
-  Reservation: { findByPk: (...args) => mockReservationFindByPk(...args), findAll: jest.fn().mockResolvedValue([]) },
+  Reservation: {
+    findByPk: (...args) => mockReservationFindByPk(...args),
+    findAll: (...args) => mockReservationFindAll(...args),
+  },
   Event: { findByPk: (...args) => mockEventFindByPk(...args) },
   EventViolation: {
     findOne: jest.fn().mockResolvedValue(null),
@@ -107,6 +112,7 @@ jest.mock('../models', () => ({
 
 jest.mock('../services/accessControl/eventScopeGuard', () => ({
   assertCanAccessEvent: jest.fn(),
+  buildEventScopeWhere: (...args) => mockBuildEventScopeWhere(...args),
 }));
 
 jest.mock('../services/auditLogService', () => ({
@@ -170,6 +176,9 @@ describe('blacklistRouter auth policy', () => {
     mockBlackListRecordCount.mockResolvedValue(1);
     mockUserFindOne.mockResolvedValue(makeUser());
     mockBlackListRecordFindOne.mockResolvedValue(makeBlacklistRecord(makeUser()));
+    mockReservationFindAll.mockResolvedValue([]);
+    mockBuildEventScopeWhere.mockReset();
+    mockBuildEventScopeWhere.mockReturnValue({});
   });
 
   describe('DELETE /api/blacklist/:recordId', () => {
@@ -260,6 +269,132 @@ describe('blacklistRouter auth policy', () => {
         .set('Authorization', `Bearer ${TOKENS.MANAGE}`)
         .send(body);
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('GET /api/blacklist/semester-reservations', () => {
+    const { getCurrentSemester, SEMESTER_RANGES } = require('../utils/semesterConstants');
+
+    function dateInCurrentSemester() {
+      const semester = getCurrentSemester();
+      const range = SEMESTER_RANGES[semester];
+      return range ? range.start : '2026-11-01';
+    }
+
+    function reservationRow(id, date, checkinStatus) {
+      return {
+        id,
+        checkinStatus,
+        eventId: id + 100,
+        studentId: 'S001',
+        Event: {
+          id: id + 100,
+          name: `活動 ${id}`,
+          date,
+          startTime: '10:00:00',
+          endTime: '11:00:00',
+          eventType: 'english_table',
+        },
+      };
+    }
+
+    it('未登入 → 401', async () => {
+      const app = createApp();
+      const res = await request(app).get('/api/blacklist/semester-reservations');
+      expect(res.status).toBe(401);
+    });
+
+    it('只有 CAN_CHECKIN_STUDENTS → 403', async () => {
+      const app = createApp();
+      const res = await request(app)
+        .get('/api/blacklist/semester-reservations')
+        .query({ studentId: 'S001', name: 'Test User' })
+        .set('Authorization', `Bearer ${TOKENS.CHECKIN_ONLY}`);
+      expect(res.status).toBe(403);
+      expect(res.body.errorCode).toBe('PERMISSION_DENIED');
+    });
+
+    it('只有 CAN_RECORD_VIOLATIONS → 403', async () => {
+      const app = createApp();
+      const res = await request(app)
+        .get('/api/blacklist/semester-reservations')
+        .query({ studentId: 'S001', name: 'Test User' })
+        .set('Authorization', `Bearer ${TOKENS.RECORD}`);
+      expect(res.status).toBe(403);
+      expect(res.body.errorCode).toBe('PERMISSION_DENIED');
+    });
+
+    it('缺少學號或姓名 → 400', async () => {
+      const app = createApp();
+      const res = await request(app)
+        .get('/api/blacklist/semester-reservations')
+        .query({ studentId: 'S001' })
+        .set('Authorization', `Bearer ${TOKENS.MANAGE}`);
+      expect(res.status).toBe(400);
+      expect(res.body.errorCode).toBe('MISSING_IDENTIFIER');
+    });
+
+    it('找不到學生 → 404', async () => {
+      mockUserFindOne.mockResolvedValue(null);
+      const app = createApp();
+      const res = await request(app)
+        .get('/api/blacklist/semester-reservations')
+        .query({ studentId: 'S001', name: 'Test User' })
+        .set('Authorization', `Bearer ${TOKENS.MANAGE}`);
+      expect(res.status).toBe(404);
+      expect(res.body.errorCode).toBe('USER_NOT_FOUND');
+    });
+
+    it('姓名與學號不符 → 409', async () => {
+      const app = createApp();
+      const res = await request(app)
+        .get('/api/blacklist/semester-reservations')
+        .query({ studentId: 'S001', name: '別人' })
+        .set('Authorization', `Bearer ${TOKENS.MANAGE}`);
+      expect(res.status).toBe(409);
+      expect(res.body.errorCode).toBe('NAME_MISMATCH');
+    });
+
+    it('沒有活動範圍 → 403', async () => {
+      mockBuildEventScopeWhere.mockReturnValue(null);
+      const app = createApp();
+      const res = await request(app)
+        .get('/api/blacklist/semester-reservations')
+        .query({ studentId: 'S001', name: 'Test User' })
+        .set('Authorization', `Bearer ${TOKENS.MANAGE}`);
+      expect(res.status).toBe(403);
+      expect(res.body.errorCode).toBe('MISSING_EVENT_CONTEXT');
+    });
+
+    it('CAN_MANAGE_VIOLATIONS 只回當學期預約，已登記者不可再選', async () => {
+      const inRange = dateInCurrentSemester();
+      mockReservationFindAll.mockResolvedValue([
+        reservationRow(1, inRange, '未簽到'),
+        reservationRow(2, inRange, '已登記違規'),
+        reservationRow(3, '2000-03-01', '未簽到'),
+      ]);
+      const app = createApp();
+      const res = await request(app)
+        .get('/api/blacklist/semester-reservations')
+        .query({ studentId: 'S001', name: 'Test User' })
+        .set('Authorization', `Bearer ${TOKENS.MANAGE}`);
+      expect(res.status).toBe(200);
+      expect(res.body.semester).toBe(getCurrentSemester());
+      expect(res.body.reservations.map((row) => row.reservationId)).toEqual([1, 2]);
+      expect(res.body.reservations[0].selectable).toBe(true);
+      expect(res.body.reservations[1].selectable).toBe(false);
+      expect(res.body.reservations[0].eventId).toBe(101);
+    });
+
+    it('依活動範圍過濾查詢', async () => {
+      mockBuildEventScopeWhere.mockReturnValue({ eventType: ['english_table'] });
+      const app = createApp();
+      await request(app)
+        .get('/api/blacklist/semester-reservations')
+        .query({ studentId: 'S001', name: 'Test User' })
+        .set('Authorization', `Bearer ${TOKENS.MANAGE}`);
+      const query = mockReservationFindAll.mock.calls[0][0];
+      expect(query.include[0].where).toEqual({ eventType: ['english_table'] });
     });
   });
 });
