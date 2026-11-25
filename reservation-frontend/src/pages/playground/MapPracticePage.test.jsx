@@ -13,6 +13,7 @@ vi.mock('@react-three/drei', () => ({
   OrbitControls: () => null,
   ContactShadows: () => null,
   Html: ({ children }) => <div>{children}</div>,
+  useGLTF: () => ({ scene: { clone: () => ({ traverse() {} }) } }),
 }));
 
 function renderPage() {
@@ -32,7 +33,7 @@ describe('MapPracticePage', () => {
     expect(screen.getByText(/mapPracticeBuildings\.js/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '前往預約活動' })).toHaveAttribute('href', '/events');
 
-    await user.click(screen.getByRole('button', { name: '公告' }));
+    await user.click(screen.getByRole('button', { name: '學生活動中心' }));
 
     expect(screen.getByRole('link', { name: '前往公告' })).toHaveAttribute('href', '/announcements');
     expect(screen.getByText('最新公告、活動異動與中心消息。')).toBeInTheDocument();
