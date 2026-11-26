@@ -327,16 +327,18 @@ export default function AboutPage() {
             <span>{copy.locationLabel}</span>
             <ContentText k="aboutPage.heroLocation" as="span" />
           </p>
-
-          <nav className="about-jump" aria-label={copy.jumpLabel}>
-            <ul className="about-jump__list">
-              <li><a className="about-jump__link" href="#overview">{copy.jumpOverview}</a></li>
-              <li><a className="about-jump__link" href="#team">{copy.jumpTeam}</a></li>
-              <li><a className="about-jump__link" href="#contact">{copy.jumpContact}</a></li>
-            </ul>
-          </nav>
         </div>
       </section>
+
+      <nav className="about-jump" aria-label={copy.jumpLabel}>
+        <div className="about-shell about-jump__inner">
+          <ul className="about-jump__list">
+            <li><a className="about-jump__link" href="#overview">{copy.jumpOverview}</a></li>
+            <li><a className="about-jump__link" href="#team">{copy.jumpTeam}</a></li>
+            <li><a className="about-jump__link" href="#contact">{copy.jumpContact}</a></li>
+          </ul>
+        </div>
+      </nav>
 
       <section className="about-section about-section--roles" aria-label={t('aboutPage.platformKicker')} data-about-reveal>
         <div className="about-shell">

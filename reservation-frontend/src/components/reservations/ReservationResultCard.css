@@ -86,4 +86,15 @@
     flex-direction: column;
     align-items: stretch;
   }
+
+  .reservation-result-card-actions .btn {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .reservation-result-card-cancel-form,
+  .reservation-result-card-cancel-form .form-control {
+    max-width: none;
+    width: 100%;
+  }
 }

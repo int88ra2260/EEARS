@@ -120,7 +120,7 @@ export default function ReservationUsageModal({ show, onClose, embedded = false 
                 style={{
                   marginTop: '0.45rem',
                   paddingLeft: '1.15rem',
-                  fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)',
+                  fontSize: isSmallMobile ? '0.875rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)',
                 }}
               >
                 <li>{t('home.usageCampusLogin')}</li>
@@ -141,7 +141,7 @@ export default function ReservationUsageModal({ show, onClose, embedded = false 
               <br />
               <ContentText
                 k="home.usageLogin"
-                style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
+                style={{ fontSize: isSmallMobile ? '0.875rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
               />
             </div>
           )}
@@ -159,14 +159,14 @@ export default function ReservationUsageModal({ show, onClose, embedded = false 
             <br />
             <ContentText
               k="home.ruleNoStamp"
-              style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
+              style={{ fontSize: isSmallMobile ? '0.875rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
             />
           </div>
 
           <ul className="list-unstyled" style={{ margin: 0 }}>
             <li
               className="mb-3"
-              style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
+              style={{ fontSize: isSmallMobile ? '0.875rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
             >
               <span style={{ fontWeight: 'bold' }}>
                 <ContentText k="home.usageBlacklist" />
@@ -182,7 +182,7 @@ export default function ReservationUsageModal({ show, onClose, embedded = false 
             </li>
             <li
               className="mb-3"
-              style={{ fontSize: isSmallMobile ? '0.75rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
+              style={{ fontSize: isSmallMobile ? '0.875rem' : isMobile ? '0.813rem' : 'clamp(0.813rem, 2.8vw, 0.938rem)' }}
             >
               <ContentText k="home.usageCancel" style={{ fontWeight: 'bold' }} />
             </li>

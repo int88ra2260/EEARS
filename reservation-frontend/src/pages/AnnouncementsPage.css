@@ -222,6 +222,12 @@
   }
 }
 
+@media (max-width: 767px) {
+  .announcements-toolbar__actions .btn {
+    min-height: 2.75rem;
+  }
+}
+
 @media (max-width: 576px) {
   .announcements-page {
     padding: 0 0 1.5rem;

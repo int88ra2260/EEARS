@@ -193,11 +193,13 @@
   }
   
   .fc-button {
-    padding: 0.4rem 0.6rem;
+    min-height: 2.75rem;
+    padding: 0.45rem 0.7rem;
     font-size: 0.85rem;
   }
-  
+
   .fc-list-event {
+    min-height: 2.75rem;
     padding: 0.75rem;
     margin-bottom: 0.5rem;
     border-radius: 6px;

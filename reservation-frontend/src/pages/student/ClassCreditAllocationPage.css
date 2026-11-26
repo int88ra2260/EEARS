@@ -1,0 +1,39 @@
+@media (max-width: 767px) {
+  table.table.class-credit-stack thead {
+    display: none;
+  }
+
+  table.table.class-credit-stack tbody tr {
+    display: block;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid rgba(28, 61, 110, 0.12);
+  }
+
+  table.table.class-credit-stack tbody td {
+    display: grid;
+    grid-template-columns: 5.25rem minmax(0, 1fr);
+    gap: 0.35rem 0.75rem;
+    align-items: start;
+    width: auto;
+    padding: 0.3rem 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  table.table.class-credit-stack tbody td::before {
+    content: attr(data-label);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #5b6f93;
+  }
+
+  table.table.class-credit-stack .form-control {
+    min-height: 2.75rem;
+  }
+
+  .class-credit-save {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+}

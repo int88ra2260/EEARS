@@ -19,6 +19,7 @@ import { CLASS_DETAIL_SEMESTER_OPTIONS } from '../../utils/classDetailHelpers';
 import { getCurrentSemester } from '../../utils/semesterUtils';
 import { getEventTypeDisplayName } from '../../constants/eventTypeCatalog';
 import '../../styles/public-ui.css';
+import './ClassCreditAllocationPage.css';
 
 const STORAGE_KEY = 'eears_class_credit_student';
 
@@ -375,7 +376,7 @@ export default function ClassCreditAllocationPage() {
               {(dashboard.records || []).length === 0 ? (
                 <div className="p-4 text-muted">本學期還沒有已簽到的活動。</div>
               ) : (
-                <Table responsive className="mb-0 align-middle">
+                <Table responsive className="mb-0 align-middle class-credit-stack">
                   <thead className="table-light">
                     <tr>
                       <th>日期</th>
@@ -386,15 +387,15 @@ export default function ClassCreditAllocationPage() {
                   <tbody>
                     {dashboard.records.map((row) => (
                       <tr key={row.reservationId}>
-                        <td className="text-nowrap">
+                        <td className="text-nowrap" data-label="日期">
                           {formatRecordDate(row.eventDate)}
                           {row.startTime ? <div className="small text-muted">{row.startTime}</div> : null}
                         </td>
-                        <td>
+                        <td data-label="活動">
                           {row.eventName || '（未命名活動）'}
                           <div className="small text-muted">{getEventTypeDisplayName(row.eventType)}</div>
                         </td>
-                        <td>
+                        <td data-label="點數">
                           {row.points ?? 0} 點
                           {row.creditStatus !== 'counted' ? (
                             <div className="mt-1">
@@ -414,7 +415,7 @@ export default function ClassCreditAllocationPage() {
           </Card>
 
           <Card>
-            <Card.Header className="d-flex justify-content-between align-items-center">
+            <Card.Header className="d-flex flex-wrap justify-content-between align-items-center gap-2">
               <span>本學期課程</span>
               {dashboard.canEdit && (
                 <span className="small text-muted">
@@ -426,7 +427,7 @@ export default function ClassCreditAllocationPage() {
               {(dashboard.classes || []).length === 0 ? (
                 <div className="p-4 text-muted">本學期名冊中找不到您的班級。</div>
               ) : (
-                <Table responsive className="mb-0 align-middle">
+                <Table responsive className="mb-0 align-middle class-credit-stack">
                   <thead className="table-light">
                     <tr>
                       <th>課程</th>
@@ -439,9 +440,9 @@ export default function ClassCreditAllocationPage() {
                   <tbody>
                     {dashboard.classes.map((c) => (
                       <tr key={c.classId}>
-                        <td>{c.className}</td>
-                        <td>{c.teacherName || '—'}</td>
-                        <td style={{ maxWidth: 140 }}>
+                        <td data-label="課程">{c.className}</td>
+                        <td data-label="老師">{c.teacherName || '—'}</td>
+                        <td data-label="配置時數">
                           {dashboard.canEdit ? (
                             <Form.Control
                               type="number"
@@ -462,13 +463,13 @@ export default function ClassCreditAllocationPage() {
                             </div>
                           ) : null}
                         </td>
-                        <td>
-                          {dashboard.canEdit
+                        <td data-label="計點">
+                          {dashboard.canEdit}
                             ? Math.round((Number(draftHours[c.classId]) || 0) * 20) / 10
                             : (c.displayPoints ?? c.allocatedPoints)}
                         </td>
-                        <td>
-                          {c.allocationStatusLabel
+                        <td data-label="狀態">
+                          {c.allocationStatusLabel}
                             ? <Badge bg="secondary">{c.allocationStatusLabel}</Badge>
                             : (dashboard.autoAllocated ? <Badge bg="success">自動歸屬</Badge> : '—')}
                         </td>
@@ -480,7 +481,7 @@ export default function ClassCreditAllocationPage() {
             </Card.Body>
             {dashboard.canEdit && (
               <Card.Footer className="d-flex justify-content-end">
-                <Button variant="primary" disabled={saving} onClick={handleSave}>
+                <Button variant="primary" className="class-credit-save" disabled={saving} onClick={handleSave}>
                   {saving ? '儲存中…' : '儲存配置'}
                 </Button>
               </Card.Footer>

@@ -25,7 +25,7 @@
 }
 
 .announcement-detail-toolbar__back {
-  min-height: 40px;
+  min-height: 2.75rem;
   border-color: rgba(61, 46, 36, 0.22);
   color: var(--ann-ink);
   font-weight: 600;

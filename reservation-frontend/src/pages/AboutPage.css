@@ -132,10 +132,10 @@
 /* ---- Hero ---- */
 .about-hero {
   position: relative;
-  min-height: min(92dvh, 820px);
+  min-height: calc(min(92dvh, 820px) - 4.5rem);
   display: flex;
   align-items: flex-end;
-  padding: clamp(4rem, 10vh, 6.5rem) 0 clamp(2.75rem, 7vh, 4.5rem);
+  padding: clamp(4rem, 10vh, 6.5rem) 0 4.5rem;
   overflow: hidden;
 }
 
@@ -233,9 +233,15 @@
 }
 
 .about-jump {
-  margin-top: 1.75rem;
+  position: relative;
+  z-index: 2;
+  margin-top: -3.25rem;
   padding-top: 1rem;
   border-top: 1px solid rgba(28, 24, 20, 0.14);
+}
+
+.about-jump__inner {
+  max-width: 40rem;
 }
 
 .about-jump__list {
@@ -951,12 +957,79 @@
 
   .about-hero {
     min-height: auto;
-    padding-top: 3rem;
+    padding: 3rem 0 1.25rem;
     align-items: flex-start;
   }
 
   .about-hero__title {
     max-width: none;
+  }
+
+  .about-jump {
+    position: sticky;
+    top: 4.5rem;
+    z-index: 1010;
+    margin-top: 0;
+    padding: 0.45rem 0;
+    border-top: 0;
+    border-bottom: 1px solid var(--about-line);
+    background: rgba(247, 249, 252, 0.96);
+  }
+
+  .about-jump__list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  .about-jump__link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.35rem 0.3rem;
+    border: 1px solid rgba(28, 61, 110, 0.16);
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.84rem;
+    line-height: 1.25;
+    text-align: center;
+  }
+
+  .about-section--contact,
+  .about-section--faq,
+  #overview,
+  #team,
+  #faculty {
+    scroll-margin-top: 9rem;
+  }
+
+  .about-team-card__profile-link {
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
+    margin-top: 0.85rem;
+    padding-top: 0;
+    padding-bottom: 0.15rem;
+  }
+
+  .about-team-card__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  .about-profile .about-shell {
+    width: min(46rem, calc(100% - 1.5rem));
+  }
+
+  .about-profile__back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    margin-bottom: 1rem;
   }
 
   .about-section {

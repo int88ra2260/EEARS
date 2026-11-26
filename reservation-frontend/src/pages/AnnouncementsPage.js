@@ -114,11 +114,11 @@ export default function AnnouncementsPage() {
               placeholder={t('announcementsPage.filterTagPlaceholder')}
             />
           </Col>
-          <Col md={2} className="d-flex gap-1">
-            <Button type="submit" variant="dark" size="sm">
+          <Col md={2} className="announcements-toolbar__actions d-flex gap-2">
+            <Button type="submit" variant="dark" className="flex-grow-1">
               {t('announcementsPage.filterApply')}
             </Button>
-            <Button type="button" variant="outline-secondary" size="sm" onClick={onResetFilters}>
+            <Button type="button" variant="outline-secondary" className="flex-grow-1" onClick={onResetFilters}>
               {t('announcementsPage.filterReset')}
             </Button>
           </Col>

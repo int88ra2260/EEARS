@@ -78,7 +78,7 @@ export default function StudentAuthGate() {
             <li>忘記密碼：驗證碼會寄到註冊信箱，畫面上不會出現密碼。</li>
           </ul>
         )}
-        <div className="d-flex flex-wrap gap-2">
+        <div className="d-grid gap-2 d-sm-flex">
           <Link className="btn btn-primary" to={loginTo}>登入</Link>
           {campusSso ? (
             <a className="btn btn-outline-primary" href="https://sso.nsysu.edu.tw">到單一入口重設密碼</a>
