@@ -6,6 +6,7 @@ import ContentText from '../components/siteContent/ContentText';
 import { EMI_MAIN_PHONE } from '../data/emiCenterStaff';
 import { SITE_CONTACT } from '../config/siteContact';
 import useStaffMembers from '../hooks/useStaffMembers';
+import { facultyProfilePath, facultyProfileSections } from './facultyProfile';
 import useFaqItems, { pickLocalizedText } from '../hooks/useFaqItems';
 import './AboutPage.css';
 
@@ -25,6 +26,10 @@ const ABOUT_UI_COPY = {
     contactCardTitle: '聯絡與來訪',
     contactCardLead: '活動、系統或行政協助，歡迎透過以下方式聯繫。',
     faqLead: '預約、取消與參與規則的常見問題。',
+    jumpLabel: '本頁章節',
+    jumpOverview: '中心介紹',
+    jumpTeam: '師資與行政',
+    jumpContact: '聯絡',
     locationLabel: '地點',
     roleCenter: '中心角色',
     rolePlatform: '平台定位',
@@ -46,6 +51,10 @@ const ABOUT_UI_COPY = {
     contactCardTitle: 'Contact',
     contactCardLead: 'Reach the center for activities, platform, or admin support.',
     faqLead: 'Common questions on reservations, cancellations, and participation.',
+    jumpLabel: 'On this page',
+    jumpOverview: 'The center',
+    jumpTeam: 'Faculty & staff',
+    jumpContact: 'Contact',
     locationLabel: 'Location',
     roleCenter: 'Center role',
     rolePlatform: 'Platform role',
@@ -61,26 +70,11 @@ function formatPhone(extension, lang, phoneExtLabel) {
   return `${EMI_MAIN_PHONE} ${phoneExtLabel} ${extension}`;
 }
 
-function profileBlocks(member, lang) {
-  const sections = member.profile?.sections;
-  if (!Array.isArray(sections)) return [];
-  return sections.flatMap((section) => {
-    const body = lang === 'en' && section.bodyEn
-      ? section.bodyEn
-      : (section.bodyZh || section.bodyEn || '');
-    const label = lang === 'en' && section.labelEn
-      ? section.labelEn
-      : (section.labelZh || section.labelEn || '');
-    if (!body || !label) return [];
-    return [{ label, body }];
-  });
-}
-
 function TeamMemberCard({ member, lang, phoneExtLabel, profileToggleLabel }) {
   const name = member.name[lang] || member.name.zh;
   const role = member.role[lang] || member.role.zh;
   const phone = formatPhone(member.extension, lang, phoneExtLabel);
-  const blocks = profileBlocks(member, lang);
+  const blocks = facultyProfileSections(member, lang);
 
   return (
     <li className="about-team-card">
@@ -95,17 +89,9 @@ function TeamMemberCard({ member, lang, phoneExtLabel, profileToggleLabel }) {
         {phone ? <span>{phone}</span> : null}
       </div>
       {blocks.length ? (
-        <details className="about-team-card__profile">
-          <summary>{profileToggleLabel}</summary>
-          <div className="about-team-card__profile-body">
-            {blocks.map((block, index) => (
-              <section key={`${block.label}-${index}`}>
-                <h4>{block.label}</h4>
-                <p>{block.body}</p>
-              </section>
-            ))}
-          </div>
-        </details>
+        <Link className="about-team-card__profile-link" to={facultyProfilePath(member.id)}>
+          {profileToggleLabel}
+        </Link>
       ) : null}
     </li>
   );
@@ -297,7 +283,8 @@ export default function AboutPage() {
 
   useEffect(() => {
     const hash = location.hash?.replace('#', '');
-    if (!hash || (hash !== 'faq' && hash !== 'contact')) return undefined;
+    const pageAnchors = ['overview', 'team', 'faculty', 'contact', 'faq'];
+    if (!hash || !pageAnchors.includes(hash)) return undefined;
 
     let attempts = 0;
     const tryScroll = () => {
@@ -341,10 +328,13 @@ export default function AboutPage() {
             <ContentText k="aboutPage.heroLocation" as="span" />
           </p>
 
-          <p className="about-hero__scroll" aria-hidden="true">
-            <span>{t('aboutPage.scrollHint')}</span>
-            <i />
-          </p>
+          <nav className="about-jump" aria-label={copy.jumpLabel}>
+            <ul className="about-jump__list">
+              <li><a className="about-jump__link" href="#overview">{copy.jumpOverview}</a></li>
+              <li><a className="about-jump__link" href="#team">{copy.jumpTeam}</a></li>
+              <li><a className="about-jump__link" href="#contact">{copy.jumpContact}</a></li>
+            </ul>
+          </nav>
         </div>
       </section>
 
@@ -361,7 +351,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-section" aria-labelledby="about-story-title">
+      <section id="overview" className="about-section" aria-labelledby="about-story-title">
         <div className="about-shell">
           <div className="about-section-heading" data-about-reveal>
             <p className="about-kicker">{copy.storyKicker}</p>
@@ -437,7 +427,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-section about-section--team" aria-labelledby="about-team-title">
+      <section id="team" className="about-section about-section--team" aria-labelledby="about-team-title">
         <div className="about-shell">
           <div className="about-section-heading" data-about-reveal>
             <ContentText k="aboutPage.facultyTitle" as="p" className="about-kicker" />
@@ -448,7 +438,7 @@ export default function AboutPage() {
           </div>
 
           <div className="about-team-sections">
-            <section className="about-team-section" aria-labelledby="about-team-faculty-title" data-about-reveal>
+            <section id="faculty" className="about-team-section" aria-labelledby="about-team-faculty-title" data-about-reveal>
               <div className="about-team-section__head">
                 <div>
                   <ContentText k="aboutPage.facultyTitle" as="h3" id="about-team-faculty-title" className="about-team-section__title" />

@@ -36,6 +36,11 @@ const PAGE_META = {
 function getMetaForPath(pathname, isZh) {
   const exact = PAGE_META[pathname];
   if (exact) return isZh ? exact.zh : exact.en;
+  if (pathname.startsWith('/about/faculty/')) {
+    return isZh
+      ? { title: '師資介紹 | EEARS', desc: 'EMI 中心師資的學歷、經歷與著作。' }
+      : { title: 'Faculty | EEARS', desc: 'Faculty education, experience, and publications.' };
+  }
   if (pathname.startsWith('/activities/')) return isZh ? PAGE_META['/activities'].zh : PAGE_META['/activities'].en;
   if (pathname.startsWith('/announcements/')) return isZh ? PAGE_META['/announcements'].zh : PAGE_META['/announcements'].en;
   if (pathname.startsWith('/survey')) return isZh ? PAGE_META['/survey'].zh : PAGE_META['/survey'].en;

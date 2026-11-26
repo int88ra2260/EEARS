@@ -21,9 +21,9 @@ export default function PublicLayout({ children, homeBanner = null }) {
   const isPublic = location.pathname !== '/login' && !isAdmin;
   const isHome = location.pathname === '/';
   const isHomeTest = location.pathname === '/hometest';
-  const isAbout = location.pathname === '/about';
-  const isLeadersTeam = location.pathname === '/activities/english-table/leaders';
   const pagePath = location.pathname.replace(/\/+$/, '') || '/';
+  const isAbout = pagePath === '/about' || pagePath.startsWith('/about/faculty/');
+  const isLeadersTeam = pagePath === '/activities/english-table/leaders';
   const isWideCatalog = pagePath === '/events' || pagePath === '/activities' || pagePath === '/learning-resources';
   const isMapPractice = pagePath === '/playground/3d-map';
   const isFullBleed = isHome || isHomeTest || isAbout;

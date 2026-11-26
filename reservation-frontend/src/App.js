@@ -50,6 +50,7 @@ const MyReservationsPage = lazy(() => import('./pages/MyReservationsPage'));
 const NotificationPage = lazy(() => import('./pages/NotificationPage'));
 const FAQPage = lazy(() => import('./pages/FAQPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
+const FacultyProfilePage = lazy(() => import('./pages/FacultyProfilePage'));
 const CourseGuidePage = lazy(() => import('./pages/CourseGuidePage'));
 const HomeImmersiveTestPage = lazy(() => import('./pages/HomeImmersiveTestPage'));
 const CampusJourneyDraftPage = lazy(() => import('./pages/CampusJourneyDraftPage'));
@@ -425,7 +426,7 @@ function AppContent() {
         `}
       </style>
       <div
-        className={`app-wrapper${location.pathname === '/' || location.pathname === '/hometest' ? ' app-wrapper--home' : ''}${location.pathname === '/about' ? ' app-wrapper--about' : ''}${isScrollWorldPage ? ' app-wrapper--scrollworld' : ''}`}
+        className={`app-wrapper${location.pathname === '/' || location.pathname === '/hometest' ? ' app-wrapper--home' : ''}${location.pathname === '/about' || location.pathname.startsWith('/about/faculty/') ? ' app-wrapper--about' : ''}${isScrollWorldPage ? ' app-wrapper--scrollworld' : ''}`}
         style={{
           minHeight: '100vh',
           display: 'flex',
@@ -492,6 +493,7 @@ function AppContent() {
             <Route path="/regulations-forms" element={<RegulationsFormsPage />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/about/faculty/:memberId" element={<FacultyProfilePage />} />
             <Route path="/scrollworldtest" element={<Navigate to="/" replace />} />
             <Route path="/campus-journey-draft" element={<CampusJourneyDraftPage />} />
             <Route path="/scroll-world-packs" element={<ScrollWorldPacksPreviewPage />} />
