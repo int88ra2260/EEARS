@@ -225,14 +225,13 @@ export async function exportLearningAnalyticsB1Plus(token, params = {}, options 
 }
 
 export async function getB1PlusPostExamDetail(token, studentId, snapshotVersion = '', options = {}) {
-  const url = `/api/learning-analytics/b1-plus/students/${encodeURIComponent(studentId)}/post-exam-detail${snapshotVersion ? `?snapshot_version=${encodeURIComponent(snapshotVersion)}` : ''}`;
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    signal: options.signal,
-  });
+  const res = await fetchClient(
+    `${BASE_URL}/b1-plus/students/${encodeURIComponent(studentId)}/post-exam-detail${buildQuery({ snapshot_version: snapshotVersion })}`,
+    {
+      headers: authHeaders(token),
+      signal: options.signal,
+    }
+  );
   return parseEnvelope(res);
 }
 
