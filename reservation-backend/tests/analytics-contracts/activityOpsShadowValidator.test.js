@@ -36,6 +36,7 @@ function sampleOverview() {
         reservedCount: 10,
         capacity: 20,
         utilizationRate: 50,
+        attendanceRate: 40,
       }],
       summary: { reservedCount: 10, capacity: 20, utilizationRate: 50 },
       byEventType: [{
@@ -43,6 +44,7 @@ function sampleOverview() {
         totalEventCapacity: 20,
         totalReservations: 10,
         bookingRate: 50,
+        attendanceRate: 40,
       }],
       byEvent: [{
         eventId: 9,
@@ -52,6 +54,7 @@ function sampleOverview() {
         maxCapacity: 20,
         totalReservations: 10,
         bookingRate: 50,
+        attendanceRate: 40,
       }],
     },
   };
@@ -151,9 +154,23 @@ describe('activity ops field contract and shadow validator', () => {
       'capacityBreakdown.items[].reservedCount',
       'capacityBreakdown.summary.utilizationRate',
       'capacityBreakdown.byEventType[].bookingRate',
+      'capacityBreakdown.byEventType[].attendanceRate',
+      'capacityBreakdown.items[].attendanceRate',
       'capacityBreakdown.byEvent[].eventDate',
       'capacityBreakdown.byEvent[].maxCapacity',
+      'capacityBreakdown.byEvent[].attendanceRate',
     ]));
+    expect(reportFor(sampleOverview()).errors.filter((item) => item.code === 'UNKNOWN_RESPONSE_FIELD')).toEqual([]);
+    [
+      'capacityBreakdown.items[].attendanceRate',
+      'capacityBreakdown.byEventType[].attendanceRate',
+      'capacityBreakdown.byEvent[].attendanceRate',
+    ].forEach((fieldPath) => {
+      const card = getActivityOpsFieldCard(fieldPath);
+      expect(card.semanticType).toBe('derived_value');
+      expect(card.metricId).toBeNull();
+      expect(card.calculation).toMatch(/已簽到/);
+    });
     expect(getActivityOpsFieldCard('capacityBreakdown').semanticType).toBe('breakdown');
     expect(getActivityOpsFieldCard('capacityBreakdown.byEvent[].eventName').semanticType).toBe('dimension');
   });

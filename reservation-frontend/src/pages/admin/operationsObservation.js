@@ -61,9 +61,9 @@ export function describeReservationConcentration(byEventType) {
 
 export function describeAttendance(attendanceRate) {
   if (!Number.isFinite(attendanceRate)) {
-    return '預約列簽到率沒有數值，暫無法判斷。分項表沒有各類型出席數，這裡不另算比例。';
+    return '預約列簽到率沒有數值，暫無法判斷。這裡不另算比例。';
   }
-  return `預約列簽到率為 ${formatPct1(attendanceRate)}。分母是預約列，不是報名學生人數，也沒有依活動類型拆開。`;
+  return `預約列簽到率為 ${formatPct1(attendanceRate)}。這是全中心預約列的比例，分母不是報名學生人數。下方類型與場次用同一口徑分開列。`;
 }
 
 export function describeViolations(violationRate) {

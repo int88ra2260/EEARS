@@ -396,6 +396,7 @@ function buildCapacityBreakdownPayload({ semester, start, end, byEventType, byEv
     reservedCount: Number(row.totalReservations || 0),
     capacity: Number(row.totalEventCapacity || 0),
     utilizationRate: Number(row.bookingRate || 0),
+    attendanceRate: Number(row.attendanceRate || 0),
   }));
   const summary = items.reduce(
     (acc, row) => {
@@ -575,6 +576,7 @@ async function getReservationEventsAttendanceTrend(semester) {
 
 /**
  * 名額利用率分項：依 eventType 加總名額與預約數；依各場次 events 列出名額與預約數。
+ * 簽到率與總覽 attendanceRate 同一口徑：已簽到預約列 ÷ 該切片的預約列。
  * 日期篩選與 getReservationOverview 一致（SEMESTER_RANGES）。
  */
 async function getReservationCapacityBreakdown(semester) {
@@ -587,13 +589,15 @@ async function getReservationCapacityBreakdown(semester) {
     SELECT
       eventType,
       SUM(maxCapacity) AS totalEventCapacity,
-      SUM(totalReservations) AS totalReservations
+      SUM(totalReservations) AS totalReservations,
+      SUM(attendedCount) AS attendedCount
     FROM (
       SELECT
         e.id AS eventId,
         e.eventType AS eventType,
         e.maxCapacity AS maxCapacity,
-        COUNT(r.id) AS totalReservations
+        COUNT(r.id) AS totalReservations,
+        SUM(CASE WHEN r.checkinStatus = '已簽到' THEN 1 ELSE 0 END) AS attendedCount
       FROM events e
       LEFT JOIN reservations r ON r.eventId = e.id
       WHERE ${sqlEventDateInSemesterRange('e')}
@@ -610,7 +614,8 @@ async function getReservationCapacityBreakdown(semester) {
       e.date AS eventDate,
       e.eventType AS eventType,
       e.maxCapacity AS maxCapacity,
-      COUNT(r.id) AS totalReservations
+      COUNT(r.id) AS totalReservations,
+      SUM(CASE WHEN r.checkinStatus = '已簽到' THEN 1 ELSE 0 END) AS attendedCount
     FROM events e
     LEFT JOIN reservations r ON r.eventId = e.id
     WHERE ${sqlEventDateInSemesterRange('e')}
@@ -632,17 +637,20 @@ async function getReservationCapacityBreakdown(semester) {
   const byEventType = (Array.isArray(byTypeRows) ? byTypeRows : []).map((row) => {
     const totalEventCapacity = Number(row.totalEventCapacity || 0);
     const totalReservations = Number(row.totalReservations || 0);
+    const attendedCount = Number(row.attendedCount || 0);
     return {
       eventType: normalizeEventType(row.eventType),
       totalEventCapacity,
       totalReservations,
       bookingRate: safePct(totalReservations, totalEventCapacity),
+      attendanceRate: safePct(attendedCount, totalReservations),
     };
   });
 
   const byEvent = (Array.isArray(byEventRows) ? byEventRows : []).map((row) => {
     const maxCapacity = Number(row.maxCapacity || 0);
     const totalReservations = Number(row.totalReservations || 0);
+    const attendedCount = Number(row.attendedCount || 0);
     return {
       eventId: Number(row.eventId || 0),
       eventName: row.eventName != null ? String(row.eventName) : '',
@@ -651,6 +659,7 @@ async function getReservationCapacityBreakdown(semester) {
       maxCapacity,
       totalReservations,
       bookingRate: safePct(totalReservations, maxCapacity),
+      attendanceRate: safePct(attendedCount, totalReservations),
     };
   });
 

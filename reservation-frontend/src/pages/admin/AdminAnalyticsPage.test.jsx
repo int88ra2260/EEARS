@@ -86,8 +86,8 @@ function breakdown() {
     res: { ok: true, status: 200 },
     json: {
       semester: '114-2',
-      items: [{ eventType: 'English Table', reservedCount: 10, capacity: 40, utilizationRate: 25 }],
-      byEventType: [{ eventType: 'English Table', totalReservations: 10, totalEventCapacity: 40, bookingRate: 25 }],
+      items: [{ eventType: 'English Table', reservedCount: 10, capacity: 40, utilizationRate: 25, attendanceRate: 80 }],
+      byEventType: [{ eventType: 'English Table', totalReservations: 10, totalEventCapacity: 40, bookingRate: 25, attendanceRate: 80 }],
       byEvent: [{
         eventId: 9,
         eventDate: '2026-03-02',
@@ -96,6 +96,7 @@ function breakdown() {
         maxCapacity: 40,
         totalReservations: 10,
         bookingRate: 25,
+        attendanceRate: 60,
       }],
       summary: { totalReservations: 10, totalEventCapacity: 40, bookingRate: 25 },
     },
@@ -463,5 +464,8 @@ describe('AdminAnalyticsPage operational overview', () => {
     expect(eventTable.querySelector('.table-responsive')).toBeTruthy();
     expect(screen.getByRole('columnheader', { name: '活動類型' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: '活動名稱' })).toBeInTheDocument();
+    expect(screen.getAllByRole('columnheader', { name: '預約列簽到率' })).toHaveLength(2);
+    expect(within(typeTable).getByRole('cell', { name: '80.0%' })).toBeInTheDocument();
+    expect(within(eventTable).getByRole('cell', { name: '60.0%' })).toBeInTheDocument();
   });
 });

@@ -97,6 +97,7 @@ function payloadFor(pathname, semester, mode) {
         totalEventCapacity: semester === '114-1' ? 40 : 80,
         totalReservations: semester === '114-1' ? 7 : 48,
         bookingRate: semester === '114-1' ? 17.5 : 60,
+        attendanceRate: semester === '114-1' ? 40 : 75,
       }],
       byEvent: [{
         eventId: semester === '114-1' ? 'event-b' : 'event-a',
@@ -106,6 +107,7 @@ function payloadFor(pathname, semester, mode) {
         maxCapacity: 20,
         totalReservations: reserved,
         bookingRate: 30,
+        attendanceRate: 50,
       }],
       summary: { synthetic: true },
     };
@@ -264,8 +266,11 @@ test('H01 H06 H07 H08 H09 H17 H18 H19 H20 normal fixture, charts, and isolation'
 
   await expect(page.getByTestId('capacity-by-type')).toContainText('English Table');
   await expect(page.getByTestId('capacity-by-type')).toContainText('活動類型');
+  await expect(page.getByTestId('capacity-by-type')).toContainText('預約列簽到率');
+  await expect(page.getByTestId('capacity-by-type')).toContainText('75.0%');
   await expect(page.getByTestId('capacity-by-event')).toContainText('週一桌');
   await expect(page.getByTestId('capacity-by-event')).toContainText('活動名稱');
+  await expect(page.getByTestId('capacity-by-event')).toContainText('50.0%');
 
   const bar = page.locator('.recharts-bar-rectangle').first();
   await bar.hover();

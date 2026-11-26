@@ -100,6 +100,7 @@ function normalizeCapacityItem(row) {
     totalReservations: finiteOrNull(row?.totalReservations ?? row?.reservedCount ?? row?.reservationsCount),
     totalEventCapacity: finiteOrNull(row?.totalEventCapacity ?? row?.capacity ?? row?.maxCapacity),
     bookingRate: finiteOrNull(row?.bookingRate ?? row?.utilizationRate),
+    attendanceRate: finiteOrNull(row?.attendanceRate),
   };
 }
 
@@ -624,7 +625,7 @@ export default function AdminAnalyticsPage() {
               <hr className="my-4" />
               <h2 className="h6 fw-semibold mb-2">活動類型與場次</h2>
               <p className="text-muted small mb-3">
-                類型表與場次表是同一份分項的不同粒度。類型列不與另一種形狀再加總。口徑與上方預約名額比相同：預約筆數 ÷ 活動名額。
+                類型表與場次表是同一份分項的不同粒度。類型列不與另一種形狀再加總。預約名額比與上方相同：預約筆數 ÷ 活動名額。預約列簽到率與上方相同：已簽到的預約列 ÷ 該列的預約筆數。沒有預約列時，簽到率為 0.0%。
                 活動日期 <strong>{activityDateWindow || semester}</strong>。
                 場次會列出這個活動日期區間內的活動，場次名額加總等於活動總名額。
               </p>
@@ -659,6 +660,10 @@ export default function AdminAnalyticsPage() {
                           <dt>預約名額比</dt>
                           <dd>{formatPct1(row.bookingRate)}</dd>
                         </div>
+                        <div>
+                          <dt>{OPS_LABELS.attendanceRate}</dt>
+                          <dd>{formatPct1(row.attendanceRate)}</dd>
+                        </div>
                       </dl>
                     </article>
                   ))}
@@ -674,6 +679,7 @@ export default function AdminAnalyticsPage() {
                           <th className="text-end">活動名額</th>
                           <th className="text-end">預約筆數</th>
                           <th className="text-end">預約名額比</th>
+                          <th className="text-end">{OPS_LABELS.attendanceRate}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -683,6 +689,7 @@ export default function AdminAnalyticsPage() {
                             <td className="text-end">{formatCount(row.totalEventCapacity)}</td>
                             <td className="text-end">{formatCount(row.totalReservations)}</td>
                             <td className="text-end">{formatPct1(row.bookingRate)}</td>
+                            <td className="text-end">{formatPct1(row.attendanceRate)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -717,6 +724,10 @@ export default function AdminAnalyticsPage() {
                             <dt>預約名額比</dt>
                             <dd>{formatPct1(row.bookingRate)}</dd>
                           </div>
+                          <div>
+                            <dt>{OPS_LABELS.attendanceRate}</dt>
+                            <dd>{formatPct1(row.attendanceRate)}</dd>
+                          </div>
                         </dl>
                         {href ? <Link to={href}>查看這場活動</Link> : null}
                       </article>
@@ -736,6 +747,7 @@ export default function AdminAnalyticsPage() {
                           <th className="text-end">名額</th>
                           <th className="text-end">已預約</th>
                           <th className="text-end">預約名額比</th>
+                          <th className="text-end">{OPS_LABELS.attendanceRate}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -753,6 +765,7 @@ export default function AdminAnalyticsPage() {
                             <td className="text-end">{formatCount(row.maxCapacity)}</td>
                             <td className="text-end">{formatCount(row.totalReservations)}</td>
                             <td className="text-end">{formatPct1(row.bookingRate)}</td>
+                            <td className="text-end">{formatPct1(row.attendanceRate)}</td>
                           </tr>
                           );
                         })}
