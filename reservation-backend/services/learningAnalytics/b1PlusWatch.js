@@ -11,6 +11,8 @@ const {
   gseBandForScore,
   GSE_CEFR_BANDS,
 } = require('./gseScoreMappingService');
+const { hoursForEventType } = require('../../utils/classCreditHours');
+const { hoursFromStartEndTime } = require('../learningJourney/utils/activityHours');
 
 const SKILLS = Object.freeze(['listening', 'reading', 'speaking', 'writing']);
 const PRE_PHASES = new Set(['pre_test', 'single']);
@@ -42,6 +44,12 @@ function round1(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.round(n * 10) / 10;
+}
+
+function roundHours2(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
 }
 
 function flagged(value) {
@@ -464,6 +472,76 @@ function shapeCourseList(rows = [], currentSemester = '') {
   return items;
 }
 
+function parseActivityPayload(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function attendanceExcluded(event) {
+  const subtitle = String(event?.subtitle || '').trim();
+  if (!subtitle) return false;
+  const lower = subtitle.toLowerCase();
+  return lower === 'absent' || lower === 'cancelled' || subtitle.includes('違規') || subtitle.includes('取消');
+}
+
+function activitySessionKey(event) {
+  const payload = parseActivityPayload(event?.rawPayload);
+  const eventId = payload.eventId != null && String(payload.eventId).trim() !== ''
+    ? String(payload.eventId).trim()
+    : '';
+  if (eventId) return `event:${eventId}`;
+  const date = dateOnly(event?.eventDate || event?.date);
+  const title = String(event?.title || '').trim();
+  const source = String(event?.sourceRecordId || event?.sourceSystem || '').trim();
+  return `loose:${date}|${title}|${source}`;
+}
+
+function nominalActivityHours(event) {
+  const payload = parseActivityPayload(event?.rawPayload);
+  const type = String(payload.activityType || payload.resourceType || event?.title || '').trim();
+  if (type.toUpperCase() === 'EWL' || /寫作工坊/.test(type)) {
+    const fromRange = hoursFromStartEndTime(payload.startTime, payload.endTime);
+    return fromRange != null && fromRange > 0 ? fromRange : 0;
+  }
+  return hoursForEventType(type, { eventDate: dateOnly(event?.eventDate || event?.date) }) || 0;
+}
+
+/**
+ * 詳情逐場時數。同一活動若同時來自預約與參與紀錄，只留一筆。
+ * 已有時數的場次沿用原值；未簽到但仍列入的場次改用活動類型標準時數。缺席與違規維持 0。
+ */
+function presentB1PlusActivities(events = []) {
+  const groups = new Map();
+  for (const event of events || []) {
+    const key = activitySessionKey(event);
+    const list = groups.get(key) || [];
+    list.push(event);
+    groups.set(key, list);
+  }
+
+  const rows = [];
+  for (const list of groups.values()) {
+    const positive = list.find((row) => Number(row.hours) > 0);
+    const countable = list.find((row) => !attendanceExcluded(row));
+    const base = positive || countable || list[0];
+    const hours = positive
+      ? Number(positive.hours)
+      : (countable ? nominalActivityHours(countable) : 0);
+    rows.push({
+      eventDate: base.eventDate || base.date,
+      title: base.title,
+      hours,
+    });
+  }
+  return shapeActivityList(rows);
+}
+
 function shapeActivityList(events = []) {
   return (events || [])
     .map((event) => {
@@ -472,7 +550,7 @@ function shapeActivityList(events = []) {
       return {
         date: dateOnly(event.eventDate || event.date),
         title,
-        hours: Number.isFinite(hours) ? round1(hours) : 0,
+        hours: Number.isFinite(hours) ? roundHours2(hours) : 0,
       };
     })
     .sort((left, right) => {
@@ -484,7 +562,7 @@ function shapeActivityList(events = []) {
 
 function sumHours(rows) {
   const total = (rows || []).reduce((sum, row) => sum + (Number(row.hours) || 0), 0);
-  return round1(total);
+  return roundHours2(total);
 }
 
 /**
@@ -543,6 +621,7 @@ module.exports = {
   sortB1PlusItems,
   shapeCourseList,
   shapeActivityList,
+  presentB1PlusActivities,
   shapeB1PlusStudentDetail,
   uniqueSorted,
   optionValues,

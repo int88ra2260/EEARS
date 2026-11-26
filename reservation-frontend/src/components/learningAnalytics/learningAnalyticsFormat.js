@@ -16,6 +16,6 @@ export function formatRate(part, whole) {
 export function formatHours(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return '—';
-  const rounded = Math.round(n * 10) / 10;
-  return `${rounded.toLocaleString('zh-TW')} 小時`;
+  const rounded = Math.round(n * 100) / 100;
+  return `${rounded.toLocaleString('zh-TW', { maximumFractionDigits: 2 })} 小時`;
 }

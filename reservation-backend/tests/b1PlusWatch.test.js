@@ -12,6 +12,7 @@ const {
   sortB1PlusItems,
   shapeCourseList,
   shapeActivityList,
+  presentB1PlusActivities,
   shapeB1PlusStudentDetail,
   examGse,
   exactCefrLabel,
@@ -373,8 +374,68 @@ describe('b1PlusWatch', () => {
       activities,
     });
     expect(detail.postExamActivities.map((row) => row.title)).toEqual(['英語小聚']);
-    expect(detail.postExamActivityHours).toBe(1.3);
-    expect(detail.activityHoursListed).toBe(2.3);
+    expect(detail.postExamActivityHours).toBe(1.26);
+    expect(detail.activityHoursListed).toBe(2.26);
     expect(detail.courses[0].inProgress).toBe(true);
+  });
+
+  it('counts one standard hour block per English Table and drops the duplicate source', () => {
+    const activities = presentB1PlusActivities([
+      {
+        eventDate: '2025-05-14',
+        title: 'English Table',
+        subtitle: '未簽到',
+        hours: 0,
+        sourceSystem: 'reservations',
+        sourceRecordId: 'reservation:1',
+        rawPayload: { eventId: 40, activityType: 'ET' },
+      },
+      {
+        eventDate: '2025-05-14',
+        title: 'English Table',
+        subtitle: 'registered',
+        hours: 0,
+        sourceSystem: 'activity_participations',
+        sourceRecordId: '99',
+        rawPayload: { eventId: '40', activityType: 'ET', startTime: null, endTime: null },
+      },
+      {
+        eventDate: '2025-04-30',
+        title: 'English Table',
+        subtitle: '已簽到',
+        hours: 0.5,
+        sourceSystem: 'reservations',
+        sourceRecordId: 'reservation:2',
+        rawPayload: { eventId: 41, activityType: 'ET' },
+      },
+      {
+        eventDate: '2025-04-16',
+        title: 'English Table',
+        subtitle: '已登記違規',
+        hours: 0,
+        sourceSystem: 'reservations',
+        sourceRecordId: 'reservation:3',
+        rawPayload: { eventId: 42, activityType: 'ET' },
+      },
+    ]);
+
+    expect(activities).toEqual([
+      { date: '2025-05-14', title: 'English Table', hours: 0.5 },
+      { date: '2025-04-30', title: 'English Table', hours: 0.5 },
+      { date: '2025-04-16', title: 'English Table', hours: 0 },
+    ]);
+  });
+
+  it('uses 45 minutes for English Table on or after the cutoff date', () => {
+    const activities = presentB1PlusActivities([
+      {
+        eventDate: '2026-09-01',
+        title: 'English Table',
+        subtitle: '未簽到',
+        hours: 0,
+        rawPayload: { eventId: 7, activityType: 'english_table' },
+      },
+    ]);
+    expect(activities[0].hours).toBe(0.75);
   });
 });

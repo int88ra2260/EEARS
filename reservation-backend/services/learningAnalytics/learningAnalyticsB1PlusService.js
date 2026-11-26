@@ -23,7 +23,7 @@ const {
   filterByKeyword,
   sortB1PlusItems,
   shapeCourseList,
-  shapeActivityList,
+  presentB1PlusActivities,
   shapeB1PlusStudentDetail,
   optionValues,
 } = require('./b1PlusWatch');
@@ -378,7 +378,7 @@ async function getPostExamEngagementDetail(studentId, snapshotVersion) {
         status: 'valid',
         excludeFlag: false,
       },
-      attributes: ['eventDate', 'title', 'subtitle', 'hours'],
+      attributes: ['eventDate', 'title', 'subtitle', 'hours', 'sourceSystem', 'sourceRecordId', 'rawPayload'],
       raw: true,
     }),
     loadStudentCourses([sid], currentSemester),
@@ -389,7 +389,7 @@ async function getPostExamEngagementDetail(studentId, snapshotVersion) {
     currentSemester,
     activityHours: student ? student.totalActivityHours : null,
     courses: courseLists.get(sid) || [],
-    activities: shapeActivityList(activityEvents),
+    activities: presentB1PlusActivities(activityEvents),
   });
 }
 
