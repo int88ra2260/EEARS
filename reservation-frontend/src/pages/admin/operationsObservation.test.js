@@ -72,7 +72,6 @@ describe('operations observation', () => {
       '/admin/operations',
       '/admin/operations/participation',
       '/admin/violations',
-      '/admin/analytics/risk',
       '/admin/reports',
     ]);
     model.actions.forEach((action) => {

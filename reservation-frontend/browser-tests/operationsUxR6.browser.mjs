@@ -12,16 +12,6 @@ function json(data, status = 200) {
   };
 }
 
-const student = {
-  studentId: 'B11000001',
-  studentName: '合成學生',
-  department: '外文系',
-  className: 'ET-A',
-  riskScore: 8,
-  riskLevel: 'high',
-  reasons: [{ key: 'noShow', label: '未到／缺席', value: 3, contribution: 4 }],
-};
-
 async function installMocks(page) {
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
@@ -99,10 +89,6 @@ async function installMocks(page) {
       await route.fulfill(json({ rankings: quiet ? [] : [{ classId: 1, className: 'ET-A', violationRate: 5 }] }));
       return;
     }
-    if (pathName.endsWith('/analytics/risk')) {
-      await route.fulfill(json({ risks: quiet ? [] : [student] }));
-      return;
-    }
     if (pathName.endsWith('/reports/overview') || pathName.endsWith('/reports/high-risk')) {
       const kind = pathName.endsWith('/reports/high-risk') ? 'high-risk' : 'overview';
       await route.fulfill({
@@ -167,70 +153,6 @@ test('operations overview after the UX pass', async ({ page }) => {
   await fits(page);
 });
 
-test('risk monitoring after the UX pass', async ({ page }) => {
-  await installMocks(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/admin/analytics/risk?profile=admin');
-  await expect(page.getByRole('heading', { name: '班級名冊高關注名單' })).toBeVisible();
-  await expect(page.getByRole('link', { name: '高關注名單', exact: true })).toBeVisible();
-  await expect(page.getByText('合成學生')).toBeVisible();
-  await expect(page.getByRole('link', { name: '合成學生' })).toHaveAttribute(
-    'href',
-    /\/admin\/analytics\/student\/B11000001\?fromSemester=115-1/,
-  );
-  await page.screenshot({ path: path.join(outDir, 'risk-desktop-wording.png'), fullPage: false });
-  await page.screenshot({ path: path.join(outDir, 'risk-desktop-after.png'), fullPage: false });
-
-  await page.locator('#risk-semester').selectOption('114-1');
-  await expect(page.getByText('沒有符合目前高關注條件的名單')).toBeVisible();
-  await page.screenshot({ path: path.join(outDir, 'risk-empty-after.png'), fullPage: false });
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/admin/analytics/risk?profile=admin');
-  await expect(page.getByTestId('risk-student')).toBeVisible();
-  await page.screenshot({ path: path.join(outDir, 'risk-mobile-after.png'), fullPage: false });
-  await fits(page);
-});
-
-test('risk request error stays on the page', async ({ page }) => {
-  await installMocks(page);
-  await page.route('**/api/analytics/risk**', async (route) => {
-    await route.fulfill(json({ error: '名單暫時讀不到' }, 500));
-  });
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/admin/analytics/risk?profile=admin');
-  await expect(page.getByText('名單暫時讀不到')).toBeVisible();
-  await page.screenshot({ path: path.join(outDir, 'risk-error-after.png'), fullPage: false });
-});
-
-test('a slower risk response does not replace the newer semester', async ({ page }) => {
-  await installMocks(page);
-  let held = false;
-  let release = () => {};
-  await page.route('**/api/analytics/risk**', async (route) => {
-    const semester = new URL(route.request().url()).searchParams.get('semester');
-    if (semester === '115-1') {
-      held = true;
-      await new Promise((resolve) => {
-        release = resolve;
-      });
-      await route.fulfill(json({
-        risks: [{ ...student, studentId: 'SLOW', studentName: '舊回應' }],
-      }));
-      return;
-    }
-    await route.fulfill(json({
-      risks: [{ ...student, studentId: 'NEW1', studentName: '新學期學生' }],
-    }));
-  });
-  await page.goto('/admin/analytics/risk?profile=admin');
-  await expect.poll(() => held).toBe(true);
-  await page.locator('#risk-semester').selectOption('114-1');
-  await expect(page.getByText('新學期學生')).toBeVisible();
-  release();
-  await expect(page.getByText('舊回應')).toHaveCount(0);
-});
-
 test('reports explain the workbook before download', async ({ page }) => {
   await installMocks(page);
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -279,12 +201,12 @@ test('legacy analytics routes still open the overview', async ({ page }) => {
 test('back and forward keep the operations pages', async ({ page }) => {
   await installMocks(page);
   await page.goto('/admin/analytics/overview?profile=admin');
-  await page.goto('/admin/analytics/risk?profile=admin');
-  await expect(page.getByText('合成學生')).toBeVisible();
+  await page.goto('/admin/reports?profile=admin');
+  await expect(page.getByRole('heading', { level: 1, name: '營運報表下載' })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('heading', { level: 1, name: '活動營運總覽' })).toBeVisible();
   await page.goForward();
-  await expect(page.getByRole('heading', { name: '班級名冊高關注名單' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '營運報表下載' })).toBeVisible();
 });
 
 test('the pages fit the review viewports', async ({ page }) => {
@@ -300,9 +222,6 @@ test('the pages fit the review viewports', async ({ page }) => {
     await page.setViewportSize(size);
     await page.goto('/admin/analytics/overview?profile=admin');
     await expect(page.getByTestId('ops-value-reservations')).toBeVisible();
-    await fits(page);
-    await page.goto('/admin/analytics/risk?profile=admin');
-    await expect(page.getByText('合成學生')).toBeVisible();
     await fits(page);
     await page.goto('/admin/reports?profile=admin');
     await expect(page.getByRole('heading', { name: '活動營運總覽工作簿' })).toBeVisible();

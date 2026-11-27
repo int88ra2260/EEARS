@@ -113,14 +113,6 @@ describe('Analytics admin-only API policy', () => {
     expect(res.status).toBe(200);
   });
 
-  test('executive teacher token → GET /api/analytics/risk should be 200', async () => {
-    const app = createApp();
-    const res = await request(app)
-      .get('/api/analytics/risk?semester=114-1')
-      .set('Authorization', 'Bearer exec-token');
-    expect(res.status).toBe(200);
-  });
-
   test('executive teacher token → GET /api/analytics/trends/overview should be 200', async () => {
     const app = createApp();
     const res = await request(app)

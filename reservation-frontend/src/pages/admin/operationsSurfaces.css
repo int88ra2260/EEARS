@@ -1,6 +1,5 @@
 .ops-result-card,
-.ops-report-card,
-.ops-risk-card {
+.ops-report-card {
   border: 1px solid var(--bs-border-color, #e6e8eb);
   border-radius: 0.75rem;
   padding: 0.95rem 1rem;
@@ -11,8 +10,7 @@
 }
 
 .ops-result-card h3,
-.ops-report-card h2,
-.ops-risk-card h2 {
+.ops-report-card h2 {
   font-size: 1.05rem;
   margin: 0 0 0.35rem;
 }
@@ -24,15 +22,13 @@
   margin: 0.7rem 0;
 }
 
-.ops-result-card dt,
-.ops-risk-card dt {
+.ops-result-card dt {
   font-size: 0.75rem;
   color: #667085;
   font-weight: 500;
 }
 
-.ops-result-card dd,
-.ops-risk-card dd {
+.ops-result-card dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
   font-weight: 650;

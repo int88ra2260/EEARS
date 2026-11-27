@@ -18,12 +18,6 @@ const OPERATIONS_LINKS = [
     detail: '公開頁造訪是為了預約、公告或課堂加分，以及登入順序與來站時段。不含學號。',
   },
   {
-    id: 'risk',
-    label: '高關注名單',
-    to: '/admin/analytics/risk',
-    detail: '既有行政例外清單。',
-  },
-  {
     id: 'reports',
     label: '營運報表下載',
     to: '/admin/reports',

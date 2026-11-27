@@ -18,7 +18,6 @@ import ClassOverview from '../src/components/ClassOverview';
 import ClassBestepOverview from '../src/components/ClassBestepOverview';
 import AnalyticsHubPage from '../src/pages/admin/AnalyticsHubPage';
 import AdminAnalyticsPage from '../src/pages/admin/AdminAnalyticsPage';
-import RiskDetectionPage from '../src/components/RiskDetectionPage';
 import ReportPage from '../src/components/ReportPage';
 import LearningAnalyticsLayout from '../src/pages/admin/LearningAnalyticsLayout';
 import LearningAnalyticsOverviewPage from '../src/pages/admin/LearningAnalyticsOverviewPage';
@@ -95,7 +94,6 @@ function AppHarness() {
           <Route path="/admin" element={<AdminShell auth={auth} onLogout={logout} />}>
             <Route path="analytics" element={<AnalyticsHubPage />} />
             <Route path="analytics/overview" element={<AdminAnalyticsPage />} />
-            <Route path="analytics/risk" element={<RiskDetectionPage />} />
             <Route path="analytics/trends" element={<Navigate to="/admin/analytics/overview" replace />} />
             <Route path="analytics/teacher-impact" element={<Navigate to="/admin/analytics/overview" replace />} />
             <Route path="analytics/student/:studentId" element={<HarnessStudentRedirect />} />

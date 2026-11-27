@@ -607,7 +607,7 @@ export default function AdminAnalyticsPage() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="small text-muted mb-2">此帳號沒有可進入的活動列表、簽到統計、違規管理、高風險追蹤或營運報表。</p>
+                    <p className="small text-muted mb-2">此帳號沒有可進入的活動列表、簽到統計、違規管理或營運報表。</p>
                   )}
                   {operationsObservation.hubPath ? (
                     <p className="small mb-0 mt-2">

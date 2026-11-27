@@ -439,15 +439,6 @@ export const ADMIN_NAV_SECTIONS = [
         searchTerms: ['課堂加分', '時數', '計點'],
       },
       {
-        id: 'analytics-risk',
-        label: '高關注名單',
-        path: '/admin/analytics/risk',
-        matchPrefixes: ['/admin/analytics/risk'],
-        visibility: 'adminOnly',
-        pageTitle: '高關注名單',
-        breadcrumbLabel: '高關注名單',
-      },
-      {
         id: 'analytics-teacher-dash',
         label: '我的教學儀表板',
         path: '/admin/teachers/dashboard',

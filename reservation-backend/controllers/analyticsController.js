@@ -177,30 +177,6 @@ async function getTeacherDashboard(req, res, next) {
   }
 }
 
-async function getRisk(req, res, next) {
-  try {
-    const { semester } = req.query;
-    if (!semester) {
-      return res.status(400).json({ error: '請提供 query: semester' });
-    }
-
-    // Phase 2 MVP：回傳該學期「高風險學生」列表（由 Service 統一處理 studentId 清洗與計算）
-    const risks = await riskDetectionService.getHighRisksForSemester(String(semester).trim(), {
-      participationThreshold: 2
-    });
-
-    res.json({
-      semester: String(semester).trim(),
-      risks
-    });
-  } catch (err) {
-    if (err.message === '不支援的學期') {
-      return res.status(400).json({ error: err.message });
-    }
-    next(err);
-  }
-}
-
 async function getStudentTrends(req, res, next) {
   try {
     const { studentId, fromSemester, toSemester, semester, kind } = req.query;
@@ -351,7 +327,6 @@ module.exports = {
   getClassEvaluation,
   getOverview,
   getTeacherDashboard,
-  getRisk,
   getStudentTrends,
   getClassTrends,
   getOverviewTrends,

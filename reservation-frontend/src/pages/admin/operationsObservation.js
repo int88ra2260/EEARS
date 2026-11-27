@@ -22,12 +22,6 @@ export const OPERATIONS_FOLLOW_UPS = Object.freeze([
     hint: '違規管理使用自己的清單，不會套用這裡的活動日期。',
   },
   {
-    id: 'risk',
-    label: '開啟高關注名單',
-    to: '/admin/analytics/risk',
-    hint: '高關注名單使用自己的學期控制，這裡不代傳篩選。',
-  },
-  {
     id: 'reports',
     label: '開啟營運報表',
     to: '/admin/reports',

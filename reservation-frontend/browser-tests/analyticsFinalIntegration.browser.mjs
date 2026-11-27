@@ -50,13 +50,14 @@ test('consolidated navigation keeps legacy urls and separates workspaces', async
   await expandSection(sidebar, '看資源');
   await expect(sidebar.getByRole('link', { name: '學習成效概況' })).toBeVisible();
   await expect(sidebar.getByRole('link', { name: '活動營運總覽' })).toBeVisible();
-  await expect(sidebar.getByRole('link', { name: '高關注名單' })).toBeVisible();
+  await expect(sidebar.getByRole('link', { name: '高關注名單' })).toHaveCount(0);
   await expect(sidebar.getByRole('link', { name: '營運報表下載' })).toBeVisible();
   await expect(sidebar.getByRole('link', { name: '資源覆蓋' })).toHaveCount(0);
   await expect(sidebar.getByRole('link', { name: '系所比較' })).toHaveCount(0);
   await shot(page, 'sidebar-desktop.png');
 
   const main = page.getByRole('main');
+  await expect(main.getByRole('link', { name: '高關注名單' })).toHaveCount(0);
   await expect(main.getByRole('link', { name: 'BESTEP 數據分析' })).toHaveAttribute('href', '/admin/english-test?tab=analytics');
   await expect(main.getByRole('link', { name: '資源與開課' })).toHaveAttribute('href', '/admin/learning-analytics/resources');
   await expect(main.getByRole('link', { name: '群體與技能比較' })).toHaveAttribute('href', '/admin/learning-analytics/cohorts');
@@ -120,8 +121,8 @@ test('a profile without analytics permission cannot open protected workspaces', 
   await shot(page, 'denied-nav.png');
 
   await page.goto('/admin/analytics/risk?profile=none');
-  await expect(page.getByRole('heading', { name: '無權限檢視此頁面' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '班級名冊高關注名單' })).toHaveCount(0);
+  await expect(page.getByText('harness-not-found')).toBeVisible();
 
   await page.goto('/admin/learning-analytics/raw-data?profile=learning');
   await expect(page.getByRole('heading', { level: 1, name: '資料匯出' })).toBeVisible();

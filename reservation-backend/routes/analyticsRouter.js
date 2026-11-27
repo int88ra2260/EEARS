@@ -117,7 +117,6 @@ router.get(
   requireFullCenterAnalytics,
   analyticsController.getReservationCapacityBreakdown
 );
-router.get('/analytics/risk', requireFullCenterAnalytics, analyticsController.getRisk);
 router.get(
   '/analytics/risk/predict/:studentId',
   requirePermission(P.CAN_VIEW_ANALYTICS),

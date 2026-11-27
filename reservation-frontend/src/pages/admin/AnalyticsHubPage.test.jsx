@@ -79,12 +79,12 @@ describe('analytics hub routes', () => {
   test('matches the hub without replacing existing analytics routes', () => {
     expect(appSource).toContain('path="analytics" element={<AnalyticsHubPage />}');
     expect(appSource).toContain('path="analytics/overview"');
-    expect(appSource).toContain('path="analytics/risk"');
+    expect(appSource).not.toContain('path="analytics/risk"');
     expect(appSource).toContain('path="learning-analytics"');
     expect(appSource).toContain('path="classes/:classId/bestep"');
     expect(getAdminRouteAccess('/admin/analytics').pattern).toBe('/admin/analytics');
     expect(getAdminRouteAccess('/admin/analytics/overview').pattern).toBe('/admin/analytics/overview');
-    expect(getAdminRouteAccess('/admin/analytics/risk').pattern).toBe('/admin/analytics/risk');
+    expect(getAdminRouteAccess('/admin/analytics/risk')).toBeNull();
     expect(getAdminRouteAccess('/admin/learning-analytics/resources').pattern)
       .toBe('/admin/learning-analytics/resources');
     expect(getAdminRouteAccess('/admin/classes/sample/bestep').pattern)
@@ -98,7 +98,7 @@ describe('analytics hub routes', () => {
     const eventIds = visible.find((item) => item.id === 'events').children.map((child) => child.id);
     const classIds = visible.find((item) => item.id === 'classes').children.map((child) => child.id);
     expect(eventIds).toEqual(expect.arrayContaining(['analytics-overview', 'analytics-reports']));
-    expect(classIds).toContain('analytics-risk');
+    expect(classIds).not.toContain('analytics-risk');
     expect(classIds).not.toContain('analytics-teacher-dash');
     expect(getAdminPageMeta('/admin/analytics', ctx).pageTitle).toBe('成效分析中心');
     expect(getAdminPageMeta('/admin/analytics/overview', ctx)).toMatchObject({
@@ -118,10 +118,10 @@ describe('analytics hub permissions', () => {
       expect(canAccessAdminRoute(current, '/admin/learning-analytics/overview')).toBe(true);
       expect(hrefs(buildAnalyticsHub(current))).toEqual(expect.arrayContaining([
         '/admin/analytics/overview',
-        '/admin/analytics/risk',
         '/admin/classes',
         '/admin/learning-analytics/resources',
       ]));
+      expect(hrefs(buildAnalyticsHub(current))).not.toContain('/admin/analytics/risk');
     }
   });
 

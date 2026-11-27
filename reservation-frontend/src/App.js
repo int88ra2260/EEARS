@@ -83,7 +83,6 @@ const TeacherDashboardPage = lazy(() => import('./components/TeacherDashboardPag
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 const VisitInsightsPage = lazy(() => import('./pages/admin/VisitInsightsPage'));
 const AnalyticsHubPage = lazy(() => import('./pages/admin/AnalyticsHubPage'));
-const RiskDetectionPage = lazy(() => import('./components/RiskDetectionPage'));
 const ReportPage = lazy(() => import('./components/ReportPage'));
 const AnnouncementManagementPage = lazy(() => import('./pages/admin/AnnouncementManagementPage'));
 const AdminStudentFeedbackPage = lazy(() => import('./pages/admin/AdminStudentFeedbackPage'));
@@ -666,7 +665,6 @@ function AppContent() {
             <Route path="analytics" element={<AnalyticsHubPage />} />
             <Route path="analytics/overview" element={<AdminAnalyticsPage />} />
             <Route path="analytics/visits" element={<VisitInsightsPage />} />
-            <Route path="analytics/risk" element={<RiskDetectionPage />} />
               <Route path="analytics/trends" element={<AdminLegacyRedirect to="/admin/analytics/overview" fromLabel="趨勢分析（舊網址）" />} />
               <Route path="reports" element={<ReportPage />} />
               <Route path="analytics/teacher-impact" element={<AdminLegacyRedirect to="/admin/analytics/overview" fromLabel="班級行政綜合變化（舊網址）" />} />

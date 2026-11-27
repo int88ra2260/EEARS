@@ -95,15 +95,6 @@ export async function fetchAnalyticsClasses(token, semester) {
   return json;
 }
 
-export async function fetchAnalyticsRisk(token, semester) {
-  const sem = encodeURIComponent(semester);
-  const { json } = await fetchJsonOrThrow(
-    `/api/analytics/risk?semester=${sem}`,
-    { headers: authHeaders(token) },
-  );
-  return json;
-}
-
 export async function fetchTeacherDashboard(token, teacherId, semester) {
   const { json } = await fetchJsonOrThrow(
     `/api/analytics/teachers/${encodeURIComponent(teacherId)}/dashboard?semester=${encodeURIComponent(semester)}`,
