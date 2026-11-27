@@ -14,7 +14,14 @@ const { findRegistrationForSemester } = require('./englishTestRegistrationServic
 const bestepFileQualityShadow = require('../analytics-contracts/pilots/bestepFileQualityShadowRuntime');
 
 // CEFR 等級列表
-const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const CEFR_LEVELS = ['A1', 'A1+', 'A2', 'A2+', 'B1', 'B1+', 'B2', 'B2+', 'C1', 'C1+', 'C2', 'C2+'];
+const PART_SKILL_SPECS = [
+  ['listening', '聽力', [40, 40, 60]],
+  ['reading', '閱讀', [20, 60, 60]],
+  ['speaking', '口說', [80, 130, 150]],
+  ['writing', '寫作', [80, 130, 150]],
+];
+const PART_NUMERALS = ['一', '二', '三'];
 
 // 欄位名稱對應表
 const FIELD_MAPPINGS = {
@@ -43,6 +50,21 @@ const FIELD_MAPPINGS = {
     totalScore: ['總分', 'Total', 'totalScore', '總成績', '合計', 'total_score']
   }
 };
+
+PART_SKILL_SPECS.forEach(([key, label]) => {
+  FIELD_MAPPINGS.scores[`${key}AchievementRate`] = [`${label}達成率`];
+  PART_NUMERALS.forEach((numeral, index) => {
+    const part = index + 1;
+    FIELD_MAPPINGS.scores[`${key}Part${part}Score`] = [
+      `${label}第${numeral}部分分數`,
+      `${label}第${numeral}部份分數`,
+    ];
+    FIELD_MAPPINGS.scores[`${key}Part${part}Rate`] = [
+      `${label}第${numeral}部分達成率`,
+      `${label}第${numeral}部份達成率`,
+    ];
+  });
+});
 
 const SCORE_RANGES = {
   listening: { min: 0, max: 140, label: '聽力' },
@@ -90,8 +112,55 @@ function normalizeCefrLevel(value) {
   const text = String(value).trim().toUpperCase();
   if (!text) return null;
   if (text.includes('未達A1')) return 'A1';
-  const match = text.match(/^(A1|A2|B1|B2|C1|C2)\+?$/);
-  return match ? match[1] : text;
+  const match = text.match(/^(A1|A2|B1|B2|C1|C2)(\+)?$/);
+  if (!match) return text;
+  return match[2] ? `${match[1]}+` : match[1];
+}
+
+function sheetIncludesMappedField(rows, fieldType, targetField) {
+  const mappings = (FIELD_MAPPINGS[fieldType] && FIELD_MAPPINGS[fieldType][targetField]) || [];
+  return (rows || []).some((row) => {
+    const keys = Object.keys(row || {}).map((key) => String(key || '').trim());
+    return mappings.some((mapping) => keys.includes(mapping));
+  });
+}
+
+function officialPartColumnsPresent(rows) {
+  return sheetIncludesMappedField(rows, 'scores', 'listeningPart1Score');
+}
+
+function readOfficialPartColumns(row, skillTotals) {
+  const columns = {};
+  for (const [key, label, marks] of PART_SKILL_SPECS) {
+    const partScores = [];
+    for (let index = 0; index < marks.length; index += 1) {
+      const part = index + 1;
+      const score = parseNullableScore(getFieldValue(row, 'scores', `${key}Part${part}Score`));
+      const rate = parseNullableScore(getFieldValue(row, 'scores', `${key}Part${part}Rate`));
+      if (score !== null && (Number.isNaN(score) || score < 0 || score > marks[index])) {
+        return { columns: null, error: `${label}第${part}部分分數超出範圍（0-${marks[index]}）` };
+      }
+      if (rate !== null && (Number.isNaN(rate) || rate < 0 || rate > 100)) {
+        return { columns: null, error: `${label}第${part}部分達成率超出範圍（0-100）` };
+      }
+      columns[`${key}Part${part}Score`] = score;
+      columns[`${key}Part${part}Rate`] = rate;
+      partScores.push(score);
+    }
+    const achievement = parseNullableScore(getFieldValue(row, 'scores', `${key}AchievementRate`));
+    if (achievement !== null && (Number.isNaN(achievement) || achievement < 0 || achievement > 100)) {
+      return { columns: null, error: `${label}達成率超出範圍（0-100）` };
+    }
+    columns[`${key}AchievementRate`] = achievement;
+    const total = skillTotals ? skillTotals[key] : null;
+    if (partScores.every((value) => value !== null) && total !== null && !Number.isNaN(total)) {
+      const sum = partScores.reduce((acc, value) => acc + value, 0);
+      if (Math.abs(sum - total) > 1) {
+        return { columns: null, error: `${label}三部分分數總和與總分不符（總分：${total}，三部分：${sum}）` };
+      }
+    }
+  }
+  return { columns, error: null };
 }
 
 /**
@@ -459,6 +528,7 @@ async function importScoreData(filePath, semester) {
     const worksheet = workbook.Sheets[sheetName];
     rows = XLSX.utils.sheet_to_json(worksheet, { defval: null });
     sourceFile = path.basename(filePath);
+    const partsPresent = officialPartColumnsPresent(rows);
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -563,7 +633,7 @@ async function importScoreData(filePath, semester) {
               studentId: cleanStudentId,
               name: name || '',
               error: 'INVALID_LEVEL',
-              message: `${key}等級格式錯誤（應為 A1, A2, B1, B2, C1, C2 之一）`
+              message: `${key}等級格式錯誤（應為 A1、A2、B1、B2、C1、C2，可帶加號，例如 B1+）`
             });
             skipped++;
             validationFailed = true;
@@ -571,6 +641,23 @@ async function importScoreData(filePath, semester) {
           }
         }
         if (validationFailed) continue;
+
+        let partColumns = null;
+        if (partsPresent) {
+          const parsedParts = readOfficialPartColumns(row, scores);
+          if (parsedParts.error) {
+            errors.push({
+              row: rowNum,
+              studentId: cleanStudentId,
+              name: name || '',
+              error: 'INVALID_SCORE',
+              message: parsedParts.error
+            });
+            skipped++;
+            continue;
+          }
+          partColumns = parsedParts.columns;
+        }
 
         // 計算總分（若未提供）
         let calculatedTotalScore = parseNullableScore(totalScore);
@@ -623,6 +710,7 @@ async function importScoreData(filePath, semester) {
           readingLevel: levels.reading,
           speakingLevel: levels.speaking,
           writingLevel: levels.writing,
+          ...(partColumns || {}),
           totalScore: calculatedTotalScore,
           overallLevel,
           passed,
@@ -728,5 +816,9 @@ module.exports = {
   getFieldValue,
   normalizeCefrLevel,
   parseNullableScore,
+  calculateOverallLevel,
+  isPassed,
+  officialPartColumnsPresent,
+  readOfficialPartColumns,
   FIELD_MAPPINGS
 };

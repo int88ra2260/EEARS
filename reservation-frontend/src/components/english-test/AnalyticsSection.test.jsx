@@ -153,7 +153,7 @@ describe('AnalyticsSection registration view', () => {
 
     expect(screen.getByText(/不能還原更細的等級/)).toBeInTheDocument();
     expect(screen.getByText('24／50 人（48.0%）')).toBeInTheDocument();
-    expect(screen.getByText(/分子是 B2、C1、C2/)).toBeInTheDocument();
+    expect(screen.getByText(/分子是 B2、B2\+、C1、C1\+、C2、C2\+/)).toBeInTheDocument();
     expect(screen.getByTestId('score-chart')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '閱讀' }));
     expect(screen.getByText('19／40 人（47.5%）')).toBeInTheDocument();
@@ -401,5 +401,85 @@ describe('AnalyticsSection decision overview', () => {
     expect(screen.getByRole('row', { name: /113 學年第 2 學期（表單彙總）/ })).toHaveTextContent('80');
     expect(screen.getByRole('row', { name: /114 學年第 2 學期/ })).toHaveTextContent('120');
     expect(screen.getByText(/表單彙總的學期來自 Google 表單常數/)).toBeInTheDocument();
+  });
+
+  test('shows part achievement, prior weakness, and separate B1 and B1+ groups', () => {
+    render(
+      <AnalyticsSection
+        {...readyProps}
+        partDiagnostics={{
+          comparisonNote: '弱項用達成率比較。',
+          history: {
+            sumsPeople: false,
+            note: '各次考試各自計算平均達成率。',
+            semesters: ['113-2', '114-1'],
+            parts: [
+              {
+                skill: 'speaking',
+                skillLabel: '口說',
+                part: 3,
+                label: '口說第三部分',
+                fullMark: 150,
+                bySemester: {
+                  '113-2': { count: 10, meanRate: 48, weakest: true },
+                  '114-1': { count: 12, meanRate: 61, weakest: false },
+                },
+              },
+            ],
+          },
+          preExam: {
+            status: 'ready',
+            note: '細項用他們最近一次更早的培力成績。',
+            registeredStudentCount: 8,
+            withPriorParts: 5,
+            withoutPriorParts: 3,
+            parts: [
+              {
+                skill: 'speaking',
+                skillLabel: '口說',
+                part: 3,
+                label: '口說第三部分',
+                fullMark: 150,
+                count: 5,
+                meanRate: 52,
+                weakest: true,
+              },
+            ],
+          },
+          approachingB2: {
+            status: 'ready',
+            note: '依該科自己的 CEFR 圈出 B1 與 B1+。',
+            skills: [
+              {
+                skill: 'speaking',
+                label: '口說',
+                groups: [
+                  {
+                    level: 'B1',
+                    count: 4,
+                    parts: [{ part: 3, label: '第三部分', fullMark: 150, count: 4, meanRate: 41, weakest: true }],
+                  },
+                  {
+                    level: 'B1+',
+                    count: 2,
+                    parts: [{ part: 3, label: '第三部分', fullMark: 150, count: 2, meanRate: 58, weakest: true }],
+                  },
+                ],
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: '部分細項' }));
+    expect(screen.getByRole('heading', { name: '各次考試的部分達成率' })).toBeInTheDocument();
+    expect(screen.getByText('48.0%（10 人，較弱）')).toBeInTheDocument();
+    expect(screen.getByText('61.0%（12 人）')).toBeInTheDocument();
+    expect(screen.getByText('52.0%（5 人，較弱）')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'B1' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'B1+' })).toBeInTheDocument();
+    expect(screen.getByText('41.0%（4 人，較弱）')).toBeInTheDocument();
+    expect(screen.getByText('弱項用達成率比較。')).toBeInTheDocument();
   });
 });

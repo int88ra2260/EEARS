@@ -21,6 +21,7 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
   const [attendanceSummary, setAttendanceSummary] = useState(null);
   const [scoreSummary, setScoreSummary] = useState(null);
   const [sittingB2Rates, setSittingB2Rates] = useState(null);
+  const [partDiagnostics, setPartDiagnostics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState('');
   const hydratedRef = useRef(false);
@@ -46,6 +47,7 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
       setAttendanceSummary(json.attendance || null);
       setScoreSummary(json.scores || null);
       setSittingB2Rates(json.sittingB2Rates || null);
+      setPartDiagnostics(json.partDiagnostics || null);
       if (!hydratedRef.current) {
         hydratedRef.current = true;
         const resolved =
@@ -66,6 +68,7 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
       setAttendanceSummary(null);
       setScoreSummary(null);
       setSittingB2Rates(null);
+      setPartDiagnostics(null);
       setRegistrationCountSeries([]);
       setAnalyticsError(e?.message || '載入統計失敗，請確認後端已重啟並包含數據分析 API');
     } finally {
@@ -92,6 +95,7 @@ export function useEnglishTestAnalytics({ token, mainTab }) {
     attendanceSummary,
     scoreSummary,
     sittingB2Rates,
+    partDiagnostics,
     analyticsLoading,
     analyticsError,
     loadAnalyticsStats,

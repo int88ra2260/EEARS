@@ -4,8 +4,8 @@ const { normalizeExamTypeCode } = require('../utils/englishTestExamType');
 
 const ATOMIC_SKILLS = ['L', 'R', 'S', 'W'];
 const AGGREGATE_EXAM_TYPES = new Set(['LR', 'SW']);
-const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-const B2_OR_ABOVE = new Set(['B2', 'C1', 'C2']);
+const CEFR_LEVELS = ['A1', 'A1+', 'A2', 'A2+', 'B1', 'B1+', 'B2', 'B2+', 'C1', 'C1+', 'C2', 'C2+'];
+const B2_OR_ABOVE = new Set(['B2', 'B2+', 'C1', 'C1+', 'C2', 'C2+']);
 const EXAM_TYPE_KEYS = ['LRSW', 'LR', 'SW', 'NON', 'other'];
 
 const SCORE_SKILLS = [
@@ -16,13 +16,13 @@ const SCORE_SKILLS = [
 ];
 
 const PRESENT_LABEL = '匯入紀錄標示出席，來源尚待確認';
-const SITTING_B2_NOTE = '各次考試各自計算。達 B2 以上是 B2、C1、C2。分母是該次、該技能有成績的人數。人數不加總。同一位學生可以出現在多次考試。沒有系統報名的學期，改以該次成績匯入列計算。';
+const SITTING_B2_NOTE = '各次考試各自計算。達 B2 以上是 B2、B2+、C1、C1+、C2、C2+。分母是該次、該技能有成績的人數。人數不加總。同一位學生可以出現在多次考試。沒有系統報名的學期，改以該次成績匯入列計算。';
 const ATTENDANCE_LIMITS = {
   confirmedAttendance: false,
   presentMeaning: 'import_marked_unconfirmed',
   presentLabel: PRESENT_LABEL,
 };
-const CEFR_RESOLUTION_NOTE = '圖上是匯入後保存的等級。未達 A1 會記成 A1；加號會拿掉，所以 B2+ 存成 B2，不會變成 C1。C1 與 C2 原樣保留。不能還原更細的等級。';
+const CEFR_RESOLUTION_NOTE = '圖上是匯入後保存的等級。未達 A1 仍記成 A1。新匯入保留加號，B1 與 B1+、B2 與 B2+ 分開計算。B2+ 算達 B2 以上，不會變成 C1。更早已經拿掉加號的列不能還原。';
 
 function trimText(value) {
   if (value == null) return '';
@@ -112,7 +112,8 @@ function emptySkillAttendance(status) {
 
 function emptyCefrCounts() {
   return {
-    A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0, unrecognized: 0, missing: 0,
+    A1: 0, 'A1+': 0, A2: 0, 'A2+': 0, B1: 0, 'B1+': 0, B2: 0, 'B2+': 0,
+    C1: 0, 'C1+': 0, C2: 0, 'C2+': 0, unrecognized: 0, missing: 0,
   };
 }
 
@@ -542,6 +543,7 @@ async function loadBestepAnalyticsExtension(semester) {
       'studentId', 'semester',
       'listeningScore', 'readingScore', 'speakingScore', 'writingScore',
       'listeningLevel', 'readingLevel', 'speakingLevel', 'writingLevel',
+      ...require('./bestepPartDiagnosticService').PART_SCORE_ATTRIBUTES,
     ],
   };
 
@@ -563,9 +565,15 @@ async function loadBestepAnalyticsExtension(semester) {
     attendance,
     scores: scopeAll ? [] : scores,
   });
+  const { buildPartDiagnostics } = require('./bestepPartDiagnosticService');
   return {
     ...extension,
     sittingB2Rates: buildSittingB2Rates(registrations, scores),
+    partDiagnostics: buildPartDiagnostics({
+      semester: scopeAll ? 'all' : requested,
+      registrations,
+      scores,
+    }),
   };
 }
 

@@ -20,7 +20,7 @@ const ASSESSMENT_SOURCES = Object.freeze({
     skillColumns: Object.freeze(['listening', 'reading', 'speaking', 'writing']),
     knownLimits: Object.freeze([
       '唯一鍵是學號加檔案學期，不是考試日。同一學期再匯入會撞同一列。',
-      '匯入時 normalizeCefrLevel 會去掉加號。資料庫裡的等級通常已不是原始字串。',
+      '新匯入的 normalizeCefrLevel 保留加號。未達 A1 仍記成 A1。更早已經拿掉加號的列不能還原。',
       '一列含四科，不是四筆來源主鍵。',
     ]),
   }),

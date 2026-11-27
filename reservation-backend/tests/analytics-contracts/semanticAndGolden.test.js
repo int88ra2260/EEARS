@@ -87,7 +87,7 @@ describe('analytics contract semantics and golden cases', () => {
       { metricId: 'snapshot.gse_raw_delta', temporalContractId: 'TC-EXAM-SESSION' },
       { metricId: 'roster.pair_pass.listening_reading', policyKey: 'pair-bothcefr-samedate-g24' },
     ).status).toBe('undetermined');
-    expect(getMetricDefinition('bestep.file.skill_level').claimRestrictions).toContain('plus_collapsed');
+    expect(getMetricDefinition('bestep.file.skill_level').claimRestrictions).toContain('plus_preserved');
     expect(getMetricDefinition('bestep.file.four_skill_cefr_b2').claimRestrictions)
       .toContain('missing_level_counts_as_fail');
     expect(getTemporalContract('TC-BESTEP-FILE-SEMESTER').limitations)

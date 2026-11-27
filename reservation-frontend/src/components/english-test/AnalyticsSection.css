@@ -211,6 +211,23 @@
   margin-top: 0.75rem;
 }
 
+.et-analytics-part-skill,
+.et-analytics-part-group h5 {
+  margin: 1rem 0 0.35rem;
+  font-size: 1rem;
+}
+
+.et-analytics-part-group p {
+  margin: 0.2rem 0 0.4rem;
+  color: #5d656b;
+  font-size: 0.92rem;
+}
+
+.et-analytics-weak {
+  color: #8a4b2f;
+  font-weight: 650;
+}
+
 .et-analytics-caption {
   caption-side: bottom;
   padding-top: 0.6rem;

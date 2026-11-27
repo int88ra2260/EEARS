@@ -54,8 +54,8 @@ const TEMPORAL_CONTRACTS = Object.freeze([
     asOfQuerySupported: false,
     observationWindowPolicy: '檔案學期字串。通過率不用出席日。出席日只是列上的事實。',
     historicalRecalculationPolicy: '後匯入會改當下頁面，不保留舊通過率。',
-    comparisonEligibility: '兩個檔案學期可並排，僅當接受加號已摺疊且規則未改。不可與名冊成對對帳。',
-    limitations: ['import_time_is_not_assessment_time', 'plus_collapsed'],
+    comparisonEligibility: '兩個檔案學期可並排。新匯入保留加號；更早已拿掉加號的列不能還原。不可與名冊成對對帳。',
+    limitations: ['import_time_is_not_assessment_time', 'historical_plus_may_remain_collapsed'],
   }),
   Object.freeze({
     temporalContractId: 'TC-ROSTER-LIFETIME-DEFAULT',

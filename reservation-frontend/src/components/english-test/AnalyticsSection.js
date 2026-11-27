@@ -21,6 +21,7 @@ import {
   ChartTooltip,
 } from '../charts';
 import AnalyticsDecisionCharts from './AnalyticsDecisionCharts';
+import BestepPartDiagnostics from './BestepPartDiagnostics';
 import './AnalyticsSection.css';
 
 const TOPICS = [
@@ -28,6 +29,7 @@ const TOPICS = [
   { id: 'registration', label: '報名概況' },
   { id: 'attendance', label: '出席紀錄' },
   { id: 'skills', label: '四技能成績' },
+  { id: 'parts', label: '部分細項' },
 ];
 
 const ATTENDANCE_SKILLS = [
@@ -46,11 +48,17 @@ const SCORE_SKILLS = [
 
 const CEFR_LABELS = [
   ['A1', 'A1'],
+  ['A1+', 'A1+'],
   ['A2', 'A2'],
+  ['A2+', 'A2+'],
   ['B1', 'B1'],
+  ['B1+', 'B1+'],
   ['B2', 'B2'],
+  ['B2+', 'B2+'],
   ['C1', 'C1'],
+  ['C1+', 'C1+'],
   ['C2', 'C2'],
+  ['C2+', 'C2+'],
 ];
 
 const EXAM_TYPE_LABELS = [
@@ -255,6 +263,7 @@ export default function AnalyticsSection({
   attendance = null,
   scores = null,
   sittingB2Rates = null,
+  partDiagnostics = null,
 }) {
   const [topic, setTopic] = useState('overview');
   const [slice, setSlice] = useState('grade');
@@ -383,7 +392,9 @@ export default function AnalyticsSection({
   const scoresImported = !scoreScopeBlocked && scores?.importStatus === 'imported';
   const selectedScore = scores?.skills?.[scoreSkill] || null;
   const scoreRows = scoresImported && selectedScore?.cefr ? [
-    ...CEFR_LABELS.map(([key, label]) => ({ label, count: finiteCount(selectedScore.cefr[key]) })),
+    ...CEFR_LABELS
+      .filter(([key]) => !key.endsWith('+') || (finiteCount(selectedScore.cefr[key]) || 0) > 0)
+      .map(([key, label]) => ({ label, count: finiteCount(selectedScore.cefr[key]) })),
     { label: '有成績但沒有等級', count: finiteCount(selectedScore.cefr.missing) },
     { label: '無法辨識的等級', count: finiteCount(selectedScore.cefr.unrecognized) },
   ] : [];
@@ -450,6 +461,10 @@ export default function AnalyticsSection({
           scores={scores}
           sittingB2Rates={sittingB2Rates}
         />
+      ) : null}
+
+      {topic === 'parts' && !loading && !error ? (
+        <BestepPartDiagnostics partDiagnostics={partDiagnostics} semester={selectValue} />
       ) : null}
 
       {topic === 'registration' && !loading && !error && !showWorkbench ? (
@@ -703,7 +718,7 @@ export default function AnalyticsSection({
                 <div>
                   <dt>達 B2 以上</dt>
                   <dd className="et-analytics-ratio">{formatB2Ratio(selectedScore?.b2OrAboveCount, selectedScore?.denominator)}</dd>
-                  <p>分子是 B2、C1、C2。分母是這項技能有成績的人數，含有分數但沒有等級者。</p>
+                  <p>分子是 B2、B2+、C1、C1+、C2、C2+。分母是這項技能有成績的人數，含有分數但沒有等級者。</p>
                 </div>
               </dl>
               <div className="et-analytics-panel">

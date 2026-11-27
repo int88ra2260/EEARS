@@ -221,6 +221,9 @@ export async function fetchEnglishTestAnalyticsStats(token, { semester } = {}) {
     attendance: data.attendance && typeof data.attendance === 'object' ? data.attendance : null,
     scores: data.scores && typeof data.scores === 'object' ? data.scores : null,
     sittingB2Rates: normalizeSittingB2Rates(data.sittingB2Rates),
+    partDiagnostics: data.partDiagnostics && typeof data.partDiagnostics === 'object'
+      ? data.partDiagnostics
+      : null,
   };
 }
 

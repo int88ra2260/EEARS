@@ -2,6 +2,37 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
+function partDetailColumns() {
+  const skills = [
+    ['listening', '聽力', [40, 40, 60]],
+    ['reading', '閱讀', [20, 60, 60]],
+    ['speaking', '口說', [80, 130, 150]],
+    ['writing', '寫作', [80, 130, 150]],
+  ];
+  const columns = {};
+  skills.forEach(([key, label, marks]) => {
+    columns[`${key}AchievementRate`] = {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      comment: `${label}達成率（0-100）`,
+    };
+    marks.forEach((max, index) => {
+      const part = index + 1;
+      columns[`${key}Part${part}Score`] = {
+        type: DataTypes.DECIMAL(6, 2),
+        allowNull: true,
+        comment: `${label}第${part}部分分數（滿分 ${max}）`,
+      };
+      columns[`${key}Part${part}Rate`] = {
+        type: DataTypes.DECIMAL(5, 2),
+        allowNull: true,
+        comment: `${label}第${part}部分達成率（0-100）`,
+      };
+    });
+  });
+  return columns;
+}
+
 const BestepExamScore = sequelize.define('BestepExamScore', {
   id: {
     type: DataTypes.INTEGER,
@@ -46,23 +77,24 @@ const BestepExamScore = sequelize.define('BestepExamScore', {
   listeningLevel: {
     type: DataTypes.STRING(10),
     allowNull: true,
-    comment: '聽力 CEFR 等級（如 A1, A2, B1, B2, C1, C2）'
+    comment: '聽力 CEFR，保留加號（例如 B1、B1+）'
   },
   readingLevel: {
     type: DataTypes.STRING(10),
     allowNull: true,
-    comment: '閱讀 CEFR 等級'
+    comment: '閱讀 CEFR，保留加號（例如 B1、B1+）'
   },
   speakingLevel: {
     type: DataTypes.STRING(10),
     allowNull: true,
-    comment: '口說 CEFR 等級'
+    comment: '口說 CEFR，保留加號（例如 B1、B1+）'
   },
   writingLevel: {
     type: DataTypes.STRING(10),
     allowNull: true,
-    comment: '寫作 CEFR 等級'
+    comment: '寫作 CEFR，保留加號（例如 B1、B1+）'
   },
+  ...partDetailColumns(),
   totalScore: {
     type: DataTypes.DECIMAL(5, 2),
     allowNull: true,

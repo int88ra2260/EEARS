@@ -209,9 +209,9 @@ const METRICS = Object.freeze([
     metricId: 'bestep.file.skill_level',
     displayName: '培力技能等級（正規化後）',
     domainId: 'DOM-ATTAIN',
-    businessQuestion: '匯入後留下的 CEFR 基底等級是什麼',
+    businessQuestion: '匯入後留下的 CEFR 等級是什麼',
     analysisUnit: '學生乘檔案學期乘技能',
-    populationDefinition: 'bestep_exam_scores 的等級欄。B2+ 存成 B2',
+    populationDefinition: 'bestep_exam_scores 的等級欄。新匯入保留 B1+、B2+。未達 A1 仍記成 A1。更早已經拿掉加號的列不能還原。',
     temporalContractIds: ['TC-BESTEP-FILE-SEMESTER'],
     sourceIds: ['bestep_exam_scores'],
     calculationReference: ['reservation-backend/services/bestepImportService.js#normalizeCefrLevel'],
@@ -221,7 +221,7 @@ const METRICS = Object.freeze([
     evidenceClassification: 'descriptive',
     conflictGroup: 'cefr_plus',
     legacyActive: true,
-    claimRestrictions: ['not_official', 'plus_collapsed', 'raw_cefr_absent'],
+    claimRestrictions: ['not_official', 'plus_preserved', 'historical_plus_may_remain_collapsed'],
     legacyReferences: ['LM-BT-01'],
   }),
   m({
@@ -240,7 +240,7 @@ const METRICS = Object.freeze([
     evidenceClassification: 'comparative_to_threshold',
     conflictGroup: 'attainment',
     legacyActive: true,
-    claimRestrictions: ['not_official', 'plus_collapsed', 'no_standalone_rate'],
+    claimRestrictions: ['not_official', 'b2_plus_counts_as_b2', 'no_standalone_rate'],
     legacyReferences: ['LM-BT-01'],
   }),
   m({
@@ -262,7 +262,7 @@ const METRICS = Object.freeze([
     evidenceClassification: 'comparative_to_threshold',
     conflictGroup: 'attainment',
     legacyActive: true,
-    claimRestrictions: ['not_official', 'missing_level_counts_as_fail', 'not_pair_pass', 'plus_collapsed'],
+    claimRestrictions: ['not_official', 'missing_level_counts_as_fail', 'not_pair_pass', 'b2_plus_counts_as_b2'],
     legacyReferences: ['LM-BT-01'],
   }),
   m({

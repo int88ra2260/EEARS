@@ -175,7 +175,7 @@ describe('buildBestepAnalyticsExtension', () => {
     expect(result.scores.skills.speaking.eligible).toBe(0);
   });
 
-  it('keeps stored C1 and C2, and does not promote B2+ or a missing level', () => {
+  it('keeps stored C1, C2, and B2+ without promoting B2+ to C1', () => {
     const result = buildBestepAnalyticsExtension({
       semester: '114-2',
       registrations: [
@@ -196,13 +196,14 @@ describe('buildBestepAnalyticsExtension', () => {
     expect(listening.cefr.C1).toBe(1);
     expect(listening.cefr.C2).toBe(1);
     expect(listening.cefr.B2).toBe(0);
+    expect(listening.cefr['B2+']).toBe(1);
     expect(listening.cefr.A1).toBe(0);
-    expect(listening.cefr.unrecognized).toBe(1);
+    expect(listening.cefr.unrecognized).toBe(0);
     expect(listening.cefr.missing).toBe(1);
     expect(listening.withScore).toBe(4);
     expect(listening.denominator).toBe(4);
     expect(listening.b2LevelCount).toBe(0);
-    expect(listening.b2OrAboveCount).toBe(2);
+    expect(listening.b2OrAboveCount).toBe(3);
   });
 
   it('keeps a scored student in the denominator when CEFR is missing', () => {

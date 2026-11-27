@@ -45,11 +45,11 @@ const GOLDEN_CASES = Object.freeze([
   }),
   Object.freeze({
     caseId: 'G05',
-    title: 'B2 與 B2+ 正規化',
+    title: 'B2+ 保留且不算成 C1',
     fixture: { person: 'SYN-E', rawLevels: ['B2', 'B2+'] },
     expect: {
       metricId: 'bestep.file.skill_level',
-      restriction: 'plus_collapsed',
+      restriction: 'plus_preserved',
     },
   }),
   Object.freeze({

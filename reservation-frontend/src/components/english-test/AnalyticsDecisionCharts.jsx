@@ -45,13 +45,19 @@ const UNREADABLE_SERIES = {
 
 const CEFR_SERIES = [
   { key: 'A1', label: 'A1', fill: '#d6e2f0' },
+  { key: 'A1+', label: 'A1+', fill: '#c5d4e8', optional: true },
   { key: 'A2', label: 'A2', fill: '#a9c6e2' },
+  { key: 'A2+', label: 'A2+', fill: '#8eb4d8', optional: true },
   { key: 'B1', label: 'B1', fill: '#6aa3d4' },
+  { key: 'B1+', label: 'B1+', fill: '#4d8ec8', optional: true },
   { key: 'B2', label: 'B2', fill: '#2a5d9f' },
+  { key: 'B2+', label: 'B2+', fill: '#1e4678', optional: true },
   { key: 'C1', label: 'C1', fill: '#5b8f7a' },
+  { key: 'C1+', label: 'C1+', fill: '#3f6d5c', optional: true },
   { key: 'C2', label: 'C2', fill: '#2f6a52' },
+  { key: 'C2+', label: 'C2+', fill: '#1d4636', optional: true },
   { key: 'missing', label: '有成績但沒有等級', fill: '#c4a35a' },
-  { key: 'unrecognized', label: '無法辨識的等級', fill: '#8a6a62' },
+  { key: 'unrecognized', label: '無法辨識的等級', fill: '#8a6a62', optional: true },
 ];
 
 function finiteCount(value) {
@@ -293,8 +299,8 @@ export default function AnalyticsDecisionCharts({
   const cefrSeries = useMemo(() => {
     const skills = scores?.skills || {};
     return CEFR_SERIES.filter((segment) => {
-      if (segment.key !== 'unrecognized') return true;
-      return SCORE_SKILLS.some((skill) => (finiteCount(skills[skill.key]?.cefr?.unrecognized) || 0) > 0);
+      if (!segment.optional) return true;
+      return SCORE_SKILLS.some((skill) => (finiteCount(skills[skill.key]?.cefr?.[segment.key]) || 0) > 0);
     });
   }, [scores]);
 
@@ -305,14 +311,10 @@ export default function AnalyticsDecisionCharts({
         return {
           name: skill.label,
           fullName: skill.label,
-          A1: finiteCount(cefr.A1) || 0,
-          A2: finiteCount(cefr.A2) || 0,
-          B1: finiteCount(cefr.B1) || 0,
-          B2: finiteCount(cefr.B2) || 0,
-          C1: finiteCount(cefr.C1) || 0,
-          C2: finiteCount(cefr.C2) || 0,
-          missing: finiteCount(cefr.missing) || 0,
-          unrecognized: finiteCount(cefr.unrecognized) || 0,
+          ...Object.fromEntries(CEFR_SERIES.map((segment) => [
+            segment.key,
+            finiteCount(cefr[segment.key]) || 0,
+          ])),
           denominator: finiteCount(source?.denominator) || 0,
           b2OrAboveCount: finiteCount(source?.b2OrAboveCount),
           b2LevelCount: finiteCount(source?.b2LevelCount),
@@ -466,7 +468,7 @@ export default function AnalyticsDecisionCharts({
             <div className="et-analytics-panel-head">
               <div>
                 <h3 id="decision-score-title">這次考試的四技能等級與達 B2 以上</h3>
-                <p>{scores?.cefrResolutionNote || '圖上是匯入後保存的等級。加號會拿掉，不能還原更細的等級。'}</p>
+                <p>{scores?.cefrResolutionNote || '圖上是匯入後保存的等級。新匯入保留加號。更早已經拿掉加號的列不能還原。'}</p>
               </div>
             </div>
             {scoreBlocked ? (
@@ -481,7 +483,7 @@ export default function AnalyticsDecisionCharts({
             {scoresImported ? (
               <>
                 <p className="et-analytics-unit">
-                  每一條是 100%，分母是該技能有成績的人。達 B2 以上是 B2、C1、C2。有成績但沒有等級的人留在分母。
+                  每一條是 100%，分母是該技能有成績的人。達 B2 以上是 B2、B2+、C1、C1+、C2、C2+。有成績但沒有等級的人留在分母。
                 </p>
                 {scoreRows.length > 0 ? (
                   <>
