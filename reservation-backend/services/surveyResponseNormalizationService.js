@@ -61,6 +61,10 @@ async function normalizeAnswerItem(raw, schemaQuestions = [], surveyId = null, s
   if (Array.isArray(normalizedAnswer)) displayAnswer = normalizedAnswer.join('、');
   else if (normalizedAnswer && typeof normalizedAnswer === 'object') displayAnswer = JSON.stringify(normalizedAnswer);
   else if (normalizedAnswer != null && normalizedAnswer !== '') displayAnswer = String(normalizedAnswer);
+  if (questionType === 'likert' && Array.isArray(q?.scaleLabels)) {
+    const idx = Number(normalizedAnswer) - 1;
+    if (q.scaleLabels[idx]) displayAnswer = `${normalizedAnswer}. ${q.scaleLabels[idx]}`;
+  }
 
   return {
     questionKey: raw.questionKey,

@@ -411,11 +411,11 @@ export default function AdminSurveyResponsesPage() {
               ) : null}
               <Card className="mb-3 border-0 bg-light"><Card.Body className="small mb-0">schema: {detail.data.schemaJson ? 'loaded' : 'fallback mode'}</Card.Body></Card>
               <Table size="sm" bordered>
-                <thead><tr><th>questionKey</th><th>type</th><th>answer</th></tr></thead>
+                <thead><tr><th>題目</th><th>type</th><th>answer</th></tr></thead>
                 <tbody>
                   {(detail.data.answers || []).map((a) => (
                     <tr key={a.id}>
-                      <td>{a.questionKey}</td>
+                      <td>{a.questionTitle || a.questionKey}</td>
                       <td>{a.questionType || '-'}</td>
                       <td style={{ whiteSpace: 'pre-wrap' }}>
                         {a.displayAnswer || renderAnswerValue(a)}

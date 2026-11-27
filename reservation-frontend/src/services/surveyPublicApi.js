@@ -38,6 +38,16 @@ export async function checkSurveyFilled(surveyId, studentId) {
   return data;
 }
 
+export async function submitPublicSurvey(surveyId, body) {
+  const res = await fetchClient(`/api/surveys/public/${encodeURIComponent(surveyId)}/responses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await parseJson(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
 export async function submitSurvey(surveyId, body) {
   const res = await fetchClient(`/api/surveys/${surveyId}`, withStudentAuth({
     method: 'POST',

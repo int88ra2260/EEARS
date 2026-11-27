@@ -24,6 +24,12 @@ import AdminAccessDenied from './components/system/AdminAccessDenied';
 import RequireStudentAuth from './components/student/RequireStudentAuth';
 import ToastProvider from './components/ui/ToastProvider';
 import WeeklyHomeBanner from './components/layout/WeeklyHomeBanner';
+import ActivityFeedbackHomeBanner from './components/layout/ActivityFeedbackHomeBanner';
+import {
+  ACTIVITY_FEEDBACK_DISMISS_KEY,
+  isActivityFeedbackBannerHidden,
+  MOBILE_HOME_TOP_SLOT,
+} from './constants/activityFeedback';
 import { fetchCurrentWeeklyReport } from './services/weeklyReportApi';
 import { staffLoginPath } from './utils/staffLoginNext';
 
@@ -40,6 +46,7 @@ const SpeakingHostLoginPage = lazy(() => import('./pages/SpeakingHostLoginPage')
 const SpeakingHostPage = lazy(() => import('./pages/SpeakingHostPage'));
 const ActivityPhrasebookPage = lazy(() => import('./pages/ActivityPhrasebookPage'));
 const WeeklyPage = lazy(() => import('./pages/WeeklyPage'));
+const ActivityFeedbackSurveyPage = lazy(() => import('./pages/ActivityFeedbackSurveyPage'));
 const WeeklyPreviewPage = lazy(() => import('./pages/WeeklyPreviewPage'));
 const ActivityDetailPage = lazy(() => import('./pages/ActivityDetailPage'));
 const EnglishTableTopicsPage = lazy(() => import('./pages/EnglishTableTopicsPage'));
@@ -245,6 +252,7 @@ function AppContent() {
   const [mustResetPassword, setMustResetPassword] = useState(localStorage.getItem('mustResetPassword') === 'true');
   const [weeklyIssue, setWeeklyIssue] = useState(null);
   const [weeklyModalOpen, setWeeklyModalOpen] = useState(false);
+  const [feedbackBannerOpen, setFeedbackBannerOpen] = useState(() => !isActivityFeedbackBannerHidden());
   const [, setRegistrationEnabled] = useState(true);
 
   // 載入報名按鈕開關狀態
@@ -265,7 +273,8 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    if (location.pathname !== '/') return;
+    if (MOBILE_HOME_TOP_SLOT !== 'weekly') return undefined;
+    if (location.pathname !== '/') return undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -378,8 +387,48 @@ function AppContent() {
     };
   }, []);
 
-  // 週報僅在手機首頁顯示；桌面／平板保留沉浸式首頁、不顯示週報
-  const showWeekly = showWeeklyHomeModal && !isDesktopHome;
+  useEffect(() => {
+    const sync = () => setFeedbackBannerOpen(!isActivityFeedbackBannerHidden());
+    window.addEventListener('eears:activity-feedback-submitted', sync);
+    return () => window.removeEventListener('eears:activity-feedback-submitted', sync);
+  }, []);
+
+  // 週報僅在手機首頁顯示；桌面／平板保留沉浸式首頁、不顯示週報。
+  // 週報暫停時，同一個位置改放意見調查入口。
+  const showWeekly = MOBILE_HOME_TOP_SLOT === 'weekly' && showWeeklyHomeModal && !isDesktopHome;
+  const showActivityFeedback = MOBILE_HOME_TOP_SLOT === 'activity-feedback'
+    && location.pathname === '/'
+    && !isDesktopHome
+    && feedbackBannerOpen;
+
+  const dismissActivityFeedback = () => {
+    try {
+      sessionStorage.setItem(ACTIVITY_FEEDBACK_DISMISS_KEY, '1');
+    } catch {
+      // ignore storage errors
+    }
+    setFeedbackBannerOpen(false);
+  };
+
+  let homeBanner = null;
+  if (showWeekly) {
+    homeBanner = (
+      <WeeklyHomeBanner
+        weekly={weeklyIssue}
+        onDismiss={() => {
+          try {
+            const key = weeklyIssue?.issueKey || weeklyIssue?.slug;
+            if (key) sessionStorage.setItem('eears-weekly-banner-dismissed', String(key));
+          } catch {
+            // ignore storage errors
+          }
+          setWeeklyModalOpen(false);
+        }}
+      />
+    );
+  } else if (showActivityFeedback) {
+    homeBanner = <ActivityFeedbackHomeBanner onDismiss={dismissActivityFeedback} />;
+  }
 
   const publicShellBackground = isScrollWorldPage
     ? {
@@ -439,22 +488,7 @@ function AppContent() {
         }}
       >
         <PublicLayout
-          homeBanner={
-            showWeekly ? (
-              <WeeklyHomeBanner
-                weekly={weeklyIssue}
-                onDismiss={() => {
-                  try {
-                    const key = weeklyIssue?.issueKey || weeklyIssue?.slug;
-                    if (key) sessionStorage.setItem('eears-weekly-banner-dismissed', String(key));
-                  } catch {
-                    // ignore storage errors
-                  }
-                  setWeeklyModalOpen(false);
-                }}
-              />
-            ) : null
-          }
+          homeBanner={homeBanner}
         >
           <Suspense fallback={<RouteLoading />}>
           <Routes>
@@ -671,6 +705,7 @@ function AppContent() {
               <Route path="account" element={<AccountManagement />} />
               <Route path="account/reset" element={<ForceResetPassword />} />
             </Route>
+            <Route path="/feedback/activities" element={<ActivityFeedbackSurveyPage />} />
             <Route path="/survey/choice" element={<SurveyChoicePage />} />
             <Route path="/survey/:surveyId" element={<SurveyPage />} />
             <Route path="/register/english-test" element={<RequireStudentAuth><EnglishTestRegistrationPage /></RequireStudentAuth>} />

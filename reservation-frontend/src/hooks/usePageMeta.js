@@ -16,6 +16,7 @@ const PAGE_META = {
   '/regulations-forms': { zh: { title: '法規表單 | EEARS', desc: '常見問題、隱私權政策與使用條款等規範入口。' }, en: { title: 'Regulations & Forms | EEARS', desc: 'FAQ, privacy policy, terms of use, and related forms.' } },
   '/my-reservations': { zh: { title: '我的預約 | EEARS', desc: '查詢或取消您的活動預約。' }, en: { title: 'My Reservations | EEARS', desc: 'Check or cancel your activity reservations.' } },
   '/survey': { zh: { title: '問卷 | EEARS', desc: '學期問卷與活動問卷。' }, en: { title: 'Survey | EEARS', desc: 'Semester and activity surveys.' } },
+  '/feedback/activities': { zh: { title: '增能活動與網站問卷 | EEARS', desc: '了解學生對 English Table、English Club、Job Talk 與預約網站的想法。不必登入，不影響預約。' }, en: { title: 'Activity and website survey | EEARS', desc: 'Feedback on English Table, English Club, Job Talk, and the reservation site.' } },
   '/faq': { zh: { title: '常見問題 | EEARS', desc: '預約、取消、違規與黑名單常見問題。' }, en: { title: 'FAQ | EEARS', desc: 'Reservation, cancellation, violations and FAQ.' } },
   '/about': {
     zh: { title: '關於我們 | EEARS', desc: '中心介紹、聯絡資訊與常見問題。' },

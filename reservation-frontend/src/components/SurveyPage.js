@@ -1,6 +1,7 @@
 // src/components/SurveyPage.js
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation, Navigate } from 'react-router-dom';
+import { ACTIVITY_FEEDBACK_PATH, ACTIVITY_FEEDBACK_SURVEY_KEY } from '../constants/activityFeedback';
 import DynamicSurveyModal from './DynamicSurveyModal';
 import SurveyExitActions from './survey/SurveyExitActions';
 import { surveyBackTarget } from '../utils/surveyExit';
@@ -36,6 +37,10 @@ export default function SurveyPage() {
     let cancelled = false;
     const nextPath = `/survey/${surveyId}`;
     const loadSurveyConfig = async () => {
+      if (surveyId === ACTIVITY_FEEDBACK_SURVEY_KEY) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         const data = await fetchPublicSurvey(surveyId);
         if (cancelled) return;
@@ -146,6 +151,10 @@ export default function SurveyPage() {
     if (target === -1) navigate(-1);
     else navigate(target);
   };
+
+  if (surveyId === ACTIVITY_FEEDBACK_SURVEY_KEY) {
+    return <Navigate to={ACTIVITY_FEEDBACK_PATH} replace />;
+  }
 
   if (loading) {
     return (

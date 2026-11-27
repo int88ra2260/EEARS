@@ -14,6 +14,7 @@ const {
   sequelize,
 } = require('../models');
 const { validateSurveyData, processSurveyData } = require('../utils/surveyFormValidation');
+const { applySurveyVisibility } = require('../utils/surveyVisibility');
 const { buildStoredAnswerRows, activityTypeForSurveyKey } = require('../utils/surveyStoredAnswerRows');
 const { getCurrentSemester, isValidSemester } = require('../utils/semester');
 const { ruleTimeAllows, legacyModelForSurveyKey } = require('./surveyGateService');
@@ -330,6 +331,8 @@ async function submitPublicResponse(surveyKey, body, req) {
     err.statusCode = 500;
     throw err;
   }
+
+  body = applySurveyVisibility(body, surveyConfig.questions);
 
   if (body.studentId !== undefined && body.studentId !== null) {
     const t = String(body.studentId).trim();

@@ -1157,6 +1157,14 @@ export const translations = {
       eventTypeFilterGroupAria: '活動分類',
       eventTypeFilterCurrentSuffix: '（目前選取）',
     },
+    homeFeedback: {
+      aria: '增能活動與網站問卷',
+      kicker: '意見調查',
+      title: '增能活動與網站問卷',
+      headline: '想了解預約時間、活動過程和網站。約 6–8 分鐘，不必登入，不影響預約。',
+      start: '填寫問卷',
+      later: '稍後再看',
+    },
     weekly: {
       title: '英語中心週報',
       kicker: 'EEARS Weekly',
@@ -2344,6 +2352,14 @@ export const translations = {
       reservationCardStatusAria: 'Reservation status',
       eventTypeFilterGroupAria: 'Activity categories',
       eventTypeFilterCurrentSuffix: ' (selected)',
+    },
+    homeFeedback: {
+      aria: 'Activity and website survey',
+      kicker: 'Survey',
+      title: 'Activities and website',
+      headline: 'Booking time, sessions, and the website. About 6–8 minutes. No login, and it does not affect reservations.',
+      start: 'Start survey',
+      later: 'Later',
     },
     weekly: {
       title: 'EEARS Weekly',

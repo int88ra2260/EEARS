@@ -2,27 +2,48 @@
  * 問卷表單驗證與正規化（與舊 surveyRouter 邏輯一致，供公開／後台共用）
  */
 
+const { applySurveyVisibility, isQuestionVisible } = require('./surveyVisibility');
+
+function isEmptyAnswer(question, value) {
+  if (value === undefined || value === null || value === '') return true;
+  if (question.type === 'checkbox' && Array.isArray(value) && value.length === 0) return true;
+  return false;
+}
+
 function validateSurveyData(data, config) {
   const questions = config.questions || [];
+  const visibleData = applySurveyVisibility(data, questions);
   for (const question of questions) {
-    if (question.required) {
-      const value = data[question.id];
-      if (value === undefined || value === null || value === '') {
-        return { isValid: false, error: `請填寫：${question.label}` };
-      }
+    if (!question || !question.id) continue;
+    if (!isQuestionVisible(question, visibleData)) continue;
+    const value = visibleData[question.id];
+    if (question.required && isEmptyAnswer(question, value)) {
+      return { isValid: false, error: `請填寫：${question.label}` };
+    }
 
-      if (question.type === 'likert') {
-        const score = parseInt(value, 10);
-        if (Number.isNaN(score) || score < 1 || score > 5) {
-          return { isValid: false, error: `${question.label}分數必須在1-5之間` };
-        }
-      }
+    if (question.exclusiveValue && Array.isArray(value)
+      && value.includes(question.exclusiveValue) && value.length > 1) {
+      return { isValid: false, error: `${question.label}選了「${question.exclusiveValue}」時，請不要同時選其他項目` };
+    }
 
-      if (question.type === 'email' && value) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(value)) {
-          return { isValid: false, error: `${question.label}格式不正確` };
-        }
+    if (question.type === 'checkbox' && Array.isArray(value) && question.maxSelect) {
+      const max = Number(question.maxSelect);
+      if (Number.isFinite(max) && max > 0 && value.length > max) {
+        return { isValid: false, error: `${question.label}最多選 ${max} 項` };
+      }
+    }
+
+    if (!isEmptyAnswer(question, value) && question.type === 'likert') {
+      const score = parseInt(value, 10);
+      if (Number.isNaN(score) || score < 1 || score > 5) {
+        return { isValid: false, error: `${question.label}分數必須在1-5之間` };
+      }
+    }
+
+    if (!isEmptyAnswer(question, value) && question.type === 'email' && value) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        return { isValid: false, error: `${question.label}格式不正確` };
       }
     }
   }
