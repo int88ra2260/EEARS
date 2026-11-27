@@ -1,8 +1,15 @@
+.event-type-filter {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .event-type-filter__segmented {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .event-type-filter__btn {
@@ -50,6 +57,8 @@
 @media (max-width: 767px) {
   .event-type-filter {
     position: relative;
+    width: 100%;
+    flex: 1 1 auto;
   }
 
   .event-type-filter::after {
@@ -60,14 +69,17 @@
     width: 28px;
     height: 100%;
     pointer-events: none;
-    background: linear-gradient(90deg, transparent, rgba(251, 250, 247, 0.95));
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.96));
   }
 
   .event-type-filter__segmented {
+    width: 100%;
     flex-wrap: nowrap;
     overflow-x: auto;
+    overscroll-behavior-x: contain;
     justify-content: flex-start;
     padding-bottom: 8px;
+    padding-right: 1.75rem;
     -webkit-overflow-scrolling: touch;
     gap: 8px;
     scrollbar-width: thin;

@@ -8,13 +8,15 @@
 }
 
 .events-page {
-  max-width: none;
+  max-width: 100%;
+  min-width: 0;
   padding-top: 0.75rem;
   padding-bottom: 2rem;
 }
 
 .events-page .event-list-shell {
-  max-width: none;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .event-list-shell--in-page {
@@ -24,6 +26,7 @@
 
 .event-calendar-wrap {
   min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -181,6 +184,7 @@
 /* EventList 工具列 */
 .event-list-shell {
   max-width: 1280px;
+  min-width: 0;
   margin-inline: auto;
 }
 
@@ -190,6 +194,8 @@
   align-items: center;
   justify-content: flex-start;
   gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: 0.9rem;
   padding: 0;
   background: transparent;
