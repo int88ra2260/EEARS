@@ -41,32 +41,25 @@ function columnSpecs(Sequelize) {
   return columns;
 }
 
+async function columnExists(queryInterface, table, column) {
+  const description = await queryInterface.describeTable(table);
+  return Boolean(description[column]);
+}
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const transaction = await queryInterface.sequelize.transaction();
-    try {
-      for (const column of columnSpecs(Sequelize)) {
-        await queryInterface.addColumn('bestep_exam_scores', column.name, column.spec, { transaction });
-      }
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
+    for (const column of columnSpecs(Sequelize)) {
+      if (await columnExists(queryInterface, 'bestep_exam_scores', column.name)) continue;
+      await queryInterface.addColumn('bestep_exam_scores', column.name, column.spec);
     }
   },
 
   async down(queryInterface) {
-    const transaction = await queryInterface.sequelize.transaction();
-    try {
-      const names = columnSpecs({ DECIMAL: () => null }).map((column) => column.name).reverse();
-      for (const name of names) {
-        await queryInterface.removeColumn('bestep_exam_scores', name, { transaction });
-      }
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
+    const names = columnSpecs({ DECIMAL: () => null }).map((column) => column.name).reverse();
+    for (const name of names) {
+      if (!(await columnExists(queryInterface, 'bestep_exam_scores', name))) continue;
+      await queryInterface.removeColumn('bestep_exam_scores', name);
     }
   },
 };
